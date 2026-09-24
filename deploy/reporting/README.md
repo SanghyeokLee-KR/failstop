@@ -127,6 +127,16 @@ sudo python3 deploy/reporting/install.py --apply --secret-file /root/teams.env \
 
 서명은 보고 파일·형식·만료 시각에 묶인다. 서명 URL을 가진 사람은 만료 전까지 해당 파일을 읽을 수 있으며 사용자별 로그인 권한을 대신하지 않는다. URL을 외부에 전달하거나 프록시 접근 로그에 남기지 않는다. HTTPS 환경에서는 필요에 따라 조직의 접근 인증도 프록시에 적용한다. URL 만료는 파일 삭제가 아니며 보관 파일의 정리는 별도 보존 정책을 따른다. 파일 생성 실패 시 PDF 버튼을 붙이지 않고 생성 실패 안내와 요약 카드를 전송한다.
 
+## 관제센터 AI 사건
+
+관리 콘솔의 관제센터(관리 JVM)는 Teams를 직접 부르지 않는다. AI 자동 조치의 실행·되돌림, 모드 전환, 상한 도달, 관찰 실패, 결과 모름, 모델 응답 실패 연속, AI 정지·재개를 [사건 모듈](msp_events.py)이 정한 모양으로 `POST /msp/events`에 넘기고, 이 서비스가 일일·사건 보고와 같은 보관함·재시도·전송 기록으로 Teams에 보낸다. 모양은 관리 JVM의 `TeamsNotifier`와 짝이며 [관제센터 2단계 설계](../../docs/reference/architecture/MSP_관제센터_2단계_설계.md) 7-12절이 기준이다.
+
+본문은 서버가 만든 값뿐이다. 사건 종류, 조치 이름과 대상, 전후 대수, 상태, 확신도, 관찰 창 끝, 모드와 전환 원인, 모델 이름, 근거 지표 최대 6개와 임계, 미확인 근거 수, 만료한 조치안 수와 모델 연속 실패 수만 받는다. 모르는 필드나 목록 밖의 값이 하나라도 있으면 400 `invalid_event`로 거부한다. 모델의 상황·이유 문장은 필드 자체가 없어 카드에 실릴 수 없다. 같은 사건 id는 한 작업이 되므로 관리 JVM이 응답을 잃고 다시 넘겨도 카드는 한 장이다.
+
+작업자는 이 사건에 근거 수집이나 AI 분석을 붙이지 않고 PDF·HTML도 만들지 않는다. 카드는 머리의 고객·환경, 개입 등급과 제목, 대상과 발생 시각(KST), 영향, 담당자 조치, 후속 관측(근거 지표와 임계), 'AI' 표시를 붙인 참고 분석(모델과 확신도), 미확인 근거 수, '자동 조치 있음·없음' 기록 줄로 이뤄진다. 개입 등급은 관찰 실패와 결과 모름이 P1, 자동 되돌림이 P2, 사람이 켜고 끈 모드 전환·만료·재개가 P4, 나머지가 P3이다. 설정에 `msp_console_url`(https, 사용자 정보·질의·조각 없이 300자 이하)을 두면 '관제센터에서 확인' 버튼을 붙인다. 링크는 관리 JVM이 보낸 값이 아니라 이 설정에서만 만든다. 설정이 이 조건을 어기면 기동하지 않는다.
+
+관제센터의 보고서 화면은 `GET /console/reports`로 목록을 읽고(사건은 `kind=msp`, 파일 링크 없음), 설정의 Teams 연동 상태는 `GET /console/status`로 작업 상태별 수, 전송 켬 여부, 마지막 전송과 마지막 시도 결과, 가장 오래된 대기 나이를 읽는다. 두 경로 모두 수집용 Bearer 토큰이 필요하다. 관리 JVM은 이 토큰을 파일 경로로만 받는다.
+
 ## Linux 서비스와 예약
 
 `sudo python3 deploy/reporting/install.py --apply --secret-file /root/teams.env`로 전용 계정·코드·설정·비밀·systemd를 설치한다. 기본 bind는 루프백이며 실제 사설 주소를 쓰면 먼저 관측 출발지만 허용한다. 설치기는 raw URL과 dotenv 파일을 평가 없이 파싱하고 비밀을 제한된 권한으로 원자 교체한다. 기본은 모의 분석과 송신 비활성화이며 승인된 전송은 `--enable-delivery`를 명시한다. 내부 Prometheus·Alertmanager 주소는 `--prometheus-url`, `--alertmanager-url`로 지정한다. 기존 호스트 수집기가 있으면 drop-in으로 `--group failstop-report`를 유지해 매번 파일을 교체한 뒤에도 보고 계정이 읽을 수 있게 한다.
@@ -149,6 +159,9 @@ journalctl -u failstop-reporting.service -u failstop-reporting-daily.service --s
 | 경로 | 계약 |
 |---|---|
 | `POST /alerts` | Alertmanager webhook JSON, `Authorization: Bearer <REPORT_INGEST_TOKEN>`, JSON Content-Type 및 Content-Length 필수. 64KiB·알림 32개 제한, 202 응답. 중복이면 duplicate=true. |
+| `POST /msp/events` | 관제센터 AI 사건 JSON(위 절). `/alerts`와 같은 Bearer 인증·JSON·Content-Length·64KiB 제한, 202 응답. 같은 사건 id면 duplicate=true, 모양이 다르면 400 `invalid_event`. |
+| `GET /console/reports?customer=&environment=&limit=` | 같은 Bearer 인증. 고객·환경 범위의 보고 목록(최대 100건)과 파일 서명 링크. private/no-store. |
+| `GET /console/status` | 같은 Bearer 인증. 작업 상태별 수, `delivery_enabled`, 마지막 전송 시각, 마지막 시도의 시각·상태·정제한 오류 코드, 가장 오래된 대기 나이, 마지막 일일 전송. 보고 본문과 웹훅 주소는 싣지 않는다. |
 | `GET /health` | SQLite 읽기 가능 여부만 200/503으로 반환한다. AI·Teams 전달 성공의 증거가 아니다. |
 | `GET /metrics` | 같은 Bearer 인증. 상태별 report_jobs·report_artifacts, report_last_daily_sent_timestamp_seconds, report_oldest_pending_age_seconds를 반환한다. |
 | `GET /reports/<파일 ID>/<만료 시각>/<서명>/report.pdf 또는 report.html` | 파일 제공 설정 시 사용. 보고별 서명·만료 검사, 파일당 8MiB 제한. 수집용 Bearer 대신 URL 서명으로 접근하며 private/no-store로 반환한다. |
@@ -178,4 +191,4 @@ python deploy/reporting/render_pdf.py --input report.json --output report.pdf --
 
 PDF 환경에는 ReportLab과 한글 TTF 글꼴을 설치한다. Windows 수동 내보내기는 ReportLab 4.4.9와 시스템의 맑은 고딕을 사용하며 글꼴 원본을 배포 패키지에 복사하지 않는다. Linux에서는 해당 환경의 사용 가능한 Nanum·Noto 한글 TTF 경로를 `--font`로 지정한다. PDF에는 사용한 글꼴을 포함한다. 원본을 바꾼 뒤 다시 렌더링하고 모든 페이지의 글자·표·여백을 확인한다. 자동 제공은 위 파일 제공 설정을 사용하며, Teams 카드 수신과 PDF 버튼의 실제 열기를 각각 확인한다.
 
-로컬 테스트는 mock HTTP 서버만 사용해 지표 0/없음/실패, 리다이렉트 거부, 정제, 잘못된 AI 근거·시간 초과, 동시 작업·중복, 재시작, 보고 재사용, 429와 영구 실패, 입력 인증·본문 제한을 확인한다. 실제 AI 모델 정확도, Teams 채널 게시, AWS 계정 권한은 이 테스트의 검증 범위가 아니다.
+로컬 테스트는 mock HTTP 서버만 사용해 지표 0/없음/실패, 리다이렉트 거부, 정제, 잘못된 AI 근거·시간 초과, 동시 작업·중복, 재시작, 보고 재사용, 429와 영구 실패, 입력 인증·본문 제한을 확인한다. 관제센터 사건은 모양 검사와 거부, 카드 문구와 개입 등급, 관제센터 버튼의 설정 검사, 수신·중복·전송, 보고 목록과 전송 상태 조회를 [사건 시험](test_msp_events.py)이 본다. 실제 AI 모델 정확도, Teams 채널 게시, AWS 계정 권한은 이 테스트의 검증 범위가 아니다.

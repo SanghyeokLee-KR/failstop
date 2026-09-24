@@ -1,4 +1,5 @@
-# InvariantViolation 알람의 severity 이진 접기(critical·warning) 회귀 시험.
+# InvariantViolation 알람의 severity 이진 접기(critical·warning) 회귀 시험과, 복제 재생 지연 알람이
+# 관제센터 임계값 레지스트리의 값이 있을 때만 판정하고 게이지가 끊겨도 마지막 값으로 판정하는지를 고정한다.
 # CRITICAL·HIGH·WARN 원본 라벨이 Alertmanager 치명 경로 매처(severity = "critical")와
 # 어긋나지 않는지를 promtool test rules 로 고정한다(§5-6, CI observability 잡).
 # C26_CMD_BAND_HEADROOM 은 ADR 0022 6-4 가 HIGH 로 정한 명령 대역 여유 감사다. 전용 알람을 두지 않고
@@ -72,3 +73,91 @@ tests:
               duration: "30s"
               dashboard: "① 체결 무결성 증명 (proof-integrity)"
               runbook: "기획안 §10.2 무결 판정 · 검증설계 §4-1 체크 카탈로그"
+
+  # 재생 지연 100초. 레지스트리 게이지가 없거나 미설정(NaN)이면 지속 조건이 지나도 조용하다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange:replica_replay_delay:seconds'
+        values: "100x30"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts: []
+
+  - interval: 10s
+    input_series:
+      - series: 'exchange:replica_replay_delay:seconds'
+        values: "100x30"
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: "NaN NaN NaN"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts: []
+
+  # 운영자가 30초를 넣으면 판정이 시작된다. 지연 20초는 조용하고 100초는 2분 뒤 경보다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange:replica_replay_delay:seconds'
+        values: "20x6 100x24"
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: "30x30"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: db
+            exp_annotations:
+              summary: "복제 재생 지연 임계 초과"
+              metric: "exchange:replica_replay_delay:seconds"
+              value: "100s"
+              threshold: "> 30s"
+              threshold_key: "db.replication_lag_alert"
+              duration: "2m"
+              dashboard: "MSP 종합 (msp-overview)"
+              runbook: "지연만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"
+
+  # 관리 JVM 이 멈춰 게이지가 3분 뒤 끊겨도(stale) 규칙은 마지막 수집값 30초로 판정을 이어 간다.
+  # 순간값을 읽으면 끊긴 뒤 비교할 값이 없어 경보가 풀린다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange:replica_replay_delay:seconds'
+        values: "100x60"
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: "30x18 stale"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: db
+            exp_annotations:
+              summary: "복제 재생 지연 임계 초과"
+              metric: "exchange:replica_replay_delay:seconds"
+              value: "100s"
+              threshold: "> 30s"
+              threshold_key: "db.replication_lag_alert"
+              duration: "2m"
+              dashboard: "MSP 종합 (msp-overview)"
+              runbook: "지연만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"
+      - eval_time: 9m
+        alertname: ReplicationReplayDelayHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: db
+            exp_annotations:
+              summary: "복제 재생 지연 임계 초과"
+              metric: "exchange:replica_replay_delay:seconds"
+              value: "100s"
+              threshold: "> 30s"
+              threshold_key: "db.replication_lag_alert"
+              duration: "2m"
+              dashboard: "MSP 종합 (msp-overview)"
+              runbook: "지연만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"

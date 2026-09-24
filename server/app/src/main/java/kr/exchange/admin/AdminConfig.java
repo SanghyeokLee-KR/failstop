@@ -2,7 +2,10 @@ package kr.exchange.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.sim.OpsGovernor;
 import java.net.InetAddress;
+import java.time.Clock;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
@@ -11,6 +14,8 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 관리 평면 배선. exchange.admin.enabled=true인 배포단위(exchange-admin)에서만 활성화되어
@@ -100,6 +105,19 @@ public class AdminConfig {
     @Bean
     public NodeProbe nodeProbe(CapacityProperties props) {
         return new NodeProbe(props.getProbeTimeout());
+    }
+
+    @Bean
+    public CapacityPlanService capacityPlanService(JdbcClient jdbc, PlatformTransactionManager txManager,
+                                                   AdminAuditService audit, CapacityProperties props,
+                                                   NodeProbe probe) {
+        return new CapacityPlanService(jdbc, new TransactionTemplate(txManager), audit, props, probe);
+    }
+
+    @Bean
+    public BotRateControl botRateControl(ObjectProvider<OpsGovernor> governor, JdbcClient jdbc,
+                                         AdminAuditService audit) {
+        return new BotRateControl(governor, jdbc, audit, Clock.systemUTC());
     }
 
     @Bean

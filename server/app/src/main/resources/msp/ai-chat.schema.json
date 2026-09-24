@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["answer_ko", "cited_ids"],
+  "properties": {
+    "answer_ko": { "type": "string", "maxLength": 1200 },
+    "cited_ids": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "maxLength": 96 }
+    }
+  }
+}

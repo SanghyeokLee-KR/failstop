@@ -1,5 +1,6 @@
 # 학교 경보 규칙이 bot-1(job=linux)을 포함하고 보고 서비스·봇 중지를 한 번씩만 알리는지 고정한다.
 # 백업·워치독 유닛을 서비스 장애 규칙에서 어떻게 다루는지와 주문·정산 카운터 경보의 발생·해제도 함께 본다.
+# 관제센터 임계값(exchange_ops_threshold)을 보는 규칙은 게이지가 없을 때의 기본값, 게이지 값, 게이지가 끊긴 뒤의 마지막 값으로 판정하는지 본다.
 # 경보가 나야 하는 입력과 나지 않아야 하는 입력을 짝지어 두고, 지속 조건(for)이 지난 시각에 평가한다.
 # 실행: docker run --rm --entrypoint promtool -v "<repo>/deploy/linux/reporting:/rules:ro" -w /rules prom/prometheus:v3.13.0 test rules school-alerts.test.yml
 rule_files: [school-alerts.yml]
@@ -28,7 +29,179 @@ tests:
         alertname: LinuxDiskSpaceLow
         exp_alerts:
           - exp_labels: {job: linux, instance: '127.0.0.1:9100', node: bot-1, role: observability, device: /dev/nvme0n1p1, mountpoint: /, fstype: xfs, customer: exchange, environment: aws, severity: warning, component: storage}
-            exp_annotations: {summary: 디스크 여유 공간 부족 · 15% 미만}
+            exp_annotations: {summary: 디스크 여유 공간 부족 · 임계 미만, threshold: 15%, threshold_key: host.disk_free_alert}
+  # 레지스트리 게이지가 있으면 그 값이 임계다. 여유 20%는 기본값 15%로는 조용하지만 임계 25%에서는 경보다.
+  # 게이지는 3분 뒤 끊긴다(stale). 규칙은 순간값이 아니라 마지막 수집값을 보므로 끊긴 뒤에도 25%로 판정을 유지한다.
+  - interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '2x60'
+      - series: 'node_filesystem_size_bytes{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '10x60'
+      - series: 'node_filesystem_readonly{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '0x60'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="host.disk_free_alert",unit="ratio"}'
+        values: '0.25x12 stale'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LinuxDiskSpaceLow
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: '172.31.33.195:9100', node: db-primary, role: data, device: /dev/nvme1n1, mountpoint: /, fstype: xfs, customer: exchange, environment: aws, severity: warning, component: storage}
+            exp_annotations: {summary: 디스크 여유 공간 부족 · 임계 미만, threshold: 25%, threshold_key: host.disk_free_alert}
+      - eval_time: 14m
+        alertname: LinuxDiskSpaceLow
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: '172.31.33.195:9100', node: db-primary, role: data, device: /dev/nvme1n1, mountpoint: /, fstype: xfs, customer: exchange, environment: aws, severity: warning, component: storage}
+            exp_annotations: {summary: 디스크 여유 공간 부족 · 임계 미만, threshold: 25%, threshold_key: host.disk_free_alert}
+  # 대조 시험: 게이지가 없으면 기본값 15%로 판정한다. 여유 20%는 조용하고 여유 10%만 경보다.
+  - interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '2x40'
+      - series: 'node_filesystem_size_bytes{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '10x40'
+      - series: 'node_filesystem_readonly{job="linux-host",instance="172.31.33.195:9100",node="db-primary",role="data",device="/dev/nvme1n1",mountpoint="/",fstype="xfs"}'
+        values: '0x40'
+      - series: 'node_filesystem_avail_bytes{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '1x40'
+      - series: 'node_filesystem_size_bytes{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '10x40'
+      - series: 'node_filesystem_readonly{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LinuxDiskSpaceLow
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: '172.31.2.86:9100', node: app-1, role: app, device: /dev/nvme0n1p1, mountpoint: /, fstype: xfs, customer: exchange, environment: aws, severity: warning, component: storage}
+            exp_annotations: {summary: 디스크 여유 공간 부족 · 임계 미만, threshold: 15%, threshold_key: host.disk_free_alert}
+  # 임계를 8%로 낮추면 같은 여유 10%도 조용하다.
+  - interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '1x40'
+      - series: 'node_filesystem_size_bytes{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '10x40'
+      - series: 'node_filesystem_readonly{job="linux-host",instance="172.31.2.86:9100",node="app-1",role="app",device="/dev/nvme0n1p1",mountpoint="/",fstype="xfs"}'
+        values: '0x40'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="host.disk_free_alert",unit="ratio"}'
+        values: '0.08x40'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LinuxDiskSpaceLow
+        exp_alerts: []
+  # 관리 JVM이 수집되는데 게이지가 없으면 10분 뒤 경보다.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="exchange-admin",instance="exchange-admin",node="bot-1",role="observability"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: OpsThresholdGaugeMissing
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: OpsThresholdGaugeMissing
+        exp_alerts:
+          - exp_labels: {customer: exchange, environment: aws, node: bot-1, role: observability, severity: warning, component: monitoring}
+            exp_annotations:
+              summary: 관제센터 임계값 지표 미수집
+              description: 관리 JVM은 수집되지만 exchange_ops_threshold가 없음. 경보 규칙은 마지막 수집값(최대 7일) 또는 기본값으로 판정 중. exchange.msp.enabled와 수집 잡의 metric_relabel_configs 확인 필요
+              resolved_summary: 관제센터 임계값 지표 경보 해제
+  # 대조 시험: 게이지가 있거나, 수집 잡이 없거나, 관리 JVM이 내려가 있으면(up=0) 이 경보는 울리지 않는다.
+  - interval: 15s
+    input_series:
+      - series: 'up{job="exchange-admin",instance="exchange-admin",node="bot-1",role="observability"}'
+        values: '1x60'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="host.disk_free_alert",unit="ratio"}'
+        values: '0.15x60'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: OpsThresholdGaugeMissing
+        exp_alerts: []
+  - interval: 15s
+    input_series:
+      - series: 'up{job="linux",instance="127.0.0.1:9100",node="bot-1",role="observability"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: OpsThresholdGaugeMissing
+        exp_alerts: []
+  - interval: 15s
+    input_series:
+      - series: 'up{job="exchange-admin",instance="exchange-admin",node="bot-1",role="observability"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: OpsThresholdGaugeMissing
+        exp_alerts: []
+  # 복제 지연 규칙은 값이 있을 때만 판정한다. 게이지가 없거나 미설정(NaN)이면 지연 100초에도 조용하다.
+  - interval: 15s
+    input_series:
+      - series: 'pg_replication_client_replay_lag_seconds{job="postgres",instance="172.31.33.195:9187",node="db-primary",role="data",application_name="db_standby",state="streaming"}'
+        values: '100x40'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts: []
+  - interval: 15s
+    input_series:
+      - series: 'pg_replication_client_replay_lag_seconds{job="postgres",instance="172.31.33.195:9187",node="db-primary",role="data",application_name="db_standby",state="streaming"}'
+        values: '100x40'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: 'NaN NaN NaN NaN'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts: []
+  # 운영자가 30초를 넣으면 그때부터 판정한다. 지속 조건 2분이 지난 뒤 경보다.
+  - interval: 15s
+    input_series:
+      - series: 'pg_replication_client_replay_lag_seconds{job="postgres",instance="172.31.33.195:9187",node="db-primary",role="data",application_name="db_standby",state="streaming"}'
+        values: '100x40'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: '30x40'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts:
+          - exp_labels: {node: db-primary, application_name: db_standby, customer: exchange, environment: aws, severity: warning, component: database}
+            exp_annotations:
+              summary: DB 복제 재생 지연 · 임계 초과
+              description: Standby 재생 지연이 관제센터 임계를 2분 넘게 넘음. 지연만큼이 수동 승격 때 잃을 수 있는 범위. 복제 상태와 Standby의 디스크·네트워크 확인 필요
+              threshold: 30초
+              threshold_key: db.replication_lag_alert
+              resolved_summary: DB 복제 재생 지연 경보 해제
+  # 게이지는 3분 뒤 끊긴다(stale). 규칙은 마지막 수집값 30초로 판정을 이어 간다. 순간값을 읽으면 끊긴 뒤 비교할 값이
+  # 없어 경보가 풀린다. 스탠바이가 뒤처져 디스크가 줄고 용량 보호가 관리 JVM을 멈추는 경우다(설계 5-3).
+  - interval: 15s
+    input_series:
+      - series: 'pg_replication_client_replay_lag_seconds{job="postgres",instance="172.31.33.195:9187",node="db-primary",role="data",application_name="db_standby",state="streaming"}'
+        values: '100x40'
+      - series: 'exchange_ops_threshold{job="exchange-admin",instance="exchange-admin",key="db.replication_lag_alert",unit="seconds"}'
+        values: '30x12 stale'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts:
+          - exp_labels: {node: db-primary, application_name: db_standby, customer: exchange, environment: aws, severity: warning, component: database}
+            exp_annotations:
+              summary: DB 복제 재생 지연 · 임계 초과
+              description: Standby 재생 지연이 관제센터 임계를 2분 넘게 넘음. 지연만큼이 수동 승격 때 잃을 수 있는 범위. 복제 상태와 Standby의 디스크·네트워크 확인 필요
+              threshold: 30초
+              threshold_key: db.replication_lag_alert
+              resolved_summary: DB 복제 재생 지연 경보 해제
+      - eval_time: 9m
+        alertname: DatabaseReplicationLagHigh
+        exp_alerts:
+          - exp_labels: {node: db-primary, application_name: db_standby, customer: exchange, environment: aws, severity: warning, component: database}
+            exp_annotations:
+              summary: DB 복제 재생 지연 · 임계 초과
+              description: Standby 재생 지연이 관제센터 임계를 2분 넘게 넘음. 지연만큼이 수동 승격 때 잃을 수 있는 범위. 복제 상태와 Standby의 디스크·네트워크 확인 필요
+              threshold: 30초
+              threshold_key: db.replication_lag_alert
+              resolved_summary: DB 복제 재생 지연 경보 해제
   # 용량 보호는 판정 결과(봇 중지·수집 누락)를 정상 종료로 끝내므로 그 유닛의 failed는 스크립트 오류다.
   # 이 경우만 critical로 알리고, 보고 서비스와 봇의 failed는 전용 규칙이 맡아 여기서 빠지는지 본다.
   - interval: 15s
@@ -196,3 +369,94 @@ tests:
       - eval_time: 3m
         alertname: OrderIntakeUnresolved
         exp_alerts: []
+  # 관제센터 기록 규칙. 입력 간격 1분·창 5분이면 rate의 외삽 배율이 1.25로 떨어져 기대값을 정확한 수로 적을 수 있다.
+  # 주문 경로 초당 9건(200)과 1건(503)이고, 관리 경로와 다른 job의 요청·5xx는 섞이면 값이 달라지도록 크게 넣었다.
+  # 버킷은 0.1초 이하 5건, 0.25초 이하 9건, 0.5초 이하 10건이라 p95는 0.375초이고 관리 경로 버킷이 섞이면 0.5가 된다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200"}'
+        values: '0+540x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="503"}'
+        values: '0+60x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/actuator/prometheus",status="500"}'
+        values: '0+6000x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-admin",instance="exchange-admin",node="bot-1",role="observability",service="admin",uri="/admin/v1/msp/overview",status="500"}'
+        values: '0+6000x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="0.1"}'
+        values: '0+300x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="0.25"}'
+        values: '0+540x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="0.5"}'
+        values: '0+600x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="+Inf"}'
+        values: '0+600x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/actuator/prometheus",status="500",le="0.5"}'
+        values: '0x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/actuator/prometheus",status="500",le="+Inf"}'
+        values: '0+6000x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_requests:rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_requests:rate5m'
+            value: 10
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_5xx:ratio5m'
+            value: 0.1
+      - expr: exchange:msp_http_p95:seconds5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_p95:seconds5m'
+            value: 0.375
+  # 5xx가 한 번도 없으면 분자 시계열이 없지만 비율은 0이다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200"}'
+        values: '0+600x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_5xx:ratio5m'
+            value: 0
+  # 관리 경로만 긁히고 주문 요청이 없으면 요청률은 0이고 비율·p95는 만들지 않는다. 프로브 수집 잡이 없으면 가용성도 비어 있다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200"}'
+        values: '5x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/actuator/prometheus",status="200"}'
+        values: '0+60x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="0.5"}'
+        values: '5x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="172.31.2.86:9101",node="app-1",role="app",service="api",uri="/api/v1/orders",status="200",le="+Inf"}'
+        values: '5x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_requests:rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_requests:rate5m'
+            value: 0
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples: []
+      - expr: exchange:msp_http_p95:seconds5m
+        eval_time: 10m
+        exp_samples: []
+      - expr: exchange:msp_probe_success:ratio5m
+        eval_time: 10m
+        exp_samples: []
+  # 외부 프로브를 붙이면 창 5분 안의 표본 넷(75초 간격) 가운데 하나가 실패한 대상의 0.75가 가장 나쁜 값이다.
+  - interval: 75s
+    input_series:
+      - series: 'probe_success{job="blackbox-http",instance="https://example.invalid/"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox-http",instance="https://example.invalid/api/v1/health/read"}'
+        values: '1 1 1 1 1 1 1 1 0'
+    promql_expr_test:
+      - expr: exchange:msp_probe_success:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_probe_success:ratio5m'
+            value: 0.75

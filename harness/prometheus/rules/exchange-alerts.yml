@@ -325,13 +325,33 @@ groups:
           dashboard: "MSP 종합 (msp-overview)"
           runbook: "L3·L4 가 정상인데 이것만 실패하면 응용 계층이다. 일시 정지, 의존 DB 단절, 헬스 그룹 DOWN 을 본다"
 
-      # 복제 축. 임계를 정해야 하는 알람은 일부러 넣지 않았다.
+      # 복제 축. 임계를 규칙 파일에 적지 않는다.
       #
       # 재생 지연이 얼마를 넘으면 나쁜지가 지금 이 계측으로 답하려는 질문 자체다. 값을 모르는
-      # 채로 임계를 적으면 22절이 금지하는 지어낸 수치가 정본에 들어간다. 지연 임계 알람은
-      # exchange:replica_replay_delay:seconds 의 실측 분포가 쌓인 뒤에 건다.
-      #
-      # 아래 둘은 임계가 아니라 이진 고장이라 지금 걸 수 있다.
+      # 채로 임계를 적으면 22절이 금지하는 지어낸 수치가 정본에 들어간다. 그래서 지연 알람은
+      # 관제센터 임계값 레지스트리(db.replication_lag_alert)를 보고, 값이 미설정(NaN)이거나 게이지가
+      # 수집된 적이 없으면 비교가 늘 거짓이라 울리지 않는다. 실측 분포를 본 사람이 승인된 변경으로
+      # 값을 넣을 때 판정이 시작된다. 게이지는 관리 JVM 수집 잡이 붙어야 이 스택에 들어온다.
+      - alert: ReplicationReplayDelayHigh
+        expr: >-
+          exchange:replica_replay_delay:seconds
+          > scalar(max(last_over_time(exchange_ops_threshold{key="db.replication_lag_alert"}[7d])))
+        for: 2m
+        labels:
+          severity: warning
+          component: db
+        annotations:
+          summary: "복제 재생 지연 임계 초과"
+          metric: "exchange:replica_replay_delay:seconds"
+          value: "{{ $value }}s"
+          threshold: >-
+            {{ with query "max(last_over_time(exchange_ops_threshold{key=\"db.replication_lag_alert\"}[7d]))" }}> {{ . | first | value | printf "%.0f" }}s{{ end }}
+          threshold_key: "db.replication_lag_alert"
+          duration: "2m"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "지연만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"
+
+      # 아래 둘은 임계가 아니라 이진 고장이라 레지스트리 없이 건다.
       - alert: ReplicationNotStreaming
         expr: pg_replication_client_sent_replay_bytes{state!="streaming"} > -1
         for: 2m

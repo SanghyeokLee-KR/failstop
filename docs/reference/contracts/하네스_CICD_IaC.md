@@ -131,8 +131,9 @@ compose.yaml         카오스 스택 진입점
 
 1. `promtool check config` (`prom/prometheus:v3.13.0` 컨테이너)
 2. `promtool check rules` (`exchange-recording.yml`, `exchange-alerts.yml`)
-3. `promtool test rules` (`exchange-alerts.test.yml`). 문법 검사는 라벨 값을 보지 않으므로 `InvariantViolation`의
-   severity 이진 접기(CRITICAL·HIGH·WARN → critical·warning)처럼 값 자체가 계약인 규칙은 이 유닛 시험이 고정한다
+3. `promtool test rules` (`exchange-alerts.test.yml`, `exchange-recording.test.yml`). 문법 검사는 라벨 값을 보지 않으므로 `InvariantViolation`의
+   severity 이진 접기(CRITICAL·HIGH·WARN → critical·warning)처럼 값 자체가 계약인 규칙은 이 유닛 시험이 고정한다.
+   관제센터 요약 칸의 기록 규칙 넷도 관리 경로·다른 job 제외, 5xx가 없을 때 0, 요청이 없을 때 값 없음을 같은 방식으로 고정한다
 4. 대시보드 sanity (`jq -e '(.panels|type)=="array" and (.panels|length)>0'`)
 5. 대시보드 중복 키 (python `object_pairs_hook`)
 
@@ -318,6 +319,10 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 2026-09-14 ADR 0022 7단계가 `exchange.journal.band.remaining{name,market}`(채번 대역에 남은 배정 가능 번호 수, `v_journal_band_headroom.remaining`)을 더했다. `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 갱신하므로 하네스를 켠 리더 노드에서 5분 주기로 바뀐다. 줄어드는 속도가 소진 속도다. 같은 단계에서 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)이 샤드마다 `market` 태그로 등록되고, `exchange.recovery.snapshot_fallback`(스냅샷 시작 복구를 버리고 전량 재생한 횟수)이 더해졌다. `SnapshotStalled` 규칙의 `and` 는 양쪽이 같은 `market` 태그를 가져 마켓마다 짝지어진다. 새 노출 이름 `exchange_journal_band_remaining` 과 `exchange_recovery_snapshot_fallback_total` 은 규칙과 대시보드가 보지 않아 위 29개에 든다. 7단계 판정기 `harness/scale/stage7_judge.py` 는 승격 노드의 `exchange_recovery_snapshot_fallback_total` 과 `exchange_journal_replay_commands_total` 증분을 판정에 쓴다(`docs/reference/contracts/하네스_검증설계.md` §2-4).
 
+2026-09-25 관제센터 2단계가 MultiGauge `exchange_ops_threshold{key,unit}`(임계값 레지스트리의 현재값, 미설정은 NaN)를 더했다. 관제센터(`exchange.msp.enabled`)를 켠 관리 JVM만 등록하고, 학교 규칙 셋(`LinuxDiskSpaceLow`, `DatabaseBackupStale`, `DatabaseReplicationLagHigh`)과 하네스 `ReplicationReplayDelayHigh`가 참조한다. 위 개수는 09-14에 센 값이라 이 지표를 넣지 않았다.
+
+같은 날 관제센터를 켠 관리 JVM에 `exchange_msp_*` 지표가 더해졌다. 원천 캐시(`exchange_msp_cache_entries`, `exchange_msp_cache_requests_total{cache,result}`), 캐시를 거친 실제 원천 호출(`exchange_msp_source_calls_total{source,op}`), AI 판단(`exchange_msp_ai_judgments_total{outcome}`, `exchange_msp_ai_skips_total{reason}`), 모델 호출(`exchange_msp_llm_calls_total{purpose,outcome}`, `exchange_msp_llm_latency_seconds`), Teams 통지의 보관과 넘김(`exchange_msp_notifications_total{kind,state}`, `exchange_msp_notifications_handoff_total{result}`)이다. 태그 값은 코드가 정한 유한 집합이다. 학교 `exchange-admin` 수집 잡은 이 접두어와 `exchange_ops_threshold`만 남긴다. 아직 규칙과 대시보드가 참조하지 않고, 위 개수에도 넣지 않았다.
+
 ### 5-3. Prometheus
 
 `harness/prometheus/prometheus.yml`은 scrape job 8개다(`grep -c 'job_name:'`). exporter는 `chaos-blackbox`, `chaos-pg-exporter`, `chaos-cstats` 셋이고 전부 `obs` 프로파일이다. node_exporter는 없다.
@@ -341,8 +346,10 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 | 파일 | 개수 | 세는 방법 |
 |---|---|---|
-| `exchange-recording.yml` | record 13 | `grep -c '^      - record:'` |
-| `exchange-alerts.yml` | alert 22 | `grep -c '^      - alert:'` |
+| `exchange-recording.yml` | record 17 | `grep -c '^      - record:'` |
+| `exchange-alerts.yml` | alert 23 | `grep -c '^      - alert:'` |
+
+기록 규칙 17개 가운데 넷은 관제센터 요약 칸의 `exchange.msp.recording` 묶음(평가 15초)이다. 요청률, 5xx 비율, 응답 p95, 진입 프로브 성공률을 미리 계산해 관제센터가 이름만 질의하게 한다. 학교 `deploy/linux/reporting/school-alerts.yml`의 `school.msp.recording`과 같은 식이고, 값은 `harness/prometheus/tests/exchange-recording.test.yml`이 고정한다.
 
 ### 5-4. Grafana
 
@@ -366,9 +373,9 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 22개
+### 5-6. 알람 23개
 
-severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
+severity는 critical 6, warning 16, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
@@ -394,12 +401,15 @@ severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | ProbeL7Failed | warning |
 | ReplicationNotStreaming | warning |
 | ReplicationSyncStateUnexpected | warning |
+| ReplicationReplayDelayHigh | warning |
 
-`for` 분포는 0s 3개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다.
+`for` 분포는 0s 3개, 15s 1개, 30s 6개, 1m 6개, 2m 7개다. `component` 라벨은 snapshot 3, db 3, bots 2, ws 2, edge 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다.
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
-**CRITICAL 계열 발화 시 앱 자동 조치 상한.** 원장과 저널은 자동 수정하지 않는다. 정정은 `REVERSAL` 상계 분개와 1인 승인 티켓으로만 한다(ADR 0019). 알람에 자동 액션을 연결하지 않는다. 판정은 자동이고 실행은 사람이다(정본 §7.5).
+`ReplicationReplayDelayHigh`는 임계를 규칙에 적지 않고 관제센터 임계값 레지스트리의 `exchange_ops_threshold{key="db.replication_lag_alert"}`를 `last_over_time(...[7d])`로 읽는다(2026-09-25). 값이 미설정(NaN)이거나 게이지가 수집된 적이 없으면 비교가 늘 거짓이라 울리지 않는다. 이 스택에는 관리 JVM 수집 잡이 아직 없어(§8-1) 지금은 울리지 않는다. 판정은 `exchange-alerts.test.yml`의 promtool 시험이 고정한다. 게이지가 없거나 NaN이면 지연 100초에도 조용하고, 30초를 넣으면 2분 뒤 경보다.
+
+**CRITICAL 계열 발화 시 앱 자동 조치 상한.** 원장과 저널은 자동 수정하지 않는다. 정정은 `REVERSAL` 상계 분개와 1인 승인 티켓으로만 한다(ADR 0019). 알람에 자동 액션을 연결하지 않는다. 판정은 자동이고 실행은 사람이다(정본 §7.5). 2026-09-24 관제센터 2단계 설계는 알람을 AI 판단의 근거로 쓰지만, 알람이 곧바로 조치를 부르지 않고 허용 목록 조치만 서버 정책 엔진을 거쳐 실행한다(ADR 0035 자동 모드). 구현 전이며 이 문장과의 관계는 §8-2의 9번에 남겼다.
 
 ### 5-7. Alertmanager
 
@@ -528,6 +538,8 @@ Flyway 설정 파일도 Gradle 플러그인도 없다. Spring Boot 자동구성�
 | 상시면 관측 배선 | 배포 컴포즈의 관측 서비스 | 정의 0건. 정본 13.4 한계 13 |
 | E10 | 커널 계층 지연(tc netem) | 검증면 전용 |
 | 실험 오케스트레이터 | e1~e9 순차 실행 | 하나씩 부른다 |
+| 하네스 관리 JVM 수집 잡 | 관리 컨테이너(`chaos-admin`)의 망 안 관리 포트, `admin-chaos`의 관제센터 설정, 하네스 `prometheus.yml`의 `exchange-admin` 잡과 게이지 부재 경보. 학교 `exchange-admin` 잡과 부재 경보는 2026-09-25 저장소 템플릿에 들어갔다 | 하네스 규칙이 임계값 게이지를 보려면 필요하다. 관리 포트를 따로 두면 8443 mTLS로 actuator를 부르는 compose 헬스체크도 바뀌고, 이 스택의 볼륨에 V70 이후를 넣으려면 V48~V69 병합이 먼저라 로컬 스택 재기동과 함께 사용자 승인 뒤로 남겼다. `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 5-3·11 |
+| MSP 상태 게이지 | 원천 연결 상태와 AI 모드를 값으로 내는 `exchange_msp_*` 게이지. 판단·원천 호출·캐시·모델 호출·통지의 수와 `exchange_ops_threshold`는 2026-09-25 만들었다(§5-2) | 관제센터의 원천·AI 상태를 규칙이 보려면 필요하다. 만들면 §5-2의 개수에 더한다 |
 
 Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 종전 판이 확정 스택으로 실었으나 저장소에 없고 로드맵에도 없다. 채택도 비채택도 아닌 상태이므로 정본 §4.3 비채택표에 올리거나 이 표로 내려야 한다. 판단은 §8-2에 둔다.
 
@@ -541,6 +553,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 6. **배포 평면 검증.** `deploy/` 셋이 스스로 미검증이라 적고 `.env.example`로는 파싱도 안 된다.
 7. **`load/artifacts/` 102개.** `.gitignore`가 없어 결과가 계속 쌓인다.
 8. **E3.** Redis를 넣어 살릴지, 카탈로그에서 뺄지 정한다.
+9. **알람 자동 조치 금지와 AI 자동 모드.** §5-6과 머리 절은 알람에 자동 액션을 연결하지 않고 AI가 운영 조치를 실행하지 않는다고 적는다. 사용자가 2026-09-24 확정한 ADR 0035의 자동 모드는 허용 목록 다섯 종을 AI 판단과 서버 정책 엔진으로 자동 실행한다. 구현 전이다. ADR 0035를 병합할 때 두 문장을 대체 관계에 맞게 고친다.
 
 ---
 

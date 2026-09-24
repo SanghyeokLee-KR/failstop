@@ -102,6 +102,7 @@ jobs:
           prom/prometheus:v3.13.0
           test rules
           /etc/prometheus/tests/exchange-alerts.test.yml
+          /etc/prometheus/tests/exchange-recording.test.yml
 
       # 대시보드 JSON 최소 sanity: 유효 JSON + 최상위 panels 비어있지 않음. jq는 러너 내장.
       - name: grafana dashboards sanity

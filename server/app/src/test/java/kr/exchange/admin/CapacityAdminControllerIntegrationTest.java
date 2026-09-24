@@ -1,12 +1,17 @@
 package kr.exchange.admin;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import kr.exchange.admin.msp.OpsThresholdService;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -14,6 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +39,7 @@ class CapacityAdminControllerIntegrationTest {
             .withPassword("exchange");
 
     static JdbcClient jdbc;
+    static TransactionTemplate tx;
 
     @BeforeAll
     static void migrate() {
@@ -41,8 +48,10 @@ class CapacityAdminControllerIntegrationTest {
                 .locations("classpath:db/migration")
                 .load()
                 .migrate();
-        jdbc = JdbcClient.create(new DriverManagerDataSource(
-                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
+        DriverManagerDataSource ds = new DriverManagerDataSource(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        jdbc = JdbcClient.create(ds);
+        tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
     }
 
     @BeforeEach
@@ -157,18 +166,122 @@ class CapacityAdminControllerIntegrationTest {
         assertEquals(true, state.get("reconciled"));
     }
 
-    private static Map<String, Object> state(CapacityProperties props, Map<String, NodeProbe.Observed> observed) {
+    @Test
+    void 겹친_두_증설은_하나만_반영되고_다른_하나는_최대_초과로_거부된다() throws Exception {
+        CapacityAdminController controller = controller(inventory(), Map.of());
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try (java.sql.Connection holder = java.sql.DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            // 세 번째 연결이 행을 잡고 있는 동안 두 요청을 보내 둘 다 같은 잠금에서 기다리게 만든다.
+            holder.setAutoCommit(false);
+            try (java.sql.Statement st = holder.createStatement()) {
+                st.execute("SELECT desired_nodes FROM capacity_plan WHERE tier = 'app' FOR UPDATE");
+            }
+            java.util.List<java.util.concurrent.Future<Object>> calls = java.util.List.of(
+                    pool.submit(() -> scaleOut(controller)), pool.submit(() -> scaleOut(controller)));
+            org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> jdbc.sql("""
+                    SELECT count(*) FROM pg_stat_activity
+                    WHERE wait_event_type = 'Lock' AND query ILIKE '%capacity_plan%'
+                    """).query(Long.class).single() == 2);
+            holder.commit();
+
+            java.util.List<Object> results = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Object> call : calls) {
+                results.add(call.get(10, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            assertEquals(1, results.stream().filter(r -> r instanceof Map).count(), "반영된 증설: " + results);
+            assertEquals(java.util.List.of("CAPACITY_OUT_OF_BOUNDS"), results.stream()
+                    .filter(r -> r instanceof kr.exchange.api.common.ApiException)
+                    .map(r -> ((kr.exchange.api.common.ApiException) r).name()).toList());
+            assertEquals(3, jdbc.sql("SELECT desired_nodes FROM capacity_plan WHERE tier = 'app'")
+                    .query(Integer.class).single());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static Object scaleOut(CapacityAdminController controller) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(AdminPrincipal.REQUEST_ATTRIBUTE,
+                new AdminPrincipal("op-01", "jti-capacity", Set.of(AdminRole.SUPER)));
+        try {
+            return controller.scaleOut(new CapacityAdminController.ScaleBody("겹침 시험"), request);
+        } catch (kr.exchange.api.common.ApiException e) {
+            return e;
+        }
+    }
+
+    @Test
+    void 관제센터를_켜면_권고_임계는_레지스트리_값을_따른다() {
+        Map<String, NodeProbe.Observed> observed = Map.of(
+                "app-1", node(true, true, 0.33),
+                "app-2", node(false, true, 0.33));
+        OpsThresholdService registry = new OpsThresholdService(jdbc, tx, null, null, new SimpleMeterRegistry());
+        try {
+            assertEquals(List.of("steady"), cardIds(state(inventory(), observed, Optional.of(registry))));
+            // 두 행을 한 문장으로 바꾼다. 커밋 때의 간격 검사(T3)가 중간 상태를 보지 않는다.
+            readThresholds("0.25", "0.10");
+
+            Map<String, Object> lowered = state(inventory(), observed, Optional.of(registry));
+            assertEquals(List.of("scale_out"), cardIds(lowered));
+            assertEquals(Map.of("scale_out_cpu_ratio", 0.25, "scale_in_cpu_ratio", 0.10), lowered.get("thresholds"));
+        } finally {
+            readThresholds("0.60", "0.30");
+        }
+    }
+
+    @Test
+    void 관제센터를_끄면_임계값_표를_읽지_않는다() {
+        jdbc.sql("ALTER TABLE ops_thresholds RENAME TO ops_thresholds_hidden").update();
+        try {
+            Map<String, Object> state = state(inventory(), Map.of(
+                    "app-1", node(true, true, 0.70),
+                    "app-2", node(false, true, 0.70)));
+            assertEquals(List.of("scale_out"), cardIds(state));
+        } finally {
+            jdbc.sql("ALTER TABLE ops_thresholds_hidden RENAME TO ops_thresholds").update();
+        }
+    }
+
+    private static void readThresholds(String scaleOut, String scaleIn) {
+        jdbc.sql("""
+                        UPDATE ops_thresholds SET value = CASE key WHEN 'read.scale_out_cpu' THEN ?::numeric
+                                                                   ELSE ?::numeric END
+                        WHERE key IN ('read.scale_out_cpu', 'read.scale_in_cpu')
+                        """)
+                .params(scaleOut, scaleIn)
+                .update();
+    }
+
+    private static CapacityAdminController controller(CapacityProperties props,
+                                                      Map<String, NodeProbe.Observed> observed) {
+        return controller(props, observed, Optional.empty());
+    }
+
+    private static CapacityAdminController controller(CapacityProperties props,
+                                                      Map<String, NodeProbe.Observed> observed,
+                                                      Optional<OpsThresholdService> registry) {
         NodeProbe probe = new NodeProbe(Duration.ofSeconds(1)) {
             @Override
             public Map<String, Observed> probeAll(List<CapacityProperties.Node> nodes) {
                 return observed;
             }
         };
-        CapacityAdminController controller = new CapacityAdminController(props, probe, null, jdbc);
+        CapacityPlanService plans = new CapacityPlanService(jdbc, tx,
+                new AdminAuditService(jdbc, new ObjectMapper()), props, probe);
+        return new CapacityAdminController(props, plans, registry);
+    }
+
+    private static Map<String, Object> state(CapacityProperties props, Map<String, NodeProbe.Observed> observed) {
+        return state(props, observed, Optional.empty());
+    }
+
+    private static Map<String, Object> state(CapacityProperties props, Map<String, NodeProbe.Observed> observed,
+                                             Optional<OpsThresholdService> registry) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(AdminPrincipal.REQUEST_ATTRIBUTE,
                 new AdminPrincipal("op-01", "jti-capacity", Set.of(AdminRole.VIEWER)));
-        return controller.state(request);
+        return controller(props, observed, registry).state(request);
     }
 
     /** admin-local 과 같은 모양의 계약면. 리더 후보 한 대와 조회 전용 두 대다. */

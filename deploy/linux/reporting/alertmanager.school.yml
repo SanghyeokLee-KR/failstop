@@ -31,7 +31,7 @@ receivers:
           {{ range .Alerts -}}
           **대상** {{ if .Labels.node }}{{ .Labels.node }}{{ else }}{{ .Labels.instance }}{{ end }}{{ if .Labels.role }} · {{ if eq .Labels.role "standby" }}Standby DB{{ else if eq .Labels.role "data" }}Primary DB{{ else if eq .Labels.role "reader" }}조회 API{{ else if eq .Labels.role "app" }}Spring API{{ else }}{{ .Labels.role }}{{ end }}{{ end }}
 
-          **감지** {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05" }} KST{{ if eq .Status "resolved" }} · **해제** {{ .EndsAt | tz "Asia/Seoul" | date "15:04:05" }} KST{{ end }}
+          **감지** {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05" }} KST{{ if eq .Status "resolved" }} · **해제** {{ .EndsAt | tz "Asia/Seoul" | date "15:04:05" }} KST{{ end }}{{ if .Annotations.threshold }} · **임계** {{ .Annotations.threshold }}{{ end }}
 
           {{ if eq .Status "firing" }}{{ if .Annotations.description }}**확인 사항** {{ .Annotations.description }}{{ else }}**대응** 담당자 확인 필요{{ end }}{{ else }}**후속 확인** 서비스 응답·복제 상태 재점검 필요{{ end }}
 

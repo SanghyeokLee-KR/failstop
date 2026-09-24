@@ -1,4 +1,4 @@
-# API 설계 (v2.52)
+# API 설계 (v2.52.4)
 
 2026-09-20 학교 배포 예외: 관리 UI의 단일 운영자는 HTTPS 비밀번호 게이트웨이로 로그인하며 내부 관리 API는 기존 mTLS·단기 세션 검사를 유지한다. 3-6절의 PC별 인증서 전제와 달리 앱 Nginx가 신뢰 경계에 포함된다. 운영자 한 명과 `VIEWER`·`BOT_OPS`에 한정한 [ADR 0031](../adr/0031-school-admin-password-gateway.md)을 함께 읽는다. 거래 API·서명·승인 검증 규칙은 바꾸지 않는다.
 
@@ -175,6 +175,12 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 | 401 | `auth_throttled` | **반복 401 임계 초과 일시 차단(신규)** |
 | 403 | `out_of_scope` | API Key 권한 부족(조회키로 주문 등), 또는 세션 종류가 리소스 요구와 불일치(데모·API 키로 회원 전용 `/me` 접근, §3-8) |
 | 403 | `admin_forbidden` | **관리 스코프/승인 부족(신규, §3-6)** |
+| 409 | `msp_source_not_connected` | **관제센터 조작에 필요한 원천(Prometheus·Alertmanager·Databasus·LLM) 설정이 없다. `detail.source`(v2.52.1 설계, §6-F)** |
+| 502 | `msp_upstream_failed` | **관제센터 조작 중 원천 호출 실패. `detail.source`, 적용 여부를 모르면 `detail.outcome=UNKNOWN`(v2.52.1 설계, §6-F)** |
+| 409 | `msp_policy_denied` | **관제센터 정책 엔진 거부. `detail.rule`에 규칙 id, `detail.reason_code`에 사유 분류(v2.52.1 설계, v2.52.2 구현, §6-F)** |
+| 409 | `ai_action_not_open` | **이미 처리·만료된 AI 조치 요청(v2.52.1 설계, §6-F)** |
+| 409 | `threshold_revert_conflict` | **최신 변경이 아니거나 현재값이 달라 되돌릴 수 없는 임계값 변경(v2.52.1 설계, §6-F)** |
+| 409 | `alert_already_silenced` | **이미 사일런스에 눌린 경보에 보류 요청(v2.52.1 설계, §6-F)** |
 | 403 | `member_session_required` | **데모 세션으로 쓰기 시도(신규, §3-7 읽기 전용 계약). 봇·회원은 해당 없음** |
 | 400 | `invalid_transfer_asset` | **KRW 외 자산 입출금 요청(신규, §4-E)** |
 | 400 | `invalid_transfer_amount` | **입출금 금액이 0 이하·소수점·한도 초과·자릿수 위반(신규, §4-E)** |
@@ -478,7 +484,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 
 - **네트워크 격리**: `admin.exchange.local` 별도 호스트/포트, 방화벽으로 운영자 네트워크만 접근. **mTLS 필수**(클라이언트 인증서 검증).
 - **서명**: §3의 JWT+canonical+nonce+timestamp를 그대로 재사용하되, `scope=admin` 키 + **별도 `admin_secret`**로 서명. `/admin/v1/**` path가 canonical에 포함되어 거래 서명과 교차 재사용 불가. **중첩 바디(`params`/`seed` 등)를 가진 관리 요청은 §3-3(b) `JCS(body)` canonical 규칙을 상속**하므로 flat 평탄화 불가 문제 없이 서명 대상이 바이트 단위로 확정된다(예시: §3-3 admin 봇 생성).
-- **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`, `POST /admin/v1/members/{external_id}/close`(v2.32). **그 외 모든 관리 엔드포인트**(카오스 주입·해제 4종(v2.34), 봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
+- **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`, `POST /admin/v1/members/{external_id}/close`(v2.32), 관제센터의 `POST /admin/v1/msp/thresholds/{key}`, `POST /admin/v1/msp/thresholds/changes/{id}/revert`, 경보 등급이 `critical`·`other`이거나 30분을 넘는 `POST /admin/v1/msp/alerts/{fingerprint}/silence`, `POST /admin/v1/msp/ai/mode/auto`, `PUT /admin/v1/msp/ai/limits/{key}`와 조치 종류가 `THRESHOLD`인 `POST /admin/v1/msp/ai/actions/{id}/approve`·`/revert`(v2.52.2 구현, §6-F). **그 외 모든 관리 엔드포인트**(카오스 주입·해제 4종(v2.34), 봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 관제센터의 경보 확인, 30분 이하 `warning`·`info` 보류, 보류 해제, 즉시 끄기, AI 즉시 정지와 재개, 계획 작업 창 등록·종료와 나머지 조치 요청 처리(v2.52.2), 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B/§6-F 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다. 관제센터 AI 자동 모드(ADR 0035, v2.52.1 설계, 미구현)의 허용 목록 조치는 조치별 티켓 없이 실행한다. 자동 켜기 티켓(`ops.ai.auto`)이 그 창의 포괄 승인이고, 허용 목록 밖의 조치와 이 열거의 다른 액션에는 미치지 않는다(§6-F).
   - **approval_token 수명주기(v2.3)**: operator 가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
   - **operator 신원 바인딩(v2.4, 2인 통제의 검증 수단 확정)**: `operator_id`는 바디 자가신고 값으로 판정하지 않는다. 각 admin `access_key`(및 mTLS 클라이언트 인증서)는 발급 시 정확히 **하나의 `operator_id`에 1:1 등록**되며(`api_keys`에 operator_id 바인딩, §7-1), 서버는 **모든 관리 요청과 approvals 발급 각각에서 인증 주체(access_key / 인증서 CN)로부터 operator_id를 도출**해 바디의 `operator_id`와 대조한다. 불일치 시 `403 admin_forbidden`(바디 필드는 가독·감사 편의용이고 권위는 인증 주체 유래 값이다. `admin_audit_log`에도 인증 주체 유래 operator_id를 기록). **2인 승인 판정**: "요청 operator와 다른 operator"는 자가신고 값이 아니라 **approvals 발급 요청의 인증 주체 ≠ approval_token 사용 요청의 인증 주체**로 서버가 검증한다 → 단일 admin 키 보유자가 발급 시 `op-02`, 사용 시 `op-01`로 바꿔 신고해 혼자 2인 승인을 완성하는 경로를 차단한다(발급 시 토큰에 발급 주체 operator를 함께 바인딩).
   - **바인딩 target·바디 필드 확정표(v2.13, 발급·소각 정합 단일 규칙)**: `POST /admin/v1/approvals`가 발급하는 `target` 문자열과 파괴 액션 엔드포인트가 소각 시 재구성하는 `target`은 아래 표의 형식으로 **바이트 단위 동일**해야 한다. 불일치는 `403 admin_forbidden`(`detail.reason=binding_mismatch`). `target`은 두 계열로 나뉜다. (1) **자원 스코프**: `target`=파괴 대상 자원 식별자. 페이로드 값(수수료·method·params·type)은 바인딩에 넣지 않는다. (2) **신원·권한 전이 스코프**(`operators.status`·`operators.roles`): `target`에 전이 방향·대상 등급까지 포함해 승인된 토큰을 더 위험한 전이(예: `GRANT VIEWER` 승인분을 `GRANT SUPER`로, `ACTIVE` 승인분을 `DISABLED`로)로 재사용하는 경로를 차단한다. 전이 스코프의 상태·역할·방향 토큰은 모두 **대문자**로 정규화해 바인딩한다. 모든 파괴 액션 바디는 `operator_id`(수행자, 인증 주체 유래 값과 대조)와 `approval_token`을 공통으로 싣는다.
@@ -496,12 +502,17 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
     | `operators.create` | `POST /admin/v1/operators` | `new_operator_id`, `display_name` | `new_operator_id` 값 | `op-07` |
     | `operators.status` | `PATCH /admin/v1/operators/{id}/status` | `status`(`ACTIVE\|DISABLED`) | `{id}:{STATUS}` | `op-07:DISABLED` |
     | `operators.roles` | `POST /admin/v1/operators/{id}/roles` | `action`(`GRANT\|REVOKE`), `role` | `{id}:{GRANT\|REVOKE}:{ROLE}` | `op-07:GRANT:SUPER` |
+    | `ops.threshold.set` | `POST /admin/v1/msp/thresholds/{key}`, 같은 절의 되돌리기, `THRESHOLD` 조치 요청의 승인·되돌리기(v2.52.2 구현) | `value`, `reason` | `{key}:{value}`. `value`는 끝의 0을 지운 평문 십진 | `host.disk_free_alert:0.2` |
+    | `ops.alert.silence` | `POST /admin/v1/msp/alerts/{fingerprint}/silence`(등급 `critical`·`other` 또는 30분 초과, v2.52.1 구현) | `minutes`(1~480 정수), `reason` | `{fingerprint}:{minutes}` | `5f3c2a9e0b1d4c77:120` |
+    | `ops.ai.auto` | `POST /admin/v1/msp/ai/mode/auto`(v2.52.2 구현) | `hours`(1·2·4·8), `reason` | `AUTO:{hours}` | `AUTO:4` |
+    | `ops.ai.limits` | `PUT /admin/v1/msp/ai/limits/{key}`(v2.52.2 구현) | `value`(정수, 하드 범위 안), `reason` | `{key}:{value}` | `auto_cap:3` |
 
     - `operators.create`의 바디 `operator_id`는 **수행자**(인증 주체 유래 값과 대조하는 공통 필드)이고 생성 대상 신원은 별도 `new_operator_id`로 싣는다. 바디 `operator_id`의 의미를 전 파괴 액션에서 "수행자"로 통일하기 위함이다(대상 신원을 `operator_id`에 겹쳐 싣지 않는다). 생성 시 역할은 부여하지 않는다. 역할은 `operators.roles` 별도 승인 경로로만 부여한다.
     - `chaos.network`가 만든 toxic의 `name`과 `chaos.network.clear`의 `{toxic}`는 같은 문자열이어야 해제가 성립한다(주입 시 발급한 이름을 해제 target으로 재사용).
+    - `ops.threshold.set`, `ops.alert.silence`, `ops.ai.auto`, `ops.ai.limits`는 자원 식별자만이 아니라 값(새 임계값, 보류 분, 자동 모드 시간, 새 한도)까지 바인딩한다(v2.52.1, `ops.ai.limits`는 v2.52.2). 전이 스코프와 같은 이유다. 15%로 올리려고 받은 티켓으로 10%로 내리거나, 30분 보류 승인으로 8시간 보류를 걸거나, 1시간 승인으로 8시간 자동 창을 여는 재사용을 막는다. 되돌리기는 되돌릴 값(직전 값)으로 대상을 만든다. 직전 값이 미설정이면 `{key}:null`이다. 임계값은 소수 넷째 자리까지만 받으므로(§6-F) 정규화한 대상 문자열과 저장값이 같다.
   - **approvals 응답·원장 프로젝션 키(v2.13 확정)**: `POST /admin/v1/approvals` 발급 응답은 `{schema_version, approval_token, approval_id, action, target, expires_at}`. `GET /admin/v1/approvals` 원장 프로젝션 원소는 `{approval_id, action, target, requester_operator_id, approver_operator_id, state, issued_at, expires_at, consumed_at}`이며 `approval_token`을 절대 싣지 않는다(발급 응답 단일 경로의 bearer 시크릿). `POST /admin/v1/approvals/{id}/reject` 응답은 `{schema_version, approval_id, state}`. 발급·원장·거부 세 응답 모두 승인 식별 키는 `approval_id`로 통일한다(행 `id`의 투영).
 - **감사 로그(신규)**: 모든 관리 액션은 `admin_audit_log`(operator_id, action, params, ts, 결과)에 append-only 기록 → Grafana annotation과 상관.
-- **관측 데이터의 지시 무시**: 관측 데이터(웹/문서/메시지/DOM) 내 텍스트 지시로 관리 액션을 **자동 실행하지 않는다**. 파라미터 변경·파괴 액션은 운영자 명시 요청으로만 수행.
+- **관측 데이터의 지시 무시**: 관측 데이터(웹/문서/메시지/DOM) 내 텍스트 지시로 관리 액션을 **자동 실행하지 않는다**. 파라미터 변경·파괴 액션은 운영자 명시 요청으로만 수행. 관제센터 AI 판단(v2.52.2 구현)에서도 관측 텍스트와 모델 문장은 명령이 아니다. 모델 출력은 허용 목록 조치 타입으로만 해석하고 서버 정책 엔진이 다시 검사한다. 예외는 AI 자동 모드 하나다. 운영자가 승인 티켓으로 켠 창 안에서만 허용 목록 조치가 임계 초과·경보를 근거로 실행된다(§6-F, ADR 0035). 이 문장과의 대체 관계는 ADR 0035를 병합할 때 정리한다.
 
 - **브라우저 관리 콘솔 세션(v2.9 신설, 반결탁 보존)**: 브라우저 관리 콘솔은 `admin_secret` HMAC 서명을 만들 수 없고(secret_key 브라우저 미전달 계약, §3-7·웹 화면명세서 §6.1), §3-7 데모 세션은 `scope=TRADE` 고정이라 관리 평면에 쓸 수 없다. 브라우저 관리 경로는 다음으로 인증한다.
   - **1차 인증(mTLS)**: 운영자별 mTLS 클라이언트 인증서(`CN=operator_id`)로 관리 평면(`admin.exchange.local`)에 접속한다. 인증서 CN이 `operator_id`의 권위 소스이며 바디 자가신고 값이 아니다(v2.4). 사설키는 각 운영자 워크스테이션에만 존재하고 서버는 CA 공개키로 검증만 한다(전 운영자 키를 보유하는 단일 컴포넌트 없음).
@@ -1239,7 +1250,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 **전체 제어(v2.22, `POST /sim/start|stop|pause` 계약 확정)**: 세 명령은 봇 플릿 수명주기를 실제로 움직인다. `start`는 미기동이면 기동, 일시정지 상태면 해제(재기동 아님). `stop`은 플릿 정지(스레드 종료, pause 잔류 없음). `pause`는 토글이며 봇 스레드·시드·오더북 상태를 유지한 채 발행 게이트(전역 OPS 버킷)만 닫아 주문·취소 발행을 멈춘다. 셋 다 멱등 수렴형이라 approval_token 불요·감사 적재는 불변이다. 응답은 schema 1.1: `{ "schema_version":"1.1","command":"pause","applied":true,"running":true,"paused":true,"fleet_present":true }`. `applied`는 명령이 플릿에 반영됐는지(수명주기 플릿 빈 부재 배포는 항상 false, 미기동 플릿에의 `pause`도 false), `running`·`paused`는 실행 후 상태, `fleet_present`는 수명주기 플릿 빈 주입 여부다. `GET /sim/status`는 schema를 1.2로 올려 top-level `running`·`paused`를 additive로 더한다(기존 1.1 소비자 무영향). status의 `fleet_present`는 종전대로 governor 주입 여부이고 제어 응답의 `fleet_present`는 수명주기 빈 기준이므로, 봇 프로파일이 같은 JVM에 켜진 배포에서 둘은 일치한다. 관리 평면을 물리 분리한 배포에서는 둘 다 `false`이며, 그때 status가 무엇을 내는지는 위 원천 규약(schema 1.3)이 규정한다.
 
-**시나리오 프리셋(v2.31, `POST /sim/scenarios/{name}/activate` 계약 확정)**: 프리셋은 시장 국면 하나를 전역 OPS·마켓별 유형 대수·마켓별 bias에 동시에 얹는 상위 set-point다. 기존 `/sim/rate`·`/sim/scale`·`/sim/bias`를 한 번에 호출하는 것과 같고, 그 셋으로 도달할 수 없는 상태는 만들지 않는다. 따라서 파괴 액션이 아니며 approval_token 불요·감사 적재다(§3-6 완결 열거 불변).
+**시나리오 프리셋(v2.31, `POST /sim/scenarios/{name}/activate` 계약 확정)**: 프리셋은 시장 국면 하나를 전역 OPS·마켓별 유형 대수·마켓별 bias에 동시에 얹는 상위 set-point다. 기존 `/sim/rate`·`/sim/scale`·`/sim/bias`를 한 번에 호출하는 것과 같고, 그 셋으로 도달할 수 없는 상태는 만들지 않는다. 따라서 파괴 액션이 아니며 approval_token 불요·감사 적재다(§3-6 완결 열거 불변). 프리셋도 목표 OPS를 바꾸므로 `PUT /sim/rate`와 같은 관리 JVM 잠금 안에서 적용하고 감사(`sim.scenario`)를 남긴다. 관제센터를 켠 배포에서는 이 감사가 발행률 설정(`sim.rate`)과 함께 AI 봇 부하 줄임 조치의 쿨다운을 시작시킨다(v2.52.4, §6-F).
 
 - **기준선 상대값**: 프리셋 값은 절대 수치가 아니라 **기준선 대비 배수**다. 기준선은 봇 플릿 기동 시 `registerMarket`이 등록한 유형별 대수와 `OpsGovernor` 생성 시 목표 OPS다. 배포마다 기준 규모가 다르므로(하네스 normal 140봇 대 데모 소규모) 절대값을 못 박으면 한쪽에서 무의미해진다.
 - **멱등**: 기준선은 등록 시점 값으로 고정되고 활성화 시점의 현재 값을 쓰지 않는다. 같은 프리셋을 두 번 활성화한 결과는 한 번과 같다. 활성화가 누적되면 `spike` 3회가 기준선 OPS의 1000배가 되어 제어면이 아니라 폭주기가 된다.
@@ -1349,6 +1360,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 오르지 않고(2026-09-07 실측 56.8/s -> 54.3/s), DB 는 primary 가 하나여야 한다. 리더가 죽은
 상태에서 노드를 늘려도 쓰기는 재개되지 않는다. 늘어나는 노드는 `exchange.engine.enabled=false`
 인 조회 전용이다.
+
+**관제센터 설계와의 관계(v2.52.1, 권고 임계와 잠금은 구현, 조회 노드 조치는 v2.52.2 구현).** 관제센터(`exchange.msp.enabled=true`)를 켠 배포에서는 권고 임계의 원천을 설정에서 임계값 레지스트리(§6-F, DB 설계 §10)의 `read.scale_out_cpu`·`read.scale_in_cpu`로 옮긴다. 끈 배포는 지금처럼 `exchange.capacity.scale-out-cpu`·`scale-in-cpu`(기본 0.60·0.30)를 읽고 새 표를 읽지 않는다. 앱이 Flyway를 끄는 배포에서 새 JAR가 V70보다 먼저 떠도 이 경로가 없는 표 때문에 실패하지 않게 하기 위해서다. 응답의 `thresholds` 두 숫자는 어느 쪽이든 모양을 바꾸지 않는다. 켠 배포에서 두 설정값은 환경 기본값이 되어, 레지스트리 항목을 사람이나 AI가 바꾼 적이 없을 때만 기동 시 그 값으로 맞춘다. 증설·축소의 경계 검사와 `capacity_plan` 갱신은 한 서비스(`CapacityPlanService`)가 맡고 관제센터의 조회 노드 조치(§6-F)도 그 코드를 다시 쓴다. 이 서비스는 `capacity_plan`을 `FOR UPDATE`로 읽는다. 2026-09-25 전의 구현은 잠금 없이 읽은 값에 1을 더한 절대값을 써서, 동시에 누른 두 변경이 둘 다 같은 전이로 성공하고 한 변경을 잃었다. 지금은 겹친 두 증설 가운데 하나만 반영되고 다른 하나는 `409 CAPACITY_OUT_OF_BOUNDS`다. 경계를 넘은 거부의 감사(`DENIED`)는 트랜잭션 밖에서 남겨 롤백으로 사라지지 않는다. 조회 노드 조치는 `read-capacity.mode=CAPACITY_PLAN`인 로컬 Docker에서만 허용되고, 자동 모드(ADR 0035, 사용자 확정 2026-09-24)에서는 사람 버튼 없이 1대씩 바뀔 수 있다. 위 권고 자체에 자동 액션이 없다는 서술은 그대로다. AWS에서는 ASG 정책이 대상당 요청 수로 대수를 정하므로 CPU 권고 임계는 그 판단에 쓰이지 않고, 관제센터가 이 경로로 대수를 바꾸지 않는다.
 
 ### 6-B. 카오스 주입 API
 
@@ -1494,6 +1507,377 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 { "schema_version":"1.0","external_id":"9f2c-...","status":"CLOSED",
   "canceled_orders":3,"revoked_sessions":1,"approval_id":8842 }
 ```
+
+### 6-F. MSP 관제센터 API (v2.52.4, 조회·임계값·경보·AI 판단과 조치·상담·추세·통지 구현)
+
+관리 콘솔 관제센터가 읽고 조작하는 경로다. 이 절은 구현보다 먼저 적은 계약이다. 2026-09-25 조회, 임계값 레지스트리, 경보·사건 경로와 백업 즉시 실행 스텁을 구현했고, 같은 날 v2.52.2에서 AI 판단·조치 경로(모드, AI 즉시 정지와 재개, AI 한도, 계획 작업 창, 판단 기록, 조치 요청의 승인·거절·나중에·되돌리기)를 계약에 더해 구현했다. v2.52.3에서 AI 상담, 요약 추세, 온프레미스 AI 서버 상태, 보고 서비스를 거치는 Teams 통지와 보고서 읽기, 원천 읽기의 공유 캐시와 한 판의 `ETag`를 더해 구현했다(아래 '캐시와 한 판'부터 '보고서와 Teams 통지'까지). v2.52.4에서 구현 검토 지적에 따라 실행 직전의 대상 재확인(C5), 임계값 조치 요청의 현재값 바인딩, 시나리오 활성화를 포함한 봇 부하 쿨다운, 관찰 창과 사람 되돌리기가 겹칠 때의 처리를 정했다. 설계 이유, 코드 출발점, 정책 규칙 id(C1~C6, A1~A10, R·T·S·B·K, D1~D3, M1~M10, L1~L5)는 [관제센터 2단계 설계](../architecture/MSP_관제센터_2단계_설계.md)에 있다. AI 조치 권한은 사용자가 2026-09-24 확정하고 2026-09-25 보강한 ADR 0035를 따른다(이 판 작성 시점에 파일은 다른 브랜치에서 작성 중).
+
+- **활성 조건.** `exchange.admin.enabled=true`이고 `exchange.msp.enabled=true`인 관리 JVM에서만 경로가 생긴다. 끈 배포에서는 `/admin/v1/msp/**`가 404다. 켠 관리 JVM은 기동할 때 V70~V73 표(DB 설계 §10)가 있는지 확인하고 없으면 기동하지 않는다. AI 판단 주기는 LLM 설정(`exchange.msp.llm.base-url`)이 있을 때만 돈다. 설정이 없어도 모드, 즉시 끄기, AI 정지와 재개, 한도, 계획 작업 창 경로는 쓸 수 있다. 인증, 레이트리밋(요청당 10토큰), 요청 단위 감사는 §3-6과 관리 필터를 그대로 따른다. 예외는 즉시 끄기(`POST /admin/v1/msp/ai/mode/manual`)와 AI 즉시 정지(`POST /admin/v1/msp/ai/stop`) 둘이다. 공용 버킷을 차감하지 않고 같은 제한기의 별도 키(`{operator_id}:ai-manual`)에서 요청당 1토큰을 쓴다. 화면 폴링이 공용 버킷을 다 써도 AI를 끄고 멈출 수 있어야 하기 때문이다. mTLS 신원, 세션, 활성 운영자 검사와 감사는 같다. AI 신원(`kind='AI'`, `ai-ops`)으로는 세션을 받을 수 없고 필터도 거부한다(`403 admin_forbidden`, `detail.reason=ai_operator`).
+- **값 표기.** 비율, 초, 크레딧, 발행률은 십진 문자열이다(`"0.60"`). 정수 대수와 판 번호는 숫자다. 시각은 §2-1 UTC 밀리초 3자리다. 읽지 못한 값은 `null`이고 0으로 채우지 않는다.
+- **칸 상태.** 칸마다 `state`가 `READY`, `NOT_CONNECTED`, `UNAVAILABLE` 가운데 하나다. `NOT_CONNECTED`는 원천 설정이 없다는 뜻이고 붙일 원천 이름을 `source`에 싣는다. `UNAVAILABLE`은 설정은 있으나 이번 조회가 실패했다는 뜻이고 `reason`에 분류 코드를 싣는다. `READY`만 `data`를 싣는다.
+- **측정 객체.** 지표 값 하나는 `{value, sampled_at, age_seconds, collect}`다. `sampled_at`은 Prometheus 평가 시각이 아니라 그 대상의 마지막 수집 시각이다. `collect`는 `OK`, `STALE`(나이가 `exchange.msp.stale-after` 초과, 기본 60초), `MISSING`(결과 없음)이다.
+- **폴링.** 화면은 첫 화면을 `GET /admin/v1/msp/overview` 한 건으로 그리고 15초 이상 주기로 읽는다. 한 판은 추세(24시간)와 AI 서버 상태까지 싣고 `ETag`를 붙인다. 서버는 원천 읽기를 공유 캐시로, 경보를 15초 폴링 결과로 낸다. 운영자 수와 무관하게 원천 호출량이 유계다(아래 '캐시와 한 판').
+- **역할.** `BOT_OPS+`는 `BOT_OPS`·`CHAOS_OPS`·`SUPER`다(`AdminPrincipal.has`). 같은 효과의 조작을 사람이 직접 할 때의 역할을 요구한다.
+- **감사 action 코드.** 필터의 요청 단위 감사와 별도로 도메인 코드를 남긴다. `msp.alert.ack`, `msp.alert.silence`, `msp.silence.expire`, `ops.threshold.set`, `ops.threshold.revert`, `ops.ai.auto`, `ops.ai.manual`, `ops.ai.stop`, `ops.ai.resume`, `ops.ai.limits`, `msp.window.create`, `msp.window.end`, `ops.ai.action.approve`·`reject`·`defer`·`revert`, `msp.ops.backup`은 사람이, `ops.ai.action.execute`, `ops.ai.action.auto_revert`, `ops.ai.action.deny`는 AI 신원(`ai-ops`)이, `ops.ai.mode.expire`, `ops.ai.mode.system`(상한 도달·악화·관찰 불가·기동 정리에 따른 수동 전환)은 시스템(`system:msp`)이 남긴다. 판단 기록 id와 조치 요청 id를 `detail`에 싣고 비밀 값과 모델 문장은 싣지 않는다. 예외는 AI 상담의 `ops.ai.chat`(사람)이다. 상담은 무엇을 묻고 무엇을 답했는지가 기록의 목적이라 가린 질문과 답을 싣는다(아래 'AI 상담'). 정책 거부는 `detail.rule`과 `detail.reason_code`(예: `direction_conflict` '방향 모순', `no_planned_window` '계획 작업 창 없음')를 싣는다.
+
+| 메서드 | 경로 | 기능 | 역할 | approval_token(§3-6) |
+|---|---|---|---|---|
+| GET | `/admin/v1/msp/overview` | 한 판: 원천 상태, 요약, 요약 추세(24시간), 호스트, 조회 계층, 복제, 활성 경보, 오늘 사건, 운영 작업, 임계값 현재값, AI 요약, AI 서버 상태. `ETag`·`If-None-Match`로 304 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/trends` | 요약 추세(`range` `1h`·`6h`·`24h`, 기본 `24h`)와 이전 구간 대비 증감 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/hosts` | 호스트, 조회 계층, DB 복제 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/alerts` | 활성 경보와 확인·보류 상태(마지막 폴링 결과) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/alerts/{fingerprint}/ack` | 경보 확인 기록. Alertmanager 상태를 바꾸지 않는다 | BOT_OPS+ | 불요 |
+| POST | `/admin/v1/msp/alerts/{fingerprint}/silence` | 사람 보류(사일런스 생성) | BOT_OPS+, 티켓이 필요한 보류는 SUPER | 등급 `critical`·`other`이거나 30분 초과면 **필수**(`ops.alert.silence`) |
+| DELETE | `/admin/v1/msp/silences/{silence_id}` | 관제센터가 만든 사일런스 종료 | BOT_OPS+ | 불요 |
+| GET | `/admin/v1/msp/incidents` | 사건 목록(`status` 필터, 커서) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/incidents/{id}` | 사건과 이벤트 타임라인 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/ops` | 운영 작업(DB 백업 지표, Databasus, 인증서, 일일 보고) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ops/backup` | 백업 즉시 실행(Databasus). 연결 전 스텁 | SUPER | 불요 |
+| GET | `/admin/v1/msp/thresholds` | 임계값 항목과 현재값, 게이지 수집 여부 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/thresholds/changes` | 변경 이력(`key` 필터, 커서) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/thresholds/{key}` | 임계값 변경 | SUPER | **필수**(`ops.threshold.set`) |
+| POST | `/admin/v1/msp/thresholds/changes/{id}/revert` | 변경 되돌리기(최신 변경만) | SUPER | **필수**(`ops.threshold.set`) |
+| GET | `/admin/v1/msp/ai/mode` | 모드, 정지 여부, 유효 시간, 이번 활성의 자동 조치 수와 상한, 쿨다운, 관찰 창, LLM 원천 | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/mode/auto` | 자동 모드 켜기(1·2·4·8시간) | SUPER | **필수**(`ops.ai.auto`) |
+| POST | `/admin/v1/msp/ai/mode/manual` | 즉시 끄기(언제든, 멱등, 공용 버킷 밖) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/stop` | AI 즉시 정지(두 모드에서, 멱등, 공용 버킷 밖) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/resume` | AI 재개(사유 필수, 수동으로만) | SUPER | 불요 |
+| GET | `/admin/v1/msp/ai/limits` | AI 한도: 항목별 지금 값, 적용 중인 값, 하드 범위, 조이는 방향 | VIEWER+ | 불요 |
+| PUT | `/admin/v1/msp/ai/limits/{key}` | AI 한도 변경(사유 필수) | SUPER | **필수**(`ops.ai.limits`) |
+| GET | `/admin/v1/msp/ai/limits/changes` | AI 한도 변경 이력(`key` 필터, 커서) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/maintenance-windows` | 계획 작업 창 목록(`status` `ACTIVE`·`ALL`) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/maintenance-windows` | 계획 작업 창 등록(최대 24시간) | BOT_OPS+ | 불요 |
+| POST | `/admin/v1/msp/maintenance-windows/{id}/end` | 계획 작업 창 조기 종료 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/ai/decisions` | 판단 이력(커서) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/ai/decisions/{id}` | 판단 상세: 근거 스냅숏, 모델, 출력 원문과 해시, 조치 요청, 버린 항목 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/ai/actions` | 조치 요청 목록(`status` `OPEN`·`ALL`, 커서) | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/actions/{id}/approve` | 조치 요청 승인과 실행 | 조치 종류별 | `THRESHOLD`만 **필수**(`ops.threshold.set`) |
+| POST | `/admin/v1/msp/ai/actions/{id}/reject` | 거절 | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/actions/{id}/defer` | 나중에(1~60분, 기본 15분, 요청 만료 시각에서 자름). 자동 실행에서 영구히 뺀다 | VIEWER+ | 불요 |
+| POST | `/admin/v1/msp/ai/actions/{id}/revert` | 실행한 조치 되돌리기 | 조치 종류별 | `THRESHOLD`만 **필수**(`ops.threshold.set`) |
+| POST | `/admin/v1/msp/ai/chat` | AI 상담(읽기 전용 질의응답, 대화 저장 없음) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/ai/server` | 온프레미스 AI 서버 상태(버전, 적재 모델, 최근 호출의 지연·실패) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/reports` | 보고 서비스의 보고 목록(읽기 프록시) | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/reports/status` | 보고 서비스의 Teams 전송 상태와 관제센터 통지 보관함 요약 | VIEWER+ | 불요 |
+
+조치 종류별 역할은 `READ_NODES`·`THRESHOLD`·`BACKUP_NOW`가 SUPER, `SILENCE`·`BOT_LOAD`가 `BOT_OPS+`다. AI의 보류 요청은 계획 작업 창 안의 `warning` 30분 이하뿐이라 `BOT_OPS+`의 승인이 티켓 없는 사람 보류의 범위를 넘지 않는다. 즉시 끄기, AI 즉시 정지, 계획 작업 창 조기 종료, 거절·나중에는 권한을 줄이는 조작이라 승인 거부(§6-B `approvals/{id}/reject`)처럼 VIEWER+다. 계획 작업 창 등록은 AI가 그 창 안의 `warning` 경보를 30분까지 보류할 수 있게 하는 조작이라 같은 효과의 사람 보류와 같은 `BOT_OPS+`다. 재개는 AI가 다시 판단하고 조치안을 내게 하는 조작이라 ADR 0035에 따라 조치안 승인과 같은 SUPER다.
+
+```json
+// GET /admin/v1/msp/overview → 200 (학교 AWS, LLM·Databasus 미설정 예)
+{ "schema_version":"1.0", "environment":"SCHOOL_AWS", "day_zone":"Asia/Seoul",
+  "generated_at":"2026-09-24T09:00:00.000Z",
+  "sources":[
+    {"name":"prometheus","state":"READY"},
+    {"name":"alertmanager","state":"READY","last_poll_at":"2026-09-24T08:59:52.000Z"},
+    {"name":"llm","state":"NOT_CONNECTED"},
+    {"name":"databasus","state":"NOT_CONNECTED"},
+    {"name":"teams","state":"READY","via":"reporting","delivery_enabled":true,
+     "last_sent_at":"2026-09-24T00:00:41.000Z","pending":0,"outbox":{"pending":0,"failed":0}}],
+  "summary":{"state":"READY","data":{
+    "availability":{"value":null,"sampled_at":null,"age_seconds":null,"collect":"MISSING"},
+    "p95_seconds":{"value":null,"sampled_at":null,"age_seconds":null,"collect":"MISSING"},
+    "error_ratio":{"value":"0.0004","sampled_at":"2026-09-24T08:59:47.000Z","age_seconds":13,"collect":"OK"},
+    "slo":{"availability":null,"p95_seconds":null,"error_ratio":null}}},
+  "hosts":{"state":"READY","data":[
+    {"node":"db-primary","role":"DB","actual_role":"PRIMARY","instance_type":"t3.small","az":"ap-northeast-2c",
+     "up":{"value":"1","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+     "cpu_ratio":{"value":"0.08","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+     "memory_ratio":{"value":"0.41","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+     "root_free_ratio":{"value":"0.91","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+     "cpu_credits":{"value":null,"sampled_at":null,"age_seconds":null,"collect":"MISSING"}}]},
+  "read_tier":{"state":"NOT_CONNECTED","source":"read_capacity"},
+  "replication":{"state":"READY","data":{"primary":"db-primary","standby":"db-standby","stream":"STREAMING",
+    "lag_seconds":{"value":"0.2","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+    "lag_bytes":{"value":"0","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
+    "label_mismatch":false}},
+  "alerts":{"state":"READY","data":[
+    {"fingerprint":"5f3c2a9e0b1d4c77","alertname":"LinuxDiskSpaceLow","severity":"warning","node":"db-primary",
+     "summary":"디스크 여유 공간 부족 · 임계 미만","starts_at":"2026-09-24T08:40:00.000Z","state":"FIRING",
+     "incident_id":12,"threshold_key":"host.disk_free_alert","acked_by":null,"acked_at":null,"silence":null}]},
+  "incidents":{"state":"READY","data":{"today_count":1,"today_resolved_mean_seconds":null,"open_ids":[12]}},
+  "ops":{"state":"READY","data":{"db_backup":{"state":"READY","data":{"last_success_at":null,"verify_ok":null}},
+    "databasus":{"state":"NOT_CONNECTED","source":"databasus"},
+    "certificate":{"state":"NOT_CONNECTED","source":"certificate"},
+    "daily_report":{"state":"READY","data":{"last_triggered_at":"2026-09-24T00:00:03.000Z"}}}},
+  "thresholds":{"state":"READY","data":{"items":[
+    {"key":"host.disk_free_alert","unit":"ratio","value":"0.15","min":"0.1","max":"0.4","version":1,
+     "in_use":true,"rule_value":null}],
+    "gauge_scraped":false}},
+  "ai":{"state":"NOT_CONNECTED","source":"llm","mode":"MANUAL","stopped":false,"stop":null,"auto":null,
+        "open_actions":0,"last_decision":null},
+  "ai_server":{"state":"NOT_CONNECTED","source":"llm"},
+  "trends":{"range":"24h","step_seconds":720,"window":{"start":"...","end":"..."},"previous_window":{"start":"...","end":"..."},
+            "series":{"availability":{"state":"READY","data":{"...":"아래 '요약 추세'"}}}} }
+```
+
+- `environment`는 서버 설정(`exchange.msp.environment`)이다. 설정이 없으면 `UNKNOWN`이고 서버가 짐작하지 않는다. 값은 `LOCAL_DOCKER`, `SCHOOL_AWS`, `PERSONAL_AWS`, `UNKNOWN`이다.
+- 호스트의 `role`은 설정의 배치 역할이고 `actual_role`은 DB에 한해 recovery 지표로 정한 실제 역할이다. 둘이 다르면 복제 칸의 `label_mismatch`가 `true`다.
+- 경보에는 `instance`(사설 주소와 포트)를 싣지 않는다. `severity`는 정규화한 등급(`critical`, `warning`, `info`, `other`)이고, 라벨이 없거나 모르는 값이면 `other`다. 생존 신호 경보(`exchange.msp.incident.heartbeat-alertnames`, 기본 `Watchdog`)는 경보 목록과 사건에 나오지 않는다. `state`는 `FIRING`, `ACKED`, `SILENCED`다. `threshold_key`는 규칙 주석이 가리키는 레지스트리 항목이다.
+- `thresholds.gauge_scraped`는 Prometheus가 `exchange_ops_threshold`를 수집하는지다. 항목의 `rule_value`는 경보 규칙이 지금 쓰는 값(Prometheus가 마지막으로 수집한 게이지 값, 최대 7일 유지)이고, 미설정(게이지 값 NaN)이거나 읽지 못하면 `null`이다. `value`와 다르면 변경이 아직 규칙에 반영되지 않은 것이고, `gauge_scraped`가 `false`이고 `rule_value`도 `null`이면 규칙이 리터럴 대체값으로 판정 중이다. `in_use`는 이 환경에서 그 항목을 쓰는 규칙이나 권고가 있는지다. `read.*`는 `read-capacity.mode=CAPACITY_PLAN`에서만 `true`다.
+- `ai`는 LLM 설정이 없어도 `mode`, `stopped`, `stop`을 싣는다. 즉시 끄기와 정지는 모델 연결과 무관하게 쓸 수 있어야 하기 때문이다. LLM 설정이 있으면 `state`가 `READY`이고, 마지막 모델 호출이 실패했으면 `UNAVAILABLE`과 `reason`(분류 코드)이다. `stop`은 정지 중일 때 `{by, at, reason}`, `auto`는 자동일 때 `{since, valid_until, enabled_by, activation, auto_used, auto_cap}`, `open_actions`는 열린 조치 요청 수, `last_decision`은 `{id, decided_at, outcome}`이다. `llm` 원천은 설정됐을 때 `provider`(`openai-compatible`, `ollama-native`), `model`, `transport`(`LOOPBACK`, `TLS`, `PLAINTEXT`)를 싣는다. `PLAINTEXT`는 `exchange.msp.llm.allow-insecure-http`로 명시 허용한 평문이고 수동 모드 전용이다.
+
+**세부 조회와 표시 규칙(2026-09-25 구현 기준).** 세부 조회는 한 판과 같은 칸 객체를 같은 이름으로 싣고 한 판과 같은 머리 필드(`schema_version`, `environment`, `day_zone`, `generated_at`)를 붙인다. `GET .../hosts`는 `hosts`, `read_tier`, `replication`을, `GET .../alerts`는 `alerts`를, `GET .../ops`는 `ops`를, `GET .../thresholds`는 `thresholds`를 싣는다. Prometheus 질의 묶음은 한 판과 같은 10초 캐시를 쓰므로 세부 조회가 원천 호출을 늘리지 않는다.
+
+- **숫자 문자열.** 측정 객체의 값은 비율이면 소수 넷째 자리, 초면 셋째 자리에서 반올림한 십진 문자열이고, 바이트와 0·1 값은 정수 문자열이다. 대수와 판 번호는 위 값 표기대로 숫자다. Prometheus가 NaN이나 무한대를 돌려주면 값은 `null`이고 `collect`는 `MISSING`이다.
+- **원천 상태.** `sources`의 `prometheus`는 설정이 없으면 `NOT_CONNECTED`, 질의 묶음 전체가 실패하면 `UNAVAILABLE`(`reason`: `timeout`, `unreachable`, `http_status`, `response_limit`, `query_failed`, `bad_response`)이다. 일부 질의만 실패하면 `READY`이고 그 질의를 쓰는 칸만 `UNAVAILABLE`이다. `alertmanager`는 마지막 폴링이 성공했으면 `READY`와 `last_poll_at`, 그 폴링에서 쓰기에 실패한 경보 수 `write_failures`를 싣는다. 마지막 폴링이 실패했거나 기동 뒤 아직 폴링하지 않았으면 `UNAVAILABLE`(`reason`, 폴링 전이면 `not_polled`)이고 `last_poll_at`은 마지막 성공 시각이다. `teams`는 보고 서비스(`exchange.msp.reporting.url`)를 거치므로 `via:"reporting"`을 싣고, 보고 서비스 설정이 없으면 `NOT_CONNECTED`, 전송 상태 조회가 실패하면 `UNAVAILABLE`(`reason`)이다. `READY`면 보고 서비스의 전송 켬 여부 `delivery_enabled`, 마지막 전송 시각 `last_sent_at`, 보내지 않은 작업 수 `pending`과 관제센터 통지 보관함의 `outbox`(`pending`, `failed`)를 싣는다. 전송이 꺼져 있어도 `READY`다. 화면이 '전송 꺼짐'을 따로 보인다.
+- **경보 칸.** `alerts`는 `{state, last_poll_at, data}`다. 마지막 폴링이 실패하면 지난 목록을 내지 않고 `UNAVAILABLE`이다. 항목은 `{fingerprint, alertname, severity, node, role, component, mountpoint, summary, starts_at, state, incident_id, threshold_key, acked_by, acked_at, silence}`이고, `silence`는 `{silence_id, ends_at, actor, by}` 또는 `null`이다. `state`는 Alertmanager가 사일런스로 누른 경보면 `SILENCED`, 확인된 사건이면 `ACKED`, 나머지는 `FIRING`이다. 쓰기에 실패해 사건이 없는 경보는 `incident_id`가 `null`이다.
+- **조회 계층 칸.** `read-capacity.mode=NONE`이면 `NOT_CONNECTED`(`source=read_capacity`)다. `ASG_POLICY`면 `READY`이고 `data`는 `{mode, scaling_owner:"ASG", scaling_basis:"request_count_per_target"}`다. 대수는 AWS API를 읽지 않으므로 싣지 않는다. `CAPACITY_PLAN`이면 `data`는 `{mode, min, desired, max, observed, avg_cpu_ratio}`다. `min`·`desired`·`max`는 `capacity_plan`, `observed`와 `avg_cpu_ratio`(측정 객체)는 §6-A-a의 노드 조회로 잰 값이다. 노드 조회는 거래 노드를 부르므로 한 판과 세부 조회가 `cache-ttl`(기본 10초) 동안 한 번의 조회를 함께 쓰고, `sampled_at`은 그 조회를 한 시각이다(v2.52.3). AI 판단의 근거는 이 캐시를 쓰지 않고 판단마다 노드를 잰다.
+- **복제 칸.** `primary`·`standby`는 `pg_wal_position_in_recovery`가 0·1인 노드다. `stream`은 복제 지표의 `state` 라벨을 대문자로 옮긴 값(`STREAMING` 등)이고 없으면 `null`이다. `label_mismatch`는 수집 설정의 `role` 라벨(`data`는 Primary, `standby`는 Standby)이 recovery 지표와 다를 때 `true`다.
+- **임계값 칸.** 항목은 `{key, unit, value, default, min, max, ai_max_step, version, updated_by, updated_at, in_use, rule_value}`다. `gauge_scraped`는 Prometheus를 읽지 못하면 `null`이다. `in_use`는 아래 표로 정한다.
+
+| 항목 | `in_use`가 `true`인 조건 |
+|---|---|
+| `read.scale_out_cpu`, `read.scale_in_cpu` | `read-capacity.mode=CAPACITY_PLAN`(용량 권고가 참조) |
+| `host.disk_free_alert`, `backup.delay_alert` | `environment=SCHOOL_AWS`(학교 `LinuxDiskSpaceLow`·`DatabaseBackupStale`이 참조) |
+| `db.replication_lag_alert` | `environment`가 `SCHOOL_AWS`·`LOCAL_DOCKER`(학교·하네스 복제 지연 규칙이 참조) |
+| `host.cpu_alert`, `host.mem_alert`, `bot.capacity_guard`, `host.cpu_credit_alert` | 없음. 참조하는 규칙이나 권고가 아직 없다 |
+
+- **사건 조회.** `GET .../incidents`는 `status`(`OPEN`·`RESOLVED`, 생략 시 전체), `limit`(1~200, 기본 50), `cursor`를 받고 `{schema_version, data, pagination}`을 돌려준다. 정렬은 시작 시각 역순이다. 항목은 경보 항목의 라벨 필드(`fingerprint`, `alertname`, `severity`, `node`, `role`, `component`, `mountpoint`)와 `{id, summary, started_at, resolved_at, status, acked_by, acked_at, silence}`다. 사건 표는 주석을 담지 않으므로 `threshold_key`는 경보 칸에만 있다. `GET .../incidents/{id}`는 `{schema_version, incident, events}`이고 `incident`에 `first_seen_at`, `last_seen_at`이 더 있다. `events`는 `{id, kind, actor_type, actor_id, text, ref, at}`을 시각 순으로 싣는다. 없는 id는 `404 not_found`다. 끝 시각이 지난 보류는 `silence`를 `null`로 낸다.
+- **변경 이력.** `GET .../thresholds/changes`는 `key`, `limit`(1~200, 기본 50), `cursor`를 받는다. 항목은 `{id, key, from, to, version, via, changed_by, approval_id, ai_action_id, revert_of, reason, changed_at}`이고 변경 시각 역순이다. 없는 `key`는 `404 not_found`다. 되돌리기 응답은 `{schema_version, key, from, to, version, change_id, via:"REVERT", revert_of, approval_id}`다.
+- **확인과 보류 해제 응답.** 확인은 `{schema_version, fingerprint, incident_id, acked_by, acked_at}`이다. 활성이 아닌 경보는 `404 not_found`(`detail.reason=alert_not_active`), 생존 신호 경보는 `detail.reason=alert_excluded`다. 보류 해제는 `{schema_version, silence_id, incident_id}`다. 관제센터가 만든 사일런스가 아니면 `404 not_found`(`detail.reason=silence_not_managed`)다. 종료 전에 사일런스를 조회해 Alertmanager에 없거나 이미 끝났으면 종료 호출 없이 끝난 것으로 보고 사건의 보류 칸을 비운다. 보류의 `reason`은 1~200자, 임계값 변경의 `reason`은 500자 이하다.
+
+**경보 확인과 보류.** 확인은 사건에 확인자와 시각을 적는다. 보류는 그 경보의 라벨 묶음 전체를 정확히 맞춘 사일런스이고 `reason`이 필수다. 보류는 두 단계다. `BOT_OPS+`가 티켓 없이 거는 보류는 등급이 `warning`·`info`이고 `minutes`가 1~30이다. 등급이 `critical`·`other`이거나 30분을 넘는 보류(최대 `exchange.msp.silence.human-max`, 기본 480분)는 SUPER와 승인 티켓(`ops.alert.silence`, 대상 `{fingerprint}:{minutes}`)을 요구하고, 없거나 맞지 않으면 `403 admin_forbidden`이다. 경보를 오래 또는 critical까지 누르는 것은 임계값을 둔하게 바꾸는 것과 같은 효과라 같은 등급의 통제를 건다. 이미 사일런스에 눌린 경보는 `409 alert_already_silenced`, 활성이 아닌 경보는 `404 not_found`(`detail.reason=alert_not_active`), 생존 신호 경보는 `404 not_found`(`detail.reason=alert_excluded`), Alertmanager 설정이 없으면 `409 msp_source_not_connected`다. AI의 보류는 이 경로가 아니라 조치 요청(`SILENCE`)으로만 만들어지고, 대상은 운영자가 등록한 계획 작업 창 안의 `warning` 경보뿐이다. 관측 경로(`component`가 `monitoring`·`watchdog`)와 복제·DB·백업·디스크 계열 경보는 창이 있어도 대상이 아니다. 길이는 30분 이하이고 창의 끝을 넘지 않으며, 같은 지문 연속 불가다. 사람의 보류는 창과 무관하게 위 두 단계를 따른다. 사일런스 설명(`comment`)에는 사유와 사건 번호를, AI 보류에는 조치 요청 번호(`msp-ai-action:{id}`)도 싣는다.
+
+```json
+// POST /admin/v1/msp/alerts/5f3c2a9e0b1d4c77/silence  (BOT_OPS+, warning 30분 이하라 티켓 불요)
+{ "operator_id":"op-01","minutes":30,"reason":"디스크 정리 작업 중" }
+// 201
+{ "schema_version":"1.0","fingerprint":"5f3c2a9e0b1d4c77","incident_id":12,
+  "silence_id":"d6c1f0e2-6a9b-4d1e-9d7a-2b0c3f4e5a61","ends_at":"2026-09-24T09:30:00.000Z" }
+
+// 같은 경로로 120분 보류: SUPER, approval_token 대상 "5f3c2a9e0b1d4c77:120"
+{ "operator_id":"op-01","approval_token":"APV...","minutes":120,"reason":"디스크 증설 작업 중" }
+```
+
+**임계값.** 항목, 단위(`ratio`·`seconds`·`credits`), 허용 범위, AI 1회 폭은 마이그레이션이 정하고 API로 바꿀 수 없다. 변경은 SUPER와 승인 티켓(`ops.threshold.set`, 대상 `{key}:{value}`)을 거치고, 역할 확인·형식과 범위 검사·티켓 소각·현재 행 잠금·갱신·이력·감사가 한 트랜잭션이다(§6-D 수수료 변경과 같다). 검증이 실패하면 티켓은 소각되지 않는다. 사람의 변경에는 AI 1회 폭을 걸지 않는다. 형식·범위 위반은 `400 invalid_parameter`(`detail.constraint`)다. 값은 소수 넷째 자리까지만 받고 그보다 길면 `detail.constraint=scale`로 거부한다. 저장 열(`NUMERIC(12,4)`)이 조용히 반올림하면 티켓이 승인한 값과 저장한 값이 달라지기 때문이다. 축소 임계는 증설 임계보다 0.15 이상 낮아야 하고(T3), 이 간격은 변경, 되돌리기, AI 조치 요청의 승인·되돌리기에서 모두 검사해 위반이면 `409 msp_policy_denied`(`detail.rule=T3`)다. 서버 안의 자동 실행, 자동 되돌림, 설정 적용도 같은 검사를 거치고, DB가 커밋 때 한 번 더 본다(DB 설계 §10.2). 없는 항목은 `404 not_found`다. 되돌리기는 그 항목의 최신 변경만 되고 직전 값(미설정이면 미설정)으로 되돌린다. 초기값(`via=SEED`)은 되돌릴 수 없고, 초기값이 있는 항목은 미설정이 되지 않는다. 어긋나면 `409 threshold_revert_conflict`다. `in_use`가 `false`인 항목도 사람은 바꿀 수 있지만 AI는 바꾸지 못한다.
+
+```json
+// POST /admin/v1/msp/thresholds/host.disk_free_alert  (SUPER, approval_token 대상 "host.disk_free_alert:0.2")
+{ "operator_id":"op-01","approval_token":"APV...","value":"0.20","reason":"디스크 증설 전 조기 경보" }
+// 200
+{ "schema_version":"1.0","key":"host.disk_free_alert","from":"0.15","to":"0.2","version":2,
+  "change_id":41,"via":"MANUAL","approval_id":8850 }
+```
+
+변경 이력의 `via`는 `SEED`(마이그레이션 초기값), `CONFIG`(환경 기본값 적용), `MANUAL`, `AI_APPROVED`, `AI_AUTO`, `REVERT`, `AUTO_REVERT`다.
+
+**AI 모드.** 수동이 기본이다. 자동 켜기는 SUPER, 승인 티켓(`ops.ai.auto`, 대상 `AUTO:{hours}`), 사유(1~500자), `hours` 1·2·4·8 가운데 하나를 요구한다(ADR 0035). 형식 위반은 `400 invalid_parameter`다. AI 정지 중이면 `409 msp_policy_denied`(`detail.rule=M9`), LLM이나 Prometheus 설정이 없으면 `409 msp_source_not_connected`다. LLM 전송이 평문(`transport=PLAINTEXT`)이면 `409 msp_policy_denied`(`detail.rule=M8`), 결과를 모르는 조치 요청(`UNKNOWN`)이 남아 있으면 `409 msp_policy_denied`(`detail.rule=M1`)다. 응답의 `since`와 `valid_until`은 DB가 정한 값이다. 시작은 커밋 트랜잭션 시각이고 끝은 거기에 티켓의 시간을 더한 값이며, 티켓은 같은 트랜잭션에서 소각된 것이어야 한다(DB 설계 §10.4). 수동에서 켜면 활성 번호(`activation`)가 하나 오르고 이번 활성의 자동 조치 수와 임계값 항목별 수가 0부터 다시 센다. 자동인 동안 새 티켓으로 다시 켜면 지금부터 새 창이 되지만 활성 번호와 횟수는 이어진다. 자동 모드 동안 허용 목록 조치는 조치별 티켓 없이 실행되고, 자동 켜기 티켓이 그 창의 포괄 승인이다(§3-6). 즉시 끄기는 티켓 없이 VIEWER+ 누구나 언제든 부를 수 있고, 공용 레이트리밋 버킷을 쓰지 않으며(위 활성 조건), 이미 수동이면 `changed:false`로 성공한다. 즉시 끄기가 커밋된 뒤에는 AI 자동 실행이 없다. 실행 트랜잭션이 모드 행을 공유 잠금으로 읽으므로, 이미 시작한 실행은 끄기보다 먼저 커밋되고 그 뒤의 실행은 수동을 본다. 자동 모드는 유효 시간이 지나면 수동으로 돌아간다. 자동으로 실행한 조치의 관찰 창은 모드가 바뀌거나 정지해도 끝까지 보고, 그 안에서 악화하면 종류별 정책대로 되돌린다(되돌림은 조치를 무르는 안전 방향이다).
+
+```json
+// POST /admin/v1/msp/ai/mode/auto  (SUPER, approval_token 대상 "AUTO:4")
+{ "operator_id":"op-01","approval_token":"APV...","hours":4,"reason":"리허설 중 조회 급증 대응" }
+// 200
+{ "schema_version":"1.0","mode":"AUTO","since":"2026-09-24T09:00:00.000Z",
+  "valid_until":"2026-09-24T13:00:00.000Z","approval_id":8851,"activation":3 }
+
+// POST /admin/v1/msp/ai/mode/manual  (VIEWER+)
+{ "operator_id":"op-02","reason":"수동 확인 필요" }
+// 200
+{ "schema_version":"1.0","mode":"MANUAL","changed":true }
+
+// GET /admin/v1/msp/ai/mode → 200 (자동 모드)
+{ "schema_version":"1.0","mode":"AUTO","stopped":false,"stop":null,
+  "auto":{"since":"2026-09-24T09:00:00.000Z","valid_until":"2026-09-24T13:00:00.000Z","enabled_by":"op-01",
+          "reason":"리허설 중 조회 급증 대응","approval_id":8851},
+  "activation":{"seq":3,"started_at":"2026-09-24T09:00:00.000Z","auto_used":1,"auto_cap":5,
+                "threshold_used":{"host.cpu_alert":1}},
+  "cooldowns":{"READ_NODES":"2026-09-24T09:12:00.000Z","THRESHOLD":null,"BOT_LOAD":null},
+  "observe_until":"2026-09-24T09:07:00.000Z",
+  "llm":{"state":"READY","provider":"ollama-native","model":"gpt-oss:20b","transport":"LOOPBACK"} }
+```
+
+`activation`은 자동일 때만 싣는다. `cooldowns`는 종류별 쿨다운의 끝 시각이고 쿨다운이 없거나 지났으면 `null`이다. 사람의 같은 종류 조치도 쿨다운을 시작시킨다. 봇 부하(`BOT_LOAD`)는 발행률 설정(`PUT /admin/v1/sim/rate`)과 시나리오 활성화(`POST /admin/v1/sim/scenarios/{name}/activate`)가 모두 센다(v2.52.4). `observe_until`은 진행 중인 관찰 창의 끝이다.
+
+**AI 즉시 정지와 재개.** 정지는 수동·자동 두 모드에서 AI를 멈춘다(사용자 결정 2026-09-25, ADR 0035). 승인 없이 VIEWER+ 누구나 언제든 부를 수 있고 공용 버킷을 쓰지 않는다. 사유는 선택이며 200자 이하다. 정지하면 한 트랜잭션에서 자동 모드가 풀리고, 대기 중이던 조치 요청(`PROPOSED`, `DEFERRED`)이 `EXPIRED`(`hold_rule=M9`)가 된다. 정지 중에는 새 판단과 조치 요청이 없고, 조치 요청 승인과 자동 실행은 `409 msp_policy_denied`(`detail.rule=M9`)다. 정지 전에 자동 실행한 조치의 관찰 창은 끝까지 보고 악화하면 자동으로 되돌린다. 경보와 ASG 정책은 AI와 무관하게 그대로 돈다. 이미 정지 중이면 `changed:false`로 성공한다. 재개는 SUPER가 사유(1~200자)를 적어 하고, 수동으로만 돌아간다. 승인 티켓은 없고 자동은 재개 뒤 다시 `ops.ai.auto`로 켠다. 정지 중이 아니면 `changed:false`다. 둘 다 감사(`ops.ai.stop`, `ops.ai.resume`)와 사건 타임라인(`STOPPED`, `RESUMED`)에 남는다.
+
+```json
+// POST /admin/v1/msp/ai/stop  (VIEWER+)
+{ "operator_id":"op-02","reason":"AI 판단이 이상함" }
+// 200
+{ "schema_version":"1.0","stopped":true,"changed":true,"mode":"MANUAL","expired_actions":2 }
+
+// POST /admin/v1/msp/ai/resume  (SUPER)
+{ "operator_id":"op-01","reason":"모델 교체 확인" }
+// 200
+{ "schema_version":"1.0","stopped":false,"changed":true,"mode":"MANUAL" }
+```
+
+**AI 한도.** 운영자가 바꾸는 한도는 다섯이다(ADR 0035, 사용자 확정 2026-09-25). 값은 정수이고 하드 범위는 코드와 DB가 함께 건다(DB 설계 §10.4).
+
+| `key` | 뜻 | 확정값 | 하드 범위 | 조이는 방향(`tighter`) |
+|---|---|---|---|---|
+| `confidence_pct` | 자동 실행에 필요한 확신도(%) | 80 | 70~95 | `UP` |
+| `auto_cap` | 자동 모드 1회 활성당 자동 조치 상한(회) | 5 | 1~10 | `DOWN` |
+| `threshold_per_item` | 1회 활성당 임계값 항목 하나의 자동 변경(회) | 2 | 1~3 | `DOWN` |
+| `bot_cooldown_min` | 봇 부하 줄임 쿨다운(분) | 10 | 5~60 | `UP` |
+| `backup_disk_free_pct` | 백업 즉시 실행에 필요한 저장 디스크 여유(%) | 30 | 20~50 | `UP` |
+
+변경은 SUPER, 승인 티켓(`ops.ai.limits`, 대상 `{key}:{value}`), 사유(1~500자)를 요구한다. 값이 정수가 아니거나 하드 범위 밖이면 티켓을 쓰기 전에 `400 invalid_parameter`(`detail.constraint=range`)이고, 없는 항목은 `404 not_found`다. 자동 모드가 꺼져 있으면 곧바로 적용한다. 자동 모드 중에는 AI 권한을 좁히는 변경(`tighter` 방향)을 곧바로, 넓히는 변경을 다음 활성부터 적용한다. 적용 중인 값(`effective`)은 이번 활성이 시작될 때 잡아 둔 값과 지금 값 가운데 조이는 쪽이다. 사용자가 적은 '낮추는 변경은 즉시, 높이는 변경은 다음 활성부터'를 확신도·쿨다운·디스크 여유처럼 올려야 좁아지는 항목에서는 거꾸로 읽은 것이다(ADR 0035의 AI 해석). 자동 조치 상한을 이번 활성에서 이미 쓴 횟수 이하로 내리면 같은 트랜잭션에서 수동으로 바뀐다. 되돌리기는 이력의 직전 값으로 같은 경로를 다시 부르는 것이다. AI 신원은 한도를 바꿀 수 없다(조치 카탈로그에 없고 세션도 없다).
+
+```json
+// PUT /admin/v1/msp/ai/limits/auto_cap  (SUPER, approval_token 대상 "auto_cap:3")
+{ "operator_id":"op-01","approval_token":"APV...","value":3,"reason":"야간 자동 조치 줄임" }
+// 200
+{ "schema_version":"1.0","key":"auto_cap","from":5,"to":3,"version":2,"change_id":6,
+  "applies":"NOW","effective":3,"mode":"AUTO" }
+
+// GET /admin/v1/msp/ai/limits → 200
+{ "schema_version":"1.0",
+  "items":[{"key":"confidence_pct","value":75,"effective":80,"pending":true,"min":70,"max":95,
+            "tighter":"UP","unit":"%","version":2,"updated_by":"op-01",
+            "updated_at":"2026-09-24T09:30:00.000Z","reason":"확신도 기준 완화 시험"}],
+  "activation":{"seq":3,"started_at":"2026-09-24T09:00:00.000Z","auto_used":1} }
+```
+
+`applies`는 `NOW` 또는 `NEXT_ACTIVATION`이다. `pending`이 참이면 지금 값이 다음 활성부터 적용된다는 뜻이다. `activation`은 자동일 때만 싣는다. 변경 이력(`GET .../ai/limits/changes`)의 항목은 `{id, key, from, to, version, changed_by, approval_id, reason, changed_at}`이고 커서 규칙은 임계값 변경 이력과 같다.
+
+**계획 작업 창.** AI의 경보 보류는 운영자가 등록한 계획 작업 창과 겹치는 `warning` 경보에만 허용한다(정책 S6, 로컬 실측 근거는 설계 7-13절). 창은 시작·끝, 대상(`alertname`, `labels`), 사유, 등록자다. 대상은 경보명과 라벨이 모두 맞아야 하고 둘 가운데 하나는 있어야 한다. 라벨 키는 `node`, `role`, `component`, `mountpoint`만 받는다. `starts_at`은 생략하면 지금이고, `ends_at`은 지금보다 뒤이면서 시작 뒤 24시간 이내다. 사유는 1~200자다. 창 안이라도 복제·DB·백업·디스크 계열과 관측 경로 경보는 AI가 보류하지 못하고(정책 S5, S7), AI 보류의 끝은 창의 끝을 넘지 못한다. 사람의 보류는 창과 무관하다. 조기 종료는 끝난 창이나 이미 끝낸 창이면 `changed:false`다. 등록과 종료는 감사(`msp.window.create`, `msp.window.end`)와 사건 타임라인(`WINDOW`)에 남는다.
+
+```json
+// POST /admin/v1/msp/maintenance-windows  (BOT_OPS+)
+{ "operator_id":"op-02","ends_at":"2026-09-24T10:00:00.000Z","alertname":"BotOrderLatencyHigh",
+  "labels":{"component":"bot"},"reason":"봇 설정 교체 작업" }
+// 201
+{ "schema_version":"1.0","id":4,"starts_at":"2026-09-24T09:00:00.000Z","ends_at":"2026-09-24T10:00:00.000Z",
+  "alertname":"BotOrderLatencyHigh","labels":{"component":"bot"},"reason":"봇 설정 교체 작업",
+  "created_by":"op-02","ended_at":null,"ended_by":null,"active":true }
+```
+
+목록은 `status=ACTIVE`(기본, 지금 유효한 창)와 `ALL`(최근 100개)을 받고 끝 시각 역순이며 페이지를 나누지 않는다.
+
+**AI 판단과 모델 출력.** 모델은 판단마다 JSON 한 개를 낸다. 필드는 생성 순서대로 `situation_ko`(상황, 400자 이내), `reason_ko`(조치 이유, 400자 이내), `action`, `target`, `value`, `confidence`(0~1)다. 이유를 조치보다 먼저 쓰게 한 것은 로컬 실측(개발 PC RTX 4090의 Ollama `gpt-oss:20b`. DGX Spark 결과가 아니다)에서 조치를 먼저 쓰게 하면 이유와 반대인 조치가 나왔기 때문이다(설계 7-13절). 두 문장은 한국어 합니다체다. `action`은 방향과 대상이 드러나는 이름 여덟 가지다. `NO_ACTION`, `READ_NODE_ADD_ONE`, `READ_NODE_REMOVE_ONE`, `THRESHOLD_RAISE`, `THRESHOLD_LOWER`(`target`은 항목 키, `value`는 새 값), `ALERT_SILENCE`(`target`은 지문, `value`는 분), `BOT_LOAD_REDUCE`(`value`는 0.5 이상 1 미만의 배율), `BACKUP_RUN_NOW`다. 쓰지 않는 `target`·`value`는 빈 문자열이다. 서버는 이 이름을 조치 종류 다섯(`READ_NODES`, `THRESHOLD`, `SILENCE`, `BOT_LOAD`, `BACKUP_NOW`)으로 옮긴다. 출력 스키마는 저장소의 `server/app/src/main/resources/msp/ai-output.schema.json`이다.
+
+판단 결과 `outcome`은 `PROPOSED`, `NO_ACTION`, `INVALID_OUTPUT`, `MODEL_ERROR`, `EVIDENCE_STALE`이다. 모델 호출이 실패하면 `MODEL_ERROR`이고 `error`에 분류 코드(`timeout`, `unreachable`, `http_status`, `bad_response`, `response_limit`, `remote_address`)를 싣는다. 모델이 적재 중이면 판단을 기록하지 않고 다음 주기로 넘긴다. 출력이 16 KiB를 넘거나 JSON이 아니거나 필드와 형이 맞지 않거나 자유 문장에 링크 표기가 있으면 `INVALID_OUTPUT`이다. 조치 이름이 여덟 가지 밖이거나(`UNKNOWN_KIND`, 예: `DB_PROMOTE`), 값 형식이 틀리거나(`BAD_PARAMS`), 범위 밖이거나(`OUT_OF_RANGE`), 이 환경에서 쓸 수 없는 종류거나(`UNAVAILABLE_KIND`), 대상이 지금 없거나(`STALE_TARGET`), 임계값의 올림·내림이 값과 반대면(`DIRECTION_MISMATCH`) 그 조치를 버리고 판단 상세의 `dropped`에 남기며 결과는 `NO_ACTION`이다. 한 판단의 조치는 하나다.
+
+남은 조치는 정책 엔진이 제안 때 종류별 규칙과 방향 전제를 검사한다. 방향 전제는 결정적 코드 규칙이다. 조회 노드 증설은 근거의 조회 평균 CPU가 증설 임계 이상일 때만(D1), 축소는 축소 임계 미만이 설정 시간(기본 10분) 이상 이어질 때만(D2), 임계값 변경은 둔하게 하는 방향이면 그 항목의 경보가 울리는 중이 아니고 근거 지표가 임계를 넘지 않았을 때만(D3) 받는다. 경보 보류는 활성 `warning` 경보만(S1), 봇 부하는 줄이는 방향만(B1) 받는다. 막히면 요청은 `DENIED`로 남고 `hold_rule`에 규칙 id, `hold_reason`에 사유(예: '방향 모순: 조회 평균 CPU 0.82가 축소 임계 0.30 미만이 아닙니다')를 적는다. 연속 두 번 같은 판단(A4)은 무작위 흔들림을 거르지만 같은 입력에 같은 오답을 내는 결정적 설정의 체계적 오답은 막지 못하므로, 방향 전제가 그 몫을 한다.
+
+조치 요청 상태는 `PROPOSED`, `DEFERRED`, `EXECUTING`, `APPROVED`(사람 승인 실행), `AUTO_EXECUTED`, `FAILED`, `UNKNOWN`(실행이 중간에 끊겨 결과를 원천에서 대조하지 못함), `REJECTED`, `DENIED`(정책이 제안 때 막음), `WITHDRAWN`(뒤 판단이 제안하지 않음), `EXPIRED`(만료 또는 정지), `REVERTED`, `AUTO_REVERTED`다. `WITHDRAWN`과 `EXPIRED`는 `DEFERRED`에도 같다. 나중에는 요청의 만료 시각을 늘리지 않고(`minutes`는 만료 시각에서 자른다), 나중에로 둔 요청은 자동 실행하지 않으며 사람의 승인으로만 실행된다. 같은 조치는 그 요청이 끝난 뒤에도 나중에 시각까지 자동 실행하지 않는다. VIEWER의 나중에가 AI의 실행 기회를 늘리지 않게 하기 위해서다. `UNKNOWN`은 서버가 원천(Alertmanager 사일런스 목록)과 다시 대조해 결과를 채우거나 `FAILED`로 닫는다. 임계값 조치 요청(`THRESHOLD`)은 판단 때의 현재값(`params.from`)에서 새 값으로 바꾸는 요청이다. 같은 새 값을 내는 판단이 이어져도 그 사이에 현재값이 바뀌었으면 열린 요청을 `WITHDRAWN`으로 닫고 새 요청을 만들어 연속 판단을 처음부터 센다(v2.52.4). 그래서 요청의 `verb`(올림·내림)와 `params.from`은 마지막 판단의 현재값과 맞는다.
+
+판단 상세의 `situation`, `reason`과 조치 요청의 `reason`은 모델이 쓴 평문이다. 서버는 링크를 만드는 표기(URL 스킴, `www.`, Markdown 링크·이미지, 꺾쇠 자동 링크와 HTML 태그, `@` 멘션)가 있으면 그 출력을 `INVALID_OUTPUT`으로 버린다. 화면은 이 필드를 Markdown이나 링크로 그리지 않고, Teams 통지에는 싣지 않는다.
+
+승인은 정책 엔진의 공통 규칙(C1~C6), 종류별 규칙, 방향 전제, 정지(M9)를 실행 직전에 새로 모은 근거로 다시 검사한다. 확신도·연속 판단·쿨다운 같은 자동 모드 규칙과 빈도 규칙(활성당 항목별 횟수, 같은 지문 연속 보류, 백업 하루 1회)은 사람의 승인에 걸지 않는다. 승인과 자동 실행은 검사하기 전에 대상 행(`READ_NODES`는 용량 계획, `THRESHOLD`는 임계값 항목)을 잠그고, 잠근 값이 실행 직전에 모은 근거의 값과 같은지 본다. `THRESHOLD`는 요청의 `params.from`과도 같아야 한다. 다르면 근거를 모은 뒤나 요청을 만든 뒤에 사람이 대상을 바꾼 것이므로 `409 msp_policy_denied`(`detail.rule=C5`, `detail.reason_code=target_changed`)다(v2.52.4). 거부는 `409 msp_policy_denied`(`detail.rule`, `detail.reason_code`), 이미 처리됐거나 만료된 요청(같은 요청의 두 번째 승인 포함, 정책 C3)은 `409 ai_action_not_open`, 경계를 넘는 조회 노드 변경은 §6-A-a와 같은 `409 CAPACITY_OUT_OF_BOUNDS`다. 되돌리기는 종류마다 다르다. `READ_NODES`는 현재 희망 대수가 조치 결과와 같을 때 반대 방향 1대, `THRESHOLD`는 최신 변경이고 T3을 지킬 때 직전 값, `SILENCE`는 사일런스 종료, `BOT_LOAD`는 직전 목표 발행률이다. `THRESHOLD` 되돌리기 티켓의 대상은 실행 때 바꾸기 전의 값(`{key}:{result.from}`)이다. `BACKUP_NOW`는 되돌리기가 없고, 이미 되돌렸거나 실행되지 않은 요청과 함께 `409 ai_action_not_open`이다.
+
+```json
+// GET /admin/v1/msp/ai/decisions/305 → 200
+{ "schema_version":"1.0","id":305,"decided_at":"2026-09-24T09:02:00.000Z","mode":"AUTO",
+  "outcome":"PROPOSED","error":null,"model":"gpt-oss:20b","prompt_version":"msp-ai/1",
+  "evidence":{ "schema":"msp-evidence/1", "collected_at":"2026-09-24T09:01:58.000Z" },
+  "evidence_sha256":"9b1f...","oldest_sample_at":"2026-09-24T09:01:45.000Z",
+  "output_raw":"{\"situation_ko\":\"...\"}","output_sha256":"4c2e...","output_truncated":false,
+  "situation":"조회 노드 평균 CPU가 증설 임계를 넘었습니다.","reason":"조회 요청이 늘어 노드를 한 대 늘려야 합니다.",
+  "confidence":"0.86","latency_ms":930,"incident_id":12,
+  "actions":[{"id":77,"kind":"READ_NODES","verb":"READ_NODE_ADD_ONE","params":{"delta":1},
+              "status":"AUTO_EXECUTED","consecutive":2,"hold_rule":null,"hold_reason":null}],
+  "dropped":[] }
+
+// POST /admin/v1/msp/ai/actions/77/approve  (THRESHOLD면 approval_token 동반)
+{ "operator_id":"op-01" }
+// 200
+{ "schema_version":"1.0","action_id":77,"kind":"READ_NODES","status":"APPROVED",
+  "result":{"from":2,"to":3},"revertible":true }
+```
+
+조치 요청 항목은 `{id, kind, verb, target, identity_key, params, confidence, reason, status, hold_rule, hold_reason, consecutive, auto, deferred_until, decided_by, decided_at, approval_id, executed_by, executed_at, result, observe_until, observe_outcome, reverted_by, reverted_at, created_at, expires_at, first_decision_id, last_decision_id, revertible}`이다. `auto`는 자동 실행한 요청이면 참이다. `observe_outcome`은 관찰 창의 결과(`KEPT`, `REVERTED`, `UNOBSERVABLE`, `REVERT_BLOCKED`, `NOT_REVERTIBLE`)다. 관찰 창 안에서 사람이 먼저 되돌린 요청(`status=REVERTED`)은 관찰 결과를 적지 않아 `null`이고, 서버의 자동 되돌림이 뒤따라 닿아도 '되돌림 불가'로 적거나 통지하지 않는다(v2.52.4). 판단 이력의 항목은 `{id, decided_at, mode, outcome, error, model, confidence, latency_ms}`다. 없는 id는 `404 not_found`다.
+
+판단 상세의 `output_raw`는 16 KiB까지 저장하고 넘으면 자르며 `output_truncated`로 알린다. `output_sha256`은 자르기 전 전체의 해시다. 근거 스냅숏에는 비밀 값, 개인정보, 사설 주소가 없다.
+
+**캐시와 한 판(v2.52.3).** 관제센터는 거래 앱과 같은 작은 인스턴스(t3.small, CPU 크레딧)에서 돌 수 있으므로 매칭·주문 경로의 자원을 빼앗지 않는 것이 먼저다. 원천 읽기는 관리 JVM 안의 공유 캐시를 거친다. 키는 코드가 정한 이름뿐이고(최대 64개), 키마다 짧은 수명을 두며, 같은 키를 동시에 읽으면 원천 호출은 한 번이고 나머지 요청은 그 결과를 기다린다. 실패한 조회도 수명 동안 같은 결과(칸의 `UNAVAILABLE`)로 공유해 운영자 수만큼 원천을 다시 두드리지 않는다.
+
+| 키 | 수명 | 원천 |
+|---|---|---|
+| Prometheus instant 명명 질의 묶음 | `exchange.msp.cache-ttl`(기본 10초, 1~10초) | `GET /api/v1/query` |
+| 조회 계층 노드 관측 | `cache-ttl` | §6-A-a 노드 조회 |
+| 추세 range 질의(계열·범위별) | step에 맞춰 30~60초 | `GET /api/v1/query_range` |
+| 사건 추세(범위별) | step에 맞춰 30~60초 | 사건 표 |
+| AI 서버 상태 | 30초 | LLM 서버 상태 경로 |
+| 보고 목록, 전송 상태 | 30초 | 보고 서비스 |
+
+Alertmanager 경보는 폴러 한 곳이 15초마다 읽고 조회 경로는 그 결과를 쓴다. 캐시의 적중·적재·대기는 `exchange_msp_cache_requests_total{cache,result}`(`result`는 `hit`, `miss`, `wait`), 실제 원천 호출은 `exchange_msp_source_calls_total{source,op}`로 센다. 요약 칸의 가용성, 응답 p95, 5xx 비율과 요청률은 Prometheus가 기록 규칙(`exchange:msp_probe_success:ratio5m`, `exchange:msp_http_p95:seconds5m`, `exchange:msp_http_5xx:ratio5m`, `exchange:msp_http_requests:rate5m`)으로 미리 계산하고 관제센터는 그 이름만 질의한다. 규칙 파일(학교 `school-alerts.yml`, 하네스 `exchange-recording.yml`)이 없는 Prometheus에서는 세 값이 `MISSING`이다. 규칙 안의 job은 규칙 파일이 정하므로, 이 세 값에는 `exchange.msp.prometheus.app-job`·`probe-job`이 수집 시각(`sampled_at`)을 정하는 데만 쓰인다.
+
+`GET .../overview`는 `ETag`를 싣는다. 값은 본문에서 `generated_at`, 모든 `age_seconds`, `last_poll_at`, `ai_server.server.checked_at`을 뺀 JSON의 SHA-256 앞 32자리를 약한 태그(`W/"..."`)로 싼 것이다. 요청의 `If-None-Match`가 같으면 본문 없이 `304`를 낸다. 요청 단위 감사는 그대로 남는다. `Cache-Control`은 `private, no-cache`다. 304를 받은 화면은 이전 본문을 쓰고 나이는 `sampled_at`에서 다시 계산한다. 수집 표본이 바뀌면(학교 수집 주기 15초) 태그도 바뀌므로 304는 주로 같은 표본을 두 번 읽을 때(여러 탭, 캐시 수명 안의 재요청) 난다.
+
+**요약 추세.** 요약 칸(외부 가용성, 응답 p95, 5xx 비율, 활성 경보, 사건)의 시간 범위 추세와 이전 구간 대비 증감이다. 한 판은 24시간 추세를 싣고, 화면은 범위를 바꿀 때 `GET .../trends?range=1h|6h|24h`를 부른다. 다른 `range`는 `400 invalid_parameter`(`detail.field=range`)다.
+
+```json
+// GET /admin/v1/msp/trends?range=24h → 200 (머리 필드는 세부 조회와 같다)
+{ "schema_version":"1.0","environment":"SCHOOL_AWS","day_zone":"Asia/Seoul","generated_at":"2026-09-24T09:00:04.000Z",
+  "range":"24h","step_seconds":720,
+  "window":{"start":"2026-09-23T09:00:00.000Z","end":"2026-09-24T09:00:00.000Z"},
+  "previous_window":{"start":"2026-09-22T09:00:00.000Z","end":"2026-09-23T09:00:00.000Z"},
+  "series":{
+    "availability":{"state":"NOT_CONNECTED","source":"prometheus"},
+    "p95_seconds":{"state":"READY","data":{"unit":"seconds","aggregate":"mean",
+       "points":[["2026-09-23T09:12:00.000Z","0.182"],["2026-09-23T09:24:00.000Z",null]],
+       "current":"0.175","previous":"0.201","delta":"-0.026","samples":{"current":118,"previous":120}}},
+    "error_ratio":{"state":"UNAVAILABLE","reason":"timeout"},
+    "active_alerts":{"state":"READY","data":{"unit":"count","aggregate":"mean",
+       "points":[["2026-09-23T09:12:00.000Z",2]],"current":"0.4","previous":"1.2","delta":"-0.8",
+       "samples":{"current":120,"previous":120}}},
+    "incidents":{"state":"READY","data":{"unit":"count","aggregate":"sum","bucket_seconds":3600,
+       "points":[["2026-09-23T09:00:00.000Z",0]],"current":5,"previous":3,"delta":2}}} }
+```
+
+- step은 30초와 `2 × 범위 / 240` 가운데 큰 값이다(1시간 30초, 6시간 180초, 24시간 720초). 끝 시각은 지금을 step의 배수로 내린 시각이고, `window`는 (끝 - 범위, 끝], `previous_window`는 (끝 - 2 × 범위, 끝 - 범위]다.
+- Prometheus 계열(`availability`, `p95_seconds`, `error_ratio`)은 위 기록 규칙 이름 하나를 `query_range`로 두 구간에 걸쳐 한 번 읽는다(점 240개 이하). 요청의 어떤 값도 PromQL에 들어가지 않는다. 결과 시계열이 둘 이상이거나 점이 상한을 넘으면 `UNAVAILABLE`(`reason=bad_response`)이다. Prometheus 설정이나 해당 job 설정이 없으면 `NOT_CONNECTED`다.
+- 점은 `[시각, 값]`이고 step 격자에 맞춘다. 표본이 없는 칸은 `null`이며 0으로 채우지 않는다. 한 판과 `trends`는 지금 구간의 점만 싣는다.
+- `current`·`previous`는 각 구간에서 `null`이 아닌 점의 평균(`aggregate:"mean"`)이고 `samples`는 평균에 쓴 점의 수다. `delta`는 `current - previous`이고 한쪽이 없으면 `null`이다. 평균은 step 간격 표본의 평균이라 step보다 짧은 변동은 거칠게 반영된다. `p95_seconds`의 평균은 5분 p95 값들의 평균이지 구간 전체의 p95가 아니다.
+- `active_alerts`는 사건 표에서 각 점의 시각에 열려 있던 사건 수다(생존 신호 경보는 사건이 아니다). 관제센터가 멈춘 동안은 마지막으로 안 상태가 이어진다. `incidents`는 구간을 24칸(`bucket_seconds`)으로 나눈 칸별 시작 사건 수이고 `current`·`previous`는 구간 합(`aggregate:"sum"`)이다.
+- 값의 표기는 측정 객체와 같다. 비율은 넷째 자리, 초는 셋째 자리까지의 십진 문자열이고 `active_alerts`의 평균은 첫째 자리 십진 문자열, 사건 수는 정수다.
+
+**AI 상담.** 운영자가 현재 상태를 자연어로 묻는 칸이다. 읽기 전용이다. 서버는 질문 시점의 근거를 새로 만들어 모델에 주되 조치 카탈로그를 넣지 않고, 이 경로에서 상태를 바꾸는 호출(조치 요청, 승인, 보류, 임계값, 모드, 한도)을 하지 않는다. 질문이나 답에 '조치해 달라'는 문장이 있어도 명령으로 해석하지 않으며, 모델은 그런 질문에 관제센터의 AI 조치안 카드나 해당 화면을 안내한다.
+
+```json
+// POST /admin/v1/msp/ai/chat  (VIEWER+)
+{ "operator_id":"op-02","question":"지금 5xx가 늘었나요?",
+  "history":[{"role":"user","content":"조회 노드는 몇 대인가요?"},
+             {"role":"assistant","content":"조회 노드는 희망 3대, 관측 3대입니다."}] }
+// 200
+{ "schema_version":"1.0","state":"ANSWERED","reason":null,
+  "preface":"근거 일부가 60초보다 오래되었습니다(가장 오래된 표본 95초 전).",
+  "answer":"최근 5분 5xx 비율은 0.04%로 이전과 비슷합니다. ...",
+  "citations":[{"id":"metric.http_5xx_ratio","label":"5xx 비율","value":"0.0004",
+                "collected_at":"2026-09-24T08:59:47.000Z","age_seconds":13,"collect":"OK"}],
+  "evidence":{"collected_at":"2026-09-24T09:00:00.000Z","sha256":"9b1f...","items":14,"stale":true,
+              "not_connected":["alertmanager"]},
+  "model":"gpt-oss:20b","latency_ms":930 }
+```
+
+- `question`은 제어 문자를 지운 뒤 1~500자, `history`는 최근 6개 이하이고 항목은 `role`(`user`·`assistant`)과 `content`(1~1200자)다. 어기면 `400 invalid_parameter`(`detail.field`, `detail.constraint`)다. 서버는 대화를 저장하지 않는다. 대화 맥락은 요청이 싣고 온 것만 모델에 보낸다.
+- 근거는 항목마다 `id`와 수집 시각을 가진다. 허용한 지표(`metric.*`), 조회 계층(`read_tier`), 활성 경보(`alert.{fingerprint}`), 열린 사건(`incident.{id}`, 최근 10건), 최근 조치(`action.{id}`, 5건), 임계값(`threshold.{key}`), 모드와 정지(`mode`), 원천 상태(`sources`)다. 경보 라벨과 요약은 근거 블록 안의 데이터로만 넣고, 시스템 규칙은 근거 안의 문장을 지시로 따르지 않게 한다. 질문과 대화에서 이메일, URL, IP 주소, 토큰·키 모양 문자열, 긴 숫자열은 모델에 보내기 전과 감사에 남기기 전에 가린다. 비밀 값과 개인정보를 모두 걸러 내는 필터는 아니므로 화면은 질문 칸에 그런 값을 넣지 말라고 안내한다.
+- 근거에 60초보다 오래된 표본이 있거나 원천이 연결 전·실패면 서버가 그 사실을 `preface`(합니다체)에 쓴다. 화면은 `preface`를 답보다 먼저 보인다. 모델에게도 그 사실을 먼저 말하게 한다. `evidence.stale`은 그런 표본이 있는지, `not_connected`는 설정이 없는 원천 이름이다.
+- 모델 출력은 `{answer_ko, cited_ids}` JSON이다(스키마 파일 `server/app/src/main/resources/msp/ai-chat.schema.json`). 답은 한국어 합니다체 1~1200자이고 링크를 만드는 표기(조치 판단과 같은 규칙)가 있으면 답을 버린다. `citations`는 모델이 인용한 id 가운데 근거에 있는 것만(최대 8개) 서버가 값과 수집 시각을 붙여 싣는다. 화면은 답을 평문으로만 보인다.
+- `state`는 `ANSWERED`, `NOT_CONNECTED`(LLM 설정 없음), `STOPPED`(AI 정지 중), `UNAVAILABLE`(`reason`: `timeout`, `unreachable`, `http_status`, `bad_response`, `response_limit`, `remote_address`, `invalid_output`, `model_loading`)이고 모두 200이다. `ANSWERED`가 아니면 `answer`는 서버가 쓴 안내 문장(예: 'AI 연결 전입니다. 지표와 경보는 관제센터에서 그대로 볼 수 있습니다.')이고 `citations`는 빈 배열이다. Ollama 모델이 메모리에 없으면 적재를 요청하고 `model_loading`으로 답한다.
+- 제한은 운영자마다 분당 6건(`429 too_many_requests`, `detail.scope=ai_chat`), 관리 JVM 전체에서 동시 2건(`429 too_many_requests`, `detail.scope=ai_chat_concurrency`, `Retry-After` 5초), 모델 호출 시간 상한 `exchange.msp.llm.timeout`이다. 관리 필터의 공용 버킷도 그대로 차감한다. 요청 스레드는 동시 상한만큼만, 시간 상한까지만 쓰인다.
+- 감사 코드는 `ops.ai.chat`이다. `detail`에 가린 질문(500자), 답(1200자), 모델, 근거 해시(`evidence_sha256`), 인용 id, `state`·`reason`, 지연, 대화 길이를 싣는다. 근거 원문은 싣지 않는다.
+
+**AI 서버 상태.** 판단과 상담이 쓰는 온프레미스 LLM 서버(2026-09-28 들어오는 DGX Spark, 처음에는 Ollama)의 상태다. 관제센터 인프라 칸과 설정 화면의 원천이고, 한 판의 `ai_server`는 이 응답에서 `schema_version`을 뺀 것이다.
+
+```json
+// GET /admin/v1/msp/ai/server → 200
+{ "schema_version":"1.0","state":"READY","provider":"ollama-native","model":"gpt-oss:20b",
+  "transport":"LOOPBACK","remote_allowed":false,
+  "server":{"version":"0.12.3","model_loaded":true,"model_listed":null,
+            "loaded_models":[{"name":"gpt-oss:20b","size_vram_bytes":13958643712,"expires_at":"2026-09-24T09:05:00.000Z"}],
+            "checked_at":"2026-09-24T08:59:53.000Z","age_seconds":7},
+  "calls":{"window":50,"count":37,"failures":2,"latency_ms":{"p50":930,"p95":2100},
+           "last_success_at":"2026-09-24T08:59:12.000Z","last_failure":{"at":"2026-09-24T07:10:00.000Z","code":"timeout"},
+           "by_purpose":{"judge":30,"chat":7}} }
+```
+
+- LLM 설정이 없으면 `{state:"NOT_CONNECTED", source:"llm"}`이다. 서버 조회는 30초 캐시이고 판단 주기와 따로 돈다. `ollama-native`는 `GET /api/version`과 `GET /api/ps`, `openai-compatible`은 `GET /v1/models`를 부른다. openai 호환 서버는 적재 여부를 알려 주지 않으므로 `model_loaded`는 `null`이고 목록에 설정한 모델이 있는지를 `model_listed`로 싣는다. 버전을 모르면 `null`이다. 조회가 실패하면 `state=UNAVAILABLE`과 `reason`(분류 코드)이고 `calls`는 그대로 싣는다.
+- 주소는 싣지 않는다. 주소 규칙(루프백·사설만, 원격은 `llm.allow-remote`, 루프백이 아닌 평문은 `llm.allow-insecure-http`)은 판단 호출과 같다. AWS와 온프레미스 사이의 연결 경로는 정하지 않았으므로 주소는 설정으로만 받는다.
+- `calls`는 서버가 직접 센 최근 50번의 모델 호출(판단 `judge`와 상담 `chat`)이다. 지연 p50·p95는 성공한 호출로만 세고, 실패는 분류 코드로만 남긴다. 재기동하면 비운다. 같은 값을 지표 `exchange_msp_llm_calls_total{purpose,outcome}`과 `exchange_msp_llm_latency_seconds`로도 낸다.
+
+**보고서와 Teams 통지.** AI 통지 사건(자동 실행, 자동 되돌림, 모드 전환, 자동 조치 상한 도달, 관찰 실패, 실행 결과 모름, 모델 실패 연속, 정지, 재개)을 관리 JVM이 Teams에 직접 보내지 않는다. 거래 서버와 분리된 보고 서비스(`deploy/reporting`)가 일일·사건 보고와 같은 카드 언어, 보관함, 재시도, 전송 기록으로 보낸다. 웹훅 주소는 보고 서비스만 가진다.
+
+- 관리 JVM은 조치가 커밋된 뒤 통지 보관함(DB 설계 §10.5)에 서버가 만든 값만으로 사건을 쓰고, 전용 작업이 보고 서비스의 `POST /msp/events`(`Authorization: Bearer`, 토큰은 `exchange.msp.reporting.token-file`)로 넘긴다. 본문에는 조치 종류와 대상, 전후 값, 확신도, 관찰 끝, 근거 지표(이름·값·임계), 모델 이름, 미확인 근거 수, 모드와 행위자가 들어가고 모델의 자유 문장(상황·이유), URL, 토큰, 사설 주소는 들어가지 않는다. 보고 서비스는 같은 사건 id를 한 번만 받으므로(중복이면 `duplicate:true`) 응답을 잃은 전송은 다시 보낸다.
+- 보관함 상태는 `PENDING`, `SENDING`, `ACCEPTED`(보고 서비스가 접수), `FAILED`, `SKIPPED`(보고 서비스 설정 없음)다. 연결 실패, 408, 429, 5xx는 지수 대기로 최대 6번까지 다시 넘기고, 그 밖의 4xx와 횟수 초과는 `FAILED`다. Teams 전달 결과(보고 서비스의 전송 기록)는 `GET .../reports/status`로 본다. 접수되면 관련 사건의 타임라인에 `NOTIFIED`를 남긴다.
+- `GET .../reports?limit=20`(1~100)은 보고 서비스의 `GET /console/reports`를 설정한 고객·환경 범위(`exchange.msp.reporting.customer`, `.environment`)로 30초 캐시해 읽고 허용한 필드만 싣는다. 응답은 `{schema_version, state, data}`이고 항목은 `{id, kind, created_at, sent_at, status, title, severity, summary, alert_state, targets, links}`다. `kind`는 `daily`, `incident`, `msp`, `test`다. `links`는 `exchange.msp.reporting.artifact-base-url`이 있을 때만 PDF·HTML 서명 주소(보고 서비스가 만든 1시간 유효 주소)를 싣고 없으면 `null`이다. 보고 서비스 설정이 없으면 `state=NOT_CONNECTED`, 조회가 실패하면 `UNAVAILABLE`(`reason`)이고 `data`는 없다.
+- `GET .../reports/status`는 `{schema_version, state, data:{reporting, outbox}}`다. `reporting`은 보고 서비스 `GET /console/status`의 `{delivery_enabled, counts, last_sent_at, last_attempt:{at, status, error}, oldest_pending_age_seconds, last_daily_sent_at}`이고 `counts`는 작업 상태(`pending`, `processing`, `queued`, `sending`, `sent`, `dead`)별 수다. `outbox`는 관제센터 통지 보관함의 상태별 수와 마지막 접수 시각 `last_accepted_at`이다. 보고 서비스 설정이 없으면 `state`는 `NOT_CONNECTED`이고 `reporting`은 `null`이다. 보고 서비스를 읽지 못하면 `state`는 `UNAVAILABLE`(`reason`)이고 `reporting`은 `null`이다. 어느 경우든 `outbox`는 싣는다.
+
+**운영 작업.** DB 백업 칸은 `failstop_db_backup_*` 지표에서, 일일 보고 칸은 타이머의 마지막 실행 시각에서 읽는다. 일일 보고 칸은 실행만 알고 Teams 전달 성공은 모른다. Databasus와 인증서 칸은 이 판에서 원천이 없어 `NOT_CONNECTED`다. `POST /admin/v1/msp/ops/backup`은 Databasus 연결 전이라 늘 `409 msp_source_not_connected`(`detail.source=databasus`)이고 성공을 지어내지 않는다.
+
+**원천 실패.** 조회 경로는 원천이 실패해도 200을 내고 해당 칸을 `UNAVAILABLE`로 낸다. 조작 경로(보류, 보류 해제)는 원천 호출이 실패하면 `502 msp_upstream_failed`이고, 응답을 받지 못해 적용 여부를 모르면 `detail.outcome=UNKNOWN`을 싣는다. 이때 다음 폴링이 실제 상태를 사건 표에 반영한다.
 
 
 ## 7. 부록
@@ -2208,3 +2592,48 @@ ADR 0022 9단계(이벤트 대역 확대, V46)가 `event_seq` 의 대역 폭을 
 - **§2-4 에 저널 append 가 예외로 끝난 접수의 키와 예약 규칙을 더한다.** 이 요청의 주문 id 로 커밋을 확인하면 정상 접수로 응답하고, 확인하지 못하면 종전처럼 해시를 지운다. 같은 내용의 다른 요청이 대조한 해시는 공유 표시로 남긴다. 해시 만료 구간의 대조 불가 `409` 규칙은 그대로이고, 이번 요청이 넣은 해시에 공유 표시가 있는 경우만 대조를 마친 것으로 본다. 공유 표시는 저널에 같은 키의 주문이 없음을 관측한 요청만 남기므로, 선점 경합에서 진 요청은 표시 전에 저널을 다시 본다. 공유 표시 조회가 실패하면 대조 불가로 거절한다.
 - **응답 코드 집합은 바뀌지 않는다.** 커밋 응답을 잃은 접수가 종전의 `5xx` 대신 `201`(또는 `422`, `409 order_in_progress`)을 받을 수 있고, 해시를 잡는 경합이 끝나지 않으면 `409 order_in_progress` 가 난다. 둘 다 이미 정의된 코드다.
 - **잠금 대기 초과(55P03)의 응답은 이 판에서 바꾸지 않는다.** Spring 기본 번역기가 55P03 을 분류하지 못해 게이트웨이 경로에서 `500 server_error` 로 남는다. `503` 으로 바꾸면 쓰기 업스트림이 `proxy_next_upstream ... http_503` 과 `max_fails=1` 로 그 응답 하나에 리더를 2초 빼는 배치(하네스 nginx, 개인 계정 edge 템플릿)가 있어, 매핑과 LB 설정을 함께 정해야 한다. 정산 쪽 55P03 은 재시도로 흡수한다(DB 설계 §5.4).
+
+## v2.52.1 패치 반영 사항
+
+관리 콘솔 MSP 관제센터의 2단계 서버 계약을 구현보다 먼저 적는다. 2026-09-24 갱신. 서버 코드는 아직 없다.
+
+- **판 번호.** 브랜치 `claude/per-market-leader`가 이 문서의 v2.53~v2.54를 쓰고 있어 겹치지 않도록 v2.52.1로 둔다. DB 설계 v2.51.1과 같은 방식이다.
+- **§6-F를 새로 둔다.** 관제센터의 조회(한 판, 호스트, 경보, 사건, 운영 작업, 임계값, AI 모드와 판단), 경보 확인·보류, 임계값 변경·되돌리기, AI 모드 켜기·즉시 끄기, AI 조치 요청의 승인·거절·나중에·되돌리기다. 칸 상태(`READY`·`NOT_CONNECTED`·`UNAVAILABLE`)와 측정 객체의 `sampled_at`은 미수집을 0이나 정상으로 바꾸지 않기 위한 규칙이다. 설계 이유와 정책 규칙 id는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md`에 있다.
+- **§3-6 승인 필수 열거에 다섯을 더한다.** 임계값 변경, 임계값 되돌리기, 등급이 `critical`·`other`이거나 30분을 넘는 경보 보류, AI 자동 모드 켜기, 조치 종류가 `THRESHOLD`인 AI 조치 요청의 승인·되돌리기다. 새 액션 `ops.threshold.set`(대상 `{key}:{value}`), `ops.alert.silence`(대상 `{fingerprint}:{minutes}`), `ops.ai.auto`(대상 `AUTO:{hours}`)는 값까지 바인딩해, 승인받은 것보다 둔한 경보, 긴 보류, 긴 자동 창으로 티켓을 다시 쓰지 못하게 한다. 발급 API(`POST /admin/v1/approvals`)는 액션 이름을 제한하지 않으므로 바뀌지 않는다.
+- **§2-3에 오류 코드 여섯을 더한다.** `msp_source_not_connected`(409), `msp_upstream_failed`(502), `msp_policy_denied`(409), `ai_action_not_open`(409), `threshold_revert_conflict`(409), `alert_already_silenced`(409)다. 없는 대상은 기존 `404 not_found`에 `detail.reason`을 싣는다. 502는 이 문서에서 처음 쓰는 상태 코드이며 관리 평면의 원천 호출 실패에만 쓴다. 주문 경로의 `503` 재조회 계약과 섞지 않기 위해서다.
+- **§6-A-a에 관계를 적는다.** 권고 임계의 원천을 설정에서 임계값 레지스트리로 옮기고 응답 모양은 유지한다. 용량 변경 경로는 관제센터의 조회 노드 조치가 다시 쓰고, 그 조치는 로컬 Docker(`read-capacity.mode=CAPACITY_PLAN`)에서만 허용된다.
+- **AI 조치 권한은 ADR 0035(사용자 확정 2026-09-24)를 따른다.** 이 판 작성 시점에 ADR 파일은 다른 브랜치에서 작성 중이라 링크하지 않았다. 이 문서의 §6-A-a 권고 서술('판정은 자동이고 실행은 사람'), §3-6의 '관측 데이터의 지시 무시'(파라미터 변경·파괴 액션은 운영자 명시 요청으로만 수행), 하네스 CI·CD §5-6의 '알람에 자동 액션을 연결하지 않는다', ADR 0027의 'AI에 확장 대수 변경 권한을 주지 않는다', 관리자 설계 §6의 '임계 초과·경보 발생만으로 실행되지 않는다'와의 관계는 ADR 0035 병합 때 대체 관계로 정리한다.
+- **설계 검토 반영(2026-09-25, 같은 판).** 구현 전 설계 검토 지적을 반영해 같은 판을 고쳤다. 경보 보류를 두 단계로 나눠 `critical`·`other` 등급이나 30분 넘는 보류에 SUPER와 새 액션 `ops.alert.silence`(대상 `{fingerprint}:{minutes}`)를 요구하고 §3-6 열거와 바인딩 표에 더했다. 티켓 없는 보류가 임계값 승인보다 약한 권한으로 경보를 둔하게 만드는 우회였기 때문이다. §3-6에 자동 모드의 포괄 승인과 '관측 데이터의 지시 무시'의 관제센터 예외를 적었다. 즉시 끄기는 공용 레이트리밋 버킷을 쓰지 않는다. 화면 폴링이 버킷을 비우면 킬 스위치가 429로 막혔다. 경보 `severity`는 정규화한 네 값이고 생존 신호 경보(`Watchdog`)는 목록과 사건에서 뺀다. 임계값은 소수 넷째 자리까지만 받고(`detail.constraint=scale`), T3은 모든 쓰기 경로에서 검사하며, 초기값은 되돌릴 수 없다. 항목에 `in_use`와 `rule_value`를 더했다. 자동 켜기는 평문 LLM 전송(M8)과 `UNKNOWN` 요청(M1)이 있으면 거부되고 창은 DB가 정한다. 조치 요청 상태에 `UNKNOWN`을 더하고, 나중에는 만료를 늘리지 않으며 자동 실행에서 영구히 뺀다. 모델 문장은 평문이며 링크 표기가 있으면 출력을 버린다. §6-A-a는 레지스트리 읽기를 MSP 스위치에 묶고 `capacity_plan`의 잃어버린 갱신을 적었다. 오류 코드는 새로 만들지 않았다. 지적별 판단은 설계 문서 13절에 있다.
+- **구현 반영(2026-09-25, 같은 판).** 조회(한 판, 호스트, 경보, 사건, 운영 작업, 임계값과 변경 이력), 임계값 변경·되돌리기, 경보 확인·보류·보류 해제, 백업 즉시 실행 스텁을 구현했다. `/ai/*` 경로와 즉시 끄기의 레이트리밋 예외는 아직 없다. 구현하면서 계약에 없던 세부를 §6-F '세부 조회와 표시 규칙'에 정했다. 세부 조회의 응답 모양, 숫자 문자열의 자릿수, 원천 상태의 `reason`·`write_failures`, 경보 칸의 `last_poll_at`과 항목 필드, 조회 계층 칸의 `data`, 복제 칸의 `label_mismatch` 기준, 임계값 항목의 추가 필드와 `in_use` 표, 사건·변경 이력 조회의 필터와 커서, 확인·보류 해제 응답이다. 보류 해제는 먼저 사일런스를 조회해 이미 끝났거나 없으면 종료 호출을 하지 않고, 이벤트와 감사에 이미 끝났는지를 남긴다. §6-A-a의 용량 변경은 `capacity_plan`을 잠그고 읽도록 고쳐 겹친 두 변경 가운데 하나를 잃던 문제를 없앴고, 권고 임계는 관제센터를 켠 배포에서 레지스트리를 읽는다. 응답 모양은 바뀌지 않았다.
+
+## v2.52.2 패치 반영 사항
+
+관제센터 AI 판단·조치 경로의 계약을 구현보다 먼저 더하고 같은 날 구현했다. 2026-09-25 갱신. 판 번호는 v2.52.1과 같은 이유로 브랜치 `claude/per-market-leader`의 v2.53~v2.54와 겹치지 않게 v2.52.2로 둔다. 스키마는 DB 설계 v2.51.3 §10.4, 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 7절이다.
+
+- **사용자 결정(2026-09-25)을 옮겼다.** AI 즉시 정지를 두 모드에 쓰는 정지로 넓혀 `POST .../ai/stop`(VIEWER+, 공용 버킷 밖)과 `POST .../ai/resume`(SUPER, 사유 필수, 수동으로만)을 더했다. 정지하면 자동이 풀리고 대기 조치 요청이 만료되며 승인과 자동 실행이 막히지만, 관찰 창 안의 자동 되돌림은 계속한다. AI 한도 다섯 항목을 `GET·PUT .../ai/limits`로 두고 새 승인 액션 `ops.ai.limits`(대상 `{key}:{value}`)를 §3-6 열거와 바인딩 표에 더했다. 자동 조치 상한과 임계값 항목당 횟수는 하루가 아니라 자동 모드 1회 활성마다 센다. 자동 시간은 ADR 0035에 맞춰 1·2·4·8시간만 받는다.
+- **로컬 실측(설계 7-13절)을 옮겼다.** 모델 출력은 이유(`reason_ko`)를 조치보다 먼저 쓰는 JSON이고 조치 이름은 방향과 대상이 드러나는 여덟 가지다. 정책 엔진에 결정적 방향 전제(D1~D3)를 더해 이유와 반대인 조치를 제안 때 `DENIED`로 막는다. AI의 경보 보류는 운영자가 등록한 계획 작업 창 안의 `warning` 경보로 좁히고(S6), 복제·DB·백업·디스크 계열은 창이 있어도 막는다(S7). 계획 작업 창 경로 셋을 더했다.
+- **판단 기록의 필드 이름을 바꿨다.** 판단 상세의 `hypothesis`를 모델 출력에 맞춰 `reason`으로 바꾸고 `error`, `latency_ms`, `incident_id`와 조치 요청의 `verb`, `hold_reason`, `auto`, `observe_outcome`을 더했다. 조치 요청 상태에 `DENIED`, 버린 사유에 `DIRECTION_MISMATCH`를 더했다. 조치 요청 목록 `GET .../ai/actions`를 더했다.
+- **한 판단의 조치는 하나다.** 종전 계약의 '조치 최대 3개'를 바꿨다. 자동 실행은 어차피 한 판단에 하나이고(A10), 작은 로컬 모델에는 단일 조치 스키마가 더 안정적이었다.
+- **감사 코드를 더했다.** `ops.ai.stop`, `ops.ai.resume`, `ops.ai.limits`, `msp.window.create`, `msp.window.end`, `ops.ai.action.deny`, `ops.ai.mode.system`이다. 정책 거부는 `detail.reason_code`를 싣는다. 오류 코드는 새로 만들지 않았다.
+- **AI 신원 거부.** `kind='AI'` 운영자는 세션 발급과 관리 필터에서 `403 admin_forbidden`(`detail.reason=ai_operator`)이고, 운영자 상태·역할 변경의 대상이 될 수 없다.
+- **Teams 통지는 아직 없다.** 통지 사건을 발행하는 자리만 두었고, 보고 서비스의 카드·보관함으로 보낼지는 다음 구현 단계가 정한다.
+
+## v2.52.3 패치 반영 사항
+
+관제센터의 AI 상담, 요약 추세, 온프레미스 AI 서버 상태, 보고 서비스를 거치는 Teams 통지와 보고서 읽기, 원천 읽기의 성능 예산을 계약에 먼저 더하고 같은 날 구현했다. 2026-09-25 갱신. 판 번호는 v2.52.1과 같은 이유로 브랜치 `claude/per-market-leader`의 v2.53~v2.54와 겹치지 않게 v2.52.3으로 둔다. 스키마는 DB 설계 v2.51.4 §10.5, 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 4-6·4-7·7-12·7-17·7-18절이다.
+
+- **경로 다섯을 더했다.** `GET .../trends`(요약 추세와 이전 구간 대비 증감), `POST .../ai/chat`(AI 상담), `GET .../ai/server`(AI 서버 상태), `GET .../reports`(보고 목록 읽기 프록시), `GET .../reports/status`(Teams 전송 상태와 통지 보관함 요약)다. 모두 VIEWER+이고 승인 티켓이 없다. 상담은 읽기 전용이라 §3-6 열거에 들지 않는다.
+- **한 판을 넓혔다.** `GET .../overview`가 24시간 추세(`trends`)와 AI 서버 상태(`ai_server`)를 싣고 `ETag`를 붙인다. `If-None-Match`가 같으면 `304`다. 태그는 `generated_at`, `age_seconds`, `last_poll_at`, `ai_server.server.checked_at`을 뺀 본문으로 계산한다. `sources`의 `teams`가 보고 서비스의 전송 상태로 `READY`·`UNAVAILABLE`·`NOT_CONNECTED`를 낸다.
+- **원천 읽기의 성능 예산.** 원천 읽기는 이름으로 정한 키의 공유 캐시를 거치고, 같은 키의 동시 읽기는 원천 호출 한 번으로 모은다. 조회 계층 노드 관측도 캐시 수명 동안 공유한다. 요약 세 값과 요청률은 Prometheus 기록 규칙 이름만 질의한다. 이에 따라 `HTTP_5XX_RATIO`·`HTTP_P95_SECONDS`·`PROBE_SUCCESS_RATIO`·`HTTP_REQUEST_RATE` 명명 질의의 PromQL이 기록 규칙 이름으로 바뀌었고, 규칙 파일이 없는 Prometheus에서는 세 값이 `MISSING`이다.
+- **Teams 통지는 보고 서비스가 보낸다.** 관리 JVM에 Teams 전송기를 따로 두지 않는다. 카드 모양과 전송 기록이 두 벌이 되지 않게 하기 위해서다. 관리 JVM은 통지 보관함에 쓰고 보고 서비스의 새 수신 경로 `POST /msp/events`로 넘긴다. 설계 3절의 `teams.webhook-url-file`·`console-url` 설정은 만들지 않았다. 웹훅 주소와 카드의 콘솔 링크는 보고 서비스 설정이 가진다.
+- **감사 코드 `ops.ai.chat`을 더했다.** 다른 AI 감사와 달리 가린 질문과 답을 싣는다. 오류 코드는 새로 만들지 않았다. 상담의 속도·동시 실행 제한은 기존 `429 too_many_requests`에 `detail.scope`(`ai_chat`, `ai_chat_concurrency`)로 가른다.
+
+## v2.52.4 패치 반영 사항
+
+관제센터 AI 조치 경로의 구현 검토 지적을 계약에 먼저 반영하고 같은 날 코드를 맞췄다. 2026-09-25 갱신. 판 번호는 v2.52.1과 같은 이유로 브랜치 `claude/per-market-leader`의 v2.53~v2.54와 겹치지 않게 v2.52.4로 둔다. 경로, 필드, 오류 코드는 새로 만들지 않았다. 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 7-6·7-7·7-8절과 14-4절이다.
+
+- **실행 직전의 대상 재확인(C5).** 조치 요청의 승인과 자동 실행은 대상 행(용량 계획, 임계값 항목)을 잠근 뒤 실행 직전에 모은 근거의 값과 같은지 보고, 임계값은 요청의 `params.from`과도 같은지 본다. 다르면 `409 msp_policy_denied`(`detail.rule=C5`, `detail.reason_code=target_changed`)다. 종전 구현은 잠금 전에 모은 근거로 1회 폭(T2)과 둔하게 바꾸는 방향(D3)을 판정했고 사람의 같은 종류 조치 쿨다운(A8)도 대상 행을 잠그기 전에 읽어, 그 사이에 커밋된 사람의 변경을 덮어쓸 수 있었다.
+- **임계값 조치 요청의 현재값 바인딩.** 같은 새 값을 내는 판단이라도 그 사이에 현재값이 바뀌었으면 열린 요청을 `WITHDRAWN`으로 닫고 새 요청을 만든다. 반대 방향의 두 판단이 한 요청의 연속 판단으로 세어지고, 요청의 올림·내림 표시가 실제 방향과 반대로 나가던 문제를 막는다. 되돌리기 티켓의 대상은 실행 때 바꾸기 전의 값이다. §3-6 바인딩 규칙('되돌릴 값으로 대상을 만든다')은 그대로다.
+- **이미 처리된 요청의 승인.** 같은 요청을 두 번 승인하거나 만료된 요청을 승인하면 계약대로 `409 ai_action_not_open`이다. 종전 구현은 `409 msp_policy_denied`(`detail.rule=C3`)를 냈다.
+- **봇 부하 쿨다운.** 시나리오 활성화(`sim.scenario`)도 발행률 설정(`sim.rate`)과 같은 관리 JVM 잠금 안에서 목표 OPS를 바꾸고 AI 봇 부하 줄임의 쿨다운(A8)을 시작시킨다(§6-A 시나리오 프리셋, §6-F AI 모드의 `cooldowns`).
+- **관찰 창과 사람 되돌리기.** 관찰 창 안에서 사람이 먼저 되돌린 요청은 서버의 자동 되돌림이 뒤따라 닿아도 `REVERT_BLOCKED`로 적지 않고 관찰 실패 통지도 내지 않는다. 그 요청의 `observe_outcome`은 `null`이다.

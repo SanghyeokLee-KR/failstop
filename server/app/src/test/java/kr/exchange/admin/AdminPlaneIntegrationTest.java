@@ -866,6 +866,20 @@ class AdminPlaneIntegrationTest {
         assertEquals(400, bad.getStatusCode().value(), bad.getBody());
     }
 
+    /**
+     * 관제센터를 켜지 않은 관리 평면에는 /admin/v1/msp 경로가 없다(API 설계 §6-F 활성 조건). 새 표를 읽는
+     * 경로가 생기지 않으므로 V70 이 없는 DB 에 새 JAR 가 먼저 떠도 이 경로로 500 이 나지 않는다.
+     */
+    @Test
+    @Order(99)
+    void mspPathsAreAbsentWhenTheModuleIsOff() throws Exception {
+        String op01 = issueSession("op-01");
+        for (String path : List.of("/admin/v1/msp/overview", "/admin/v1/msp/thresholds")) {
+            ResponseEntity<String> res = adminGet(path, "op-01", op01);
+            assertEquals(404, res.getStatusCode().value(), path + " -> " + res.getBody());
+        }
+    }
+
     private ResponseEntity<String> adminGet(String path, String operatorCn, String bearer) {
         return exchange(path, HttpMethod.GET, null, operatorCn, bearer);
     }

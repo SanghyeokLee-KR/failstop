@@ -15,7 +15,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from console_api import list_reports
+import msp_events
+from console_api import delivery_status, list_reports
 from evidence import collect, timestamp
 from artifacts import options as artifact_options, publish as publish_artifacts, read_file as read_artifact
 from presentation import card, render_html
@@ -58,6 +59,7 @@ def load_config(path):
         if type(value) is not int or not lower <= value <= upper:
             raise ValueError("invalid_" + name)
     artifact_options(config)
+    msp_events.console_url(config)
     return config
 
 
@@ -278,6 +280,11 @@ def drain_one(store, config, sender, key=None):
     try:
         if job["report"]:
             report = json.loads(job["report"])
+        elif job["kind"] == "msp":
+            # 관제센터 사건은 관리 JVM 이 근거를 이미 정리해 넘긴다. 다시 수집하거나 AI 분석을 붙이지 않는다.
+            report = msp_events.report(job["id"], json.loads(job["payload"]))
+            if not store.save_report(job, report):
+                return True
         else:
             payload = json.loads(job["payload"])
             facts = collect(config, payload.get("window_end", time.time()), payload.get("incident"))
@@ -285,21 +292,24 @@ def drain_one(store, config, sender, key=None):
                       "analysis": analyze(facts, config, store, job["id"])}
             if not store.save_report(job, report):
                 return True
-        message = card(report)
-        artifact_state = None
-        try:
-            links = publish_artifacts(report, config)
-            if links:
-                message["attachments"][0]["content"]["actions"] = links
-                artifact_state = "ready"
-        except Exception:
-            # Third-party font/render errors must not terminate incident delivery.
-            # Persist only the safe status, never exception text containing paths or keys.
-            artifact_state = "failed"
-            message["attachments"][0]["content"]["body"].append(
-                {"type": "TextBlock", "text": "PDF 생성 실패 · 상세 보고 재생성 필요", "wrap": True, "color": "Warning"})
-        if artifact_state:
-            store.artifact_status(report["id"], artifact_state)
+        if report.get("kind") == "msp":
+            message = msp_events.card(report, config)
+        else:
+            message = card(report)
+            artifact_state = None
+            try:
+                links = publish_artifacts(report, config)
+                if links:
+                    message["attachments"][0]["content"]["actions"] = links
+                    artifact_state = "ready"
+            except Exception:
+                # Third-party font/render errors must not terminate incident delivery.
+                # Persist only the safe status, never exception text containing paths or keys.
+                artifact_state = "failed"
+                message["attachments"][0]["content"]["body"].append(
+                    {"type": "TextBlock", "text": "PDF 생성 실패 · 상세 보고 재생성 필요", "wrap": True, "color": "Warning"})
+            if artifact_state:
+                store.artifact_status(report["id"], artifact_state)
         sender(message)
         store.finish(job, "sent")
     except RequestFailure as error:
@@ -391,7 +401,15 @@ class Handler(BaseHTTPRequestHandler):
         return hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + self.server.token)
 
     def do_GET(self):
-        if urlsplit(self.path).path == "/console/reports":
+        if self.path == "/console/status":
+            if not self.authenticated():
+                self.send_result(401, {"error": "unauthorized"})
+                return
+            try:
+                self.send_result(200, delivery_status(self.server.store, delivery_enabled()))
+            except sqlite3.Error:
+                self.send_result(503, {"error": "storage_error"})
+        elif urlsplit(self.path).path == "/console/reports":
             if not self.authenticated():
                 self.send_result(401, {"error": "unauthorized"})
                 return
@@ -439,11 +457,16 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_result(404, {"error": "not_found"})
 
+    # 수신 경로마다 본문 해석, 작업 종류, 거부 코드. /msp/events 는 관제센터 AI 사건을 같은 보관함으로 받는다.
+    ROUTES = {"/alerts": (incident_payload, "incident", "invalid_alert_body"),
+              "/msp/events": (msp_events.event_payload, "msp", "invalid_event")}
+
     def do_POST(self):
         self.close_connection = True
-        if self.path != "/alerts":
+        if self.path not in self.ROUTES:
             self.send_result(404, {"error": "not_found"})
             return
+        parse, kind, invalid = self.ROUTES[self.path]
         if not self.authenticated():
             self.send_result(401, {"error": "unauthorized"})
             return
@@ -465,11 +488,11 @@ class Handler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length)
             if len(raw) != length:
                 raise ValueError("incomplete_body")
-            key, payload = incident_payload(json.loads(raw))
-            created = self.server.store.enqueue(key, "incident", payload)
+            key, payload = parse(json.loads(raw))
+            created = self.server.store.enqueue(key, kind, payload)
             self.send_result(202, {"accepted": True, "duplicate": not created, "id": key})
         except (ValueError, UnicodeError, TimeoutError):
-            self.send_result(400, {"error": "invalid_alert_body"})
+            self.send_result(400, {"error": invalid})
         except sqlite3.Error:
             self.send_result(503, {"error": "storage_error"})
 

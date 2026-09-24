@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["situation_ko", "reason_ko", "action", "target", "value", "confidence"],
+  "properties": {
+    "situation_ko": { "type": "string", "maxLength": 400 },
+    "reason_ko": { "type": "string", "maxLength": 400 },
+    "action": {
+      "type": "string",
+      "enum": ["NO_ACTION", "READ_NODE_ADD_ONE", "READ_NODE_REMOVE_ONE", "THRESHOLD_RAISE", "THRESHOLD_LOWER",
+               "ALERT_SILENCE", "BOT_LOAD_REDUCE", "BACKUP_RUN_NOW"]
+    },
+    "target": { "type": "string", "maxLength": 64 },
+    "value": { "type": "string", "maxLength": 16 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

@@ -48,3 +48,25 @@ groups:
         expr: max(pg_replica_replay_delay_seconds)
       - record: exchange:replica_receive_replay_gap:bytes
         expr: max(pg_replica_replay_receive_replay_bytes)
+
+  # 관제센터 요약 칸의 기록 규칙(관제센터 설계 4-6). 화면 요청마다 rate·histogram 을 다시 계산하지 않게
+  # 평가 주기마다 한 번 계산하고 관제센터는 이 이름만 질의한다. 학교 school-alerts.yml 의 school.msp.recording 과 같은 식이다.
+  - name: exchange.msp.recording
+    interval: 15s
+    rules:
+      - record: exchange:msp_http_requests:rate5m
+        expr: sum(rate(http_server_requests_seconds_count{job="exchange-api",uri!~"/actuator.*"}[5m]))
+      # 5xx 가 한 번도 없으면 분자 시계열이 없어 0 으로 채운다. 요청이 없으면 비율을 만들지 않는다(무요청은 무오류가 아니다).
+      - record: exchange:msp_http_5xx:ratio5m
+        expr: >-
+          (sum(rate(http_server_requests_seconds_count{job="exchange-api",uri!~"/actuator.*",status=~"5.."}[5m]))
+            or (0 * sum(rate(http_server_requests_seconds_count{job="exchange-api",uri!~"/actuator.*"}[5m]))))
+          / (sum(rate(http_server_requests_seconds_count{job="exchange-api",uri!~"/actuator.*"}[5m])) > 0)
+      # 버킷은 앱이 http.server.requests 히스토그램을 내보낼 때만 있다. 요청이 없는 구간의 NaN 은 싣지 않는다.
+      - record: exchange:msp_http_p95:seconds5m
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job="exchange-api",uri!~"/actuator.*"}[5m])))
+          and on() (sum(rate(http_server_requests_seconds_count{job="exchange-api",uri!~"/actuator.*"}[5m])) > 0)
+      # 진입 경로 프로브 가운데 가장 나쁜 대상의 5분 성공률이다.
+      - record: exchange:msp_probe_success:ratio5m
+        expr: min(avg_over_time(probe_success{job="blackbox-http"}[5m]))

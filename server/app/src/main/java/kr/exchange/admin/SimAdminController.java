@@ -80,12 +80,13 @@ public class SimAdminController {
     private final AdminAuditService audit;
     private final JdbcClient jdbc;
     private final ObjectMapper objectMapper;
+    private final BotRateControl botRate;
 
     public SimAdminController(ObjectProvider<OpsGovernor> opsGovernor,
                              ObjectProvider<BotFleetGovernor> fleetGovernor,
                              ObjectProvider<BotFleet> botFleet,
                              ApprovalService approvals, AdminAuditService audit,
-                             JdbcClient jdbc, ObjectMapper objectMapper) {
+                             JdbcClient jdbc, ObjectMapper objectMapper, BotRateControl botRate) {
         this.opsGovernor = opsGovernor;
         this.fleetGovernor = fleetGovernor;
         this.botFleet = botFleet;
@@ -93,6 +94,7 @@ public class SimAdminController {
         this.audit = audit;
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.botRate = botRate;
     }
 
     /**
@@ -219,35 +221,17 @@ public class SimAdminController {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.BOT_OPS);
         double target = parsePositive(body == null ? null : body.target_ops());
-        OpsGovernor governor = opsGovernor.getIfAvailable();
-        long queuedId = 0;
-        if (governor != null) {
-            governor.setTargetOps(target);
-        } else {
-            // 시나리오 활성화와 같은 이유다. 거버너는 봇 JVM 인메모리라 관리 평면에 없다.
-            // 여기만 큐 발행을 빠뜨리면 콘솔의 OPS 직접 설정이 조용히 무시된다.
-            queuedId = jdbc.sql("""
-                            INSERT INTO sim_commands (action, payload, requested_by)
-                            VALUES ('target_ops', ?, ?)
-                            RETURNING id
-                            """)
-                    .params(String.valueOf(target), principal.operatorId())
-                    .query(Long.class).single();
-        }
-        String applyPath = governor != null ? "local" : "queued";
-        audit.record(principal.operatorId(), "sim.rate", null,
-                AdminRequestContext.requestId(request), null, "OK",
-                Map.of("target_ops", String.valueOf(target), "apply_path", applyPath,
-                        "queued_command_id", queuedId));
+        BotRateControl.Applied applied = botRate.set(target, principal.operatorId(),
+                AdminRequestContext.requestId(request), Map.of());
         // applied는 "지금 이 순간 봇에 반영됐는가"다. 큐 발행은 아직 아니다.
         // 큐 경로에서는 false가 미적용이 아니므로 이 필드 단독으로 실패를 단정하면 안 된다.
         // 접수 여부는 apply_path와 함께 읽는다.
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", "1.1");
         out.put("target_ops", String.valueOf(target));
-        out.put("applied", governor != null);
-        out.put("apply_path", applyPath);
-        out.put("queued_command_id", queuedId);
+        out.put("applied", "local".equals(applied.applyPath()));
+        out.put("apply_path", applied.applyPath());
+        out.put("queued_command_id", applied.queuedCommandId());
         return out;
     }
 
@@ -465,6 +449,13 @@ public class SimAdminController {
         } catch (IllegalArgumentException e) {
             throw new ApiException(404, "not_found", "알 수 없는 시나리오 프리셋입니다: " + name);
         }
+        // 프리셋도 목표 OPS 를 바꾼다. 발행률 설정·AI 봇 부하 조치와 같은 잠금으로 줄을 서야 그 조치의 쿨다운과
+        // 실행 직전 재확인이 이 변경을 본다(관제센터 설계 7-7).
+        return botRate.withLock(() -> applyScenario(scenario, principal, request));
+    }
+
+    private Map<String, Object> applyScenario(SimScenario scenario, AdminPrincipal principal,
+                                               HttpServletRequest request) {
         OpsGovernor governor = opsGovernor.getIfAvailable();
         BotFleetGovernor fleet = fleetGovernor.getIfAvailable();
 
