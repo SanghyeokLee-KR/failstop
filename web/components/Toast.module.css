@@ -26,6 +26,10 @@
 :global(body[data-admin-chat]) .region[data-place="admin"] {
   right: calc(var(--admin-chat-w, 440px) + var(--space-6));
 }
+/* 관리 콘솔의 글자 여섯 단계(디자인 시스템 §12-2 v1.14). 셸 밖에 뜨므로 표지 안 글자를 11px에서 12px로 여기서 맞춘다 */
+.region[data-place="admin"] .icon {
+  font-size: var(--font-dense-size);
+}
 
 .toast {
   pointer-events: auto;

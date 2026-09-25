@@ -178,7 +178,7 @@ test("sim: AI 판단 요약의 '과거 같은 조치'는 감사 로그에서 센
   const api = new SimAdminApi();
   await api.establishSession("op-01");
   const before = ready<AiDesk>((await api.getControlCenter()).ai).actionStats;
-  // 시드 기록의 지난 승인(조회 노드 +1, 봇 부하 줄임)이 감사 로그에도 있다
+  // 시드 기록의 지난 승인(app-3 켜기, 봇 부하 줄임)이 감사 로그에도 있다
   assert.deepEqual(before["READ_NODES:+1"], { runs: 1, reverts: 0 });
   assert.deepEqual(before.BOT_LOAD, { runs: 1, reverts: 0 });
   assert.equal(before["READ_NODES:-1"], undefined, "기록 없는 조치는 열쇠가 없다");

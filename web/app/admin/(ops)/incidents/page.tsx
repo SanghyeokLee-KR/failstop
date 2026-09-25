@@ -14,7 +14,8 @@ import AlertList from "@/components/admin/control/Alerts";
 import OpsHead from "@/components/admin/control/OpsHead";
 import { alertCounts, Tile, todayIncidents } from "@/components/admin/control/SummaryStrip";
 import { byFilter, EventRow, FilterSwitch, IncidentView, OpenElapsed, type EventFilter } from "@/components/admin/control/Timeline";
-import { durationWord, hm, PanelHead, SectionBody, SEVERITY_SHAPE, useClock } from "@/components/admin/control/parts";
+import { durationWord, FlashNum, hm, PanelHead, SectionBody, SEVERITY_SHAPE, Shape, useClock } from "@/components/admin/control/parts";
+import { flashTone } from "@/lib/admin/motion";
 import { kstDay } from "@/lib/admin/timeText";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
@@ -56,7 +57,7 @@ export default function IncidentsPage() {
                       tone={tone}
                       value={
                         <span className={`${styles.tileValue} num`} data-tone={tone}>
-                          {data.alerts.data.length}
+                          <FlashNum value={data.alerts.data.length} tone={flashTone} />
                           <span className={styles.tileUnit}>건</span>
                         </span>
                       }
@@ -64,7 +65,7 @@ export default function IncidentsPage() {
                         <span className={styles.alertCounts}>
                           {(["critical", "warning", "info"] as const).map((sev) => (
                             <span key={sev} className={styles.alertCount} data-sev={sev} data-zero={c[sev] === 0 ? "" : undefined}>
-                              <span aria-hidden="true">{SEVERITY_SHAPE[sev]}</span>
+                              <Shape tone={c[sev] === 0 ? "off" : sev === "critical" ? "danger" : sev === "warning" ? "warning" : "info"}>{SEVERITY_SHAPE[sev]}</Shape>
                               <b className="num">{c[sev]}</b>
                             </span>
                           ))}
@@ -123,7 +124,7 @@ export default function IncidentsPage() {
                 </SectionBody>
               </section>
               <section className={styles.panel} aria-labelledby="inc-list">
-                <PanelHead id="inc-list" title="오늘 사건" meta="누르면 오른쪽에 기록을 펼칩니다" />
+                <PanelHead id="inc-list" title="오늘 사건" meta="누르면 오른쪽에 기록을 펼칩니다. 사건 이름을 누르면 상세가 열립니다" />
                 <SectionBody section={data.incidents} what="사건 기록">
                   {(log) => {
                     const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
@@ -143,9 +144,7 @@ export default function IncidentsPage() {
                           return (
                             <li key={i.id}>
                               <button type="button" className={styles.incRow} aria-pressed={selected} onClick={() => setPicked(i.id)}>
-                                <span className={styles.shape} data-tone={open ? "warning" : "success"} aria-hidden="true">
-                                  {open ? SEVERITY_SHAPE[i.severity] : "●"}
-                                </span>
+                                <Shape tone={open ? "warning" : "success"}>{open ? SEVERITY_SHAPE[i.severity] : "●"}</Shape>
                                 <span>
                                   <b>{i.title}</b>
                                   <br />

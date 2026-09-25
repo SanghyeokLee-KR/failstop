@@ -45,7 +45,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <main className={styles.login}>
+    <main className={`${styles.login} ${styles.typeScale}`}>
       <section className={`card ${styles.loginCard}`} aria-label="관리 평면 접속">
         {/* 제도 도면 타이틀 블록: 마크 + 평면 식별 명판 + hairline */}
         <div className={styles.loginPlate}>

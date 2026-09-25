@@ -15,11 +15,10 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
-import { PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, Segmented, segmentedTabId, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -127,12 +126,12 @@ export default function AdminMembersPage() {
       label: "상태",
       width: "88px",
       align: "center",
-      // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 알약으로 세운다
+      // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 무채 상태 칩(§12-14)으로 세운다
       render: (m) =>
         m.status === "ACTIVE" ? (
           <span className={styles.stateText}>정상</span>
         ) : (
-          <span className={styles.neutralPill}>{STATUS_LABEL[m.status]}</span>
+          <StateChip tone="neutral" label={STATUS_LABEL[m.status]} />
         ),
     },
     /* 활동 요약 3열(§6-E v2.35). 상세를 열어야 보이던 값을 목록으로 올린다.
@@ -221,14 +220,14 @@ export default function AdminMembersPage() {
     <div className={styles.page}>
       <PageHeader
         title="회원 운영"
-        desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 1인 승인"
+        desc="정지·복구는 곧바로 반영합니다. 폐쇄는 되돌릴 수 없어 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
+        <Segmented items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
       </div>
 
       <PanelCard title="회원 목록">

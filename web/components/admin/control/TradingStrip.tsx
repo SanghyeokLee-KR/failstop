@@ -15,6 +15,7 @@ import type { AdminOverview, InvariantState, OpsSection, OpsTrading } from "@/li
 import { formatKRW } from "@/lib/format";
 import { hms } from "./parts";
 import styles from "./control.module.css";
+import StatusShape from "../StatusShape";
 
 const INV_WORD: Record<InvariantState, string> = { PASS: "통과", VIOLATED: "위반", PARTIAL: "부분 수집", NONE: "미수집" };
 
@@ -82,7 +83,7 @@ function TradingStrip({ ov, at, trading }: { ov: AdminOverview | null; at: numbe
         <span className={styles.stripItem}>
           안전 검사{" "}
           <b className="num" data-tone={invTone}>
-            {invTone && <span aria-hidden="true">{invTone === "danger" ? "■ " : "▲ "}</span>}
+            {invTone && <span aria-hidden="true"><StatusShape kind={invTone === "danger" ? "square" : "triangle"} /> </span>}
             {inv.state === "VIOLATED" ? `위반 ${inv.violated}건` : `${inv.ok}/${inv.expected} ${INV_WORD[inv.state]}`}
           </b>
         </span>
@@ -92,7 +93,7 @@ function TradingStrip({ ov, at, trading }: { ov: AdminOverview | null; at: numbe
           <span className={styles.stripItem}>
             앱 복구 판정{" "}
             <b data-tone={ov.lastVerdict === "FAIL" ? "danger" : ov.lastVerdict === "UNKNOWN" ? "warning" : undefined}>
-              {ov.lastVerdict === null ? "이력 없음" : ov.lastVerdict === "PASS" ? "통과" : ov.lastVerdict === "FAIL" ? "■ 실패" : "▲ 미판정"}
+              {ov.lastVerdict === null ? "이력 없음" : ov.lastVerdict === "PASS" ? "통과" : ov.lastVerdict === "FAIL" ? <><StatusShape kind="square" /> 실패</> : <><StatusShape kind="triangle" /> 미판정</>}
             </b>
           </span>
           <span className={styles.stripItem}>

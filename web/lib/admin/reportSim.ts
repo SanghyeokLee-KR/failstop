@@ -125,7 +125,11 @@ function dailyBackupCheck(t: number): OpsReport {
   };
 }
 
-/** 야간 축소 뒤 조회가 다시 몰려 응답 지연 경보가 났고, AI 자동 모드가 축소를 되돌린 사건의 해제 보고 */
+/**
+ * 야간 축소 뒤 조회가 다시 몰려 응답 지연 경보가 났고, AI 자동 모드가 축소를 되돌린 사건의 해제 보고. AI 운영 조치를
+ * 알리는 보고의 개입 등급은 관찰 실패·결과 모름 P1, 자동 되돌림 P2, 그 밖의 자동 실행 P3, 모드 변경·만료·재개 P4다
+ * (사용자 확정 2026-09-25). 자동 되돌림이라 P2 '담당자 조치 필요'(보고 서비스의 scheduled)다
+ */
 function incidentAutoRevert(t: number): OpsReport {
   const fired = t + 7 * MIN + 20 * SEC;
   const resolved = t + 14 * MIN + 10 * SEC;
@@ -138,7 +142,7 @@ function incidentAutoRevert(t: number): OpsReport {
     status: "sent",
     title: "응답 지연 증가 해제",
     transition: "resolved",
-    intervention: { code: "verify", priority: "P3", label: "담당자 확인 필요", reason: "자동 되돌림 뒤 종결 확인 필요" },
+    intervention: { code: "scheduled", priority: "P2", label: "담당자 조치 필요", reason: "AI 자동 되돌림 · 되돌린 원인 확인과 조치 기록 필요" },
     customer: "exchange",
     environment: "AWS",
     collectedAt: at(created - 2 * SEC),
@@ -147,20 +151,20 @@ function incidentAutoRevert(t: number): OpsReport {
     lead: `${kst(at(resolved), false)} 경보 해제 · 복구 후속 점검 대상`,
     impact: DEFAULT_IMPACT,
     currentState: "수집 시점 진행 경보 0건",
-    events: [{ name: "응답 지연 증가", statusLabel: "해제", target: "exchange-api · 조회 ASG", startedAt: at(fired), endedAt: at(resolved) }],
+    events: [{ name: "응답 지연 증가", statusLabel: "해제", target: "exchange-api · 앱 계층", startedAt: at(fired), endedAt: at(resolved) }],
     actions: [
       {
-        priority: "P3",
+        priority: "P2",
         owner: "서비스 운영 담당",
-        timing: "복구 직후 확인 권고",
-        task: "조회 노드 3대 복귀와 응답 p95·5xx 정상화 확인",
+        timing: "복구 직후 조치 권고",
+        task: "app-3 복귀(앱 3대)와 응답 p95·5xx 정상화 확인",
         doneWhen: "p95 목표 안 유지와 자동 되돌림 원인·조치 기록",
       },
       {
         priority: "P3",
         owner: "관측·서비스 운영 담당",
         timing: "금일 확인 권고",
-        task: "야간 축소 판단 근거(조회 수요 추이)와 조회 축소 임계 30% 검토",
+        task: "app-3를 끈 판단 근거(조회 수요 추이)와 축소 임계 30% 검토",
         doneWhen: "축소 임계 유지 또는 변경 결정과 사유 기록",
       },
     ],
@@ -175,7 +179,7 @@ function incidentAutoRevert(t: number): OpsReport {
       mode: "gemini",
       note: "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
       summary:
-        "야간 축소로 조회 노드가 2대가 된 뒤 조회 요청이 다시 늘어 응답 p95가 목표 400ms를 넘었습니다. AI 자동 모드가 관찰 창 안에서 축소를 되돌려 3대로 복귀했고, 해제 뒤 p95는 214ms로 내려왔습니다.",
+        "야간 축소로 app-3가 꺼져 앱이 2대가 된 뒤 조회 요청이 다시 늘어 응답 p95가 목표 400ms를 넘었습니다. AI 자동 모드가 관찰 창 안에서 축소를 되돌려 app-3를 다시 켜 3대로 복귀했고, 해제 뒤 p95는 214ms로 내려왔습니다.",
       model: GEMINI,
     },
     gaps: ["상세 로그: 자료 없음"],

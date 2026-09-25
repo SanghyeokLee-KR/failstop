@@ -3,6 +3,8 @@
 /**
  * 봇 플릿(/admin/bots). start/stop/pause·OPS·생성은 BOT_OPS 즉시 실행(가역).
  * 실행 중 파라미터 변경은 파괴 액션으로 승인 티켓 필수(1인 승인, §2-1, §3-2).
+ * 플릿 상태를 읽지 못한 동안에는 시작·정지·발행률·국면·생성 조작을 막는다(관리자 설계 4-2 v1.12). 모르는 상태에서
+ * 누른 조작이 무엇을 바꿨는지 화면이 말할 수 없기 때문이다.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,7 +26,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { PageHeader, PermissionNote, SimMark, StatTile } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, SimMark, StateChip, StatStrip, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
@@ -56,7 +58,7 @@ function successRateTone(rate: number): Health | undefined {
 }
 
 export default function BotsPage() {
-  const canOps = useCan("BOT_OPS");
+  const canOpsRole = useCan("BOT_OPS");
   const [newType, setNewType] = useState<BotType>("MARKET_MAKER");
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
   const [newCount, setNewCount] = useState(1);
@@ -74,6 +76,9 @@ export default function BotsPage() {
   const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { cadence: "idle", isSessionError });
   const sim = res.data;
   const load = res.reload;
+  // 상태를 모르면 조작을 막는다. 권한이 있어도 같다
+  const blocked = !sim || res.error;
+  const canOps = canOpsRole && !blocked;
 
   const run = async <T,>(
     fn: () => Promise<T>,
@@ -196,10 +201,10 @@ export default function BotsPage() {
       render: (m) => {
         // 미보고는 정지가 아니다. 정지로 칠하면 도는 플릿을 멈춘 것으로 읽는다
         if (sim?.running == null) return <span className={styles.stateTextDim}>-</span>;
-        if (!sim.running) return <span className={styles.neutralPill}>플릿 정지</span>;
-        if (sim.paused) return <span className={styles.neutralPill}>일시정지</span>;
+        if (!sim.running) return <StateChip tone="off" label="플릿 정지" />;
+        if (sim.paused) return <StateChip tone="neutral" label="일시정지" />;
         const off = BOT_TYPES.filter((t) => m.scale[t] && m.scale[t]!.active !== m.scale[t]!.target).length;
-        if (off > 0) return <span className={styles.neutralPill}>수렴 중 {off}개 유형</span>;
+        if (off > 0) return <StateChip tone="neutral" label={`수렴 중 ${off}개 유형`} />;
         return <span className={styles.stateText}>거래 중</span>;
       },
     },
@@ -216,18 +221,13 @@ export default function BotsPage() {
       {res.error ? (
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
       ) : !sim ? (
-        <div className={styles.kpiGrid} data-cols="3">
-          {/* 미터 타일·보조행 타일 실측 높이와 같은 값이라 로드 후 시프트 0 */}
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={122} />
-          ))}
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={106} />
-          ))}
-        </div>
+        /* 요약 한 상자와 같은 높이라 불러온 뒤 판이 움직이지 않는다 */
+        <Skeleton variant="card" width="100%" height={180} />
       ) : (
         // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
-        <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-cols="3" data-stale={res.stale ? "" : undefined}>
+        <div className={styles.staleRegion} data-stale={res.stale ? "" : undefined}>
+          {/* 여섯 칸은 같은 카드를 늘어놓지 않고 한 헤어라인 상자다(§12-14 StatStrip) */}
+          <StatStrip label="플릿 요약" count={6}>
           {/* 원천이 셋이라 수치의 출처를 함께 적는다. 미보고를 정지로 칠하면 도는 플릿을
               멈춘 것으로 읽고, 조작 버튼을 누르게 된다 */}
           <StatTile
@@ -284,6 +284,7 @@ export default function BotsPage() {
             tone={sim.duplicateFillTotal ? "danger" : undefined}
             alarm={!!sim.duplicateFillTotal}
           />
+          </StatStrip>
         </div>
       )}
 
@@ -292,7 +293,8 @@ export default function BotsPage() {
           장면 전환과 미세 조정이 스크롤로 갈라진다 */}
       <div className={styles.opsRow} data-cols="control">
       <PanelCard title="플릿 제어">
-        {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
+        {!canOpsRole && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
+        {canOpsRole && blocked && <PermissionNote>플릿 상태를 읽지 못해 조작을 막았습니다. 새로고침으로 다시 읽습니다</PermissionNote>}
         <div className={styles.controlRow}>
           <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿 시작 완료"))}>
             시작
@@ -300,7 +302,7 @@ export default function BotsPage() {
           <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지 전환 완료"))}>
             일시정지 전환
           </button>
-          {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 알약으로 붙여 두면
+          {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 단추로 붙여 두면
               일시정지 전환을 겨냥하다 한 칸 빗나가 전 마켓 호가 공급이 끊긴다 */}
           <span className={styles.controlSep} aria-hidden="true" />
           <button type="button" className={styles.dangerBtn} disabled={!canOps} onClick={() => setStopOpen(true)}>
@@ -361,7 +363,7 @@ export default function BotsPage() {
       <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />
 
       <PanelCard title="봇 생성">
-        {!canOps && <PermissionNote>봇 생성 권한(BOT_OPS 이상) 없음</PermissionNote>}
+        {!canOpsRole && <PermissionNote>봇 생성 권한(BOT_OPS 이상) 없음</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>유형</span>

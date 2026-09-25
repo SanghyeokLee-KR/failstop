@@ -11,19 +11,23 @@
 
 import { isoNow } from "../format";
 import { AdminError } from "./api";
-import { AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, type AiLimits } from "./aiPolicy";
+import { AI_ACTION_LABEL, AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, isStricter, type AiLimits } from "./aiPolicy";
 import { TrendBook } from "./opsTrends";
 import { hms, lagWord, nextKst } from "./timeText";
 import type {
   AiActionKind,
+  AiCheckRule,
+  AiCheckState,
   AiDecision,
   AiDesk,
   AiEvidence,
   AiJudgment,
+  AiJudgmentTrace,
   AiLimitApply,
   AiLimitChange,
   AiLimitKey,
   AiMode,
+  AiNotice,
   AiProposal,
   AiProposalStatus,
   AiRisk,
@@ -72,18 +76,25 @@ const FOR_TICKS = 3;
 const NODE_BOOT_TICKS = 6;
 const NODE_DRAIN_TICKS = 4;
 const BACKUP_RUN_TICKS = 8;
-/** 조회 수요의 기준. 조회 노드 두 대가 각각 31% 안팎이 되는 값이다 */
-const BASE_DEMAND = 62;
+/**
+ * 조회 수요의 기준(앱 노드 한 대분 CPU의 합). 앱 계층은 app-1·app-2(고정, 매칭 리더이면서 조회도 받음)와 부하가 오르면
+ * 켜지는 조회 전용 app-3(Auto Scaling 0~1대)다(ADR 0030, 사용자 정정 2026-09-25). 조회는 켜져 있는 앱 노드에 고르게
+ * 나뉜다. 이 값이면 두 대의 평균 CPU가 32% 안팎이다
+ */
+const BASE_DEMAND = 34;
 /** 시장 봇 기준 발행률. 시드 사건 기록의 '봇 발행 60 → 30 OPS' 뒤의 값이다 */
 export const BASE_BOT_OPS = 30;
 /** 호스트 CPU 상한. 봇 발행률을 크게 올려도 사용률이 100%를 넘지 않게 한다 */
 const CPU_CEIL = 99;
 const SLO: OpsSlo = { availabilityPct: 99.5, p95Ms: 400, errorRatePct: 1 };
+/** 앱 계층 대수. app-1·app-2 두 대는 늘 켜져 있고 app-3 한 대가 자동으로 켜지고 꺼진다 */
 const READ_MIN = 2;
 const READ_MAX = 3;
-/** 조회 노드가 번갈아 서는 가용 영역. ASG가 두 AZ에 나눠 띄운다 */
-const READ_AZ = ["ap-northeast-2a", "ap-northeast-2c"];
-/** 조회 축소 임계는 증설 임계보다 이만큼 낮아야 한다. 둘이 붙으면 늘리고 줄이기를 되풀이한다 */
+/** 늘 켜져 있는 앱 노드 수(app-1·app-2). ASG가 관리하지 않는다(ADR 0030: 매칭 리더는 ASG에 넣지 않는다) */
+const FIXED_APPS = 2;
+/** 자동 증설 노드 app-3이 서는 가용 영역 */
+const APP3_AZ = "ap-northeast-2a";
+/** 축소 임계는 증설 임계보다 이만큼 낮아야 한다. 둘이 붙으면 켜고 끄기를 되풀이한다 */
 const SCALE_GAP = 15;
 /** 시나리오 부하 곡선이 끝나는 초. 그 뒤에는 다른 시나리오를 걸 수 있다 */
 export const SCENARIO_END_SEC = 240;
@@ -91,6 +102,8 @@ export const SCENARIO_END_SEC = 240;
 const REVERT_SUPPRESS_MS = 10 * 60_000;
 /** 되돌림을 AI 문장에 적어 두는 시간. 다음 정기 판단을 한 번 지날 때까지다 */
 const REVERT_NOTE_MS = 2 * JUDGE_EVERY * 1000;
+/** 모드 줄 알림을 싣는 시간(디자인 시스템 §12-9 알림 줄) */
+const NOTICE_MS = 30_000;
 /** 자동 실행 후보가 여럿이면 서비스에 가까운 조치부터 본다 */
 const KIND_PRIORITY: Record<AiActionKind, number> = { READ_NODES: 0, BOT_LOAD: 1, BACKUP_NOW: 2, SILENCE: 3, THRESHOLD: 4 };
 
@@ -107,8 +120,8 @@ interface ThresholdDef {
 }
 
 const THRESHOLD_DEFS: ThresholdDef[] = [
-  { key: "read.scale_out_cpu", label: "조회 증설 CPU 임계", appliesTo: "조회 ASG 평균 CPU", unit: "%", value: 60, min: 40, max: 85, step: 1, aiMaxStep: 5 },
-  { key: "read.scale_in_cpu", label: "조회 축소 CPU 임계", appliesTo: "조회 ASG 평균 CPU", unit: "%", value: 30, min: 10, max: 50, step: 1, aiMaxStep: 5 },
+  { key: "read.scale_out_cpu", label: "증설 CPU 임계", appliesTo: "앱 계층 평균 CPU. 넘으면 app-3 켜기", unit: "%", value: 60, min: 40, max: 85, step: 1, aiMaxStep: 5 },
+  { key: "read.scale_in_cpu", label: "축소 CPU 임계", appliesTo: "앱 계층 평균 CPU. 아래면 app-3 끄기", unit: "%", value: 30, min: 10, max: 50, step: 1, aiMaxStep: 5 },
   { key: "host.cpu_alert", label: "호스트 CPU 경보", appliesTo: "EC2 호스트 CPU", unit: "%", value: 85, min: 60, max: 95, step: 1, aiMaxStep: 5 },
   { key: "host.mem_alert", label: "메모리 경보", appliesTo: "EC2 호스트 메모리", unit: "%", value: 90, min: 70, max: 95, step: 1, aiMaxStep: 5 },
   { key: "host.disk_free_alert", label: "디스크 여유 경보", appliesTo: "루트 디스크 여유(미만이면 경보)", unit: "%", value: 20, min: 10, max: 40, step: 1, aiMaxStep: 5 },
@@ -129,8 +142,9 @@ interface HostDef {
 }
 
 /**
- * EC2 호스트. 매칭 노드 두 대는 마켓을 나눠 맡는 마켓별 리더(ADR 0034, 다른 브랜치에서 구현 중)의
- * 배치를 따른다. 조회 노드는 ASG라 여기 없고, 온프레미스 AI 서버는 재는 것이 달라 따로 둔다
+ * 늘 켜져 있는 EC2 호스트. 앱 노드 두 대는 마켓을 나눠 맡는 마켓별 리더(ADR 0034, 다른 브랜치에서 구현 중)의
+ * 배치를 따르고 조회도 받는다. 자동으로 켜지고 꺼지는 app-3는 ASG 칸(readTier)에 있고, 온프레미스 AI 서버는 재는
+ * 것이 달라 따로 둔다
  */
 const HOST_DEFS: HostDef[] = [
   { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] } },
@@ -168,7 +182,7 @@ export const OPS_SCENARIO_TITLE: Record<OpsScenarioId, string> = {
 };
 
 type Params =
-  | { kind: "READ_NODES"; delta: 1 | -1 }
+  | { kind: "READ_NODES"; delta: 1 | -1; from: number; to: number }
   | { kind: "THRESHOLD"; key: ThresholdKey; from: number; to: number }
   | { kind: "SILENCE"; alertId: string; minutes: number }
   | { kind: "BOT_LOAD"; fromOps: number; toOps: number }
@@ -181,6 +195,7 @@ interface ProposalRec {
   title: string;
   target: string;
   impact: string;
+  cost: string;
   risk: AiRisk;
   revertPlan: string;
   confidencePct: number;
@@ -201,6 +216,7 @@ interface Finding {
   title: string;
   target: string;
   impact: string;
+  cost: string;
   risk: AiRisk;
   revertPlan: string;
   confidencePct: number;
@@ -252,7 +268,7 @@ interface Observation {
 interface RevertNote {
   at: number;
   kind: AiActionKind;
-  /** 조회 노드 조치면 되돌린 원래 조치의 방향 */
+  /** app-3 켜기·끄기 조치면 되돌린 원래 조치의 방향 */
   delta: number;
   undo: string;
   /** AI가 악화를 보고 되돌렸으면 그 악화. 운영자가 되돌렸으면 null */
@@ -300,12 +316,10 @@ export class OpsSim {
   private readonly thresholds = new Map<ThresholdKey, OpsThreshold>();
   private history: ThresholdChange[] = [];
 
+  /** 앱 계층 희망 대수(2~3). 3이면 app-3가 켜져 있거나 켜지는 중이다 */
   private desired = READ_MIN;
-  private nodes: ReadNodeRec[] = [
-    { id: "read-1", state: "IN_SERVICE", since: 0 },
-    { id: "read-2", state: "IN_SERVICE", since: 0 },
-    { id: "read-3", state: "OFF", since: 0 },
-  ];
+  /** Auto Scaling이 켜고 끄는 자리. app-3 한 대다 */
+  private nodes: ReadNodeRec[] = [{ id: "app-3", state: "OFF", since: 0 }];
   /** 시장 봇 목표 발행률. 운영자(봇 플릿)와 AI 조치(봇 부하 줄임)가 바꾼다 */
   private botTarget = BASE_BOT_OPS;
   /** 봇 플릿. 관리 어댑터가 봇 목록을 바꿀 때 알린다. 봇이 내는 발행률은 목표와 봇들의 합 가운데 작은 쪽이다 */
@@ -314,7 +328,8 @@ export class OpsSim {
 
   // 이번 틱의 판독값. 틱마다 다시 계산한다
   private demand = BASE_DEMAND;
-  private readAvg: number | null = BASE_DEMAND / 2;
+  /** 조회를 받는 앱 노드(app-1·app-2와 켜진 app-3)의 평균 CPU */
+  private readAvg: number | null = 32;
   private p95 = 170;
   private errors = 0.02;
   private availability = 99.98;
@@ -354,6 +369,8 @@ export class OpsSim {
   private cooldowns = new Map<AiActionKind, number>();
   private observation: Observation | null = null;
   private lastRevert: RevertNote | null = null;
+  /** 모드 줄 알림. 싣는 시간은 snapshot이 NOTICE_MS로 거른다 */
+  private notice: { kind: AiNotice["kind"]; at: number; text: string; tone: AiNotice["tone"]; incidentId: string | null } | null = null;
 
   private backup: OpsBackup;
   private backupRunTick: number | null = null;
@@ -424,9 +441,9 @@ export class OpsSim {
     ]);
     add(26 * 60 + 5, 5, "응답 지연 증가 · 외부 응답", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · p95 431ms ≥ 목표 400ms"],
-      [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(조회 노드 +1) · 확신도 84%"],
-      [1, "APPROVED", "OPERATOR", "김수퍼", "승인 · 조회 노드 +1 (2 → 3대)"],
-      [1, "ACTED", "SYSTEM", "시스템", "조치 · 희망 대수 2 → 3대"],
+      [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(app-3 켜기) · 확신도 84%"],
+      [1, "APPROVED", "OPERATOR", "김수퍼", "승인 · app-3 켜기 (앱 2 → 3대)"],
+      [1, "ACTED", "SYSTEM", "시스템", "조치 · 앱 계층 2 → 3대 · app-3 기동"],
       [5, "RESOLVED", "SYSTEM", "시스템", "해제 · p95 188ms. 복구 5분 00초"],
     ]);
     add(190, 6, "복제 지연 · db-standby", "warning", [
@@ -444,7 +461,7 @@ export class OpsSim {
     ]);
     // 위 기록에서 운영자가 승인한 AI 조치. 감사 로그에도 같은 일이 남아 있어야 두 기록이 같은 말을 한다
     this.seededAudit = [
-      { at: isoNow(now - (26 * 60 + 4) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:READ_NODES", target: "조회 노드 +1 (2 → 3대)" },
+      { at: isoNow(now - (26 * 60 + 4) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:READ_NODES", target: "app-3 켜기 (앱 2 → 3대)" },
       { at: isoNow(now - (72 - 1.1) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:BOT_LOAD", target: "시장 봇 부하 줄임 (60 → 30 OPS)" },
     ];
   }
@@ -514,10 +531,11 @@ export class OpsSim {
     if (sc) {
       const s = (now - sc.startedAt) / 1000;
       const ramp = (from: number, to: number, a: number, b: number) => from + (to - from) * Math.min(1, Math.max(0, (s - a) / (b - a)));
+      // 급증 정점은 두 대로 받으면 평균 74% 안팎, app-3를 켜 세 대로 나누면 50% 안팎이 되는 값이다
       if (sc.id === "READ_SURGE") {
-        d = s < 200 ? ramp(BASE_DEMAND, 148, 3, 11) : ramp(148, 64, 200, 230);
+        d = s < 200 ? ramp(BASE_DEMAND, 118, 3, 11) : ramp(118, 36, 200, 230);
       } else {
-        d = s < 200 ? ramp(66, 150, 24, 30) : ramp(150, 66, 200, 230);
+        d = s < 200 ? ramp(40, 130, 24, 30) : ramp(130, 40, 200, 230);
       }
     }
     return d + wobble(this.tick, 1, 2.5);
@@ -528,23 +546,35 @@ export class OpsSim {
     return this.fleet.running ? Math.min(this.fleet.sum, this.botTarget) : 0;
   }
 
+  /** 자동 증설 자리 가운데 조회를 받고 있는 노드(켜진 app-3) */
   private inService(): ReadNodeRec[] {
     return this.nodes.filter((n) => n.state === "IN_SERVICE");
   }
 
+  /** 조회를 받는 앱 노드 수. app-1·app-2는 늘 받고 app-3는 켜져 있을 때만 받는다 */
+  private servingApps(): number {
+    return FIXED_APPS + this.inService().length;
+  }
+
   private measure(): void {
     this.demand = this.demandAt(this.t);
-    const serving = this.inService().length;
-    this.readAvg = serving === 0 ? null : this.demand / serving;
-    const avg = this.readAvg ?? 100;
+    // 봇 주문은 마켓으로 두 매칭 노드에 나뉜다. p0 쪽 거래가 조금 더 많다. 조회는 켜진 앱 노드에 고르게 나뉜다
+    const ops = this.botOpsNow();
+    const share = this.demand / this.servingApps();
+    const cpu = (v: number) => Math.min(CPU_CEIL, Math.round(v));
+    const app1 = cpu(10 + ops * 0.2 + share + wobble(this.tick, 3, 3));
+    const app2 = cpu(9 + ops * 0.17 + share + wobble(this.tick, 9, 3));
+    this.hostCpu.set("app-1", app1);
+    this.hostCpu.set("app-2", app2);
+    const app3On = this.inService().length > 0;
+    if (app3On) this.hostCpu.set("app-3", cpu(3 + share + wobble(this.tick, 10, 2)));
+    else this.hostCpu.delete("app-3");
+    const serving = app3On ? [app1, app2, this.hostCpu.get("app-3") ?? 0] : [app1, app2];
+    this.readAvg = serving.reduce((a, b) => a + b, 0) / serving.length;
+    const avg = this.readAvg;
     this.p95 = Math.round(170 + Math.max(0, avg - 50) * 14 + wobble(this.tick, 2, 6));
     this.errors = Math.round((0.02 + Math.max(0, avg - 65) * 0.06) * 100) / 100;
     this.availability = Math.round((99.98 - Math.max(0, avg - 65) * 0.03) * 100) / 100;
-    // 봇 주문은 마켓으로 두 매칭 노드에 나뉜다. p0 쪽 거래가 조금 더 많다
-    const ops = this.botOpsNow();
-    const cpu = (v: number) => Math.min(CPU_CEIL, Math.round(v));
-    this.hostCpu.set("app-1", cpu(24 + ops * 0.3 + wobble(this.tick, 3, 3)));
-    this.hostCpu.set("app-2", cpu(22 + ops * 0.26 + wobble(this.tick, 9, 3)));
     this.hostCpu.set("db-primary", cpu(16 + this.demand * 0.08 + wobble(this.tick, 4, 2)));
     this.hostCpu.set("db-standby", cpu(8 + wobble(this.tick, 5, 1.5)));
     this.hostCpu.set("bot-1", cpu(28 + ops * 0.45 + wobble(this.tick, 6, 3)));
@@ -599,7 +629,7 @@ export class OpsSim {
     const scaleOut = this.value("read.scale_out_cpu");
     if (this.readAvg !== null && this.readAvg >= scaleOut) {
       out.set("read_cpu", {
-        name: "조회 노드 CPU 높음", severity: "warning", target: "조회 ASG",
+        name: "앱 계층 CPU 높음", severity: "warning", target: "앱 계층",
         detail: `평균 ${Math.round(this.readAvg)}% ≥ ${scaleOut}%`, thresholdKey: "read.scale_out_cpu", ref: { kind: "READ_TIER" },
       });
     }
@@ -745,25 +775,27 @@ export class OpsSim {
     const scaleOut = this.value("read.scale_out_cpu");
     const scaleIn = this.value("read.scale_in_cpu");
     const avg = this.readAvg;
-    const serving = this.inService().length;
+    const serving = this.servingApps();
     const pending = this.nodes.some((n) => n.state === "PENDING");
     if (avg !== null && avg >= scaleOut && this.desired < READ_MAX && !pending) {
-      const est = Math.round(this.demand / (serving + 1));
+      const est = this.estimateAvg(serving + 1);
       out.push({
-        sig: "READ_NODES:+1", params: { kind: "READ_NODES", delta: 1 },
-        title: `조회 노드 +1 (${this.desired} → ${this.desired + 1}대)`, target: "조회 ASG",
-        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. t3.small 1대 비용이 시간 단위로 늘어납니다`,
-        risk: "LOW", revertPlan: `조회 노드 −1. 쿨다운 ${AI_RULES.readNodesCooldownSec / 60}분 뒤 가능`,
+        sig: "READ_NODES:+1", params: { kind: "READ_NODES", delta: 1, from: this.desired, to: this.desired + 1 },
+        title: `app-3 켜기 (앱 ${this.desired} → ${this.desired + 1}대)`, target: "앱 계층 · app-3",
+        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. 조회가 세 노드로 나뉩니다`,
+        cost: "t3.small 1대가 켜진 시간만큼 EC2 요금이 늘어납니다",
+        risk: "LOW", revertPlan: `app-3 끄기. 쿨다운 ${AI_RULES.readNodesCooldownSec / 60}분 뒤 가능`,
         confidencePct: Math.round(60 + Math.min(24, (avg - scaleOut) * 1.6) + (this.p95 > SLO.p95Ms ? 4 : 0)),
       });
     }
     if (avg !== null && avg <= scaleIn && this.desired > READ_MIN && this.lowTicks >= 4 && !pending) {
-      const est = Math.round(this.demand / Math.max(1, serving - 1));
+      const est = this.estimateAvg(Math.max(FIXED_APPS, serving - 1));
       out.push({
-        sig: "READ_NODES:-1", params: { kind: "READ_NODES", delta: -1 },
-        title: `조회 노드 −1 (${this.desired} → ${this.desired - 1}대)`, target: "조회 ASG",
-        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. 한 대 비용이 줄고, 진행 중인 요청을 흘려보낸 뒤 내립니다`,
-        risk: "LOW", revertPlan: `조회 노드 +1. 관찰 창 안에서 악화하면 자동으로 되돌립니다`,
+        sig: "READ_NODES:-1", params: { kind: "READ_NODES", delta: -1, from: this.desired, to: this.desired - 1 },
+        title: `app-3 끄기 (앱 ${this.desired} → ${this.desired - 1}대)`, target: "앱 계층 · app-3",
+        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. 진행 중인 요청을 흘려보낸 뒤 내리고 조회는 app-1·app-2가 받습니다`,
+        cost: "t3.small 1대만큼 EC2 요금이 줄어듭니다",
+        risk: "LOW", revertPlan: `app-3 켜기. 관찰 창 안에서 악화하면 자동으로 되돌립니다`,
         confidencePct: Math.round(70 + Math.min(20, (scaleIn - avg) * 2) + (this.lowTicks >= 4 ? 4 : 0)),
       });
     }
@@ -776,8 +808,9 @@ export class OpsSim {
       if (def && to >= def.min && to - scaleIn >= SCALE_GAP) {
         out.push({
           sig: `THRESHOLD:read.scale_out_cpu:${to}`, params: { kind: "THRESHOLD", key: "read.scale_out_cpu", from: scaleOut, to },
-          title: `증설 CPU 임계 ${scaleOut}% → ${to}%`, target: "임계값 · 조회 증설",
-          impact: "다음 급증에서 증설이 약 1분 먼저 시작됩니다. 평시 증설이 잦아질 수 있습니다",
+          title: `증설 CPU 임계 ${scaleOut}% → ${to}%`, target: "임계값 · 앱 계층 증설",
+          impact: "다음 급증에서 app-3가 약 1분 먼저 켜집니다. 평시에 켜지는 일이 잦아질 수 있습니다",
+          cost: "직접 드는 비용은 없습니다. app-3가 자주 켜지면 EC2 요금이 늘 수 있습니다",
           risk: "LOW", revertPlan: "임계값 이력에서 되돌립니다. 같은 승인 흐름을 거칩니다",
           confidencePct: 72,
         });
@@ -791,6 +824,7 @@ export class OpsSim {
         sig: "BOT_LOAD", params: { kind: "BOT_LOAD", fromOps: this.botTarget, toOps },
         title: `시장 봇 부하 줄임 (${this.botTarget} → ${toOps} OPS)`, target: "bot-1 시장 봇",
         impact: `bot-1 CPU ${botCpu}% → 약 ${Math.min(CPU_CEIL, Math.round(28 + toOps * 0.45))}% 예상. 관측 수집 여유를 지킵니다`,
+        cost: "비용 변화가 없습니다",
         risk: "LOW", revertPlan: `봇 발행 ${this.botTarget} OPS로 되돌리기`,
         confidencePct: 86,
       });
@@ -801,6 +835,7 @@ export class OpsSim {
         sig: `SILENCE:${a.id}`, params: { kind: "SILENCE", alertId: a.id, minutes: AI_RULES.silenceMaxMin },
         title: `경보 보류 ${AI_RULES.silenceMaxMin}분 · ${a.name}`, target: `${a.target} 경보`,
         impact: "정보 등급이라 서비스 영향이 없습니다. 보류 동안 다른 경보는 그대로 울립니다",
+        cost: "비용 변화가 없습니다",
         risk: "LOW", revertPlan: "보류를 해제합니다. 30분 뒤에는 저절로 풀립니다",
         confidencePct: 83,
       });
@@ -812,6 +847,7 @@ export class OpsSim {
         sig: "BACKUP_NOW", params: { kind: "BACKUP_NOW" },
         title: "백업 즉시 실행 (Databasus)", target: "exchange DB",
         impact: "읽기 전용 계정으로 전체 백업과 외부 보관, 복원 검증을 한 번 돌립니다. 운영 DB 쓰기에는 영향이 없습니다",
+        cost: "백업 한 벌만큼 외부 보관 공간을 씁니다",
         risk: "LOW", revertPlan: "되돌릴 것이 없습니다. 백업 한 벌이 늘 뿐입니다",
         confidencePct: 90,
       });
@@ -831,7 +867,7 @@ export class OpsSim {
       seen.add(f.sig);
       const cur = this.proposals.find((p) => p.sig === f.sig && p.status === "PROPOSED");
       if (cur) {
-        Object.assign(cur, { title: f.title, target: f.target, impact: f.impact, confidencePct: f.confidencePct, params: f.params });
+        Object.assign(cur, { title: f.title, target: f.target, impact: f.impact, cost: f.cost, confidencePct: f.confidencePct, params: f.params });
         cur.streak += 1;
       } else {
         this.proposals.unshift({ id: uid("prp"), ...f, streak: 1, status: "PROPOSED", createdAt: now, decidedAt: null, decidedBy: null, revertibleUntil: null, autoHold: null, outcome: null });
@@ -849,6 +885,111 @@ export class OpsSim {
     this.syncSuggestions();
     this.describe(now, found);
     if (this.mode === "AUTO") this.tryAuto(now);
+  }
+
+  /**
+   * 정책 엔진 검사표(ADR 0035의 자동 실행 조건). 행 순서가 자동 실행을 미루는 이유의 우선순위라 첫 막힌 행이 곧
+   * autoHold다. 판단 과정(trace)과 조치 카드의 대기 이유가 한 함수에서 나와 두 자리가 다른 말을 하지 않는다.
+   * 수동 모드의 모드 행은 막음이 아니라 운영자 승인 대기(HOLD)다
+   */
+  private checksFor(p: ProposalRec, now: number): { rule: AiCheckRule; label: string; state: AiCheckState; note: string }[] {
+    const q = p.params;
+    const row = (rule: AiCheckRule, label: string, state: AiCheckState, note: string) => ({ rule, label, state, note });
+    const cd = this.cooldowns.get(q.kind);
+    const age = this.judgedAt === null ? null : Math.round((now - this.judgedAt) / 1000);
+    const t = q.kind === "THRESHOLD" ? this.thresholds.get(q.key) : undefined;
+    const stepUnit = t?.unit === "%" ? "%p" : t?.unit ?? "";
+    const itemRuns = q.kind === "THRESHOLD" ? this.aiThresholdRuns.get(q.key) ?? 0 : 0;
+    const botCpu = this.hostCpu.get("bot-1") ?? 0;
+    const botGuard = this.value("bot.capacity_guard");
+    return [
+      row("ALLOWED", "허용 목록", "PASS", AI_ACTION_LABEL[q.kind]),
+      this.observation !== null
+        ? row("OBSERVE", "한 번에 한 조치", "BLOCK", "한 번에 한 조치 · 관찰 창이 끝난 뒤")
+        : row("OBSERVE", "한 번에 한 조치", "PASS", "관찰 중인 조치 없음"),
+      this.autoRuns >= this.limits.autoCap
+        ? row("CAP", "이번 자동 모드 상한", "BLOCK", `이번 자동 모드 상한 ${this.limits.autoCap}회 도달`)
+        : row("CAP", "이번 자동 모드 상한", "PASS", `${this.autoRuns}/${this.limits.autoCap}회`),
+      cd !== undefined && now < cd
+        ? row("COOLDOWN", "쿨다운", "BLOCK", `쿨다운 ${mmss((cd - now) / 1000)} 남음`)
+        : row("COOLDOWN", "쿨다운", "PASS", "쿨다운 없음"),
+      age === null || age > AI_RULES.evidenceMaxAgeSec
+        ? row("FRESH", "근거 60초 이내", "BLOCK", "근거가 60초보다 오래됨")
+        : row("FRESH", "근거 60초 이내", "PASS", `근거 ${age}초 전`),
+      p.confidencePct < this.limits.confidencePct
+        ? row("CONFIDENCE", `확신도 ${this.limits.confidencePct}% 이상`, "BLOCK", `확신도 ${p.confidencePct}% · 기준 ${this.limits.confidencePct}% 미만`)
+        : row("CONFIDENCE", `확신도 ${this.limits.confidencePct}% 이상`, "PASS", `${p.confidencePct}%`),
+      p.streak < AI_RULES.sameJudgmentStreak
+        ? row("STREAK", `같은 판단 연속 ${AI_RULES.sameJudgmentStreak}회`, "BLOCK", `같은 판단 ${p.streak}/${AI_RULES.sameJudgmentStreak}회`)
+        : row("STREAK", `같은 판단 연속 ${AI_RULES.sameJudgmentStreak}회`, "PASS", `${p.streak}회`),
+      q.kind !== "THRESHOLD"
+        ? row("STEP", "임계값 1회 변경폭", "NA", "")
+        : !t || Math.abs(q.to - q.from) > t.aiMaxStep
+          ? row("STEP", "임계값 1회 변경폭", "BLOCK", "1회 변경폭 초과")
+          : row("STEP", "임계값 1회 변경폭", "PASS", `${Math.abs(q.to - q.from)}${stepUnit} ≤ ${t.aiMaxStep}${stepUnit}`),
+      q.kind !== "THRESHOLD"
+        ? row("PER_ITEM", "임계값 항목당 횟수", "NA", "")
+        : itemRuns >= this.limits.thresholdPerItem
+          ? row("PER_ITEM", "임계값 항목당 횟수", "BLOCK", "이 항목의 이번 자동 모드 변경 횟수 초과")
+          : row("PER_ITEM", "임계값 항목당 횟수", "PASS", `${itemRuns}/${this.limits.thresholdPerItem}회`),
+      q.kind !== "THRESHOLD"
+        ? row("DIRECTION", "임계값 방향", "NA", "")
+        : isStricter(q.key, q.from, q.to)
+          ? row("DIRECTION", "임계값 방향", "PASS", "더 민감하게")
+          : row("DIRECTION", "임계값 방향", "BLOCK", "완화 방향 · 승인으로만 실행"),
+      q.kind !== "BOT_LOAD"
+        ? row("BOT_GUARD", "봇 용량 보호 기준", "NA", "")
+        : botCpu >= botGuard
+          ? row("BOT_GUARD", "봇 용량 보호 기준", "PASS", `bot-1 CPU ${botCpu}% ≥ ${botGuard}%`)
+          : row("BOT_GUARD", "봇 용량 보호 기준", "BLOCK", `bot-1 CPU ${botCpu}% < ${botGuard}% · 승인으로만 실행`),
+      q.kind !== "BACKUP_NOW"
+        ? row("BACKUP_TODAY", "오늘 즉시 백업", "NA", "")
+        : this.backup.manualRunsToday >= 1
+          ? row("BACKUP_TODAY", "오늘 즉시 백업", "BLOCK", "오늘 즉시 백업을 이미 실행함")
+          : row("BACKUP_TODAY", "오늘 즉시 백업", "PASS", "오늘 0회"),
+      this.mode === "AUTO"
+        ? row("MODE", "모드", "PASS", "자동 · 한도 안에서 실행")
+        : row("MODE", "모드", "HOLD", "수동 · 실행은 운영자 승인"),
+    ];
+  }
+
+  /** 판단 한 번의 과정. 판단한 순간의 근거·가설·후보와 후보마다의 검사표다. 검사표는 행이 규칙, 칸이 후보다 */
+  private buildTrace(now: number, open: ProposalRec[], result: string): AiJudgmentTrace {
+    const per = open.map((p) => this.checksFor(p, now));
+    const rows = per[0] ?? [];
+    return {
+      mode: this.mode,
+      evidence: this.evidence.map((e) => ({ ...e, ref: e.ref === null ? null : { ...e.ref } })),
+      evidenceAt: isoNow(now - 1000),
+      hypothesis: this.hypothesis,
+      candidates: open.map((p) => ({ id: p.id, kind: p.params.kind, title: p.title, confidencePct: p.confidencePct, risk: p.risk })),
+      checks: rows.map((r, i) => ({ rule: r.rule, label: r.label, results: per.map((cells) => ({ state: cells[i].state, note: cells[i].note })) })),
+      result,
+    };
+  }
+
+  /**
+   * 자동 모드에서 실행할 수 있는 조치인가. 검사표의 방향·봇 보호 행과 같은 판정이다. 카드 배지와 조치 확인의 보조 줄이
+   * 이 값으로 '자동 실행 가능'과 '승인 필요'를 가른다
+   */
+  private autoAllowed(q: Params): boolean {
+    if (q.kind === "THRESHOLD") return isStricter(q.key, q.from, q.to);
+    if (q.kind === "BOT_LOAD") return (this.hostCpu.get("bot-1") ?? 0) >= this.value("bot.capacity_guard");
+    return true;
+  }
+
+  /** 조치안이 바꾸는 값의 전후. 보류와 백업은 수로 적을 전후가 없다 */
+  private changeOf(q: Params): AiProposal["change"] {
+    switch (q.kind) {
+      case "READ_NODES":
+        return { from: q.from, to: q.to, unit: "대" };
+      case "THRESHOLD":
+        return { from: q.from, to: q.to, unit: this.thresholds.get(q.key)?.unit ?? "" };
+      case "BOT_LOAD":
+        return { from: q.fromOps, to: q.toOps, unit: "OPS" };
+      default:
+        return null;
+    }
   }
 
   /** 임계값 표의 AI 제안값 표식은 열린 임계값 제안에서만 온다 */
@@ -886,7 +1027,7 @@ export class OpsSim {
     } else {
       // 평시에도 무엇을 보고 이상 없다고 했는지 남긴다. 근거 없는 '이상 없음'은 공허 통과다
       if (avg !== null && !covered("READ_TIER")) {
-        this.evidence.push({ id: "ev-read", label: "조회 평균 CPU", value: `${avg}% · ${this.inService().length}대`, severity: null, ref: { kind: "READ_TIER" } });
+        this.evidence.push({ id: "ev-read", label: "앱 평균 CPU", value: `${avg}% · ${this.servingApps()}대`, severity: null, ref: { kind: "READ_TIER" } });
       }
       this.evidence.push({ id: "ev-p95", label: "응답 p95", value: `${this.p95}ms`, severity: null, ref: { kind: "SLO", metric: "p95" } });
       this.evidence.push({ id: "ev-lag", label: "복제 지연", value: lagWord(this.lagSec), severity: null, ref: { kind: "REPLICATION" } });
@@ -902,26 +1043,26 @@ export class OpsSim {
       this.hypothesis = revert.cause === null
         ? "운영자가 자동 조치를 되돌린 뒤 지표를 다시 봅니다."
         : revert.kind === "READ_NODES" && revert.delta < 0
-          ? "축소 뒤 조회 요청이 다시 늘어 줄인 대수로는 모자랐습니다. 축소 판단이 일렀습니다."
+          ? "app-3를 끈 뒤 조회 요청이 다시 늘어 두 대로는 모자랐습니다. 끄는 판단이 일렀습니다."
           : "자동 조치 뒤 지표가 나빠졌습니다. 조치가 지금 상황에 맞지 않았다고 보고 되돌렸습니다.";
       outcome = revert.cause === null ? "운영자 되돌림 · 복구 관찰" : "자동 되돌림 · 복구 관찰";
     } else if (pending) {
-      this.situation = `조회 노드를 ${this.desired}대로 늘렸고 새 노드가 준비 중입니다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 봅니다.`;
-      this.hypothesis = "조회 트래픽 급증으로 조회 계층 용량이 모자랐습니다. 조치 효과를 관찰합니다.";
+      this.situation = `app-3를 켜서 앱 계층이 ${this.desired}대가 됐고 app-3가 준비 중입니다. 준비되면 평균 CPU가 약 ${this.estimateAvg(this.desired)}%로 내려갈 것으로 봅니다.`;
+      this.hypothesis = "조회 트래픽 급증으로 앱 두 대의 용량이 모자랐습니다. 조치 효과를 관찰합니다.";
       outcome = "조치 효과 관찰";
     } else if (draining) {
-      this.situation = `조회 노드를 ${this.desired}대로 줄이는 중입니다. 진행 중인 요청을 흘려보낸 뒤 내립니다.`;
-      this.hypothesis = "야간 조회가 줄었습니다. 한 대를 줄여도 여유가 남습니다.";
+      this.situation = `app-3를 끄는 중입니다. 진행 중인 요청을 흘려보낸 뒤 내리고 조회는 app-1·app-2가 받습니다.`;
+      this.hypothesis = "야간 조회가 줄었습니다. app-3를 꺼도 두 대로 여유가 남습니다.";
       outcome = "조치 효과 관찰";
     } else if (avg !== null && avg >= scaleOut) {
-      this.situation = `조회 요청이 평소의 ${(this.demand / BASE_DEMAND).toFixed(1)}배로 늘어 조회 노드 평균 CPU가 ${avg}%입니다. 응답 p95는 ${this.p95}ms로 목표 ${SLO.p95Ms}ms${this.p95 > SLO.p95Ms ? "를 넘었습니다" : " 안입니다"}. 주문 경로와 DB는 여유가 있습니다.`;
+      this.situation = `조회 요청이 평소의 ${(this.demand / BASE_DEMAND).toFixed(1)}배로 늘어 앱 계층 평균 CPU가 ${avg}%입니다. 응답 p95는 ${this.p95}ms로 목표 ${SLO.p95Ms}ms${this.p95 > SLO.p95Ms ? "를 넘었습니다" : " 안입니다"}. 주문 경로와 DB는 여유가 있습니다.`;
       this.hypothesis = this.desired >= READ_MAX
-        ? "조회 계층이 최대 대수에서 포화됐습니다. 대수를 더 늘리는 것은 금지 목록(비용 자원 생성)이라 운영자 판단이 필요합니다."
-        : "조회 트래픽 급증으로 조회 계층 용량이 모자랍니다. 매칭 엔진과 DB는 원인이 아닙니다.";
+        ? "앱 계층이 최대 3대에서 포화됐습니다. 대수를 더 늘리는 것은 금지 목록(비용 자원 생성)이라 운영자 판단이 필요합니다."
+        : "조회 트래픽 급증으로 앱 두 대의 용량이 모자랍니다. app-3를 켜면 조회가 세 노드로 나뉩니다. 주문 처리와 DB는 원인이 아닙니다.";
       outcome = `조치안 ${open.length}건`;
     } else if (found.some((f) => f.sig === "READ_NODES:-1")) {
-      this.situation = `조회 요청이 줄어 조회 노드 ${this.inService().length}대의 평균 CPU가 ${avg}%입니다. 축소 임계 ${this.value("read.scale_in_cpu")}% 아래가 이어집니다.`;
-      this.hypothesis = "야간 조회가 줄었습니다. 한 대를 줄여도 여유가 남습니다.";
+      this.situation = `조회 요청이 줄어 앱 ${this.servingApps()}대의 평균 CPU가 ${avg}%입니다. 축소 임계 ${this.value("read.scale_in_cpu")}% 아래가 이어집니다.`;
+      this.hypothesis = "야간 조회가 줄었습니다. app-3를 꺼도 두 대로 여유가 남습니다.";
       outcome = `조치안 ${open.length}건`;
     } else if (firing.length > 0) {
       const names = firing.map((a) => `${a.target} ${a.name}`).join(", ");
@@ -938,7 +1079,10 @@ export class OpsSim {
     this.judgedAt = now;
     const changed = outcome !== this.lastOutcome;
     if (changed) {
-      this.judgments.unshift({ id: uid("jdg"), at: isoNow(now), summary: this.situation, outcome });
+      const result = open.length > 0 && outcome.startsWith("조치안")
+        ? `${outcome} · ${this.mode === "AUTO" ? "자동 실행 조건 검사" : "운영자 승인 대기"}`
+        : outcome;
+      this.judgments.unshift({ id: uid("jdg"), at: isoNow(now), summary: this.situation, outcome, trace: this.buildTrace(now, open, result) });
       this.judgments = this.judgments.slice(0, 30);
       this.lastOutcome = outcome;
     }
@@ -966,10 +1110,10 @@ export class OpsSim {
     if (r.kind !== "READ_NODES") return `${lead} 자동 조치를 되돌렸습니다. ${r.undo}.`;
     const head = `${lead} 자동 ${r.delta < 0 ? "축소를" : "증설을"} 되돌렸습니다.`;
     if (pending) {
-      return `${head} 조회 노드를 다시 ${this.desired}대로 늘리는 중이며 새 노드가 준비 중입니다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 봅니다.`;
+      return `${head} app-3를 다시 켜는 중이며 준비 중입니다. 준비되면 앱 ${this.desired}대의 평균 CPU가 약 ${this.estimateAvg(this.desired)}%로 내려갈 것으로 봅니다.`;
     }
-    if (draining) return `${head} 조회 노드를 다시 ${this.desired}대로 줄이는 중입니다.`;
-    return `${head} 조회 노드는 다시 ${this.desired}대입니다.`;
+    if (draining) return `${head} app-3를 다시 끄는 중입니다.`;
+    return `${head} 앱 계층은 다시 ${this.desired}대입니다.`;
   }
 
   /** 정지 중에는 새 판단이 없다. 근거와 가설을 비우고 남은 일(관찰 창)만 적는다 */
@@ -988,28 +1132,26 @@ export class OpsSim {
 
   private normalSituation(): string {
     const avg = this.readAvg === null ? "미수집" : `${Math.round(this.readAvg)}%`;
-    return `모든 지표가 임계 안입니다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${lagWord(this.lagSec)}입니다.`;
+    return `모든 지표가 임계 안입니다. 앱 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${lagWord(this.lagSec)}입니다.`;
+  }
+
+  /**
+   * 앱 계층이 n대가 되면 평균 CPU가 얼마가 될지. 지금의 조회 수요와 봇 발행률로 measure와 같은 식을 흔들림 없이 쓴다.
+   * 조치안의 예상 영향과 '준비되면 약 n%' 문장이 쓴다
+   */
+  private estimateAvg(n: number): number {
+    const ops = this.botOpsNow();
+    const share = this.demand / Math.max(FIXED_APPS, n);
+    const cpus = [10 + ops * 0.2 + share, 9 + ops * 0.17 + share];
+    if (n > FIXED_APPS) cpus.push(3 + share);
+    return Math.round(cpus.reduce((a, b) => a + b, 0) / cpus.length);
   }
 
   /* ===== 자동 실행 ===== */
 
-  /** 자동으로 실행하지 않는 이유. 없으면 null이다. 순서는 화면에 한 줄로 적을 우선순위다 */
+  /** 자동으로 실행하지 않는 이유. 검사표(checksFor)의 첫 막힌 행이고, 없으면 null이다 */
   private holdReason(p: ProposalRec, now: number): string | null {
-    if (this.observation !== null) return "한 번에 한 조치 · 관찰 창이 끝난 뒤";
-    if (this.autoRuns >= this.limits.autoCap) return `이번 자동 모드 상한 ${this.limits.autoCap}회 도달`;
-    const cd = this.cooldowns.get(p.params.kind);
-    if (cd !== undefined && now < cd) return `쿨다운 ${mmss((cd - now) / 1000)} 남음`;
-    if (this.judgedAt === null || now - this.judgedAt > AI_RULES.evidenceMaxAgeSec * 1000) return "근거가 60초보다 오래됨";
-    if (p.confidencePct < this.limits.confidencePct) return `확신도 ${p.confidencePct}% · 기준 ${this.limits.confidencePct}% 미만`;
-    if (p.streak < AI_RULES.sameJudgmentStreak) return `같은 판단 ${p.streak}/${AI_RULES.sameJudgmentStreak}회`;
-    const q = p.params;
-    if (q.kind === "THRESHOLD") {
-      const t = this.thresholds.get(q.key);
-      if (!t || Math.abs(q.to - q.from) > t.aiMaxStep) return "1회 변경폭 초과";
-      if ((this.aiThresholdRuns.get(q.key) ?? 0) >= this.limits.thresholdPerItem) return "이 항목의 이번 자동 모드 변경 횟수 초과";
-    }
-    if (q.kind === "BACKUP_NOW" && this.backup.manualRunsToday >= 1) return "오늘 즉시 백업을 이미 실행함";
-    return null;
+    return this.checksFor(p, now).find((r) => r.state === "BLOCK")?.note ?? null;
   }
 
   private tryAuto(now: number): void {
@@ -1023,6 +1165,15 @@ export class OpsSim {
     }
     if (chosen === null || this.auto === null) return;
     chosen.autoHold = null;
+    // 실행 직전의 검사표를 판단 기록으로 남긴다. 실행 뒤의 '조치 효과 관찰' 기록이 그 위에 쌓여 판단, 결과 순서로 읽힌다
+    const outcome = `자동 실행 · ${chosen.title}`;
+    this.judgments.unshift({
+      id: uid("jdg"), at: isoNow(now),
+      summary: `자동 실행 조건을 모두 통과해 ${chosen.title}을 자동으로 실행합니다. 확신도 ${chosen.confidencePct}%, 같은 판단 ${chosen.streak}회입니다.`,
+      outcome, trace: this.buildTrace(now, open, outcome),
+    });
+    this.judgments = this.judgments.slice(0, 30);
+    this.lastOutcome = outcome;
     this.execute(chosen, AI_ACTOR, "AUTO", this.auto.approvalId, now);
     // 한 번에 한 조치다. 나머지 제안은 관찰 창 뒤로 미룬 이유를 다시 적는다
     for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
@@ -1033,7 +1184,9 @@ export class OpsSim {
   private stopAtCap(): void {
     if (this.mode !== "AUTO" || this.autoRuns < this.limits.autoCap) return;
     this.setManual(`이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, "SYSTEM", "시스템");
-    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 · 자동 조치 상한 도달");
+    // 상한 도달은 수동 전환(모드 변경)이라 P4다(Teams 개입 등급, 사용자 확정 2026-09-25)
+    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 P4 · 자동 조치 상한 도달 · 수동 전환");
+    this.notice = { kind: "AUTO_CAP", at: this.t, text: `이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동으로 바뀌었습니다`, tone: "neutral", incidentId: this.openIncident };
   }
 
   private execute(p: ProposalRec, actor: OpsActorRef, how: "MANUAL" | "AUTO", approvalId: string | null, now: number): void {
@@ -1042,7 +1195,7 @@ export class OpsSim {
     switch (q.kind) {
       case "READ_NODES":
         this.setDesired(this.desired + q.delta);
-        did = `희망 대수 ${this.desired - q.delta} → ${this.desired}대`;
+        did = `앱 계층 ${this.desired - q.delta} → ${this.desired}대 · app-3 ${q.delta > 0 ? "기동" : "드레이닝"}`;
         break;
       case "THRESHOLD":
         this.writeThreshold(q.key, q.to, actor, how === "AUTO" ? "AI_AUTO" : "AI_APPROVED", approvalId, "AI 조치안", null, now, false);
@@ -1077,7 +1230,8 @@ export class OpsSim {
       this.autoRuns += 1;
       this.observation = { proposalId: p.id, startedAt: now, until: now + AI_RULES.observeSec * 1000, action: p.title, p95Before: this.p95 };
       this.log(this.openIncident, "AUTO_ACTED", "AI", AI_ACTOR.name, `자동 실행 · ${p.title} · ${did}`);
-      this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", `Teams 알림 · 자동 조치와 되돌리기 링크`);
+      // 되돌림이 아닌 자동 실행은 P3다(Teams 개입 등급, 사용자 확정 2026-09-25)
+      this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 P3 · 자동 조치와 되돌리기 링크");
       this.audit(AI_ACTOR, `ai.auto:${q.kind}`, p.title, approvalId);
     } else {
       p.status = "APPROVED";
@@ -1096,7 +1250,7 @@ export class OpsSim {
       case "READ_NODES": {
         const before = this.desired;
         this.setDesired(before - q.delta);
-        return `조회 노드 ${q.delta > 0 ? "−" : "+"}1 (${before} → ${this.desired}대)`;
+        return `app-3 ${q.delta > 0 ? "끄기" : "켜기"} (앱 ${before} → ${this.desired}대)`;
       }
       case "THRESHOLD": {
         const change = this.history.find((c) => c.key === q.key && c.to === q.to && !c.reverted);
@@ -1140,8 +1294,8 @@ export class OpsSim {
     const saturated = q.kind === "READ_NODES" && q.delta === -1 && this.readAvg !== null && this.readAvg >= scaleOut;
     if ((!slower && !saturated) || q.kind === "BACKUP_NOW") return;
     const avg = Math.round(this.readAvg ?? 0);
-    const why = saturated ? `조회 평균 CPU ${avg}% ≥ ${scaleOut}%` : `응답 p95 ${this.p95}ms 악화`;
-    const cause = saturated ? `조회 평균 CPU가 ${avg}%로 증설 임계 ${scaleOut}%를 넘어` : `응답 p95가 ${this.p95}ms로 목표 ${SLO.p95Ms}ms를 넘어`;
+    const why = saturated ? `앱 평균 CPU ${avg}% ≥ ${scaleOut}%` : `응답 p95 ${this.p95}ms 악화`;
+    const cause = saturated ? `앱 평균 CPU가 ${avg}%로 증설 임계 ${scaleOut}%를 넘어` : `응답 p95가 ${this.p95}ms로 목표 ${SLO.p95Ms}ms를 넘어`;
     if (this.openIncident === null) {
       // 경보가 서기 전에 되돌리므로 사건을 여기서 연다. 되돌림이 어떤 악화 때문인지 한 기록에 남긴다
       const inc: Incident = { id: uid("inc"), title: `자동 조치 뒤 악화 · ${p.target}`, severity: "warning", openedAt: isoNow(now), resolvedAt: null };
@@ -1168,12 +1322,20 @@ export class OpsSim {
     this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null);
     const wasAuto = this.mode === "AUTO";
     if (wasAuto) this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
-    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", wasAuto ? "Teams 알림 · 자동 되돌림과 수동 전환" : "Teams 알림 · 자동 되돌림");
+    // 자동 되돌림은 P2다(Teams 개입 등급, 사용자 확정 2026-09-25)
+    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", wasAuto ? "Teams 알림 P2 · 자동 되돌림과 수동 전환" : "Teams 알림 P2 · 자동 되돌림");
+    this.notice = {
+      kind: "AUTO_REVERTED", at: now, tone: "warning", incidentId: this.openIncident,
+      text: `자동 되돌림 · ${undo} · ${why}${wasAuto ? " · 수동으로 바뀌었습니다" : ""}`,
+    };
     this.describe(now, this.findings());
   }
 
   private expireAuto(now: number): void {
-    if (this.auto !== null && now >= this.auto.until) this.setManual("유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
+    if (this.auto !== null && now >= this.auto.until) {
+      this.setManual("유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
+      this.notice = { kind: "AUTO_EXPIRED", at: now, text: "자동 모드 유효 시간 만료 · 수동으로 돌아왔습니다", tone: "neutral", incidentId: this.openIncident };
+    }
   }
 
   private setManual(text: string, actor: OpsActor, name: string): void {
@@ -1199,10 +1361,10 @@ export class OpsSim {
 
   private setDesired(next: number): void {
     if (next < READ_MIN || next > READ_MAX) {
-      throw new AdminError("CAPACITY_OUT_OF_BOUNDS", next < READ_MIN ? `최소 ${READ_MIN}대 아래로 축소 불가` : `최대 ${READ_MAX}대 위로 증설 불가`);
+      throw new AdminError("CAPACITY_OUT_OF_BOUNDS", next < READ_MIN ? `앱 계층 최소 ${READ_MIN}대 아래로 축소 불가` : `앱 계층 최대 ${READ_MAX}대 위로 증설 불가`);
     }
     while (this.desired < next) {
-      // 빈 자리가 없으면 내리는 중인 노드 자리에 새 노드를 띄운다. 희망 대수와 기동 중인 노드 수가 늘 같다
+      // 꺼진 app-3를 켠다. 내리는 중이면 그 자리를 다시 띄운다. 희망 대수와 기동 중인 노드 수가 늘 같다
       const slot = this.nodes.find((n) => n.state === "OFF") ?? this.nodes.find((n) => n.state === "DRAINING");
       if (slot) {
         slot.state = "PENDING";
@@ -1322,7 +1484,7 @@ export class OpsSim {
     if (decision !== "APPROVE") return;
     const q = p.params;
     if (q.kind === "READ_NODES" && (this.desired + q.delta < READ_MIN || this.desired + q.delta > READ_MAX)) {
-      throw new AdminError("CAPACITY_OUT_OF_BOUNDS", "조회 노드 범위 밖");
+      throw new AdminError("CAPACITY_OUT_OF_BOUNDS", "앱 계층 범위(2~3대) 밖");
     }
     if (q.kind === "THRESHOLD") {
       if (this.value(q.key) !== q.from) throw new AdminError("invalid_parameter", "현재값이 조치안 뒤에 바뀜");
@@ -1434,7 +1596,8 @@ export class OpsSim {
     if (expired > 0) parts.push(`대기 조치안 ${expired}건 만료`);
     if (this.observation) parts.push("관찰 창은 끝까지 봄");
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, parts.join(" · "));
-    this.judgments.unshift({ id: uid("jdg"), at: isoNow(at), summary: `운영자(${actor.name})가 AI를 정지했습니다. 새 판단과 조치안을 내지 않습니다.`, outcome: "AI 정지" });
+    this.judgments.unshift({ id: uid("jdg"), at: isoNow(at), summary: `운영자(${actor.name})가 AI를 정지했습니다. 새 판단과 조치안을 내지 않습니다.`, outcome: "AI 정지", trace: null });
+    this.notice = { kind: "STOPPED", at, tone: "warning", incidentId: this.openIncident, text: ["AI 즉시 정지", actor.name, ...parts.slice(1)].join(" · ") };
     this.lastOutcome = "AI 정지";
     this.describe(now, []);
   }
@@ -1447,6 +1610,7 @@ export class OpsSim {
     this.mode = "MANUAL";
     this.stopped = null;
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, `모드 · AI 재개(수동) · 사유 "${reason.trim()}"`);
+    this.notice = { kind: "RESUMED", at: this.t, text: `AI 재개 · ${actor.name} · 수동 모드로 다시 판단합니다`, tone: "neutral", incidentId: this.openIncident };
     this.describe(now, this.findings());
   }
 
@@ -1536,9 +1700,9 @@ export class OpsSim {
   }
 
   /**
-   * 운영자가 용량·부하 화면에서 조회 노드 희망 대수를 바꾼다. AI 조치와 같은 희망 대수를 바꾸므로 관제센터와
+   * 운영자가 용량·부하 화면에서 app-3를 켜고 끈다(앱 계층 희망 대수 2~3). AI 조치와 같은 희망 대수를 바꾸므로 관제센터와
    * 용량 화면의 대수가 함께 움직인다. 사람이 이미 정한 대수를 겨냥한 열린 조치안은 거두고, AI 자동 실행이
-   * 곧바로 반대로 되돌리지 않게 조회 노드 쿨다운을 건다. 감사는 어댑터가 capacity.* 로 남긴다
+   * 곧바로 반대로 되돌리지 않게 app-3 켜기·끄기 쿨다운을 건다. 감사는 어댑터가 capacity.* 로 남긴다
    */
   scaleReadNodes(delta: 1 | -1, actor: OpsActorRef, now: number): void {
     this.advance(now);
@@ -1554,7 +1718,7 @@ export class OpsSim {
       withdrew = true;
     }
     if (withdrew) this.syncSuggestions();
-    this.log(this.openIncident, "ACTED", "OPERATOR", actor.name, `조회 노드 ${delta > 0 ? "+1" : "−1"} (${before} → ${this.desired}대) · 용량·부하 화면`);
+    this.log(this.openIncident, "ACTED", "OPERATOR", actor.name, `app-3 ${delta > 0 ? "켜기" : "끄기"} (앱 ${before} → ${this.desired}대) · 용량·부하 화면`);
     this.describe(now, this.findings());
   }
 
@@ -1622,9 +1786,10 @@ export class OpsSim {
     }
     this.scenario = { id, startedAt: now };
     if (id === "NIGHT_SCALE_IN") {
-      // 야간 시나리오는 세 대로 떠 있는 데서 시작한다. 조치가 아니라 무대 준비다
+      // 야간 시나리오는 app-3까지 세 대가 떠 있는 데서 시작한다. 조치가 아니라 무대 준비다
       this.nodes = this.nodes.map((n) => ({ ...n, state: "IN_SERVICE", since: this.tick }));
       this.desired = READ_MAX;
+      this.measure();
     }
     this.log(null, "MODE", "SYSTEM", "시나리오", `시나리오 시작 · ${OPS_SCENARIO_TITLE[id]}`);
   }
@@ -1653,6 +1818,7 @@ export class OpsSim {
       memTotalGb: AI_MEM_TOTAL_GB,
       p50Ms: q(0.5),
       p95Ms: q(0.95),
+      lastMs: this.aiLatency.length === 0 ? null : this.aiLatency[this.aiLatency.length - 1],
       tokensPerSec: this.aiBusy ? Math.round(46 + wobble(this.tick, 14, 6)) : 0,
       queue: this.aiBusy ? 1 + (this.alerts.length > 1 ? 1 : 0) : 0,
       link: "OK",
@@ -1661,13 +1827,12 @@ export class OpsSim {
       served: this.aiServed,
       lastServedAt: this.aiServedAt === null ? null : isoNow(this.aiServedAt),
     };
-    const serving = this.inService();
-    const readNodes: ReadNode[] = this.nodes.map((n, i) => ({
+    const readNodes: ReadNode[] = this.nodes.map((n) => ({
       id: n.id,
       state: n.state,
       instanceType: "t3.small",
-      az: READ_AZ[i % READ_AZ.length],
-      cpuPct: n.state === "IN_SERVICE" && this.readAvg !== null ? Math.round(this.readAvg + (i - 1) * 1.5) : n.state === "PENDING" ? 4 : n.state === "DRAINING" ? 12 : null,
+      az: APP3_AZ,
+      cpuPct: n.state === "IN_SERVICE" ? this.hostCpu.get(n.id) ?? null : n.state === "PENDING" ? 4 : n.state === "DRAINING" ? 12 : null,
     }));
     const alerts: OpsAlert[] = this.alerts.map((a) => ({
       id: a.id, name: a.name, severity: a.severity, target: a.target, detail: a.detail, since: isoNow(a.since),
@@ -1684,6 +1849,7 @@ export class OpsSim {
       confidencePct: p.confidencePct, status: p.status, createdAt: isoNow(p.createdAt),
       decidedAt: p.decidedAt === null ? null : isoNow(p.decidedAt), decidedBy: p.decidedBy,
       revertibleUntil: p.revertibleUntil === null ? null : isoNow(p.revertibleUntil), autoHold: p.autoHold, outcome: p.outcome,
+      change: this.changeOf(p.params), cost: p.cost, autoAllowed: this.autoAllowed(p.params),
     }));
     const ai: AiDesk = {
       mode: this.mode,
@@ -1697,7 +1863,8 @@ export class OpsSim {
       confidencePct: this.confidence,
       evidence: this.evidence.map((e) => ({ ...e })),
       proposals,
-      history: this.judgments.slice(0, 12).map((j) => ({ ...j })),
+      // 판단 과정은 판마다 새 객체로 옮긴다. 화면이 받은 판을 건드려도 시뮬레이터의 기록이 바뀌지 않는다
+      history: this.judgments.slice(0, 12).map((j) => ({ ...j, trace: j.trace === null ? null : (JSON.parse(JSON.stringify(j.trace)) as AiJudgmentTrace) })),
       autoUsed: this.autoRuns,
       autoCap: this.limits.autoCap,
       stopped: this.stopped === null ? null : { at: isoNow(this.stopped.at), by: this.stopped.by },
@@ -1714,6 +1881,11 @@ export class OpsSim {
       observation: this.observation === null ? null : { startedAt: isoNow(this.observation.startedAt), until: isoNow(this.observation.until), action: this.observation.action },
       // 감사 로그는 어댑터가 들고 있어 거기서 센다(simAdmin)
       actionStats: {},
+      notice: this.notice === null || now - this.notice.at >= NOTICE_MS ? null : {
+        kind: this.notice.kind, at: isoNow(this.notice.at), until: isoNow(this.notice.at + NOTICE_MS),
+        text: this.notice.text, tone: this.notice.tone, incidentId: this.notice.incidentId,
+      },
+      recent: { runs: 0, reverts: 0 },
     };
     return {
       origin: "SIM",
@@ -1722,7 +1894,7 @@ export class OpsSim {
       collectedAt: at,
       summary: { state: "READY", data: { availabilityPct: this.availability, p95Ms: this.p95, errorRatePct: this.errors, slo: { ...SLO } } },
       hosts: { state: "READY", data: hosts },
-      readTier: { state: "READY", data: { min: READ_MIN, max: READ_MAX, desired: this.desired, nodes: readNodes, avgCpuPct: this.readAvg === null || serving.length === 0 ? null : Math.round(this.readAvg) } },
+      readTier: { state: "READY", data: { min: READ_MIN, max: READ_MAX, desired: this.desired, fixed: ["app-1", "app-2"], serving: this.servingApps(), nodes: readNodes, avgCpuPct: this.readAvg === null ? null : Math.round(this.readAvg) } },
       replication: { state: "READY", data: { primary: "db-primary", standby: "db-standby", stream: "STREAMING", lagBytes: this.lagBytes, lagSec: this.lagSec } },
       alerts: { state: "READY", data: alerts },
       incidents: { state: "READY", data: { incidents: this.incidents.map((i) => ({ ...i })), events: this.events.map((e) => ({ ...e })) } },

@@ -41,15 +41,17 @@ function window(samples: FlowSample[], startTick: number, from: number, to: numb
 }
 
 const labels = (s: FlowState) => s.events.map((e) => e.label);
-const CPU = { api1: 10, api2: 5, read1: 8, read2: 8, read3: null };
+const CPU = { api1: 10, api2: 5, app3: null };
 
 test("초기 상태는 compose 기본 기동과 AWS 목표 구성의 대응이다", () => {
   const s = createFlow();
   assert.equal(s.holder, "api1");
   assert.equal(s.epoch, START_EPOCH);
-  assert.equal(s.apps.read3.status, "stopped");
-  assert.equal(s.apps.read1.inRead, true);
-  assert.equal(s.apps.api1.inRead, false);
+  // 앱 계층 2~3대(ADR 0030 사용자 정정). 매칭 리더 두 대가 조회도 받고 app-3 은 자동 증설 자리라 꺼져 있다
+  assert.equal(s.apps.app3.status, "stopped");
+  assert.equal(s.apps.api1.inRead, true);
+  assert.equal(s.apps.api2.inRead, true);
+  assert.equal(s.apps.app3.inRead, false);
   assert.equal(s.desired, 2);
   assert.equal(s.botOps, BASE_OPS);
   assert.deepEqual(s.db, { pg1: "primary", pg2: "standby" });
@@ -61,11 +63,13 @@ test("초기 상태는 compose 기본 기동과 AWS 목표 구성의 대응이�
   assert.equal(v.cdn.state, "running");
   assert.equal(v.cdn.status, "목표 구성");
   assert.equal(v.cdn.container, null);
-  assert.equal(v.read3.state, "stopped");
-  assert.equal(v.read1.state, "running");
+  assert.equal(v.app3.state, "stopped");
   assert.equal(v.api1.state, "running");
-  // 이름은 관제센터와 같다
-  assert.deepEqual([v.api1.name, v.api2.name, v.read1.name, v.read3.name, v.pg1.name, v.pg2.name], ["app-1", "app-2", "read-1", "read-3", "db-primary", "db-standby"]);
+  assert.match(v.api1.role, /조회/);
+  assert.equal(v.app3.role, "조회 전용 · Auto Scaling");
+  // 이름은 관제센터와 같다. read-N 은 없다
+  assert.deepEqual([v.api1.name, v.api2.name, v.app3.name, v.pg1.name, v.pg2.name], ["app-1", "app-2", "app-3", "db-primary", "db-standby"]);
+  assert.equal(v.app3.container, "chaos-api-3");
   assert.equal(v.alb.container, "chaos-lb");
   // Standby 컨테이너는 아직 없으니 이름 옆에 추가 예정을 남긴다
   assert.match(v.pg2.container ?? "", /2단계 추가/);
@@ -164,8 +168,8 @@ test("DB 전환 공백에는 앱과 옛 Primary 를 장애로 그린다", () => 
   // 앱이 아직 옛 Primary 를 보고 있으니 그 DB 가 장애다
   assert.equal(v.pg1.state, "failure");
   assert.equal(v.alb.state, "failure");
-  // 조회 노드도 같은 Primary 를 보므로 전환 공백에는 조회도 멈춘다
-  assert.equal(v.read1.state, "failure");
+  // 조회를 받는 app-2 도 같은 Primary 를 보므로 전환 공백에는 조회도 멈춘다
+  assert.equal(v.api2.state, "failure");
   const after = run(startScenario(createFlow(), "dbSwitch"), 35).state;
   // 접속을 옮긴 뒤의 옛 Primary 는 장애가 아니라 중지다
   assert.equal(nodeViews(after, CPU).pg1.state, "stopped");
@@ -197,21 +201,23 @@ test("조회 부하는 권고를 띄우고 증설·축소가 측정 순서대로
   const { state, samples } = run(started, 105);
   const l = labels(state);
   const idx = (x: string) => l.findIndex((y) => y.startsWith(x));
-  assert.ok(idx("증설 권고") >= 0 && idx("증설 권고") < idx("운영자 +1 승인"));
-  assert.ok(idx("read-3 기동") < idx("read-3 ALB 등록"));
-  assert.ok(idx("ALB 제외") < idx("read-3 중지"));
-  assert.equal(state.apps.read3.status, "stopped");
+  assert.ok(idx("증설 권고") >= 0 && idx("증설 권고") < idx("app-3 켜기 승인"));
+  assert.ok(idx("app-3 기동") < idx("app-3 ALB 등록"));
+  assert.ok(idx("app-3 끄기 승인") < idx("ALB 제외"));
+  assert.ok(idx("ALB 제외") < idx("app-3 중지"));
+  assert.equal(state.apps.app3.status, "stopped");
   assert.equal(state.desired, 2);
   assert.ok(window(samples, t0, 0, 24).every((x) => x.registered === 2));
   assert.ok(window(samples, t0, 24, 61).every((x) => x.registered === 3));
   assert.ok(window(samples, t0, 61, 100).every((x) => x.registered === 2));
   assert.ok(window(samples, t0, 12, 24).every((x) => x.desired === 3 && x.registered === 2));
   assert.ok(window(samples, t0, 24, 31).some((x) => x.util > 0.7));
-  for (const x of window(samples, t0, 0, 13)) assert.equal(x.cpu.read3, null);
-  assert.ok(window(samples, t0, 14, 60).every((x) => x.cpu.read3 !== null));
-  // 조회 부하는 조회 노드만 민다. 매칭 노드는 쓰기만 받아 CPU 가 오르지 않는다
-  assert.ok(window(samples, t0, 5, 60).every((x) => (x.cpu.api1 ?? 0) < 20 && (x.cpu.api2 ?? 0) < 20));
-  assert.ok(window(samples, t0, 8, 20).every((x) => (x.cpu.read1 ?? 0) > 40));
+  for (const x of window(samples, t0, 0, 13)) assert.equal(x.cpu.app3, null);
+  assert.ok(window(samples, t0, 14, 60).every((x) => x.cpu.app3 !== null));
+  // 조회는 app-1·app-2 가 함께 받으므로 조회 부하가 두 리더의 CPU 도 민다
+  assert.ok(window(samples, t0, 8, 20).every((x) => (x.cpu.api1 ?? 0) > 40 && (x.cpu.api2 ?? 0) > 40));
+  // app-3 이 합류해 예열이 끝나면 세 노드가 나눠 받아 사용률이 내려간다
+  assert.ok(window(samples, t0, 40, 60).every((x) => x.util < 0.3));
 });
 
 test("봇 급증은 쓰기 경로만 밀고 조회 권고를 띄우지 않는다", () => {
@@ -250,7 +256,7 @@ test("사건 시각은 표본 시각과 같은 축 위에 있다", () => {
 
 test("공백 직전 점만 끊어 공백을 가로지르는 선을 막는다", () => {
   const at = (n: number, v: number | null): FlowSample => ({
-    at: n, trades: 0, botOps: 0, lease: 0, cpu: { api1: v, api2: 1, read1: 1, read2: 1, read3: null }, util: 0, desired: 2, registered: 2, replLagKb: null,
+    at: n, trades: 0, botOps: 0, lease: 0, cpu: { api1: v, api2: 1, app3: null }, util: 0, desired: 2, registered: 2, replLagKb: null,
   });
   const pick = (s: FlowSample) => s.cpu.api1;
   assert.deepEqual(
@@ -299,11 +305,13 @@ test("연결선은 평시 흐르고, 급증하면 세지고, 끊기면 장애가
   const e0 = edgeFlows(base);
   assert.equal(e0["alb-api1"].kind, "flow");
   assert.equal(e0["bot-alb"].tier, 1);
-  // 매칭 노드는 쓰기만 받는다. 리더 대기 노드로 가는 선은 살아 있지만 흐르는 것이 없다
-  assert.equal(e0["alb-api2"].kind, "idle");
-  // 조회는 Auto Scaling 그룹으로 가고 조회 SQL 이 따로 Primary 에 닿는다
-  assert.equal(e0["alb-read"].kind, "flow");
-  assert.equal(e0["read-db"].kind, "flow");
+  // 리더 대기 노드도 조회를 받으므로 그 선에는 조회 몫이 흐르고, 쓰기를 받는 리더 선보다 세지 않다
+  assert.equal(e0["alb-api2"].kind, "flow");
+  assert.ok(e0["alb-api2"].rate < e0["alb-api1"].rate);
+  // app-3 이 꺼져 있으면 Auto Scaling 그룹으로 가는 조회선과 그 조회 SQL 선은 꺼짐이다
+  assert.equal(e0["alb-read"].kind, "off");
+  assert.equal(e0["read-db"].kind, "off");
+  assert.equal(e0["app-db"].kind, "flow");
   // 사용자 요청은 CloudFront 를 지나 ALB 로 흐른다
   assert.equal(e0["users-cdn"].kind, "flow");
   assert.equal(e0["cdn-alb"].kind, "flow");
@@ -322,8 +330,9 @@ test("연결선은 평시 흐르고, 급증하면 세지고, 끊기면 장애가
   assert.equal(eg["app-db"].kind, "down");
   assert.equal(eg.repl.kind, "down");
   assert.equal(eg["alb-api1"].kind, "down");
-  assert.equal(eg["alb-read"].kind, "down");
-  assert.equal(eg["read-db"].kind, "down");
+  assert.equal(eg["alb-api2"].kind, "down");
+  assert.equal(eg["alb-read"].kind, "off");
+  assert.equal(eg["read-db"].kind, "off");
   const after = run(startScenario(base, "dbSwitch"), 35).state;
   assert.equal(edgeFlows(after)["app-db"].kind, "flow");
   assert.equal(edgeFlows(after).repl.kind, "down");
@@ -331,19 +340,38 @@ test("연결선은 평시 흐르고, 급증하면 세지고, 끊기면 장애가
   assert.equal(edgeFlows(rejoining).repl.kind, "transition");
 });
 
-test("조회 부하와 증설 중에는 그룹이 전환을 거쳐 세 대가 된다", () => {
+test("조회 부하와 app-3 켜기 중에는 그룹이 전환을 거쳐 앱 계층이 세 대가 된다", () => {
   const started = startScenario(run(createFlow(), 3).state, "scale");
   const booting = run(started, 15).state;
-  assert.equal(nodeViews(booting, CPU).read3.state, "transition");
+  assert.equal(nodeViews(booting, CPU).app3.state, "transition");
   assert.equal(asgView(booting).state, "transition");
-  assert.equal(asgView(booting).status, "2 → 3대 조정 중");
+  assert.equal(asgView(booting).status, "앱 2 → 3대");
   assert.equal(edgeFlows(booting)["load-alb"].tier, 3);
-  // 조정 중에도 조회는 남은 두 대로 흐른다
-  assert.equal(edgeFlows(booting)["alb-read"].tier, 3);
+  // 조정 중에도 조회는 app-1·app-2 로 흐르고, 그룹으로 가는 선은 전환 중이다
+  assert.equal(edgeFlows(booting)["alb-api1"].tier, 3);
+  assert.equal(edgeFlows(booting)["alb-api2"].tier, 3);
+  assert.equal(edgeFlows(booting)["alb-read"].kind, "transition");
   const joined = run(started, 26).state;
-  assert.equal(nodeViews(joined, CPU).read3.state, "running");
+  assert.equal(nodeViews(joined, CPU).app3.state, "running");
   assert.equal(asgView(joined).state, "running");
-  assert.equal(asgView(joined).status, "3대 가동");
+  assert.equal(asgView(joined).status, "앱 3대");
+  // 조회가 세 노드로 나뉜다
+  const ej = edgeFlows(joined);
+  assert.equal(ej["alb-read"].kind, "flow");
+  assert.equal(ej["read-db"].kind, "flow");
+  assert.ok(ej["alb-api2"].rate < edgeFlows(booting)["alb-api2"].rate);
+});
+
+test("매칭 리더가 멈추면 그 노드의 조회도 빠지고 그룹은 조정 중으로 보이지 않는다", () => {
+  const killed = run(startScenario(run(createFlow(), 5).state, "leaderKill"), 3).state;
+  assert.equal(killed.apps.api1.inRead, false);
+  const a = asgView(killed);
+  assert.equal(a.registered, 1);
+  assert.equal(a.state, "running");
+  assert.equal(a.status, "앱 1대");
+  const restarted = run(startScenario(run(killed, 20).state, "restart", "api1"), 15).state;
+  assert.equal(restarted.apps.api1.inRead, true);
+  assert.equal(asgView(restarted).registered, 2);
 });
 
 test("흐름 단계는 경계에서 갈린다", () => {

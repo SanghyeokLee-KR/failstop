@@ -29,7 +29,7 @@ test("sim 보고 예시는 일일 정상, 사건 보고(자동 되돌림), 일�
     d.reports.map((r) => [r.kind, r.intervention.priority, r.transition]),
     [
       ["daily", "P4", "unknown"],
-      ["incident", "P3", "resolved"],
+      ["incident", "P2", "resolved"],
       ["daily", "P3", "unknown"],
     ],
   );
@@ -51,7 +51,7 @@ test("Teams 카드는 보고 서비스와 같은 순서로 머리, 영향, 담�
   const t = texts(c.blocks);
   assert.equal(t[0], "페일스톱 운영 관제 · exchange / AWS");
   assert.equal(t[1], "응답 지연 증가 해제");
-  assert.equal(t[2], "P3 · 담당자 확인 필요");
+  assert.equal(t[2], "P2 · 담당자 조치 필요", "AI 자동 되돌림 보고는 P2다(사용자 확정 2026-09-25)");
   assert.ok(t.some((x) => x.startsWith("대상=")) && t.some((x) => x.startsWith("해제=")), "사건 사실에 대상과 해제 시각이 있다");
   const order = ["영향  |", "담당자 조치", "후속 관측 ·", "참고 분석", "미확인 자료 1항목", "기록 "];
   const idx = order.map((head) => t.findIndex((x) => x.startsWith(head)));

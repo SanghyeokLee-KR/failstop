@@ -270,9 +270,9 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* 한 줄 칩이라 형태(StatusShape SVG)는 줄 가운데에 선다. 글자는 기준선 정렬 그대로다 */
 .shape {
-  font-size: 10px;
-  line-height: 1;
+  align-self: center;
 }
 .shape[data-tone="danger"] {
   color: var(--color-danger);

@@ -4,7 +4,8 @@
  * AI 관제 패널(§12-9). 관제센터의 가운데 기둥이다.
  *
  * 큰 한 줄 판단, 권장 조치, 근거와 원인 가설, 처리된 조치, 판단 기록 순서로 읽힌다. 운영자가 할 일(승인하고
- * 실행)이 판단 바로 아래 첫 화면에 서게 하려는 순서다. AI 판단 요약(확신도, 위험도, 과거 같은 조치)은 조치
+ * 실행)이 판단 바로 아래 첫 화면에 서게 하려는 순서다. 대기 조치안이 없으면 빈 상자 대신 평상 한 줄을 두고, 15분 안에
+ * 처리한 조치가 있으면 그 자리에 마지막 조치 결과를 둔다(§12-9 v1.14). AI 판단 요약(확신도, 위험도, 과거 같은 조치)은 조치
  * 카드마다 한 줄로 싣는다. AI라는 사실은 보라 빛이 아니라 이 내용과 판단 과정으로 드러낸다(§12-10). 조치 카드는
  * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는 대기 중인
  * 조치안에만 붙이고 카드마다 ai-proposal-n 앵커를 두어 모드 줄의 링크가 첫 카드로 온다. 승인 버튼은 운영자의
@@ -14,20 +15,28 @@
 import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import { actionKey, AI_ACTION_LABEL, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
+import { actionKey, AI_ACTION_LABEL, canAutoRun, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
+import { useOpsDetail } from "@/lib/admin/detailStore";
+import { flashTone } from "@/lib/admin/motion";
 import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
 import { joinDots } from "@/lib/admin/text";
 import { toast } from "@/components/Toast";
-import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
+import StatusShape from "../StatusShape";
+import { useFlip } from "../useFlip";
+import { useFreshKeys } from "../useFreshKeys";
+import ActionConfirm from "./ActionConfirm";
 import { RulesDisclosure } from "./ModeBar";
-import { Ago, AiMark, hms, mmss, SEVERITY_SHAPE, useClock } from "./parts";
+import { Ago, AiMark, FlashNum, hms, mmss, SEVERITY_SHAPE, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const RISK_WORD = { LOW: "낮음", MEDIUM: "중간" } as const;
+
+/** '마지막 조치 결과'로 올리는 처리. 거둔 조치와 '나중에'는 한 일이 없어 올리지 않는다 */
+const LAST_RESULT = new Set<AiProposal["status"]>(["APPROVED", "AUTO_EXECUTED", "AUTO_REVERTED", "REVERTED", "REJECTED", "EXPIRED"]);
 
 /** 조치가 가리키는 자리. '근거 보기'가 그 자리를 잠깐 강조한다 */
 const KIND_REF: Record<AiActionKind, OpsRef | null> = {
@@ -60,19 +69,19 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
     case "APPROVED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">●</span> 승인 · {who} {when} · 실행됨
+          <span aria-hidden="true"><StatusShape kind="circle" /></span> 승인 · {who} {when} · 실행됨
         </span>
       );
     case "REJECTED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">○</span> 거절 · {who} {when}
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> 거절 · {who} {when}
         </span>
       );
     case "DEFERRED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">◌</span> 나중에 · {who} · 5분 동안 다시 내지 않음
+          <span aria-hidden="true"><StatusShape kind="dashed" /></span> 나중에 · {who} · 5분 동안 다시 내지 않음
         </span>
       );
     case "AUTO_EXECUTED": {
@@ -92,25 +101,25 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
     case "AUTO_REVERTED":
       return (
         <span className={styles.decided} data-tone="warning">
-          <span aria-hidden="true">▲</span> 자동 되돌림 · {when}
+          <span aria-hidden="true"><StatusShape kind="triangle" /></span> 자동 되돌림 · {when}
         </span>
       );
     case "REVERTED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">○</span> 되돌림 · {who} {when}
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> 되돌림 · {who} {when}
         </span>
       );
     case "WITHDRAWN":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">○</span> 상황이 바뀌어 거둠 · {when}
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> 상황이 바뀌어 거둠 · {when}
         </span>
       );
     case "EXPIRED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true">○</span> AI 정지로 만료 · {who} {when}
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> AI 정지로 만료 · {who} {when}
         </span>
       );
     case "PROPOSED":
@@ -122,7 +131,27 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
  * 처리된 조치. 번호와 예상 영향 대신 실제로 바꾼 것(결과)을 적는다. 되돌리기 창이 열린 자동 실행 카드만
  * 남은 시간을 매초 다시 그리고, 나머지 카드는 시계를 사실상 타지 않는다(한 시간 간격)
  */
-function DoneCard({ p, onChanged }: { p: AiProposal; onChanged: () => void }) {
+/**
+ * AI 정지로 만료된 조치의 한 줄 상태(§12-9 v1.14). 누를 수 없는 승인 단추를 카드째 남기지 않는다
+ */
+function ExpiredLine({ p, fresh }: { p: AiProposal; fresh: boolean }) {
+  return (
+    <p className={styles.doneLine} data-flip={p.id} data-fresh={fresh ? "" : undefined}>
+      <StatusShape kind="ring" className={styles.shape} tone="off" />
+      <span>
+        <b>AI 정지로 만료</b> · {p.title}
+        {p.decidedBy && (
+          <>
+            {" "}
+            · {p.decidedBy} <span className="num">{p.decidedAt ? hms(p.decidedAt) : ""}</span>
+          </>
+        )}
+      </span>
+    </p>
+  );
+}
+
+function DoneCard({ p, onChanged, fresh }: { p: AiProposal; onChanged: () => void; fresh: boolean }) {
   const now = useClock(p.status === "AUTO_EXECUTED" ? 1000 : 3_600_000);
   const canSuper = useCan("SUPER");
   const [busy, setBusy] = useState(false);
@@ -139,12 +168,20 @@ function DoneCard({ p, onChanged }: { p: AiProposal; onChanged: () => void }) {
     }
   };
   const revertible = p.status === "AUTO_EXECUTED" && p.revertibleUntil !== null && Date.parse(p.revertibleUntil) > now && p.kind !== "BACKUP_NOW";
+  if (p.status === "EXPIRED") return <ExpiredLine p={p} fresh={fresh} />;
   return (
-    <article className={styles.card} data-status={p.status} aria-label={`처리된 조치. ${p.title}`}>
+    <article
+      className={styles.card}
+      data-status={p.status}
+      data-flip={p.id}
+      data-fresh={fresh ? "" : undefined}
+      data-pulse={fresh && p.status === "AUTO_REVERTED" ? "" : undefined}
+      aria-label={`처리된 조치. ${p.title}`}
+    >
       <div className={styles.cardTop}>
         <span className={styles.cardTitle}>{p.title}</span>
         <span className={styles.badge} data-kind="done">
-          {p.status === "EXPIRED" ? "정지로 만료" : "처리됨"}
+          처리됨
         </span>
       </div>
       <dl className={styles.cardRows}>
@@ -164,11 +201,6 @@ function DoneCard({ p, onChanged }: { p: AiProposal; onChanged: () => void }) {
         )}
       </dl>
       <div className={styles.cardFoot}>
-        {p.status === "EXPIRED" && (
-          <button type="button" className={adminStyles.approveBtn} disabled title="AI 정지로 만료되었습니다. 재개한 뒤 새 판단을 기다립니다">
-            승인하고 실행
-          </button>
-        )}
         <Decided p={p} now={now} />
         {revertible && (
           <>
@@ -183,13 +215,16 @@ function DoneCard({ p, onChanged }: { p: AiProposal; onChanged: () => void }) {
   );
 }
 
-/** 조치안이 자동 모드에서 실행될 수 있는가. 확신도가 기준에 닿아야 하고, 수동 모드면 늘 승인이다 */
+/**
+ * 조치안이 자동 모드에서 실행될 수 있는가. 확신도가 기준에 닿아야 하고, 수동 모드면 늘 승인이다. 완화 방향의 임계값과
+ * 봇 용량 보호 기준 아래의 봇 부하 줄임은 자동 모드에서도 승인으로만 실행한다(ADR 0035, 사용자 확정 2026-09-25)
+ */
 function autoBadge(p: AiProposal, mode: AiDesk["mode"], limits: AiLimits): { kind: "auto" | "approve"; text: string } {
-  if (mode === "AUTO" && p.confidencePct >= limits.confidencePct) return { kind: "auto", text: "자동 실행 가능" };
+  if (canAutoRun(p, mode, limits)) return { kind: "auto", text: "자동 실행 가능" };
   return { kind: "approve", text: "승인 필요" };
 }
 
-function CardMenu({ p, onEvidence }: { p: AiProposal; onEvidence: (p: AiProposal) => void }) {
+function CardMenu({ p, onEvidence, judgmentId }: { p: AiProposal; onEvidence: (p: AiProposal) => void; judgmentId: string | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -227,6 +262,17 @@ function CardMenu({ p, onEvidence }: { p: AiProposal; onEvidence: (p: AiProposal
           >
             근거 보기
           </button>
+          <button
+            type="button"
+            className={styles.menuItem}
+            disabled={judgmentId === null}
+            onClick={() => {
+              setOpen(false);
+              if (judgmentId) useOpsDetail.getState().openJudgment(judgmentId);
+            }}
+          >
+            판단 과정
+          </button>
           <Link href="/admin/ai" className={styles.menuItem}>
             기록 보기
           </Link>
@@ -258,9 +304,7 @@ function CardSummary({ p, ai, limits }: { p: AiProposal; ai: AiDesk; limits: AiL
       <span className={styles.sumItem}>
         위험{" "}
         {/* 위험도는 상태가 아니라 조치의 성질이라 낮음에 초록을 칠하지 않는다. 중간만 주의 색 ▲다(§12-9) */}
-        <span className={styles.shape} data-tone={p.risk === "LOW" ? undefined : "warning"} aria-hidden="true">
-          {p.risk === "LOW" ? "●" : "▲"}
-        </span>{" "}
+        <StatusShape kind={p.risk === "LOW" ? "circle" : "triangle"} tone={p.risk === "LOW" ? undefined : "warning"} className={styles.shape} />{" "}
         <b>{RISK_WORD[p.risk]}</b>
       </span>
       <span className={styles.sumItem}>
@@ -276,13 +320,14 @@ function CardSummary({ p, ai, limits }: { p: AiProposal; ai: AiDesk; limits: AiL
   );
 }
 
-function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
+function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
   p: AiProposal;
   index: number;
   ai: AiDesk;
   limits: AiLimits;
   onChanged: () => void;
   onEvidence: (p: AiProposal) => void;
+  fresh: boolean;
 }) {
   const canSuper = useCan("SUPER");
   const [confirm, setConfirm] = useState(false);
@@ -301,8 +346,18 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
       setBusy(false);
     }
   };
+  // 이 조치안을 후보로 낸 가장 최근 판단 기록. ⋮ 메뉴의 '판단 과정'이 연다
+  const judgmentId = ai.history.find((h) => h.trace?.candidates.some((c) => c.id === p.id))?.id ?? null;
   return (
-    <article id={`ai-proposal-${index}`} tabIndex={-1} className={styles.card} data-status={p.status} aria-label={`조치안 ${index}. ${p.title}`}>
+    <article
+      id={`ai-proposal-${index}`}
+      tabIndex={-1}
+      className={styles.card}
+      data-status={p.status}
+      data-flip={p.id}
+      data-fresh={fresh ? "" : undefined}
+      aria-label={`조치안 ${index}. ${p.title}`}
+    >
       <div className={styles.cardTop}>
         <span className={`${styles.cardNo} num`} aria-hidden="true">
           {index}
@@ -311,7 +366,7 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
         <span className={styles.badge} data-kind={badge.kind}>
           {badge.text}
         </span>
-        <CardMenu p={p} onEvidence={onEvidence} />
+        <CardMenu p={p} onEvidence={onEvidence} judgmentId={judgmentId} />
       </div>
       <CardSummary p={p} ai={ai} limits={limits} />
       <dl className={styles.cardRows}>
@@ -341,25 +396,7 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
         {ai.mode === "AUTO" && p.autoHold && <span className={styles.hold}>자동 대기 · {p.autoHold}</span>}
       </div>
       {confirm && (
-        <ConfirmDialog
-          title="AI 조치안 승인"
-          description={`승인하면 곧바로 실행합니다. 되돌리기 · ${p.revertPlan}`}
-          target={p.title}
-          blastRadius={p.impact}
-          tone="warning"
-          confirmLabel="승인하고 실행"
-          busy={busy}
-          onConfirm={() => void decide("APPROVE")}
-          onClose={() => {
-            if (!busy) setConfirm(false);
-          }}
-        >
-          {p.kind === "THRESHOLD" && (
-            <p className={styles.reviewText}>
-              임계값 변경이라 1인 승인 티켓(ops.threshold.set)을 발급하고 곧바로 소각해 승인 원장과 감사 로그에 남깁니다.
-            </p>
-          )}
-        </ConfirmDialog>
+        <ActionConfirm p={p} index={index} ai={ai} limits={limits} busy={busy} onConfirm={() => void decide("APPROVE")} onClose={() => setConfirm(false)} />
       )}
     </article>
   );
@@ -372,7 +409,7 @@ function AiOff({ source }: { source: string }) {
         <AiMark size={24} />
       </span>
       <span className={styles.aiOffTitle}>
-        <span aria-hidden="true">◌ </span>AI 연결 전
+        <span aria-hidden="true"><StatusShape kind="dashed" /> </span>AI 연결 전
       </span>
       <span className={styles.aiOffDesc}>
         AI 판단 서비스와 서버 정책 엔진을 붙이는 2단계 전입니다. 판단과 조치안을 지어내지 않습니다. 경보와 ASG 정책은 AI 없이 그대로 동작합니다.
@@ -399,7 +436,13 @@ function AiPanel({ section, onChanged, full = false }: {
   const ai = section?.state === "READY" ? section.data : null;
   const open = ai ? ai.proposals.filter((p) => p.status === "PROPOSED") : [];
   const others = ai ? ai.proposals.filter((p) => p.status !== "PROPOSED") : [];
-  const done = full ? others : others.slice(0, Math.max(1, 3 - open.length));
+  // 대기 조치안이 없으면 가장 최근에 처리한 조치를 '마지막 조치 결과'로 올린다. 판은 15분 안에 처리한 조치만 싣는다
+  const last = open.length === 0 ? others.find((p) => LAST_RESULT.has(p.status)) ?? null : null;
+  const remaining = last ? others.filter((p) => p.id !== last.id) : others;
+  const done = full ? remaining : remaining.slice(0, Math.max(last ? 0 : 1, 3 - open.length - (last ? 1 : 0)));
+  const fresh = useFreshKeys(ai ? ai.proposals.map((p) => `${p.id}:${p.status}`) : []);
+  const isFresh = (p: AiProposal) => fresh.has(`${p.id}:${p.status}`);
+  useFlip(bodyRef);
   const history = ai ? (full ? ai.history : ai.history.slice(0, 4)) : [];
   const limits = limitsOf(ai?.limits);
   const stopped = ai?.mode === "STOPPED";
@@ -428,7 +471,7 @@ function AiPanel({ section, onChanged, full = false }: {
         </h2>
         {ai && (
           <span className={styles.modeTag} data-mode={ai.mode}>
-            {ai.mode === "AUTO" ? "자동 모드" : ai.mode === "STOPPED" ? <><span aria-hidden="true">▲ </span>AI 정지</> : "수동 모드"}
+            {ai.mode === "AUTO" ? "자동 모드" : ai.mode === "STOPPED" ? <><span aria-hidden="true"><StatusShape kind="triangle" /> </span>AI 정지</> : "수동 모드"}
           </span>
         )}
         <span className={styles.aiStatus}>
@@ -468,25 +511,47 @@ function AiPanel({ section, onChanged, full = false }: {
               <p className={styles.aiLead}>{lead}</p>
               {rest && <p className={styles.aiLeadRest}>{joinDots(rest)}</p>}
             </div>
-            <div className={styles.aiSection}>
-              <div className={styles.subHead}>
-                <span>
-                  권장 조치 <span className={`${styles.count} num`}>{open.length}</span>건
-                </span>
+            {open.length > 0 ? (
+              <div className={styles.aiSection}>
+                <div className={styles.subHead}>
+                  <span>
+                    권장 조치{" "}
+                    <span className={`${styles.count} num`}>
+                      <FlashNum value={open.length} tone={flashTone} />
+                    </span>
+                    건
+                  </span>
+                </div>
+                <div className={styles.proposals}>
+                  {open.map((p, i) => (
+                    <ProposalCard key={p.id} p={p} index={i + 1} ai={ai} limits={limits} onChanged={onChanged} onEvidence={showEvidence} fresh={isFresh(p)} />
+                  ))}
+                </div>
               </div>
-              <div className={styles.proposals}>
-                {open.length === 0 ? (
-                  <div className={styles.empty}>
-                    <span className={styles.emptyMark} aria-hidden="true" />
-                    {stopped ? "AI 정지 중입니다. 재개하면 다시 판단합니다" : "조치안이 없습니다. 허용 목록에 맞는 조치가 필요할 때만 냅니다"}
-                  </div>
+            ) : last ? (
+              <div className={styles.aiSection}>
+                <div className={styles.subHead}>
+                  <span>마지막 조치 결과</span>
+                  <span className={styles.quietLine}>권장 조치 없음</span>
+                </div>
+                <div className={styles.proposals}>
+                  <DoneCard p={last} onChanged={onChanged} fresh={isFresh(last)} />
+                </div>
+              </div>
+            ) : (
+              /* 평상 한 줄(§12-9 v1.14). 빈 상자 두 개로 자리를 먹지 않는다 */
+              <p className={styles.quietLine}>
+                권장 조치 없음
+                {stopped ? (
+                  <> · AI 정지 중이라 판단하지 않습니다 · 재개하면 다시 판단합니다</>
                 ) : (
-                  open.map((p, i) => (
-                    <ProposalCard key={p.id} p={p} index={i + 1} ai={ai} limits={limits} onChanged={onChanged} onEvidence={showEvidence} />
-                  ))
+                  <>
+                    {" "}
+                    · 5초마다 판단 · 지난 24시간 AI 조치 <b className="num">{ai.recent.runs}</b>회 · 되돌림 <b className="num">{ai.recent.reverts}</b>회
+                  </>
                 )}
-              </div>
-            </div>
+              </p>
+            )}
             {ai.evidence.length > 0 && (
               <div className={styles.evidence} ref={evidenceRef}>
                 <span className={styles.evidenceKey}>근거</span>
@@ -528,12 +593,12 @@ function AiPanel({ section, onChanged, full = false }: {
               <div className={styles.aiSection}>
                 <div className={styles.subHead}>
                   <span>
-                    처리된 조치 <span className={`${styles.count} num`}>{others.length}</span>건
+                    처리된 조치 <span className={`${styles.count} num`}>{remaining.length}</span>건
                   </span>
                 </div>
                 <div className={styles.proposals}>
                   {done.map((p) => (
-                    <DoneCard key={p.id} p={p} onChanged={onChanged} />
+                    <DoneCard key={p.id} p={p} onChanged={onChanged} fresh={isFresh(p)} />
                   ))}
                 </div>
               </div>
@@ -542,12 +607,21 @@ function AiPanel({ section, onChanged, full = false }: {
               <div className={styles.subHead}>판단 기록</div>
               <ol className={styles.historyList}>
                 {history.map((h) => (
-                  <li key={h.id} className={styles.historyRow}>
-                    <span className={`${styles.historyTime} num`}>{hms(h.at)}</span>
-                    <span className={styles.historyOutcome}>{h.outcome}</span>
-                    <span className={styles.historyText} title={h.summary}>
-                      {h.summary}
-                    </span>
+                  <li key={h.id}>
+                    <button
+                      type="button"
+                      className={styles.historyRow}
+                      aria-haspopup="dialog"
+                      title={h.summary}
+                      onClick={() => useOpsDetail.getState().openJudgment(h.id)}
+                    >
+                      <span className={styles.historyHead}>
+                        <span className={`${styles.historyTime} num`}>{hms(h.at)}</span>
+                        <span className={styles.historyOutcome}>{h.outcome}</span>
+                        {h.trace && <span className={styles.historyMore}>판단 과정</span>}
+                      </span>
+                      <span className={styles.historyText}>{joinDots(h.summary)}</span>
+                    </button>
                   </li>
                 ))}
               </ol>

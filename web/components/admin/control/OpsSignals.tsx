@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 운영자 바의 전체 상태 알약과 경보 종. 관제 판에서 활성 경보와 이상 노드를 세어 정상·주의·장애 세 단계로
+ * 운영자 바의 전체 상태 표지와 경보 종. 관제 판에서 활성 경보와 이상 노드를 세어 정상·주의·장애 세 단계로
  * 적는다. 장애가 하나라도 있으면 정상이라고 쓰지 않는다. 판을 받기 전이나 원천이 연결 전이면 단계를
  * 짐작하지 않고 그 사실을 적는다(§12-3, §12-8).
  */
@@ -11,6 +11,7 @@ import { useOpsPickShallow } from "@/lib/admin/opsCenter";
 import { overallOf, type Overall, type OverallLevel } from "@/lib/admin/opsHealth";
 import type { ControlCenter } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
+import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import styles from "./control.module.css";
 
 const LEVEL: Record<OverallLevel, { shape: string; word: string }> = {
@@ -40,9 +41,7 @@ export default function OpsSignals() {
         data-level={o.level}
         aria-label={`전체 상태 ${lv.word}${o.alerts > 0 ? `, 활성 경보 ${o.alerts}건` : ""}${o.nodes > 0 ? `, 이상 노드 ${o.nodes}대` : ""}. 경보·사건 화면으로 이동`}
       >
-        <span className={styles.statusShape} aria-hidden="true">
-          {lv.shape}
-        </span>
+        <StatusShape kind={GLYPH_SHAPE[lv.shape] ?? "dashed"} className={styles.statusShape} />
         <span aria-hidden="true">{lv.word}</span>
         {parts.length > 0 && (
           <span className={`${styles.statusDetail} num`} aria-hidden="true">

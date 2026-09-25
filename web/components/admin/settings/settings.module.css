@@ -69,8 +69,15 @@
 .state[data-tone="off"] {
   color: var(--text-default);
 }
+/* 상태 형태(StatusShape SVG). 한 줄 상태어 안에서 줄 가운데에 서고, 글자는 기준선 정렬 그대로다 */
 .shape {
-  font-size: 10px;
+  align-self: center;
+}
+.testWord {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
 }
 .shape[data-tone="success"] {
   color: var(--color-success);

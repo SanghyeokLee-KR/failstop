@@ -47,10 +47,15 @@ export function BiasReadout({ target, measured, effective }: BiasReadoutProps) {
         </span>
       </div>
       <span className={styles.biasSlot} style={{ transform: `translateX(${pctOf(target)}cqw)` }} aria-hidden="true">
-        <span className={styles.biasMarkTarget}>▽</span>
+        {/* 글꼴 삼각(9px)은 글꼴마다 크기와 기준선이 달라 같은 격자의 SVG로 그린다 */}
+        <svg className={styles.biasMarkTarget} width="9" height="8" viewBox="0 0 9 8">
+          <path d="M0.8 0.8 H8.2 L4.5 7.2 Z" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+        </svg>
       </span>
       <span className={styles.biasSlot} style={{ transform: `translateX(${pctOf(measured)}cqw)` }} aria-hidden="true">
-        <span className={styles.biasMarkMeasured}>▲</span>
+        <svg className={styles.biasMarkMeasured} width="9" height="8" viewBox="0 0 9 8">
+          <path d="M4.5 0.6 L8.4 7.4 H0.6 Z" fill="currentColor" />
+        </svg>
       </span>
       <div className={styles.biasScale} aria-hidden="true">
         {TICKS.map((t) => (

@@ -12,9 +12,8 @@ import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, Segmented, segmentedTabId } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -164,13 +163,13 @@ export default function AdminTransfersPage() {
     <div className={styles.page}>
       <PageHeader
         title="출금 승인"
-        desc="회원 원화 출금 요청. 승인하면 잠긴 금액 출금, 되돌릴 수 없음"
+        desc="회원 원화 출금 요청입니다. 승인하면 잠긴 금액을 출금하고 되돌릴 수 없습니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
       </div>
 
       <PanelCard title="요청 목록">

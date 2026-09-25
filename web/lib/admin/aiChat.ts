@@ -104,7 +104,7 @@ export function requestedGuide(question: string): AiChatGuide | null {
   if (q.includes("임계")) return "THRESHOLD";
   if (/(보류|사일런스|silence)/.test(q)) return "SILENCE";
   if (/(백업|databasus)/.test(q)) return "BACKUP";
-  if (/(늘려|늘리|증설|줄여|줄이|축소|확장|스케일|노드|서버)/.test(q)) return "READ_NODES";
+  if (/(늘려|늘리|증설|줄여|줄이|축소|확장|스케일|노드|서버|app-?3|켜|꺼|끄)/.test(q)) return "READ_NODES";
   return "PROPOSAL";
 }
 
@@ -188,14 +188,13 @@ function summary(c: ControlCenter): Draft {
     ev.push(alertEv(top));
   }
   if (tier) {
-    const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
     const moving = tier.nodes.filter((n) => n.state === "PENDING" || n.state === "DRAINING");
     const outTh = thresholdOf(reg, "read.scale_out_cpu");
     out.push(
-      `조회 노드는 ${serving}대가 평균 CPU ${tier.avgCpuPct ?? "미수집"}%로 받고 있습니다${outTh !== null ? `(증설 임계 ${outTh}%)` : ""}.` +
+      `조회는 앱 ${tier.serving}대가 평균 CPU ${tier.avgCpuPct ?? "미수집"}%로 받고 있습니다${outTh !== null ? `(증설 임계 ${outTh}%)` : ""}.` +
         (moving.length > 0 ? ` ${moving.map((n) => `${n.id}는 ${n.state === "PENDING" ? "기동 중" : "드레이닝 중"}`).join(", ")}입니다.` : ""),
     );
-    ev.push(metric("read_cpu", "조회 평균 CPU", `${tier.avgCpuPct ?? "미수집"}% · ${serving}대`));
+    ev.push(metric("read_cpu", "앱 평균 CPU", `${tier.avgCpuPct ?? "미수집"}% · ${tier.serving}대`));
   }
   if (ai) {
     const open = openProposals(ai);
@@ -207,23 +206,28 @@ function summary(c: ControlCenter): Draft {
 
 function readCpu(c: ControlCenter): Draft {
   const tier = ready(c.readTier);
-  if (!tier) return { answer: "조회 계층 원천이 연결 전이라 조회 CPU를 판단할 근거가 없습니다.", evidence: [] };
+  if (!tier) return { answer: "앱 계층 원천이 연결 전이라 조회 부하를 판단할 근거가 없습니다.", evidence: [] };
   const reg = ready(c.thresholds);
   const outTh = thresholdOf(reg, "read.scale_out_cpu");
   const inTh = thresholdOf(reg, "read.scale_in_cpu");
   const avg = tier.avgCpuPct;
-  const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE");
+  // 조회는 늘 켜진 app-1·app-2와 켜져 있으면 app-3가 나눠 받는다(ADR 0030, 사용자 정정 2026-09-25)
+  const hosts = ready(c.hosts) ?? [];
+  const serving = [
+    ...hosts.filter((h) => h.role === "APP").map((h) => ({ id: h.id, cpuPct: h.cpuPct })),
+    ...tier.nodes.filter((n) => n.state === "IN_SERVICE").map((n) => ({ id: n.id, cpuPct: n.cpuPct })),
+  ];
   const ai = ready(c.ai);
   const readAlert = (ready(c.alerts) ?? []).find((a) => a.ref?.kind === "READ_TIER") ?? null;
   const nodeText = serving.map((n) => `${n.id} ${n.cpuPct ?? "미수집"}%`).join(", ");
-  const ev: AiChatEvidence[] = [metric("read_cpu", "조회 평균 CPU", `${avg ?? "미수집"}% · ${serving.length}대`)];
-  if (outTh !== null) ev.push({ id: "threshold:read.scale_out_cpu", kind: "THRESHOLD", label: "조회 증설 CPU 임계", value: `${outTh}%`, severity: null });
-  if (avg === null) return { answer: "조회를 받는 노드의 CPU를 읽지 못했습니다. 미수집은 0이 아니라 값이 없는 상태입니다.", evidence: ev };
+  const ev: AiChatEvidence[] = [metric("read_cpu", "앱 평균 CPU", `${avg ?? "미수집"}% · ${serving.length}대`)];
+  if (outTh !== null) ev.push({ id: "threshold:read.scale_out_cpu", kind: "THRESHOLD", label: "증설 CPU 임계", value: `${outTh}%`, severity: null });
+  if (avg === null) return { answer: "조회를 받는 앱 노드의 CPU를 읽지 못했습니다. 미수집은 0이 아니라 값이 없는 상태입니다.", evidence: ev };
   const hot = outTh !== null && avg >= outTh;
   const parts: string[] = [];
   if (hot) {
-    parts.push(`조회 평균 CPU가 ${avg}%로 증설 임계 ${outTh}%를 넘었습니다.`);
-    parts.push(`조회를 받는 노드가 ${serving.length}대(${nodeText})라 한 대가 맡는 몫이 큽니다.`);
+    parts.push(`앱 평균 CPU가 ${avg}%로 증설 임계 ${outTh}%를 넘었습니다.`);
+    parts.push(`조회를 받는 앱 노드가 ${serving.length}대(${nodeText})라 한 대가 맡는 몫이 큽니다.`);
     if (ai?.hypothesis) parts.push(`AI의 원인 가설은 '${ai.hypothesis}'입니다.`);
     const scale = openProposals(ai).find((p) => p.kind === "READ_NODES");
     if (scale) {
@@ -232,15 +236,13 @@ function readCpu(c: ControlCenter): Draft {
     }
     if (readAlert) ev.push(alertEv(readAlert));
   } else {
-    parts.push(`조회 평균 CPU는 ${avg}%로 증설 임계 ${outTh ?? "미설정"}%보다 낮아 높은 상태가 아닙니다.`);
+    parts.push(`앱 평균 CPU는 ${avg}%로 증설 임계 ${outTh ?? "미설정"}%보다 낮아 높은 상태가 아닙니다.`);
     parts.push(`노드별로는 ${nodeText}입니다.`);
-    if (inTh !== null && avg <= inTh) parts.push(`축소 임계 ${inTh}% 아래라 조회 노드를 줄일 여유가 있습니다.`);
+    if (inTh !== null && avg <= inTh && tier.nodes.some((n) => n.state === "IN_SERVICE")) parts.push(`축소 임계 ${inTh}% 아래라 app-3를 끌 여유가 있습니다.`);
   }
-  // 조회 CPU와 무관한 노드를 함께 적는다. 매칭·DB가 원인이라고 오해하지 않게 한다
-  const hosts = ready(c.hosts) ?? [];
-  const apps = hosts.filter((h) => h.role === "APP").map((h) => `${h.id} ${h.cpuPct ?? "미수집"}%`);
+  // 앱 평균에는 DB가 들지 않는다. DB가 원인이라고 오해하지 않게 함께 적는다
   const primary = hosts.find((h) => h.role === "DB_PRIMARY");
-  if (apps.length > 0) parts.push(`조회 CPU에는 매칭 노드와 DB가 들지 않습니다(${[...apps, ...(primary ? [`${primary.id} ${primary.cpuPct ?? "미수집"}%`] : [])].join(", ")}).`);
+  if (primary) parts.push(`앱 평균에는 DB가 들지 않습니다(${primary.id} ${primary.cpuPct ?? "미수집"}%).`);
   return { answer: parts.join(" "), evidence: ev.slice(0, 5) };
 }
 
@@ -396,7 +398,7 @@ function mode(c: ControlCenter, now: number): Draft {
 }
 
 const GUIDE_TEXT: Record<AiChatGuide, string> = {
-  READ_NODES: "조회 노드 증감은 관제센터 조치 카드에서 운영자가 '승인하고 실행'을 누르거나, 용량·부하 화면의 확인 대화상자를 거쳐 합니다. AWS에서는 지표 정책이 대수를 정합니다.",
+  READ_NODES: "앱 계층 대수(조회 전용 app-3 켜기·끄기)는 관제센터 조치 카드에서 운영자가 '승인하고 실행'을 누르거나, 용량·부하 화면의 확인 대화상자를 거쳐 바꿉니다. AWS에서는 지표 정책이 app-3를 켜고 끕니다.",
   THRESHOLD: "임계값은 임계값 관리에서 새 값을 적고 1인 승인(ops.threshold.set)을 발급·실행해야 바뀝니다. 되돌리기도 같은 승인을 거칩니다.",
   MODE: "AI 모드는 관제센터 모드 줄에서 운영자가 바꿉니다. 자동 모드는 사유와 유효 시간을 적고 1인 승인(ops.ai.auto)을 거쳐야 켜지고, 수동 전환은 승인 없이 됩니다. AI 즉시 정지와 재개는 운영 관제 모든 화면의 운영자 바에 있고, 정지는 승인 없이 누구나 누를 수 있습니다.",
   SILENCE: "경보 보류는 경보·사건 화면에서 운영자가 겁니다. 최대 30분이고 장애 등급과 같은 경보의 연속 보류는 막힙니다.",

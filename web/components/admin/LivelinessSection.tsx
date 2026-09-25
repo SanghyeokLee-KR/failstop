@@ -12,8 +12,7 @@ import type { BotType, FleetScaleTargets, MarketSimState, SimStatus, TradeFlash 
 import { COIN_META } from "@/lib/sim/engine";
 import { formatCount, formatNetBias } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
-import SegmentedTab from "@/components/SegmentedTab";
-import { PermissionNote } from "@/components/admin/ui";
+import { PermissionNote, Segmented } from "@/components/admin/ui";
 import { MeterRail } from "@/components/admin/instruments/MeterRail";
 import { BiasReadout } from "@/components/admin/instruments/BiasReadout";
 import { toast } from "@/components/Toast";
@@ -287,11 +286,11 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
           <h3 className={styles.livelinessTitle}>체결 시각효과 강도</h3>
           <span className={styles.livelinessHint}>선택 즉시 반영 · 자동은 체결률에 따라 상한 조절</span>
         </div>
-        <SegmentedTab
+        <Segmented
           items={TRADE_FLASH_VALUES.map((v) => ({ value: v, label: FLASH_LABEL[v] }))}
           value={flash}
           onChange={(v) => void applyFlash(v)}
-          variant="neutral"
+          semantics="pressed"
           ariaLabel="체결 시각효과 강도"
           disabled={!canOps}
         />

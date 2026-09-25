@@ -20,7 +20,7 @@ import Link from "next/link";
 import { getAdminApi } from "@/lib/admin/api";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import { PageHeader, StatTile } from "@/components/admin/ui";
+import { PageHeader, StatStrip, StatTile } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
@@ -64,34 +64,31 @@ export default function BackOfficeHome() {
     <div className={styles.page}>
       <PageHeader
         title="처리 대기"
-        desc="고객 응대 큐의 대기 건수"
+        desc="고객 응대 큐에서 처리를 기다리는 건수입니다"
         actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
       />
 
       {loading ? (
         <div className={styles.pageStack}>
-          <div className={styles.kpiGrid} data-cols="3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} variant="card" width="100%" height={96} />
-            ))}
-          </div>
+          <Skeleton variant="card" width="100%" height={90} />
           <Skeleton variant="card" width="100%" height={200} />
         </div>
       ) : error || !data ? (
         <AdminErrorState reason={errorReason} onRetry={reload} />
       ) : (
         <div className={`${styles.pageStack} ${styles.staleRegion}`} data-stale={stale ? "" : undefined}>
-          <div className={styles.kpiGrid} data-cols="3">
-            <Link href="/admin/transfers" className={styles.railLink}>
-              <StatTile compact label="출금 승인" {...queueTile(data.transfers, "승인 시 잠긴 금액 출금")} />
+          {/* 판독 묶음 한 상자(§12-14). 칸마다 그 큐의 화면으로 간다 */}
+          <StatStrip label="처리 대기 큐" count={3}>
+            <Link href="/admin/transfers" className={styles.statLink}>
+              <StatTile label="출금 승인" {...queueTile(data.transfers, "승인 시 잠긴 금액 출금")} />
             </Link>
-            <Link href="/admin/support" className={styles.railLink}>
-              <StatTile compact label="문의 답변" {...queueTile(data.inquiries, "답변은 회원 화면에 그대로 표시")} />
+            <Link href="/admin/support" className={styles.statLink}>
+              <StatTile label="문의 답변" {...queueTile(data.inquiries, "답변은 회원 화면에 그대로 표시")} />
             </Link>
-            <Link href="/admin/community" className={styles.railLink}>
-              <StatTile compact label="커뮤니티 신고" {...queueTile(data.reports, "대상 처리와 신고 종결")} />
+            <Link href="/admin/community" className={styles.statLink}>
+              <StatTile label="커뮤니티 신고" {...queueTile(data.reports, "대상 처리와 신고 종결")} />
             </Link>
-          </div>
+          </StatStrip>
 
           {/* 큐가 없는 자리를 모은다. 내비의 두 묶음에 걸쳐 있어 그중 한 묶음의 이름을 쓰지 않는다 */}
           <PanelCard title="큐 없는 자리">

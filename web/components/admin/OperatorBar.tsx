@@ -20,6 +20,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { AdminIcon } from "./icons";
 import RoleBadge from "./RoleBadge";
 import styles from "./admin.module.css";
+import StatusShape from "./StatusShape";
 
 // 임박 낭독 임계. 이 값 이하에서만 polite 리전이 1회 경고한다(매초 낭독 방지)
 const IMMINENT_SEC = 60;
@@ -197,10 +198,14 @@ function SessionWarn({ expiresAt }: { expiresAt: string }) {
         >
           {expired ? (
             // 만료 후 00:00 카운트다운을 계속 보여주면 살아 있는 세션으로 읽힌다
-            <span className={styles.sessionWarn}>■ 세션 만료</span>
+            <span className={styles.sessionWarn}>
+              <StatusShape kind="square" /> 세션 만료
+            </span>
           ) : (
             <>
-              <span className={styles.sessionWarn}>▲ 세션</span>
+              <span className={styles.sessionWarn}>
+                <StatusShape kind="triangle" /> 세션
+              </span>
               <b className="num">{mmss(ms)}</b>
             </>
           )}

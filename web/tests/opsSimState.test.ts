@@ -1,5 +1,5 @@
 /**
- * 관제 시뮬레이터의 상태 정합. 같은 순간에 AI 패널 문장, 조치 카드, 조회 ASG, 사건 기록이 서로 다른
+ * 관제 시뮬레이터의 상태 정합. 같은 순간에 AI 패널 문장, 조치 카드, 앱 계층(app-3), 사건 기록이 서로 다른
  * 상태를 말하지 않는지 시나리오의 매 초마다 본다(관리자 설계 4-4).
  */
 
@@ -22,9 +22,9 @@ const log = (c: ControlCenter) => ready<IncidentLog>(c.incidents);
 const reg = (c: ControlCenter) => ready<ThresholdRegistry>(c.thresholds);
 const open = (c: ControlCenter) => ai(c).proposals.filter((p) => p.status === "PROPOSED");
 
-/** 조회 노드 조치안 제목의 '(a → b대)'. 조치안은 지금 대수에서 출발해야 한다 */
+/** app-3 조치안 제목의 '(앱 a → b대)'. 조치안은 지금 앱 계층 대수에서 출발해야 한다 */
 function nodeStep(p: AiProposal): { from: number; to: number } {
-  const m = /\((\d+) → (\d+)대\)/.exec(p.title);
+  const m = /\(앱 (\d+) → (\d+)대\)/.exec(p.title);
   assert.ok(m, p.title);
   return { from: Number(m[1]), to: Number(m[2]) };
 }
@@ -33,8 +33,12 @@ function nodeStep(p: AiProposal): { from: number; to: number } {
 function checkInvariants(c: ControlCenter, sec: number): void {
   const where = `${sec}초`;
   const t = tier(c);
-  const live = t.nodes.filter((n) => n.state === "IN_SERVICE" || n.state === "PENDING").length;
-  assert.equal(live, t.desired, `${where}: 희망 대수와 가동·기동 중 노드 칩 수`);
+  // 앱 계층은 고정 app-1·app-2 와 켜진(또는 켜지는) app-3 이다(ADR 0030 사용자 정정 2026-09-25)
+  assert.deepEqual(t.fixed, ["app-1", "app-2"], `${where}: 고정 앱 노드`);
+  assert.deepEqual(t.nodes.map((n) => n.id), ["app-3"], `${where}: 자동 증설 노드는 app-3 하나`);
+  const live = t.fixed.length + t.nodes.filter((n) => n.state === "IN_SERVICE" || n.state === "PENDING").length;
+  assert.equal(live, t.desired, `${where}: 희망 대수와 가동·기동 중 앱 노드 수`);
+  assert.ok(t.desired >= t.min && t.desired <= t.max, `${where}: 앱 계층 2~3대`);
 
   const desk = ai(c);
   for (const p of open(c)) {
@@ -57,7 +61,7 @@ function checkInvariants(c: ControlCenter, sec: number): void {
 
 function approveNodes(sim: OpsSim, sec: number): void {
   const p = open(sim.snapshot(at(sec))).find((x) => x.kind === "READ_NODES");
-  assert.ok(p, `${sec}초에 조회 노드 조치안이 있어야 한다`);
+  assert.ok(p, `${sec}초에 app-3 조치안이 있어야 한다`);
   sim.decide(p.id, "APPROVE", OP, at(sec));
 }
 
@@ -71,7 +75,7 @@ test("조회 급증(수동)의 전·중·확인·조치·후 단계마다 칸들
   for (let s = 7; s <= 26; s += 1) checkInvariants(sim.snapshot(at(s)), s);
   const during = sim.snapshot(at(26));
   assert.match(ai(during).situation, /평소의 .*배/, "중: 급증 문장");
-  assert.ok(open(during).some((p) => p.kind === "READ_NODES"), "중: 노드 +1 조치안 대기");
+  assert.ok(open(during).some((p) => p.kind === "READ_NODES"), "중: app-3 켜기 조치안 대기");
   assert.equal(tier(during).desired, 2);
 
   // 확인 대화상자가 떠 있는 동안에도 판은 그대로다. 승인 직전의 조치안이 지금 대수에서 출발하는지 본다
@@ -83,7 +87,7 @@ test("조회 급증(수동)의 전·중·확인·조치·후 단계마다 칸들
   checkInvariants(acting, 28);
   assert.equal(tier(acting).desired, 3);
   assert.match(ai(acting).situation, /준비 중/, "조치: 새 노드 준비 문장");
-  assert.ok(!open(acting).some((p) => p.kind === "READ_NODES"), "조치: 실행한 +1은 대기 카드에서 빠진다");
+  assert.ok(!open(acting).some((p) => p.kind === "READ_NODES"), "조치: 실행한 app-3 켜기는 대기 카드에서 빠진다");
 
   for (let s = 29; s <= 120; s += 1) checkInvariants(sim.snapshot(at(s)), s);
   const after = sim.snapshot(at(120));
@@ -115,18 +119,18 @@ test("야간 축소 뒤 악화의 자동 되돌림 순간에 타임라인·AI �
   assert.ok(reverted, "관찰 창 안에서 자동 되돌림이 일어나야 한다");
   const ev = log(reverted).events.find((e) => e.kind === "AUTO_REVERTED");
   assert.ok(ev);
-  // 되돌림은 축소(−1)를 무르는 증설(+1)이다. 기록 첫머리가 무른 조치가 아니라 실제로 한 일을 말해야 한다
-  assert.match(ev.text, /^자동 되돌림 · 조회 노드 \+1 \(2 → 3대\)/, ev.text);
+  // 되돌림은 app-3 끄기를 무르는 app-3 켜기다. 기록 첫머리가 무른 조치가 아니라 실제로 한 일을 말해야 한다
+  assert.match(ev.text, /^자동 되돌림 · app-3 켜기 \(앱 2 → 3대\)/, ev.text);
   assert.equal(tier(reverted).desired, 3);
-  assert.ok(tier(reverted).nodes.some((n) => n.state === "PENDING"), "되돌린 대수만큼 노드가 기동 중이다");
+  assert.ok(tier(reverted).nodes.some((n) => n.state === "PENDING"), "되돌려 app-3가 다시 기동 중이다");
   assert.match(ai(reverted).situation, /자동 축소를 되돌렸습니다/, `되돌림 순간의 AI 문장: ${ai(reverted).situation}`);
   const card = ai(reverted).proposals.find((p) => p.status === "AUTO_REVERTED");
-  assert.match(card?.outcome ?? "", /^되돌림 · 조회 노드 \+1 \(2 → 3대\)/, "처리된 카드는 되돌린 방향을 결과로 적는다");
+  assert.match(card?.outcome ?? "", /^되돌림 · app-3 켜기 \(앱 2 → 3대\)/, "처리된 카드는 되돌린 방향을 결과로 적는다");
   assert.ok(!open(reverted).some((p) => p.kind === "READ_NODES"), "되돌린 축소를 다시 권하지 않는다");
   for (let s = sec + 1; s <= sec + 60; s += 1) {
     const c = sim.snapshot(at(s));
     checkInvariants(c, s);
-    assert.ok(!open(c).some((p) => p.kind === "READ_NODES" && p.title.includes("−1")), `${s}초: 되돌린 축소를 곧바로 다시 권한다`);
+    assert.ok(!open(c).some((p) => p.kind === "READ_NODES" && p.title.includes("끄기")), `${s}초: 되돌린 축소를 곧바로 다시 권한다`);
   }
 });
 
@@ -141,8 +145,10 @@ test("드레이닝 중에 축소를 되돌리면 그 노드가 다시 올라와 
     sec = s;
   }
   assert.ok(done, "야간 축소가 자동 실행되어야 한다");
-  assert.ok(tier(sim.snapshot(at(sec))).nodes.some((n) => n.state === "DRAINING"), "실행 직후에는 한 대가 드레이닝 중이다");
+  assert.ok(tier(sim.snapshot(at(sec))).nodes.some((n) => n.state === "DRAINING"), "실행 직후에는 app-3가 드레이닝 중이다");
   sim.revert(done.id, OP, at(sec));
   for (let s = sec; s <= sec + 20; s += 1) checkInvariants(sim.snapshot(at(s)), s);
-  assert.equal(tier(sim.snapshot(at(sec + 20))).nodes.filter((n) => n.state === "IN_SERVICE").length, 3);
+  const back = tier(sim.snapshot(at(sec + 20)));
+  assert.equal(back.nodes.filter((n) => n.state === "IN_SERVICE").length, 1, "app-3가 다시 조회를 받는다");
+  assert.equal(back.serving, 3, "앱 계층 세 대");
 });

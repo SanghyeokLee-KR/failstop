@@ -15,9 +15,11 @@ import { getAdminApi } from "@/lib/admin/api";
 import { CHAT_MAX_CHARS, linksOf, SUGGESTED_QUESTIONS } from "@/lib/admin/aiChat";
 import { CHAT_WIDTH, useChat, type ChatMessage } from "@/lib/admin/chatStore";
 import { useOpsPick } from "@/lib/admin/opsCenter";
+import { joinDots } from "@/lib/admin/text";
 import { hms } from "@/lib/admin/timeText";
 import type { AiChatEvidence } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
+import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import { SimMark } from "../ui";
 import styles from "./chat.module.css";
 
@@ -35,11 +37,7 @@ function EvidenceChip({ e, at }: { e: AiChatEvidence; at: string | null }) {
   const sev = e.severity ? SEVERITY[e.severity] : null;
   return (
     <span className={styles.chip} title={`${KIND_WORD[e.kind]} · ${e.label} ${e.value}${at ? ` · 수집 ${hms(at)}` : ""}`}>
-      {sev && (
-        <span className={styles.shape} data-tone={sev.tone} aria-hidden="true">
-          {sev.shape}
-        </span>
-      )}
+      {sev && <StatusShape kind={GLYPH_SHAPE[sev.shape]} tone={sev.tone} className={styles.shape} />}
       {e.label} <b className="num">{e.value}</b>
     </span>
   );
@@ -69,7 +67,7 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
       </time>
       {r?.declined && (
         <span className={styles.readOnly}>
-          <span aria-hidden="true">○</span> 조회 전용 · 실행하지 않음
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> 조회 전용 · 실행하지 않음
         </span>
       )}
     </div>
@@ -79,7 +77,7 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
       <article className={styles.ai} aria-label="AI 답 받지 못함">
         {head}
         <p className={styles.answer} data-tone="danger">
-          <span aria-hidden="true">■ </span>답을 받지 못했습니다 · {m.error}
+          <span aria-hidden="true"><StatusShape kind="square" /> </span>답을 받지 못했습니다 · {m.error}
         </p>
         {m.question && (
           <button type="button" className={`${styles.textBtn} ${styles.retry}`} disabled={busy} onClick={() => onRetry(m.question as string)}>
@@ -95,7 +93,7 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
       <article className={styles.ai} aria-label="AI 답 없음">
         {head}
         <p className={styles.answer} data-tone="warning">
-          <span aria-hidden="true">▲ </span>
+          <span aria-hidden="true"><StatusShape kind="triangle" /> </span>
           {r.state === "STOPPED" ? "AI 정지 중이라 답하지 않습니다. 운영자 바의 'AI 재개'로 재개하면 다시 답합니다." : "상담 모델 설정이 없어 답하지 않습니다."}
         </p>
       </article>
@@ -105,7 +103,7 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
   return (
     <article className={styles.ai} aria-label="AI 답">
       {head}
-      <p className={styles.answer}>{r.answer}</p>
+      <p className={styles.answer}>{joinDots(r.answer)}</p>
       {r.evidence.length > 0 && (
         <dl className={styles.evidence} aria-label="근거">
           {byKind(r.evidence).map(([kind, items]) => (
@@ -327,7 +325,7 @@ export default function ChatPanel() {
       {blocked === "http" && (
         <div className={styles.blocked} role="note">
           <b>
-            <span aria-hidden="true">◌ </span>AI 연결 전
+            <span aria-hidden="true"><StatusShape kind="dashed" /> </span>AI 연결 전
           </b>
           서버 상담 경로(POST /admin/v1/msp/ai/chat)를 붙이기 전이라 질문을 보내지 않습니다.
         </div>
@@ -335,7 +333,7 @@ export default function ChatPanel() {
       {blocked === "stopped" && (
         <div className={styles.blocked} data-kind="stopped" role="note">
           <b>
-            <span aria-hidden="true">▲ </span>AI 정지 중
+            <span aria-hidden="true"><StatusShape kind="triangle" /> </span>AI 정지 중
           </b>
           운영자가 AI를 멈춰 상담도 쉽니다. 운영자 바의 'AI 재개'로 재개하면 다시 받습니다.
         </div>

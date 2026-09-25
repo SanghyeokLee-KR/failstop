@@ -213,7 +213,7 @@ export interface CapacityNode {
   httpRequests: number | null;
   wsClients: number | null;
   /**
-   * 기동 중(PENDING)이거나 내리는 중(DRAINING)인 조회 노드. sim이 관제 시뮬레이터의 조회 ASG에서 옮겨 온다.
+   * 기동 중(PENDING)이거나 내리는 중(DRAINING)인 app-3. sim이 관제 시뮬레이터의 앱 계층에서 옮겨 온다.
    * 서버 응답에는 이 축이 없어 비어 있고, 그때 화면은 계약(expected)과 응답(reachable)만으로 읽는다
    */
   lifecycle?: "PENDING" | "DRAINING" | null;
@@ -751,6 +751,8 @@ export interface AiServer {
   /** 최근 판단 요청의 추론 지연. 요청이 없었으면 null */
   p50Ms: number | null;
   p95Ms: number | null;
+  /** 마지막 판단 요청 한 건의 추론 지연. 서비스 흐름의 ai-1 카드가 응답 순간에 적는다. 요청이 없었으면 null */
+  lastMs: number | null;
   tokensPerSec: number | null;
   /** 대기 중인 판단 요청 수 */
   queue: number | null;
@@ -804,6 +806,7 @@ export type OpsTrends = Record<TrendRange, Record<TrendMetric, OpsTrendSeries>>;
 
 export type ReadNodeState = "IN_SERVICE" | "PENDING" | "DRAINING" | "OFF";
 
+/** 자동 증설 자리의 노드(app-3) */
 export interface ReadNode {
   id: string;
   state: ReadNodeState;
@@ -812,13 +815,24 @@ export interface ReadNode {
   az: string;
 }
 
-/** 조회 노드 ASG. 매칭 리더와 DB는 여기 들지 않는다 */
+/**
+ * 앱 계층(ADR 0030, 사용자 정정 2026-09-25). app-1·app-2는 늘 켜진 매칭 리더이면서 조회도 받는 고정 노드이고, 부하가
+ * 오르면 조회 전용 app-3가 Auto Scaling으로 켜진다(0~1대). 대수는 앱 계층 전체로 센다(최소 2 · 최대 3). 매칭 리더와
+ * DB는 ASG가 관리하지 않으므로 nodes에는 자동으로 켜고 끄는 app-3만 있다. 이름은 조회를 나누는 계층이라는 뜻으로 둔다
+ */
 export interface ReadTier {
+  /** 앱 계층 최소·최대 대수(2·3) */
   min: number;
   max: number;
+  /** 앱 계층 희망 대수. 3이면 app-3가 켜져 있거나 켜지는 중이다 */
   desired: number;
+  /** 늘 켜진 앱 노드(app-1·app-2). ASG 밖이다 */
+  fixed: string[];
+  /** 지금 조회를 받는 앱 노드 수(고정 두 대와 켜진 app-3) */
+  serving: number;
+  /** Auto Scaling이 켜고 끄는 자리(app-3) */
   nodes: ReadNode[];
-  /** 조회를 받는 노드의 평균 CPU. 받는 노드가 없으면 null */
+  /** 조회를 받는 앱 노드의 평균 CPU. 받는 노드가 없으면 null */
   avgCpuPct: number | null;
 }
 
@@ -1079,6 +1093,62 @@ export interface AiProposal {
   autoHold: string | null;
   /** 처리된 조치안이 실제로 바꾼 것. 되돌린 조치는 되돌린 방향과 이유다. 대기 중이면 null */
   outcome: string | null;
+  /** 바꾸는 값의 전후(앱 계층 2 → 3대, 임계 60 → 55%). 보류·백업처럼 수로 적을 전후가 없으면 null */
+  change: { from: number; to: number; unit: string } | null;
+  /** 비용이 무엇이 늘고 주는지. 시간당 요금 같은 수치는 적지 않는다 */
+  cost: string;
+  /**
+   * 자동 모드에서 실행할 수 있는 조치인가(ADR 0035, 사용자 확정 2026-09-25). 임계값은 더 민감하게 하는 방향만, 시장 봇
+   * 부하 줄임은 bot-1 CPU가 봇 용량 보호 기준 이상일 때만 자동이다. 아니면 자동 모드에서도 '승인 필요'다
+   */
+  autoAllowed: boolean;
+}
+
+/** 판단 과정의 후보 조치 하나 */
+export interface AiTraceCandidate {
+  id: string;
+  kind: AiActionKind;
+  title: string;
+  confidencePct: number;
+  risk: AiRisk;
+}
+
+/**
+ * 정책 엔진 검사 행(ADR 0035의 자동 실행 조건). PASS는 통과, BLOCK은 자동 실행을 막음, HOLD는 수동 모드라 운영자
+ * 승인을 기다림, NA는 그 후보에 해당하지 않음이다
+ */
+export type AiCheckRule =
+  | "ALLOWED"
+  | "OBSERVE"
+  | "CAP"
+  | "COOLDOWN"
+  | "FRESH"
+  | "CONFIDENCE"
+  | "STREAK"
+  | "STEP"
+  | "PER_ITEM"
+  | "BACKUP_TODAY"
+  | "DIRECTION"
+  | "BOT_GUARD"
+  | "MODE";
+export type AiCheckState = "PASS" | "BLOCK" | "HOLD" | "NA";
+
+export interface AiTraceCheck {
+  rule: AiCheckRule;
+  label: string;
+  /** 후보 순서와 같다 */
+  results: { state: AiCheckState; note: string }[];
+}
+
+/** 판단 한 번의 과정. 판단한 순간의 근거, 가설, 후보와 후보마다의 정책 엔진 검사, 결과다 */
+export interface AiJudgmentTrace {
+  mode: AiMode;
+  evidence: AiEvidence[];
+  evidenceAt: string | null;
+  hypothesis: string | null;
+  candidates: AiTraceCandidate[];
+  checks: AiTraceCheck[];
+  result: string;
 }
 
 export interface AiJudgment {
@@ -1086,6 +1156,22 @@ export interface AiJudgment {
   at: string;
   summary: string;
   outcome: string;
+  /** 판단 과정. 판단이 아닌 기록(AI 정지 등)은 null이다 */
+  trace: AiJudgmentTrace | null;
+}
+
+/**
+ * 모드 줄 알림(디자인 시스템 §12-9). 자동 되돌림, AI 정지와 재개, 자동 상한 도달, 유효 시간 만료 뒤 30초 동안
+ * 모드 줄이 그 사건을 한 줄로 적는다. until이 지나면 관제 판이 싣지 않는다
+ */
+export interface AiNotice {
+  kind: "AUTO_REVERTED" | "STOPPED" | "RESUMED" | "AUTO_CAP" | "AUTO_EXPIRED";
+  at: string;
+  until: string;
+  text: string;
+  tone: "warning" | "neutral";
+  /** 사건 기록에서 열 사건. 사건 밖의 일이면 null */
+  incidentId: string | null;
 }
 
 export interface AiCooldown {
@@ -1126,6 +1212,10 @@ export interface AiDesk {
    * aiPolicy.actionKey다. 기록이 없는 조치는 열쇠가 없다
    */
   actionStats: Record<string, { runs: number; reverts: number }>;
+  /** 모드 줄 알림. 30초가 지났거나 알릴 일이 없으면 null */
+  notice: AiNotice | null;
+  /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 그중 되돌린 수. 감사 기록에서 센다 */
+  recent: { runs: number; reverts: number };
 }
 
 export type OpsScenarioId = "READ_SURGE" | "NIGHT_SCALE_IN";
@@ -1238,7 +1328,7 @@ export interface AiChatReply {
 }
 
 /**
- * 답이 안내하는 운영 절차. 조회 노드 증감, 임계값 변경, AI 모드, 경보 보류, 백업 즉시 실행, 대기 조치안의
+ * 답이 안내하는 운영 절차. app-3 켜기·끄기, 임계값 변경, AI 모드, 경보 보류, 백업 즉시 실행, 대기 조치안의
  * 승인, 금지 목록(AI가 어느 모드에서도 하지 않는 일)이다
  */
 export type AiChatGuide = "READ_NODES" | "THRESHOLD" | "MODE" | "SILENCE" | "BACKUP" | "PROPOSAL" | "FORBIDDEN";

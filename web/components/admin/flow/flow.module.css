@@ -34,14 +34,14 @@
   min-width: 288px;
 }
 
-/* 재생 알약. 재생 중은 상태가 아니라 주의색을 쓰지 않는다. 크롬 악센트 약틴트 면에 악센트 글자
+/* 재생 표지(네모 태그, §12-10). 재생 중은 상태가 아니라 주의색을 쓰지 않는다. 크롬 악센트 약틴트 면에 악센트 글자
    (라이트 5.58:1, 다크 7.03:1)와 ▶ 형태다(디자인 시스템 §12-3). 경과만 굵게 올린다 */
 .runPill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-xs);
   background: var(--brand-weak-bg);
   color: var(--text-brand);
   font-size: var(--font-caption-size);
@@ -51,15 +51,6 @@
 }
 .runPill b {
   font-weight: var(--fw-bold);
-}
-
-/* 판독 줄의 이탈 값. 색만으로 알리지 않도록 사각 형태를 글자 앞에 같이 둔다 */
-.danger {
-  color: var(--color-danger);
-}
-/* 이중화를 잃었지만 쓰기는 이어지는 값(복제 끊김). 삼각 형태를 글자 앞에 같이 둔다 */
-.warning {
-  color: var(--color-warning-text);
 }
 
 /* 일시정지 눌림. 감사 화면 구간 버튼(admin.module.css .auditSeg)과 같은 어휘로 면을 한 단 올리고
@@ -222,7 +213,7 @@
   display: inline-flex;
   align-items: center;
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-xs);
   background: var(--surface-sunken);
   color: var(--text-default);
   font-size: var(--font-caption-size);
@@ -296,7 +287,7 @@
    패널 면 대비 1.52:1, 채움 대 트랙 4.25:1 이다 */
 .capTrack {
   height: 4px;
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   background: var(--surface-sunken);
   overflow: hidden;
 }

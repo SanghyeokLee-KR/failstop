@@ -10,10 +10,13 @@
 import { memo, type ReactNode } from "react";
 import type { IncidentLog, OpsAlert, OpsRef, OpsSection, OpsSummary, OpsTrends, OpsTrendSeries, TrendRange } from "@/lib/admin/types";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
+import { flashTone } from "@/lib/admin/motion";
 import { breachMinutes, DELTA_BACK_MIN, trendDelta, type TrendDelta } from "@/lib/admin/opsTrends";
 import { kstDay } from "@/lib/admin/timeText";
 import { AdminIcon, type AdminIconName } from "../icons";
-import { durationWord, SEVERITY_WORD, useClock } from "./parts";
+import StatusShape from "../StatusShape";
+import { useChangeFlags } from "../useChangeFlags";
+import { durationWord, FlashNum, SEVERITY_WORD, useClock } from "./parts";
 import Sparkline from "./Sparkline";
 import styles from "./control.module.css";
 
@@ -72,8 +75,10 @@ export function Tile({ icon, label, tone, focusRef, value, delta, trend, sub }: 
 }) {
   const focus = useOpsFocus((s) => s.ref);
   const lit = focusRef ? refMatches(focus, focusRef) : false;
+  // 칸이 목표를 벗어나거나 돌아오는 순간 링 펄스를 건다(§12-4 카드 상태 전이). 처음 그린 상태는 전이가 아니다
+  const pulse = useChangeFlags({ tone: tone ?? "ok" }, 1800).tone;
   return (
-    <div className={styles.tile} data-tone={tone} data-focus={lit ? "" : undefined}>
+    <div className={styles.tile} data-tone={tone} data-focus={lit ? "" : undefined} data-pulse={pulse ? "" : undefined}>
       <span className={styles.tileIcon} aria-hidden="true">
         <AdminIcon name={icon} size={16} />
       </span>
@@ -172,9 +177,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
     ) : null;
   const mark = (tone: Tone) =>
     tone && (
-      <span className={styles.tileMark} aria-hidden="true">
-        {tone === "danger" ? "■" : "▲"}
-      </span>
+      <StatusShape kind={tone === "danger" ? "square" : "triangle"} size={14} className={styles.tileMark} />
     );
   const source = (sec: OpsSection<unknown>) => (sec.state === "NOT_CONNECTED" ? sec.source : "");
 
@@ -257,7 +260,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
           value={
             <span className={`${styles.tileValue} num`} data-tone={alertTone}>
               {mark(alertTone)}
-              {alerts.length}
+              <FlashNum value={alerts.length} tone={flashTone} />
               <span className={styles.tileUnit}>건</span>
             </span>
           }
@@ -265,7 +268,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
             <span className={styles.alertCounts}>
               {(["critical", "warning", "info"] as const).map((sev) => (
                 <span key={sev} className={styles.alertCount} data-sev={sev} data-zero={counts[sev] === 0 ? "" : undefined}>
-                  <span aria-hidden="true">{sev === "critical" ? "■" : sev === "warning" ? "▲" : "●"}</span>
+                  <span aria-hidden="true"><StatusShape kind={sev === "critical" ? "square" : sev === "warning" ? "triangle" : "circle"} /></span>
                   <b className="num">{counts[sev]}</b>
                   <span className="sr-only">{SEVERITY_WORD[sev]}</span>
                 </span>
@@ -294,7 +297,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
           trend={spark(tr?.incidents, undefined, incidentsN, "새 사건", { kind: "bars" })}
           value={
             <span className={`${styles.tileValue} num`}>
-              {inc.count}
+              <FlashNum value={inc.count} tone={(prev, next) => (next > prev ? "warning" : null)} />
               <span className={styles.tileUnit}>건</span>
             </span>
           }

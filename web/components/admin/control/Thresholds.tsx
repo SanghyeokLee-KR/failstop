@@ -9,12 +9,14 @@
 import { memo, useState } from "react";
 import Link from "next/link";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
+import { stepKey } from "@/lib/admin/thresholdKeys";
 import type { ApprovalPayload, ControlCenter, OpsSection, OpsThreshold, ThresholdChange, ThresholdRegistry, ThresholdVia } from "@/lib/admin/types";
 import ApprovalList from "../ApprovalList";
 import RequestButton from "../RequestButton";
 import GrafanaLink from "../GrafanaLink";
 import { hms, NotConnected, PanelHead } from "./parts";
 import styles from "./control.module.css";
+import StatusShape from "../StatusShape";
 
 const VIA_WORD: Record<ThresholdVia, string> = {
   MANUAL: "수동",
@@ -22,7 +24,7 @@ const VIA_WORD: Record<ThresholdVia, string> = {
   AI_AUTO: "AI 자동",
   REVERT: "되돌리기",
 };
-/** 조회 증설 임계는 축소 임계보다 이만큼 높아야 한다(시뮬레이터와 같은 규칙) */
+/** 증설 임계는 축소 임계보다 이만큼 높아야 한다(시뮬레이터와 같은 규칙) */
 const SCALE_GAP = 15;
 
 function checkDraft(t: OpsThreshold, to: number, items: OpsThreshold[]): string | null {
@@ -50,11 +52,11 @@ function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
   switch (t.key) {
     case "read.scale_out_cpu": {
       const avg = tier?.avgCpuPct ?? null;
-      if (avg !== null && avg >= to && avg < t.value) return `지금 조회 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 증설을 제안합니다.`;
-      return lower ? "증설이 더 일찍 시작됩니다. 급증 때 지연 초과가 줄지만 평시 증설이 잦아져 비용이 늘 수 있습니다." : "증설이 더 늦게 시작됩니다. 급증 때 응답 지연이 길어질 수 있습니다.";
+      if (avg !== null && avg >= to && avg < t.value) return `지금 앱 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 app-3 켜기를 제안합니다.`;
+      return lower ? "app-3가 더 일찍 켜집니다. 급증 때 지연 초과가 줄지만 평시에 켜지는 일이 잦아져 비용이 늘 수 있습니다." : "app-3가 더 늦게 켜집니다. 급증 때 응답 지연이 길어질 수 있습니다.";
     }
     case "read.scale_in_cpu":
-      return lower ? "축소가 더 늦게 시작됩니다. 비용 절감이 줄고 여유는 늘어납니다." : "축소가 더 일찍 시작됩니다. 비용이 줄지만 다시 몰릴 때 되돌리는 일이 잦아질 수 있습니다.";
+      return lower ? "app-3가 더 늦게 꺼집니다. 비용 절감이 줄고 여유는 늘어납니다." : "app-3가 더 일찍 꺼집니다. 비용이 줄지만 다시 몰릴 때 도로 켜는 일이 잦아질 수 있습니다.";
     case "host.cpu_alert": {
       const now = count((v) => v >= t.value, (h) => h.cpuPct);
       const next = count((v) => v >= to, (h) => h.cpuPct);
@@ -274,13 +276,15 @@ function ThresholdPanel({ section, onChanged, full = false }: {
                     </td>
                     <td>
                       <label className={styles.editor}>
+                        {/* 슬라이더는 끌기 전용이다. 건반 초점은 옆 숫자 칸 하나가 받는다 */}
                         <input
                           type="range"
+                          tabIndex={-1}
                           min={t.min}
                           max={t.max}
                           step={t.step}
                           value={value}
-                          aria-label={`${t.label} 새 값`}
+                          aria-label={`${t.label} 새 값 슬라이더`}
                           onChange={(e) => setDraft({ key: t.key, value: Number(e.target.value) })}
                         />
                         <input
@@ -289,8 +293,20 @@ function ThresholdPanel({ section, onChanged, full = false }: {
                           max={t.max}
                           step={t.step}
                           value={value}
-                          aria-label={`${t.label} 새 값 숫자`}
+                          aria-label={`${t.label} 새 값`}
+                          aria-keyshortcuts="PageUp PageDown Escape"
                           onChange={(e) => setDraft({ key: t.key, value: Number(e.target.value) })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape" && mine) {
+                              e.preventDefault();
+                              setDraft(null);
+                              return;
+                            }
+                            const next = stepKey(e.key, value, t);
+                            if (next === null) return;
+                            e.preventDefault();
+                            setDraft({ key: t.key, value: next });
+                          }}
                         />
                       </label>
                     </td>
@@ -323,7 +339,11 @@ function ThresholdPanel({ section, onChanged, full = false }: {
                 <p className={styles.reviewText}>
                   <b>적용</b> · 변경 요청 뒤 승인 목록에서 발급하고 실행하면 적용됩니다. 이력에서 되돌릴 수 있습니다.
                 </p>
-                {error && <p className={styles.reviewError}>■ {error}</p>}
+                {error && (
+                  <p className={styles.reviewError}>
+                    <StatusShape kind="square" /> {error}
+                  </p>
+                )}
                 <div className={styles.reviewActions}>
                   {error === null && <ImpactRequest t={editing} to={draft.value} onDone={() => setDraft(null)} />}
                   <button type="button" className={styles.smallBtn} onClick={() => setDraft(null)}>

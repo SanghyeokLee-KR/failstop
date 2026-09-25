@@ -12,8 +12,10 @@ import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { OpsAlert } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
-import { durationWord, hm, SEVERITY_SHAPE, SEVERITY_WORD, useClock } from "./parts";
+import { useFreshKeys } from "../useFreshKeys";
+import { durationWord, hm, SEVERITY_SHAPE, SEVERITY_WORD, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
+import StatusShape from "../StatusShape";
 
 const SILENCE_CHOICES = [10, 20, AI_RULES.silenceMaxMin];
 
@@ -84,7 +86,7 @@ function AlertAge({ since }: { since: string }) {
   return <>{ms < 2000 ? "방금" : `${durationWord(ms)}째`}</>;
 }
 
-export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () => void }) {
+export function AlertRow({ alert, onChanged, fresh = false }: { alert: OpsAlert; onChanged: () => void; fresh?: boolean }) {
   const focus = useOpsFocus((s) => s.ref);
   const lit = refMatches(focus, { kind: "ALERT", id: alert.id });
   const ack = async () => {
@@ -98,10 +100,8 @@ export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () 
   };
   const tone = alert.severity === "critical" ? "danger" : alert.severity === "warning" ? "warning" : "info";
   return (
-    <li className={styles.alert} data-sev={alert.severity} data-focus={lit ? "" : undefined}>
-      <span className={styles.shape} data-tone={tone} aria-hidden="true">
-        {SEVERITY_SHAPE[alert.severity]}
-      </span>
+    <li className={styles.alert} data-sev={alert.severity} data-focus={lit ? "" : undefined} data-fresh={fresh ? "" : undefined}>
+      <Shape tone={tone}>{SEVERITY_SHAPE[alert.severity]}</Shape>
       <span className={styles.alertName}>
         <span className="sr-only">{SEVERITY_WORD[alert.severity]} 경보 </span>
         {alert.name}
@@ -115,7 +115,7 @@ export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () 
       <div className={styles.alertActions}>
         {alert.ackBy ? (
           <span className={styles.alertState}>
-            <span aria-hidden="true">●</span> 확인 · {alert.ackBy} {alert.ackAt ? hm(alert.ackAt) : ""}
+            <span aria-hidden="true"><StatusShape kind="circle" /></span> 확인 · {alert.ackBy} {alert.ackAt ? hm(alert.ackAt) : ""}
           </span>
         ) : (
           <button type="button" className={styles.smallBtn} onClick={() => void ack()}>
@@ -124,7 +124,7 @@ export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () 
         )}
         {alert.state === "SILENCED" && alert.silencedUntil ? (
           <span className={styles.alertState}>
-            <span aria-hidden="true">◔</span> 보류 {hm(alert.silencedUntil)}까지 · {alert.silencedBy}
+            <span aria-hidden="true"><StatusShape kind="half" /></span> 보류 {hm(alert.silencedUntil)}까지 · {alert.silencedBy}
           </span>
         ) : (
           <SilenceButton alert={alert} onDone={onChanged} />
@@ -135,6 +135,8 @@ export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () 
 }
 
 export default function AlertList({ alerts, onChanged }: { alerts: OpsAlert[]; onChanged: () => void }) {
+  // 새로 선 경보 행만 들어오는 움직임을 받는다(§12-4 목록 행 등장)
+  const fresh = useFreshKeys(alerts.map((a) => a.id));
   if (alerts.length === 0) {
     return (
       <div className={styles.empty}>
@@ -148,7 +150,7 @@ export default function AlertList({ alerts, onChanged }: { alerts: OpsAlert[]; o
   return (
     <ul className={styles.alertList} aria-label="활성 경보">
       {sorted.map((a) => (
-        <AlertRow key={a.id} alert={a} onChanged={onChanged} />
+        <AlertRow key={a.id} alert={a} onChanged={onChanged} fresh={fresh.has(a.id)} />
       ))}
     </ul>
   );

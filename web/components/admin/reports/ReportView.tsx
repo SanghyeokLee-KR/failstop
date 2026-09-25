@@ -12,6 +12,8 @@ import { kst } from "@/lib/admin/timeText";
 import type { OpsReport } from "@/lib/admin/types";
 import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
+import { Modal } from "../layer/Layer";
+import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import styles from "./reports.module.css";
 
 /** 초까지 적는 KST 시각. 전송 기록은 초 단위로 가른다 */
@@ -20,7 +22,7 @@ function kstSec(iso: string): string {
   return `${s} KST`;
 }
 
-export function ReportDetail({ r, sim }: { r: OpsReport; sim: boolean }) {
+export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolean; onOpenCard: () => void }) {
   const shape = r.transition === "resolved" ? { shape: "●", tone: "success" as const } : INTERVENTION_SHAPE[r.intervention.code];
   const decisionTone = INTERVENTION_SHAPE[r.intervention.code].tone;
   const job = JOB_WORD[r.status];
@@ -28,15 +30,22 @@ export function ReportDetail({ r, sim }: { r: OpsReport; sim: boolean }) {
   return (
     <article className={styles.body} aria-labelledby="report-title">
       <header className={styles.bodyHead}>
-        <span className={styles.eyebrow}>
-          <span className={styles.kindTag}>{KIND_WORD[r.kind]}</span>
-          <span className="num">기록 {r.id}</span>
-        </span>
-        <h2 id="report-title" className={styles.reportTitle}>
-          <span className={styles.shape} data-tone={shape.tone} aria-hidden="true">
-            {shape.shape}
+        <div className={styles.headRow}>
+          <span className={styles.eyebrow}>
+            <span className={styles.kindTag}>{KIND_WORD[r.kind]}</span>
+            <span className="num">기록 {r.id}</span>
           </span>
-          {r.title}
+          {/* 보낸 카드는 상세를 읽는 흐름을 끊지 않게 모달로 연다(§12-13의 4) */}
+          <button type="button" className={adminStyles.neutralBtn} aria-haspopup="dialog" onClick={onOpenCard}>
+            Teams로 보낸 카드
+          </button>
+        </div>
+        <h2 id="report-title" className={styles.reportTitle}>
+          {/* 형태는 제목과 같은 글자 단계의 줄 상자에 담아, 제목이 두 줄이 돼도 첫 줄에 선다(§12-2) */}
+          <span className={styles.titleShape}>
+            <StatusShape kind={GLYPH_SHAPE[shape.shape]} size={12} tone={shape.tone} className={styles.shape} />
+          </span>
+          <span>{r.title}</span>
         </h2>
         <p className={styles.decision}>
           <b className={styles.toneText} data-tone={decisionTone === "success" ? undefined : decisionTone}>
@@ -65,9 +74,7 @@ export function ReportDetail({ r, sim }: { r: OpsReport; sim: boolean }) {
         <div className={styles.fact}>
           <dt>Teams 전송</dt>
           <dd>
-            <span className={styles.shape} data-tone={job.tone} aria-hidden="true">
-              {job.shape}{" "}
-            </span>
+            <StatusShape kind={GLYPH_SHAPE[job.shape]} tone={job.tone} className={styles.shape} />
             {job.word}
             {r.sentAt && <span className="num"> · {kst(r.sentAt, false)}</span>}
           </dd>
@@ -141,8 +148,8 @@ export function ReportDetail({ r, sim }: { r: OpsReport; sim: boolean }) {
             <div key={m.label} className={styles.metric} data-status={m.status}>
               <span className={styles.metricKey}>{m.label}</span>
               <span className={`${styles.metricValue} num`}>
-                {m.status === "attention" && <span aria-hidden="true">▲ </span>}
-                {m.status === "unknown" && <span aria-hidden="true">◌ </span>}
+                {m.status === "attention" && <StatusShape kind="triangle" />}
+                {m.status === "unknown" && <StatusShape kind="dashed" />}
                 {m.value}
               </span>
               <span className={styles.metricDetail}>{m.detail}</span>
@@ -215,18 +222,31 @@ function FileButton({ label, href }: { label: string; href: string | null }) {
   );
 }
 
-/** 'Teams로 보낸 카드'. 보고 서비스가 보낸 Adaptive Card 본문을 같은 순서로 그린다 */
-export function TeamsCardPreview({ r }: { r: OpsReport }) {
+/**
+ * 'Teams로 보낸 카드'(모달 520px, §12-13의 4). 보고 서비스가 보낸 Adaptive Card 본문을 같은 순서로 그린다.
+ * Teams의 모양을 흉내 내지 않고 이 콘솔의 판면으로 그린다
+ */
+export function TeamsCardModal({ r, onClose }: { r: OpsReport; onClose: () => void }) {
   const card = teamsCard(r);
   const tone = cardTone(r).tone;
+  const job = JOB_WORD[r.status];
+  const last = r.attempts[r.attempts.length - 1] ?? null;
   return (
-    <section className={styles.panel} aria-labelledby="teams-card">
-      <div className={styles.panelHead}>
-        <h3 id="teams-card" className={styles.panelTitle}>
-          Teams로 보낸 카드
-        </h3>
-        <span className={styles.panelMeta}>보고 서비스가 보낸 본문 · 미리보기</span>
-      </div>
+    <Modal
+      name="report-card"
+      width={520}
+      title="Teams로 보낸 카드"
+      sub={
+        <>
+          <span>보고 서비스가 보낸 본문 · 미리보기</span>
+          <span className="num">
+            {job.word}
+            {last ? ` · ${kstSec(last.at)}` : ""}
+          </span>
+        </>
+      }
+      onClose={onClose}
+    >
       <div className={styles.canvas}>
         <div className={styles.card} data-tone={tone}>
           {card.blocks.map((b, i) =>
@@ -266,7 +286,7 @@ export function TeamsCardPreview({ r }: { r: OpsReport }) {
           )}
         </div>
       </div>
-    </section>
+    </Modal>
   );
 }
 
@@ -287,9 +307,7 @@ export function DeliveryLog({ r }: { r: OpsReport }) {
             <li key={a.attempt} className={styles.attempt}>
               <span className={`${styles.attemptNo} num`}>{a.attempt}</span>
               <span className={styles.attemptWord}>
-                <span className={styles.shape} data-tone={w.tone} aria-hidden="true">
-                  {w.shape}{" "}
-                </span>
+                <StatusShape kind={GLYPH_SHAPE[w.shape]} tone={w.tone} className={styles.shape} />
                 <b>{w.word}</b>
                 {a.error && <small>오류 {a.error} · 다시 보냄</small>}
               </span>

@@ -69,7 +69,7 @@ export default function AdminShell({
 
   return (
     <div
-      className={styles.shell}
+      className={`${styles.shell} ${styles.typeScale}`}
       data-chat={chatOpen ? "" : undefined}
       style={chatOpen ? ({ "--admin-chat-w": `${chatWidth}px` } as CSSProperties) : undefined}
     >

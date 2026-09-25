@@ -29,13 +29,28 @@ export function hostTone(h: OpsHost, reg: ThresholdRegistry | null): "warning" |
   return undefined;
 }
 
-/** 카드의 상태 문구. 운영 중, 임계치 초과, 수집 끊김 세 가지로 적는다 */
-export function hostState(h: OpsHost, reg: ThresholdRegistry | null): NodeState {
+/**
+ * 앱 계층(app-1·app-2와 켜진 app-3)의 평균 CPU가 증설 임계 이상인가. 조회는 켜진 앱 노드에 고르게 나뉘므로 이 부하는
+ * 한 노드의 임계치 초과가 아니라 앱 노드 모두의 주의다(ADR 0030, 사용자 정정 2026-09-25)
+ */
+export function appTierHot(c: ControlCenter): boolean {
+  if (c.readTier.state !== "READY") return false;
+  const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
+  const out = thresholdOf(reg, "read.scale_out_cpu");
+  return c.readTier.data.avgCpuPct !== null && out !== null && c.readTier.data.avgCpuPct >= out;
+}
+
+/**
+ * 카드의 상태 문구. 운영 중, 임계치 초과, 수집 끊김 세 가지로 적는다. 앱 계층이 과부하면(tierHot) 앱 노드는 제 게이지가
+ * 임계 안이어도 '조회 부하 높음' 주의다. 헤더 집계·사이드바 배지·카드가 같은 판정을 쓴다
+ */
+export function hostState(h: OpsHost, reg: ThresholdRegistry | null, tierHot = false): NodeState {
   if (h.collect === "MISSING") return { tone: "off", shape: "◌", word: "수집 끊김" };
   if (h.collect === "STALE") return { tone: "warning", shape: "▲", word: "수집 끊김" };
   const t = hostTone(h, reg);
   if (t === "danger") return { tone: "danger", shape: "■", word: "임계치 초과" };
   if (t === "warning") return { tone: "warning", shape: "▲", word: "임계치 초과" };
+  if (tierHot && h.role === "APP") return { tone: "warning", shape: "▲", word: "조회 부하 높음" };
   return { tone: "success", shape: "●", word: "운영 중" };
 }
 
@@ -60,24 +75,27 @@ export function overallOf(c: ControlCenter | null): Overall {
   const alerts = c.alerts.state === "READY" ? c.alerts.data : [];
   if (alerts.some((a) => a.severity === "critical")) down = true;
   if (alerts.some((a) => a.severity === "warning")) warn = true;
+  const hot = appTierHot(c);
   if (c.hosts.state === "READY") {
     // 수집이 끊긴 노드는 상태를 모르는 것이라 정상으로 세지 않고 주의로 올린다
     for (const h of c.hosts.data) {
-      const t = hostState(h, reg).tone;
+      const t = hostState(h, reg, hot).tone;
       if (t === "success") continue;
       nodes += 1;
       if (t === "danger") down = true;
       else warn = true;
     }
   }
+  // 앱 계층 과부하는 위에서 앱 노드의 주의로 셌다. 켜진 app-3도 같은 부하를 받고, 기동·드레이닝 중인 app-3는 넘어가는
+  // 중이라 주의다. 인프라 칸 집계(infraCounts)와 사이드바 배지가 같은 규칙으로 센다
   if (c.readTier.state === "READY") {
     const tier = c.readTier.data;
-    const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
-    const out = thresholdOf(reg, "read.scale_out_cpu");
-    if (tier.desired > 0 && serving === 0) {
+    if (tier.serving === 0) {
       down = true;
       nodes += 1;
-    } else if (tier.avgCpuPct !== null && out !== null && tier.avgCpuPct >= out) {
+    }
+    for (const n of tier.nodes) {
+      if (n.state === "OFF" || (n.state === "IN_SERVICE" && !hot)) continue;
       warn = true;
       nodes += 1;
     }
@@ -95,22 +113,22 @@ export function overallOf(c: ControlCenter | null): Overall {
 }
 
 /**
- * 인프라 칸 머리의 집계. 켜 둔 EC2 노드와 조회 노드만 세고, 기동·드레이닝처럼 넘어가는 중인 노드는 주의로 센다.
- * 구축 전인 ai-1은 세지 않는다. sim이 연결을 가정해 값을 내도 운영 중인 노드가 아니다(관리자 설계 4-4)
+ * 인프라 칸 머리의 집계. 켜 둔 EC2 노드와 켜진 app-3만 세고, 기동·드레이닝처럼 넘어가는 중인 노드는 주의로 센다.
+ * 앱 계층이 과부하면 조회를 받는 앱 노드를 주의로 센다. 구축 전인 ai-1은 세지 않는다. sim이 연결을 가정해 값을 내도
+ * 운영 중인 노드가 아니다(관리자 설계 4-4)
  */
 export function infraCounts(c: ControlCenter): { ok: number; warn: number; down: number } | null {
   if (c.hosts.state !== "READY") return null;
   const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
   const out = { ok: 0, warn: 0, down: 0 };
+  const hot = appTierHot(c);
   for (const h of c.hosts.data) {
-    const s = hostState(h, reg).tone;
+    const s = hostState(h, reg, hot).tone;
     if (s === "success") out.ok += 1;
     else if (s === "danger") out.down += 1;
     else out.warn += 1;
   }
   if (c.readTier.state === "READY") {
-    const scaleOut = thresholdOf(reg, "read.scale_out_cpu");
-    const hot = c.readTier.data.avgCpuPct !== null && scaleOut !== null && c.readTier.data.avgCpuPct >= scaleOut;
     for (const n of c.readTier.data.nodes) {
       if (n.state === "OFF") continue;
       if (n.state === "IN_SERVICE" && !hot) out.ok += 1;
@@ -120,22 +138,22 @@ export function infraCounts(c: ControlCenter): { ok: number; warn: number; down:
   return out;
 }
 
-/** 수집 대상 한 줄. EC2 노드와 조회 노드를 같은 표에 싣는다 */
+/** 수집 대상 한 줄. EC2 노드와 자동 증설 노드(app-3)를 같은 표에 싣는다 */
 export interface CollectRow {
   id: string;
   kind: OpsHostRole | "READ";
   instanceType: string;
   az: string;
-  /** 조회 노드면 ASG 안의 상태. 중지한 노드는 수집 대상이 아니다 */
+  /** 자동 증설 노드면 ASG 안의 상태. 꺼진 노드는 수집 대상이 아니다 */
   readState: ReadNodeState | null;
-  /** 값을 받고 있는가. 호스트는 수집 상태, 조회 노드는 CPU 판독이 있는지로 가린다 */
+  /** 값을 받고 있는가. 호스트는 수집 상태, 자동 증설 노드는 CPU 판독이 있는지로 가린다 */
   ok: boolean;
   collectedAt: string | null;
   host: OpsHost | null;
 }
 
 /**
- * 수집 대상. EC2 노드 다섯 대와 중지하지 않은 조회 노드다. 서버·노드 화면의 수집 대상 표와 설정 화면의
+ * 수집 대상. EC2 노드 다섯 대와 켜져 있는 app-3다. 서버·노드 화면의 수집 대상 표와 설정 화면의
  * Prometheus 행이 이 함수 하나로 세어 두 화면의 수가 어긋나지 않는다. 구축 전인 ai-1은 넣지 않는다
  */
 export function collectTargets(c: ControlCenter): { rows: CollectRow[]; targets: number; ok: number } {

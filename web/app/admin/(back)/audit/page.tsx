@@ -13,7 +13,7 @@ import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { AUDIT_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -93,13 +93,9 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
       e.result === "OK" ? (
         <span className={styles.stateText}>성공</span>
       ) : e.result === "ERROR" ? (
-        <span className="status-pill" data-health="warning">
-          ▲ 오류
-        </span>
+        <StateChip tone="warning" label="오류" />
       ) : (
-        <span className="status-pill" data-health="danger">
-          ■ 거부
-        </span>
+        <StateChip tone="danger" label="거부" />
       ),
   },
   {
@@ -187,7 +183,7 @@ export default function AuditPage() {
     <div className={styles.page}>
       <PageHeader
         title="감사 로그"
-        desc="수정·삭제 불가 기록"
+        desc="관리 액션의 기록입니다. 고치거나 지울 수 없습니다"
         actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
       />
       <PanelCard title="관리 액션 감사">

@@ -6,21 +6,24 @@
  * 자동 켜기는 사유와 유효 시간을 받은 뒤 1인 승인 티켓을 발급·소각한다. 'AI 즉시 정지'와 'AI 재개'는 이 줄이
  * 아니라 운영자 바에 있다(AiStop). 정지하면 줄이 주의 면으로 바뀐다. 대기 조치안 수는 링크라 누르면 AI 관제의
  * 첫 대기 카드로 스크롤해 포커스를 옮긴다. 자동인 동안 줄 테두리만 AI 강조색이 되고 남은 시간, 이번 자동 모드의
- * 조치 수, 쿨다운, 관찰 창을 숫자 먼저 싣는다. 켠 사유는 정보 표지의 툴팁으로 옮겼다. 줄 높이는 모드와 무관하게
- * 같아 아래 판이 움직이지 않는다.
+ * 조치 수, 쿨다운, 관찰 창을 숫자 먼저 싣는다. 켠 사유는 정보 표지의 툴팁으로 옮겼다. 자동 되돌림, AI 정지와
+ * 재개, 자동 상한 도달, 유효 시간 만료 뒤 30초 동안은 뜻 글자 자리에 그 사건을 한 줄로 적는다(알림 줄, §12-9 v1.14).
+ * 알림과 그 끝은 관제 판의 notice가 정한다. 줄 높이는 모드와 무관하게 같아 아래 판이 움직이지 않는다.
  */
 
 import { memo, useState } from "react";
 import Link from "next/link";
 import { getAdminApi, AdminError } from "@/lib/admin/api";
 import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, AUTO_HOURS, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
+import { useOpsDetail } from "@/lib/admin/detailStore";
 import { useCan } from "@/lib/admin/store";
-import type { AiDesk, OpsSection } from "@/lib/admin/types";
+import type { AiDesk, AiNotice, OpsSection } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
 import { AdminIcon } from "../icons";
+import StatusShape from "../StatusShape";
 import { AiMark, hms, mmss, remainWord, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -34,7 +37,7 @@ export function RulesDisclosure({ label = "허용·금지 목록", up = false, l
         <ul className={styles.rulesList}>
           {allowedRules(limits).map((r) => (
             <li key={r.kind}>
-              <span aria-hidden="true">●</span>
+              <span aria-hidden="true"><StatusShape kind="circle" /></span>
               <span>
                 <b>{AI_ACTION_LABEL[r.kind]}</b> · {r.rule}
               </span>
@@ -45,7 +48,7 @@ export function RulesDisclosure({ label = "허용·금지 목록", up = false, l
         <ul className={styles.rulesList}>
           {AI_FORBIDDEN.map((r) => (
             <li key={r}>
-              <span aria-hidden="true">■</span>
+              <span aria-hidden="true"><StatusShape kind="square" /></span>
               <span>{r}</span>
             </li>
           ))}
@@ -54,7 +57,7 @@ export function RulesDisclosure({ label = "허용·금지 목록", up = false, l
         <ul className={styles.rulesList}>
           {autoPreconditions(limits).map((r) => (
             <li key={r}>
-              <span aria-hidden="true">▲</span>
+              <span aria-hidden="true"><StatusShape kind="triangle" /></span>
               <span>{r}</span>
             </li>
           ))}
@@ -88,7 +91,7 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
       description="허용 목록 조치를 AI가 한도 안에서 자동으로 실행합니다. 켜면 1인 승인 티켓을 발급하고 곧바로 소각해 승인 원장과 감사 로그에 남깁니다."
       target="AI 운영 · 허용 목록 5종"
       blastRadius={`${hours}시간 뒤 수동 복귀 · 이번 자동 모드 ${limits.autoCap}회 상한`}
-      tone="warning"
+      tone="approve"
       confirmLabel="승인하고 켜기"
       busy={busy}
       wide
@@ -132,7 +135,7 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
             <ul className={styles.rulesList}>
               {allowedRules(limits).map((r) => (
                 <li key={r.kind}>
-                  <span aria-hidden="true">●</span>
+                  <span aria-hidden="true"><StatusShape kind="circle" /></span>
                   <span>
                     <b>{AI_ACTION_LABEL[r.kind]}</b> · {r.rule}
                   </span>
@@ -145,7 +148,7 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
             <ul className={styles.rulesList}>
               {AI_FORBIDDEN.map((r) => (
                 <li key={r}>
-                  <span aria-hidden="true">■</span>
+                  <span aria-hidden="true"><StatusShape kind="square" /></span>
                   <span>{r}</span>
                 </li>
               ))}
@@ -250,6 +253,28 @@ function AutoItems({ ai, pending }: { ai: AiDesk; pending: number }) {
   );
 }
 
+/**
+ * 알림 줄(§12-9 v1.14). 되돌림과 정지는 주의, 재개·상한·만료는 무채다. 사건 기록이 있으면 그 사건을 여는 링크를 둔다
+ */
+function NoticeLine({ n, pending }: { n: AiNotice; pending: number }) {
+  const incidentId = n.incidentId;
+  return (
+    <span className={styles.noticeLine} data-tone={n.tone} role="status">
+      <StatusShape kind={n.tone === "warning" ? "triangle" : "circle"} tone={n.tone === "warning" ? "warning" : "off"} className={styles.shape} />
+      <b className="num">{hms(n.at)}</b>
+      <span className={styles.noticeText} title={n.text}>
+        {n.text}
+      </span>
+      {incidentId && (
+        <button type="button" className={styles.noticeLink} aria-haspopup="dialog" onClick={() => useOpsDetail.getState().openIncident(incidentId)}>
+          사건 기록
+        </button>
+      )}
+      <PendingLink count={pending} />
+    </span>
+  );
+}
+
 /** AI 칸만 받는다. 모드 줄은 매초 다시 그리지 않고, 자동 모드의 시계 글자만 따로 돈다 */
 function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; onChanged: () => void }) {
   const canSuper = useCan("SUPER");
@@ -312,10 +337,14 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
         <span className={styles.modeText}>
           {section === null ? "모드 확인 중" : <><b>서버 정책 엔진 연결 전</b> · AI 판단과 자동 모드, AI 즉시 정지는 2단계에서 연결합니다</>}
         </span>
+      ) : auto ? (
+        <AutoItems ai={ai} pending={pending} />
+      ) : ai.notice ? (
+        <NoticeLine key={ai.notice.at} n={ai.notice} pending={pending} />
       ) : stopped ? (
         <span className={styles.modeText} data-tone="warning" title="새 판단과 조치안을 내지 않습니다. 경보와 ASG 정책은 AI 없이 그대로 동작합니다">
           <b className={styles.stopWord}>
-            <span aria-hidden="true">▲ </span>AI 정지 중
+            <span aria-hidden="true"><StatusShape kind="triangle" /> </span>AI 정지 중
           </b>
           {ai.stopped && (
             <>
@@ -326,8 +355,6 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
           {ai.observation && " · 관찰 창은 끝까지 봅니다"}
           {" · 경보와 ASG 정책은 그대로 동작합니다"}
         </span>
-      ) : auto ? (
-        <AutoItems ai={ai} pending={pending} />
       ) : (
         <span className={styles.modeLine}>
           <span className={styles.modeText}>

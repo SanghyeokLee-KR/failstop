@@ -47,7 +47,7 @@ function clock(sec: number): string {
   return hms(new Date(sec * 1000).toISOString());
 }
 
-const NO_CPU = { api1: null, api2: null, read1: null, read2: null, read3: null };
+const NO_CPU = { api1: null, api2: null, app3: null };
 
 export default function MonitorPage() {
   // 주행 시계는 보여 주는 화면이 하나씩 건다. 이 화면에 있는 동안만 틱이 나아간다

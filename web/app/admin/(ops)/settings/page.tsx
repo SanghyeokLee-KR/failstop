@@ -24,6 +24,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import OpsHead from "@/components/admin/control/OpsHead";
 import { DatabasusLink } from "@/components/admin/control/Jobs";
+import StatusShape, { GLYPH_SHAPE } from "@/components/admin/StatusShape";
 import { SimMark } from "@/components/admin/ui";
 import { Ago, NotConnected, PanelHead } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
@@ -94,9 +95,7 @@ function IntegrationTable({ rows }: { rows: IntegrationRow[] }) {
                   <SimMark kind="assumed" />
                 ) : (
                   <span className={styles.state} data-tone={w.tone === "success" ? undefined : w.tone}>
-                    <span className={styles.shape} data-tone={w.tone} aria-hidden="true">
-                      {w.shape}
-                    </span>
+                    <StatusShape kind={GLYPH_SHAPE[w.shape]} tone={w.tone} className={styles.shape} />
                     {w.word}
                   </span>
                 )}
@@ -226,10 +225,8 @@ export default function SettingsPage() {
                   <ol className={styles.tests} aria-label="연결 시험 기록">
                     {tests.slice(0, 4).map((t) => (
                       <li key={t.at} className={styles.test}>
-                        <span>
-                          <span className={styles.shape} data-tone={t.status === "sent" ? "success" : "danger"} aria-hidden="true">
-                            {t.status === "sent" ? "●" : "■"}{" "}
-                          </span>
+                        <span className={styles.testWord}>
+                          <StatusShape kind={t.status === "sent" ? "circle" : "square"} tone={t.status === "sent" ? "success" : "danger"} className={styles.shape} />
                           {t.status === "sent" ? "전송됨" : "실패"}
                           {t.error && ` · ${t.error}`}
                         </span>

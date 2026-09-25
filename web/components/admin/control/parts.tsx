@@ -4,12 +4,13 @@
  * 관제센터 화면들이 함께 쓰는 작은 조각. 상태 어휘는 디자인 시스템 §12-3, 관제센터 규칙은 §12-9를 따른다.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useBeat } from "@/lib/admin/ticker";
 import { ago, mmss } from "@/lib/admin/timeText";
 import type { AlertSeverity, ControlCenter, OpsEnvironment, OpsSection } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
 import { MeterRail } from "../instruments/MeterRail";
+import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import { SimMark } from "../ui";
 import styles from "./control.module.css";
 
@@ -39,14 +40,52 @@ export function Remain({ until, fallback = null }: { until: string; fallback?: R
   return <>{left > 0 ? mmss(left) : fallback}</>;
 }
 
+export type FlashTone = "success" | "warning" | "danger";
+
+/**
+ * 사건 때만 바뀌는 수(§12-4 숫자 전환). 바뀌는 순간 값 자리에 헬스 플래시를 600ms 켜고 새 숫자가 opacity로
+ * 교차해 들어온다. 처음 그린 값은 전이가 아니다. 색은 고정 tone이거나 이전·새 값으로 정하는 함수다(flashTone).
+ * 매초 바뀌는 지표에는 쓰지 않는다
+ */
+export function FlashNum({ value, tone }: { value: number; tone?: FlashTone | null | ((prev: number, next: number) => FlashTone | null) }) {
+  const [prev, setPrev] = useState(value);
+  const [seq, setSeq] = useState(0);
+  const [flash, setFlash] = useState<FlashTone | null>(null);
+  // 바뀐 값을 그리는 첫 그림부터 교차가 걸리게 그리는 중에 잇는다. 이펙트에서 켜면 새 숫자가 한 번 그대로 보였다가 흐려진다
+  if (value !== prev) {
+    setPrev(value);
+    setSeq((n) => n + 1);
+    setFlash(typeof tone === "function" ? tone(prev, value) : tone ?? null);
+  }
+  useEffect(() => {
+    if (flash === null) return;
+    const t = setTimeout(() => setFlash(null), 600);
+    return () => clearTimeout(t);
+  }, [flash, seq]);
+  return (
+    <span className={styles.flashNum} data-flash={flash ?? undefined}>
+      <span key={seq} className={styles.flashIn} data-in={seq > 0 ? "" : undefined}>
+        {value}
+      </span>
+    </span>
+  );
+}
+
 // 시각 글자는 lib에 있다. AI 상담의 답(lib)과 화면 조각이 같은 말을 쓰게 한곳에 두고 여기서 다시 내보낸다
 export { ago, durationWord, hm, hms, lagWord, mdhm, mmss, remainWord, secWord } from "@/lib/admin/timeText";
 
 export const SEVERITY_SHAPE: Record<AlertSeverity, string> = { critical: "■", warning: "▲", info: "●" };
 export const SEVERITY_WORD: Record<AlertSeverity, string> = { critical: "장애", warning: "주의", info: "정보" };
 
-/** 형태 기호. 색만으로 상태를 알리지 않게 늘 글자와 함께 둔다 */
-export function Shape({ tone, children }: { tone: "success" | "warning" | "danger" | "info" | "off" | "ai"; children: ReactNode }) {
+export type ShapeTone = "success" | "warning" | "danger" | "info" | "off" | "ai";
+
+/**
+ * 형태 기호(§12-3). 색만으로 상태를 알리지 않게 늘 글자와 함께 둔다. 기호 글자(●▲■○◌◇▶)는 같은 격자의
+ * SVG(StatusShape)로 그려 글꼴마다 크기와 기준선이 흔들리지 않게 한다
+ */
+export function Shape({ tone, children, size }: { tone: ShapeTone; children: ReactNode; size?: number }) {
+  const kind = typeof children === "string" ? GLYPH_SHAPE[children.trim()] : undefined;
+  if (kind) return <StatusShape kind={kind} tone={tone} size={size} className={styles.shape} />;
   return (
     <span className={styles.shape} data-tone={tone} aria-hidden="true">
       {children}
@@ -59,7 +98,7 @@ export function NotConnected({ what, source, compact }: { what: string; source: 
   return (
     <div className={styles.notConnected} data-compact={compact ? "" : undefined}>
       <span className={styles.notConnectedTitle}>
-        <span aria-hidden="true">◌ </span>
+        <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
         {what} 원천 연결 전
       </span>
       <span className={styles.notConnectedSource}>{source}</span>
@@ -122,7 +161,7 @@ export function OpsSource({ center }: { center: ControlCenter | null }) {
       {center && <EnvBadge env={center.environment} />}
       {center === null || center.origin === null ? (
         <span className={styles.sourceChip} data-kind="none">
-          <span aria-hidden="true">◌ </span>원천 연결 전
+          <span aria-hidden="true"><StatusShape kind="dashed" /> </span>원천 연결 전
         </span>
       ) : (
         <LiveChip at={center.collectedAt} />
@@ -137,7 +176,7 @@ function LiveChip({ at }: { at: string | null }) {
   const stale = at === null || now - Date.parse(at) > LIVE_STALE_MS;
   return (
     <span className={styles.sourceChip} data-kind={stale ? "stale" : "live"}>
-      <span aria-hidden="true">{stale ? "▲ " : "● "}</span>
+      <span aria-hidden="true"><StatusShape kind={stale ? "triangle" : "circle"} /> </span>
       실측 · {at === null ? "수집 없음" : ago(at, now)}
       {stale && " · 지연"}
     </span>
@@ -172,7 +211,11 @@ export function GaugeRow({ label, value, unit = "%", threshold, max = 100, dange
         <MeterRail value={value ?? 0} max={max} threshold={threshold ?? undefined} tone={tone} />
       </span>
       <span className={`${styles.gaugeValue} num`} data-tone={tone} aria-hidden="true">
-        {tone && <span>{tone === "danger" ? "■ " : "▲ "}</span>}
+        {tone && (
+          <span>
+            <StatusShape kind={tone === "danger" ? "square" : "triangle"} />{" "}
+          </span>
+        )}
         {value === null ? <span className={styles.missing}>◌</span> : value}
         {value !== null && (
           <span className={styles.gaugeUnit}>

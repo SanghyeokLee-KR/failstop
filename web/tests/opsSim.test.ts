@@ -36,6 +36,8 @@ function run(sim: OpsSim, toSec: number): void {
   sim.advance(at(toSec));
 }
 
+const open0 = (c: ControlCenter) => ready<AiDesk>(c.ai).proposals.filter((p) => p.status === "PROPOSED");
+
 async function rejectsWith(fn: () => unknown, code: string): Promise<void> {
   await assert.rejects(async () => fn(), (e: unknown) => e instanceof AdminError && e.code === code);
 }
@@ -51,12 +53,13 @@ test("평시 판은 경보와 조치안 없이 이상 없음이고 무엇을 보
   assert.equal(ai(c).mode, "MANUAL");
 });
 
-test("조회 급증은 경보와 AI 판단(노드 +1, 증설 임계 60→55)을 거쳐 수동 모드에서 운영자를 기다린다", () => {
+test("조회 급증은 경보와 AI 판단(app-3 켜기, 증설 임계 60→55)을 거쳐 수동 모드에서 운영자를 기다린다", () => {
   const sim = new OpsSim(T0);
   sim.startScenario("READ_SURGE", at(0));
   const c = sim.snapshot(at(20));
   const names = alerts(c).map((a) => a.name);
-  assert.ok(names.includes("조회 노드 CPU 높음"));
+  assert.ok(names.includes("앱 계층 CPU 높음"));
+  assert.ok(open0(c).some((p) => p.title === "app-3 켜기 (앱 2 → 3대)"), "조치안은 app-3 켜기로 적는다");
   const open = ai(c).proposals.filter((p) => p.status === "PROPOSED");
   assert.deepEqual(open.map((p) => p.kind).sort(), ["READ_NODES", "THRESHOLD"]);
   assert.equal(open[0].kind, "READ_NODES", "서비스에 가까운 조치가 앞에 선다");
@@ -113,7 +116,7 @@ test("자동 모드는 같은 판단 두 번 뒤 허용 조치 하나만 실행�
   const c = sim.snapshot(at(24));
   const desk = ai(c);
   const done = desk.proposals.find((p) => p.status === "AUTO_EXECUTED");
-  assert.ok(done, "노드 +1 은 자동 실행된다");
+  assert.ok(done, "app-3 켜기는 자동 실행된다");
   assert.equal(done.kind, "READ_NODES");
   assert.ok(done.revertibleUntil !== null);
   assert.ok(desk.observation !== null, "관찰 창이 열린다");

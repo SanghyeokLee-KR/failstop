@@ -3,28 +3,29 @@
 /**
  * 서비스 흐름 구성도. AWS 목표 구성(v5)을 AWS 아키텍처 그림의 문법으로 그린다. 지금은 로컬 Docker
  * exchange-chaos 스택이 그 역할을 맡는다(2026-09-23 사용자 결정). 카드에는 아이콘, AWS 역할 이름,
- * 상태 한 줄만 둔다. 이름은 관제센터와 같다(app-1·app-2, read-1~3, db-primary·db-standby, bot-1, load-1,
+ * 상태 한 줄만 둔다. 이름은 관제센터와 같다(app-1·app-2·app-3, db-primary·db-standby, bot-1, load-1,
  * ai-1). 그 역할을 대신하는 컨테이너 이름, 포트, 리스 같은 세부는 카드를 눌러 여는 팝오버에만 싣는다.
  * 재생하지 않는 동안의 값은 관제 판(opsCenter)에서 옮긴 관제 값이고, 재생 중에는 flowSim 의 재생 값이다
  * (flowRun 의 두 모드). ai-1 카드와 판단 요청선은 어느 모드에서나 관제 판을 읽는다.
  *
  * 그림의 뼈대는 사용자가 준 거래소 인프라 그림을 따르고, 칸은 정해 둔 격자에 맞춘다.
- *  - 구성도 세로 가운데 아래를 지나는 가로줄(주축) 하나에 사용자, CloudFront, ALB, 조회 Auto Scaling 그룹의
- *    가운데 줄(read-2), Primary, Standby 가 선다. 사용자 경로, 조회선, 조회 SQL 선, 복제선이 모두 곧은 가로선이다.
+ *  - 구성도 세로 가운데 아래를 지나는 가로줄(주축) 하나에 사용자, CloudFront, ALB, Auto Scaling 그룹의
+ *    app-3, Primary, Standby 가 선다. 사용자 경로, app-3 조회선, 그 조회 SQL 선, 복제선이 모두 곧은 가로선이다.
  *  - 열은 왼쪽부터 다섯이다. 0열은 AWS 틀 밖이다. 위에서부터 온프레미스(연구소) 틀의 ai-1, 주축의 사용자,
  *    bot-1 칸 높이의 Teams 자리가 선다. 1열 엣지 칸은 AWS 틀 안이지만 리전 밖에서 CloudFront 한 장만 감싼다.
- *    서울 리전 틀 안의 VPC 틀에 2열(load-1 과 퍼블릭 칸의 ALB), 3열(매칭 칸과 조회 Auto Scaling 그룹),
+ *    서울 리전 틀 안의 VPC 틀에 2열(load-1 과 퍼블릭 칸의 ALB), 3열(매칭 칸과 Auto Scaling 그룹),
  *    4열(DB 칸의 Primary 와 Standby)이 서고, 맨 아래 bot-1 칸이 2~4열을 받친다.
- *  - 3열 위의 매칭 칸이 app-1·app-2 를 싣는다. 쓰기는 이 두 대 가운데 리더가 받는다. 아래의 Auto Scaling
- *    그룹은 조회 노드(read-1~3)만 감싼다. 매칭 노드는 그룹 밖이다(ADR 0027, 0030). 그룹 머리가 범위와 지금
- *    대수와 사용률을 적고, 조정 중이면 테두리가 주황 점선과 ▲ 로 바뀐다. 조회 노드는 이름과 CPU 한 줄만 싣는
- *    낮은 카드라 세 대가 한 묶음으로 읽힌다.
- *  - ALB 는 조회를 주축으로 그룹에 곧게 보내고, 쓰기는 오른변 위쪽 두 출구에서 퍼블릭 칸과 3열 사이 틈의
- *    세로 줄 둘(bus1, bus2)을 타고 올라 app-1·app-2 로 간다. 가까운 줄이 더 높은 app-1 로 가서 두 선이
+ *  - 앱 계층은 2~3대다(ADR 0030, 사용자 정정 2026-09-25). 3열 위의 매칭 칸이 늘 켜진 app-1·app-2 를 싣는다.
+ *    쓰기는 이 두 대 가운데 리더가 받고, 조회는 두 대와 켜진 app-3 이 나눠 받는다. 아래의 Auto Scaling 그룹은
+ *    조회 전용 app-3 한 자리만 감싼다. 매칭 리더는 AWS 가 임의로 종료하지 않게 그룹 밖이다(ADR 0027, 0030).
+ *    그룹 머리가 그룹 크기(0~1대), 앱 계층 대수, 사용률을 적고, 조정 중이면 테두리가 주황 점선과 ▲ 로 바뀐다.
+ *    app-3 이 꺼져 있으면 카드가 점선 빈자리로 남는다.
+ *  - ALB 는 app-3 몫의 조회를 주축으로 그룹에 곧게 보내고, 쓰기와 두 리더 몫의 조회는 오른변 위쪽 두 출구에서
+ *    퍼블릭 칸과 3열 사이 틈의 세로 줄 둘(bus1, bus2)을 타고 올라 app-1·app-2 로 간다. 가까운 줄이 더 높은 app-1 로 가서 두 선이
  *    엇갈리지 않는다. load-1 은 퍼블릭 칸 바로 위, 시장 봇은 ALB 바로 아래라 두 선이 ALB 가운데 세로줄
  *    하나로 위아래에서 들어온다.
- *  - Primary 로는 SQL 선 둘이 들어간다. 쓰기 SQL 은 매칭 칸 오른변(app-1 과 app-2 사이)에서 나와 3열과 DB 칸
- *    사이 틈으로 내려가 주축 조금 위로, 조회 SQL 은 그룹에서 주축으로 곧게 간다. DB 전환 뒤에는 오른쪽
+ *  - Primary 로는 SQL 선 둘이 들어간다. 매칭 칸의 SQL(쓰기와 두 리더의 조회)은 매칭 칸 오른변(app-1 과 app-2
+ *    사이)에서 나와 3열과 DB 칸 사이 틈으로 내려가 주축 조금 위로, app-3 의 조회 SQL 은 그룹에서 주축으로 곧게 간다. DB 전환 뒤에는 오른쪽
  *    카드가 Primary 가 된다. 쓰기 SQL 은 DB 칸 위를 지나 새 Primary 윗변 오른쪽으로, 조회 SQL 은 틈에서
  *    DB 칸 바로 위로 올라 윗변 왼쪽으로 내려간다. 두 선은 서로 엇갈리지 않는다.
  *  - ai-1 은 AWS 밖 온프레미스 틀에 선다(ADR 0038). 매칭 칸 이름표 띠 높이의 곧은 점선이 ai-1 과 매칭 칸을
@@ -39,7 +40,7 @@
  *    서브넷이라는 이름을 붙이지 않는다. 역할 묶음으로만 적는다. 모든 틀 이름표는 AWS 그림처럼 왼쪽 위에 선다.
  *  - 틀은 카드를 가로 p(956px 에서 11, 1180px 에서 16, 1700px 에서 20), 아래 16px 로 감싸고, 틀 안의
  *    틀도 같은 p 와 16px 로 떨어진다. 여러 겹의 테두리가 한 간격으로 층을 이뤄 등고선처럼 몰리지 않는다.
- *  - 주축의 카드 사이 거리는 틀이 몇 겹 끼든 같다. 사용자→CloudFront, →ALB, →조회 그룹, →Primary 가 모두
+ *  - 주축의 카드 사이 거리는 틀이 몇 겹 끼든 같다. 사용자→CloudFront, →ALB, →app-3, →Primary 가 모두
  *    같은 d 이고, 한 칸 안의 Primary→Standby 만 그보다 좁은 열 틈이다.
  *  - 선에는 글자를 달지 않는다. 예외는 끊긴 선의 ■ 끊김 표식과 판단 요청선의 이름표다. 선 상태와 트래픽은
  *    FlowTraffic 이 그리고, 선의 이름과 나르는 것은 화면 낭독기용 연결 목록이 싣는다.
@@ -62,6 +63,7 @@ import {
 } from "react";
 import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import adminStyles from "@/components/admin/admin.module.css";
+import { SimMark } from "@/components/admin/ui";
 import {
   APP_CONTAINER,
   APP_NAME,
@@ -70,6 +72,7 @@ import {
   DB_CONTAINER,
   DB_NAME,
   EDGE_IDS,
+  ENGINE_IDS,
   LEASE_TICK,
   LEASE_TTL,
   SCALE_OUT_ADVICE,
@@ -94,7 +97,6 @@ import {
   type NodeId,
   type NodeState,
   type NodeView,
-  type ReadId,
   type ScenarioId,
   type TargetId,
 } from "@/lib/admin/flowSim";
@@ -115,7 +117,7 @@ import FlowTraffic, {
   type Pt,
   type Wire,
 } from "./FlowTraffic";
-import { useChangeFlags } from "./useChangeFlags";
+import { useChangeFlags } from "../useChangeFlags";
 import styles from "./topology.module.css";
 
 /** 노드를 눌러 고른 재생. 대상은 노드를 지목하는 재생(리더 중단, 재기동, DB 전환, 재편입)에만 붙는다 */
@@ -170,8 +172,8 @@ interface Box {
 }
 
 /* 세로 좌표. 폭과 무관한 상수다. 위에서부터 AWS 틀 머리(이름과 범례), 리전 이름표 띠, VPC 이름표 띠,
-   본문이다. 본문 맨 위에 3열의 매칭 칸이 서고 그 아래 조회 Auto Scaling 그룹이 선다. 그룹 가운데 줄
-   (read-2)의 가운데가 주축이다. 틀은 카드를 16px 로 감싸고 틀 안의 틀도 16px 떨어진다 */
+   본문이다. 본문 맨 위에 3열의 매칭 칸이 서고 그 아래 Auto Scaling 그룹이 선다. 그룹 안 app-3 카드의 가운데가
+   주축이라 주축 카드들과 app-3 카드의 위아래 변이 한 줄에 맞는다. 틀은 카드를 16px 로 감싸고 틀 안의 틀도 16px 떨어진다 */
 const HEAD = 34;
 /** 틀 머리 이름표 띠. 이름표(15px)와 위 5px, 아래 4px 여백이다 */
 const BAND = 24;
@@ -184,12 +186,9 @@ const INSET = 16;
 const CARD_H = 72;
 /** 매칭 칸 안 카드 사이 */
 const STACK_GAP = 12;
-/** 조회 노드 줄. 이름과 CPU 한 줄만 싣는 낮은 카드다. 줄 32px 와 틈 12px 라 투명 ::after 로 위아래 틈 6px 씩을\n    더하면 누르는 자리가 44px(§10-2)이고 이웃 줄과 겹치지 않는다 */
-const READ_H = 32;
-const READ_GAP = 12;
-/** Auto Scaling 그룹 머리 단추. 이름과 범위(16px), 지금 대수와 사용률(18px), 사용률 막대와 권고 임계(14px)
-    세 줄이다. 틀 테두리(1.5px)에서 3px, read-1 에서 6px 띄운다. 6px 이면 포커스 고리(선 2px, 띄움 2px)가
-    read-1 테두리에 닿지 않는다 */
+/** Auto Scaling 그룹 머리 단추. 이름과 그룹 크기(16px), 앱 계층 대수와 사용률(18px), 사용률 막대와 권고 임계(14px)
+    세 줄이다. 틀 테두리(1.5px)에서 3px, app-3 에서 6px 띄운다. 6px 이면 포커스 고리(선 2px, 띄움 2px)가
+    app-3 테두리에 닿지 않는다 */
 const ASG_HEAD_H = 48;
 const ASG_HEAD_INSET = 3;
 // 머리 단추의 좌우 여백과 셋째 줄(사용률 막대)의 위치다. topology.module.css 의 .asgHead 여백 6px,
@@ -198,8 +197,6 @@ const ASG_HEAD_PAD = 6;
 const ASG_RAIL_TOP = 16 + 18;
 const ASG_RAIL_H = 14;
 const ASG_HEAD_GAP = 6;
-/** 그룹 마지막 줄 아래 여백. 낮은 줄을 감싸는 틀이라 카드 칸의 16px 보다 좁힌다 */
-const ASG_PAD_BOTTOM = 12;
 /** 조회 그룹 밑변(또는 주축 칸 밑변)과 bot-1 칸 윗변 사이, 매칭 칸과 그룹 사이 */
 const HOST_GAP = 16;
 
@@ -214,14 +211,10 @@ const APP_Y: Record<EngineId, number> = {
 };
 const MATCH_BOTTOM = APP_Y.api2 + CARD_H + INSET;
 const ASG_TOP = MATCH_BOTTOM + HOST_GAP;
-const READ_TOP = ASG_TOP + ASG_HEAD_INSET + ASG_HEAD_H + ASG_HEAD_GAP;
-const READ_Y: Record<ReadId, number> = {
-  read1: READ_TOP,
-  read2: READ_TOP + READ_H + READ_GAP,
-  read3: READ_TOP + (READ_H + READ_GAP) * 2,
-};
-const ASG_BOTTOM = READ_Y.read3 + READ_H + ASG_PAD_BOTTOM;
-const AXIS = READ_Y.read2 + READ_H / 2;
+/** 그룹 안 app-3 카드의 윗변 */
+const APP3_Y = ASG_TOP + ASG_HEAD_INSET + ASG_HEAD_H + ASG_HEAD_GAP;
+const ASG_BOTTOM = APP3_Y + CARD_H + INSET;
+const AXIS = APP3_Y + CARD_H / 2;
 /** 주축 카드의 윗변. 사용자, CloudFront, ALB, DB 두 대가 이 높이에 선다 */
 const ROW_Y = AXIS - CARD_H / 2;
 /** 주축 카드 하나를 감싸는 칸(엣지, 퍼블릭, DB)의 위아래 */
@@ -253,7 +246,7 @@ const SQL_SPLIT = 10;
 
 /*
  * 가로. 관리 평면 최소 뷰포트 1280px 에서 패널 안쪽 폭이 956px 이다. 그보다 좁으면 MIN_W 로 두고
- * 가로로 넘친다. 주축에 카드 여섯 장(사용자, CloudFront, ALB, 조회 그룹 줄, Primary, Standby)이 서고,
+ * 가로로 넘친다. 주축에 카드 여섯 장(사용자, CloudFront, ALB, app-3, Primary, Standby)이 서고,
  * 틀 여백은 모두 같은 p 라 층마다 같은 간격으로 겹친다.
  *  - 카드 폭 112px 는 가장 긴 상태 줄 "● 10 OPS · 주문 실패"(수치 13px 굵게, 형태와 틈을 합쳐 실측 약
  *    105px)에 좌우 여백 1px 와 테두리를 더한 값이다. 956px 에서 여백 p 는 11px 이다.
@@ -274,9 +267,11 @@ const CUT_ROOM = 50;
 const DB_RATIO = 0.66;
 /** Auto Scaling 머리의 둘째 줄 오른쪽에 "사용률 58%"를 다 쓰는 가장 좁은 글자 폭. 좁으면 "58%"만 쓴다 */
 const ASG_META_ROOM = 132;
+/** 머리 첫 줄에 "Auto Scaling"과 그룹 크기 "0~1대"를 함께 쓰는 가장 좁은 글자 폭(실측 약 124px). 좁으면 크기를 뺀다 */
+const ASG_TITLE_ROOM = 130;
 /** 링 펄스를 켜 두는 시간. --dur-pulse 900ms 두 번이다. tokens.css 와 같이 바꾼다 */
 const PULSE_HOLD_MS = 1800;
-/** 대수 플래시를 켜 두는 시간. useHealthTransition 과 같은 길이다 */
+/** 대수 플래시를 켜 두는 시간. 디자인 시스템 §12-4의 헬스 플래시 길이다 */
 const FLASH_HOLD_MS = 600;
 
 // 서버 렌더에는 레이아웃이 없어 useLayoutEffect 가 할 일이 없다. 같은 자리를 useEffect 로 받는다
@@ -313,6 +308,8 @@ interface Layout {
   tightDb: boolean;
   /** Auto Scaling 머리 둘째 줄에 "사용률"을 적을 자리가 있다 */
   asgWide: boolean;
+  /** Auto Scaling 머리 첫 줄에 그룹 크기(0~1대)를 적을 자리가 있다. 없으면 팝오버와 접근 이름만 싣는다 */
+  asgRange: boolean;
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -371,7 +368,6 @@ function computeLayout(measured: number): Layout {
   const awsR = Math.max(W, regionR + p);
 
   const card = (cx: number, y: number): Box => ({ x: cx, y, w: c, h: CARD_H });
-  const row = (y: number): Box => ({ x: appX, y, w: c, h: READ_H });
   const nodes: Record<NodeId, Box> = {
     users: card(colX, ROW_Y),
     cdn: card(cdnX, ROW_Y),
@@ -379,9 +375,7 @@ function computeLayout(measured: number): Layout {
     alb: card(albX, ROW_Y),
     api1: card(appX, APP_Y.api1),
     api2: card(appX, APP_Y.api2),
-    read1: row(READ_Y.read1),
-    read2: row(READ_Y.read2),
-    read3: row(READ_Y.read3),
+    app3: card(appX, APP3_Y),
     pg1: card(pg1X, ROW_Y),
     pg2: card(pg2X, ROW_Y),
     // bot-1 칸의 카드는 위 열에 맞춘다. 시장 봇은 ALB 바로 밑, 관측은 Primary 열 밑이다. Standby 열 밑은
@@ -422,6 +416,7 @@ function computeLayout(measured: number): Layout {
     tightDb: dbGap < CUT_ROOM,
     // 머리 단추의 좌우 여백 6px 씩을 뺀 글자 폭
     asgWide: headW - 12 >= ASG_META_ROOM,
+    asgRange: headW - 12 >= ASG_TITLE_ROOM,
   };
 }
 
@@ -441,14 +436,14 @@ const otherDb = (id: DbId): DbId => (id === "pg1" ? "pg2" : "pg1");
 function buildWires(L: Layout, endpoint: DbId, replSrc: DbId): Wire[] {
   const n = L.nodes;
   const tight = L.tight;
-  // ALB 오른변의 세 출구. 주축은 조회선이 그룹으로 곧게 가고, 그 위 두 출구는 쓰기선이다. 더 높은 출구가
+  // ALB 오른변의 세 출구. 주축은 app-3 조회선이 그룹으로 곧게 가고, 그 위 두 출구는 리더로 가는 쓰기·조회선이다. 더 높은 출구가
   // 가까운 세로 줄(bus1)을 타고 더 높은 app-1 로 간다. 그래서 두 쓰기선은 서로 엇갈리지 않는다
   const upA = AXIS - FAN * 2;
   const upB = AXIS - FAN;
-  // 3열과 DB 칸 사이 틈의 가운데. 쓰기 SQL 이 여기서 내려오고, DB 전환 뒤에는 조회 SQL 이 여기서 오른다
+  // 3열과 DB 칸 사이 틈의 가운데. 매칭 칸 SQL 이 여기서 내려오고, DB 전환 뒤에는 app-3 조회 SQL 이 여기서 오른다
   const gapMid = Math.round((right(L.asg) + L.db.x) / 2);
 
-  // 쓰기 SQL 은 매칭 칸에서, 조회 SQL 은 그룹에서 앱이 보는 DB 로 간다. db-primary 를 보면 둘 다 Primary
+  // 매칭 칸 SQL(쓰기와 두 리더의 조회)은 매칭 칸에서, app-3 조회 SQL 은 그룹에서 앱이 보는 DB 로 간다. db-primary 를 보면 둘 다 Primary
   // 왼변으로 들어간다. DB 전환으로 오른쪽 카드를 보면 쓰기 SQL 은 매칭 칸 높이 그대로 DB 칸 위를 지나 새
   // Primary 윗변 오른쪽으로, 조회 SQL 은 틈에서 DB 칸 바로 위로 올라 윗변 왼쪽으로 내려간다. DB 칸 아래는
   // 관측으로 가는 수집선이 세로로 지나므로 그쪽으로 돌리면 선이 엇갈린다
@@ -563,7 +558,7 @@ function buildWires(L: Layout, endpoint: DbId, replSrc: DbId): Wire[] {
       cut: [L.bus2, Math.round((upB + midY(n.api2)) / 2)],
       tight,
     },
-    // 조회선은 노드 하나가 아니라 그룹으로 간다. 화살촉이 그룹 틀 왼변에 닿는다
+    // app-3 몫의 조회선은 노드가 아니라 그룹으로 간다. 화살촉이 그룹 틀 왼변에 닿는다
     {
       id: "alb-read",
       pts: [
@@ -644,11 +639,11 @@ function edgeText(id: EdgeId, s: FlowState, views: Record<NodeId, NodeView>, f: 
     "cdn-alb": [name("cdn"), name("alb"), "요청 · 목표 구성 · Docker 대역은 ALB 직결"],
     "bot-alb": [name("bot"), name("alb"), "주문 API"],
     "load-alb": [name("load"), name("alb"), "조회 부하"],
-    "alb-api1": [name("alb"), name("api1"), "쓰기 1차"],
-    "alb-api2": [name("alb"), name("api2"), "쓰기 백업"],
-    "alb-read": [name("alb"), "조회 Auto Scaling 그룹", "조회 · least_conn"],
-    "app-db": ["매칭 app-1·app-2", name(s.endpoint), `쓰기 SQL → ${DB_NAME[s.endpoint]}`],
-    "read-db": ["조회 Auto Scaling 그룹", name(s.endpoint), `조회 SQL → ${DB_NAME[s.endpoint]}`],
+    "alb-api1": [name("alb"), name("api1"), "쓰기 1차 · 조회 · least_conn"],
+    "alb-api2": [name("alb"), name("api2"), "쓰기 백업 · 조회 · least_conn"],
+    "alb-read": [name("alb"), "Auto Scaling 그룹 app-3", "조회 · least_conn"],
+    "app-db": ["매칭 app-1·app-2", name(s.endpoint), `쓰기·조회 SQL → ${DB_NAME[s.endpoint]}`],
+    "read-db": ["Auto Scaling 그룹 app-3", name(s.endpoint), `조회 SQL → ${DB_NAME[s.endpoint]}`],
     repl: [name(src), name(otherDb(src)), "비동기 복제"],
     "scrape-app": ["앱 계층", name("obs"), "지표 수집"],
     "scrape-db": ["DB 계층", name("obs"), "지표 수집"],
@@ -681,9 +676,7 @@ const ICON: Record<NodeId, TileIcon> = {
   alb: "lb",
   api1: "springboot",
   api2: "springboot",
-  read1: "springboot",
-  read2: "springboot",
-  read3: "springboot",
+  app3: "springboot",
   pg1: "postgresql",
   pg2: "postgresql",
   bot: "bot",
@@ -761,7 +754,10 @@ function Status({ state, text }: { state: NodeState; text: string }) {
           {shape}
         </span>
       )}
-      <span className={styles.statusText}>{state === "running" ? withFigure(text, FIGURE_RE) : text}</span>
+      {/* 카드 폭(116px)에 긴 상태 줄('쓰기 → app-1·app-2')이 다 들지 않으면 말줄임이고 원문은 툴팁이 싣는다(§12-12) */}
+      <span className={styles.statusText} title={text}>
+        {state === "running" ? withFigure(text, FIGURE_RE) : text}
+      </span>
     </span>
   );
 }
@@ -861,7 +857,7 @@ function aiView(section: OpsSection<AiServer> | null): AiView {
   if (section.state === "NOT_CONNECTED") return { state: "absent", status: "연결 전", server: null, source: section.source };
   const a = section.data;
   if (a.link === "DOWN") return { state: "failure", status: "연결 끊김", server: a, source: null };
-  return { state: "running", status: a.busy ? "판단 요청 처리 중" : "대기", server: a, source: null };
+  return { state: "running", status: a.busy ? "처리 중" : "대기", server: a, source: null };
 }
 
 const ms = (v: number | null) => (v === null ? "요청 없음" : v >= 1000 ? `${(v / 1000).toFixed(1)}초` : `${v}ms`);
@@ -994,10 +990,10 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
   const flows = useMemo(() => edgeFlows(state), [state]);
   const sig = trafficSignature(flows);
   const asg = asgView(state);
-  // 그룹이 조정 기준으로 삼는 조회 사용률. 지표 관제의 "조회 사용률 %" 그래프와 같은 표본(마지막 값)을
+  // 그룹이 app-3 켜기·끄기 기준으로 삼는 앱 계층 사용률. 지표 관제의 "조회 사용률 %" 그래프와 같은 표본(마지막 값)을
   // 정수로 골라 두 화면의 숫자가 어긋나지 않는다. 정수라 값이 바뀔 때만 다시 그린다
   const util = useFlowRun((r) => Math.round((r.samples[r.samples.length - 1]?.util ?? 0) * 100));
-  // 증설 기준. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 조회 ASG 눈금과 같은 값), 재생은 로컬 조정기의 권고 임계다
+  // 증설 기준. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 앱 계층 눈금과 같은 값), 재생은 로컬 조정기의 권고 임계다
   const live = state.live;
   const advice = live ? Math.round(live.scaleOut * 100) : Math.round(SCALE_OUT_ADVICE * 100);
   const adviceWord = live ? "증설" : "권고";
@@ -1013,9 +1009,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
       alb: views.alb.state,
       api1: views.api1.state,
       api2: views.api2.state,
-      read1: views.read1.state,
-      read2: views.read2.state,
-      read3: views.read3.state,
+      app3: views.app3.state,
       pg1: views.pg1.state,
       pg2: views.pg2.state,
       bot: views.bot.state,
@@ -1026,6 +1020,8 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
     PULSE_HOLD_MS,
   );
   const countFlash = useChangeFlags({ n: asg.registered }, FLASH_HOLD_MS);
+  // ai-1 이 판단 요청에 답한 순간(served 가 오름) 응답 지연 값을 한 번 키운다(§12-4 v1.14)
+  const popAi = useChangeFlags({ served: ai.server?.served ?? 0 }, FLASH_HOLD_MS).served === true;
 
   const pick = (req: FlowPick) => {
     // 확인 대화상자는 열릴 때의 포커스를 기억했다가 닫힐 때 돌려준다. 팝오버 버튼은 곧 사라지므로
@@ -1036,41 +1032,43 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
   };
 
   const w = writable(state);
-  const r3 = state.apps.read3;
+  const r3 = state.apps.app3;
   const endpointLine = `${DB_NAME[state.endpoint]} · ${DB_CONTAINER[state.endpoint]}`;
-  const readRoster = `read-1 · read-2 · read-3${r3.inRead ? "" : " (down)"}`;
+  const readRoster = ENGINE_IDS.map((e) => `${APP_NAME[e]}${state.apps[e].inRead ? "" : " (down)"}`)
+    .concat(`app-3${r3.inRead ? "" : " (down)"}`)
+    .join(" · ");
 
   const detail = (key: PopKey): Detail => {
     if (key === "asg") {
       return {
         icon: "asg",
-        title: "Auto Scaling group · 조회",
+        title: "Auto Scaling group · app-3",
         sub: "capacity_reconciler.py · 호스트",
         state: asg.state,
         status: asg.status,
         rows: live
           ? [
-              ["범위", `min ${asg.min} · max ${asg.max}`],
+              ["그룹", "app-3 한 대 · 0~1대 · 조회 전용"],
+              ["앱 계층", `app-1 · app-2 고정과 app-3 · min ${asg.min} · max ${asg.max}`],
               ["조회 사용률", `${util}% · 증설 임계 ${advice}%`],
-              ["목표", `${asg.desired}대`],
-              ["등록", `${asg.registered}대 · ALB 조회 대상`],
-              ["노드", "read-1 · read-2 · read-3(+1) · 조회 전용"],
-              ["매칭 노드", "app-1 · app-2 는 그룹 밖 · 대수 고정"],
+              ["목표", `앱 ${asg.desired}대`],
+              ["등록", `앱 ${asg.registered}대 · ALB 조회 대상`],
+              ["매칭 리더", "app-1 · app-2 는 그룹 밖 · 늘 켜져 있고 조회도 받음"],
               ["임계", `증설 ${advice}% · 축소 ${Math.round(live.scaleIn * 100)}% · 임계값 관리의 현재값`],
-              ["AWS", "Auto Scaling group · AWS 지표 정책이 대수를 정합니다"],
-              ["값", "관제 판 · 관제센터 조회 ASG와 같은 값"],
+              ["AWS", "Auto Scaling group · AWS 지표 정책이 app-3 을 켜고 끕니다"],
+              ["값", "관제 판 · 관제센터 앱 계층 칸과 같은 값"],
             ]
           : [
-              ["범위", `min ${asg.min} · max ${asg.max}`],
+              ["그룹", "app-3 한 대 · 0~1대 · 조회 전용"],
+              ["앱 계층", `app-1 · app-2 고정과 app-3 · min ${asg.min} · max ${asg.max}`],
               ["조회 사용률", `${util}% · 증설 권고 ${advice}%`],
-              ["목표", `${asg.desired}대`],
-              ["등록", `${asg.registered}대 · ALB 조회 대상`],
-              ["노드", "read-1 · read-2 · read-3(+1) · 조회 전용"],
-              ["매칭 노드", "app-1 · app-2 는 그룹 밖 · 대수 고정"],
+              ["목표", `앱 ${asg.desired}대`],
+              ["등록", `앱 ${asg.registered}대 · ALB 조회 대상`],
+              ["매칭 리더", "app-1 · app-2 는 그룹 밖 · 늘 켜져 있고 조회도 받음"],
               ["Docker 대역", "capacity_reconciler.py · docker start·stop · ALB down 표식 토글"],
-              ["AWS", "Auto Scaling group · AWS 지표 정책이 대수를 정합니다"],
+              ["AWS", "Auto Scaling group · AWS 지표 정책이 app-3 을 켜고 끕니다"],
               ["증설 권고", `조회 사용률 ${advice}% 이상 · 로컬 조정기 값 · 관제 임계와 별개`],
-              ["승인", "운영자 +1·-1 승인 뒤 조정"],
+              ["승인", "운영자 app-3 켜기·끄기 승인 뒤 조정"],
             ],
         actions: [{ id: "scale", tone: "neutral" }],
       };
@@ -1155,7 +1153,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
             ["호스트 포트", ":58080"],
             ["쓰기", "app-1 1차 · app-2 백업"],
             ["조회 분산", `least_conn · 연결이 적은 노드로 · ${readRoster}`],
-            ["Docker 대역", "조회는 chaos-api-1 · chaos-api-2 · chaos-api-3"],
+            ["Docker 대역", "조회는 chaos-api-1 · chaos-api-2 · 켜져 있으면 chaos-api-3"],
             ["지금", v.status],
           ],
           actions: [],
@@ -1173,7 +1171,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
                 ["리더 리스", parts.length > 0 ? `${parts.map((p) => p.id).join("·")} 보유 · TTL ${LEASE_TTL}초 · 갱신 ${LEASE_TICK}초` : "보유 파티션 없음"],
                 ["세대", parts.length > 0 ? parts.map((p) => `${p.id} epoch ${p.epoch}`).join(" · ") : "없음"],
                 ["마켓별 리더", "ADR 0034 배치 · 관제 판 값"],
-                ["조회", "받지 않음 · 조회는 Auto Scaling 그룹"],
+                ["조회", state.apps[key].inRead ? "받음 · ALB 조회 대상" : "빠짐 · 남은 앱 노드가 받음"],
                 ["DB 접속", endpointLine],
               ]
             : [
@@ -1188,7 +1186,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
                 ],
                 ["세대", state.holder === null ? `epoch ${state.epoch} · 보유 없음` : `epoch ${state.epoch} · 보유 ${APP_NAME[state.holder]}`],
                 ["마켓별 리더", "ADR 0034 · 이 재생은 단일 리더 측정 기록"],
-                ["조회", "받지 않음 · 조회는 Auto Scaling 그룹"],
+                ["조회", state.apps[key].inRead ? "받음 · ALB 조회 대상" : "빠짐 · 남은 앱 노드가 받음"],
                 ["DB 접속", endpointLine],
               ],
           actions: [
@@ -1197,30 +1195,18 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           ],
         };
       }
-      case "read1":
-      case "read2":
+      case "app3":
         return {
           ...head,
           rows: [
-            ["역할", v.role],
-            ["상태", v.status],
-            ["ALB 조회", state.apps[key].inRead ? "등록" : "down 표식"],
-            ["Docker 대역", `전용 컨테이너 없음 · ${APP_CONTAINER[key].split(" · ")[0]} 가 조회 겸함`],
-            ["재생", "매칭 노드 중단은 AWS 목표 구성대로 조회 노드를 그대로 둠"],
-            ["DB 접속", endpointLine],
-          ],
-          actions: [],
-        };
-      case "read3":
-        return {
-          ...head,
-          rows: [
-            ["컨테이너", `${APP_CONTAINER.read3} · :${APP_PORT.read3}`],
+            ["컨테이너", `${APP_CONTAINER.app3} · :${APP_PORT.app3}`],
             ["역할", v.role],
             ["상태", v.status],
             ["ALB 조회", r3.inRead ? "등록" : "down 표식"],
-            ["기동", "Auto Scaling 그룹의 +1 · 조정기가 기동·중지"],
+            ["기동", "부하가 오르면 켜고 내려가면 끔 · 앱 계층 2~3대"],
+            ["매칭", "하지 않음 · 쓰기는 app-1 · app-2 리더"],
             ["앱 지표", "미수집 · 컨테이너 CPU 만 수집"],
+            ["DB 접속", endpointLine],
           ],
           actions: [{ id: "scale", tone: "neutral" }],
         };
@@ -1258,7 +1244,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           actions: [{ id: "traffic", tone: "neutral" }],
         };
       // 수집 원천은 harness/prometheus/prometheus.yml 을 따른다. 앱 지표(/actuator/prometheus)는
-      // app-1·app-2·봇만 긁는다. 컨테이너 CPU 는 chaos-cstats 가 도커 API 로 전부 읽어 read-3 도 거기에는 잡힌다
+      // app-1·app-2·봇만 긁는다. 컨테이너 CPU 는 chaos-cstats 가 도커 API 로 전부 읽어 app-3 도 거기에는 잡힌다
       case "obs":
         return {
           ...head,
@@ -1269,7 +1255,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
             ["컨테이너 CPU", "실행 중 전 컨테이너 · chaos-cstats"],
             ["DB", "chaos-pg-exporter · Primary 만"],
             ["프로브", "blackbox · 헬스 경로"],
-            ["미수집", "read-3 앱 지표"],
+            ["미수집", "app-3 앱 지표"],
             ["AWS", "bot-1 한 호스트 · 시장 봇과 함께"],
           ],
           actions: [],
@@ -1370,9 +1356,10 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
    * 노드 카드. 아이콘 타일, 제목, 상태 한 줄만 싣는다.
    *
    * 테두리가 상태를 싣는다. 실행은 초록, 전환 중은 주황과 옅은 면, 장애는 굵은 빨강과 옅은 면,
-   * 중지는 회색 테두리에 가라앉은 면이다. 매칭 리더는 테두리 안쪽의 크롬 악센트 레일 하나로만 가른다
+   * 중지는 회색 테두리에 가라앉은 면이다. 매칭 리더는 테두리 안쪽의 크롬 악센트 레일 하나로만 가른다.
+   * app-3 은 Auto Scaling 그룹의 자동 증설 자리라 꺼져 있으면 점선 빈자리로 둔다(slot)
    */
-  const card = (key: NodeId, out = false) => {
+  const card = (key: NodeId, out = false, slot = false) => {
     const v = views[key];
     const leader = isEngine(key) && isLeader(state, key);
     const box = L.nodes[key];
@@ -1386,6 +1373,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           data-state={v.state}
           data-leader={leader ? "true" : undefined}
           data-out={out ? "true" : undefined}
+          data-slot={slot ? "true" : undefined}
           data-pulse={pulse[key] ? "true" : undefined}
         >
           <Tile icon={ICON[key]} />
@@ -1399,34 +1387,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
     );
   };
 
-  /**
-   * 조회 노드 줄. 그룹 안의 낮은 카드로 이름과 상태 한 줄만 싣는다. 테두리와 면의 상태 규칙은 노드 카드와
-   * 같다. read-3 은 그룹의 +1 자리라 꺼져 있으면 점선으로 비워 둔다. 실행 중이면 상태 줄이 CPU 수치만 적는다
-   */
-  const readRow = (key: ReadId) => {
-    const v = views[key];
-    const box = L.nodes[key];
-    const running = state.apps[key].status === "running" && v.state === "running";
-    return (
-      <Fragment key={key}>
-        <button
-          {...triggerProps(key)}
-          aria-label={nodeLabel(key, v, state)}
-          className={`${styles.node} ${styles.readRow}`}
-          style={boxStyle(box)}
-          data-state={v.state}
-          data-slot={key === "read3" ? "true" : undefined}
-          data-pulse={pulse[key] ? "true" : undefined}
-        >
-          <span className={styles.readName}>{v.name}</span>
-          <Status state={v.state} text={running ? v.status.replace(/^CPU /, "") : v.status} />
-        </button>
-        {popover(key, box)}
-      </Fragment>
-    );
-  };
-
-  const asgLabel = `조회 Auto Scaling group · min ${asg.min} · max ${asg.max} · ${live ? "증설 임계" : "증설 권고"} ${advice}% · ${asg.status}`;
+  const asgLabel = `Auto Scaling group · app-3 · 0~1대 · 앱 계층 min ${asg.min} · max ${asg.max} · ${live ? "증설 임계" : "증설 권고"} ${advice}% · ${asg.status} · ${STATE_WORD[asg.state]}`;
   const countTone = countFlash.n ? (asg.state === "transition" ? "warning" : "success") : undefined;
   const aiLabel = `ai-1 · 온프레미스 AI 서버 · ${ai.server ? `${ai.server.hardware} · ${ai.server.runtime}` : "원천 연결 전"} · ${STATE_WORD[ai.state]}${ai.state === "running" ? ` · ${ai.status}` : ""}${ai.server?.assumed ? " · 구축 전이라 연결은 시뮬레이션 가정" : ""}`;
 
@@ -1494,7 +1455,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           <FrameLabel icon="unlock">퍼블릭</FrameLabel>
         </div>
         <div className={styles.frame} data-kind="match" style={boxStyle(L.match)} aria-hidden="true">
-          <FrameLabel icon="server">매칭 · 쓰기</FrameLabel>
+          <FrameLabel icon="server">매칭 리더 · 조회</FrameLabel>
         </div>
         <div className={styles.frame} data-kind="subnet" style={boxStyle(L.db)} aria-hidden="true">
           <FrameLabel icon="db">DB · PostgreSQL</FrameLabel>
@@ -1504,7 +1465,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
         <div className={styles.frame} data-kind="host" style={boxStyle(L.host)} aria-hidden="true">
           <FrameLabel icon="server">bot-1</FrameLabel>
         </div>
-        {/* 조회 Auto Scaling 그룹. 조회 계층을 강조하는 틀이라 테두리를 한 단 굵고 진하게 두고, 조정 중이면
+        {/* Auto Scaling 그룹(app-3). 자동 증설 자리를 강조하는 틀이라 테두리를 한 단 굵고 진하게 두고, 조정 중이면
             주황 점선으로 바꾼다. 머리는 단추라 눌러 그룹의 범위와 조정 방법을 연다 */}
         <div
           className={styles.asgFrame}
@@ -1537,7 +1498,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
         {card("api1")}
         {card("api2")}
         {/* 그룹 머리 단추는 매칭 카드 뒤에 둔다. 탭 순서가 그림을 읽는 순서(사용자, CloudFront, load-1,
-            ALB, app-1·app-2, 그룹, read-1~3, DB, bot-1, ai-1)를 따른다 */}
+            ALB, app-1·app-2, 그룹, app-3, DB, bot-1, ai-1)를 따른다 */}
         <button
           {...triggerProps("asg")}
           aria-label={asgLabel}
@@ -1549,11 +1510,11 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
               <FlowIcon name="asg" size={14} />
               Auto Scaling
             </span>
-            <span className={styles.asgRange}>
-              {asg.min}~{asg.max}대
-            </span>
+            {/* 그룹 크기. 그룹은 app-3 한 대만 켜고 끈다. 앱 계층 대수(2~3)는 둘째 줄이 적는다. 1280px 배치(카드 112px)는
+                첫 줄에 둘이 다 들지 않아 크기를 빼고 팝오버에 맡긴다 */}
+            {L.asgRange && <span className={styles.asgRange}>0~1대</span>}
           </span>
-          {/* 둘째 줄은 지금 대수와 조정 기준(사용률)이다. 조정 중(▲)일 때 왜 늘리는지가 머리에서 바로 읽힌다.
+          {/* 둘째 줄은 앱 계층 대수와 조정 기준(사용률)이다. 조정 중(▲)일 때 왜 늘리는지가 머리에서 바로 읽힌다.
               사용률은 매초 바뀌므로 접근 이름에는 싣지 않고 팝오버에 권고 임계와 함께 적는다 */}
           <span className={styles.asgStateRow}>
             <span className={styles.status} data-state={asg.state}>
@@ -1590,9 +1551,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           </span>
         </div>
         {popover("asg", L.asgHead)}
-        {readRow("read1")}
-        {readRow("read2")}
-        {readRow("read3")}
+        {card("app3", false, true)}
         {card("pg1")}
         {card("pg2")}
         {card("bot")}
@@ -1607,13 +1566,32 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           style={boxStyle(L.ai)}
           data-state={ai.state}
           data-out="true"
+          data-assumed={ai.server?.assumed ? "true" : undefined}
+          data-busy={ai.server?.busy ? "true" : undefined}
           data-pulse={pulse.ai ? "true" : undefined}
         >
           <Tile icon="chip" />
           <span className={styles.titleRow}>
             <span className={styles.title}>ai-1</span>
+            {/* 구축 전이라 연결과 값은 시뮬레이터의 가정이다. 상태 줄 끝의 '가정' 두 글자로는 읽히지 않아 표식으로 단다.
+                카드 폭(112px)에 '시뮬레이션 가정'을 다 쓰면 제목 ai-1이 잘려 표식은 '가정'만 보이고 원문은 툴팁이 싣는다 */}
+            {ai.server?.assumed && <SimMark kind="assumed" short="가정" />}
           </span>
-          <Status state={ai.state} text={ai.state === "absent" ? `◌ ${ai.status}` : ai.server?.assumed ? `${ai.status} · 가정` : ai.status} />
+          {ai.state === "running" && ai.server && !ai.server.busy && ai.server.lastMs !== null ? (
+            <span className={styles.status} data-state="running">
+              <span className={styles.shape} aria-hidden="true">
+                ●
+              </span>
+              <span className={styles.statusText}>
+                응답{" "}
+                <span key={ai.server.served} className={`${styles.latency} num`} data-pop={popAi ? "true" : undefined}>
+                  {ms(ai.server.lastMs)}
+                </span>
+              </span>
+            </span>
+          ) : (
+            <Status state={ai.state} text={ai.state === "absent" ? `◌ ${ai.status}` : ai.status} />
+          )}
         </button>
         {popover("ai", L.ai)}
 

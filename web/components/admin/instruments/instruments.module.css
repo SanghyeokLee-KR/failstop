@@ -15,7 +15,7 @@
   left: 0;
   right: 0;
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   overflow: hidden;
   /* 트랙은 민무늬. 16px 반복 눈금은 데이터 단위가 아니라(한 눈금이 17건도 92ms도 된다)
      거짓 정밀도만 만든다. 위치 판독은 threshold·mark(실측 위치)가 전담한다 */
@@ -81,7 +81,7 @@
   left: 0;
   right: 0;
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   background: var(--surface-sunken);
 }
 .biasTick {
@@ -112,14 +112,13 @@
 .biasMarkMeasured {
   position: absolute;
   left: 0;
+  display: block;
   transform: translateX(-50%);
-  font-size: 9px;
-  line-height: 1;
   pointer-events: none;
 }
 /* 목표(의도)는 레일 위 속빈 삼각, secondary 잉크로 실측과 명도차를 둔다 */
 .biasMarkTarget {
-  top: 0;
+  top: 1px;
   color: var(--text-secondary);
 }
 /* 실측은 레일 아래 채운 삼각 */

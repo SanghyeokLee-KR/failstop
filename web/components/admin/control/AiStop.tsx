@@ -17,6 +17,7 @@ import type { ControlCenter } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
+import StatusShape from "../StatusShape";
 import styles from "./control.module.css";
 
 type StopState = { mode: "MANUAL" | "AUTO" | "STOPPED" | null; connected: boolean };
@@ -49,7 +50,7 @@ function ResumeDialog({ onClose }: { onClose: () => void }) {
       description="수동 모드로만 재개합니다. AI가 다시 판단하고 조치안을 내지만 실행은 운영자 승인입니다. 자동 모드는 다시 승인 티켓(ops.ai.auto)을 거쳐 켭니다."
       target="AI 운영 · 수동으로 재개"
       blastRadius="새 판단과 조치안 · 실행 없음"
-      tone="warning"
+      tone="approve"
       confirmLabel="수동으로 재개"
       busy={busy}
       confirmDisabled={!ready}
@@ -98,7 +99,7 @@ export default function AiStop() {
     return (
       <span className={styles.aiStop} data-mode="STOPPED">
         <span className={styles.aiStopWord} role="status">
-          <span aria-hidden="true">▲ </span>AI 정지 중
+          <span aria-hidden="true"><StatusShape kind="triangle" /> </span>AI 정지 중
         </span>
         <button
           type="button"
@@ -124,9 +125,7 @@ export default function AiStop() {
         aria-label={connected ? "AI 즉시 정지" : "AI 즉시 정지 · 서버 정책 엔진 연결 전"}
         onClick={() => void stop()}
       >
-        <span className={styles.stopShape} aria-hidden="true">
-          ■
-        </span>
+        <StatusShape kind="square" className={styles.stopShape} />
         AI 즉시 정지
       </button>
     </span>

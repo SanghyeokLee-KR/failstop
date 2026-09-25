@@ -8,6 +8,7 @@
 import type { ReactNode } from "react";
 import type { ControlCenter, TrendRange } from "@/lib/admin/types";
 import adminStyles from "../admin.module.css";
+import StatusShape from "../StatusShape";
 import { ago, LIVE_STALE_MS, OpsSource, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -36,9 +37,7 @@ export function CollectState({ center, failed }: { center: ControlCenter | null;
   }
   return (
     <span className={styles.collect} data-kind={kind} role="status">
-      <span className={styles.collectShape} aria-hidden="true">
-        {kind === "live" ? "●" : kind === "stale" ? "▲" : "◌"}
-      </span>
+      <StatusShape kind={kind === "live" ? "circle" : kind === "stale" ? "triangle" : "dashed"} className={styles.collectShape} />
       {text}
     </span>
   );

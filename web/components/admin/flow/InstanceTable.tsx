@@ -3,12 +3,12 @@
 /**
  * 인스턴스 상태 표. 구성도의 노드를 AWS 역할 이름으로 한 줄씩 세우고, 그 역할을 지금 맡은 로컬
  * Docker 컨테이너나 호스트 프로세스를 옆 열에 적는다. 이름은 관제센터와 같다. 순서는 요청 경로다.
- * CloudFront 와 ALB 로 들어와 매칭 노드 두 대(쓰기)와 Auto Scaling 그룹의 조회 노드 세 대(조회)를 지나
+ * CloudFront 와 ALB 로 들어와 매칭 리더 두 대(쓰기와 조회)와 Auto Scaling 그룹의 app-3(조회 전용)을 지나
  * DB 두 대에 닿고, 그 뒤에 경로 밖에서 스택을 움직이거나 지켜보는 것(봇, 관측, 부하)을 둔다. 정렬을
  * 두지 않는 이유가 그것이다. 뒤섞으면 어디서 끊겼는지 읽기 어렵다.
  *
- * Auto Scaling 은 구성도에서 노드가 아니라 조회 노드 세 대를 감싸는 그룹 상자다. 표에서는 그 상자의 머리를
- * 조회 노드 세 줄 바로 위에 한 줄로 세우고, 세 줄은 이름을 한 단 들여 트리 선으로 그 머리에 매단다.
+ * Auto Scaling 은 구성도에서 노드가 아니라 app-3 자리를 감싸는 그룹 상자다. 표에서는 그 상자의 머리를
+ * app-3 줄 바로 위에 한 줄로 세우고, app-3 은 이름을 한 단 들여 트리 선으로 그 머리에 매단다.
  * 그룹 줄의 값은 nodeViews 가 아니라 asgView 에서 온다.
  *
  * 구성도가 모양으로 보이는 것을 이 표는 글로 다시 적는다. 색과 선을 못 보는 사람도 같은 상태를
@@ -17,15 +17,15 @@
  * docker-compose.chaos.yml 의 실제 값이다.
  *
  * 관제 값 모드(state.live)에서는 CPU 와 비고가 관제 판의 값이다. DB·봇 호스트 CPU 는 서버·노드 화면과 같은 값이고,
- * 비고는 Docker 대역의 사실(조회 겸함, 재생 제외) 대신 관제 판에서 읽히는 다음 볼 것을 적는다. 같은 줄의 CPU 가
+ * 비고는 Docker 대역의 사실(앱 지표 미수집, 재생 제외) 대신 관제 판에서 읽히는 다음 볼 것을 적는다. 같은 줄의 CPU 가
  * 관제 판의 값인데 비고가 Docker 대역을 말하면 한 줄이 두 세계를 말한다. 컨테이너와 포트 열은 역할을 맡을
  * 로컬 컨테이너의 대응표라 두 모드에서 같다.
  */
 
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import {
+  APP_IDS,
   APP_NAME,
-  READ_IDS,
   APP_PORT,
   LEASE_TTL,
   asgView,
@@ -39,6 +39,8 @@ import {
   type NodeState,
   type NodeView,
 } from "@/lib/admin/flowSim";
+import StatusShape, { type StatusShapeKind } from "../StatusShape";
+import { StateChip, type ChipTone } from "../ui";
 import { FlowIcon, type FlowIconName } from "./FlowIcon";
 import styles from "./panels.module.css";
 
@@ -56,12 +58,10 @@ interface Row {
 /** 한 줄이 칸에 쓰는 값. 노드 줄은 nodeViews 에서, 그룹 줄은 asgView 에서 같은 모양으로 맞춘다 */
 type RowView = Pick<NodeView, "name" | "container" | "role" | "status" | "state">;
 
-const isApp = (id: RowId): id is AppId =>
-  id === "api1" || id === "api2" || id === "read1" || id === "read2" || id === "read3";
+const isApp = (id: RowId): id is AppId => id === "api1" || id === "api2" || id === "app3";
 
 /* 포트는 docker-compose.chaos.yml 의 ports 항목이다. db-standby 는 2단계에서 붙일 컨테이너라 아직 포트가 없다.
-   read-1·2 는 전용 컨테이너가 없어 조회를 겸하는 매칭 노드 컨테이너의 포트를 적는다.
-   Auto Scaling 줄은 그룹 머리라 조회 노드 세 줄 바로 위에 둔다. 구성도에서 조회 노드를 감싸는 상자와 같은 자리이고
+   Auto Scaling 줄은 그룹 머리라 app-3 줄 바로 위에 둔다. 구성도에서 app-3 을 감싸는 상자와 같은 자리이고
    아이콘도 그 상자 머리와 같은 그룹 그림이다. 같은 대상이 두 화면에서 다른 그림이면 다른 것으로 읽힌다.
    ALB 도 구성도 카드와 같은 부하 분산 그림을 쓴다. 이 대역에서 ALB 를 대신하는 nginx(chaos-lb)는
    컨테이너 열과 팝오버가 이름으로 적으므로 아이콘까지 nginx 로 두면 AWS 역할 이름과 어긋난다 */
@@ -71,9 +71,7 @@ const ROWS: Row[] = [
   { id: "api1", port: `:${APP_PORT.api1}`, icon: "springboot" },
   { id: "api2", port: `:${APP_PORT.api2}`, icon: "springboot" },
   { id: "asg", port: "없음", icon: "asg" },
-  { id: "read1", port: `:${APP_PORT.read1}`, icon: "springboot" },
-  { id: "read2", port: `:${APP_PORT.read2}`, icon: "springboot" },
-  { id: "read3", port: `:${APP_PORT.read3}`, icon: "springboot" },
+  { id: "app3", port: `:${APP_PORT.app3}`, icon: "springboot" },
   { id: "pg1", port: ":55432", icon: "postgresql" },
   { id: "pg2", port: "없음", icon: "postgresql" },
   { id: "bot", port: "없음", icon: "bot" },
@@ -85,22 +83,23 @@ const ROWS: Row[] = [
    (harness/asg/capacity_reconciler.py). 덧말은 nodeViews 의 load-1 과 같은 꼴로 적어 같은 표지로 그린다 */
 const ASG_CONTAINER = "capacity_reconciler.py · 호스트";
 
-/* 이름 칸의 트리 선. 그룹 머리 아이콘 아래에서 세로선이 내려와 조회 노드 세 줄에 가지를 치고 마지막 줄에서
+/* 이름 칸의 트리 선. 그룹 머리 아이콘 아래에서 세로선이 내려와 app-3 줄에서
    꺾여 끝난다. 구성도의 그룹 상자를 표에서 다시 읽게 하는 장치이고 선 모양은 panels.module.css 가 그린다 */
 const TREE: Partial<Record<RowId, "group" | "member" | "last">> = {
   asg: "group",
-  read1: "member",
-  read2: "member",
-  read3: "last",
+  app3: "last",
 };
 
-/** 구성도와 같은 상태어. 형태가 색 없이도 상태를 가른다. 미구축은 형태 없이 점선 테두리와 낱말만 둔다 */
-const STATE_SHAPE: Record<NodeState, string | null> = {
-  running: "●",
-  stopped: "○",
-  failure: "■",
-  transition: "▲",
-  absent: null,
+/**
+ * 구성도와 같은 상태어를 관리 콘솔의 상태 칩 한 모양(§12-14 StateChip)에 싣는다. 형태가 색 없이도 상태를 가른다.
+ * 중지는 빈 원, 미구축은 점선 원이다(둘 다 무채)
+ */
+const STATE_CHIP: Record<NodeState, { tone: ChipTone; shape: StatusShapeKind }> = {
+  running: { tone: "success", shape: "circle" },
+  stopped: { tone: "off", shape: "ring" },
+  failure: { tone: "danger", shape: "square" },
+  transition: { tone: "warning", shape: "triangle" },
+  absent: { tone: "neutral", shape: "dashed" },
 };
 const STATE_WORD: Record<NodeState, string> = {
   running: "실행",
@@ -177,7 +176,7 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
         const detail = statusDetail(state, r.id, v);
         return (
           <span className={styles.statusCell} title={detail ?? undefined}>
-            <StateChip state={v.state} />
+            <NodeStateChip state={v.state} />
             {detail !== null && <span className={styles.statusDetail}>{detail}</span>}
           </span>
         );
@@ -209,7 +208,7 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
           const host = state.live.hostCpu[r.id];
           return host === null ? (
             <span className={styles.instDim}>
-              <span aria-hidden="true">◌ </span>
+              <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
               미수집
             </span>
           ) : (
@@ -237,7 +236,7 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
         if (v === null)
           return (
             <span className={styles.instDim}>
-              <span aria-hidden="true">◌ </span>
+              <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
               미수집
             </span>
           );
@@ -271,21 +270,12 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
   );
 }
 
-/**
- * 상태 칩. 구성도 카드의 상태 테두리를 칩 크기로 옮긴다. 실행은 초록 실선, 전환 중은 주황 점선,
- * 장애는 빨강 실선과 옅은 면, 중지는 회색 실선, 미구축은 회색 점선이다. 앞의 형태가 색 없이도
- * 상태를 가르고, 미구축은 형태 대신 낱말과 점선이 가른다
- */
-function StateChip({ state }: { state: NodeState }) {
-  const shape = STATE_SHAPE[state];
+/** 상태 칸. 칩은 관리 콘솔 한 벌이고, 감싼 칸의 data-state 는 미구축 줄의 이름 잉크를 내리는 표지다 */
+function NodeStateChip({ state }: { state: NodeState }) {
+  const chip = STATE_CHIP[state];
   return (
-    <span className={styles.stateChip} data-state={state}>
-      {shape !== null && (
-        <span className={styles.stateShape} aria-hidden="true">
-          {shape}
-        </span>
-      )}
-      <span className={styles.stateLabel}>{STATE_WORD[state]}</span>
+    <span className={styles.stateCell} data-state={state}>
+      <StateChip tone={chip.tone} shape={chip.shape} label={STATE_WORD[state]} />
     </span>
   );
 }
@@ -322,13 +312,13 @@ function ContainerCell({ value }: { value: string | null }) {
 
 /**
  * Auto Scaling 그룹 줄의 값. 그룹은 켜지고 꺼지는 노드가 아니라 목표 대수를 맞추는 묶음이라 상태는
- * 실행과 전환 중 둘뿐이다. 역할 칸에는 그룹의 하한과 상한을 적는다
+ * 실행과 전환 중 둘뿐이다. 역할 칸에는 그룹이 움직이는 app-3 과 앱 계층의 하한·상한을 적는다
  */
 function groupView(a: AsgView): RowView {
   return {
     name: "Auto Scaling",
     container: ASG_CONTAINER,
-    role: `min ${a.min} · max ${a.max}`,
+    role: `app-3 · 앱 계층 min ${a.min} · max ${a.max}`,
     status: a.status,
     state: a.state,
   };
@@ -354,15 +344,13 @@ function liveNote(s: FlowState, id: RowId): string | null {
     case "cdn":
       return "관제 판에 없음 · 목표 구성";
     case "alb": {
-      const readers = READ_IDS.filter((a) => s.apps[a].inRead).length;
+      const readers = APP_IDS.filter((a) => s.apps[a].inRead).length;
       return `쓰기 파티션 리더 · 조회 ${readers}대`;
     }
-    case "read1":
-    case "read2":
-    case "read3":
+    case "app3":
       switch (s.apps[id].status) {
         case "stopped":
-          return "희망 대수가 늘면 기동";
+          return "앱 평균 CPU가 오르면 켜짐";
         case "booting":
           return "ALB 등록 대기";
         case "draining":
@@ -393,18 +381,14 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
       return "Docker 대역에 없음 · 목표 구성";
     case "alb": {
       // 쓰기 업스트림은 nginx 설정에 고정돼 있다. 리더가 바뀌어도 app-1 을 먼저 두드리고 실패하면 app-2 로 넘긴다
-      const readers = READ_IDS.filter((a) => s.apps[a].inRead).length;
+      const readers = APP_IDS.filter((a) => s.apps[a].inRead).length;
       return `쓰기 ${APP_NAME.api1} 우선 · 조회 ${readers}대`;
     }
     case "api1":
     case "api2":
       return engineNote(s, id);
-    case "read1":
-    case "read2":
-      // AWS 에서는 조회 전용 노드다. Docker 대역에는 전용 컨테이너가 없어 매칭 노드 컨테이너가 조회를 겸한다
-      return `Docker 대역 · ${APP_NAME[id === "read1" ? "api1" : "api2"]} 컨테이너가 조회 겸함`;
-    case "read3":
-      switch (s.apps.read3.status) {
+    case "app3":
+      switch (s.apps.app3.status) {
         case "stopped":
           return "운영자 승인 뒤 조정기가 기동";
         case "booting":
@@ -413,7 +397,7 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
           return "ALB 제외 · 드레이닝 10초";
         default:
           // Prometheus 가 앱 지표를 긁는 대상은 app-1, app-2, 봇뿐이라 증설 노드의 앱 지표는 비어 있다.
-          // 컨테이너 CPU 는 chaos-cstats 가 실행 중인 컨테이너 전부에서 내므로 read-3 도 받는다
+          // 컨테이너 CPU 는 chaos-cstats 가 실행 중인 컨테이너 전부에서 내므로 app-3 도 받는다
           return "앱 지표 미수집 · CPU 는 cstats";
       }
     case "pg1":
@@ -430,8 +414,8 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
     case "load":
       return "호스트에서 ALB :58080 조회";
     case "asg":
-      // 목표는 운영자가 승인한 희망 대수, 등록은 ALB 조회 대상에 든 앱 수다. 둘이 다르면 조정 중이다
-      return `목표 ${asg.desired} · 등록 ${asg.registered}`;
+      // 목표는 운영자가 승인한 앱 계층 희망 대수, 등록은 ALB 조회 대상에 든 앱 수다
+      return `앱 목표 ${asg.desired} · 등록 ${asg.registered}`;
   }
 }
 

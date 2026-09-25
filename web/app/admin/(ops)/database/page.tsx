@@ -18,6 +18,7 @@ import OpsHead from "@/components/admin/control/OpsHead";
 import { PanelHead, SectionBody } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
+import StatusShape from "@/components/admin/StatusShape";
 
 export default function DatabasePage() {
   const { data, loading, refresh } = useOpsCenter();
@@ -56,7 +57,7 @@ export default function DatabasePage() {
               <PanelHead id="db-failover" title="자동 전환 · Patroni" meta="도입 예정" />
               <div className={styles.planned}>
                 <span className={styles.plannedTitle}>
-                  <span aria-hidden="true">◌</span> 구성 전
+                  <span aria-hidden="true"><StatusShape kind="dashed" /></span> 구성 전
                 </span>
                 <p className={styles.lead}>
                   지금 DB 전환은 운영자가 옛 Primary를 격리하고 Standby를 승격한 뒤 앱 연결을 바꾸는 수동 절차입니다(DB 수동 페일오버 절차). Patroni를 붙이기 전까지 이 화면은 자동

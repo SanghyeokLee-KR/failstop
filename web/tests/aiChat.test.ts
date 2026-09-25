@@ -31,6 +31,8 @@ async function rejectsWith(run: () => Promise<unknown>, code: string): Promise<v
 test("실행을 부탁하는 말만 안내로 읽고, 묻는 말은 실행 동사가 있어도 조회로 읽는다", () => {
   assert.equal(requestedGuide("축소해 주세요"), "READ_NODES");
   assert.equal(requestedGuide("조회 노드 하나 늘려줘"), "READ_NODES");
+  assert.equal(requestedGuide("app-3 켜 줘"), "READ_NODES");
+  assert.equal(requestedGuide("app-3 꺼 주세요"), "READ_NODES");
   assert.equal(requestedGuide("증설 임계를 55로 바꿔 주세요"), "THRESHOLD");
   assert.equal(requestedGuide("자동 모드로 바꿔 주세요"), "MODE");
   assert.equal(requestedGuide("DB 승격해 주세요"), "FORBIDDEN");

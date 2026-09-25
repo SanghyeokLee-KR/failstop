@@ -13,6 +13,7 @@ import RequestButton from "../RequestButton";
 import adminStyles from "../admin.module.css";
 import { hms, PanelHead } from "./parts";
 import styles from "./control.module.css";
+import StatusShape from "../StatusShape";
 
 function effective(l: AiLimit): number {
   return l.pending ?? l.value;
@@ -192,7 +193,7 @@ export default function AiLimitsPanel({ ai, onChanged }: { ai: AiDesk | null; on
               </div>
               {outOfRange ? (
                 <p className={styles.reviewError}>
-                  ■ 허용 범위 {editing.min}~{editing.max}
+                  <StatusShape kind="square" /> 허용 범위 {editing.min}~{editing.max}
                   {editing.unit} 밖입니다. 요청을 만들지 않습니다
                 </p>
               ) : (

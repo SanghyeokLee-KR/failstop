@@ -30,6 +30,9 @@ export type AdminIconName =
   | "errors"
   | "more"
   | "chevronDown"
+  | "chevronLeft"
+  | "chevronRight"
+  | "refresh"
   | "chat"
   | "reports"
   | "settings"
@@ -214,6 +217,15 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 더 보기: 세로 점 셋. 점도 선 굵기로 그린다
   more: <path d="M8 3.75 V3.85 M8 7.95 V8.05 M8 12.15 V12.25" strokeWidth="2.25" />,
   chevronDown: <path d="M4.5 6.25 L8 9.75 L11.5 6.25" />,
+  chevronLeft: <path d="M9.75 4.5 L6.25 8 L9.75 11.5" />,
+  chevronRight: <path d="M6.25 4.5 L9.75 8 L6.25 11.5" />,
+  // 새로고침: 열린 원호와 끝의 화살
+  refresh: (
+    <>
+      <path d="M12.75 8 A4.75 4.75 0 1 1 11.35 4.65" />
+      <path d="M11.75 2.5 V4.9 H9.35" />
+    </>
+  ),
   // AI 상담: 말풍선 안의 점 셋. 묻고 답하는 대화다. 고객 문의(support)의 한 줄 말풍선과 가른다
   chat: (
     <>

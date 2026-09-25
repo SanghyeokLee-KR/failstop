@@ -16,13 +16,13 @@ import { useCallback, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import type { TrendRange } from "@/lib/admin/types";
-import Skeleton from "@/components/Skeleton";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import AiPanel from "@/components/admin/control/AiPanel";
 import ActionsColumn from "@/components/admin/control/Actions";
 import InfraColumn from "@/components/admin/control/Infra";
 import ModeBar from "@/components/admin/control/ModeBar";
+import OpsSkeleton from "@/components/admin/control/OpsSkeleton";
 import OpsHead, { CollectState, RangeSwitch } from "@/components/admin/control/OpsHead";
 import ScenarioControl from "@/components/admin/control/ScenarioControl";
 import SummaryStrip from "@/components/admin/control/SummaryStrip";
@@ -65,19 +65,7 @@ export default function ControlCenterPage() {
         actions={<ScenarioControl scenario={data?.scenario ?? null} onChanged={onChanged} />}
       />
       {data === null && loading ? (
-        <>
-          <Skeleton variant="card" width="100%" height={52} />
-          <div className={styles.summary}>
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} variant="card" width="100%" height={112} />
-            ))}
-          </div>
-          <div className={styles.columns}>
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} variant="card" width="100%" height="100%" />
-            ))}
-          </div>
-        </>
+        <OpsSkeleton />
       ) : data === null ? (
         <AdminErrorState onRetry={() => void refresh(true)} />
       ) : (

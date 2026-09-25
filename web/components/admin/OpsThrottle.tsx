@@ -4,7 +4,7 @@
  * 전역 OPS 조절기. 부하를 넣는 유일한 레버다.
  *
  * 이 프로젝트의 부하 유발 수단은 k6가 아니라 봇 발행률이다. 봇 OPS를 올리면 앱 CPU가
- * 오르고, 임계에 닿으면 조회 노드를 늘린다. 그래서 이 레버는 봇 화면만의 것이 아니라
+ * 오르고, 앱 평균이 임계에 닿으면 조회 전용 app-3를 켠다. 그래서 이 레버는 봇 화면만의 것이 아니라
  * 용량 화면에도 있어야 한다. 입력과 관측과 조치가 다른 화면에 흩어져 있으면 시연이
  * 화면 전환에서 끊기고, 보는 쪽은 무엇이 무엇을 움직였는지 잇지 못한다.
  *
@@ -20,6 +20,7 @@ import { getAdminApi } from "@/lib/admin/api";
 import { toast } from "@/components/Toast";
 import { formatCount } from "@/lib/format";
 import styles from "./admin.module.css";
+import StatusShape from "./StatusShape";
 
 /** 서버 거버너 상한과 같다. 화면이 더 큰 값을 보내면 서버가 반려한다 */
 export const OPS_MAX = 600;
@@ -88,7 +89,7 @@ export default function OpsThrottle({
           실측{" "}
           {currentOps == null ? (
             <>
-              <span aria-hidden="true">◌ </span>미수집
+              <span aria-hidden="true"><StatusShape kind="dashed" /> </span>미수집
             </>
           ) : (
             formatCount(currentOps)

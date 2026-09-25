@@ -28,7 +28,7 @@ import ApprovalList from "@/components/admin/ApprovalList";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, StateChip } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import { mulDecimal } from "@/lib/decimal";
 import styles from "@/components/admin/admin.module.css";
@@ -158,9 +158,9 @@ export default function ConfigPage() {
         m.state === "ACTIVE" ? (
           <span className={styles.stateText}>거래 중</span>
         ) : m.state === "HALTED" ? (
-          <HealthPill health="warning" label="중지" />
+          <StateChip tone="warning" label="중지" />
         ) : (
-          <span className={styles.neutralPill}>상장폐지</span>
+          <StateChip tone="off" label="상장폐지" />
         ),
     },
     /* 수수료 도메인 관용어라 번역하지 않고 음차한다. API 필드(maker_fee 등) 문구는 계약값이라 불변.
@@ -222,7 +222,7 @@ export default function ConfigPage() {
     <div className={styles.page}>
       <PageHeader
         title="마켓·공지"
-        desc="중지·재개·수수료 변경은 1인 승인"
+        desc="마켓 중지·재개와 수수료 변경은 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -357,13 +357,11 @@ export default function ConfigPage() {
                     <span className={styles.noticeTitle}>{n.title}</span>
                     <span className={styles.noticeMeta}>
                       {sevHealth ? (
-                        <span className="status-pill" data-health={sevHealth}>
-                          {NOTICE_SEVERITY_LABEL[n.severity]}
-                        </span>
+                        <StateChip tone={sevHealth} label={NOTICE_SEVERITY_LABEL[n.severity]} />
                       ) : (
-                        <span className={styles.neutralPill}>{NOTICE_SEVERITY_LABEL[n.severity]}</span>
+                        <StateChip tone="neutral" label={NOTICE_SEVERITY_LABEL[n.severity]} />
                       )}
-                      {!n.active && <span className={styles.neutralPill}>내림</span>}
+                      {!n.active && <StateChip tone="off" label="내림" />}
                       {n.createdBy} · {formatTimeHMS(n.createdAt)}
                     </span>
                   </div>

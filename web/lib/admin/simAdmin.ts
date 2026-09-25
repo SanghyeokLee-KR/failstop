@@ -113,28 +113,28 @@ export function capacityAdvice(
   if (leadersDown.length > 0) {
     out.push({
       id: "leader_down", level: "danger", headline: "주문 접수 중단",
-      detail: `주문을 처리하는 매칭 노드 ${leadersDown.join("·")}가 응답하지 않습니다. 그 노드가 맡은 마켓의 주문이 멈추고 조회는 조회 노드가 계속 받습니다. 조회 노드를 늘려도 주문은 재개되지 않습니다.`,
+      detail: `주문을 처리하는 매칭 노드 ${leadersDown.join("·")}가 응답하지 않습니다. 그 노드가 맡은 마켓의 주문이 멈추고 조회는 남은 앱 노드가 계속 받습니다. app-3를 켜도 주문은 재개되지 않습니다.`,
       action: null,
     });
   }
   if (up < plan.desired) {
     out.push({
       id: "under_provisioned", level: "warn", headline: "노드 부족",
-      detail: `있어야 할 조회 노드가 ${plan.desired}대인데 ${up}대만 응답합니다. 추가한 노드가 준비 중이거나 한 대가 멈춘 상태입니다.`,
+      detail: `있어야 할 앱 노드가 ${plan.desired}대인데 ${up}대만 응답합니다. 켠 app-3가 준비 중이거나 한 대가 멈춘 상태입니다.`,
       action: null,
     });
   }
   if (up > plan.desired) {
     out.push({
       id: "over_provisioned", level: "warn", headline: "노드 초과",
-      detail: `있어야 할 조회 노드가 ${plan.desired}대인데 ${up}대가 응답합니다. 줄이기가 끝나지 않았고 그동안 비용이 더 나갑니다.`,
+      detail: `있어야 할 앱 노드가 ${plan.desired}대인데 ${up}대가 응답합니다. app-3 끄기가 끝나지 않았고 그동안 비용이 더 나갑니다.`,
       action: null,
     });
   }
   if (avg === null) {
     out.push({
       id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
-      detail: "조회를 받는 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.",
+      detail: "조회를 받는 앱 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.",
       action: null,
     });
     return out;
@@ -144,25 +144,25 @@ export function capacityAdvice(
   if (avg >= th.scaleOut && plan.desired < plan.max) {
     out.push({
       id: "scale_out", level: "warn", headline: "조회 부하 높음",
-      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 노드를 한 대 늘리면 부하가 나뉘고 서비스는 멈추지 않습니다.`,
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. app-3를 켜면 조회가 세 노드로 나뉘고 서비스는 멈추지 않습니다.`,
       action: "SCALE_OUT",
     });
   } else if (avg >= th.scaleOut) {
     out.push({
       id: "at_max", level: "warn", headline: "조회 부하 높음 · 증설 불가",
-      detail: `평균 사용률이 ${pct}%인데 이미 최대 ${plan.max}대입니다. 최대 대수를 올리려면 비용 판단이 먼저입니다.`,
+      detail: `평균 사용률이 ${pct}%인데 이미 앱 계층 최대 ${plan.max}대입니다. 최대 대수를 올리려면 비용 판단이 먼저입니다.`,
       action: null,
     });
   } else if (avg <= th.scaleIn && plan.desired > plan.min) {
     out.push({
       id: "scale_in", level: "info", headline: "조회 부하 낮음",
-      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 한 대 줄이면 비용이 줄고, 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`,
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. app-3를 끄면 비용이 줄고, 끄기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`,
       action: "SCALE_IN",
     });
   } else {
     out.push({
       id: "steady", level: "ok", headline: "안정",
-      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 할 조치가 없습니다.`,
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. 할 조치가 없습니다.`,
       action: null,
     });
   }
@@ -170,11 +170,12 @@ export function capacityAdvice(
 }
 
 /**
- * 용량 판을 관제 시뮬레이터의 한 판에서 만든다. 관제센터와 서버·노드 화면이 쓰는 노드 이름(app-1·app-2,
- * read-1~3), 대수, 임계(임계값 레지스트리의 조회 증설·축소 CPU)를 그대로 쓰므로 세 화면이 한 모델로 움직인다.
+ * 용량 판을 관제 시뮬레이터의 한 판에서 만든다. 관제센터와 서버·노드 화면이 쓰는 노드 이름(app-1·app-2·app-3),
+ * 대수, 임계(임계값 레지스트리의 증설·축소 CPU)를 그대로 쓰므로 세 화면이 한 모델로 움직인다.
  *
- * 계약(최소·희망·최대)은 조회 ASG다. 매칭 노드 app-1·app-2는 늘릴 수 없는 쓰기 노드라 행에는 두되 대수와
- * 평균에서 뺀다. 조회 노드가 기동 중이거나 내리는 중이면 계약과 관측이 어긋난 창이라 reconciled가 false다.
+ * 계약(최소·희망·최대)은 앱 계층 2~3대다(ADR 0030, 사용자 정정 2026-09-25). app-1·app-2는 매칭 리더이면서 조회도 받는
+ * 고정 노드라 늘리고 줄이는 대상이 아니지만 대수와 평균에는 든다. 조회 전용 app-3만 켜고 끈다. app-3가 기동 중이거나
+ * 내리는 중이면 계약과 관측이 어긋난 창이라 reconciled가 false다.
  */
 export function capacityOf(c: ControlCenter, counted: (id: string, live: boolean, perSec: number) => number | null): CapacityState {
   const tier = c.readTier.state === "READY" ? c.readTier.data : null;
@@ -194,9 +195,9 @@ export function capacityOf(c: ControlCenter, counted: (id: string, live: boolean
         scalable: false,
         expected: true,
         reachable: up,
-        // 마켓별 리더(ADR 0034) 배치라 두 대가 각자 맡은 마켓의 리더다. 조회는 조회 노드가 받는다
+        // 마켓별 리더(ADR 0034) 배치라 두 대가 각자 맡은 마켓의 리더이고, 조회도 함께 받는다
         leader: up,
-        servesReads: false,
+        servesReads: up,
         cpuRatio: cpu,
         cpuCount: up ? 2 : null,
         heapUsedBytes: up ? 560_000_000 + i * 24_000_000 : null,
@@ -230,7 +231,8 @@ export function capacityOf(c: ControlCenter, counted: (id: string, live: boolean
   });
 
   const plan = { min: tier?.min ?? 2, desired: tier?.desired ?? 2, max: tier?.max ?? 3 };
-  const up = reads.filter((n) => n.reachable).length;
+  // 앱 계층에서 응답하는 노드 수. 고정 두 대와 켜져 있는(내리는 중 포함) app-3다
+  const up = apps.filter((n) => n.reachable).length + reads.filter((n) => n.reachable).length;
   const avg = tier === null || tier.avgCpuPct === null ? null : tier.avgCpuPct / 100;
   const scaleOut = ratio("read.scale_out_cpu", 60);
   const scaleIn = ratio("read.scale_in_cpu", 30);
@@ -886,9 +888,26 @@ export class SimAdminApi implements AdminApi {
 
   getControlCenter(): Promise<ControlCenter> {
     this.auth("VIEW");
-    const c = this.ops.snapshot(Date.now());
-    if (c.ai.state === "READY") c.ai.data.actionStats = this.aiActionStats();
+    const now = Date.now();
+    const c = this.ops.snapshot(now);
+    if (c.ai.state === "READY") {
+      c.ai.data.actionStats = this.aiActionStats();
+      c.ai.data.recent = this.aiRecent(now);
+    }
     return Promise.resolve(c);
+  }
+
+  /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 되돌린 수. 평상 AI 패널의 한 줄이 쓴다(디자인 시스템 §12-9) */
+  private aiRecent(now: number): { runs: number; reverts: number } {
+    const out = { runs: 0, reverts: 0 };
+    for (const e of this.audit) {
+      if (e.result !== "OK" || now - Date.parse(e.at) > 86_400_000) continue;
+      const m = /^ai\.(approve|auto|auto_revert|revert):/.exec(e.action);
+      if (!m) continue;
+      if (m[1] === "approve" || m[1] === "auto") out.runs += 1;
+      else out.reverts += 1;
+    }
+    return out;
   }
 
   /** 같은 AI 조치를 몇 번 실행했고 몇 번 되돌렸는지 감사 로그에서 센다. AI 판단 요약의 '되돌리기' 칸이 쓴다 */
@@ -1057,7 +1076,7 @@ export class SimAdminApi implements AdminApi {
     this.log(s, "ops.report.teams_test", "Teams 연결 시험(모의)", null, "OK");
   }
 
-  /* ===== 용량(조회 노드 희망 대수) ===== */
+  /* ===== 용량(앱 계층 희망 대수 · app-3 켜기·끄기) ===== */
 
   getCapacity(): Promise<CapacityState> {
     this.auth("VIEW");
@@ -1073,7 +1092,7 @@ export class SimAdminApi implements AdminApi {
   }
 
   /**
-   * 희망 대수를 바꾼다. 관제 시뮬레이터의 조회 ASG를 그대로 움직이므로 관제센터의 조회 ASG 칸과 AI 판단이 같은
+   * 희망 대수를 바꾼다(app-3 켜기·끄기). 관제 시뮬레이터의 앱 계층을 그대로 움직이므로 관제센터의 앱 계층 칸과 AI 판단이 같은
    * 대수를 본다. 범위를 넘으면 시뮬레이터가 CAPACITY_OUT_OF_BOUNDS를 던지고 여기서 거부로 감사한다
    */
   private capacityChange(delta: 1 | -1, action: string, reason?: string): CapacityState {
@@ -1083,10 +1102,10 @@ export class SimAdminApi implements AdminApi {
     try {
       this.ops.scaleReadNodes(delta, actorOf(session), now);
     } catch (e) {
-      this.log(session, action, "조회 ASG", null, "DENIED");
+      this.log(session, action, "앱 계층 · app-3", null, "DENIED");
       throw e;
     }
-    this.log(session, action, "조회 ASG", null, "OK");
+    this.log(session, action, "앱 계층 · app-3", null, "OK");
     void reason;
     return this.capacitySnapshot(now);
   }

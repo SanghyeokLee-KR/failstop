@@ -14,10 +14,11 @@ import { toast } from "@/components/Toast";
 import adminStyles from "../admin.module.css";
 import { mmss } from "./parts";
 import styles from "./control.module.css";
+import StatusShape from "../StatusShape";
 
 const DESC: Record<OpsScenarioId, string> = {
-  READ_SURGE: "정상, 조회 급증 경보, AI 판단(노드 +1, 증설 임계 60→55%), 승인, 조치, 해제",
-  NIGHT_SCALE_IN: "세 대에서 축소 제안. 자동 모드면 축소 뒤 조회가 몰릴 때 자동 되돌림과 수동 전환",
+  READ_SURGE: "정상, 조회 급증 경보, AI 판단(app-3 켜기, 증설 임계 60→55%), 승인, 조치, 해제",
+  NIGHT_SCALE_IN: "앱 세 대에서 app-3 끄기 제안. 자동 모드면 끈 뒤 조회가 몰릴 때 자동 되돌림과 수동 전환",
 };
 
 export default function ScenarioControl({ scenario, onChanged }: { scenario: OpsScenarioView | null; onChanged: () => void }) {
@@ -64,7 +65,7 @@ export default function ScenarioControl({ scenario, onChanged }: { scenario: Ops
     <div className={styles.scenario} ref={ref}>
       {scenario !== null && (
         <span className={styles.runPill}>
-          <span aria-hidden="true">{running ? "▶" : "○"}</span>
+          <span aria-hidden="true"><StatusShape kind={running ? "play" : "ring"} /></span>
           <span className="sr-only">{running ? "재생 중" : "재생 끝"}</span>
           {scenario.title}
           <b className="num">{mmss(scenario.elapsedSec * 1000)}</b>
@@ -83,7 +84,7 @@ export default function ScenarioControl({ scenario, onChanged }: { scenario: Ops
           {(Object.keys(OPS_SCENARIO_TITLE) as OpsScenarioId[]).map((id) => (
             <button key={id} type="button" className={styles.menuItem} onClick={() => void start(id)}>
               <span>
-                <span aria-hidden="true">▶ </span>
+                <span aria-hidden="true"><StatusShape kind="play" /> </span>
                 {OPS_SCENARIO_TITLE[id]}
               </span>
               <span className={styles.menuItemDesc}>{DESC[id]}</span>

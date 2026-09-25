@@ -6,9 +6,11 @@
  * 기록은 세로 레일 위의 점으로 늘어서고, 점은 누가 했는지(시스템·AI·운영자)와 발생·해제를 모양과 색으로 가른다.
  */
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
+import { useOpsDetail } from "@/lib/admin/detailStore";
 import type { Incident, IncidentEvent, IncidentLog, OpsActor } from "@/lib/admin/types";
-import { AiMark, durationWord, hms, SEVERITY_SHAPE, useClock } from "./parts";
+import { useFreshKeys } from "../useFreshKeys";
+import { AiMark, durationWord, hms, SEVERITY_SHAPE, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const STAGES = ["발생", "AI 판단", "승인", "조치", "해제"] as const;
@@ -50,8 +52,11 @@ export function stagesOf(inc: Incident, events: IncidentEvent[]): StageMark[] {
 export function Stages({ inc, events }: { inc: Incident; events: IncidentEvent[] }) {
   const marks = stagesOf(inc, events);
   const current = inc.resolvedAt === null ? marks.findIndex((m) => m.at === null) : -1;
+  // 막대는 지나온 마지막 단계까지 늘어난다(§12-4 사건 단계 막대)
+  const lastDone = marks.reduce((a, m, i) => (m.at !== null ? i : a), 0);
+  const progress = { "--stage-progress": lastDone / (STAGES.length - 1) } as CSSProperties;
   return (
-    <ol className={styles.stages} aria-label="사건 단계">
+    <ol className={styles.stages} aria-label="사건 단계" style={progress}>
       {STAGES.map((label, i) => {
         const m = marks[i];
         const done = m.at !== null;
@@ -84,9 +89,9 @@ function dotKind(e: IncidentEvent): string {
   return e.actor.toLowerCase();
 }
 
-export function EventRow({ e, showIncident }: { e: IncidentEvent; showIncident?: string | null }) {
+export function EventRow({ e, showIncident, fresh }: { e: IncidentEvent; showIncident?: string | null; fresh?: boolean }) {
   return (
-    <li className={styles.event} data-dot={dotKind(e)}>
+    <li className={styles.event} data-dot={dotKind(e)} data-fresh={fresh ? "" : undefined}>
       <span className={styles.eventDot} aria-hidden="true" />
       <span className={`${styles.eventTime} num`}>{hms(e.at)}</span>
       <span className={styles.actor} data-actor={e.actor} title={e.actorName}>
@@ -128,15 +133,23 @@ export function IncidentView({ inc, log, limit, filter = "ALL" }: { inc: Inciden
   const picked = events.filter(byFilter(filter));
   const shown = limit ? picked.slice(0, limit) : picked;
   const open = inc.resolvedAt === null;
+  // 새로 쌓인 기록은 들어오며 잠깐 플래시를 켠다(§12-4 목록 행 등장). 처음 그린 기록은 새 행이 아니다
+  const fresh = useFreshKeys(shown.map((e) => e.id));
   return (
     <div className={styles.stack} style={{ gap: "var(--space-3)" }}>
       <div className={styles.incHead}>
-        <span className={styles.shape} data-tone={open ? (inc.severity === "critical" ? "danger" : "warning") : "success"} aria-hidden="true">
-          {open ? SEVERITY_SHAPE[inc.severity] : "●"}
-        </span>
-        <span className={styles.incTitle} title={inc.title}>
-          {inc.title}
-        </span>
+        <Shape tone={open ? (inc.severity === "critical" ? "danger" : "warning") : "success"}>{open ? SEVERITY_SHAPE[inc.severity] : "●"}</Shape>
+        {/* 사건 이름을 누르면 사건 드로어가 열린다(§12-13의 2) */}
+        {/* 말줄임은 안쪽 글이 맡는다. 단추가 넘친 것을 자르면 44px로 넓힌 누르는 자리까지 잘린다 */}
+        <button
+          type="button"
+          className={styles.incOpen}
+          title={`${inc.title} · 사건 상세`}
+          aria-haspopup="dialog"
+          onClick={() => useOpsDetail.getState().openIncident(inc.id)}
+        >
+          <span className={styles.incTitle}>{inc.title}</span>
+        </button>
         <span className={styles.incState}>
           {open ? "진행 중" : "해제"} ·{" "}
           <b className="num">{open ? <OpenElapsed from={inc.openedAt} /> : durationWord(Date.parse(inc.resolvedAt as string) - Date.parse(inc.openedAt))}</b>
@@ -148,7 +161,7 @@ export function IncidentView({ inc, log, limit, filter = "ALL" }: { inc: Inciden
       ) : (
         <ol className={styles.events} aria-label="사건 기록">
           {shown.map((e) => (
-            <EventRow key={e.id} e={e} />
+            <EventRow key={e.id} e={e} fresh={fresh.has(e.id)} />
           ))}
         </ol>
       )}

@@ -103,7 +103,7 @@
   white-space: nowrap;
 }
 
-/* 위험도 낮음. HealthPill 정상 꼴과 같은 글자 규격이되 형태와 색이 없다. 위험도는 상태가 아니다 */
+/* 위험도 낮음. 형태와 색 없이 잉크 글자만 둔다. 위험도는 상태가 아니라 상태 칩을 쓰지 않는다 */
 .riskInk {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -381,15 +381,9 @@
   padding-left: var(--space-2);
 }
 
-/* 장애 줄. 줄 왼쪽 끝에 빨강 가장자리를 세운다. 면을 칠하면 같은 줄의 secondary 글자(미수집 등)가
-   4.5:1 아래로 내려가 가장자리만 둔다. 뜻은 상태 칩의 ■ 와 낱말이 싣는다 */
-.instTable [role="row"]:has(.stateChip[data-state="failure"]) {
-  box-shadow: inset 2px 0 0 var(--color-danger);
-}
-
 /* 미구축 줄. 이 대역에도 AWS 에도 없는 구성 요소라 이름까지 잉크를 한 단 내린다. 투명도로 흐리면
    글자 대비가 4.5:1 아래로 떨어지므로 잉크 단계로만 낮춘다 */
-.instTable [role="row"]:has(.stateChip[data-state="absent"]) .instName {
+.instTable [role="row"]:has(.stateCell[data-state="absent"]) .instName {
   font-weight: var(--fw-regular);
   color: var(--text-secondary);
 }
@@ -402,10 +396,6 @@
   padding: var(--space-1) var(--space-2);
   font-weight: var(--fw-medium);
   color: var(--text-strong);
-}
-/* 매칭 리더 표식. 구성도 카드와 같은 2px 크롬 레일이고 이름 뒤의 리더 표지가 글로 한 번 더 적는다 */
-.instName[data-leader] {
-  box-shadow: inset 2px 0 0 var(--chrome-accent);
 }
 .instNameText {
   min-width: 0;
@@ -433,8 +423,8 @@
   flex: none;
   color: var(--text-secondary);
 }
-/* Auto Scaling 그룹 머리. 구성도에서 조회 노드 세 대를 감싸는 상자의 머리라 이름을 한 단 굵게, 아이콘을
-   이름과 같은 잉크로 올려 아래 조회 노드 세 줄의 머리로 읽히게 한다 */
+/* Auto Scaling 그룹 머리. 구성도에서 app-3 자리를 감싸는 상자의 머리라 이름을 한 단 굵게, 아이콘을
+   이름과 같은 잉크로 올려 아래 app-3 줄의 머리로 읽히게 한다 */
 .instName[data-group] {
   font-weight: var(--fw-semibold);
 }
@@ -553,54 +543,8 @@
   color: var(--text-default);
 }
 
-/* 상태 칩. 구성도 카드의 상태 테두리를 칩 크기로 옮긴다. 글자는 각 틴트 위 4.5:1 을 넘는 단계를 쓰고
-   형태는 원색(그래픽 3:1)으로 둔다 */
-.stateChip {
+/* 상태 칸. 칩 모양은 관리 콘솔 한 벌(admin.module.css .stateChip, §12-14)이고 여기서는 줄바꿈만 막는다 */
+.stateCell {
   display: inline-flex;
   flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 1px var(--space-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-full);
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-medium);
-  white-space: nowrap;
-}
-.stateShape,
-.stateLabel {
-  flex: none;
-}
-.stateChip[data-state="running"] {
-  border-color: var(--color-success);
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
-}
-.stateChip[data-state="running"] .stateShape {
-  color: var(--color-success);
-}
-/* 주황 원색은 라이트 면 위 경계 3:1 에 조금 못 미친다. 구성도와 같이 글자 단계를 30% 섞는다 */
-.stateChip[data-state="transition"] {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-warning-text));
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-}
-.stateChip[data-state="failure"] {
-  border-color: var(--color-danger);
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-/* 중지는 면 없이 회색 실선만 둔다. 테두리 회색은 border-strong 이 표 면 위 2:1 남짓이라 그래픽
-   3:1 을 넘는 tertiary 를 쓴다. 표 면(surface) 위 secondary 글자는 대비 계약 안이다 */
-.stateChip[data-state="stopped"] {
-  border-color: var(--text-tertiary);
-  color: var(--text-secondary);
-}
-/* 미구축은 형태 기호 없이 점선과 낱말로 가른다. 중지와 같은 회색이라 선 모양이 둘을 나눈다 */
-.stateChip[data-state="absent"] {
-  border-style: dashed;
-  border-color: var(--text-tertiary);
-  color: var(--text-secondary);
 }

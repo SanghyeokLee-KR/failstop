@@ -461,7 +461,7 @@
   box-shadow: none;
 }
 
-/* read-3 은 Auto Scaling 그룹의 +1 자리다. 꺼져 있으면 점선으로 비워 두어 한 대를 더 붙일 자리로 읽힌다 */
+/* app-3 은 Auto Scaling 그룹의 자동 증설 자리다. 꺼져 있으면 점선으로 비워 두어 부하가 오르면 켜질 자리로 읽힌다 */
 .node[data-slot="true"][data-state="stopped"] {
   border-style: dashed;
 }
@@ -591,65 +591,6 @@
   color: var(--text-secondary);
 }
 
-/* 조회 노드 줄. 노드 카드의 상태 테두리 규칙을 그대로 받고 모양만 낮은 한 줄로 바꾼다. 이름은 왼쪽,
-   상태(실행이면 CPU 수치)는 오른쪽이다. 그룹 안의 같은 노드 셋이라 그림자를 두지 않아 한 묶음으로 읽힌다 */
-.readRow {
-  flex-direction: row;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-xs);
-  box-shadow: none;
-  --pulse-rest: 0 0 0 0 transparent;
-}
-
-/* 누르는 자리. 줄 위아래 틈(6px 씩)까지 넓혀 44px 이다. 그림은 그대로다 */
-.readRow::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 44px;
-  transform: translateY(-50%);
-}
-
-.readRow:hover {
-  box-shadow: none;
-  background-color: var(--surface-hover);
-}
-
-.readRow[data-state="stopped"]:hover {
-  background-color: var(--bg-muted);
-}
-
-.readName {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-dense-size);
-  line-height: 16px;
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-}
-
-.readRow[data-state="stopped"] .readName {
-  color: var(--text-secondary);
-}
-
-.readRow .status {
-  flex: none;
-  justify-content: flex-end;
-}
-
-.readRow[aria-expanded="true"] {
-  --pulse-rest: 0 0 0 2px var(--bg-muted), 0 0 0 4px var(--chrome-accent);
-  box-shadow:
-    0 0 0 2px var(--bg-muted),
-    0 0 0 4px var(--chrome-accent);
-}
-
 /* ===== AI 판단 요청선 =====
    매칭 칸과 온프레미스 ai-1 사이의 점선이다. 연결 경로를 정하지 않아 흐름 선의 모양(초록 실선)을 쓰지 않고
    꺼짐 선과 같은 무채 점선에 선 밑 이름표를 둔다. 판단 요청과 응답 알갱이만 AI 강조색이다(§12-10) */
@@ -701,28 +642,90 @@
   color: var(--color-danger);
 }
 
-/* 알갱이. 평소에는 보이지 않고, 요청·응답 순간에만 Web Animations 가 불투명도와 위치를 함께 움직인다 */
+/* 알갱이(§12-4 v1.14). 12px 채운 원 하나와 가는 쪽 반대로 따르는 투명도 .5·.25의 작은 점 둘이다. 빛과 흐림을
+   쓰지 않는다. 평소에는 보이지 않고, 요청·응답 순간에만 Web Animations 가 불투명도와 위치를 함께 움직인다 */
 .aiPacket {
   position: absolute;
   left: 0;
   top: 0;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
   border-radius: var(--radius-full);
   background: var(--ai-accent);
-  box-shadow: 0 0 0 2px var(--surface-default);
   opacity: 0;
 }
 
-.aiPacket[data-dir="res"] {
-  background: var(--surface-default);
-  box-shadow: inset 0 0 0 2px var(--ai-accent);
+.aiPacket::before,
+.aiPacket::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--ai-accent);
 }
 
-/* 움직임 줄이기에서 요청이 걸린 동안 선 가운데에 멈춰 선 점 */
+.aiPacket::before {
+  opacity: 0.5;
+}
+
+.aiPacket::after {
+  opacity: 0.25;
+}
+
+/* 요청은 매칭 칸에서 ai-1 로(왼쪽으로) 가므로 꼬리가 오른쪽, 응답은 반대다 */
+.aiPacket[data-dir="req"]::before {
+  left: 15px;
+}
+
+.aiPacket[data-dir="req"]::after {
+  left: 25px;
+}
+
+.aiPacket[data-dir="res"]::before {
+  left: -9px;
+}
+
+.aiPacket[data-dir="res"]::after {
+  left: -19px;
+}
+
+/* 움직임 줄이기에서 요청이 걸린 동안 선 가운데에 멈춰 선 점. 움직이지 않으니 꼬리를 두지 않는다 */
 .aiPacket[data-static="true"] {
   opacity: 1;
+}
+
+.aiPacket[data-static="true"]::before,
+.aiPacket[data-static="true"]::after {
+  display: none;
+}
+
+/* ai-1 카드. 구축 전이라 연결이 시뮬레이션 가정이면 점선 테두리이고, 판단 요청을 처리하는 동안만 테두리가
+   AI 강조색이다(§12-4 v1.14) */
+.node[data-assumed="true"] {
+  border-style: dashed;
+}
+
+.node[data-busy="true"] {
+  border-color: var(--ai-accent);
+}
+
+/* 응답이 돌아온 순간 지연 값이 90%에서 제 크기가 된다. 한 번만 돈다 */
+.latency {
+  display: inline-block;
+  font-weight: var(--fw-bold);
+}
+
+.latency[data-pop="true"] {
+  animation: latencyPop var(--dur-dialog) var(--ease-decelerate);
+}
+
+@keyframes latencyPop {
+  from {
+    transform: scale(0.9);
+  }
 }
 
 /* ===== 상태 줄 ===== */
@@ -1020,5 +1023,9 @@
 
   .figure[data-flash] {
     background: transparent;
+  }
+
+  .latency[data-pop="true"] {
+    animation: none;
   }
 }

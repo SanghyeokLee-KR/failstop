@@ -2,7 +2,7 @@
 
 /**
  * 지표 관제 화면(/admin/monitor)의 시계열. 위에 넓은 타임라인 한 장(체결/초, 봇 발행률)을 두고
- * 아래에 작은 카드 다섯 장을 두 줄로 깐다. 윗줄은 조회 경로(조회 사용률, 조회 노드 수, 노드 CPU)를
+ * 아래에 작은 카드 다섯 장을 두 줄로 깐다. 윗줄은 조회 경로(조회 사용률, 앱 계층 대수, 노드 CPU)를
  * 증설이 번지는 순서로, 아랫줄은 쓰기 경로의 뒤편(리더 리스 잔여, DB 복제 지연)을 넓게 둔다.
  * 어느 조작 뒤에 어느 값이 움직였는지를 한 시간축에 대 보려는 화면이다. 선 이름은 AWS 역할
  * 이름(app-1·2·3)이고 컨테이너 이름은 인스턴스 표가 맡는다.
@@ -56,6 +56,7 @@ import {
   type Health,
 } from "@/lib/admin/flowSim";
 import styles from "./metrics.module.css";
+import StatusShape from "../StatusShape";
 
 const WINDOW = 150;
 /** 사건 띠의 줄 수와 줄 높이. 증설 시나리오에서 1~2초 간격으로 이어지는 사건 셋과 뒤따르는
@@ -142,7 +143,7 @@ const TIMELINE: ChartSpec = {
 };
 
 /**
- * 조회 사용률 차트의 기준선. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 조회 ASG 눈금과 같은 값), 재생은 로컬
+ * 조회 사용률 차트의 기준선. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 앱 계층 눈금과 같은 값), 재생은 로컬
  * 조정기의 권고 임계다. 관제 값 모드에서는 리스를 두 파티션이 따로 쥐고, 복제 지연은 KB 정수로 적어 관제센터의
  * DB 카드와 같은 자릿수다
  */
@@ -151,7 +152,7 @@ export interface MetricsBasis {
   scaleOutPct: number;
 }
 
-/* 윗줄은 조회 경로다. 부하가 사용률을 올리고, 운영자 승인으로 노드 수가 바뀌고, 새 노드의 CPU 가
+/* 윗줄은 조회 경로다. 부하가 사용률을 올리고, 운영자 승인으로 app-3 이 켜져 앱 계층 대수가 바뀌고, app-3 의 CPU 가
    살아나는 순서로 왼쪽에서 오른쪽으로 읽힌다. 아랫줄은 쓰기 경로의 뒤편이라 DB 전환 재생에서 함께 본다 */
 function cardsFor(b: MetricsBasis): ChartSpec[] {
   const word = b.live ? "증설 임계" : "증설 권고";
@@ -175,7 +176,7 @@ function cardsFor(b: MetricsBasis): ChartSpec[] {
     span: 2,
   },
   {
-    title: "조회 노드 대",
+    title: "앱 계층 대",
     lines: [
       { name: "목표", tone: 3, dash: "dashed", width: 2, pane: 0, steps: true, pick: (s) => s.desired, digits: 0, axisDigits: 0, unit: "대" },
       { name: "등록", tone: 1, dash: "solid", width: 2, pane: 0, steps: true, under: true, pick: (s) => s.registered, digits: 0, axisDigits: 0, unit: "대" },
@@ -190,8 +191,8 @@ function cardsFor(b: MetricsBasis): ChartSpec[] {
     lines: [
       { name: APP_NAME.api1, tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.cpu.api1, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
       { name: APP_NAME.api2, tone: 2, dash: "dashed", width: 2, pane: 0, pick: (s) => s.cpu.api2, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
-      // 조회 노드는 +1 자리(read-3)만 싣는다. 기본 두 대(read-1·2)의 CPU 는 조회 사용률을 따르므로 그 차트가 대신 보인다
-      { name: APP_NAME.read3, tone: 3, dash: "dotted", width: 2, pane: 0, pick: (s) => s.cpu.read3, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
+      // 앱 계층 세 대를 모두 싣는다. app-3 은 켜져 있을 때만 값이 있어 꺼진 구간은 끊긴다
+      { name: APP_NAME.app3, tone: 3, dash: "dotted", width: 2, pane: 0, pick: (s) => s.cpu.app3, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
     ],
     // 기본 여백(위 20%)을 두면 축이 120% 까지 올라가 있을 수 없는 값을 눈금으로 보인다
     scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
@@ -923,7 +924,7 @@ function Readouts({ lines, last }: { lines: LineSpec[]; last: FlowSample | undef
             <dd className={styles.readoutValue}>
               {v === null ? (
                 <span className={styles.missing}>
-                  <span aria-hidden="true">◌ </span>
+                  <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
                   미수집
                 </span>
               ) : (

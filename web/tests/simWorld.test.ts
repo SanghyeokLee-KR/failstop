@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { OpsSim, type OpsActorRef } from "../lib/admin/opsSim";
 import { capacityOf, SimAdminApi } from "../lib/admin/simAdmin";
 import { asgView, flowFromCenter, isLeader, nodeViews, type AppId, type EngineId } from "../lib/admin/flowSim";
-import { collectTargets, infraCounts } from "../lib/admin/opsHealth";
+import { collectTargets, infraCounts, overallOf } from "../lib/admin/opsHealth";
 import { integrationsOf, teamsDelivery } from "../lib/admin/integrations";
 import { simReportDesk } from "../lib/admin/reportSim";
 import { kstDay, lagWord, remainWord } from "../lib/admin/timeText";
@@ -31,7 +31,8 @@ const OP: OpsActorRef = { id: "op-01", name: "김수퍼" };
 const T0 = new Date(2026, 8, 24, 12, 0, 0).getTime();
 const at = (sec: number) => T0 + sec * 1000;
 const ENGINE_OF: Record<string, EngineId> = { "app-1": "api1", "app-2": "api2" };
-const READ_OF: Record<string, AppId> = { "read-1": "read1", "read-2": "read2", "read-3": "read3" };
+/** 앱 계층의 자동 증설 노드. read-N 은 없다(ADR 0030 사용자 정정 2026-09-25) */
+const READ_OF: Record<string, AppId> = { "app-3": "app3" };
 
 function ready<T>(s: { state: string; data?: T }): T {
   assert.equal(s.state, "READY");
@@ -62,8 +63,10 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   assert.ok(views.bot.status.startsWith(`${trading.botOps} OPS`), `${where}: 시장 봇 카드 '${views.bot.status}'`);
   assert.equal(sample.trades, trading.tradesPerSec, `${where}: 초당 체결`);
 
-  // 조회 CPU: 관제센터 조회 ASG·서비스 흐름·지표 관제·용량
-  assert.equal(Math.round(sample.util * 100), tier.avgCpuPct ?? 0, `${where}: 조회 평균 사용률`);
+  // 앱 계층 CPU: 관제센터 앱 계층·서비스 흐름·지표 관제·용량
+  assert.deepEqual(tier.nodes.map((n) => n.id), ["app-3"], `${where}: 자동 증설 노드는 app-3 하나`);
+  assert.deepEqual(tier.fixed, ["app-1", "app-2"], `${where}: 고정 앱 노드`);
+  assert.equal(Math.round(sample.util * 100), tier.avgCpuPct ?? 0, `${where}: 앱 평균 사용률`);
   assert.equal(cap.readAvgCpuRatio === null ? null : Math.round(cap.readAvgCpuRatio * 100), tier.avgCpuPct, `${where}: 용량 화면 조회 평균`);
   for (const n of tier.nodes) {
     const id = READ_OF[n.id];
@@ -82,12 +85,14 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   const cpuOf = (role: string) => hosts.find((h) => h.role === role)?.cpuPct ?? null;
   assert.deepEqual(state.live?.hostCpu, { pg1: cpuOf("DB_PRIMARY"), pg2: cpuOf("DB_STANDBY"), bot: cpuOf("BOT_OBS") }, `${where}: 인스턴스 표의 호스트 CPU`);
 
-  // 증설 기준: 임계값 관리·조회 ASG 눈금·서비스 흐름·지표 관제·용량
+  // 증설 기준: 임계값 관리·앱 계층 눈금·서비스 흐름·지표 관제·용량
   assert.equal(Math.round((state.live?.scaleOut ?? 0) * 100), scaleOut, `${where}: 흐름의 증설 임계`);
   assert.equal(Math.round(cap.thresholds.scaleOutCpuRatio * 100), scaleOut, `${where}: 용량 화면의 증설 임계`);
 
-  // 대수: 관제센터 '가동/희망'·서비스 흐름 ASG·지표 관제 '목표·등록'·용량 계약
-  const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
+  // 대수: 관제센터 '가동/희망'·서비스 흐름 ASG·지표 관제 '목표·등록'·용량 계약. 앱 계층 2~3대로 센다
+  const serving = hosts.filter((h) => h.role === "APP" && h.collect !== "MISSING").length + tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
+  assert.equal(tier.serving, serving, `${where}: 앱 계층 가동 대수`);
+  assert.ok(tier.desired >= 2 && tier.desired <= 3, `${where}: 앱 계층 희망 대수 2~3`);
   assert.equal(state.desired, tier.desired, `${where}: 흐름의 희망 대수`);
   assert.equal(cap.plan.desired, tier.desired, `${where}: 용량 화면의 희망 대수`);
   assert.equal(sample.registered, serving, `${where}: 지표 관제의 등록 대수`);
@@ -115,7 +120,7 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   // 수집 대상: 설정의 Prometheus 행과 서버·노드 표
   const targets = collectTargets(c);
   assert.equal(targets.targets, hosts.length + tier.nodes.filter((n) => n.state !== "OFF").length, `${where}: 수집 대상 수`);
-  assert.equal(targets.rows.filter((r) => r.readState !== null).length, tier.nodes.length, `${where}: 수집 대상 표에 조회 노드`);
+  assert.equal(targets.rows.filter((r) => r.readState !== null).length, tier.nodes.length, `${where}: 수집 대상 표에 app-3`);
   const desk: OpsSection<ReportDesk> = { state: "READY", data: simReportDesk(now) };
   const rows = Object.fromEntries(integrationsOf(c, desk, { grafana: false, databasus: false }).map((r) => [r.key, r]));
   assert.ok(rows.prometheus.detail.startsWith(`수집 대상 ${targets.targets} · 응답 ${targets.ok}/${targets.targets}`), `${where}: '${rows.prometheus.detail}'`);
@@ -131,6 +136,8 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   const counts = infraCounts(c);
   assert.ok(counts);
   assert.equal(counts.ok + counts.warn + counts.down, hosts.length + tier.nodes.filter((n) => n.state !== "OFF").length, `${where}: 인프라 집계에서 ai-1 제외`);
+  // 운영자 바의 '노드 n', 인프라 칸 머리의 주의·장애 수는 같은 노드를 센다(기동·드레이닝 중인 app-3 포함)
+  assert.equal(overallOf(c).nodes, counts.warn + counts.down, `${where}: 운영자 바와 인프라 칸의 주의 노드 수`);
 }
 
 test("평시 한 판에서 모든 화면의 봇 발행률, 조회 CPU, 증설 기준, 대수, 리더, 복제, 연동 값이 같다", () => {
@@ -145,7 +152,8 @@ test("조회 급증에서 대기, 승인, 기동, 해제의 매 순간 화면별
   sim.startScenario("READ_SURGE", at(0));
   for (let sec = 1; sec <= 20; sec += 1) checkWorld(sim.snapshot(at(sec)), sim, at(sec), `급증 ${sec}초`);
   const pending = ready<AiDesk>(sim.snapshot(at(20)).ai).proposals.find((p) => p.kind === "READ_NODES" && p.status === "PROPOSED");
-  assert.ok(pending, "20초에 조회 노드 조치안이 대기한다");
+  assert.ok(pending, "20초에 app-3 켜기 조치안이 대기한다");
+  assert.equal(pending.title, "app-3 켜기 (앱 2 → 3대)");
   sim.decide(pending.id, "APPROVE", OP, at(21));
   for (let sec = 21; sec <= 60; sec += 1) checkWorld(sim.snapshot(at(sec)), sim, at(sec), `승인 뒤 ${sec}초`);
   const tier = ready<ReadTier>(sim.snapshot(at(60)).readTier);

@@ -4,7 +4,7 @@
  * 2단계에서는 서버 정책 엔진이 같은 규칙을 다시 검사한다. 이 파일은 그 엔진이 아니다.
  */
 
-import type { AiActionKind, AiLimit, AiLimitKey } from "./types";
+import type { AiActionKind, AiLimit, AiLimitKey, ThresholdKey } from "./types";
 
 /** 운영자도 화면에서 바꾸지 못하는 규칙 */
 export const AI_RULES = {
@@ -14,7 +14,7 @@ export const AI_RULES = {
   evidenceMaxAgeSec: 60,
   /** 자동 조치 뒤 관찰 창 */
   observeSec: 5 * 60,
-  /** 조회 노드 증감 쿨다운 */
+  /** app-3 켜기·끄기(앱 계층 대수) 쿨다운 */
   readNodesCooldownSec: 10 * 60,
   /** 임계값 변경 쿨다운 */
   thresholdCooldownSec: 30 * 60,
@@ -60,16 +60,17 @@ export function limitsOf(items: AiLimit[] | null | undefined): AiLimits {
 }
 
 /**
- * 같은 조치를 세는 열쇠. 감사 기록의 대상은 조치안 제목이다. 조회 노드는 늘리기와 줄이기가 서로 다른
+ * 같은 조치를 세는 열쇠. 감사 기록의 대상은 조치안 제목이다. app-3 켜기와 끄기는 서로 다른
  * 조치라 제목의 방향으로 가른다
  */
 export function actionKey(kind: AiActionKind, title: string): string {
   if (kind !== "READ_NODES") return kind;
-  return title.includes("+1") ? "READ_NODES:+1" : "READ_NODES:-1";
+  // 켜기(앱 계층 +1)와 끄기(−1)는 되돌리는 방향이 달라 따로 센다. 옛 기록의 '+1' 제목도 켜기로 읽는다
+  return title.includes("켜기") || title.includes("+1") ? "READ_NODES:+1" : "READ_NODES:-1";
 }
 
 export const AI_ACTION_LABEL: Record<AiActionKind, string> = {
-  READ_NODES: "조회 노드 증감",
+  READ_NODES: "app-3 켜기·끄기",
   THRESHOLD: "임계값 변경",
   SILENCE: "경보 보류",
   BOT_LOAD: "시장 봇 부하 줄임",
@@ -94,12 +95,42 @@ export function cooldownSec(kind: AiActionKind, limits: AiLimits = AI_LIMITS_DEF
 /** 허용 목록. 모두 되돌릴 수 있고 데이터와 무관하다 */
 export function allowedRules(limits: AiLimits = AI_LIMITS_DEFAULT): { kind: AiActionKind; rule: string }[] {
   return [
-    { kind: "READ_NODES", rule: "최소~최대(2~3대) 안에서 1회 ±1, 쿨다운 10분" },
-    { kind: "THRESHOLD", rule: `항목별 허용 범위 안, 1회 변경폭 제한, 쿨다운 30분, 자동 모드 1회당 항목별 ${limits.thresholdPerItem}회` },
+    { kind: "READ_NODES", rule: "조회 전용 app-3 켜기·끄기(앱 계층 2~3대), 쿨다운 10분" },
+    { kind: "THRESHOLD", rule: `항목별 허용 범위 안, 1회 변경폭 제한, 쿨다운 30분, 자동 모드 1회당 항목별 ${limits.thresholdPerItem}회. 자동은 더 민감하게 하는 방향만, 완화는 승인으로만` },
     { kind: "SILENCE", rule: "최대 30분, 장애 등급 불가, 같은 경보 연속 보류 불가" },
-    { kind: "BOT_LOAD", rule: `부하를 줄이는 방향만, 1회 최대 절반, 쿨다운 ${limits.botCooldownMin}분` },
+    { kind: "BOT_LOAD", rule: `bot-1 CPU가 봇 용량 보호 기준 이상일 때만, 부하를 줄이는 방향만, 1회 최대 절반, 쿨다운 ${limits.botCooldownMin}분` },
     { kind: "BACKUP_NOW", rule: `Databasus 백업, 하루 1회, 저장 디스크 여유 ${limits.backupDiskFreePct}% 이상` },
   ];
+}
+
+/**
+ * 임계값마다 '더 민감한(더 조심하는)' 방향. -1은 값을 내릴수록 경보·증설·봇 보호가 먼저 걸린다는 뜻이고, +1은 올릴수록
+ * 먼저 걸린다는 뜻이다(여유·잔량 '미만이면 경보' 항목). 자동 모드는 이 방향의 변경만 실행한다(ADR 0035, 사용자 확정
+ * 2026-09-25). 경보 문장 속 명령문을 모델이 따라 임계값을 완화한 평가 사례가 있어, 완화는 사람의 승인으로만 한다
+ */
+export const STRICTER: Record<ThresholdKey, -1 | 1> = {
+  "read.scale_out_cpu": -1,
+  "read.scale_in_cpu": -1,
+  "host.cpu_alert": -1,
+  "host.mem_alert": -1,
+  "host.disk_free_alert": 1,
+  "db.replication_lag_alert": -1,
+  "backup.delay_alert": -1,
+  "bot.capacity_guard": -1,
+  "host.cpu_credit_alert": 1,
+};
+
+/** 임계값 변경이 더 민감한 방향인가. 같은 값이면 바뀌는 것이 없어 민감한 쪽으로 보지 않는다 */
+export function isStricter(key: ThresholdKey, from: number, to: number): boolean {
+  return Math.sign(to - from) === STRICTER[key];
+}
+
+/**
+ * 조치 카드와 조치 확인이 '자동 실행 가능'이라고 적을 수 있는가. 자동 모드이고, 자동으로 할 수 있는 조치(방향·봇 보호,
+ * AiProposal.autoAllowed)이며, 확신도가 기준에 닿아야 한다. 하나라도 아니면 '승인 필요'다
+ */
+export function canAutoRun(p: { autoAllowed: boolean; confidencePct: number }, mode: "MANUAL" | "AUTO" | "STOPPED", limits: AiLimits): boolean {
+  return mode === "AUTO" && p.autoAllowed && p.confidencePct >= limits.confidencePct;
 }
 
 /** 어느 모드에서도 AI가 하지 않는 조치 */
@@ -123,5 +154,7 @@ export function autoPreconditions(limits: AiLimits = AI_LIMITS_DEFAULT): string[
     `자동 모드 1회 활성당 자동 조치 ${limits.autoCap}회 상한. 넘으면 수동 전환과 Teams 알림`,
     "관찰 창 안에서 악화하면 자동 되돌림, 수동 전환, Teams 알림",
     "AI 무응답이나 출력 형식 불일치면 조치 없음. 기존 경보와 ASG 정책은 계속",
+    "임계값은 더 민감하게 하는 방향만 자동. 완화 방향은 자동 모드에서도 승인으로만",
+    "봇 부하 줄임은 bot-1 CPU가 봇 용량 보호 기준 이상일 때만 자동",
   ];
 }

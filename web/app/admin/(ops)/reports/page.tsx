@@ -5,6 +5,8 @@
  * 관제 콘솔은 보고를 만들거나 보내지 않고 읽기만 한다. 목록에서 한 건을 고르면 오른쪽에 같은 정보 구조의
  * 상세와 'Teams로 보낸 카드' 미리보기, 전송 기록이 선다.
  *
+ * 목록은 본문을 스크롤해도 위에 붙어 있고, 'Teams로 보낸 카드'는 상세 머리의 단추가 여는 모달이다(§12-11 v1.14).
+ *
  * 원천은 sim이면 예시 세 건(일일 정상, 일일 주의, 사건 보고의 자동 되돌림)이고 화면이 '시뮬레이션'을
  * 표시한다. http는 보고 서비스 읽기 프록시(서버 계약 초안)가 생기기 전이라 원천 연결 전으로 그린다.
  */
@@ -19,8 +21,9 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { NotConnected } from "@/components/admin/control/parts";
+import StatusShape, { GLYPH_SHAPE } from "@/components/admin/StatusShape";
 import { SimMark } from "@/components/admin/ui";
-import { DeliveryLog, ReportDetail, TeamsCardPreview } from "@/components/admin/reports/ReportView";
+import { DeliveryLog, ReportDetail, TeamsCardModal } from "@/components/admin/reports/ReportView";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
 import styles from "@/components/admin/reports/reports.module.css";
@@ -70,9 +73,7 @@ function DeliverySummary({ desk }: { desk: ReportDesk }) {
         <dt className={styles.cellKey}>전송 실패</dt>
         <dd className={`${styles.cellValue} num`}>
           {d.dead > 0 && (
-            <span className={styles.shape} data-tone="danger" aria-hidden="true">
-              ■{" "}
-            </span>
+            <StatusShape kind="square" tone="danger" className={styles.shape} />
           )}
           {d.dead}
           <small>건</small>
@@ -96,8 +97,8 @@ function ReportRow({ r, selected, onPick }: { r: OpsReport; selected: boolean; o
   const job = JOB_WORD[r.status];
   return (
     <button type="button" className={styles.row} aria-current={selected ? "true" : undefined} onClick={onPick}>
-      <span className={`${styles.rowShape} ${styles.shape}`} data-tone={shape.tone} aria-hidden="true">
-        {shape.shape}
+      <span className={styles.rowShape}>
+        <StatusShape kind={GLYPH_SHAPE[shape.shape]} tone={shape.tone} className={styles.shape} />
       </span>
       <span className={styles.rowTitle}>{r.title}</span>
       <span className={`${styles.rowPriority} num`}>{r.intervention.priority}</span>
@@ -105,9 +106,7 @@ function ReportRow({ r, selected, onPick }: { r: OpsReport; selected: boolean; o
         <span>{KIND_WORD[r.kind]}</span>
         <span className="num">{kst(r.createdAt).slice(5)}</span>
         <span>
-          <span className={styles.shape} data-tone={job.tone} aria-hidden="true">
-            {job.shape}{" "}
-          </span>
+          <StatusShape kind={GLYPH_SHAPE[job.shape]} tone={job.tone} className={styles.shape} />
           {job.word}
         </span>
       </span>
@@ -120,6 +119,7 @@ export default function ReportsPage() {
   const res = useAdminResource(load, { cadence: "idle", isSessionError });
   const [filter, setFilter] = useState<Filter>("ALL");
   const [picked, setPicked] = useState<string | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
   const sim = !isAdminHttp();
 
   // 다른 화면이 ?id=로 한 건을 가리키면 그 보고를 먼저 고른다
@@ -151,7 +151,7 @@ export default function ReportsPage() {
             {res.data?.state === "READY" && sim && <SimMark />}
             {res.data?.state === "NOT_CONNECTED" && (
               <span className={controlStyles.sourceChip} data-kind="none">
-                <span aria-hidden="true">◌ </span>원천 연결 전
+                <span aria-hidden="true"><StatusShape kind="dashed" /> </span>원천 연결 전
               </span>
             )}
           </div>
@@ -201,12 +201,12 @@ export default function ReportsPage() {
             {current && (
               <div className={styles.detailWrap}>
                 <div className={styles.detail}>
-                  <ReportDetail r={current} sim={sim} />
+                  <ReportDetail r={current} sim={sim} onOpenCard={() => setCardOpen(true)} />
                   <div className={styles.aside}>
-                    <TeamsCardPreview r={current} />
                     <DeliveryLog r={current} />
                   </div>
                 </div>
+                {cardOpen && <TeamsCardModal r={current} onClose={() => setCardOpen(false)} />}
               </div>
             )}
           </div>

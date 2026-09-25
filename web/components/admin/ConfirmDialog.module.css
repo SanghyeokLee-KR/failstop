@@ -1,4 +1,4 @@
-/* 관리 평면 위험 액션 확인 다이얼로그. 토큰만 소비, 하드코딩 hex 금지 */
+/* 관리 평면 확인 대화상자(디자인 시스템 §12-5·§12-13). 토큰만 소비, 하드코딩 hex 금지 */
 
 .overlay {
   position: fixed;
@@ -9,26 +9,69 @@
   justify-content: center;
   padding: var(--space-6);
   background: var(--overlay-dim);
+  animation: fadeIn var(--dur-dialog) var(--ease-decelerate) both;
 }
 /* 대화상자는 셸 밖(body 포털)에 뜨므로 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
 .dialog {
   word-break: keep-all;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-6);
   background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-4);
+  animation: dialogIn var(--dur-dialog) var(--ease-decelerate) both;
+}
+.dialog:focus {
+  outline: none;
 }
 .dialog[data-wide] {
   max-width: 560px;
   max-height: calc(100vh - var(--space-9));
   overflow-y: auto;
   scrollbar-width: thin;
+}
+.overlay[data-closing] {
+  animation: fadeOut var(--dur-fast) var(--ease-accelerate) both;
+}
+.overlay[data-closing] .dialog {
+  animation: dialogOut var(--dur-fast) var(--ease-accelerate) both;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@keyframes dialogOut {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog,
+  .overlay[data-closing],
+  .overlay[data-closing] .dialog {
+    animation: none;
+  }
 }
 .title {
   font-size: var(--font-title-3-size);
@@ -50,12 +93,14 @@
   background: var(--surface-sunken);
   border-radius: var(--radius-md);
 }
+/* 값은 이름 바로 옆에서 왼쪽 정렬로 읽는다. 이름과 값이 칸 양 끝으로 갈라지면 눈이 가로질러 짝을 찾아야 한다 */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
   font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
 }
 /* sunken 면 위라 secondary(4.27:1)는 본문 대비에 모자란다. 이름 칸도 본문 잉크를 쓴다 */
 .row dt {
@@ -65,48 +110,50 @@
 .row dd {
   color: var(--text-strong);
   font-weight: var(--fw-semibold);
-  text-align: right;
 }
+/* 단추 줄은 오른쪽 끝에 모은다. '취소'가 왼쪽, 확정이 오른쪽 끝이다(§12-5) */
 .actions {
   display: flex;
+  justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
-.actions button {
-  flex: 1;
-  min-height: 44px;
+.cancel {
+  min-width: 72px;
 }
-/* 확정은 파괴 위계라 fill이 아닌 color-danger 보더로 둔다. dangerBtn 규약 재사용.
-   warning tone은 주의 액션(비파괴)에서 caution 보더로 강등 */
-.confirm {
+/* 비파괴 주의 조작의 확정. danger와 같은 투명 면에 주의 색 윤곽이다 */
+.warnBtn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 36px;
   padding: 0 var(--space-4);
-  border-radius: var(--control-radius);
+  border: 1px solid var(--color-warning-text);
+  border-radius: var(--panel-radius);
+  background: transparent;
+  color: var(--color-warning-text);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
-  background: transparent;
+  white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-standard);
 }
-.confirm[data-tone="danger"] {
-  border: 1px solid var(--color-danger);
-  color: var(--color-danger);
+.warnBtn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
 }
-.confirm[data-tone="danger"]:hover:not(:disabled) {
-  background: var(--color-danger-bg);
-}
-.confirm[data-tone="warning"] {
-  border: 1px solid var(--color-warning-text);
-  color: var(--color-warning-text);
-}
-.confirm[data-tone="warning"]:hover:not(:disabled) {
+.warnBtn:hover:not(:disabled) {
   background: var(--color-warning-bg);
 }
 /* 비활성은 opacity로 흐리지 않는다(§12-6). 면을 비우고 점선 테두리로 모양을 남긴다 */
-.confirm:disabled {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
+.warnBtn:disabled {
+  border-style: dashed;
+  border-color: var(--text-tertiary);
   color: var(--text-secondary);
   cursor: not-allowed;
 }
