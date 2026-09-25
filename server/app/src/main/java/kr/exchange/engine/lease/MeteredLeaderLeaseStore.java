@@ -129,6 +129,11 @@ public final class MeteredLeaderLeaseStore implements LeaderLeaseStore {
     }
 
     @Override
+    public boolean holdsUnexpired(String holder, long epoch) {
+        return delegate.holdsUnexpired(holder, epoch);
+    }
+
+    @Override
     public void release(String holder, long epoch) {
         delegate.release(holder, epoch);
     }

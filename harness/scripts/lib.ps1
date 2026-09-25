@@ -9,16 +9,43 @@ $ErrorActionPreference = 'Stop'
 $chaosProject = $(if ($env:CHAOS_PROJECT) { $env:CHAOS_PROJECT } else { 'exchange-chaos' })
 if ($chaosProject -notmatch '^[a-z0-9][a-z0-9_-]*$') { throw "CHAOS_PROJECT 형식 위반: $chaosProject" }
 
+# 대상 스택(Patroni 설계 8-1, 검토 R7). 값을 주지 않으면 카오스 스택(chaos-*) 그대로라 카오스 실험과 S5·S6 관문 스크립트의
+# 동작이 바뀌지 않는다. Patroni 실험 스택은 psql 을 patroni-toolbox 에서 돌려 patroni-haproxy-b 를 거쳐 현재 Primary 에 붙고
+# (Primary 가 두 DB 컨테이너 사이를 옮겨 다니므로 고정 컨테이너에 docker exec 하면 Standby 에 붙는다), API 후보·포트·봇
+# 컨테이너를 바꾼다. 기본값은 harness/scripts/tests/lib-target.Tests.ps1 이 고정한다.
+function Get-TargetSetting {
+    param([string] $Name, $Default)
+    $v = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($v)) { return $Default }
+    return $v.Trim()
+}
+
+# 컨테이너 이름은 cmd 문자열에 들어간다(Invoke-DockerQuiet). 형식을 먼저 막는다.
+function Assert-ContainerName {
+    param([string] $Name, [string] $Setting)
+    if ($Name -notmatch '^[a-z0-9][a-z0-9_.-]*$') { throw "$Setting 형식 위반: $Name" }
+    return $Name
+}
+
+$targetApiContainers = @((Get-TargetSetting 'CHAOS_API_CONTAINERS' 'chaos-api-1,chaos-api-2').Split(',') |
+    ForEach-Object { $_.Trim() } | Where-Object { $_ } |
+    ForEach-Object { Assert-ContainerName $_ 'CHAOS_API_CONTAINERS' })
+if ($targetApiContainers.Count -lt 1) { throw 'CHAOS_API_CONTAINERS 가 비었다' }
+
 $Global:CHAOS = @{
-    ComposeFile = Join-Path $PSScriptRoot '..\docker-compose.chaos.yml'
-    EnvFile     = Join-Path $PSScriptRoot '..\.env.chaos'
+    ComposeFile = Get-TargetSetting 'CHAOS_COMPOSE_FILE' (Join-Path $PSScriptRoot '..\docker-compose.chaos.yml')
+    EnvFile     = Get-TargetSetting 'CHAOS_ENV_FILE' (Join-Path $PSScriptRoot '..\.env.chaos')
     Project     = $chaosProject
-    Pg          = 'chaos-pg'
+    # psql 을 docker exec 할 컨테이너. 카오스 스택은 DB 컨테이너 자신, Patroni 스택은 patroni-toolbox 다.
+    Pg          = Assert-ContainerName (Get-TargetSetting 'CHAOS_PSQL_CONTAINER' 'chaos-pg') 'CHAOS_PSQL_CONTAINER'
     # 컴포즈가 프로젝트 접두를 붙인 실명이다. E5 분할과 캘리브레이션이 이 값을 쓴다.
     Network     = "${chaosProject}_chaos-net"
-    Api1Port    = 18080
-    Api2Port    = 28080
-    LbPort      = 58080
+    Api1Port    = [int](Get-TargetSetting 'CHAOS_API1_PORT' 18080)
+    Api2Port    = [int](Get-TargetSetting 'CHAOS_API2_PORT' 28080)
+    LbPort      = [int](Get-TargetSetting 'CHAOS_LB_PORT' 58080)
+    # 리더 판별(Get-LeaderContainer)의 후보. 쉼표로 가른다.
+    ApiContainers = $targetApiContainers
+    BotsContainer = Assert-ContainerName (Get-TargetSetting 'CHAOS_BOTS_CONTAINER' 'chaos-bots') 'CHAOS_BOTS_CONTAINER'
     # 기본 58474. 호스트가 이 포트를 WinNAT 동적 예외로 예약해 게시 불가일 때(Windows) CHAOS_TOXI_URL로
     # 재지정(예: 포트 리맵 오버라이드). env 미설정 시 기존 동작 불변.
     ToxiUrl     = $(if ($env:CHAOS_TOXI_URL) { $env:CHAOS_TOXI_URL } else { 'http://localhost:58474' })
@@ -76,12 +103,13 @@ function Set-BotOps {
 # 새 NEW 명령이 계속 들어와 C13a가 in-flight를 유실로 세고, 재기동한 봇이 그 부하로 남아 다음
 # 실험이 무부하를 이월받는다. 반환은 정지 성공 여부(호출부가 판정 유효성 판단에 쓴다).
 function Stop-BotLoad {
-    $code = Invoke-DockerQuiet 'stop chaos-bots'
+    $bots = $Global:CHAOS.BotsContainer
+    $code = Invoke-DockerQuiet "stop $bots"
     if ($code -ne 0) {
-        Write-Host "경고: chaos-bots 정지 실패(종료코드 $code). 부하가 계속되는 상태로 드레인한다" -ForegroundColor Yellow
+        Write-Host "경고: $bots 정지 실패(종료코드 $code). 부하가 계속되는 상태로 드레인한다" -ForegroundColor Yellow
         return $false
     }
-    Write-Host '봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음'
+    Write-Host "봇 정지(docker stop $bots). 드레인 창 동안 신규 쓰기 없음"
     return $true
 }
 
@@ -102,11 +130,12 @@ function Restore-BotLoad {
             Set-BotOps $Ops -SettleSec 0
             return
         }
-        $code = Invoke-DockerQuiet 'start chaos-bots'
-        if ($code -eq 0) { Write-Host '봇 재개(docker start chaos-bots, 정지 전 ops 그대로)' }
-        else { Write-Host "경고: chaos-bots 재개 실패(종료코드 $code). 다음 실험 전 수동 확인" -ForegroundColor Yellow }
+        $bots = $Global:CHAOS.BotsContainer
+        $code = Invoke-DockerQuiet "start $bots"
+        if ($code -eq 0) { Write-Host "봇 재개(docker start $bots, 정지 전 ops 그대로)" }
+        else { Write-Host "경고: $bots 재개 실패(종료코드 $code). 다음 실험 전 수동 확인" -ForegroundColor Yellow }
     } catch {
-        Write-Host "경고: chaos-bots 재개 실패($($_.Exception.Message)). 다음 실험 전 수동 확인" -ForegroundColor Yellow
+        Write-Host "경고: $($Global:CHAOS.BotsContainer) 재개 실패($($_.Exception.Message)). 다음 실험 전 수동 확인" -ForegroundColor Yellow
     }
 }
 
@@ -156,7 +185,10 @@ function Wait-DrainZero {
 function Get-LeaseTtlSec {
     try {
         if (Test-Path $Global:CHAOS.EnvFile) {
-            $raw = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_LEASE_TTL']
+            $map = Read-EnvFile $Global:CHAOS.EnvFile
+            # Patroni 스택의 env 파일은 PATRONI_LEASE_TTL 로 같은 값을 준다(harness/patroni/.env.patroni.example).
+            $raw = $map['CHAOS_LEASE_TTL']
+            if (-not $raw) { $raw = $map['PATRONI_LEASE_TTL'] }
             if ($raw -and ($raw -match '([0-9]+(\.[0-9]+)?)')) { return [double] $Matches[1] }
         }
     } catch { }
@@ -190,7 +222,14 @@ function Invoke-Psql {
     # UPDATE·INSERT의 "UPDATE 0" 같은 상태 줄은 남긴다. 그 줄이 빈 결과 판정과 필드 분해를
     # 통째로 망가뜨린다(빈 큐 폴이 "UPDATE 0"을 반환해 [long] 캐스팅에서 종료 오류).
     # 현 호출부는 전부 SELECT라 -q가 튜플 출력을 바꾸지 않는다.
-    $out = & docker exec $Global:CHAOS.Pg psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -q -t -A -c $Sql 2>$null
+    # CHAOS_PSQL_TIMEOUT_SEC 를 주면 연결 5초, 질의 전체를 그 초로 자른다(컨테이너 안 timeout). Patroni 스택의 psql 은
+    # HAProxy 를 거치는데, Primary 를 강제 종료한 순간 연결이 끝없이 매달린 적이 있다(2026-09-25 E-P1 첫 회차). 주지 않으면 종전과 같다.
+    $timeout = [Environment]::GetEnvironmentVariable('CHAOS_PSQL_TIMEOUT_SEC')
+    if ($timeout) {
+        $out = & docker exec -e PGCONNECT_TIMEOUT=5 $Global:CHAOS.Pg timeout ([int]$timeout) psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -q -t -A -c $Sql 2>$null
+    } else {
+        $out = & docker exec $Global:CHAOS.Pg psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -q -t -A -c $Sql 2>$null
+    }
     return ($out | Out-String).Trim()
 }
 
@@ -643,7 +682,9 @@ function Wait-FirstTradeAfter {
 # 파티션 리더 모드(P3)에서는 -Resource 로 파티션을 고른다(Get-LeaseResource). holder 는 노드마다 하나라 그 노드의 모든
 # 파티션이 같은 UUID 를 로그에 남긴다.
 function Get-LeaderContainer {
-    param([string[]] $Candidates = @('chaos-api-1', 'chaos-api-2'), [string] $Resource)
+    param([string[]] $Candidates, [string] $Resource)
+    # 기본 후보는 대상 스택의 API 컨테이너다(카오스 스택은 chaos-api-1·chaos-api-2).
+    if (-not $Candidates) { $Candidates = $Global:CHAOS.ApiContainers }
     $leaseResource = Get-LeaseResource -Resource $Resource
     $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='$leaseResource' AND lease_until > now()"
     if ([string]::IsNullOrWhiteSpace($holder)) { return $null }
@@ -854,7 +895,7 @@ function Test-FailoverClockGuard {
     $clock = Test-ClockSkew
     if (-not $clock.Reachable) {
         # 도달불가는 시계가드 소관 밖. 정상 진행시켜 기존 권위 run·주입 경로가 실패를 드러내게 둔다.
-        Write-Host "시계가드: chaos-pg clock_timestamp 미응답, 스큐 판정 생략(왕복 $($clock.RoundTripMs)ms)." -ForegroundColor Yellow
+        Write-Host "시계가드: $($Global:CHAOS.Pg) 의 clock_timestamp 미응답, 스큐 판정 생략(왕복 $($clock.RoundTripMs)ms)." -ForegroundColor Yellow
         return $false
     }
     if (-not $clock.Skewed) {

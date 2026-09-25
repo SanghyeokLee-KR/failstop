@@ -1,0 +1,30 @@
+{"interval_s": 0.02, "keepalive": [5, 2, 3], "socket_timeout_s": 3.0, "t": 1790320007.877, "type": "start", "writer_span": 1000000000000, "writers": 4}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320007.877, "type": "connect", "writer": 1}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320007.885, "type": "connect", "writer": 2}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320007.891, "type": "connect", "writer": 3}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320007.896, "type": "connect", "writer": 4}
+{"n": 1000000000243, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320016.016, "t_start": 1790320013.014, "type": "attempt", "writer": 1}
+{"n": 4000000000243, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320016.016, "t_start": 1790320013.015, "type": "attempt", "writer": 4}
+{"n": 3000000000243, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320016.016, "t_start": 1790320013.015, "type": "attempt", "writer": 3}
+{"n": 2000000000243, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320016.016, "t_start": 1790320013.015, "type": "attempt", "writer": 2}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320016.522, "type": "connect", "writer": 4}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320016.527, "type": "connect", "writer": 3}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320016.516, "type": "connect", "writer": 1}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320016.531, "type": "connect", "writer": 2}
+{"n": 4000000000244, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320019.536, "t_start": 1790320016.536, "type": "attempt", "writer": 4}
+{"n": 3000000000244, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320019.536, "t_start": 1790320016.536, "type": "attempt", "writer": 3}
+{"n": 1000000000244, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320019.537, "t_start": 1790320016.537, "type": "attempt", "writer": 1}
+{"n": 2000000000244, "reason": "socket_timeout", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320019.537, "t_start": 1790320016.537, "type": "attempt", "writer": 2}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320020.047, "type": "connect", "writer": 2}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320020.037, "type": "connect", "writer": 4}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320020.042, "type": "connect", "writer": 1}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320020.052, "type": "connect", "writer": 3}
+{"n": 1000000000438, "reason": "FATAL 57P01 terminating connection due to administrator command", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320024.423, "t_start": 1790320024.423, "type": "attempt", "writer": 1}
+{"n": 2000000000438, "reason": "FATAL 57P01 terminating connection due to administrator command", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320024.423, "t_start": 1790320024.423, "type": "attempt", "writer": 2}
+{"n": 3000000000438, "reason": "FATAL 57P01 terminating connection due to administrator command", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320024.424, "t_start": 1790320024.423, "type": "attempt", "writer": 3}
+{"n": 4000000000438, "reason": "FATAL 57P01 terminating connection due to administrator command", "result": "unknown", "server": "172.19.0.2/32", "t_end": 1790320024.424, "t_start": 1790320024.424, "type": "attempt", "writer": 4}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320024.945, "type": "connect", "writer": 3}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320024.94, "type": "connect", "writer": 2}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320024.95, "type": "connect", "writer": 4}
+{"ok": true, "server": "172.19.0.2/32", "t": 1790320024.923, "type": "connect", "writer": 1}
+{"t": 1790320037.917, "type": "stop", "writers_alive": []}

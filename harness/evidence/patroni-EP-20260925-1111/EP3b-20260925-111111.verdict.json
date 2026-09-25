@@ -1,0 +1,252 @@
+{
+  "scenario": "E-P3b",
+  "run_id": "EP3b-20260925-111111",
+  "verdict": "INCONCLUSIVE",
+  "times": {
+    "T0": 1790334757.264,
+    "T_back": 1790334817.909,
+    "T_suspend": 1790334760.751,
+    "T_resume": 1790334830.745,
+    "T_promote": 1790334778.762,
+    "T_sync": 1790334832.198,
+    "T_down": 1790334775.752,
+    "T_reads": 1790334780.951,
+    "T5": 1790334833.344,
+    "T_first_trade_after_resume": 1790334833.344,
+    "T_sync_lost": 1790334778.762
+  },
+  "derived": {
+    "db_failover_s": 21.498,
+    "read_recovery_s": 23.687,
+    "resume_delay_s": -1.453,
+    "trade_resume_delay_s": 1.146,
+    "suspend_detect_s": 3.487,
+    "haproxy_down_s": 18.488
+  },
+  "axes": [
+    {
+      "id": "promote_s",
+      "value": 21.498,
+      "limit": "<= 30",
+      "pass": null,
+      "time_axis": true,
+      "note": "회차 무효 조건으로 판정에서 뺌(값 True)"
+    },
+    {
+      "id": "reads_after_promote_s",
+      "value": 2.189,
+      "limit": "<= 10",
+      "pass": null,
+      "time_axis": true,
+      "note": "회차 무효 조건으로 판정에서 뺌(값 True)"
+    },
+    {
+      "id": "resume_after_sync_s",
+      "value": -1.453,
+      "limit": "<= 5",
+      "pass": null,
+      "time_axis": true,
+      "note": "회차 무효 조건으로 판정에서 뺌(값 True)"
+    },
+    {
+      "id": "t5_after_sync_s",
+      "value": 1.146,
+      "limit": "<= 30",
+      "pass": null,
+      "time_axis": true,
+      "note": "회차 무효 조건으로 판정에서 뺌(값 True)"
+    },
+    {
+      "id": "app_epoch_increase",
+      "value": 1,
+      "limit": "== 1",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_fencing_rejections",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_demotions",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "lease_acquire_expired",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "검토 R5"
+    },
+    {
+      "id": "confirmed_writes_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "멤버 walsender 시작 1790334825.606(승격 뒤 46.84초), 스레드별 새 Primary 시도 {1: True, 2: True, 3: True, 4: True}"
+    },
+    {
+      "id": "status_reports_suspension",
+      "value": true,
+      "limit": "true",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "rejoin_nodes_consistent",
+      "value": true,
+      "limit": "== True",
+      "pass": true,
+      "time_axis": false,
+      "note": "E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 rewind)"
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    },
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    },
+    {
+      "id": "two_primaries_confirmed_overlap",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "두 노드가 같은 시간대에 확인한 커밋"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5456,
+    "post_resume_acked_30s": 5370,
+    "last_alive": {
+      "1": 1790334922.018,
+      "2": 1790334922.018,
+      "3": 1790334922.018,
+      "4": 1790334922.018
+    },
+    "not_acked_reasons": {
+      "unknown: connection_lost: consuming input failed:": 4
+    },
+    "verify": {
+      "acked": 25276,
+      "failed": 0,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "10.159.1.11/32",
+          "10.159.1.9/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "10.159.1.11/32": [
+            1790334713.806,
+            1790334757.314
+          ],
+          "10.159.1.9/32": [
+            1790334825.61,
+            1790334922.645
+          ]
+        }
+      },
+      "pass": true,
+      "present": 25280,
+      "server": "10.159.1.9/32",
+      "unknown": 4,
+      "unknown_present": 4
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": true,
+    "reasons": [
+      "실험 밖 부하 도구 ['container:pml-s6-watch-W2']"
+    ],
+    "unknown_sources": []
+  },
+  "extra": {
+    "acked_between_promote_and_cluster_sync": 1184,
+    "nonmember_walsenders": [],
+    "acked_overlap": {
+      "spans": {
+        "10.159.1.11/32": [
+          1790334713.806,
+          1790334757.314
+        ],
+        "10.159.1.9/32": [
+          1790334825.61,
+          1790334922.645
+        ]
+      },
+      "overlaps": []
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# 설계 첫 판 7-2의 EtcdQuorumLost 식을 그대로 옮긴 것이다. etcd 세 멤버가 모두 죽었을 때 발화하는지 본다.
+groups:
+  - name: patroni-original-quorum
+    rules:
+      - alert: EtcdQuorumLost
+        expr: count(up{job="etcd"} == 1) < 2 or max(etcd_server_has_leader) == 0
+        for: 10s
+        labels:
+          severity: critical

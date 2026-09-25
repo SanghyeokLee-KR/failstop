@@ -1,0 +1,61 @@
+# 설계 검토(지적 12) 뒤 Patroni 설계 7-2의 경보 식 초안. 코드 단계의 harness/prometheus/rules/patroni-alerts.yml 이 아니고,
+# 식이 promtool 에서 읽히는지와 몇 가지 장면에서 발화하는지만 보는 확인용 사본이다. 지표 이름은 설치한 판에서 다시 확인한다.
+# pg_syncrep_waiters_count 와 pg_nonmember_walsenders_count 는 postgres_exporter 확장 질의가 낼 이름의 가정이다.
+groups:
+  - name: patroni-draft
+    rules:
+      - alert: PatroniSyncStandbyMissing
+        expr: max(patroni_primary) == 1 and sum(patroni_sync_standby) == 0
+        for: 15s
+        labels:
+          severity: critical
+      - alert: PatroniPrimaryAbsent
+        expr: (sum(patroni_primary) or vector(0)) == 0
+        for: 10s
+        labels:
+          severity: critical
+      - alert: PatroniMultiplePrimaries
+        expr: sum(patroni_primary) > 1
+        labels:
+          severity: critical
+      - alert: PatroniFailoverOccurred
+        expr: changes(max(patroni_postgres_timeline)[5m:15s]) > 0
+        labels:
+          severity: warning
+      - alert: PatroniFailsafeActive
+        expr: max(patroni_failsafe_mode_is_active) == 1
+        labels:
+          severity: warning
+      - alert: EtcdMemberDown
+        expr: up{job="etcd"} == 0
+        for: 30s
+        labels:
+          severity: warning
+      - alert: EtcdQuorumLost
+        expr: (count(up{job="etcd"} == 1) or vector(0)) < 2 or max(etcd_server_has_leader) == 0
+        for: 10s
+        labels:
+          severity: critical
+      - alert: EtcdLeaderChangesFrequent
+        expr: increase(etcd_server_leader_changes_seen_total[10m]) > 3
+        labels:
+          severity: warning
+      - alert: HAProxyPrimaryBackendMissing
+        expr: haproxy_backend_active_servers{proxy="pg_write"} == 0
+        for: 5s
+        labels:
+          severity: critical
+      - alert: TradingSuspended
+        expr: max(exchange_write_availability_state{state!="ACTIVE"}) == 1
+        for: 5s
+        labels:
+          severity: critical
+      - alert: NonMemberWalSender
+        expr: max(pg_nonmember_walsenders_count) > 0
+        labels:
+          severity: critical
+      - alert: SyncRepWaitersWhileActive
+        expr: max(pg_syncrep_waiters_count) > 0 and on() min(exchange_write_availability_state{state="ACTIVE"}) == 1
+        for: 30s
+        labels:
+          severity: warning

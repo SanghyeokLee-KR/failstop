@@ -1,0 +1,123 @@
+# patroni-alerts-draft.yml 의 장면 시험. 검토가 짚은 두 장면(etcd 전부 정지, 중단 중 탐지 백엔드)과 식을 바꾼 경보를 본다.
+rule_files:
+  - patroni-alerts-draft.yml
+evaluation_interval: 5s
+tests:
+  # 1. etcd 세 멤버가 모두 죽음. patroni_primary 표본도 없다(Patroni가 DCS를 잃고 지표 수집도 끊긴 경우).
+  - interval: 5s
+    input_series:
+      - series: 'up{job="etcd", instance="etcd-1"}'
+        values: '0x24'
+      - series: 'up{job="etcd", instance="etcd-2"}'
+        values: '0x24'
+      - series: 'up{job="etcd", instance="etcd-3"}'
+        values: '0x24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EtcdQuorumLost
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+      - eval_time: 1m
+        alertname: EtcdMemberDown
+        exp_alerts:
+          - exp_labels: {job: etcd, instance: etcd-1, severity: warning}
+          - exp_labels: {job: etcd, instance: etcd-2, severity: warning}
+          - exp_labels: {job: etcd, instance: etcd-3, severity: warning}
+      - eval_time: 1m
+        alertname: PatroniPrimaryAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+  # 2. etcd 한 멤버만 죽음. 과반은 남는다.
+  - interval: 5s
+    input_series:
+      - series: 'up{job="etcd", instance="etcd-1"}'
+        values: '1x24'
+      - series: 'up{job="etcd", instance="etcd-2"}'
+        values: '1x24'
+      - series: 'up{job="etcd", instance="etcd-3"}'
+        values: '0x24'
+      - series: 'etcd_server_has_leader{instance="etcd-1"}'
+        values: '1x24'
+      - series: 'etcd_server_has_leader{instance="etcd-2"}'
+        values: '1x24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EtcdQuorumLost
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: EtcdMemberDown
+        exp_alerts:
+          - exp_labels: {job: etcd, instance: etcd-3, severity: warning}
+  # 3. 타임라인이 1에서 2로 오름(DB 전환).
+  - interval: 5s
+    input_series:
+      - series: 'patroni_postgres_timeline{instance="db-1"}'
+        values: '1x10 2x10'
+      - series: 'patroni_postgres_timeline{instance="db-2"}'
+        values: '1x10 2x10'
+      - series: 'patroni_primary{instance="db-1"}'
+        values: '1x10 0x10'
+      - series: 'patroni_primary{instance="db-2"}'
+        values: '0x10 1x10'
+    alert_rule_test:
+      - eval_time: 90s
+        alertname: PatroniFailoverOccurred
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+      - eval_time: 90s
+        alertname: PatroniPrimaryAbsent
+        exp_alerts: []
+  # 4. 탐지 백엔드를 뺀 커밋 대기가 있는데 두 앱 노드가 모두 ACTIVE 라고 함(탐지기와 DB 판단이 어긋남).
+  - interval: 5s
+    input_series:
+      - series: 'pg_syncrep_waiters_count{instance="db-1"}'
+        values: '1x12'
+      - series: 'exchange_write_availability_state{instance="api-1", state="ACTIVE"}'
+        values: '1x12'
+      - series: 'exchange_write_availability_state{instance="api-2", state="ACTIVE"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 55s
+        alertname: SyncRepWaitersWhileActive
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+      - eval_time: 55s
+        alertname: TradingSuspended
+        exp_alerts: []
+  # 5. 거래 일시 중단 중. 커밋 대기가 있어도 SyncRepWaitersWhileActive 는 발화하지 않고 TradingSuspended 가 발화한다.
+  - interval: 5s
+    input_series:
+      - series: 'pg_syncrep_waiters_count{instance="db-1"}'
+        values: '3x12'
+      - series: 'exchange_write_availability_state{instance="api-1", state="ACTIVE"}'
+        values: '0x12'
+      - series: 'exchange_write_availability_state{instance="api-1", state="SUSPENDED"}'
+        values: '1x12'
+      - series: 'exchange_write_availability_state{instance="api-2", state="ACTIVE"}'
+        values: '0x12'
+      - series: 'exchange_write_availability_state{instance="api-2", state="SUSPENDED"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 55s
+        alertname: SyncRepWaitersWhileActive
+        exp_alerts: []
+      - eval_time: 55s
+        alertname: TradingSuspended
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+  # 6. 멤버가 아닌 복제 연결이 있음.
+  - interval: 5s
+    input_series:
+      - series: 'pg_nonmember_walsenders_count{instance="db-1"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 15s
+        alertname: NonMemberWalSender
+        exp_alerts:
+          - exp_labels:
+              severity: critical

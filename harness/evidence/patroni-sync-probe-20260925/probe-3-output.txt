@@ -1,0 +1,398 @@
+[04:41:04.240] 기동
+   Network exchange-patroni_probe Creating 
+   Network exchange-patroni_probe Created 
+   Container patroni-probe-pg1 Creating 
+   Container patroni-probe-pg1 Created 
+   Container patroni-probe-pg2 Creating 
+   Container patroni-probe-pg2 Created 
+   Container patroni-probe-pg1 Starting 
+   Container patroni-probe-pg1 Started 
+   Container patroni-probe-pg2 Starting 
+   Container patroni-probe-pg2 Started 
+[04:41:06.223] 확인: pg1 연결 수용
+[04:41:08.194] 확인: pg2 streaming
+[04:41:08.199] 단계 version
+  PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+[04:41:08.304] 단계 setup
+  CREATE TABLE
+  INSERT 0 1
+[04:41:08.410] 기준: '*' 를 걸고 대기 서버 s1 이 동기로 잡히는지
+[04:41:08.410] 단계 star-on
+  ALTER SYSTEM
+[04:41:08.517] 단계 reload
+  t
+[04:41:08.736] 확인: '*' 아래 s1 동기
+[04:41:08.736] 단계 repl
+  repl|s1|streaming|1|sync|0/3024E70
+  repl-count|1
+  lsn|0/3024E70|000000010000000000000003|*
+[04:41:08.870] 단계 timed 100
+  INSERT 0 1
+  timed 100 rc=0 elapsed=0.01s
+[04:41:08.981] 대기 서버 정지(docker stop pg2)
+  patroni-probe-pg2
+[04:41:09.325] 확인: 복제 연결 0
+[04:41:09.326] 단계 repl
+  repl-count|0
+  lsn|0/3024F20|000000010000000000000003|*
+[04:41:09.447] 사례 P: '*' 와 pg_receivewal --synchronous(슬롯 없음)
+[04:41:09.448] 백그라운드 hold 40
+[04:41:11.568] 단계 visible 40
+  visible|40|0
+  waiting|40|1
+[04:41:11.682] 백그라운드 rw P 12 --synchronous
+[04:41:15.782] 단계 repl
+  repl|pg_receivewal|streaming|1|sync|0/3024FD0
+  repl-count|1
+  lsn|0/3024FD0|000000010000000000000003|*
+[04:41:15.910] 단계 visible 40
+  visible|40|1
+  waiting|40|0
+[04:41:16.021] 단계 holdout 40
+  == /tmp/hold-40.out
+  INSERT 0 1
+  hold 40 rc=0
+[04:41:16.132] 단계 timed 41
+  INSERT 0 1
+  timed 41 rc=0 elapsed=0.01s
+[04:41:25.260] 단계 log rw-P
+  == /tmp/rw-P.log
+  pg_receivewal: starting log streaming at 0/3000000 (timeline 1)
+  pg_receivewal: received interrupt signal, exiting
+  pg_receivewal: not renaming "000000010000000000000003.partial", segment is not complete
+  pg_receivewal: received interrupt signal, exiting
+  rw P rc=0
+[04:41:25.445] 확인: 사례 P 뒤 복제 연결 0
+[04:41:25.445] 백그라운드 hold 42
+[04:41:27.545] 단계 visible 42
+  visible|42|0
+  waiting|42|1
+[04:41:27.665] 사례 M: '*' 와 pg_basebackup -X stream(기본 임시 슬롯), 32kB/s
+[04:41:27.666] 단계 switch
+  switch|0/3025180
+[04:41:27.792] 백그라운드 hold 50
+[04:41:29.918] 단계 visible 50
+  visible|50|0
+  waiting|50|1
+[04:41:30.048] 백그라운드 bb M 75
+[04:41:33.143] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/5000100|000000010000000000000005|*
+[04:41:33.255] 단계 visible 42
+  visible|42|1
+  waiting|42|0
+[04:41:33.377] 단계 visible 50
+  visible|50|1
+  waiting|50|0
+[04:41:36.512] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/5000138|000000010000000000000005|*
+[04:41:36.641] 단계 visible 42
+  visible|42|1
+  waiting|42|0
+[04:41:36.755] 단계 visible 50
+  visible|50|1
+  waiting|50|0
+[04:41:36.860] 사례 M: 백업이 도는 중에 들어온 커밋
+[04:41:36.860] 백그라운드 hold 52
+[04:41:39.972] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/50404B8|000000010000000000000005|*
+[04:41:40.098] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:43.236] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/50404B8|000000010000000000000005|*
+[04:41:43.358] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:46.485] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/50404B8|000000010000000000000005|*
+[04:41:46.599] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:49.717] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/50404B8|000000010000000000000005|*
+[04:41:49.831] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:52.932] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/50404F0|000000010000000000000005|*
+[04:41:53.059] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:53.162] 사례 M: 백업이 도는 중에 WAL 세그먼트 전환
+[04:41:53.162] 단계 switch
+  switch|0/5040508
+[04:41:56.300] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/6000000|000000010000000000000006|*
+[04:41:56.409] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:41:59.510] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/5000000
+  repl-count|2
+  lsn|0/6000000|000000010000000000000006|*
+[04:41:59.625] 단계 visible 52
+  visible|52|0
+  waiting|52|1
+[04:42:02.745] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/6000000
+  repl-count|2
+  lsn|0/6000000|000000010000000000000006|*
+[04:42:02.854] 단계 visible 52
+  visible|52|1
+  waiting|52|0
+[04:42:05.990] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/6000000
+  repl-count|2
+  lsn|0/6000060|000000010000000000000006|*
+[04:42:06.114] 단계 visible 52
+  visible|52|1
+  waiting|52|0
+[04:42:09.252] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|1|sync|0/6000000
+  repl-count|2
+  lsn|0/6000060|000000010000000000000006|*
+[04:42:09.379] 단계 visible 52
+  visible|52|1
+  waiting|52|0
+[04:42:09.500] 단계 log bb-M
+  == /tmp/bb-M.log
+  pg_basebackup: initiating base backup, waiting for checkpoint to complete
+  pg_basebackup: checkpoint completed
+  pg_basebackup: write-ahead log start point: 0/5000028 on timeline 1
+  pg_basebackup: starting background WAL receiver
+  pg_basebackup: created temporary replication slot "pg_basebackup_338"
+[04:42:09.604] 단계 bbkill
+  bbkill done
+[04:42:11.839] 확인: 사례 M 뒤 복제 연결 0
+[04:42:11.839] 단계 repl
+  repl-count|0
+  lsn|0/60000D8|000000010000000000000006|*
+[04:42:11.963] 단계 holdout 50
+  == /tmp/hold-50.out
+  INSERT 0 1
+  hold 50 rc=0
+[04:42:12.051] 단계 holdout 52
+  == /tmp/hold-52.out
+  INSERT 0 1
+  hold 52 rc=0
+[04:42:12.146] 사례 N: '*' 와 pg_basebackup -X stream --no-slot, 32kB/s
+[04:42:12.146] 단계 switch
+  switch|0/60000F0
+[04:42:12.268] 백그라운드 hold 60
+[04:42:14.371] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:14.495] 백그라운드 bb N 75 --no-slot
+[04:42:17.595] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/80000F8|000000010000000000000008|*
+[04:42:17.710] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:20.825] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/80000F8|000000010000000000000008|*
+[04:42:20.935] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:24.048] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/80000F8|000000010000000000000008|*
+[04:42:24.166] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:24.294] 백그라운드 hold 62
+[04:42:27.410] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/8000460|000000010000000000000008|*
+[04:42:27.552] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:27.663] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:30.778] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/8000460|000000010000000000000008|*
+[04:42:30.909] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:31.015] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:34.134] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/8000460|000000010000000000000008|*
+[04:42:34.251] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:34.367] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:34.489] 사례 N: 백업이 도는 중에 WAL 세그먼트 전환
+[04:42:34.490] 단계 switch
+  switch|0/8000478
+[04:42:37.636] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/9000000|000000010000000000000009|*
+[04:42:37.749] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:37.869] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:40.976] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/9000068|000000010000000000000009|*
+[04:42:41.096] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:41.222] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:44.362] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/9000068|000000010000000000000009|*
+[04:42:44.475] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:44.588] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:47.683] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/9000068|000000010000000000000009|*
+[04:42:47.796] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:47.888] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:51.016] 단계 repl
+  repl|pg_basebackup|backup|0|async|-
+  repl|pg_basebackup|streaming|0|async|-
+  repl-count|2
+  lsn|0/9000068|000000010000000000000009|*
+[04:42:51.146] 단계 visible 60
+  visible|60|0
+  waiting|60|1
+[04:42:51.260] 단계 visible 62
+  visible|62|0
+  waiting|62|1
+[04:42:51.379] 단계 log bb-N
+  == /tmp/bb-N.log
+  pg_basebackup: initiating base backup, waiting for checkpoint to complete
+  pg_basebackup: checkpoint completed
+  pg_basebackup: write-ahead log start point: 0/8000028 on timeline 1
+  pg_basebackup: starting background WAL receiver
+[04:42:51.471] 단계 bbkill
+  bbkill done
+[04:42:53.679] 확인: 사례 N 뒤 복제 연결 0
+[04:42:53.679] 단계 repl
+  repl-count|0
+  lsn|0/90000E0|000000010000000000000009|*
+[04:42:53.789] 단계 visible 60
+  visible|60|1
+  waiting|60|0
+[04:42:53.929] 단계 visible 62
+  visible|62|1
+  waiting|62|0
+[04:42:54.048] 사례 O: 멤버 이름('s1')을 건 상태의 pg_receivewal --synchronous
+[04:42:54.049] 단계 sync-on
+  ALTER SYSTEM
+[04:42:54.143] 단계 reload
+  t
+[04:42:55.269] 백그라운드 hold 70
+[04:42:57.377] 단계 visible 70
+  visible|70|0
+  waiting|70|1
+[04:42:57.480] 백그라운드 rw O 10 --synchronous
+[04:43:01.605] 단계 repl
+  repl|pg_receivewal|streaming|0|async|0/9000440
+  repl-count|1
+  lsn|0/9000440|000000010000000000000009|s1
+[04:43:01.730] 단계 visible 70
+  visible|70|0
+  waiting|70|1
+[04:43:01.836] 단계 visible 60
+  visible|60|1
+  waiting|60|0
+[04:43:08.980] 단계 log rw-O
+  == /tmp/rw-O.log
+  pg_receivewal: starting log streaming at 0/9000000 (timeline 1)
+  pg_receivewal: received interrupt signal, exiting
+  pg_receivewal: not renaming "000000010000000000000009.partial", segment is not complete
+  pg_receivewal: received interrupt signal, exiting
+  rw O rc=0
+[04:43:09.167] 확인: 사례 O 뒤 복제 연결 0
+[04:43:09.168] 단계 waiters
+  waiter|1159|IPC|SyncRep|active|insert into t values (70, 'hold 70')
+[04:43:09.278] 대기 서버 재기동(docker start pg2)
+  patroni-probe-pg2
+[04:45:10.104] 정리(down -v --remove-orphans)
+   Container patroni-probe-pg2 Stopping 
+   Container patroni-probe-pg2 Stopped 
+   Container patroni-probe-pg2 Removing 
+   Container patroni-probe-pg2 Removed 
+   Container patroni-probe-pg1 Stopping 
+   Container patroni-probe-pg1 Stopped 
+   Container patroni-probe-pg1 Removing 
+   Container patroni-probe-pg1 Removed 
+   Network exchange-patroni_probe Removing 
+   Network exchange-patroni_probe Removed 
+[04:45:10.920] 남은 컨테이너(이름 patroni-)
+[04:45:10.960] 남은 볼륨(compose 프로젝트 라벨 exchange-patroni)
+[04:45:10.998] 남은 망(exchange-patroni)
+Exception: C:\dev\exchange-patroni\harness\evidence\patroni-sync-probe-20260925\run-probe-3.ps1:30
+Line |
+  30 |      throw "시간 안에 확인하지 못함: $what"
+     |      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~에서
+     | 시간 안에 확인하지 못함: pg2 streaming 복귀

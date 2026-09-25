@@ -19,8 +19,9 @@ import java.util.Optional;
  *
  * 이것이 기본 보관소다. 옮기기 전과 옮긴 뒤를 같은 조건에서 비교하려면 이 경로가 그대로 남아 있어야 한다.
  *
- * 이 보관소의 알려진 성질을 적어 둔다. 갱신이 곧 커밋이므로 동기 복제 대상 standby 를 전부
- * 잃으면 갱신이 멈춘다. 그것이 이 인터페이스를 만든 이유이며 이 구현의 결함이 아니라 성질이다.
+ * 갱신은 트랜잭션 한정 synchronous_commit = local 로 커밋한다(DB 설계 §5.4-d 2). 동기 복제 대상 standby 를 모두 잃어도 현직 리더가
+ * 리스를 유지해 2026-09-08 의 연쇄(갱신 정지, 만료, 재개 순간의 강등)가 생기지 않는다. 획득·반납은 동기 커밋이라 epoch 은 확인되면
+ * standby 에 있다. 획득이 커밋 대기에 걸리면 만료된 리스를 받을 수 있어 holdsUnexpired 로 다시 본다.
  */
 public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
 
@@ -106,11 +107,42 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
 
     @Override
     public boolean renew(String holder, long epoch, Duration ttl) {
-        Boolean renewed = jdbc.sql("SELECT renew_lease(?, ?, ?, ? * interval '1 millisecond')")
-                .params(resource, holder, epoch, ttl.toMillis())
+        if (tx == null) {
+            // 자동 커밋 한 문장이다. set_config 를 FROM 절 하위 질의에 두어 renew_lease 보다 먼저 돌게 한다. 휘발성 함수가 있는
+            // 하위 질의는 끌어올려지지 않는다.
+            Boolean renewed = jdbc.sql("""
+                            SELECT renew_lease(?, ?, ?, ? * interval '1 millisecond')
+                            FROM (SELECT set_config('synchronous_commit', 'local', true)) AS local_commit
+                            """)
+                    .params(resource, holder, epoch, ttl.toMillis())
+                    .query(Boolean.class)
+                    .single();
+            return Boolean.TRUE.equals(renewed);
+        }
+        // 이 트랜잭션만 로컬 flush 로 커밋한다(DB 설계 §5.4-d 2). 갱신은 lease_until 만 바꿔 쓰기 트랜잭션의 KEY SHARE 와 부딪치지
+        // 않고, 같은 Primary 의 fencing 판정은 로컬 커밋을 곧바로 본다.
+        return Boolean.TRUE.equals(tx.execute(status -> {
+            jdbc.sql("SELECT set_config('synchronous_commit', 'local', true)")
+                    .query(String.class)
+                    .single();
+            return jdbc.sql("SELECT renew_lease(?, ?, ?, ? * interval '1 millisecond')")
+                    .params(resource, holder, epoch, ttl.toMillis())
+                    .query(Boolean.class)
+                    .single();
+        }));
+    }
+
+    /** 읽기라 커밋 대기를 타지 않는다. 행이 없거나(탈취됨) 만료됐으면 거짓이다. */
+    @Override
+    public boolean holdsUnexpired(String holder, long epoch) {
+        return jdbc.sql("""
+                        SELECT lease_until > clock_timestamp() FROM leader_lease
+                        WHERE resource = ? AND holder = ? AND epoch = ?
+                        """)
+                .params(resource, holder, epoch)
                 .query(Boolean.class)
-                .single();
-        return Boolean.TRUE.equals(renewed);
+                .optional()
+                .orElse(false);
     }
 
     @Override

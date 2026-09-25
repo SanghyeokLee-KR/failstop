@@ -1,0 +1,261 @@
+{
+  "scenario": "E-P2b",
+  "run_id": "EP2b-20260925-105309",
+  "verdict": "PASS",
+  "times": {
+    "T0": 1790333670.449,
+    "T_back": 1790333730.879,
+    "T_suspend": 1790333673.86,
+    "T_resume": 1790333735.866,
+    "T_promote": null,
+    "T_sync": 1790333737.465,
+    "T_down": null,
+    "T_reads": 1790333670.891,
+    "T5": null,
+    "T_first_trade_after_resume": 1790333735.679,
+    "T_sync_lost": 1790333691.038
+  },
+  "derived": {
+    "db_failover_s": null,
+    "read_recovery_s": 0.442,
+    "resume_delay_s": -1.599,
+    "trade_resume_delay_s": null,
+    "suspend_detect_s": 3.411,
+    "haproxy_down_s": null
+  },
+  "axes": [
+    {
+      "id": "suspend_after_inject_s",
+      "value": 3.411,
+      "limit": "<= 5",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "resume_after_sync_s",
+      "value": -1.599,
+      "limit": "<= 5",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "first_trade_after_resume_s",
+      "value": -0.187,
+      "limit": "<= 10",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "app_epoch_unchanged",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "demotions",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "강등·자발적 강등·회복 가능 반납 합"
+    },
+    {
+      "id": "syncrep_waiters_after_resume",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "duplicate_coid_orders",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "reads_ok_ratio_suspended",
+      "value": 1.0,
+      "limit": ">= 0.99",
+      "pass": true,
+      "time_axis": true,
+      "note": "n=280"
+    },
+    {
+      "id": "writes_all_423_suspended",
+      "value": {
+        "423": 56
+      },
+      "limit": "all 423",
+      "pass": true,
+      "time_axis": false,
+      "note": "n=56"
+    },
+    {
+      "id": "writes_429_suspended",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "게이트가 수용 제한 앞인지(검토 R6)"
+    },
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    },
+    {
+      "id": "withdraw_rows_per_request",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "요청 하나(Idempotency-Key)에 출금 행 둘 이상인 수"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5432,
+    "post_resume_acked_30s": 5441,
+    "last_alive": {
+      "1": 1790333794.871,
+      "2": 1790333794.871,
+      "3": 1790333794.871,
+      "4": 1790333794.871
+    },
+    "not_acked_reasons": {},
+    "verify": {
+      "acked": 18760,
+      "failed": 0,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "10.159.1.9/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "10.159.1.9/32": [
+            1790333631.747,
+            1790333795.61
+          ]
+        }
+      },
+      "pass": true,
+      "present": 18760,
+      "server": "10.159.1.9/32",
+      "unknown": 0,
+      "unknown_present": 0
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": false,
+    "reasons": [],
+    "unknown_sources": []
+  },
+  "extra": {
+    "withdraw": {
+      "requests": 198,
+      "uncertain_keys": 63,
+      "resent_same_key": 63,
+      "pending_at_end": [],
+      "unresolved": []
+    },
+    "k6": {
+      "log_sha256": "449b7f801904225efb996dd5bc3e902e8e9f1feaf497d3caecae6a2905f188d8",
+      "ack_lines": 848
+    },
+    "pool_max": {
+      "api-1": {
+        "active": {
+          "HikariPool-1": 14.0,
+          "exchange-append": 1.0,
+          "exchange-lease": 0
+        },
+        "inflight": {
+          "order": 12.0,
+          "query": 2.0,
+          "requery": 0,
+          "ws": 1.0
+        }
+      },
+      "api-2": {
+        "active": {
+          "HikariPool-1": 2.0,
+          "exchange-lease": 0
+        },
+        "inflight": {
+          "order": 0,
+          "query": 1.0,
+          "requery": 0,
+          "ws": 0
+        }
+      }
+    },
+    "suspend_before_sync_loss_s": 17.178
+  }
+}

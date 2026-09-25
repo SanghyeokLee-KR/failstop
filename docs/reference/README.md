@@ -33,7 +33,8 @@
 | 복구 시간 측정과 재생 성능 | [복구 시간](product/복구_RTO_설계.md) |
 | 외부 시세 수집 범위 | [외부 API 전략](contracts/외부API_전략.md) |
 | 봇의 매수·매도 방향 제어 | [봇 운영](operations/봇_방향성_거버넌스_설계.md) |
-| DB 승격과 앱 연결 전환 | [DB 수동 페일오버](operations/DB_수동_페일오버.md) |
+| DB 승격과 앱 연결 전환(Patroni를 적용하지 않은 환경) | [DB 수동 페일오버](operations/DB_수동_페일오버.md) |
+| DB 자동 전환(Patroni 엄격 동기 2노드, etcd 세 표, HAProxy), Standby 부재 때의 거래 일시 중단과 공개 상태 API, 실험 E-P1~E-P9, AWS 적용 초안, DB 호스트 손실 절차 | [DB 자동 전환(Patroni) 설계](architecture/DB_자동전환_Patroni_설계.md), 결정은 [ADR 0036](adr/0036-patroni-strict-sync-db-failover.md) |
 | 학교 DB의 예약 백업, 외부 보관, 격리 복원 | [DB 백업 도구 안내](../../deploy/linux/postgresql/backup/README.md) |
 | 관측 노드(bot-1)와 경보 경로의 감시 | [관측 경로 워치독 안내](../../deploy/linux/watchdog/README.md) |
 | 최종 검증 전 보강할 부분 | [M4 하드닝](architecture/M4_하드닝설계.md) |

@@ -1,0 +1,491 @@
+{
+  "invariants": {
+    "pre": {
+      "runId": "EP7-20260925-082520",
+      "window": "pre",
+      "commandWatermark": 718,
+      "eventWatermark": 4000000000151,
+      "verdict": "PASS",
+      "criticalClean": true,
+      "totalViolations": 0,
+      "checks": [
+        {
+          "checkName": "C01_ASSET_CONSERVATION",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C02_BAL_VS_LEDGER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C03_TXN_UNSEALED",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C05_CMD_GAPLESS",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C06_EVT_GAPLESS",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C07_DUP_ORDER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C07P_DUP_ORDER_JOURNAL",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C08_DUP_FILL",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C09_TRADE_SEQ_EVENT_MATCH",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C10_ORDER_FILL_AGG",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C11_TRADE_ORPHAN",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C12_EVENT_ORPHAN",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C13A_ORDER_MATERIALIZED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C13B_ORDER_JOURNALED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C14_LOCKED_RESERVATION",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C20_ORDER_FEE_MATERIALIZED",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C17_REPLAY_DETERMINISM",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C18_FILL_PRICE_MAKER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C15_DEFAULT_PARTITION",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C26_CMD_BAND_HEADROOM",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C27_CMD_DEFAULT_PARTITION",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C28_CMD_LEGACY_AFTER_CUTOVER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C29_MARKET_PARTITION_MAP",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C31_RESERVATION_LINK",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C16_ACK_JOURNALED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C19_ORDERBOOK_NONCROSS",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C21_EVENT_EMISSION_REGISTRY",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C22_FENCING_MONOTONIC",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C23_COUNTER_SEQ_CONSISTENCY",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C24_POSITION_COST_QTY",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C25_POSITION_COST_SANITY",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        }
+      ]
+    },
+    "post": {
+      "runId": "EP7-20260925-082520",
+      "window": "post",
+      "commandWatermark": 2775,
+      "eventWatermark": 4000000000704,
+      "verdict": "PASS",
+      "criticalClean": true,
+      "totalViolations": 0,
+      "checks": [
+        {
+          "checkName": "C01_ASSET_CONSERVATION",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C02_BAL_VS_LEDGER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C03_TXN_UNSEALED",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C05_CMD_GAPLESS",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C06_EVT_GAPLESS",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C07_DUP_ORDER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C07P_DUP_ORDER_JOURNAL",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C08_DUP_FILL",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C09_TRADE_SEQ_EVENT_MATCH",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C10_ORDER_FILL_AGG",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C11_TRADE_ORPHAN",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C12_EVENT_ORPHAN",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C13A_ORDER_MATERIALIZED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C13B_ORDER_JOURNALED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C14_LOCKED_RESERVATION",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C20_ORDER_FEE_MATERIALIZED",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C17_REPLAY_DETERMINISM",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C18_FILL_PRICE_MAKER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C15_DEFAULT_PARTITION",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C26_CMD_BAND_HEADROOM",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C27_CMD_DEFAULT_PARTITION",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C28_CMD_LEGACY_AFTER_CUTOVER",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C29_MARKET_PARTITION_MAP",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C31_RESERVATION_LINK",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C16_ACK_JOURNALED",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C19_ORDERBOOK_NONCROSS",
+          "severity": "HIGH",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C21_EVENT_EMISSION_REGISTRY",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C22_FENCING_MONOTONIC",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C23_COUNTER_SEQ_CONSISTENCY",
+          "severity": "CRITICAL",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C24_POSITION_COST_QTY",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        },
+        {
+          "checkName": "C25_POSITION_COST_SANITY",
+          "severity": "WARN",
+          "ok": true,
+          "violatedRows": 0
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "before": {
+      "demotions": 0.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 0.0,
+      "gate_423": 0.0,
+      "gate_503": 0.0,
+      "probe_unconfirmed": 0.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 0.0,
+      "unavailable": 0.0,
+      "nodes_answered": 2
+    },
+    "after": {
+      "demotions": 1.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 1.0,
+      "gate_423": 0.0,
+      "gate_503": 16.0,
+      "probe_unconfirmed": 1.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 0.0,
+      "unavailable": 0.0,
+      "nodes_answered": 2
+    }
+  },
+  "invalid": {
+    "cpu_samples": [
+      16.0,
+      19.0,
+      23.0,
+      5.0,
+      13.0
+    ],
+    "foreign_processes": [
+      "java-gradle(pid 40540, 328ms/2s)"
+    ],
+    "foreign_idle_note": "쉬는 Gradle 데몬은 세지 않는다(2초 CPU 200ms 이하)",
+    "etcd_leader_changes": 0.0,
+    "fsync_p99_s": 0.007319986461121818,
+    "peer_rtt_p99_s": 0.001551999753834792
+  },
+  "post_promotion": {
+    "node": "patroni-api-2",
+    "fencing_rejections": 0.0,
+    "demotions": 0.0
+  },
+  "k6": {
+    "log_sha256": "0e43a2815fa0590dc3b100ea08b6a44ee950bfca2f06712bd9ac8e451893ee92",
+    "ack_lines": 1364
+  },
+  "drained": true,
+  "bots_stopped": true,
+  "orders_500": 0,
+  "stale_write_delta": 0,
+  "t5": 1790324808.554,
+  "first_trade_after_resume": 1790324858.95,
+  "duplicate_coid_orders": 0,
+  "withdraw_duplicates": 0,
+  "syncrep_waiters_after_resume": 0,
+  "alerts_fired": {
+    "EtcdMemberDown": false,
+    "EtcdQuorumLost": false,
+    "TradingSuspended": true,
+    "PatroniSyncStandbyMissing": false,
+    "NonMemberWalSender": false,
+    "PatroniFailoverOccurred": false
+  },
+  "failsafe_max": 0.0,
+  "container_log_sha256": {
+    "patroni-ackrec": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "patroni-bots": "9755bd99186500009cf96f84f7dbb918e3aee7cc8d04f14969a58e0604c984e3",
+    "patroni-lb": "8d77e9d911461cdb45c9812cbaa7b4a8e3d476f1dc559aa2155e57d9360bb9f7",
+    "patroni-api-2": "59e1c4cd27ed84ab8b495ba2bb443fead42008cde5a379b1775a8bc69a7ab33b",
+    "patroni-api-1": "9205412d8f28f5713202c85f7c829f836eb9633452a03b3685b70fc50e33986d",
+    "patroni-db-2": "de11f18f74a25a0d46424463fb17d48a6a29b6e43e43c8e2c9b6d60bafc3a790",
+    "patroni-db-1": "8ca8dcbcdb2f1f2809c8e5836f21c80dfc18c0fd897a884bff911d2f83ae694e",
+    "patroni-toxiproxy": "b9bec27349ec3487d5f88d356ebcb0cf545b7ca1aad00241cb4e0f2fc07b5b5c",
+    "patroni-toolbox": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "patroni-haproxy-1": "03cc7d9b102ad1362c7839a5d1f6a0d680407de3a08d58c9b85bb661d03247dc",
+    "patroni-pg-exporter-2": "f735972b152d8e0e5debc5054d080b7afdcd8b6da0c9f4a3dd30079d1b052b21",
+    "patroni-prometheus": "766d251f59540e3e0f9e8792f8c55816374c6b6519802310caadee070c06c6dc",
+    "patroni-etcd-1": "585030056febd935c70b4471de860fe4bae49077063d0f6e5dc86373c31c087a",
+    "patroni-haproxy-b": "a4cc79ebfd7d639d60581253f89759bd2120c94b3a106702206ffe8aa301a988",
+    "patroni-haproxy-2": "03cc7d9b102ad1362c7839a5d1f6a0d680407de3a08d58c9b85bb661d03247dc",
+    "patroni-pg-exporter-1": "a3d255cfd19e5cdb5722c614e689013faed4c97d947bcde781fbaeaa25acc7a4",
+    "patroni-etcd-2": "15cb97e82cb47213046d528de86c3b00bf695fcc722715879c2708ac8de7a7f1",
+    "patroni-etcd-3": "169c343e5eb424032252ead5b381a6033ed2587036ea8fec0e338d204d0ac47e"
+  }
+}

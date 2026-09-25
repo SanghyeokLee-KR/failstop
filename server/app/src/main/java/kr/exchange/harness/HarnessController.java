@@ -1,6 +1,8 @@
 package kr.exchange.harness;
 
+import kr.exchange.api.common.WriteGateFilter;
 import kr.exchange.engine.PartitionLeases;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.engine.lease.LeaderLeaseStore;
 import kr.exchange.engine.lease.LeaseSnapshot;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,15 +39,27 @@ public class HarnessController {
     private final LoadKeySeeder loadKeys;
     // 리더 판정의 권위. leader_lease 행이 아니라 자원마다의 리스 보관소다.
     private final PartitionLeases leases;
+    private final WriteAvailability writeAvailability;
 
     public HarnessController(JdbcClient jdbc, InvariantVerifier verifier,
                              FailoverRecorder failoverRecorder, LoadKeySeeder loadKeys,
-                             PartitionLeases leases) {
+                             PartitionLeases leases, WriteAvailability writeAvailability) {
         this.jdbc = jdbc;
         this.verifier = verifier;
         this.failoverRecorder = failoverRecorder;
         this.loadKeys = loadKeys;
         this.leases = leases;
+        this.writeAvailability = writeAvailability;
+    }
+
+    /**
+     * 하네스 기록은 거래 일시 중단 동안 새로 시작하지 않는다(DB 설계 §5.4-d 6). 쓰기 게이트는 이 경로를 막지 않으므로 여기서
+     * 423 으로 돌려보낸다. 기록이 커밋 대기에 걸리면 실행기가 재개까지 매달린다.
+     */
+    private void requireWritable() {
+        if (!writeAvailability.isActive()) {
+            throw WriteGateFilter.tradingSuspended(writeAvailability.view());
+        }
     }
 
     /**
@@ -111,6 +125,7 @@ public class HarnessController {
     @PostMapping("/invariants/run")
     public RunResponse runInvariants(@RequestParam String runId,
                                      @RequestParam(defaultValue = "adhoc") String window) {
+        requireWritable();
         AuthoritativeRun run = verifier.runAuthoritative(runId, window);
         List<CheckView> checks = run.results().stream()
                 .map(r -> new CheckView(r.check().name(), r.check().severity().name(),
@@ -124,6 +139,7 @@ public class HarnessController {
     /** 실험 시작 훅: 스테일 ACK 원장 제거(C16 오탐 차단, §2-5). */
     @PostMapping("/loadtest-acks/reset")
     public Map<String, Object> resetLoadtestAcks() {
+        requireWritable();
         jdbc.sql("TRUNCATE harness.loadtest_acks").update();
         return Map.of("truncated", "harness.loadtest_acks");
     }
@@ -140,12 +156,14 @@ public class HarnessController {
             @RequestParam(defaultValue = "4") int count,
             @RequestParam(defaultValue = "1000000000") String quote,
             @RequestParam(defaultValue = "100") String base) {
+        requireWritable();
         return loadKeys.seed(market, count, new BigDecimal(quote), new BigDecimal(base));
     }
 
     /** 페일오버 측정 적재(오케스트레이터가 RTO/RPO/verdict 계산 후 호출). */
     @PostMapping("/failover")
     public Map<String, Object> recordFailover(@RequestBody FailoverRequest req) {
+        requireWritable();
         // 적재 전 검증. verdict가 null이면 INSERT는 성공하나 응답 Map.of가 null 값에서
         // NPE→500, 행은 이미 적재돼 IDENTITY PK로 재시도마다 중복 누적된다. DDL 경계
         // (experiment_id VARCHAR(32) NOT NULL, verdict VARCHAR(8))도 진입부에서 400으로 막는다.

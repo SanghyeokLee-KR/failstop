@@ -1,0 +1,356 @@
+name: exchange-patroni
+
+# Patroni 엄격 동기 실험 스택(Patroni 설계 3-7, ADR 0036). DB 두 대(Patroni + PostgreSQL 17), etcd 세 표, 노드별 HAProxy,
+# 거래 앱 두 대, LB, 봇을 한 PC 에 띄운다. 카오스 스택(exchange-chaos)·마켓별 리더 스택(exchange-pml)과 프로젝트 이름,
+# 컨테이너 이름(patroni-), 망, 볼륨, 호스트 포트(59xxx, 루프백)가 겹치지 않는다. 보존 볼륨은 어디에도 붙이지 않는다.
+#
+# 띄우기와 정리는 README 의 명령을 쓴다. 회차마다 스택을 새로 세운다(강등 계수와 차단기 초기화, 설계 8-1).
+#   docker compose -p exchange-patroni -f harness/patroni/docker-compose.patroni.yml --env-file harness/patroni/.env.patroni up -d
+#   docker compose -p exchange-patroni -f harness/patroni/docker-compose.patroni.yml --env-file harness/patroni/.env.patroni down -v --remove-orphans
+#
+# 상한은 할당이 아니라 천장이다. 같은 PC 에서 다른 작업의 스택·빌드가 함께 돌 때 이 스택이 호스트를 차지하지 않게 하고,
+# 다른 작업의 폭주가 이 스택의 시간 판정을 덜 흔들게 한다. 그래도 흔들린 회차는 설계 8-1 의 무효 조건으로 거른다.
+
+x-app-image: &app-image ${PATRONI_APP_IMAGE:-exchange-chaos-app:patroni}
+x-db-image: &db-image ${PATRONI_DB_IMAGE:-exchange-patroni-db:local}
+
+# etcd 는 CPU 상한을 낮게 두지 않는다. 상한은 CFS 할당량이라 짧은 폭주에서 스로틀 지연을 만들고 etcd 는 그 지연에 리더 교체로
+# 반응한다(설계 3-7).
+x-etcd: &etcd
+  image: quay.io/coreos/etcd:v3.5.34@sha256:2c029095680c13c2b36116cc3935e1b0cddc0f5af78004457fd863616d8d072b
+  restart: "no"
+  networks: [patroni-db]
+  deploy: { resources: { limits: { cpus: "1.0", memory: 256m } } }
+
+# etcd 는 ETCD_ 환경 변수로 모든 인자를 받는다. 멤버마다 다른 것은 이름과 광고 주소다.
+x-etcd-env: &etcd-env
+  ETCD_DATA_DIR: /etcd-data
+  ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+  ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+  ETCD_LISTEN_METRICS_URLS: http://0.0.0.0:2381
+  ETCD_INITIAL_CLUSTER: etcd-1=http://patroni-etcd-1:2380,etcd-2=http://patroni-etcd-2:2380,etcd-3=http://patroni-etcd-3:2380
+  ETCD_INITIAL_CLUSTER_STATE: new
+  ETCD_INITIAL_CLUSTER_TOKEN: exchange-patroni
+  # 데이터는 Patroni 의 작은 키 몇 개다(설계 3-3).
+  ETCD_QUOTA_BACKEND_BYTES: "536870912"
+  ETCD_AUTO_COMPACTION_MODE: periodic
+  ETCD_AUTO_COMPACTION_RETENTION: 1h
+
+x-db: &db
+  image: *db-image
+  build: { context: ., dockerfile: Dockerfile }
+  # PID 1 을 tini 에 맡긴다. postmaster(또는 Patroni)가 PID 1 이면 컨테이너 안에서 띄운 도구가 남긴 고아가 신호로 끝나기만 해도
+  # postmaster 가 크래시 재시작을 하고 커밋을 기다리던 행이 복제 없이 보인다(사전 확인 Q2, 설계 3-6).
+  init: true
+  # 실험이 옛 노드의 복귀 시점을 정한다. 자동 재시작하지 않는다.
+  restart: "no"
+  shm_size: 256m
+  stop_grace_period: 30s
+  depends_on:
+    patroni-etcd-1: { condition: service_started }
+    patroni-etcd-2: { condition: service_started }
+    patroni-etcd-3: { condition: service_started }
+  healthcheck:
+    # PostgreSQL 이 돌고 있으면 200(Primary·Standby 모두). 역할은 HAProxy 가 /primary 로 가른다.
+    test: ["CMD", "/opt/patroni/bin/python", "-c",
+           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health', timeout=2)"]
+    interval: 3s
+    timeout: 3s
+    retries: 40
+    start_period: 10s
+  deploy: { resources: { limits: { cpus: "1.5", memory: 1g } } }
+
+x-db-env: &db-env
+  PATRONI_SUPERUSER_PASSWORD: ${PATRONI_SUPERUSER_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+  PATRONI_REPLICATION_PASSWORD: ${PATRONI_REPLICATION_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+  PATRONI_RESTAPI_USERNAME: ${PATRONI_RESTAPI_USERNAME:?harness/patroni/.env.patroni 가 필요하다}
+  PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+  # post_bootstrap.sh 가 첫 부트스트랩 때 한 번 쓴다.
+  EXCHANGE_DB_USER: ${EXCHANGE_DB_USER:-exchange}
+  EXCHANGE_DB_PASSWORD: ${EXCHANGE_DB_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+  EXCHANGE_MONITOR_USER: ${EXCHANGE_MONITOR_USER:-exchange_monitor}
+  EXCHANGE_MONITOR_PASSWORD: ${EXCHANGE_MONITOR_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+
+x-haproxy: &haproxy
+  image: haproxy:3.0.27-alpine@sha256:30860bc97b3a4b1e48011ce0687d4ba1e4711344af8480c4bec85e3ff8411fee
+  volumes: ["./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro"]
+  restart: unless-stopped
+  networks: [patroni-app]
+  deploy: { resources: { limits: { cpus: "0.25", memory: 64m } } }
+
+services:
+  patroni-etcd-1:
+    <<: *etcd
+    container_name: patroni-etcd-1
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-1
+      ETCD_ADVERTISE_CLIENT_URLS: http://patroni-etcd-1:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://patroni-etcd-1:2380
+
+  patroni-etcd-2:
+    <<: *etcd
+    container_name: patroni-etcd-2
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-2
+      ETCD_ADVERTISE_CLIENT_URLS: http://patroni-etcd-2:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://patroni-etcd-2:2380
+
+  # bot-1 역할의 표. 봇·관측과 같은 호스트라는 사실은 로컬에서 흉내 내지 않는다(설계 12절 bot-1 자원).
+  patroni-etcd-3:
+    <<: *etcd
+    container_name: patroni-etcd-3
+    environment:
+      <<: *etcd-env
+      ETCD_NAME: etcd-3
+      ETCD_ADVERTISE_CLIENT_URLS: http://patroni-etcd-3:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://patroni-etcd-3:2380
+
+  patroni-db-1:
+    <<: *db
+    container_name: patroni-db-1
+    hostname: patroni-db-1
+    environment:
+      <<: *db-env
+      PATRONI_NAME: patroni-db-1
+      # 복제·REST 연결 주소는 DB 망의 별칭이다. HAProxy 는 앱 망의 별칭으로 붙는다(haproxy.cfg).
+      PATRONI_RESTAPI_CONNECT_ADDRESS: db-1-repl:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: db-1-repl:5432
+    volumes: ["patroni-db-1-data:/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:59008:8008"]
+    networks:
+      patroni-db: { aliases: [db-1-repl] }
+      patroni-app: { aliases: [db-1-app] }
+
+  patroni-db-2:
+    <<: *db
+    container_name: patroni-db-2
+    hostname: patroni-db-2
+    environment:
+      <<: *db-env
+      PATRONI_NAME: patroni-db-2
+      PATRONI_RESTAPI_CONNECT_ADDRESS: db-2-repl:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: db-2-repl:5432
+    volumes: ["patroni-db-2-data:/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:59009:8008"]
+    networks:
+      patroni-db: { aliases: [db-2-repl] }
+      patroni-app: { aliases: [db-2-app] }
+
+  # api-1·api-2 의 사이드카. 앱은 toxiproxy 를 거쳐 자기 HAProxy 에 붙는다.
+  patroni-haproxy-1:
+    <<: *haproxy
+    container_name: patroni-haproxy-1
+    ports: ["127.0.0.1:59404:8404"]
+
+  patroni-haproxy-2:
+    <<: *haproxy
+    container_name: patroni-haproxy-2
+    ports: ["127.0.0.1:59405:8404"]
+
+  # 봇, ACK 기록기, 하네스 도구의 사이드카. 쓰기 리스너를 호스트 루프백에도 연다.
+  patroni-haproxy-b:
+    <<: *haproxy
+    container_name: patroni-haproxy-b
+    ports: ["127.0.0.1:59432:5000"]
+
+  # api-N 과 그 HAProxy 사이의 경로. 평소에는 독성 없이 통과한다. 한 노드 경로 지연(E-P7)의 주입점이다.
+  # 관리 API 는 호스트에 열지 않는다. docker exec patroni-toxiproxy /toxiproxy-cli 로 다룬다.
+  patroni-toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    container_name: patroni-toxiproxy
+    command: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+    volumes: ["./toxiproxy.json:/config/toxiproxy.json:ro"]
+    depends_on: [patroni-haproxy-1, patroni-haproxy-2]
+    restart: unless-stopped
+    networks: [patroni-app]
+    deploy: { resources: { limits: { cpus: "0.25", memory: 64m } } }
+
+  patroni-api-1:
+    image: *app-image
+    container_name: patroni-api-1
+    environment: &api-env
+      # patroni 프로파일이 쓰기 가능 탐지와 append 풀 소켓 제한을 켠다(application.yml). 나머지는 카오스 스택과 같다.
+      SPRING_PROFILES_ACTIVE: ${PATRONI_SPRING_PROFILES:-dev,chaos-monkey,prod-timeouts,patroni}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://patroni-toxiproxy:15000/exchange
+      SPRING_DATASOURCE_USERNAME: ${EXCHANGE_DB_USER:-exchange}
+      SPRING_DATASOURCE_PASSWORD: ${EXCHANGE_DB_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+      SPRING_FLYWAY_ENABLED: "true"
+      EXCHANGE_HARNESS_ENABLED: "true"
+      EXCHANGE_ENGINE_ENABLED: "true"
+      EXCHANGE_ENGINE_LEASE_TTL: ${PATRONI_LEASE_TTL:-6s}
+      EXCHANGE_ENGINE_LEASE_TICK_INTERVAL: ${PATRONI_LEASE_TICK:-2s}
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${PATRONI_MASTER_KEY_BASE64:?harness/patroni/.env.patroni 가 필요하다}
+      # 봇 플릿과 LB 경유 조회가 한 계정·한 IP 로 뭉친다. 카오스 스택과 같은 이유로 상향한다.
+      EXCHANGE_ORDER_RATE_LIMIT_CAPACITY: "100000"
+      EXCHANGE_PUBLIC_RATE_LIMIT_CAPACITY: "100000"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "32"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "8"
+      EXCHANGE_LEADER_LEASE_PROVIDER: postgres
+    ports: ["127.0.0.1:59181:8080"]
+    depends_on:
+      patroni-db-1: { condition: service_healthy }
+      patroni-db-2: { condition: service_healthy }
+      patroni-toxiproxy: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+      start_period: 60s
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1.0", memory: 1g } } }
+    networks: [patroni-app]
+
+  patroni-api-2:
+    image: *app-image
+    container_name: patroni-api-2
+    environment:
+      <<: *api-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://patroni-toxiproxy:25000/exchange
+      SPRING_FLYWAY_ENABLED: "false"     # 마이그레이션은 api-1 단독
+    ports: ["127.0.0.1:59182:8080"]
+    depends_on:
+      patroni-api-1: { condition: service_healthy }
+    # 팔로워는 readiness 가 503 이라 liveness 로 본다(카오스 스택 chaos-api-2 와 같은 규약).
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/liveness"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+      start_period: 60s
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1.0", memory: 1g } } }
+    networks: [patroni-app]
+
+  patroni-lb:
+    image: nginx:1.29
+    container_name: patroni-lb
+    volumes: ["./nginx.conf:/etc/nginx/nginx.conf:ro"]
+    ports: ["127.0.0.1:59180:8080"]
+    depends_on:
+      patroni-api-1: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128m } } }
+    networks: [patroni-app]
+
+  patroni-bots:
+    image: *app-image
+    container_name: patroni-bots
+    environment:
+      SPRING_PROFILES_ACTIVE: bots
+      # 시드 전용 직결. 자기 HAProxy 로 현재 Primary 에 붙는다.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://patroni-haproxy-b:5000/exchange
+      SPRING_DATASOURCE_USERNAME: ${EXCHANGE_DB_USER:-exchange}
+      SPRING_DATASOURCE_PASSWORD: ${EXCHANGE_DB_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_ENGINE_ENABLED: "false"
+      # 봇 노드의 상태 발행·명령 점유도 쓰기다. 거래 일시 중단 동안 새로 시작하지 않게 탐지를 켠다(DB 설계 §5.4-d 6).
+      EXCHANGE_WRITE_AVAILABILITY_ENABLED: "true"
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${PATRONI_MASTER_KEY_BASE64:?harness/patroni/.env.patroni 가 필요하다}
+      EXCHANGE_SIM_BASE_URL: http://patroni-lb:8080
+      EXCHANGE_SIM_TARGET_OPS: ${PATRONI_BOTS_OPS:-10}
+    depends_on:
+      patroni-api-1: { condition: service_healthy }
+      patroni-lb: { condition: service_started }
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "1.0", memory: 512m } } }
+    networks: [patroni-app]
+
+  # 하네스 스크립트가 docker exec 로 쓰는 psql 도구. patroni-haproxy-b 를 거쳐 현재 Primary 에 붙는다(설계 8-1).
+  # DB 이미지를 그대로 써 psql 판이 서버와 같다. 복제 연결은 pg_hba 가 받지 않는다(E-P2c 만 따로 연다).
+  patroni-toolbox:
+    image: *db-image
+    container_name: patroni-toolbox
+    init: true
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      PGHOST: patroni-haproxy-b
+      PGPORT: "5000"
+      PGDATABASE: exchange
+      PGUSER: ${EXCHANGE_DB_USER:-exchange}
+      PGPASSWORD: ${EXCHANGE_DB_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+    depends_on: [patroni-haproxy-b]
+    restart: unless-stopped
+    deploy: { resources: { limits: { cpus: "0.25", memory: 128m } } }
+    networks: [patroni-app]
+
+  # DB 수준 ACK 기록기(설계 8-1, harness/scale/ack_recorder.py). 실행기(harness/scripts/ep-lib.ps1)가 ep 프로파일로 띄우고
+  # 멈춤 파일로 끝낸다. DB 이미지의 가상 환경(psycopg 3.3.6)을 쓴다. 기록 원본은 PATRONI_EP_OUT(저장소 밖)에 둔다.
+  # 대상은 실험 전용 DB infra_probe 의 ack_probe 다. 거래 스키마를 건드리지 않는다.
+  patroni-ackrec:
+    image: *db-image
+    container_name: patroni-ackrec
+    init: true
+    profiles: [ep]
+    entrypoint: ["/opt/patroni/bin/python", "/ackrec/ack_recorder.py"]
+    command: ["run", "--out", "/out/ackrec.jsonl", "--stop-file", "/out/ackrec.stop"]
+    environment:
+      PGHOST: patroni-haproxy-b
+      PGPORT: "5000"
+      PGDATABASE: infra_probe
+      PGUSER: ${EXCHANGE_DB_USER:-exchange}
+      PGPASSWORD: ${EXCHANGE_DB_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+    volumes:
+      - ../scale/ack_recorder.py:/ackrec/ack_recorder.py:ro
+      - ${PATRONI_EP_OUT:-./ep-out}:/out
+    depends_on: [patroni-haproxy-b]
+    restart: "no"
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128m } } }
+    networks: [patroni-app]
+
+  # ===== 관측(obs 프로파일) =====
+
+  patroni-pg-exporter-1:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: patroni-pg-exporter-1
+    environment: &exporter-env
+      DATA_SOURCE_URI: db-1-app:5432/exchange?sslmode=disable
+      DATA_SOURCE_USER: ${EXCHANGE_MONITOR_USER:-exchange_monitor}
+      DATA_SOURCE_PASS: ${EXCHANGE_MONITOR_PASSWORD:?harness/patroni/.env.patroni 가 필요하다}
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/pg-queries.yaml
+    volumes: ["./prometheus/pg-queries.patroni.yaml:/etc/pg-queries.yaml:ro"]
+    restart: unless-stopped
+    profiles: [obs]
+    deploy: { resources: { limits: { cpus: "0.25", memory: 64m } } }
+    networks: [patroni-app]
+
+  patroni-pg-exporter-2:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: patroni-pg-exporter-2
+    environment:
+      <<: *exporter-env
+      DATA_SOURCE_URI: db-2-app:5432/exchange?sslmode=disable
+    volumes: ["./prometheus/pg-queries.patroni.yaml:/etc/pg-queries.yaml:ro"]
+    restart: unless-stopped
+    profiles: [obs]
+    deploy: { resources: { limits: { cpus: "0.25", memory: 64m } } }
+    networks: [patroni-app]
+
+  # 규칙은 이 스택 전용 폴더에서만 읽는다. harness/prometheus/rules 에 두면 카오스 스택 Prometheus 도 읽어, Patroni 가 없는
+  # 그 스택에서 PatroniPrimaryAbsent·EtcdQuorumLost 가 상시 발화한다.
+  patroni-prometheus:
+    image: prom/prometheus:v3.13.0
+    container_name: patroni-prometheus
+    volumes:
+      - ./prometheus/prometheus.patroni.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    command: ["--storage.tsdb.retention.time=2h", "--config.file=/etc/prometheus/prometheus.yml"]
+    ports: ["127.0.0.1:59190:9090"]
+    restart: unless-stopped
+    profiles: [obs]
+    deploy: { resources: { limits: { cpus: "0.5", memory: 512m } } }
+    # etcd 는 DB 망에만 있다.
+    networks: [patroni-db, patroni-app]
+
+volumes:
+  patroni-db-1-data:
+  patroni-db-2-data:
+
+networks:
+  # 서브넷을 고정해 pg_hba 가 망 단위로 받게 한다(patroni.yml). Docker 기본 주소 풀(172.17~31, 192.168) 밖이다.
+  patroni-db:
+    ipam: { config: [ { subnet: 10.159.0.0/24 } ] }
+  patroni-app:
+    ipam: { config: [ { subnet: 10.159.1.0/24 } ] }

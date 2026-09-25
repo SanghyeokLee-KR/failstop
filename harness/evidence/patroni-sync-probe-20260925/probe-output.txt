@@ -1,0 +1,182 @@
+[03:27:26.178] 기동
+   Network exchange-patroni_probe Creating 
+   Network exchange-patroni_probe Created 
+   Container patroni-probe-pg1 Creating 
+   Container patroni-probe-pg1 Created 
+   Container patroni-probe-pg2 Creating 
+   Container patroni-probe-pg2 Created 
+   Container patroni-probe-pg1 Starting 
+   Container patroni-probe-pg1 Started 
+   Container patroni-probe-pg2 Starting 
+   Container patroni-probe-pg2 Started 
+[03:27:27.610] 확인: pg1 연결 수용
+[03:27:29.594] 확인: pg2 streaming
+[03:27:29.595] 단계 version
+  PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+[03:27:29.700] 단계 setup
+  CREATE TABLE
+  INSERT 0 1
+[03:27:29.811] 단계 sync-on
+  ALTER SYSTEM
+[03:27:29.942] 단계 reload
+  t
+[03:27:30.185] 확인: s1 동기 대기 서버
+[03:27:30.186] 단계 status
+  replication|s1|streaming|sync
+  settings|s1|on|f
+[03:27:30.302] 단계 baseline-sync
+  INSERT 0 1
+  baseline-sync rc=0 elapsed=0.01s
+[03:27:30.410] 대기 서버 정지(docker stop pg2)
+  patroni-probe-pg2
+[03:27:32.651] 단계 status
+  settings|s1|on|f
+[03:27:32.777] 단계 A
+  Terminated
+  A rc=143 elapsed=8.00s
+[03:27:40.879] 단계 waiters
+  waiter|186|IPC|SyncRep|active|insert into t values (2, 'A implicit, statement_timeout 1s')
+[03:27:40.995] 단계 B
+  BEGIN
+  INSERT 0 1
+  Terminated
+  B rc=143 elapsed=8.00s
+[03:27:49.095] 단계 waiters
+  waiter|186|IPC|SyncRep|active|insert into t values (2, 'A implicit, statement_timeout 1s')
+  waiter|210|IPC|SyncRep|active|commit
+[03:27:49.204] 백그라운드 C-hold
+[03:27:50.308] 단계 C-wait
+  SET
+  ERROR:  55P03: canceling statement due to lock timeout
+  LOCATION:  ProcessInterrupts, postgres.c:3399
+  C-wait rc=1 elapsed=1.01s
+[03:27:51.427] 백그라운드 D-hold
+[03:27:52.522] 단계 D-wait
+  SET
+  ERROR:  55P03: canceling statement due to lock timeout
+  CONTEXT:  while updating tuple (0,1) in relation "t"
+  LOCATION:  ProcessInterrupts, postgres.c:3399
+  D-wait rc=1 elapsed=1.00s
+[03:27:53.635] 단계 E
+  BEGIN
+  SET
+  INSERT 0 1
+  COMMIT
+  E rc=0 elapsed=0.01s
+  E-visible|5|E local commit
+[03:27:53.745] 단계 F
+  BEGIN
+  t
+  COMMIT
+  F probe rc=0 elapsed=0.00s
+  F-read|1
+  F read rc=0 elapsed=0.00s
+  F-diag|f|s1
+[03:27:53.866] 백그라운드 G-hold
+[03:27:55.954] 단계 G-cancel
+  G-cancel|318|t
+[03:27:57.125] 단계 G-show
+  WARNING:  01000: canceling wait for synchronous replication due to user request
+  DETAIL:  The transaction has already committed locally, but might not have been replicated to the standby.
+  LOCATION:  SyncRepWaitForLSN, syncrep.c:320
+  INSERT 0 1
+  G-hold rc=0
+  G-visible|6|G cancel
+[03:27:57.232] 백그라운드 H-hold
+[03:27:59.346] 단계 H-terminate
+  H-terminate|343|t
+[03:28:00.484] 단계 H-show
+  WARNING:  57P01: canceling the wait for synchronous replication and terminating connection due to administrator command
+  DETAIL:  The transaction has already committed locally, but might not have been replicated to the standby.
+  LOCATION:  SyncRepWaitForLSN, syncrep.c:302
+  server closed the connection unexpectedly
+  	This probably means the server terminated abnormally
+  	before or while processing the request.
+  connection to server was lost
+  H-hold rc=2
+  H-visible|7|H terminate
+[03:28:00.597] 단계 I-set
+  ALTER SYSTEM
+[03:28:00.701] 단계 reload
+  t
+[03:28:00.819] 단계 I-show
+  I-setting|1s
+[03:28:00.939] 단계 I-sync
+  I-sync rc=143
+  Terminated
+[03:28:08.065] 단계 waiters
+  waiter|186|IPC|SyncRep|active|insert into t values (2, 'A implicit, statement_timeout 1s')
+  waiter|210|IPC|SyncRep|active|commit
+  waiter|230|IPC|SyncRep|active|commit
+  waiter|252|IPC|SyncRep|active|update t set note = 'D row holder' where id = 1
+  waiter|395|IPC|SyncRep|active|insert into t values (8, 'I sync waiter, client killed')
+[03:28:08.186] 단계 I-lock
+  Terminated
+  I-lock rc=143
+[03:28:15.315] 단계 waiters
+  waiter|186|IPC|SyncRep|active|insert into t values (2, 'A implicit, statement_timeout 1s')
+  waiter|210|IPC|SyncRep|active|commit
+  waiter|230|IPC|SyncRep|active|commit
+  waiter|252|IPC|SyncRep|active|update t set note = 'D row holder' where id = 1
+  waiter|395|IPC|SyncRep|active|insert into t values (8, 'I sync waiter, client killed')
+[03:28:15.437] 단계 rows
+  row|1|baseline async
+  row|5|E local commit
+  row|6|G cancel
+  row|7|H terminate
+  row|100|baseline sync
+[03:28:15.534] 대기 서버 재기동(docker start pg2)
+  patroni-probe-pg2
+[03:28:15.848] 확인: pg2 streaming 복귀
+[03:28:17.853] 단계 status
+  replication|s1|streaming|sync
+  settings|s1|on|f
+[03:28:17.982] 단계 waiters
+[03:28:18.110] 단계 rows
+  row|1|D row holder
+  row|2|A implicit, statement_timeout 1s
+  row|3|B explicit, statement_timeout 1s
+  row|4|C advisory holder
+  row|5|E local commit
+  row|6|G cancel
+  row|7|H terminate
+  row|8|I sync waiter, client killed
+  row|100|baseline sync
+[03:28:18.211] 단계 outputs
+  == /tmp/C-hold.out
+  BEGIN
+   pg_advisory_xact_lock 
+  -----------------------
+   
+  (1 row)
+  
+  INSERT 0 1
+  COMMIT
+  C-hold rc=0
+  == /tmp/D-hold.out
+  UPDATE 1
+  D-hold rc=0
+[03:28:18.312] 대기 서버의 행
+  standby-row|1|D row holder
+  standby-row|2|A implicit, statement_timeout 1s
+  standby-row|3|B explicit, statement_timeout 1s
+  standby-row|4|C advisory holder
+  standby-row|5|E local commit
+  standby-row|6|G cancel
+  standby-row|7|H terminate
+  standby-row|8|I sync waiter, client killed
+  standby-row|100|baseline sync
+[03:28:18.431] 정리(down -v --remove-orphans)
+   Container patroni-probe-pg2 Stopping 
+   Container patroni-probe-pg2 Stopped 
+   Container patroni-probe-pg2 Removing 
+   Container patroni-probe-pg2 Removed 
+   Container patroni-probe-pg1 Stopping 
+   Container patroni-probe-pg1 Stopped 
+   Container patroni-probe-pg1 Removing 
+   Container patroni-probe-pg1 Removed 
+   Network exchange-patroni_probe Removing 
+   Network exchange-patroni_probe Removed 
+[03:28:19.323] 남은 컨테이너(이름 patroni-)
+[03:28:19.361] 남은 볼륨(compose 프로젝트 라벨 exchange-patroni)
+[03:28:19.398] 남은 망(exchange-patroni)

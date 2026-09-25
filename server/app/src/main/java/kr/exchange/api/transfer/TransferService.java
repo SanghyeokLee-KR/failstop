@@ -3,6 +3,8 @@ package kr.exchange.api.transfer;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
+import kr.exchange.api.common.WriteGateFilter;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.journal.SqlErrors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,10 +47,17 @@ public class TransferService {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
+    // 쓰기 가능 상태(API 설계 §2-5-d). 탐지를 끈 노드는 늘 ACTIVE 다.
+    private volatile WriteAvailability writes = WriteAvailability.disabled();
 
     public TransferService(JdbcClient jdbc, TransactionTemplate tx) {
         this.jdbc = jdbc;
         this.tx = tx;
+    }
+
+    /** 쓰기 가능 상태를 붙인다. 생성자를 늘리지 않는 이유는 OrderGateway.attachWriteAvailability 와 같다. */
+    public void attachWriteAvailability(WriteAvailability availability) {
+        this.writes = availability;
     }
 
     /* ===== 요청 ===== */
@@ -58,6 +67,16 @@ public class TransferService {
      * 같은 멱등 키 재요청은 기존 행을 그대로 돌려준다(replayed=true).
      */
     public Result request(long userId, String direction, String asset, String amountRaw, String idemKey) {
+        return request(userId, direction, asset, amountRaw, idemKey, WriteGateFilter.NO_GATE);
+    }
+
+    /**
+     * @param gateGeneration 쓰기 게이트를 지날 때의 세대. 게이트를 지난 뒤 거래 일시 중단을 넘었으면 쓰지 않고 423 이다(DB 설계
+     *                       §5.4-d 6). 같은 Idempotency-Key 로 이미 커밋된 요청은 쓰지 않는 재생이라 세대와 무관하게 돌려준다
+     */
+    public Result request(long userId, String direction, String asset, String amountRaw, String idemKey,
+                          long gateGeneration) {
+        long generation = gateGeneration == WriteGateFilter.NO_GATE ? writes.generation() : gateGeneration;
         String dir = TransferInputs.direction(direction);
         int assetId = krwAssetId(TransferInputs.asset(asset));
         BigDecimal amount = TransferInputs.amount(amountRaw);
@@ -66,6 +85,9 @@ public class TransferService {
         Optional<Map<String, Object>> existing = findByIdem(userId, key);
         if (existing.isPresent()) {
             return new Result(view(existing.get()), true);
+        }
+        if (!writes.stillActive(generation)) {
+            throw WriteGateFilter.tradingSuspended(writes.view());
         }
         try {
             Map<String, Object> row = tx.execute(status -> insertAndSettle(userId, dir, assetId, amount, key));

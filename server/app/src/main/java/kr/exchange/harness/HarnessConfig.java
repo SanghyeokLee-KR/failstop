@@ -33,7 +33,8 @@ public class HarnessConfig {
 
     @Bean
     public InvariantScheduler invariantScheduler(InvariantVerifier invariantVerifier,
-                                                 kr.exchange.engine.PartitionLeases partitionLeases) {
-        return new InvariantScheduler(invariantVerifier, partitionLeases);
+                                                 kr.exchange.engine.PartitionLeases partitionLeases,
+                                                 kr.exchange.engine.WriteAvailability writeAvailability) {
+        return new InvariantScheduler(invariantVerifier, partitionLeases, writeAvailability);
     }
 }

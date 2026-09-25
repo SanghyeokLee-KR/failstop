@@ -1,0 +1,114 @@
+# Patroni 엄격 동기 구성의 경보(Patroni 설계 7-2). 사전 확인에서 promtool 로 고친 초안
+# (harness/evidence/patroni-sync-probe-20260925/alerts/patroni-alerts-draft.yml)에서 출발했다.
+# 경보는 발화만 하고 조치를 자동 실행하지 않는다. AI 운영 보고는 이 경보를 요약만 하고 DB 승격·전환을 하지 않는다(ADR 0036).
+#
+# 이 파일은 Patroni 스택 전용이다. harness/prometheus/rules 에 두면 Patroni 가 없는 카오스 스택에서 PatroniPrimaryAbsent 와
+# EtcdQuorumLost 가 늘 발화한다.
+groups:
+  - name: patroni
+    rules:
+      - alert: PatroniSyncStandbyMissing
+        expr: max(patroni_primary) == 1 and sum(patroni_sync_standby) == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: 동기 Standby 없음. 엄격 모드라 커밋이 확인되지 않아 거래가 멈춘다
+          description: >-
+            Standby 를 되살리거나 새 멤버를 붙이면 자동 재개된다(설계 9-5). 비상 비동기 전환은 사람의 결정이다.
+
+      - alert: PatroniPrimaryAbsent
+        # 시계열이 아예 없어도(모든 Patroni REST 불통) 발화한다.
+        expr: (sum(patroni_primary) or vector(0)) == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: Patroni Primary 없음. 조회와 쓰기 모두 멈춘다
+
+      - alert: PatroniMultiplePrimaries
+        expr: sum(patroni_primary) > 1
+        labels:
+          severity: critical
+        annotations:
+          summary: Primary 가 둘 이상으로 보인다
+          description: >-
+            엄격 동기 두 노드에서는 두 노드가 같은 구간에 확인 커밋을 가질 수 없다(설계 3-5). 옛 Primary 가 DCS 를
+            retry_timeout 넘게 못 보고 강등하기 전의 짧은 겹침인지 먼저 본다.
+
+      - alert: PatroniFailoverOccurred
+        # 집계식에는 범위 선택자를 붙일 수 없어 하위 질의로 쓴다.
+        expr: changes(max(patroni_postgres_timeline)[5m:15s]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: DB 타임라인이 올랐다(자동 전환이나 계획 전환)
+
+      - alert: PatroniFailsafeActive
+        expr: max(patroni_failsafe_mode_is_active) == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: etcd 과반 없이 failsafe 로 Primary 를 유지하는 중. 새 선출은 일어나지 않는다
+
+      - alert: EtcdMemberDown
+        expr: up{job="etcd"} == 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: etcd 멤버 하나가 응답하지 않는다. 한 표만 더 잃으면 과반을 잃는다
+
+      - alert: EtcdQuorumLost
+        # 세 멤버가 모두 죽어 count 가 빈 벡터여도 발화한다.
+        expr: (count(up{job="etcd"} == 1) or vector(0)) < 2 or max(etcd_server_has_leader) == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: etcd 과반 상실. 리더 키를 갱신하지 못하고 새 선출이 없다
+
+      - alert: EtcdLeaderChangesFrequent
+        expr: increase(etcd_server_leader_changes_seen_total[10m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: etcd 리더가 자주 바뀐다(자원 부족·fsync 지연 의심). 시간 판정 회차는 무효다(설계 8-1)
+
+      - alert: HAProxyPrimaryBackendMissing
+        expr: haproxy_backend_active_servers{proxy="pg_write"} == 0
+        for: 5s
+        labels:
+          severity: critical
+        annotations:
+          summary: 앱 노드 HAProxy 에 살아 있는 Primary 백엔드가 없다
+
+      - alert: TradingSuspended
+        expr: max(exchange_write_availability_state{state!="ACTIVE"}) == 1
+        for: 5s
+        labels:
+          severity: critical
+        annotations:
+          summary: 거래 일시 중단(쓰기 가능 상태가 ACTIVE 아님)
+          description: >-
+            Primary 에서 SyncRep 을 기다리는 백엔드를 pg_cancel_backend·pg_terminate_backend 로 취소·종료하지 않는다.
+            취소는 복제되지 않은 커밋을 성공으로 돌려준다(설계 4-2). Standby 가 돌아오면 사람 조작 없이 재개된다.
+
+      - alert: NonMemberWalSender
+        expr: max(pg_nonmember_walsenders_count) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Patroni 멤버가 아닌 복제 연결이 flush 위치를 보고한다
+          description: >-
+            synchronous_standby_names 가 '*' 인 동안 이 연결은 동기 대기 서버가 되어 한 사본만으로 커밋을 확인해 준다
+            (설계 3-2). 백업은 --no-slot 으로 받거나 Standby 에서 받는다.
+
+      - alert: SyncRepWaitersWhileActive
+        # 탐지 백엔드를 뺀 커밋 대기가 있는데 모든 앱 노드가 ACTIVE 라고 한다. 탐지 임계가 너무 높거나 풀리지 않는 대기다.
+        expr: max(pg_syncrep_waiters_count) > 0 and on() min(exchange_write_availability_state{state="ACTIVE"}) == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: 커밋 대기가 있는데 탐지기는 모두 ACTIVE 라고 한다

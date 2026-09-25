@@ -1,6 +1,7 @@
 package kr.exchange.harness;
 
 import kr.exchange.engine.PartitionLeases;
+import kr.exchange.engine.WriteAvailability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,10 +19,12 @@ public class InvariantScheduler {
 
     private final InvariantVerifier verifier;
     private final PartitionLeases leases;
+    private final WriteAvailability writeAvailability;
 
-    public InvariantScheduler(InvariantVerifier verifier, PartitionLeases leases) {
+    public InvariantScheduler(InvariantVerifier verifier, PartitionLeases leases, WriteAvailability writeAvailability) {
         this.verifier = verifier;
         this.leases = leases;
+        this.writeAvailability = writeAvailability;
     }
 
     @Scheduled(
@@ -30,6 +33,10 @@ public class InvariantScheduler {
     public void tick() {
         if (!leases.first().isLeader()) {
             // 첫 파티션을 쥐지 않은 노드는 스캔하지 않는다. 그 소유자 1개 노드만 전량 집계를 돌려 중복을 없앤다.
+            return;
+        }
+        if (!writeAvailability.isActive()) {
+            // 거래 일시 중단 동안에는 결과 기록이 커밋 대기에 걸려 스케줄러 스레드를 재개까지 묶는다(DB 설계 §5.4-d 6).
             return;
         }
         try {

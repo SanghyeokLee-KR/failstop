@@ -53,12 +53,13 @@ const DUPLICATE_KEY_CODE = "duplicate_client_order_id";
 
 /**
  * 4xx 거부는 게이트웨이 선차단이거나 저널 REJECTED 박제라 다음 제출은 새 키가 안전하다(§2-4).
- * 키를 보존하는 예외는 상태 UNKNOWN(5xx·타임아웃·네트워크 0), 409 order_in_progress·requery_deferred, 429뿐이다(§7-6).
+ * 키를 보존하는 예외는 상태 UNKNOWN(5xx·타임아웃·네트워크 0), 409 order_in_progress·requery_deferred, 429,
+ * 423 trading_suspended다(§7-6, §2-5-d). 423 은 이 시도만 쓰지 않았다는 뜻이라 앞선 시도가 재개 뒤 커밋될 수 있다.
  * 코드 미상 409는 보존 쪽으로 판단한다. 미확정 주문에 새 키를 발급하면 이중접수가 된다.
  */
 export function isFinalRejectStatus(status: number, code?: string): boolean {
   if (status < 400 || status >= 500) return false;
-  if (status === 429) return false;
+  if (status === 429 || status === 423) return false;
   if (status === 409) return code === DUPLICATE_KEY_CODE;
   return true;
 }

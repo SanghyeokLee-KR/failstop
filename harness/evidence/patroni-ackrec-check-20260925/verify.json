@@ -1,0 +1,29 @@
+{
+  "acked": 4192,
+  "failed": 0,
+  "failed_present": [],
+  "failed_present_count": 0,
+  "interleaved": {
+    "returned_to": [],
+    "server_order": [
+      "172.19.0.2/32"
+    ]
+  },
+  "missing": [],
+  "missing_count": 0,
+  "never_attempted_present": [],
+  "overlap": {
+    "overlaps": [],
+    "spans": {
+      "172.19.0.2/32": [
+        1790320007.902,
+        1790320037.902
+      ]
+    }
+  },
+  "pass": true,
+  "present": 4200,
+  "server": "172.19.0.2/32",
+  "unknown": 12,
+  "unknown_present": 8
+}

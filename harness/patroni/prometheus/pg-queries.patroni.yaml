@@ -1,0 +1,25 @@
+# Patroni 스택 전용 postgres_exporter 확장 질의(Patroni 설계 7-1). 카오스 스택의 harness/prometheus/pg-queries.yaml 과
+# 나눈다. 멤버 이름이 환경마다 다르고, 카오스 스택의 수집 지표를 바꾸지 않기 위해서다. 수집기 계정은 pg_monitor 라
+# pg_stat_activity·pg_stat_replication 의 모든 행을 본다. 지표 이름은 <질의 이름>_<열 이름>이다.
+
+# 탐지 백엔드를 뺀 동기 복제 커밋 대기. 탐지 백엔드는 중단 동안 늘 하나 남으므로 빼야 뜻이 있다.
+pg_syncrep_waiters:
+  query: |
+    SELECT count(*) AS count FROM pg_stat_activity
+    WHERE wait_event = 'SyncRep' AND application_name <> 'exchange-write-probe'
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "탐지 백엔드를 뺀 동기 복제 커밋 대기 백엔드 수"
+
+# 멤버가 아니면서 flush 위치를 보고하는 복제 연결. '*' 아래에서는 이름과 무관하게 동기 대기 서버가 되어 한 사본만으로
+# 커밋을 확인해 준다(사전 확인 P·M). --no-slot 베이스백업 스트림은 flush 를 보고하지 않아 세지 않는다(사전 확인 N).
+# 그래서 재초기화의 베이스백업은 이 경보를 울리지 않는다.
+pg_nonmember_walsenders:
+  query: |
+    SELECT count(*) AS count FROM pg_stat_replication
+    WHERE application_name <> ALL (ARRAY['patroni-db-1', 'patroni-db-2']) AND flush_lsn IS NOT NULL
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "Patroni 멤버가 아니면서 flush 위치를 보고하는 복제 연결 수"

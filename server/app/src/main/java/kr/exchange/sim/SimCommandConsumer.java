@@ -1,5 +1,6 @@
 package kr.exchange.sim;
 
+import kr.exchange.engine.WriteAvailability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -30,13 +31,15 @@ public class SimCommandConsumer {
     private final OpsGovernor governor;
     private final BotFleetGovernor fleet;
     private final String nodeId;
+    private final WriteAvailability writeAvailability;
 
     public SimCommandConsumer(JdbcClient jdbc, OpsGovernor governor, BotFleetGovernor fleet,
-                              String nodeId) {
+                              String nodeId, WriteAvailability writeAvailability) {
         this.jdbc = jdbc;
         this.governor = governor;
         this.fleet = fleet;
         this.nodeId = nodeId;
+        this.writeAvailability = writeAvailability;
     }
 
     /**
@@ -45,6 +48,10 @@ public class SimCommandConsumer {
      */
     @Scheduled(fixedDelayString = "${exchange.sim.command-poll-ms:1000}")
     public void poll() {
+        if (!writeAvailability.isActive()) {
+            // 점유는 UPDATE 라 거래 일시 중단 동안 커밋 대기에 걸린다. 지시는 재개 뒤 다음 주기에 집는다(DB 설계 §5.4-d 6).
+            return;
+        }
         while (claimAndApply()) {
             // 큐가 밀렸으면 한 주기에 몰아 처리한다. 프리셋 전환이 연달아 들어오면
             // 마지막 것이 최종 상태여야 하므로 남겨두고 다음 주기를 기다리지 않는다.

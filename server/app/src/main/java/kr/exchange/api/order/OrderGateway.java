@@ -3,6 +3,7 @@ package kr.exchange.api.order;
 import com.fasterxml.jackson.databind.JsonNode;
 import kr.exchange.api.auth.CanonicalRequests;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.WriteGateFilter;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.CancelAllResponse;
 import kr.exchange.engine.EngineBridge;
@@ -10,6 +11,7 @@ import kr.exchange.engine.NotLeaderException;
 import kr.exchange.ledger.ProjectionSignal;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandDraft;
@@ -100,6 +102,8 @@ public class OrderGateway {
     private volatile kr.exchange.engine.PartitionPlan partitionPlan;
     // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
     private ProjectionSignal signal;
+    // 쓰기 가능 상태(API 설계 §2-5-d). 탐지를 끈 노드는 늘 ACTIVE 라 세대 대조와 확정 응답 규칙이 종전 동작과 같다.
+    private volatile WriteAvailability writes = WriteAvailability.disabled();
 
     public OrderGateway(JdbcClient jdbc, EngineBridge bridge, MarketDirectory markets,
                         OrderQueryService orders) {
@@ -188,6 +192,14 @@ public class OrderGateway {
         this.partitionPlan = plan;
     }
 
+    /**
+     * 쓰기 가능 상태를 붙인다(API 설계 §2-5-d). 붙이면 세대 재확인, by-client 재조회의 409 규칙, V47 커밋 회수의 201 보류가 이
+     * 상태를 따른다. 생성자를 늘리지 않는 이유는 프로젝션 신호와 같다.
+     */
+    public void attachWriteAvailability(WriteAvailability availability) {
+        this.writes = availability;
+    }
+
     /** in-flight 예약 락 획득 대기 누적 나노초. */
     public long inflightLockWaitNanos() {
         return inflight.lockWaitNanos();
@@ -199,6 +211,15 @@ public class OrderGateway {
     }
 
     public Placement place(long userId, JsonNode body, byte[] rawBody) {
+        return place(userId, body, rawBody, WriteGateFilter.NO_GATE);
+    }
+
+    /**
+     * @param gateGeneration 쓰기 게이트를 지날 때의 세대(WriteGateFilter.gateGeneration). 게이트를 지나지 않은 호출은 NO_GATE 이고
+     *                       이 메서드에 들어온 때의 세대를 쓴다
+     */
+    public Placement place(long userId, JsonNode body, byte[] rawBody, long gateGeneration) {
+        long generation = gateGeneration == WriteGateFilter.NO_GATE ? writes.generation() : gateGeneration;
         String clientOrderId = text(body, "client_order_id");
         if (clientOrderId == null || clientOrderId.isBlank()) {
             throw new ApiException(400, "client_order_id_required", "client_order_id는 필수입니다.");
@@ -279,6 +300,8 @@ public class OrderGateway {
         boolean discardKey = false;
         // append 예외 뒤 V47 판정을 이미 불렀다. finally 가 키를 다시 정리하지 않는다.
         boolean keyResolved = false;
+        // 게이트를 지난 뒤 거래 일시 중단을 넘어 append 하지 않았다. 넣은 키를 남긴다(API 설계 §2-5-d).
+        boolean crossedSuspension = false;
         // append 예외 뒤 커밋 여부를 끝내 확인하지 못했다. 예약을 바로 풀지 않는다.
         boolean outcomeUnknown = false;
         OrderQueryService.OrderRow row = null;
@@ -328,6 +351,13 @@ public class OrderGateway {
                     parsed.price(), parsed.quantity(), parsed.quoteOrderQty(),
                     UUID.randomUUID(), market.makerFeeRate(), market.takerFeeRate(),
                     new ReserveCheck(reserveAsset, required));
+            if (!writes.stillActive(generation)) {
+                // 멱등 키 INSERT 가 커밋 대기에 걸렸다 재개 뒤 풀렸을 수 있다. 중단 동안 재조회에서 '저널에 없음'을 본 클라이언트의
+                // 주문이 몇 분 뒤 몰래 접수되지 않게 append 하지 않는다. 키는 남긴다. 같은 내용의 재전송은 해시 대조를 지나 새 접수가
+                // 된다(§2-4 고아 해시).
+                crossedSuspension = true;
+                throw WriteGateFilter.tradingSuspended(writes.view());
+            }
             SubmitResult result;
             try {
                 result = bridge.submit(intake);
@@ -362,6 +392,12 @@ public class OrderGateway {
                                 + "user_id={}, client_order_id={}, seq={}, 원인={}",
                         userId, clientOrderId, resolution.seq(), e.toString());
                 bridge.requestCatchUp(resolution.marketId(), resolution.seq());
+                if (!writes.definitiveAllowed()) {
+                    // 크래시 재시작 뒤에는 커밋을 기다리던 NEW 가 복제 없이 보인다. 그 행을 근거로 201 을 내면 복제되지 않은 접수에
+                    // 확인이 나간다. 따라잡기 요청은 그대로 하고 확정만 미룬다(API 설계 §2-5-d 확정 응답 보류).
+                    writes.recordDeferred("v47");
+                    throw new ApiException(409, "order_in_progress", "주문 처리 중. 재조회 필요", null, 1);
+                }
             }
             if (guarded && result.reserved()) {
                 // P1 로 뜬 노드가 P2 DB 에서 돈다(전환 뒤 재기동하지 않음). 자금은 DB 가 저널과 함께 예약했으므로 in-flight 몫을
@@ -417,7 +453,7 @@ public class OrderGateway {
                 // 저널에는 있으나 내용 대조가 불가해 재사용으로 거절한 경우다. 이번 요청 해시가 남으면 다음
                 // 재시도가 그 해시로 대조에 성공해 거절이 무력화된다.
                 deleteOrphanKey(userId, clientOrderId, requestHash);
-            } else if (insertedKey && !journaled && !keyResolved) {
+            } else if (insertedKey && !journaled && !keyResolved && !crossedSuspension) {
                 // submit 에 닿기 전에 끝났다(채번 실패 등). 저널에 닿지 않았으므로 넣은 키를 V47 판정으로 정리해
                 // 다음 재시도가 잔고 가드를 다시 받게 한다. 정리 실패해도 재시도 경로의 command_journal 실재
                 // 확인이 backstop이라 가드 무력화로 이어지지 않는다.
@@ -803,6 +839,12 @@ public class OrderGateway {
     }
 
     public Placement cancel(long userId, UUID externalId) {
+        return cancel(userId, externalId, WriteGateFilter.NO_GATE);
+    }
+
+    /** @param gateGeneration place 와 같다 */
+    public Placement cancel(long userId, UUID externalId, long gateGeneration) {
+        long generation = gateGeneration == WriteGateFilter.NO_GATE ? writes.generation() : gateGeneration;
         OrderQueryService.OrderRow row = orders.byExternalId(externalId)
                 .filter(r -> r.userId() == userId)
                 .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
@@ -815,6 +857,9 @@ public class OrderGateway {
                 market.id(), CommandDraft.CommandType.CANCEL, userId, null, row.id(),
                 System.currentTimeMillis(), nextOrderId(),
                 null, null, null, null, null, null, null, null, null);
+        if (!writes.stillActive(generation)) {
+            throw WriteGateFilter.tradingSuspended(writes.view());
+        }
         SubmitResult result = submit(intake);
 
         OrderQueryService.OrderRow settled = awaitRow(() ->
@@ -826,11 +871,40 @@ public class OrderGateway {
         return new Placement(settled, false, result.epoch());
     }
 
+    /**
+     * by-client 재조회(API 설계 §4-B-4 (a)). 판정의 권위는 저널이다. 쓰기 가능 상태가 ACTIVE 가 아니거나 재개 뒤 유예 기간이면,
+     * 저장된 멱등 키가 있는데 저널에 NEW 가 없을 때 404 대신 409 다. 커밋을 기다리는 append 는 저널에 보이지 않아 404 가 거짓 미접수가
+     * 된다. ACTIVE 가 아니거나 재확인 전이면 저널에 NEW 가 보여도 확정하지 않는다. 크래시 재시작 뒤에는 복제되지 않은 NEW 가 보인다
+     * (API 설계 §2-5-d 재조회·확정 응답 보류).
+     */
+    public OrderQueryService.OrderRow requery(long userId, String clientOrderId) {
+        if (!orders.commandJournaled(userId, clientOrderId)) {
+            if (writes.requeryGuarded() && storedRequestHash(userId, clientOrderId).isPresent()) {
+                writes.recordDeferred("requery");
+                throw new ApiException(409, "order_in_progress", "주문 결과 확인 중. 재조회 필요", null, 1);
+            }
+            // 저널에 없음 = 미접수. 클라이언트는 안전 재전송이 가능하다.
+            throw new ApiException(404, "order_not_found", "접수된 주문 없음");
+        }
+        if (!writes.definitiveAllowed()) {
+            writes.recordDeferred("requery");
+            throw new ApiException(409, "order_in_progress", "주문 결과 확인 중. 재조회 필요", null, 1);
+        }
+        return orders.byClientOrderId(userId, clientOrderId)
+                .orElseThrow(() -> new ApiException(409, "order_in_progress",
+                        "저널에는 있으나 프로젝션 미반영. 재조회 필요", null, 1));
+    }
+
     /** by-client 취소(§4-B-2). 프로젝션 미반영은 저널 권위로 404·409를 가른다(§4-B-4-a). */
     public Placement cancelByClient(long userId, String clientOrderId) {
+        return cancelByClient(userId, clientOrderId, WriteGateFilter.NO_GATE);
+    }
+
+    /** @param gateGeneration place 와 같다 */
+    public Placement cancelByClient(long userId, String clientOrderId, long gateGeneration) {
         Optional<OrderQueryService.OrderRow> row = orders.byClientOrderId(userId, clientOrderId);
         if (row.isPresent()) {
-            return cancel(userId, row.get().externalId());
+            return cancel(userId, row.get().externalId(), gateGeneration);
         }
         if (!orders.commandJournaled(userId, clientOrderId)) {
             throw new ApiException(404, "order_not_found", "주문 없음");
@@ -873,6 +947,12 @@ public class OrderGateway {
 
     /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
     public BulkCancelResult cancelAll(long userId, String market) {
+        return cancelAll(userId, market, WriteGateFilter.NO_GATE);
+    }
+
+    /** @param gateGeneration place 와 같다. 중단을 넘은 원소는 trading_suspended 로 남고 미완료로 센다 */
+    public BulkCancelResult cancelAll(long userId, String market, long gateGeneration) {
+        long generation = gateGeneration == WriteGateFilter.NO_GATE ? writes.generation() : gateGeneration;
         List<String> canceled = new ArrayList<>();
         List<CancelAllResponse.Failure> failed = new ArrayList<>();
         int unsubmitted = 0;
@@ -882,7 +962,7 @@ public class OrderGateway {
         for (int i = 0; i < open.size(); i++) {
             UUID externalId = open.get(i);
             try {
-                Placement placement = cancel(userId, externalId);
+                Placement placement = cancel(userId, externalId, generation);
                 if ("CANCELED".equals(placement.row().status())) {
                     canceled.add(externalId.toString());
                 } else {
@@ -907,7 +987,8 @@ public class OrderGateway {
                 }
                 String reason = failureReason(e);
                 failed.add(new CancelAllResponse.Failure(externalId.toString(), reason));
-                if (e.status() == 503) {
+                if (e.status() == 503 || e.status() == 423) {
+                    // 423 은 거래 일시 중단으로 저널에 닿지 않은 취소다. 주문이 열려 있어 재개 뒤 다시 불러야 한다.
                     unsubmitted++;
                 } else if (isMarketContention(e)) {
                     contended++;

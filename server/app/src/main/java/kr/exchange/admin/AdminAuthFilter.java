@@ -7,12 +7,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.engine.WriteAvailability;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * /admin/v1 전용 인증 필터. 고객 평면(/api) 필터와 URL·순서로 분리된다.
@@ -39,16 +41,37 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     // 노드 로컬 구현이라 다중 노드 실효 한도는 노드 수 배수다(AccountRateLimiter 제약 주석 참조).
     private static final int ADMIN_WEIGHT = 10;
     private final AccountRateLimiter rateLimiter;
+    private final WriteAvailability writeAvailability;
+    private final LongAdder skippedAudits = new LongAdder();
 
     public AdminAuthFilter(AdminMtlsResolver mtlsResolver, AdminSessionService sessions,
                            AdminOperatorDirectory operators, AdminAuditService audit,
-                           ErrorRenderer errorRenderer, int rateCapacity, long rateWindowMs) {
+                           ErrorRenderer errorRenderer, int rateCapacity, long rateWindowMs,
+                           WriteAvailability writeAvailability) {
         this.mtlsResolver = mtlsResolver;
         this.sessions = sessions;
         this.operators = operators;
         this.audit = audit;
         this.errorRenderer = errorRenderer;
         this.rateLimiter = new AccountRateLimiter(rateCapacity, rateWindowMs, "admin", "admin");
+        this.writeAvailability = writeAvailability;
+    }
+
+    /** 거래 일시 중단으로 적재하지 않은 감사 행 수. */
+    public long skippedAudits() {
+        return skippedAudits.sum();
+    }
+
+    /**
+     * 감사 적재를 해도 되는가(DB 설계 §5.4-d 6). 거래 일시 중단 동안 적재는 커밋 대기에 걸려 조회 요청까지 재개까지 멈춘다. 그때
+     * 이 필터에 닿는 것은 조회뿐이다(변경은 쓰기 게이트가 423 으로 먼저 거절한다). 건너뛴 수는 지표로 남긴다.
+     */
+    private boolean auditWritable() {
+        if (writeAvailability.isActive()) {
+            return true;
+        }
+        skippedAudits.increment();
+        return false;
     }
 
     @Override
@@ -98,8 +121,10 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             // 예외로 전파되지 않는다. 응답 상태에서 result를 파생해 거부를 OK로 오라벨하지 않는다.
             int status = response.getStatus();
             try {
-                audit.record(operatorId, action, request.getRequestURI(), requestId, null,
-                        resultForStatus(status), Map.of("status", status));
+                if (auditWritable()) {
+                    audit.record(operatorId, action, request.getRequestURI(), requestId, null,
+                            resultForStatus(status), Map.of("status", status));
+                }
             } catch (RuntimeException ignored) {
                 // 변이는 이미 커밋됐다. 감사 적재 실패가 응답을 삼키지 않게 한다(거부 경로와 동일).
             }
@@ -111,6 +136,9 @@ public class AdminAuthFilter extends OncePerRequestFilter {
 
     private void recordDenied(String operatorId, String action, String target, String requestId,
                               ApiException e) {
+        if (!auditWritable()) {
+            return;
+        }
         try {
             audit.record(operatorId, action, target, requestId,
                     null, e.status() >= 500 ? "ERROR" : "DENIED",

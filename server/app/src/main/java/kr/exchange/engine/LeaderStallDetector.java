@@ -49,6 +49,9 @@ public final class LeaderStallDetector implements NodeServiceHealth {
     private long lastAttempts;
     private long lastCompletions;
     private long lastExcluded;
+    // 쓰기 가능 상태(DB 설계 §5.4-d 5). null 이면 판정을 멈추지 않는다. 판정이 마지막으로 본 SUSPENDED 진입 수와 짝이다.
+    private WriteAvailability writeAvailability;
+    private long seenSuspensions;
     private long windowDemand;
     private long windowCompletions;
     private boolean stalled;
@@ -139,9 +142,30 @@ public final class LeaderStallDetector implements NodeServiceHealth {
         resetWindow();
     }
 
+    /**
+     * 쓰기 가능 상태가 SUSPENDED 인 동안 판정을 멈추고, SUSPENDED 를 지난 뒤 첫 판정에서 승격 경계처럼 창을 다시 세운다(DB 설계
+     * §5.4-d 5). SUSPENDED 는 DB 가 모든 노드의 쓰기를 확인하지 않는 상태라 리더를 바꿔도 풀리지 않는다. UNREACHABLE 과 확인 없는
+     * 느림에서는 멈추지 않는다. 이 노드만의 문제일 수 있어 리더가 물러나야 다른 노드가 이어받는다.
+     */
+    public synchronized void pauseWhileSuspended(WriteAvailability availability) {
+        this.writeAvailability = availability;
+        this.seenSuspensions = availability.suspensions();
+    }
+
     @Override
     public synchronized boolean serviceable() {
         try {
+            if (writeAvailability != null) {
+                if (writeAvailability.isSuspended()) {
+                    // 표본을 쌓지 않고 hold 시계도 보지 않는다. 창은 재개 뒤 다시 세운다.
+                    return true;
+                }
+                long suspensions = writeAvailability.suspensions();
+                if (suspensions != seenSuspensions) {
+                    seenSuspensions = suspensions;
+                    onLeadershipGained();
+                }
+            }
             return evaluate();
         } catch (RuntimeException e) {
             // 판정 입력이 인메모리 카운터뿐이라 여기 오지 않아야 정상이다. 그래도 예외를 흘리면

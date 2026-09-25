@@ -1,13 +1,18 @@
 package kr.exchange.sim;
 
 import kr.exchange.api.auth.DemoKeySeeder;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.ledger.AccountBootstrap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.simple.JdbcClient;
+
+import java.time.Duration;
 
 /**
  * 봇 플릿 배선. bots 프로파일에서만 활성화되어 거래소 본체와 분리 기동이 가능하다.
@@ -21,6 +26,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @org.springframework.scheduling.annotation.EnableScheduling
 @EnableConfigurationProperties(SimProperties.class)
 public class SimConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SimConfig.class);
+    private static final Duration FLEET_START_LOG_EVERY = Duration.ofSeconds(30);
 
     // 명령 적용자와 상태 발행자가 같은 값을 써야 콘솔이 둘을 한 노드로 읽는다.
     private static final String NODE_ID =
@@ -48,8 +56,9 @@ public class SimConfig {
      */
     @Bean
     public SimCommandConsumer simCommandConsumer(JdbcClient jdbc, OpsGovernor governor,
-                                                 BotFleetGovernor fleetGovernor) {
-        return new SimCommandConsumer(jdbc, governor, fleetGovernor, NODE_ID);
+                                                 BotFleetGovernor fleetGovernor,
+                                                 kr.exchange.engine.WriteAvailability writeAvailability) {
+        return new SimCommandConsumer(jdbc, governor, fleetGovernor, NODE_ID, writeAvailability);
     }
 
     /**
@@ -59,8 +68,10 @@ public class SimConfig {
     @Bean
     public SimStateReporter simStateReporter(JdbcClient jdbc, OpsGovernor governor,
                                              BotFleetGovernor fleetGovernor, BotFleet fleet,
-                                             com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-        return new SimStateReporter(jdbc, governor, fleetGovernor, fleet, objectMapper, NODE_ID);
+                                             com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+                                             kr.exchange.engine.WriteAvailability writeAvailability) {
+        return new SimStateReporter(jdbc, governor, fleetGovernor, fleet, objectMapper, NODE_ID,
+                writeAvailability);
     }
 
     @Bean
@@ -71,10 +82,20 @@ public class SimConfig {
     }
 
     @Bean
-    public SmartLifecycle botFleetLifecycle(BotFleet fleet) {
+    public SmartLifecycle botFleetLifecycle(BotFleet fleet, WriteAvailability writes) {
         return new SmartLifecycle() {
             @Override
             public void start() {
+                // 플릿 기동은 봇 계정 시드와 키 발급으로 기동마다 쓴다(BotSeeder). 거래 일시 중단 동안 재기동하면 그 쓰기가 커밋
+                // 대기에 걸리므로 재개를 먼저 본다(Patroni 설계 12절 '기동 중 쓰기'). 이 노드는 봇만 돌리므로 기다려도 잃는 조회가 없다.
+                try {
+                    while (!writes.awaitActive(FLEET_START_LOG_EVERY)) {
+                        log.warn("봇 플릿 기동이 쓰기 재개를 기다린다: {}", writes.view().state());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
                 fleet.start();
             }
 

@@ -1,0 +1,290 @@
+{
+  "scenario": "E-P5",
+  "run_id": "EP5-20260925-142512",
+  "verdict": "PASS",
+  "times": {
+    "T0": 1790346388.773,
+    "T_back": 1790346449.408,
+    "T_suspend": 1790346393.146,
+    "T_resume": 1790346455.158,
+    "T_promote": 1790346411.755,
+    "T_sync": 1790346456.493,
+    "T_down": 1790346391.154,
+    "T_reads": 1790346414.524,
+    "T5": 1790346456.336,
+    "T_first_trade_after_resume": 1790346456.336,
+    "T_sync_lost": 1790346411.755
+  },
+  "derived": {
+    "db_failover_s": 22.982,
+    "read_recovery_s": 25.751,
+    "resume_delay_s": -1.335,
+    "trade_resume_delay_s": -0.157,
+    "suspend_detect_s": 4.373,
+    "haproxy_down_s": 2.381
+  },
+  "axes": [
+    {
+      "id": "promote_s",
+      "value": 22.982,
+      "limit": "<= 30",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "reads_after_promote_s",
+      "value": 2.769,
+      "limit": "<= 10",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "resume_after_sync_s",
+      "value": -1.335,
+      "limit": "<= 5",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "t5_after_sync_s",
+      "value": -0.157,
+      "limit": "<= 30",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "app_epoch_increase",
+      "value": 1,
+      "limit": "== 1",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_fencing_rejections",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_demotions",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "lease_acquire_expired",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "검토 R5"
+    },
+    {
+      "id": "confirmed_writes_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "멤버 walsender 시작 1790346452.671(승격 뒤 40.92초), 스레드별 새 Primary 시도 {1: True, 2: True, 3: True, 4: True}"
+    },
+    {
+      "id": "status_reports_suspension",
+      "value": true,
+      "limit": "true",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "rejoin_nodes_consistent",
+      "value": true,
+      "limit": "== True",
+      "pass": true,
+      "time_axis": false,
+      "note": "E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 rewind)"
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    },
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    },
+    {
+      "id": "duplicate_coid_orders",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "withdraw_rows_per_request",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "요청 하나(Idempotency-Key)에 출금 행 둘 이상인 수"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5421,
+    "post_resume_acked_30s": 5441,
+    "last_alive": {
+      "1": 1790346546.46,
+      "2": 1790346546.46,
+      "3": 1790346546.46,
+      "4": 1790346546.46
+    },
+    "not_acked_reasons": {
+      "unknown: connection_lost: consuming input failed:": 4
+    },
+    "verify": {
+      "acked": 24115,
+      "failed": 0,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "10.159.1.10/32",
+          "10.159.1.9/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "10.159.1.10/32": [
+            1790346350.048,
+            1790346388.821
+          ],
+          "10.159.1.9/32": [
+            1790346452.68,
+            1790346546.994
+          ]
+        }
+      },
+      "pass": true,
+      "present": 24115,
+      "server": "10.159.1.9/32",
+      "unknown": 4,
+      "unknown_present": 0
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": false,
+    "reasons": [],
+    "unknown_sources": []
+  },
+  "extra": {
+    "acked_between_promote_and_cluster_sync": 696,
+    "nonmember_walsenders": [],
+    "withdraw": {
+      "requests": 229,
+      "uncertain_keys": 62,
+      "resent_same_key": 62,
+      "pending_at_end": [],
+      "unresolved": []
+    },
+    "k6": {
+      "log_sha256": "bde776693a018efc06898fe360383480749e541298da2825622eb9f4b9c34c0f",
+      "ack_lines": 1110
+    },
+    "pool_max": {
+      "api-1": {
+        "active": {
+          "HikariPool-1": 5.0,
+          "exchange-append": 1.0,
+          "exchange-lease": 1.0
+        },
+        "inflight": {
+          "order": 9.0,
+          "query": 2.0,
+          "requery": 0,
+          "ws": 1.0
+        }
+      },
+      "api-2": {
+        "active": {
+          "HikariPool-1": 6.0,
+          "exchange-lease": 0,
+          "exchange-append": 2.0
+        },
+        "inflight": {
+          "order": 12.0,
+          "query": 12.0,
+          "requery": 3.0,
+          "ws": 1.0
+        }
+      }
+    },
+    "v47": {
+      "commit_recovered": 0.0,
+      "unresolved": 0.0,
+      "unavailable": 0.0
+    },
+    "definitive_deferred": 0.0
+  }
+}

@@ -1,0 +1,8 @@
+# 설계 첫 판 7-2의 PatroniFailoverOccurred 식을 그대로 옮긴 것이다. promtool check rules 가 거부하는지 본다.
+groups:
+  - name: patroni-original-failover
+    rules:
+      - alert: PatroniFailoverOccurred
+        expr: changes(max(patroni_postgres_timeline)[5m]) > 0
+        labels:
+          severity: warning

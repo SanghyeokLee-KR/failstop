@@ -1,0 +1,90 @@
+[03:29:29.742] 기동
+   Network exchange-patroni_probe Creating 
+   Network exchange-patroni_probe Created 
+   Container patroni-probe-pg1 Creating 
+   Container patroni-probe-pg1 Created 
+   Container patroni-probe-pg2 Creating 
+   Container patroni-probe-pg2 Created 
+   Container patroni-probe-pg1 Starting 
+   Container patroni-probe-pg1 Started 
+   Container patroni-probe-pg2 Starting 
+   Container patroni-probe-pg2 Started 
+[03:29:31.126] 확인: pg1 연결 수용
+[03:29:33.136] 확인: pg2 streaming
+[03:29:33.137] 단계 version
+  PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+[03:29:33.241] 단계 setup
+  CREATE TABLE
+  INSERT 0 1
+[03:29:33.356] 단계 J-role
+  CREATE ROLE
+  J-priv|t
+[03:29:33.488] 단계 sync-on
+  ALTER SYSTEM
+[03:29:33.595] 단계 reload
+  t
+[03:29:33.847] 확인: s1 동기 대기 서버
+[03:29:33.847] 단계 status
+  replication|s1|streaming|sync
+  settings|s1|on|f
+[03:29:33.955] 대기 서버가 있을 때의 탐지 후보
+[03:29:33.955] 단계 J-super
+  BEGIN
+  t
+  COMMIT
+  J-super rc=0 elapsed=0.01s
+[03:29:34.071] 단계 J-app
+  BEGIN
+  t
+  COMMIT
+  J-app rc=0 elapsed=0.01s
+[03:29:34.187] 대기 서버 정지(docker stop pg2)
+  patroni-probe-pg2
+[03:29:36.397] 단계 status
+  settings|s1|on|f
+[03:29:36.506] 단계 J-super
+  BEGIN
+  t
+  Terminated
+  J-super rc=143 elapsed=5.00s
+[03:29:41.624] 단계 J-app
+  BEGIN
+  t
+  Terminated
+  J-app rc=143 elapsed=5.00s
+[03:29:46.726] 단계 waiters
+  waiter|214|IPC|SyncRep|active|commit
+  waiter|230|IPC|SyncRep|active|commit
+[03:29:46.832] 백그라운드 D-hold
+[03:29:47.942] 단계 K-control
+  K-setting|0
+  K-control rc=143
+  Terminated
+[03:29:55.067] 단계 waiters
+  waiter|214|IPC|SyncRep|active|commit
+  waiter|230|IPC|SyncRep|active|commit
+  waiter|250|IPC|SyncRep|active|update t set note = 'D row holder' where id = 1
+  waiter|262|Lock|transactionid|active|update t set note = 'K lock waiter, client killed, check off' where id
+[03:29:55.169] 대기 서버 재기동(docker start pg2)
+  patroni-probe-pg2
+[03:29:55.488] 확인: pg2 streaming 복귀
+[03:29:57.500] 단계 status
+  replication|s1|streaming|sync
+  settings|s1|on|f
+[03:29:57.616] 단계 waiters
+[03:29:57.732] 단계 rows
+  row|1|K lock waiter, client killed, check off
+[03:29:57.841] 정리(down -v --remove-orphans)
+   Container patroni-probe-pg2 Stopping 
+   Container patroni-probe-pg2 Stopped 
+   Container patroni-probe-pg2 Removing 
+   Container patroni-probe-pg2 Removed 
+   Container patroni-probe-pg1 Stopping 
+   Container patroni-probe-pg1 Stopped 
+   Container patroni-probe-pg1 Removing 
+   Container patroni-probe-pg1 Removed 
+   Network exchange-patroni_probe Removing 
+   Network exchange-patroni_probe Removed 
+[03:29:58.678] 남은 컨테이너(이름 patroni-)
+[03:29:58.718] 남은 볼륨(compose 프로젝트 라벨 exchange-patroni)
+[03:29:58.756] 남은 망(exchange-patroni)

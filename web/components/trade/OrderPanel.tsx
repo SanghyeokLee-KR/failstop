@@ -42,6 +42,14 @@ import {
   type OrderKeyState,
 } from "./orderKey";
 import { placedNotice, shouldAnnounceFill } from "./fillNotice";
+import {
+  isSuspended,
+  ORDER_BLOCKED_LABEL,
+  ORDER_BLOCKED_SR,
+  PENDING_RESULT_LABEL,
+  PENDING_RESULT_SR,
+  pendingCauseOf,
+} from "@/lib/tradingStatus";
 import type { PricePrefill } from "./prefill";
 import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
@@ -109,6 +117,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
 
   // 게스트(데모 둘러보기) 잔고 표식용. 회원 세션이 서면 배지를 내린다
   const isGuest = useMemberSession() === null;
+  /* 거래 일시 중단(§4-A-7). 서버가 확정한 상태라 '낡은 값이 확정 행위를 막지 않는다'(§2-3)의 예외다.
+     입력칸은 그대로 두어 재개 뒤 바로 낼 수 있게 하고 확정 버튼만 막는다 */
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
+  const pendingHere = useExchangeStore((s) => s.pendingOrders.some((p) => p.market === market));
+  const trackPendingOrder = useExchangeStore((s) => s.trackPendingOrder);
+  const loadTradingStatus = useExchangeStore((s) => s.loadTradingStatus);
 
   const [side, setSide] = useState<Side>(initialSide);
   const [ordType, setOrdType] = useState<OrdType>("limit");
@@ -241,6 +255,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
       armTimer.current = null;
     }
   }, []);
+
+  // 확인 대기 중에 중단되면 확인 상태를 거둔다. 재개 뒤 첫 클릭이 곧바로 확정이 되면 안 된다
+  useEffect(() => {
+    if (suspended) disarm();
+  }, [suspended, disarm]);
 
   /* Esc·외부 클릭으로 확인 상태 원복 (§2.5) */
   useEffect(() => {
@@ -462,6 +481,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
       // 종결이라 동일 취급. 상태 UNKNOWN(5xx·네트워크·타임아웃)·429와 미확정 409만 키를 보존한다(§7-6)
       const finalReject = e instanceof ApiError ? isFinalRejectStatus(e.status, e.code) : e instanceof SimApiError;
       keyStateRef.current = finalReject ? onInputChanged(keyState()) : onSubmitFailed(keyState());
+      /* 결과를 모르는 주문은 키를 버리지 않고 같은 키로 재조회해 결과를 정한다(Patroni 설계 6-2). 423 은 이 시도만
+         쓰지 않았다는 뜻이라 재개를 확인한 뒤에 재조회한다. 새 키로 다시 내면 모르는 주문이 체결될 수 있다 */
+      const cause = e instanceof ApiError ? pendingCauseOf(e.status, e.code) : null;
+      if (cause) trackPendingOrder({ clientOrderId: cid, market, cause, since: Date.now() });
+      if (e instanceof ApiError && e.status === 423) void loadTradingStatus();
       toast(e instanceof Error ? e.message : "주문 실패. 잠시 후 다시 시도 필요", "error");
     } finally {
       // dirty 동결 해제는 제출 종료 시점. 재전송이 끝날 때까지 확정 키를 고정했다
@@ -471,7 +495,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
   };
 
   const onCta = () => {
-    if (!ready || submitting) return;
+    if (!ready || submitting || suspended) return;
     // 임계 이상은 확인 다이얼로그로. 임계 미만은 기존 인라인 2단계 흐름
     if (isLargeOrder) {
       disarm();
@@ -493,7 +517,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
   };
 
   const onConfirmLarge = () => {
-    if (submitting) return;
+    if (submitting || suspended) return;
     void submit().finally(() => setConfirmOpen(false));
   };
 
@@ -774,6 +798,13 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
           {/* 둘러보기 중에는 주문 자리가 로그인 자리다(회원_설계 §0 읽기 전용 계약).
               비활성 버튼으로 두면 "왜 안 눌리는지"만 남고 다음 행동이 없다. 입력은 그대로 두어
               값을 채워본 뒤 로그인할 수 있게 하고, 복귀 경로에 현재 쿼리까지 실어 자리를 지킨다 */}
+          {pendingHere && (
+            <p className={styles.hint} role="status">
+              <span aria-hidden="true">{PENDING_RESULT_LABEL}</span>
+              <span className="sr-only">{PENDING_RESULT_SR}</span>
+            </p>
+          )}
+
           {isGuest ? (
             <Link
               href={loginHref(guestReturnPath)}
@@ -781,6 +812,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
             >
               로그인하고 {sideLabel}
             </Link>
+          ) : suspended ? (
+            /* 버튼 자리에 중단 표시를 둔다. 비활성 버튼만 두면 왜 안 눌리는지 알 수 없다 */
+            <button type="button" className={`btn ${btnClass} btn--full ${styles.cta}`} disabled>
+              <span aria-hidden="true">{ORDER_BLOCKED_LABEL}</span>
+              <span className="sr-only">{ORDER_BLOCKED_SR}</span>
+            </button>
           ) : (
             /* 인라인 2단계 확인 CTA. armed 시 확인 라벨, 재클릭 확정 (§2.5) */
             <button

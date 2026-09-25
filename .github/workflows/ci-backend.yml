@@ -16,6 +16,7 @@ on:
       - 'server/**'
       - 'deploy/provision-runtime-roles.sql'
       - 'harness/prometheus/**'
+      - 'harness/patroni/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
   # main/develop push로도 돈다. cache-read-only가 main에서만 쓰기라, PR 전용 트리거로는 Gradle
@@ -26,6 +27,7 @@ on:
       - 'server/**'
       - 'deploy/provision-runtime-roles.sql'
       - 'harness/prometheus/**'
+      - 'harness/patroni/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
 
@@ -102,6 +104,23 @@ jobs:
           prom/prometheus:v3.13.0
           test rules
           /etc/prometheus/tests/exchange-alerts.test.yml
+
+      # Patroni 실험 스택의 스크레이프 설정과 경보(Patroni 설계 7-3). 카오스 스택 Prometheus 가 읽지 않게
+      # harness/patroni/prometheus 에 따로 둔다. 같은 마운트 형상으로 설정·규칙·유닛 시험을 함께 본다.
+      - name: promtool check patroni config
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/harness/patroni/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.13.0
+          check config /etc/prometheus/prometheus.patroni.yml
+
+      - name: promtool test patroni rules
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/harness/patroni/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.13.0
+          test rules
+          /etc/prometheus/tests/patroni-alerts.test.yml
 
       # 대시보드 JSON 최소 sanity: 유효 JSON + 최상위 panels 비어있지 않음. jq는 러너 내장.
       - name: grafana dashboards sanity

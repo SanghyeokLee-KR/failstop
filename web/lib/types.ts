@@ -326,6 +326,21 @@ export interface PublicNotice {
   published_at: number | null;
 }
 
+/* ===== 거래 상태 (§4-A-7 미러) ===== */
+
+/** 중단 이유. 앞은 동기 복제 대기 서버가 없어 DB 가 커밋을 확인하지 않음, 뒤는 DB 전환 중이거나 연결 불가 */
+export type TradingSuspendReason = "replication_unavailable" | "database_unavailable";
+
+export interface TradingStatus {
+  trading_suspended: boolean;
+  trading_state: "ACTIVE" | "SUSPENDED";
+  reason: TradingSuspendReason | null;
+  /** 이 노드가 중단을 판정한 시각(epoch ms). ACTIVE면 null */
+  since: number | null;
+  checked_at: number;
+  poll_after_seconds: number;
+}
+
 /* ===== 문의 (§4-G 미러) ===== */
 
 export type SupportCategory = "TRADE" | "TRANSFER" | "ACCOUNT" | "ETC";

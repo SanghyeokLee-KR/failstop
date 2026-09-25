@@ -107,12 +107,18 @@ public class AdminConfig {
             AdminMtlsResolver mtlsResolver, AdminSessionService sessions,
             AdminOperatorDirectory operators, AdminAuditService audit, ErrorRenderer errorRenderer,
             @Value("${exchange.admin.rate-limit.capacity:60}") int rateCapacity,
-            @Value("${exchange.admin.rate-limit.window-ms:60000}") long rateWindowMs) {
+            @Value("${exchange.admin.rate-limit.window-ms:60000}") long rateWindowMs,
+            kr.exchange.engine.WriteAvailability writeAvailability,
+            io.micrometer.core.instrument.MeterRegistry meterRegistry) {
         // 기본은 계약값(§2-5 60토큰/60s, weight 10 = 실효 6req/60s). 통합테스트는 다건 관리 호출을
         // 위해 capacity를 상향 주입한다.
-        FilterRegistrationBean<AdminAuthFilter> registration = new FilterRegistrationBean<>(
-                new AdminAuthFilter(mtlsResolver, sessions, operators, audit, errorRenderer,
-                        rateCapacity, rateWindowMs));
+        AdminAuthFilter filter = new AdminAuthFilter(mtlsResolver, sessions, operators, audit, errorRenderer,
+                rateCapacity, rateWindowMs, writeAvailability);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.admin.audit.skipped", filter, AdminAuthFilter::skippedAudits)
+                .description("거래 일시 중단으로 적재하지 않은 관리 감사 행 수")
+                .register(meterRegistry);
+        FilterRegistrationBean<AdminAuthFilter> registration = new FilterRegistrationBean<>(filter);
         registration.addUrlPatterns("/admin/v1/*");
         registration.setOrder(20);
         return registration;

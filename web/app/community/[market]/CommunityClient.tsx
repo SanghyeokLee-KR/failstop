@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import SymbolChip from "@/components/SymbolChip";
+import { TradingStatusBanner } from "@/components/StatusSignals";
 import { COIN_META } from "@/lib/sim/engine";
 import { useMemberSession } from "@/lib/store";
 import BoardListView from "./BoardListView";
@@ -39,6 +40,7 @@ export default function CommunityClient() {
 
   return (
     <main className={styles.page}>
+      <TradingStatusBanner />
       <nav className={styles.crumb} aria-label="이동 경로">
         <Link href={`/exchange/${market}`} className={`hit-44-y ${styles.crumbLink}`}>
           {meta.koreanName} 거래

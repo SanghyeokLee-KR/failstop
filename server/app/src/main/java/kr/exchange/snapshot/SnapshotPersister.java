@@ -1,6 +1,7 @@
 package kr.exchange.snapshot;
 
 import kr.exchange.engine.LeaderIdentity;
+import kr.exchange.engine.WriteAvailability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,12 +26,21 @@ public class SnapshotPersister implements AutoCloseable {
     private final BlockingQueue<Pending> queue = new LinkedBlockingQueue<>();
     private final Thread worker;
     private volatile boolean closed;
+    private volatile WriteAvailability writeAvailability = WriteAvailability.disabled();
 
     public SnapshotPersister(SnapshotStore store) {
         this.store = store;
         this.worker = new Thread(this::drain, "snapshot-writer");
         this.worker.setDaemon(true);
         this.worker.start();
+    }
+
+    /**
+     * 거래 일시 중단(DB 설계 §5.4-d 6) 동안에는 새 적재를 시작하지 않는다. 적재가 커밋 대기에 걸리면 워커와 기본 풀 연결 하나가
+     * 재개까지 묶이고, 다음 캡처가 대체하므로 버려도 정확성과 무관하다.
+     */
+    public void setWriteAvailability(WriteAvailability availability) {
+        this.writeAvailability = availability;
     }
 
     /** 라이터 스레드가 부르고 기다리지 않는다. 닫힌 뒤에는 받지 않고 거짓을 돌려준다. */
@@ -49,6 +59,10 @@ public class SnapshotPersister implements AutoCloseable {
             }
             if (pending == POISON) {
                 return;
+            }
+            if (!writeAvailability.isActive()) {
+                pending.owner().persistSkipped();
+                continue;
             }
             try {
                 store.persist(pending.leader(), List.of(pending.state()));

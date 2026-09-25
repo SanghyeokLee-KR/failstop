@@ -21,17 +21,23 @@ k6 stdout이 담긴 파일. ACK 라인만 골라 쓴다.
 .PARAMETER Reset
 적재 전에 loadtest_acks를 비운다. 실험 시작 훅과 같은 역할이다. 이전 주행의 ACK가
 남아 있으면 이번 실험 창의 판정에 스테일 오탐이 섞인다.
+
+.PARAMETER Pg
+psql 을 docker exec 할 컨테이너. 기본은 CHAOS_PSQL_CONTAINER, 없으면 chaos-pg 다(lib.ps1 과 같은 규약).
+Patroni 실험 스택은 patroni-toolbox 를 준다. 그 컨테이너의 psql 은 patroni-haproxy-b 를 거쳐 현재 Primary 에
+붙는다. 고정 DB 컨테이너에 붙으면 전환 뒤 Standby 에 적재하려다 실패한다(Patroni 설계 8-1, 검토 R7).
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$LogPath,
     [switch]$Reset,
     [string]$Source = 'k6',
-    [string]$Pg = 'chaos-pg'
+    [string]$Pg = $(if ($env:CHAOS_PSQL_CONTAINER) { $env:CHAOS_PSQL_CONTAINER.Trim() } else { 'chaos-pg' })
 )
 
 $ErrorActionPreference = 'Stop'
 
+if ($Pg -notmatch '^[a-z0-9][a-z0-9_.-]*$') { throw "Pg 형식 위반: $Pg" }
 if (-not (Test-Path $LogPath)) { throw "로그 파일 없음: $LogPath" }
 
 # 매핑 표가 비면 적재가 통째로 무의미하다. 조용히 0행을 넣고 성공으로 끝내면 C16이

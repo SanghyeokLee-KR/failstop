@@ -73,6 +73,11 @@
   font-weight: var(--fw-semibold);
   flex-shrink: 0;
 }
+/* 중단 시각은 본문보다 앞에 둔다. 본문은 잘릴 수 있고 시각은 잘리면 뜻이 없다 */
+.suspendSince {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
 /* 본문은 배너에서 잘린다. 전문은 목록에 있고 여기서는 무슨 일인지만 전달한다 */
 .noticeBannerBody {
   min-width: 0;

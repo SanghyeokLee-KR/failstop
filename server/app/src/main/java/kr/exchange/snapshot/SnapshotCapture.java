@@ -52,7 +52,7 @@ public class SnapshotCapture implements SingleWriterLoop.SnapshotHook {
                     .description("라이터 명령 경계에서 워커로 넘긴 스냅샷 캡처 수").register(registry);
             FunctionCounter.builder("exchange.snapshot.dropped", dropped, AtomicLong::doubleValue)
                     .tag("market", tag)
-                    .description("대기 상한 도달·인코딩 실패로 드롭된 스냅샷 캡처 수").register(registry);
+                    .description("대기 상한 도달·인코딩 실패·거래 일시 중단으로 드롭된 스냅샷 캡처 수").register(registry);
             FunctionCounter.builder("exchange.snapshot.persist_failed", persistFailed, AtomicLong::doubleValue)
                     .tag("market", tag)
                     .description("워커의 스냅샷 영속화 실패 수. fencing 거부를 포함한다").register(registry);
@@ -168,6 +168,12 @@ public class SnapshotCapture implements SingleWriterLoop.SnapshotHook {
     /** 워커가 이 캡처의 적재를 마쳤다. */
     void persisted(long seq) {
         counters.lastPersistedSeq.set(seq);
+        pending.decrementAndGet();
+    }
+
+    /** 워커가 거래 일시 중단 중이라 이 캡처를 적재하지 않았다. 다음 캡처가 대체하므로 드롭으로 센다. */
+    void persistSkipped() {
+        counters.dropped.incrementAndGet();
         pending.decrementAndGet();
     }
 

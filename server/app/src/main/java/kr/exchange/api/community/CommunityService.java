@@ -50,6 +50,8 @@ public class CommunityService {
     private final MarketDirectory markets;
     private final CommunityRankService ranks;
     private final int autoHideThreshold;
+    // 인기순 첫 조회가 순위 스냅샷을 쓴다. 거래 일시 중단 동안에는 그 쓰기를 건너뛴다(Patroni 설계 12절 '조회 안의 쓰기').
+    private volatile kr.exchange.engine.WriteAvailability writes = kr.exchange.engine.WriteAvailability.disabled();
 
     // 작성 멱등(설계 §4.2 권장). 데모 단일 프로세스 범위의 best-effort 재시도 중복 차단. 물리 DB
     // 분리 승격 시 idempotency_keys 유형 테이블로 대체한다(다중 노드·재기동 지속성).
@@ -62,6 +64,10 @@ public class CommunityService {
         this.markets = markets;
         this.ranks = ranks;
         this.autoHideThreshold = autoHideThreshold;
+    }
+
+    public void attachWriteAvailability(kr.exchange.engine.WriteAvailability writes) {
+        this.writes = writes;
     }
 
     // ------------------------------------------------------------------
@@ -116,6 +122,10 @@ public class CommunityService {
             generation = jdbc.sql("SELECT max(generation) FROM post_rank_snapshot WHERE market_symbol = ?")
                     .param(market).query(Long.class).optional().orElse(null);
             if (generation == null) {
+                if (!writes.isActive()) {
+                    // 스냅샷을 만드는 INSERT 가 커밋 대기에 걸려 조회가 멈춘다. 이 마켓의 인기순은 재개 뒤 첫 조회가 만든다.
+                    return new Page(List.of(), null);
+                }
                 // 첫 인기순 요청은 스냅샷을 지연 산출한다. 이후 요청은 커서에 세대를 고정해 재사용한다.
                 generation = ranks.rebuild(market);
             }

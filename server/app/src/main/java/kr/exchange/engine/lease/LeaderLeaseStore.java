@@ -48,6 +48,14 @@ public interface LeaderLeaseStore {
     boolean renew(String holder, long epoch, Duration ttl);
 
     /**
+     * 방금 얻은 (holder, epoch) 리스가 아직 만료 전인가(DB 설계 §5.4-d 2). 획득이 커밋 대기에 걸렸다 풀리면 커밋 전에 정한
+     * 만료 시각이 이미 지나 있을 수 있다. 쓰기 가능 탐지를 켠 노드만 부른다. 커밋 대기가 없는 보관소는 늘 참이다.
+     */
+    default boolean holdsUnexpired(String holder, long epoch) {
+        return true;
+    }
+
+    /**
      * 반납. 엔진의 강등 경로는 이것을 부르지 않는다. 강등은 리스에 아무것도 쓰지 않고 갱신만
      * 멈춰 다음 리더가 만료 구동으로만 정해지게 한다(LeaderLeaseService 클래스 주석).
      * 운영과 검증에서 만료를 기다리지 않고 리스를 비울 때 쓴다.

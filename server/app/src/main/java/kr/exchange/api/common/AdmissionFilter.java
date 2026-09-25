@@ -75,7 +75,8 @@ public class AdmissionFilter extends OncePerRequestFilter {
 
     /** null이면 면제. 분류 규칙이 곧 계약이라 정적 메서드로 두고 테스트가 직접 고정한다. */
     AdmissionControl bucketFor(String method, String path) {
-        if ("OPTIONS".equals(method)) {
+        // 거래 상태 조회는 노드 메모리만 읽는다(API 설계 §4-A-7). 중단 동안 조회 버킷이 차도 화면이 재개를 알아야 한다.
+        if ("OPTIONS".equals(method) || WriteGateFilter.STATUS_URL.equals(path)) {
             return null;
         }
         if (isOrderWrite(method, path)) {

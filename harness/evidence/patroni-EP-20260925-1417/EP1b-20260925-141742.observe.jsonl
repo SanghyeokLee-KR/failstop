@@ -1,0 +1,1330 @@
+{"kind": "start", "pool": false, "signed_reads": true, "t": 1790345904.663, "withdraw": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345904.664, "timeline": 1}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345904.747, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 90.6, "path": "markets", "t": 1790345904.665}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345904.665, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345904.665, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 60.2, "name": "jwt_verification", "t": 1790345904.697}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345904.756, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "orderbook", "t": 1790345904.756}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345904.756, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 26.9, "path": "trades", "t": 1790345904.761}
+{"code": 200, "kind": "read", "ms": 27.5, "path": "accounts", "t": 1790345904.788}
+{"code": 200, "kind": "read", "ms": 16.4, "path": "open_orders", "t": 1790345904.815}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345905.164, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345905.679, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345905.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.9, "path": "markets", "t": 1790345905.679}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345905.682, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "orderbook", "t": 1790345905.684}
+{"code": 200, "kind": "read", "ms": 5.1, "path": "trades", "t": 1790345905.687}
+{"code": 200, "kind": "read", "ms": 4.6, "path": "accounts", "t": 1790345905.692}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "open_orders", "t": 1790345905.697}
+{"code": 401, "kind": "write", "ms": 17.6, "name": "jwt_verification", "t": 1790345905.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345905.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345905.759, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345906.179, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345906.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345906.679, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345906.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.7, "path": "markets", "t": 1790345906.679}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345906.682, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345906.709}
+{"code": 200, "kind": "read", "ms": 27.8, "path": "orderbook", "t": 1790345906.684}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "trades", "t": 1790345906.712}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345906.715}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345906.719}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345906.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345906.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345907.176, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 860560, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345907.677, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345907.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "markets", "t": 1790345907.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345907.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "orderbook", "t": 1790345907.681}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345907.708}
+{"code": 200, "kind": "read", "ms": 26.9, "path": "trades", "t": 1790345907.685}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "accounts", "t": 1790345907.712}
+{"code": 200, "kind": "read", "ms": 5.4, "path": "open_orders", "t": 1790345907.716}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345907.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345907.755, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345908.173, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345908.674, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "markets", "t": 1790345908.674}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345908.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345908.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345908.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 14.4, "path": "orderbook", "t": 1790345908.678}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345908.705}
+{"code": 200, "kind": "read", "ms": 18.7, "path": "trades", "t": 1790345908.692}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "accounts", "t": 1790345908.711}
+{"code": 200, "kind": "read", "ms": 25.1, "path": "open_orders", "t": 1790345908.715}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345908.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345908.769, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345909.172, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345909.671, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345909.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "markets", "t": 1790345909.671}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345909.674, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "orderbook", "t": 1790345909.675}
+{"code": 200, "kind": "read", "ms": 28.3, "path": "trades", "t": 1790345909.677}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "accounts", "t": 1790345909.706}
+{"code": 401, "kind": "write", "ms": 17.3, "name": "jwt_verification", "t": 1790345909.702}
+{"code": 200, "kind": "read", "ms": 27.2, "path": "open_orders", "t": 1790345909.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345909.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345909.765, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345910.169, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345910.667, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345910.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345910.668, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.8, "path": "markets", "t": 1790345910.667}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "orderbook", "t": 1790345910.672}
+{"code": 200, "kind": "read", "ms": 5.7, "path": "trades", "t": 1790345910.675}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345910.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "accounts", "t": 1790345910.681}
+{"code": 200, "kind": "read", "ms": 4.8, "path": "open_orders", "t": 1790345910.685}
+{"code": 401, "kind": "write", "ms": 2.5, "name": "jwt_verification", "t": 1790345910.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345910.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345910.762, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345911.167, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345911.676, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "markets", "t": 1790345911.676}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345911.676, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 13.0, "path": "orderbook", "t": 1790345911.68}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "trades", "t": 1790345911.693}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "accounts", "t": 1790345911.697}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "open_orders", "t": 1790345911.701}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345911.693, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345911.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345911.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345911.756, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345912.176, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1149648, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345912.676, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345912.676, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.8, "path": "markets", "t": 1790345912.676}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345912.676, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "orderbook", "t": 1790345912.679}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345912.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "trades", "t": 1790345912.681}
+{"code": 200, "kind": "read", "ms": 24.6, "path": "accounts", "t": 1790345912.686}
+{"code": 401, "kind": "write", "ms": 17.3, "name": "jwt_verification", "t": 1790345912.707}
+{"code": 200, "kind": "read", "ms": 15.8, "path": "open_orders", "t": 1790345912.711}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345912.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345912.756, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345913.172, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345913.671, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345913.67}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345913.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345913.673, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 13.6, "path": "orderbook", "t": 1790345913.673}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345913.701}
+{"code": 200, "kind": "read", "ms": 19.0, "path": "trades", "t": 1790345913.687}
+{"code": 200, "kind": "read", "ms": 14.2, "path": "accounts", "t": 1790345913.706}
+{"code": 200, "kind": "read", "ms": 15.5, "path": "open_orders", "t": 1790345913.72}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345913.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345913.78, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345914.167, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345914.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345914.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345914.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.7, "path": "markets", "t": 1790345914.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345914.681, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 15.5, "path": "orderbook", "t": 1790345914.682}
+{"code": 200, "kind": "read", "ms": 14.1, "path": "trades", "t": 1790345914.698}
+{"code": 401, "kind": "write", "ms": 16.6, "name": "jwt_verification", "t": 1790345914.709}
+{"code": 200, "kind": "read", "ms": 14.6, "path": "accounts", "t": 1790345914.712}
+{"code": 200, "kind": "read", "ms": 15.7, "path": "open_orders", "t": 1790345914.727}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345914.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345914.757, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345915.165, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345915.679, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345915.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "markets", "t": 1790345915.679}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345915.681, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "orderbook", "t": 1790345915.683}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "trades", "t": 1790345915.685}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "accounts", "t": 1790345915.688}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "open_orders", "t": 1790345915.691}
+{"code": 401, "kind": "write", "ms": 2.5, "name": "jwt_verification", "t": 1790345915.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345915.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345915.773, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345916.18, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345916.677, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345916.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345916.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.8, "path": "markets", "t": 1790345916.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345916.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.8, "path": "orderbook", "t": 1790345916.682}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345916.708}
+{"code": 200, "kind": "read", "ms": 25.6, "path": "trades", "t": 1790345916.685}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "accounts", "t": 1790345916.711}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "open_orders", "t": 1790345916.715}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345916.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345916.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345917.175, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1052888, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345917.671, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345917.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345917.671}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "orderbook", "t": 1790345917.674}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345917.673, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "trades", "t": 1790345917.676}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345917.68}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790345917.684}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345917.712}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345917.758, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345917.761, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345918.167, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345918.668}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345918.668, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345918.668, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345918.668, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345918.671}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345918.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.6, "path": "trades", "t": 1790345918.673}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345918.699}
+{"code": 200, "kind": "read", "ms": 23.5, "path": "accounts", "t": 1790345918.678}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345918.702}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345918.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345918.763, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345919.168, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345919.671, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345919.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790345919.671}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "orderbook", "t": 1790345919.674}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345919.674, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "trades", "t": 1790345919.677}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790345919.702}
+{"code": 200, "kind": "read", "ms": 24.8, "path": "accounts", "t": 1790345919.681}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345919.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345919.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345919.766, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345920.178, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345920.677, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345920.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345920.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "markets", "t": 1790345920.678}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345920.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345920.682}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "trades", "t": 1790345920.684}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "accounts", "t": 1790345920.687}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "open_orders", "t": 1790345920.69}
+{"code": 401, "kind": "write", "ms": 17.7, "name": "jwt_verification", "t": 1790345920.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345920.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345920.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345921.167, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345921.669, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345921.669, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790345921.668}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345921.671}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "trades", "t": 1790345921.673}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "accounts", "t": 1790345921.678}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345921.681}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345921.671, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345921.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345921.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345921.763, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345922.165, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1065656, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345922.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345922.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345922.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.7, "path": "markets", "t": 1790345922.678}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345922.681, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "orderbook", "t": 1790345922.683}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "trades", "t": 1790345922.685}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "accounts", "t": 1790345922.689}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345922.693}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790345922.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345922.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345922.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345923.175, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345923.675, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "markets", "t": 1790345923.675}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345923.679}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "trades", "t": 1790345923.681}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345923.675, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345923.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 26.1, "path": "accounts", "t": 1790345923.684}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790345923.71}
+{"code": 401, "kind": "write", "ms": 16.3, "name": "jwt_verification", "t": 1790345923.707}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345923.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345923.755, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345924.165, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345924.673, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345924.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345924.673, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "markets", "t": 1790345924.673}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345924.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 12.6, "path": "orderbook", "t": 1790345924.678}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345924.705}
+{"code": 200, "kind": "read", "ms": 17.4, "path": "trades", "t": 1790345924.691}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "accounts", "t": 1790345924.708}
+{"code": 200, "kind": "read", "ms": 15.4, "path": "open_orders", "t": 1790345924.723}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345924.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345924.753, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345925.178, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345925.673, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345925.673, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "markets", "t": 1790345925.673}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345925.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345925.676, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 1.9, "name": "jwt_verification", "t": 1790345925.704}
+{"code": 200, "kind": "read", "ms": 27.5, "path": "trades", "t": 1790345925.679}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "accounts", "t": 1790345925.707}
+{"code": 200, "kind": "read", "ms": 28.8, "path": "open_orders", "t": 1790345925.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345925.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345925.753, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345926.167, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345926.666, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345926.667, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345926.667, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "markets", "t": 1790345926.667}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345926.669, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 13.2, "path": "orderbook", "t": 1790345926.671}
+{"code": 401, "kind": "write", "ms": 2.0, "name": "jwt_verification", "t": 1790345926.698}
+{"code": 200, "kind": "read", "ms": 17.4, "path": "trades", "t": 1790345926.684}
+{"code": 200, "kind": "read", "ms": 16.0, "path": "accounts", "t": 1790345926.701}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "open_orders", "t": 1790345926.717}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345926.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345926.762, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345927.179, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345927.677, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1042776, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345927.677, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "markets", "t": 1790345927.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345927.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345927.681}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "trades", "t": 1790345927.683}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345927.686}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "open_orders", "t": 1790345927.689}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345927.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345927.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345927.756, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345928.176, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345928.677, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345928.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345928.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "markets", "t": 1790345928.676}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345928.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345928.681}
+{"code": 401, "kind": "write", "ms": 1.9, "name": "jwt_verification", "t": 1790345928.707}
+{"code": 200, "kind": "read", "ms": 26.5, "path": "trades", "t": 1790345928.683}
+{"code": 200, "kind": "read", "ms": 16.0, "path": "accounts", "t": 1790345928.709}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790345928.725}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345928.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345928.755, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345929.177, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345929.674, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345929.674, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345929.674}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345929.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345929.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "trades", "t": 1790345929.679}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790345929.704}
+{"code": 200, "kind": "read", "ms": 24.9, "path": "accounts", "t": 1790345929.683}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "open_orders", "t": 1790345929.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345929.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345929.754, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345930.174, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345930.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345930.677, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345930.677, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "markets", "t": 1790345930.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345930.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 12.5, "path": "orderbook", "t": 1790345930.682}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "trades", "t": 1790345930.694}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "accounts", "t": 1790345930.697}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "open_orders", "t": 1790345930.7}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345930.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345930.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345930.757, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345931.175, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345931.676, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345931.676}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345931.676, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345931.679}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "trades", "t": 1790345931.682}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345931.686}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345931.689}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345931.679, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345931.707}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345931.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345931.755, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345932.174, "timeline": 1}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345932.679, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.8, "path": "markets", "t": 1790345932.679}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345932.679, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 998504, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345932.678, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "orderbook", "t": 1790345932.682}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345932.682, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345932.71}
+{"code": 200, "kind": "read", "ms": 29.7, "path": "trades", "t": 1790345932.684}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345932.714}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "open_orders", "t": 1790345932.718}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345932.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345932.759, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345933.177, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345933.668, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345933.668, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "markets", "t": 1790345933.668}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345933.671, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 12.9, "path": "orderbook", "t": 1790345933.672}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "trades", "t": 1790345933.685}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345933.688}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345933.692}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345933.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345933.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345933.763, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345934.168, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345934.667, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345934.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345934.667, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "markets", "t": 1790345934.667}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345934.67, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 12.6, "path": "orderbook", "t": 1790345934.671}
+{"code": 401, "kind": "write", "ms": 1.9, "name": "jwt_verification", "t": 1790345934.698}
+{"code": 200, "kind": "read", "ms": 15.8, "path": "trades", "t": 1790345934.684}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "accounts", "t": 1790345934.7}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "open_orders", "t": 1790345934.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345934.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345934.762, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345935.167, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345935.666, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345935.667, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "markets", "t": 1790345935.666}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345935.669, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 1.9, "path": "orderbook", "t": 1790345935.671}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "trades", "t": 1790345935.673}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345935.697}
+{"code": 200, "kind": "read", "ms": 25.5, "path": "accounts", "t": 1790345935.675}
+{"code": 200, "kind": "read", "ms": 15.0, "path": "open_orders", "t": 1790345935.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345935.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345935.776, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345936.179, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345936.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345936.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345936.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790345936.678}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345936.681}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345936.681, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "trades", "t": 1790345936.683}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345936.687}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345936.691}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345936.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345936.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345936.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345937.172, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1491256, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345937.672, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345937.672, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "markets", "t": 1790345937.672}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345937.675, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345937.676}
+{"code": 200, "kind": "read", "ms": 27.3, "path": "trades", "t": 1790345937.678}
+{"code": 401, "kind": "write", "ms": 17.4, "name": "jwt_verification", "t": 1790345937.703}
+{"code": 200, "kind": "read", "ms": 16.6, "path": "accounts", "t": 1790345937.705}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "open_orders", "t": 1790345937.722}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345937.749, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345937.752, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345938.178, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345938.677, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345938.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345938.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "markets", "t": 1790345938.677}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345938.68, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 12.5, "path": "orderbook", "t": 1790345938.681}
+{"code": 200, "kind": "read", "ms": 16.8, "path": "trades", "t": 1790345938.694}
+{"code": 401, "kind": "write", "ms": 16.8, "name": "jwt_verification", "t": 1790345938.708}
+{"code": 200, "kind": "read", "ms": 15.3, "path": "accounts", "t": 1790345938.711}
+{"code": 200, "kind": "read", "ms": 15.3, "path": "open_orders", "t": 1790345938.726}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345938.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345938.756, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345939.173, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345939.672, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345939.672, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345939.675, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 16.8, "path": "markets", "t": 1790345939.672}
+{"code": 200, "kind": "read", "ms": 15.8, "path": "orderbook", "t": 1790345939.689}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "trades", "t": 1790345939.705}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345939.709}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "open_orders", "t": 1790345939.712}
+{"code": 401, "kind": "write", "ms": 16.7, "name": "jwt_verification", "t": 1790345939.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345939.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345939.752, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345940.18, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345940.679, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345940.678, "timeline": 1}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345940.678, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "markets", "t": 1790345940.678}
+{"code": 200, "kind": "read", "ms": 1.6, "path": "orderbook", "t": 1790345940.682}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "trades", "t": 1790345940.683}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345940.688}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345940.681, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 1.8, "name": "jwt_verification", "t": 1790345940.709}
+{"code": 200, "kind": "read", "ms": 22.3, "path": "open_orders", "t": 1790345940.691}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345940.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345940.758, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345941.176, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345941.677, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345941.677, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 5.0, "path": "markets", "t": 1790345941.676}
+{"code": 200, "kind": "read", "ms": 1.9, "path": "orderbook", "t": 1790345941.682}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "trades", "t": 1790345941.684}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "accounts", "t": 1790345941.687}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345941.69}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345941.679, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345941.707}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345941.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345941.772, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345942.173, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345942.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345942.674, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1175080, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345942.673, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "markets", "t": 1790345942.674}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345942.676, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345942.678}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "trades", "t": 1790345942.68}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "accounts", "t": 1790345942.682}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "open_orders", "t": 1790345942.686}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345942.704}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345942.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345942.753, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345943.171, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345943.671, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345943.67, "trading_suspended": false}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "markets", "t": 1790345943.67}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345943.673, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 3.7, "name": "jwt_verification", "t": 1790345943.705}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345943.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345943.753, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345944.17, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345944.673, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345944.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345944.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345944.676, "trading_suspended": false}
+{"code": 429, "kind": "write", "ms": 17.8, "name": "too_many_requests", "t": 1790345944.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345944.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345944.753, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "stopped", "timeline": null}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345945.171, "timeline": null}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "stopped", "timeline": null}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345945.668, "timeline": null}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345945.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345945.685, "trading_suspended": false}
+{"code": 0, "kind": "read", "ms": 2024.6, "path": "orderbook", "t": 1790345943.674}
+{"code": 429, "kind": "write", "ms": 3.1, "name": "too_many_requests", "t": 1790345945.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345945.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345945.764, "up": ["db-2"]}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 14047976, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": [], "t": 1790345946.174, "timeline": 1}
+{"code": 200, "kind": "read", "ms": 807.1, "path": "trades", "t": 1790345945.699}
+{"code": 200, "kind": "read", "ms": 55.1, "path": "accounts", "t": 1790345946.506}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 14047976, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": [], "t": 1790345946.668, "timeline": 1}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "database_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345946.667, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "lb", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345946.667, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345946.671, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 3.0, "name": "trading_suspended", "t": 1790345946.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345946.759, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345946.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 305.8, "path": "open_orders", "t": 1790345946.561}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "markets", "t": 1790345946.867}
+{"code": 200, "kind": "read", "ms": 32.5, "path": "orderbook", "t": 1790345946.87}
+{"code": 200, "kind": "read", "ms": 32.2, "path": "trades", "t": 1790345946.902}
+{"code": 200, "kind": "read", "ms": 5.6, "path": "accounts", "t": 1790345946.935}
+{"code": 200, "kind": "read", "ms": 28.8, "path": "open_orders", "t": 1790345946.941}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 1}], "src": "59008", "sync": [], "t": 1790345947.165, "timeline": 1}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345947.678, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345947.678, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345947.681, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 2.3, "name": "trading_suspended", "t": 1790345947.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345947.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345947.773, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345947.88}
+{"code": 200, "kind": "read", "ms": 4.9, "path": "orderbook", "t": 1790345947.882}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "trades", "t": 1790345947.887}
+{"code": 200, "kind": "read", "ms": 9.9, "path": "accounts", "t": 1790345947.891}
+{"code": 200, "kind": "read", "ms": 30.8, "path": "open_orders", "t": 1790345947.901}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345948.175, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345948.671, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345948.671, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "lb", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345948.671, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345948.674, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 2.5, "name": "trading_suspended", "t": 1790345948.702}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345948.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345948.752, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345948.873}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "orderbook", "t": 1790345948.876}
+{"code": 200, "kind": "read", "ms": 6.9, "path": "trades", "t": 1790345948.88}
+{"code": 200, "kind": "read", "ms": 5.7, "path": "accounts", "t": 1790345948.887}
+{"code": 200, "kind": "read", "ms": 6.9, "path": "open_orders", "t": 1790345948.893}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345949.169, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345949.675, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345949.674, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345949.677, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 2.4, "name": "trading_suspended", "t": 1790345949.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345949.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345949.769, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345949.876}
+{"code": 200, "kind": "read", "ms": 1.9, "path": "orderbook", "t": 1790345949.878}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "trades", "t": 1790345949.88}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "accounts", "t": 1790345949.895}
+{"code": 200, "kind": "read", "ms": 27.0, "path": "open_orders", "t": 1790345949.899}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345950.171, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345950.67, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345950.67, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345950.67, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345950.673, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 17.5, "name": "trading_suspended", "t": 1790345950.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345950.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345950.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345950.872}
+{"code": 200, "kind": "read", "ms": 14.6, "path": "orderbook", "t": 1790345950.874}
+{"code": 200, "kind": "read", "ms": 20.7, "path": "trades", "t": 1790345950.889}
+{"code": 200, "kind": "read", "ms": 28.0, "path": "accounts", "t": 1790345950.91}
+{"code": 200, "kind": "read", "ms": 16.1, "path": "open_orders", "t": 1790345950.938}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345951.177, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16156224, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345951.678, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345951.678, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345951.681, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 2.4, "name": "trading_suspended", "t": 1790345951.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345951.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345951.758, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "markets", "t": 1790345951.882}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345951.884}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "trades", "t": 1790345951.886}
+{"code": 200, "kind": "read", "ms": 25.1, "path": "accounts", "t": 1790345951.891}
+{"code": 200, "kind": "read", "ms": 16.3, "path": "open_orders", "t": 1790345951.916}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 16381984, "name": "patroni-db-1", "role": "replica", "state": "running", "timeline": 1}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345952.178, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "replica", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345952.675, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345952.675, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-1", "reason": "replication_unavailable", "since": 1790345945962, "state": "SUSPENDED", "t": 1790345952.675, "trading_suspended": true}
+{"code": 200, "kind": "status", "node": "api-2", "reason": "replication_unavailable", "since": 1790345946298, "state": "SUSPENDED", "t": 1790345952.678, "trading_suspended": true}
+{"code": 423, "kind": "write", "ms": 2.3, "name": "trading_suspended", "t": 1790345952.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345952.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345952.755, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345952.877}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345952.88}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "trades", "t": 1790345952.882}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "accounts", "t": 1790345952.886}
+{"code": 200, "kind": "read", "ms": 4.6, "path": "open_orders", "t": 1790345952.89}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "replica", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345953.175, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345953.675, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "replica", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345953.675, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345953.677, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790345953.705}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345953.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345953.754, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "markets", "t": 1790345953.876}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345953.878}
+{"code": 200, "kind": "read", "ms": 16.1, "path": "trades", "t": 1790345953.88}
+{"code": 200, "kind": "read", "ms": 13.7, "path": "accounts", "t": 1790345953.896}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "open_orders", "t": 1790345953.91}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "replica", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": [], "t": 1790345954.168, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345954.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345954.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345954.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345954.672, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.5, "name": "jwt_verification", "t": 1790345954.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345954.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345954.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345954.872}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345954.874}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "trades", "t": 1790345954.876}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345954.881}
+{"code": 200, "kind": "read", "ms": 22.7, "path": "open_orders", "t": 1790345954.884}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345955.167, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345955.664, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345955.68, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345955.697, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.6, "name": "jwt_verification", "t": 1790345955.711}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345955.758, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345955.76, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "markets", "t": 1790345955.882}
+{"code": 200, "kind": "read", "ms": 1.7, "path": "orderbook", "t": 1790345955.884}
+{"code": 200, "kind": "read", "ms": 18.4, "path": "trades", "t": 1790345955.886}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "accounts", "t": 1790345955.905}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345955.908}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345956.179, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345956.672, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345956.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345956.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345956.675, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345956.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345956.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345956.753, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345956.875}
+{"code": 200, "kind": "read", "ms": 1.7, "path": "orderbook", "t": 1790345956.878}
+{"code": 200, "kind": "read", "ms": 15.7, "path": "trades", "t": 1790345956.88}
+{"code": 200, "kind": "read", "ms": 51.9, "path": "accounts", "t": 1790345956.895}
+{"code": 200, "kind": "read", "ms": 24.8, "path": "open_orders", "t": 1790345956.948}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 2032568, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345957.17, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345957.668, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345957.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345957.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.6, "name": "jwt_verification", "t": 1790345957.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345957.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345957.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345957.87}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345957.872}
+{"code": 200, "kind": "read", "ms": 5.7, "path": "trades", "t": 1790345957.874}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345957.88}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345957.884}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345958.165, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345958.677, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345958.676, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345958.676, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345958.679, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345958.707}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345958.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345958.771, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345958.879}
+{"code": 200, "kind": "read", "ms": 14.2, "path": "orderbook", "t": 1790345958.881}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "trades", "t": 1790345958.896}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345958.9}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "open_orders", "t": 1790345958.903}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345959.174, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345959.672, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345959.672, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345959.689, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 16.9, "name": "jwt_verification", "t": 1790345959.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345959.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345959.767, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 18.1, "path": "markets", "t": 1790345959.873}
+{"code": 200, "kind": "read", "ms": 14.7, "path": "orderbook", "t": 1790345959.891}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "trades", "t": 1790345959.906}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345959.909}
+{"code": 200, "kind": "read", "ms": 7.4, "path": "open_orders", "t": 1790345959.913}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345960.168, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345960.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345960.668, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345960.668, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345960.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345960.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345960.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345960.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "markets", "t": 1790345960.869}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345960.872}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "trades", "t": 1790345960.873}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "accounts", "t": 1790345960.878}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790345960.882}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345961.166, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345961.672, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345961.672, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345961.675, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345961.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345961.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345961.752, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "markets", "t": 1790345961.875}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345961.879}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "trades", "t": 1790345961.881}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345961.884}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "open_orders", "t": 1790345961.888}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1329408, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345962.17, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345962.67, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345962.67, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345962.67, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345962.672, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345962.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345962.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345962.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "markets", "t": 1790345962.871}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345962.874}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "trades", "t": 1790345962.876}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "accounts", "t": 1790345962.879}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790345962.883}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345963.167, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345963.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345963.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345963.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345963.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345963.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345963.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "markets", "t": 1790345963.869}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345963.873}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "trades", "t": 1790345963.875}
+{"code": 200, "kind": "read", "ms": 25.2, "path": "accounts", "t": 1790345963.878}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "open_orders", "t": 1790345963.903}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345964.165, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345964.68, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345964.679, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345964.68, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345964.696, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 16.8, "name": "jwt_verification", "t": 1790345964.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345964.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345964.759, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "markets", "t": 1790345964.88}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345964.884}
+{"code": 200, "kind": "read", "ms": 28.0, "path": "trades", "t": 1790345964.886}
+{"code": 200, "kind": "read", "ms": 15.2, "path": "accounts", "t": 1790345964.914}
+{"code": 200, "kind": "read", "ms": 15.7, "path": "open_orders", "t": 1790345964.929}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345965.169, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345965.671, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345965.671, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345965.673, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.3, "name": "jwt_verification", "t": 1790345965.702}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345965.749, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345965.751, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "markets", "t": 1790345965.874}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345965.877}
+{"code": 200, "kind": "read", "ms": 29.8, "path": "trades", "t": 1790345965.879}
+{"code": 200, "kind": "read", "ms": 13.9, "path": "accounts", "t": 1790345965.909}
+{"code": 200, "kind": "read", "ms": 16.4, "path": "open_orders", "t": 1790345965.923}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345966.168, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345966.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345966.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345966.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345966.686, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345966.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345966.747, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345966.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "markets", "t": 1790345966.869}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345966.873}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "trades", "t": 1790345966.875}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345966.88}
+{"code": 200, "kind": "read", "ms": 21.1, "path": "open_orders", "t": 1790345966.883}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1030856, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345967.175, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345967.672, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345967.671, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345967.674, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345967.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345967.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345967.753, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345967.875}
+{"code": 200, "kind": "read", "ms": 14.4, "path": "orderbook", "t": 1790345967.877}
+{"code": 200, "kind": "read", "ms": 4.6, "path": "trades", "t": 1790345967.892}
+{"code": 200, "kind": "read", "ms": 28.6, "path": "accounts", "t": 1790345967.897}
+{"code": 200, "kind": "read", "ms": 15.2, "path": "open_orders", "t": 1790345967.925}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345968.179, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345968.679, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345968.679, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345968.679, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345968.682, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345968.711}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345968.757, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345968.76, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790345968.883}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345968.885}
+{"code": 200, "kind": "read", "ms": 4.7, "path": "trades", "t": 1790345968.888}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "accounts", "t": 1790345968.892}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "open_orders", "t": 1790345968.897}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345969.18, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345969.665, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345969.667, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345969.68, "timeline": 2}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345969.711}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345969.757, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345969.76, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345969.881}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345969.884}
+{"code": 200, "kind": "read", "ms": 4.8, "path": "trades", "t": 1790345969.886}
+{"code": 200, "kind": "read", "ms": 24.8, "path": "accounts", "t": 1790345969.891}
+{"code": 200, "kind": "read", "ms": 15.9, "path": "open_orders", "t": 1790345969.916}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345970.176, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345970.674, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345970.675, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345970.675, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345970.677, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345970.707}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345970.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345970.757, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "markets", "t": 1790345970.879}
+{"code": 200, "kind": "read", "ms": 13.6, "path": "orderbook", "t": 1790345970.882}
+{"code": 200, "kind": "read", "ms": 7.1, "path": "trades", "t": 1790345970.896}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "accounts", "t": 1790345970.903}
+{"code": 200, "kind": "read", "ms": 6.6, "path": "open_orders", "t": 1790345970.907}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345971.173, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345971.672, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345971.672, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345971.675, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345971.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345971.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345971.752, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "markets", "t": 1790345971.874}
+{"code": 200, "kind": "read", "ms": 14.6, "path": "orderbook", "t": 1790345971.877}
+{"code": 200, "kind": "read", "ms": 17.1, "path": "trades", "t": 1790345971.892}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345971.909}
+{"code": 200, "kind": "read", "ms": 28.8, "path": "open_orders", "t": 1790345971.913}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1499296, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345972.17, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345972.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345972.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345972.676, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345972.673, "timeline": 2}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345972.704}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345972.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345972.767, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345972.875}
+{"code": 200, "kind": "read", "ms": 1.8, "path": "orderbook", "t": 1790345972.878}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "trades", "t": 1790345972.88}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "accounts", "t": 1790345972.894}
+{"code": 200, "kind": "read", "ms": 26.1, "path": "open_orders", "t": 1790345972.899}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345973.169, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345973.668, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345973.668, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345973.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.3, "name": "jwt_verification", "t": 1790345973.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345973.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345973.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.3, "path": "markets", "t": 1790345973.869}
+{"code": 200, "kind": "read", "ms": 15.4, "path": "orderbook", "t": 1790345973.887}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "trades", "t": 1790345973.902}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "accounts", "t": 1790345973.92}
+{"code": 200, "kind": "read", "ms": 5.2, "path": "open_orders", "t": 1790345973.924}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345974.169, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345974.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345974.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345974.671, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345974.669, "timeline": 2}
+{"code": 401, "kind": "write", "ms": 2.0, "name": "jwt_verification", "t": 1790345974.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345974.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345974.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345974.872}
+{"code": 200, "kind": "read", "ms": 14.2, "path": "orderbook", "t": 1790345974.874}
+{"code": 200, "kind": "read", "ms": 18.3, "path": "trades", "t": 1790345974.889}
+{"code": 200, "kind": "read", "ms": 14.2, "path": "accounts", "t": 1790345974.907}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "open_orders", "t": 1790345974.922}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345975.167, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345975.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345975.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345975.672, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345975.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345975.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345975.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "markets", "t": 1790345975.872}
+{"code": 200, "kind": "read", "ms": 13.3, "path": "orderbook", "t": 1790345975.876}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "trades", "t": 1790345975.889}
+{"code": 200, "kind": "read", "ms": 12.9, "path": "accounts", "t": 1790345975.893}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "open_orders", "t": 1790345975.906}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345976.168, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345976.669, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345976.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345976.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345976.669, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345976.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345976.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345976.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345976.871}
+{"code": 200, "kind": "read", "ms": 14.5, "path": "orderbook", "t": 1790345976.873}
+{"code": 200, "kind": "read", "ms": 17.9, "path": "trades", "t": 1790345976.888}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345976.906}
+{"code": 200, "kind": "read", "ms": 27.5, "path": "open_orders", "t": 1790345976.909}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1005768, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345977.164, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345977.679, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345977.679, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345977.682, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345977.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345977.757, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345977.76, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345977.881}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "orderbook", "t": 1790345977.883}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "trades", "t": 1790345977.898}
+{"code": 200, "kind": "read", "ms": 14.1, "path": "accounts", "t": 1790345977.916}
+{"code": 200, "kind": "read", "ms": 15.7, "path": "open_orders", "t": 1790345977.93}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345978.176, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345978.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345978.677, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345978.677, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345978.68, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345978.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345978.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345978.774, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.5, "path": "markets", "t": 1790345978.881}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345978.885}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "trades", "t": 1790345978.887}
+{"code": 200, "kind": "read", "ms": 24.5, "path": "accounts", "t": 1790345978.89}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "open_orders", "t": 1790345978.915}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345979.178, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345979.675, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345979.675, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345979.678, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345979.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345979.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345979.754, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "markets", "t": 1790345979.877}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345979.881}
+{"code": 200, "kind": "read", "ms": 26.7, "path": "trades", "t": 1790345979.883}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "accounts", "t": 1790345979.91}
+{"code": 200, "kind": "read", "ms": 28.0, "path": "open_orders", "t": 1790345979.913}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345980.174, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345980.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345980.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345980.676, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345980.674, "timeline": 2}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345980.705}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345980.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345980.769, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "markets", "t": 1790345980.877}
+{"code": 200, "kind": "read", "ms": 14.3, "path": "orderbook", "t": 1790345980.88}
+{"code": 200, "kind": "read", "ms": 16.8, "path": "trades", "t": 1790345980.895}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "accounts", "t": 1790345980.912}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790345980.915}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345981.176, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345981.666, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345981.666, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345981.669, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.4, "name": "jwt_verification", "t": 1790345981.697}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345981.759, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345981.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "markets", "t": 1790345981.882}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345981.885}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "trades", "t": 1790345981.888}
+{"code": 200, "kind": "read", "ms": 3.2, "path": "accounts", "t": 1790345981.89}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "open_orders", "t": 1790345981.893}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1137536, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345982.179, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345982.671, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345982.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345982.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345982.673, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 16.7, "name": "jwt_verification", "t": 1790345982.702}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345982.749, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345982.766, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "markets", "t": 1790345982.872}
+{"code": 200, "kind": "read", "ms": 14.6, "path": "orderbook", "t": 1790345982.89}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "trades", "t": 1790345982.905}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "accounts", "t": 1790345982.908}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "open_orders", "t": 1790345982.911}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345983.169, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345983.667, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345983.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345983.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.5, "name": "jwt_verification", "t": 1790345983.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345983.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345983.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790345983.87}
+{"code": 200, "kind": "read", "ms": 14.4, "path": "orderbook", "t": 1790345983.872}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "trades", "t": 1790345983.887}
+{"code": 200, "kind": "read", "ms": 28.4, "path": "accounts", "t": 1790345983.89}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790345983.919}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345984.179, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345984.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345984.678, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345984.678, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345984.68, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345984.709}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345984.756, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345984.759, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "markets", "t": 1790345984.881}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345984.884}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "trades", "t": 1790345984.886}
+{"code": 200, "kind": "read", "ms": 25.3, "path": "accounts", "t": 1790345984.889}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790345984.914}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345985.174, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345985.675, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345985.674, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345985.677, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345985.705}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345985.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345985.755, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.8, "path": "markets", "t": 1790345985.876}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "orderbook", "t": 1790345985.879}
+{"code": 200, "kind": "read", "ms": 4.9, "path": "trades", "t": 1790345985.882}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345985.887}
+{"code": 200, "kind": "read", "ms": 20.2, "path": "open_orders", "t": 1790345985.891}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345986.172, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345986.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345986.673, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345986.673, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345986.676, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345986.704}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345986.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345986.755, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "markets", "t": 1790345986.878}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345986.882}
+{"code": 200, "kind": "read", "ms": 28.1, "path": "trades", "t": 1790345986.884}
+{"code": 200, "kind": "read", "ms": 16.3, "path": "accounts", "t": 1790345986.912}
+{"code": 200, "kind": "read", "ms": 15.1, "path": "open_orders", "t": 1790345986.929}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 963232, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345987.173, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345987.67, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345987.67, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345987.673, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.4, "name": "jwt_verification", "t": 1790345987.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345987.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345987.78, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "markets", "t": 1790345987.872}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345987.876}
+{"code": 200, "kind": "read", "ms": 27.4, "path": "trades", "t": 1790345987.878}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "accounts", "t": 1790345987.906}
+{"code": 200, "kind": "read", "ms": 4.7, "path": "open_orders", "t": 1790345987.909}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345988.168, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345988.668, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345988.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345988.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345988.671, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.3, "name": "jwt_verification", "t": 1790345988.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345988.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345988.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345988.879}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345988.882}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "trades", "t": 1790345988.884}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "accounts", "t": 1790345988.888}
+{"code": 200, "kind": "read", "ms": 22.8, "path": "open_orders", "t": 1790345988.891}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345989.176, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345989.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345989.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345989.687, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 16.6, "name": "jwt_verification", "t": 1790345989.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345989.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345989.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "markets", "t": 1790345989.872}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790345989.875}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "trades", "t": 1790345989.877}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "accounts", "t": 1790345989.88}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "open_orders", "t": 1790345989.883}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345990.171, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345990.672, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345990.672, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345990.672, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345990.675, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790345990.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345990.751, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345990.768, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "markets", "t": 1790345990.874}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345990.877}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "trades", "t": 1790345990.879}
+{"code": 200, "kind": "read", "ms": 25.5, "path": "accounts", "t": 1790345990.882}
+{"code": 200, "kind": "read", "ms": 16.2, "path": "open_orders", "t": 1790345990.908}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345991.172, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345991.668, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345991.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345991.685, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345991.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345991.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345991.763, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "markets", "t": 1790345991.87}
+{"code": 200, "kind": "read", "ms": 14.5, "path": "orderbook", "t": 1790345991.873}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "trades", "t": 1790345991.888}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "accounts", "t": 1790345991.892}
+{"code": 200, "kind": "read", "ms": 26.4, "path": "open_orders", "t": 1790345991.895}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1125552, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345992.168, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345992.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345992.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345992.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345992.684, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345992.699}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345992.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345992.778, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "markets", "t": 1790345992.869}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345992.873}
+{"code": 200, "kind": "read", "ms": 3.4, "path": "trades", "t": 1790345992.875}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "accounts", "t": 1790345992.878}
+{"code": 200, "kind": "read", "ms": 22.1, "path": "open_orders", "t": 1790345992.882}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345993.177, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345993.67, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345993.672, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345993.67, "timeline": 2}
+{"code": 401, "kind": "write", "ms": 2.8, "name": "jwt_verification", "t": 1790345993.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345993.763, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345993.766, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.0, "path": "markets", "t": 1790345993.873}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "orderbook", "t": 1790345993.876}
+{"code": 200, "kind": "read", "ms": 28.3, "path": "trades", "t": 1790345993.879}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "accounts", "t": 1790345993.907}
+{"code": 200, "kind": "read", "ms": 27.8, "path": "open_orders", "t": 1790345993.91}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345994.167, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345994.67, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345994.67, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345994.67, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345994.673, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345994.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345994.748, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345994.751, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.7, "path": "markets", "t": 1790345994.873}
+{"code": 200, "kind": "read", "ms": 14.7, "path": "orderbook", "t": 1790345994.891}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "trades", "t": 1790345994.906}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "accounts", "t": 1790345994.923}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790345994.928}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345995.17, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345995.666, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345995.666, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345995.669, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790345995.712}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345995.759, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345995.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790345995.876}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345995.878}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "trades", "t": 1790345995.881}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "accounts", "t": 1790345995.885}
+{"code": 200, "kind": "read", "ms": 30.0, "path": "open_orders", "t": 1790345995.889}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345996.176, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345996.677, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345996.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345996.677, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345996.695, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.0, "name": "jwt_verification", "t": 1790345996.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345996.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345996.757, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.9, "path": "markets", "t": 1790345996.88}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790345996.883}
+{"code": 200, "kind": "read", "ms": 3.3, "path": "trades", "t": 1790345996.885}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "accounts", "t": 1790345996.888}
+{"code": 200, "kind": "read", "ms": 22.6, "path": "open_orders", "t": 1790345996.892}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 1003784, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345997.174, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345997.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345997.666, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345997.683, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.2, "name": "jwt_verification", "t": 1790345997.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345997.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345997.763, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 3.1, "path": "markets", "t": 1790345997.87}
+{"code": 200, "kind": "read", "ms": 13.3, "path": "orderbook", "t": 1790345997.873}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "trades", "t": 1790345997.886}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345997.89}
+{"code": 200, "kind": "read", "ms": 25.5, "path": "open_orders", "t": 1790345997.894}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345998.177, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345998.671, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345998.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345998.671, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345998.675, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.0, "name": "jwt_verification", "t": 1790345998.701}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345998.761, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345998.764, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790345998.87}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345998.873}
+{"code": 200, "kind": "read", "ms": 5.3, "path": "trades", "t": 1790345998.875}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "accounts", "t": 1790345998.88}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "open_orders", "t": 1790345998.885}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345999.168, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790345999.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345999.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790345999.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790345999.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790345999.759, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790345999.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.5, "path": "markets", "t": 1790345999.879}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790345999.897}
+{"code": 200, "kind": "read", "ms": 5.0, "path": "trades", "t": 1790345999.899}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "accounts", "t": 1790345999.904}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "open_orders", "t": 1790345999.908}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346000.169, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346000.668, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346000.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346000.668, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346000.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790346000.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346000.753, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346000.756, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.3, "path": "markets", "t": 1790346000.883}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790346000.9}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "trades", "t": 1790346000.902}
+{"code": 200, "kind": "read", "ms": 3.6, "path": "accounts", "t": 1790346000.905}
+{"code": 200, "kind": "read", "ms": 23.4, "path": "open_orders", "t": 1790346000.909}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346001.178, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346001.677, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346001.676, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346001.679, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.8, "name": "jwt_verification", "t": 1790346001.708}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346001.755, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346001.757, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 17.8, "path": "markets", "t": 1790346001.878}
+{"code": 200, "kind": "read", "ms": 15.6, "path": "orderbook", "t": 1790346001.896}
+{"code": 200, "kind": "read", "ms": 17.1, "path": "trades", "t": 1790346001.912}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "accounts", "t": 1790346001.929}
+{"code": 200, "kind": "read", "ms": 27.2, "path": "open_orders", "t": 1790346001.933}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 2503208, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346002.179, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346002.679, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346002.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346002.678, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346002.681, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.5, "name": "jwt_verification", "t": 1790346002.71}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346002.757, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346002.759, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.4, "path": "markets", "t": 1790346002.875}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "orderbook", "t": 1790346002.877}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "trades", "t": 1790346002.892}
+{"code": 200, "kind": "read", "ms": 4.6, "path": "accounts", "t": 1790346002.896}
+{"code": 200, "kind": "read", "ms": 24.7, "path": "open_orders", "t": 1790346002.901}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346003.169, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346003.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346003.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346003.67, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790346003.698}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346003.76, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346003.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790346003.868}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790346003.871}
+{"code": 200, "kind": "read", "ms": 14.7, "path": "trades", "t": 1790346003.873}
+{"code": 200, "kind": "read", "ms": 14.4, "path": "accounts", "t": 1790346003.888}
+{"code": 200, "kind": "read", "ms": 4.0, "path": "open_orders", "t": 1790346003.903}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346004.179, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346004.676, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346004.676, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346004.676, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346004.678, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.2, "name": "jwt_verification", "t": 1790346004.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346004.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346004.772, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790346004.877}
+{"code": 200, "kind": "read", "ms": 2.0, "path": "orderbook", "t": 1790346004.879}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "trades", "t": 1790346004.881}
+{"code": 200, "kind": "read", "ms": 25.9, "path": "accounts", "t": 1790346004.886}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790346004.912}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346005.17, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346005.669, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346005.669, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346005.687, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.1, "name": "jwt_verification", "t": 1790346005.7}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346005.762, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346005.765, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.5, "path": "markets", "t": 1790346005.872}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790346005.874}
+{"code": 200, "kind": "read", "ms": 13.8, "path": "trades", "t": 1790346005.877}
+{"code": 200, "kind": "read", "ms": 3.8, "path": "accounts", "t": 1790346005.89}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "open_orders", "t": 1790346005.894}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346006.166, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346006.666, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346006.666, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346006.666, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346006.669, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.5, "name": "jwt_verification", "t": 1790346006.697}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346006.758, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346006.776, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.6, "path": "markets", "t": 1790346006.883}
+{"code": 200, "kind": "read", "ms": 2.1, "path": "orderbook", "t": 1790346006.885}
+{"code": 200, "kind": "read", "ms": 4.4, "path": "trades", "t": 1790346006.888}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "accounts", "t": 1790346006.892}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790346006.896}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 201448, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346007.178, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346007.676, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346007.676, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346007.693, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 17.7, "name": "jwt_verification", "t": 1790346007.706}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346007.754, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346007.756, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790346007.878}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790346007.881}
+{"code": 200, "kind": "read", "ms": 5.1, "path": "trades", "t": 1790346007.883}
+{"code": 200, "kind": "read", "ms": 4.3, "path": "accounts", "t": 1790346007.888}
+{"code": 200, "kind": "read", "ms": 20.3, "path": "open_orders", "t": 1790346007.893}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346008.175, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346008.673, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346008.673, "trading_suspended": false}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346008.673, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346008.676, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.6, "name": "jwt_verification", "t": 1790346008.703}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346008.75, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346008.753, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.8, "path": "markets", "t": 1790346008.874}
+{"code": 200, "kind": "read", "ms": 2.2, "path": "orderbook", "t": 1790346008.877}
+{"code": 200, "kind": "read", "ms": 29.1, "path": "trades", "t": 1790346008.88}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "accounts", "t": 1790346008.909}
+{"code": 200, "kind": "read", "ms": 3.7, "path": "open_orders", "t": 1790346008.914}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346009.17, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346009.667, "timeline": 2}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346009.667, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346009.669, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.7, "name": "jwt_verification", "t": 1790346009.697}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346009.759, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346009.762, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.7, "path": "markets", "t": 1790346009.869}
+{"code": 200, "kind": "read", "ms": 14.8, "path": "orderbook", "t": 1790346009.872}
+{"code": 200, "kind": "read", "ms": 17.3, "path": "trades", "t": 1790346009.887}
+{"code": 200, "kind": "read", "ms": 4.5, "path": "accounts", "t": 1790346009.904}
+{"code": 200, "kind": "read", "ms": 4.1, "path": "open_orders", "t": 1790346009.909}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346010.166, "timeline": 2}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346010.674, "timeline": 2}
+{"code": 200, "kind": "status", "node": "lb", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346010.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-1", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346010.674, "trading_suspended": false}
+{"code": 200, "kind": "status", "node": "api-2", "reason": null, "since": null, "state": "ACTIVE", "t": 1790346010.677, "trading_suspended": false}
+{"code": 401, "kind": "write", "ms": 2.4, "name": "jwt_verification", "t": 1790346010.705}
+{"code": 200, "kind": "haproxy", "node": "haproxy-1", "t": 1790346010.752, "up": ["db-2"]}
+{"code": 200, "kind": "haproxy", "node": "haproxy-2", "t": 1790346010.769, "up": ["db-2"]}
+{"code": 200, "kind": "read", "ms": 2.3, "path": "markets", "t": 1790346010.876}
+{"code": 200, "kind": "read", "ms": 15.1, "path": "orderbook", "t": 1790346010.879}
+{"code": 200, "kind": "read", "ms": 3.9, "path": "trades", "t": 1790346010.894}
+{"code": 200, "kind": "read", "ms": 4.2, "path": "accounts", "t": 1790346010.898}
+{"code": 200, "kind": "read", "ms": 24.2, "path": "open_orders", "t": 1790346010.902}
+{"code": 200, "kind": "cluster", "leader": "patroni-db-2", "members": [{"host": "db-1-repl", "lag": 0, "name": "patroni-db-1", "role": "sync_standby", "state": "streaming", "timeline": 2}, {"host": "db-2-repl", "lag": null, "name": "patroni-db-2", "role": "leader", "state": "running", "timeline": 2}], "src": "59008", "sync": ["patroni-db-1"], "t": 1790346011.169, "timeline": 2}
+{"kind": "stop", "t": 1790346011.423}
