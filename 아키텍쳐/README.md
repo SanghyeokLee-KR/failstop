@@ -43,13 +43,15 @@ PNG는 5120×3200 크기이며 SVG는 확대해도 선명한 이미지다. 구�
 
 2026-09-25에 교수님께 보고한 v5를 바탕으로 현재 결정을 반영한 v6을 같은 폴더에 더했다. v6은 개인 AWS 계정에 배포할 계획을 그린 도면이며 AWS 자원을 만들거나 검증한 결과가 아니다. 학교 EC2에서 실제로 운영 중인 구성은 [학교 AWS 실제 운영 구성도](교수님_보고본/07_학교AWS_운영환경/학교_AWS_실제_운영_구성도.png)를 비롯한 07 도면에서 확인한다.
 
-v6에는 NAT Gateway가 없다. 모든 노드가 퍼블릭 서브넷에서 자기 공인 IPv4로 Internet Gateway를 거쳐 외부와 통신하고, 들어오는 연결은 역할별 보안그룹으로 제한한다([ADR 0030](../docs/reference/adr/0030-nat-free-lab-and-bounded-read-asg.md)). v5의 수동 확장 표기를 지우고 조회 전용 노드만 Auto Scaling group(min 2 / desired 2 / max 3)으로 묶었으며, 확장 지표와 임계는 AWS 시험으로 정한다([ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)). app-1과 app-2는 마켓 파티션 p0과 p1을 나눠 맡는 매칭 리더다(ADR 0034). 리더 리스는 기본값인 PostgreSQL 리스를 쓰므로([ADR 0017](../docs/reference/adr/0017-leader-lease-out-of-commit-path.md)) v5의 선택형 DynamoDB 리스 상자는 뺐다. DB는 PostgreSQL 17 두 대를 Patroni로 자동 전환하고 동기 복제로 묶는다. Standby가 없으면 쓰기를 멈추고 거래 화면에 거래 일시 중단을 알리며, AI는 DB를 승격하지 않는다.
+v6에는 NAT Gateway가 없다. 모든 노드가 퍼블릭 서브넷에서 자기 공인 IPv4로 Internet Gateway를 거쳐 외부와 통신하고, 들어오는 연결은 역할별 보안그룹으로 제한한다([ADR 0030](../docs/reference/adr/0030-nat-free-lab-and-bounded-read-asg.md)). 리더 리스는 기본값인 PostgreSQL 리스를 쓰므로([ADR 0017](../docs/reference/adr/0017-leader-lease-out-of-commit-path.md)) v5의 선택형 DynamoDB 리스 상자는 뺐다. DB는 PostgreSQL 17 두 대를 Patroni로 자동 전환하고 동기 복제로 묶는다. Standby가 없으면 쓰기를 멈추고 거래 화면에 거래 일시 중단을 알리며, AI는 DB를 승격하지 않는다.
+
+앱 계층은 평소 app-1과 app-2 두 대로 운영하고, 부하가 오르면 조회 전용 app-3 한 대가 Auto Scaling group(0~1대)으로 붙어 2~3대가 된다. 평소에 따로 켜 두는 조회 전용 노드는 없다(2026-09-25 사용자 정정). 로컬 카오스 스택이 chaos-api-1·api-2를 고정하고 조회 전용 증설 노드 chaos-api-3만 붙였다 떼는 방식과 같다([chaos Compose](../harness/docker-compose.chaos.yml)). app-1과 app-2는 마켓 파티션 p0과 p1을 나눠 맡는 매칭 리더이면서 조회도 받는다(ADR 0034). 두 리더는 AWS가 임의로 종료하거나 교체하지 않도록 ASG 밖에 고정한다(ADR 0030). ALB는 쓰기를 X-Exchange-Market 헤더에 따라 p0은 app-1, p1은 app-2로 보내고, 조회는 app-1·app-2와 켜져 있는 app-3에 나눈다. v5의 수동 확장 표기는 지웠고, 확장 지표와 임계는 AWS 시험으로 정한다([ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)).
 
 아직 정하지 않은 항목은 점선으로 표시했다. WebSocket 외부 브로커의 위치(ADR 0034), 앱의 SQL을 현재 Primary로 잇는 HAProxy의 위치(ADR 0036), 관제센터와 보고 서비스가 ai-1에 요청을 보낼 터널 경로, Databasus 백업의 배치(ADR 0037 예정)다. ai-1은 연구소에 둘 DGX Spark이며 2026-09-28 입고 예정이다(ADR 0038).
 
 pfSense 방화벽은 VM 실습망에서 구성했고 AWS 경로에는 넣지 않았다. 사용자 트래픽이 방화벽 한 대를 지나면 단일 병목·장애점이 되므로, AWS 쪽 경계는 역할별 보안그룹으로 통제한다(사용자 결정 2026-09-25).
 
-v6이 반영한 ADR 0034·0035·0036·0038은 이 브랜치에 없다. 이 브랜치의 [0099](../docs/reference/adr/0099-current-architecture.md)는 아직 DB를 비동기 복제와 수동 승격으로 설명하므로 그 결정들을 병합할 때 0099와 함께 검토한다. 도면의 VPC 대역 10.0.0.0/16은 사용자가 정한 값이다. 저장소 Terraform은 `vpc_cidr` 기본값이 10.42.0.0/16이고 DB를 앱과 같은 노드 서브넷에 두므로 배포 전에 한쪽으로 맞춘다. [Terraform 변수](../deploy/terraform/variables.tf)
+v6이 반영한 ADR 0034·0035·0036·0038은 이 브랜치에 없다. 이 브랜치의 [0099](../docs/reference/adr/0099-current-architecture.md)는 아직 DB를 비동기 복제와 수동 승격으로 설명하므로 그 결정들을 병합할 때 0099와 함께 검토한다. 앱 계층도 결정 문서와 다르다. ADR 0030 본문과 0099는 매칭 리더와 별도인 조회 전용 노드를 min 2 / desired 2 / max 3의 조회 ASG로 계획하므로, 2026-09-25 정정(app-1·app-2 고정, app-3만 0~1대 자동 증설)을 병합할 때 함께 고쳐야 한다. 도면의 VPC 대역 10.0.0.0/16은 사용자가 정한 값이다. 저장소 Terraform은 `vpc_cidr` 기본값이 10.42.0.0/16이고 DB를 앱과 같은 노드 서브넷에 두므로 배포 전에 한쪽으로 맞춘다. [Terraform 변수](../deploy/terraform/variables.tf)
 
 PNG는 5122×3602 크기이고 SVG에는 글꼴을 넣지 않았다. 구조·문구·연결선은 `.drawio` 원본에서 고치고 PNG와 SVG를 함께 다시 내보낸다.
 
@@ -84,7 +86,7 @@ PNG는 5122×3602 크기이고 SVG에는 글꼴을 넣지 않았다. 구조·문
 
 | 자료에서 설명한 것 | 현재 판단과 발표할 때의 구분 |
 |---|---|
-| 서울 리전 2 AZ, CloudFront·S3·ALB, 앱, primary·비동기 standby, NAT 2개, 봇과 관측 | 학교에서는 Private Subnet·NAT·Route 53·ACM을 사용하지 않아 보고본과 다르다. ADR 0030에 따라 개인 실습도 NAT를 제외하고 조회 ASG는 2~3대로 계획한다. 이 보고본은 과거 설계로 보존하며 실제 전체 구축 증거는 아직 없다. 보고본의 상자 하나를 구현 완료 하나로 세지 않는다. |
+| 서울 리전 2 AZ, CloudFront·S3·ALB, 앱, primary·비동기 standby, NAT 2개, 봇과 관측 | 학교에서는 Private Subnet·NAT·Route 53·ACM을 사용하지 않아 보고본과 다르다. ADR 0030에 따라 개인 실습도 NAT를 제외한다. 앱 계층은 app-1·app-2에 조회 전용 app-3을 0~1대 자동으로 더하는 2~3대로 계획한다(2026-09-25 사용자 정정). 이 보고본은 과거 설계로 보존하며 실제 전체 구축 증거는 아직 없다. 보고본의 상자 하나를 구현 완료 하나로 세지 않는다. |
 | Docker 검증 환경의 DynamoDB Local 리스 | 선택한 실험 구성으로는 가능하다. 다만 현재 chaos Compose의 기본값은 PostgreSQL이다. 촬영 때 실제 `CHAOS_LEASE_PROVIDER`를 기록하고 사용한 제공자에 맞춰 설명한다. |
 | 시나리오 1의 DB 장애 | 단일 `chaos-pg`를 중단했다가 같은 DB를 재시작하는 계획이다. 앱 리더만 바뀌는 실험, 리더의 DB 프록시만 끊는 E2, AWS standby를 수동 승격하는 실험은 각각 다르다. |
 | 시나리오 2의 수동 용량 변경 | 같은 요청과 부하에서 자원 변경 전후를 비교하는 방향이 맞다. 현재 Docker 기본 경로는 리더 한 대로 트래픽을 보낸다. 앱 컨테이너를 추가하는 것만으로 조회 분산이나 주문 처리량 증가가 보장되지는 않는다. |
