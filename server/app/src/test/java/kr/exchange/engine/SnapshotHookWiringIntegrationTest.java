@@ -15,6 +15,7 @@ import kr.exchange.harness.RecoveryRunRecorder;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
+import kr.exchange.journal.DbFailures;
 import kr.exchange.journal.EventJournalReader;
 import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
@@ -45,6 +46,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,13 +55,16 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -365,6 +370,90 @@ class SnapshotHookWiringIntegrationTest {
             assertEquals(List.of(false, true, true), matchedInOrder(c), "판독 실패 폴백이 불일치 행을 남겼다");
             assertBooksEqual(a.router, again, heads);
         }
+    }
+
+    /**
+     * 스냅샷 경로가 DB 에 닿지 못하면 적재에서든 시작 재생에서든 폴백하지 않는다(DB 설계 §5.5 STEP1 v2.56, S4b 설계 4-2). 전량
+     * 재생도 첫 조회에서 같은 이유로 실패하고 폴백 계수가 DB 장애를 세기 때문이다. 문장 시간 초과(57014)는 큰 스냅샷 조회에서만
+     * 계속 날 수 있으므로 두 곳 모두 종전처럼 폴백한다. 어느 경우에도 판정 없이 끝난 재생은 불일치 행을 남기지 않는다.
+     */
+    @org.junit.jupiter.api.Test
+    void snapshotFallbackIsSkippedOnlyWhenTheDatabaseIsUnreachable() throws Exception {
+        try (Cluster c = new Cluster("snap_unreachable", Numbering.GLOBAL)) {
+            Node a = c.leader();
+            a.router.startAll();
+            EngineBridge bridge = a.bridge(AcceptGate.ALWAYS_OPEN);
+            Map<Integer, List<Long>> covered = c.tradeAll(bridge, 3);
+            c.awaitMaterialized(a, heads(covered));
+            a.pauseCapture();
+            c.awaitSnapshotsPersisted(a, covered.keySet());
+            Map<Integer, Long> heads = heads(c.tradeAll(bridge, 2));
+            c.awaitMaterialized(a, heads);
+            a.router.stopAll();
+            long total = c.count("SELECT count(*) FROM command_journal");
+
+            // (a) 스냅샷 원천의 커넥션 획득 실패: 폴백하지 않고 복구를 실패로 올린다. 행도 없다.
+            EngineRecovery unreachable = new EngineRecovery(c.replay, events -> fail("재적재 대상이 없어야 한다"),
+                    a.lease, () -> {
+                        throw DbFailures.acquireFailure();
+                    });
+            unreachable.setRecoveryRecorder(new RecoveryRunRecorder(c.jdbc));
+            assertThrows(org.springframework.jdbc.CannotGetJdbcConnectionException.class,
+                    () -> unreachable.recover(new MatchingEngineImpl()));
+            assertEquals(0, unreachable.snapshotFallbacks(), "DB 에 닿지 못한 적재를 스냅샷 결함으로 셌다");
+            assertEquals(List.of(), matchedInOrder(c), "DB 에 닿지 못한 복구가 recovery_runs 에 행을 남겼다");
+
+            // (b) 스냅샷 적재의 57014: 폴백해 전량 재생으로 복구한다. 불일치 행은 없다.
+            EngineRecovery loadTimeout = new EngineRecovery(c.replay, events -> fail("재적재 대상이 없어야 한다"),
+                    a.lease, () -> {
+                        throw DbFailures.sql("57014");
+                    });
+            loadTimeout.setRecoveryRecorder(new RecoveryRunRecorder(c.jdbc));
+            MatchingEngineImpl afterLoadTimeout = new MatchingEngineImpl();
+            assertEquals(total, loadTimeout.recover(afterLoadTimeout).replayedCommands(), "폴백이 전량 재생이 아니다");
+            assertEquals(1, loadTimeout.snapshotFallbacks(), "문장 시간 초과로 끝난 적재가 폴백하지 않았다");
+            assertEquals(List.of(true), matchedInOrder(c));
+            assertBooksEqual(a.router, afterLoadTimeout, heads);
+
+            // (c) 스냅샷 시작 재생의 57014: 판정 없는 끝이라 행 없이 폴백하고, 전량 재생의 성공 행 하나만 남는다.
+            EngineRecovery replayTimeout = new EngineRecovery(firstVerifyFails(c, () -> DbFailures.sql("57014")),
+                    events -> fail("재적재 대상이 없어야 한다"), a.lease, c.store);
+            replayTimeout.setRecoveryRecorder(new RecoveryRunRecorder(c.jdbc));
+            MatchingEngineImpl afterReplayTimeout = new MatchingEngineImpl();
+            assertEquals(total, replayTimeout.recover(afterReplayTimeout).replayedCommands());
+            assertEquals(1, replayTimeout.snapshotFallbacks(), "시작 재생의 57014 가 폴백하지 않았다");
+            assertEquals(List.of(true, true), matchedInOrder(c), "판정 없이 끝난 시작 재생이 불일치 행을 남겼다");
+            assertBooksEqual(a.router, afterReplayTimeout, heads);
+
+            // (d)(e) 적재는 성공하고 시작 재생이 획득 실패나 연결 끊김으로 끝난다: 폴백하지 않고 복구를 실패로 올린다. 행도 없다.
+            Map<String, RuntimeException> unreachableReplays = new LinkedHashMap<>();
+            unreachableReplays.put("(d) 획득 실패", DbFailures.acquireFailure());
+            unreachableReplays.put("(e) 롤백 실패", DbFailures.rollbackFailed(DbFailures.connectionFailure()));
+            unreachableReplays.forEach((scene, failure) -> {
+                EngineRecovery replayUnreachable = new EngineRecovery(firstVerifyFails(c, () -> failure),
+                        events -> fail("재적재 대상이 없어야 한다"), a.lease, c.store);
+                replayUnreachable.setRecoveryRecorder(new RecoveryRunRecorder(c.jdbc));
+                assertSame(failure, assertThrows(RuntimeException.class,
+                        () -> replayUnreachable.recover(new MatchingEngineImpl()), scene), scene);
+                assertEquals(0, replayUnreachable.snapshotFallbacks(), scene + ": DB 에 닿지 못한 시작 재생을 스냅샷 결함으로 셌다");
+                assertEquals(List.of(true, true), matchedInOrder(c), scene + ": DB 에 닿지 못한 복구가 recovery_runs 에 행을 남겼다");
+            });
+        }
+    }
+
+    /** 첫 마켓 대조만 failure 로 끝나고 그 뒤로는 실제로 대조하는 재생 서비스. 스냅샷 시작 재생의 실패를 넣는다. */
+    private static ReplayService firstVerifyFails(Cluster c, Supplier<RuntimeException> failure) {
+        AtomicInteger verifies = new AtomicInteger();
+        return new ReplayService(c.commands, new EventJournalReader(c.jdbc), c.mapper, c.json, c.catalog) {
+            @Override
+            public ReplayResult verifyToMarket(kr.exchange.engine.core.MatchingEngine engine, int marketId,
+                                               kr.exchange.journal.JournalCheckpoints checkpoints) {
+                if (verifies.getAndIncrement() == 0) {
+                    throw failure.get();
+                }
+                return super.verifyToMarket(engine, marketId, checkpoints);
+            }
+        };
     }
 
     private static List<Boolean> matchedInOrder(Cluster c) {

@@ -1,0 +1,259 @@
+{
+  "experiment": "E1",
+  "rc": 0,
+  "runId": "E1-20260925-102646",
+  "verdict": "PASS",
+  "demotions": 0.0,
+  "acquireLockTimeouts": 0.0,
+  "contention": {
+    "18080": [
+      "exchange_order_intake_contention_total{40001|409}=0",
+      "exchange_order_intake_contention_total{40001|429}=0",
+      "exchange_order_intake_contention_total{40P01|409}=0",
+      "exchange_order_intake_contention_total{40P01|429}=0",
+      "exchange_order_intake_contention_total{55P03|409}=0",
+      "exchange_order_intake_contention_total{55P03|429}=8",
+      "exchange_order_intake_contention_total{57014|409}=0",
+      "exchange_order_intake_contention_total{57014|429}=0",
+      "exchange_order_intake_contention_total{lock_wait|409}=0",
+      "exchange_order_intake_contention_total{lock_wait|429}=4",
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}=0"
+    ],
+    "28080": [
+      "exchange_order_intake_contention_total{40001|409}=0",
+      "exchange_order_intake_contention_total{40001|429}=0",
+      "exchange_order_intake_contention_total{40P01|409}=0",
+      "exchange_order_intake_contention_total{40P01|429}=0",
+      "exchange_order_intake_contention_total{55P03|409}=0",
+      "exchange_order_intake_contention_total{55P03|429}=0",
+      "exchange_order_intake_contention_total{57014|409}=0",
+      "exchange_order_intake_contention_total{57014|429}=0",
+      "exchange_order_intake_contention_total{lock_wait|409}=0",
+      "exchange_order_intake_contention_total{lock_wait|429}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}=0"
+    ]
+  },
+  "partitions": {
+    "18080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "28080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 305,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 1,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-api-2": {
+      "lines": 205,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 1,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-bots": {
+      "lines": 41,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    }
+  },
+  "settlement": {
+    "18080": [
+      "exchange_settlement_transient_exhausted_total=0",
+      "exchange_settlement_transient_retries_total=3",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}=3",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}=0"
+    ],
+    "28080": [
+      "exchange_settlement_transient_exhausted_total=0",
+      "exchange_settlement_transient_retries_total=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}=0",
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}=0"
+    ]
+  },
+  "intakeUnavailable": 0.0,
+  "orders500": {
+    "rc": 0,
+    "ok": true,
+    "readable": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "zero": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "file": "orders500.json"
+  },
+  "host": {
+    "before": {
+      "at": "2026-09-25T01:25:31.9129649Z",
+      "cpuTotalPct": [
+        28.6,
+        10.4,
+        7.0,
+        9.9,
+        13.0
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-25T01:31:27.3633493Z",
+      "cpuTotalPct": [
+        26.8,
+        18.8,
+        22.4,
+        31.1,
+        56.3
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    }
+  },
+  "gate": {
+    "scriptPass": true,
+    "demotions0": true,
+    "acquireLockTimeouts0": true,
+    "orders500": true,
+    "unhandled0": true
+  },
+  "gateVerdict": "PASS",
+  "containerLogs": {
+    "chaos-api-1": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\E1-r1-E1\\chaos-api-1.log",
+      "sha256": "74553ecfe7f2735c87309f93c2a73ead5e6646d139eeb1f8fe4c894f3b35f827",
+      "bytes": 71637
+    },
+    "chaos-api-2": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\E1-r1-E1\\chaos-api-2.log",
+      "sha256": "be8b663edb9fe41688a4e65a30a2b8220e4b443aab615d4048c8f2bc6c4ad997",
+      "bytes": 56443
+    },
+    "chaos-bots": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\E1-r1-E1\\chaos-bots.log",
+      "sha256": "b93a680b89d15699e7cfc9290bfccdeb95358e0a5e6623799de0f4274562cd15",
+      "bytes": 6490
+    },
+    "chaos-lb": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\E1-r1-E1\\chaos-lb.log",
+      "sha256": "d630969da38d43b0385b4cf8cfb16e00c61d98ba21e2a7c3f580eb374635c7e7",
+      "bytes": 630114
+    }
+  }
+}

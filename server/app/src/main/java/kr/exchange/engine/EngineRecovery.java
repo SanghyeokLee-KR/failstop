@@ -3,10 +3,14 @@ package kr.exchange.engine;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
+import kr.exchange.journal.DbOutageErrors;
 import kr.exchange.journal.JournalCheckpoints;
+import kr.exchange.journal.ReplayMismatchException;
 import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayResult.PendingBatch;
 import kr.exchange.journal.ReplayService;
+import kr.exchange.journal.SqlErrors;
+import kr.exchange.journal.TransientDbErrors;
 import kr.exchange.snapshot.SnapshotSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -315,6 +319,9 @@ public class EngineRecovery {
             snaps = snapshotSource.loadLatestAdoptable(scope);
             snaps.forEach((marketId, snap) -> fromSnapshots.loadMarketSnapshot(marketId, snap.seq(), snap.book()));
         } catch (RuntimeException e) {
+            if (unreachable(e)) {
+                throw e;
+            }
             fallBackToFullReplay("스냅샷 적재 실패", e);
             return null;
         }
@@ -331,6 +338,9 @@ public class EngineRecovery {
                 // 리더 자격을 잃은 승격은 전량 재생으로도 끝까지 가지 못한다. 다음 승격이 새 epoch 로 다시 한다.
                 throw e;
             }
+            if (unreachable(e)) {
+                throw e;
+            }
             fallBackToFullReplay("스냅샷 시작 재생 실패", e);
             return null;
         }
@@ -345,6 +355,37 @@ public class EngineRecovery {
         log.error("{}. 스냅샷 없이 전량 재생으로 폴백한다", cause, e);
     }
 
+    /**
+     * 스냅샷 경로의 실패가 이 노드가 DB 에 닿지 못한 것인가(DB 설계 §5.5 STEP1 v2.56). 그러면 전량 재생도 첫 조회에서 같은
+     * 이유로 실패하므로 폴백하지 않고 폴백 계수도 올리지 않는다. 일시 오류 넷과 자원 부족은 큰 스냅샷 조회에서만 계속 날 수
+     * 있어 폴백한다.
+     */
+    private static boolean unreachable(RuntimeException e) {
+        DbOutageErrors.Kind kind = DbOutageErrors.kind(e);
+        return kind == DbOutageErrors.Kind.ACQUIRE_FAILURE || kind == DbOutageErrors.Kind.CONNECTION_LOST;
+    }
+
+    /**
+     * 재생이 대조를 끝내지 못하고 끝났는가(DB 설계 §5.5 v2.56 '판정 없이 끝난 재생'). DB 접근 실패와 리더 자격 상실이다.
+     * 사슬에 불일치가 있으면 판정이 난 것이다. 분류하지 못한 예외는 불일치 쪽에 두어 C17 을 보수적으로 지킨다.
+     */
+    private static boolean endedWithoutVerdict(RuntimeException e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof ReplayMismatchException) {
+                return false;
+            }
+        }
+        if (DbOutageErrors.isOutage(e) || TransientDbErrors.isRetryable(e)) {
+            return true;
+        }
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof NotLeaderException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** 재생 한 벌을 돌리고 그 결과를 recovery_runs 에 남긴다(C17 원천). 예외는 기록한 뒤 그대로 던진다. */
     private ReplayResult replayRecorded(MatchingEngineImpl engine, IntPredicate scope, Reinjection reinjection) {
         long replayFrom = engine.lastAppliedSeq();
@@ -353,6 +394,12 @@ public class EngineRecovery {
         try {
             result = replayToCheckpointThenTail(engine, scope, reinjection);
         } catch (RuntimeException e) {
+            if (endedWithoutVerdict(e)) {
+                // 불일치로 적으면 C17 이 DB 장애를 결정론 위반으로 센다. 호출자(재구성, 승격, 기동)가 다시 한다.
+                log.warn("재생이 판정 없이 끝났다. 불일치로 적지 않고 복구를 실패로 올린다: from_seq={}, 원인={}",
+                        replayFrom, SqlErrors.describe(e));
+                throw e;
+            }
             // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
             // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
             if (recoveryRecorder != null) {
@@ -401,7 +448,7 @@ public class EngineRecovery {
             return stable;
         }
         if (!reinjection.authorize()) {
-            throw new IllegalStateException("크래시 창 마켓 " + beyond + " 재적재 불가: 리더 자격 없음");
+            throw new NotLeaderException("크래시 창 마켓 " + beyond + " 재적재 불가: 리더 자격 없음");
         }
 
         // 리더 자격을 확인하는 사이 다른 노드가 창을 메웠을 수 있다. 경계를 다시 읽어 검증

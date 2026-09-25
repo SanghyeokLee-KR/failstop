@@ -1,0 +1,163 @@
+2026-09-25T09:40:40+09:00 [Prep] PHASE Prep project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T09:40:40+09:00 [Prep] volumes before unchanged
+2026-09-25T09:40:40+09:00 [Prep] previous :pml sha256:e7baeb2f2f109d117c085e2dc167e82afb8caae2eaa759bc9b78afa6552795df created 2026-09-24T22:04:59.348827465Z; exchange-chaos-app:s4b2ref=sha256:e7baeb2f2f109d117c085e2dc167e82afb8caae2eaa759bc9b78afa6552795df s3ref=sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b rebake=False newRef=exchange-chaos-app:s4b3ref
+2026-09-25T09:40:40+09:00 [Prep] RUN pwsh -NoProfile -File harness\scripts\up.ps1 -Obs
+2026-09-25T09:41:27+09:00 [Prep] RC 0
+2026-09-25T09:41:28+09:00 [Prep] TAG exchange-chaos-app:s4b3ref -> sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24
+2026-09-25T09:41:28+09:00 [Prep] images.json s4b=sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24 previous=sha256:e7baeb2f2f109d117c085e2dc167e82afb8caae2eaa759bc9b78afa6552795df head=48629d5d02ae61b2de7ae12a082fb689a1ce2eee diff=e0a2a7ff3bf002201e23883441e6fb8c2b0004bcf9cfd587efdd7844f82a81c6 flyway_max=53
+2026-09-25T09:41:31+09:00 [Prep] down -v (exchange-pml) rc=0 after build
+2026-09-25T09:41:31+09:00 [Prep] volumes after unchanged
+2026-09-25T09:42:05+09:00 [X1] PHASE X1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T09:42:06+09:00 [X1] volumes before unchanged
+2026-09-25T09:42:11+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-25T09:42:49+09:00 [X1] up --profile obs (owner login, Flyway by api-1, profiles=dev,chaos-monkey,prod-timeouts) rc=0
+2026-09-25T09:42:50+09:00 [X1] RUN provision-runtime-roles.sql (docker exec -i chaos-pg psql -U exchange, 로그인 pml_app·pml_bot·pml_read)
+2026-09-25T09:42:50+09:00 [X1] provision rc=0
+2026-09-25T09:42:50+09:00 [X1] COMPOSE exchange-pml overlays=[override-app-login.yml] up -d --no-deps --force-recreate chaos-api-1 chaos-api-2 chaos-bots image=exchange-chaos-app:pml
+2026-09-25T09:43:08+09:00 [X1] COMPOSE rc=0
+2026-09-25T09:43:08+09:00 [X1] P1 app-login leader epoch=2
+2026-09-25T09:43:28+09:00 [X1] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\protocol.json
+2026-09-25T09:44:00+09:00 [X1] RC 0
+2026-09-25T09:44:00+09:00 [X1] P2 leader epoch=6 (expected 6)
+2026-09-25T09:44:10+09:00 [X1] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_pre.json
+2026-09-25T09:44:11+09:00 [X1] RC 0
+2026-09-25T09:44:11+09:00 [X1] bots target_ops=300, run 10min from 2026-09-25 00:44:11.589
+2026-09-25T09:54:13+09:00 [X1] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_post.json
+2026-09-25T09:54:14+09:00 [X1] RC 0
+2026-09-25T09:54:14+09:00 [X1] RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T00:44:10.7173463+00:00 --lb-gate --pre C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_pre.json --post C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_post.json --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_axes.json
+2026-09-25T09:54:14+09:00 [X1] RC 0
+2026-09-25T09:54:14+09:00 [X1] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T00:42:11.6431185+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\orders500.json
+2026-09-25T09:54:15+09:00 [X1] RC 0
+2026-09-25T09:54:15+09:00 [X1] RUN pwsh -NoProfile -File harness\scripts\s4-intake-contention.ps1 -OutDir C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X6 -Variants a,b,c,d
+2026-09-25T10:00:50+09:00 [X1] RC 0
+2026-09-25T10:00:50+09:00 [X1] X6 rc=0
+2026-09-25T10:00:53+09:00 [X1] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\state-after-drain.json
+2026-09-25T10:00:54+09:00 [X1] RC 0
+2026-09-25T10:01:11+09:00 [X1] AUTHORITATIVE X1-post ok=True notOk=[] 
+2026-09-25T10:01:24+09:00 [X1] SUMMARY summary-X1 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T10:01:30+09:00 [X1] X1 verdict=PASS fails=[]
+2026-09-25T10:01:35+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-25T10:01:35+09:00 [X1] volumes after unchanged
+2026-09-25T10:01:39+09:00 [B1] PHASE B1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:01:39+09:00 [B1] volumes before unchanged
+2026-09-25T10:02:17+09:00 [B1] up --profile obs rc=0 (B1)
+2026-09-25T10:02:17+09:00 [B1] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\B1\protocol.json
+2026-09-25T10:02:44+09:00 [B1] RC 0
+2026-09-25T10:02:54+09:00 [B1] B1 bots target_ops=300, warmup 120s
+2026-09-25T10:04:55+09:00 [B1] B1 round 1 reset_peer pg-api1 (chaos-api-1) 2026-09-25T01:04:55.0062728+00:00 -> 2026-09-25T01:04:55.5618356+00:00
+2026-09-25T10:05:56+09:00 [B1] B1 round 2 reset_peer pg-api1 (chaos-api-1) 2026-09-25T01:05:56.3748248+00:00 -> 2026-09-25T01:05:56.8898898+00:00
+2026-09-25T10:06:58+09:00 [B1] B1 round 3 reset_peer pg-api1 (chaos-api-1) 2026-09-25T01:06:57.6897251+00:00 -> 2026-09-25T01:06:58.2132641+00:00
+2026-09-25T10:07:58+09:00 [B1] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:01:44.7134307+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\B1\orders500.json
+2026-09-25T10:07:59+09:00 [B1] RC 0
+2026-09-25T10:08:18+09:00 [B1] AUTHORITATIVE B1-post ok=True notOk=[] 
+2026-09-25T10:08:24+09:00 [B1] SUMMARY summary-B1 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T10:08:31+09:00 [B1] B1 verdict=PASS measured=3/3 fails=[]
+2026-09-25T10:08:37+09:00 [B1] down -v (exchange-pml) rc=0 after B1
+2026-09-25T10:08:37+09:00 [B1] volumes after unchanged
+2026-09-25T10:08:40+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:08:40+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:08:46+09:00 [Chaos] down -v (exchange-pml) rc=0 before E2-r1
+2026-09-25T10:08:46+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2 -Protocol 2 -PartitionAxes -EvidenceDir E2-r1 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\E2-r1
+2026-09-25T10:11:53+09:00 [Chaos] stage5 rc=0 (E2-r1)
+2026-09-25T10:11:58+09:00 [Chaos] CHAOS E2-r1 E2=PASS noVerdict=0
+2026-09-25T10:11:58+09:00 [Chaos] volumes after unchanged
+2026-09-25T10:12:02+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:12:02+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:12:07+09:00 [Chaos] down -v (exchange-pml) rc=0 before E2-r2
+2026-09-25T10:12:07+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2 -Protocol 2 -PartitionAxes -EvidenceDir E2-r2 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\E2-r2
+2026-09-25T10:15:19+09:00 [Chaos] stage5 rc=0 (E2-r2)
+2026-09-25T10:15:25+09:00 [Chaos] CHAOS E2-r2 E2=PASS noVerdict=0
+2026-09-25T10:15:25+09:00 [Chaos] volumes after unchanged
+2026-09-25T10:15:28+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:15:28+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:15:34+09:00 [Chaos] down -v (exchange-pml) rc=0 before E2-r3
+2026-09-25T10:15:34+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2 -Protocol 2 -PartitionAxes -EvidenceDir E2-r3 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\E2-r3
+2026-09-25T10:18:42+09:00 [Chaos] stage5 rc=0 (E2-r3)
+2026-09-25T10:18:47+09:00 [Chaos] CHAOS E2-r3 E2=PASS noVerdict=0
+2026-09-25T10:18:47+09:00 [Chaos] volumes after unchanged
+2026-09-25T10:18:50+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:18:50+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:18:56+09:00 [Chaos] down -v (exchange-pml) rc=0 before E2-r4
+2026-09-25T10:18:56+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2 -Protocol 2 -PartitionAxes -EvidenceDir E2-r4 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\E2-r4
+2026-09-25T10:22:02+09:00 [Chaos] stage5 rc=0 (E2-r4)
+2026-09-25T10:22:08+09:00 [Chaos] CHAOS E2-r4 E2=PASS noVerdict=0
+2026-09-25T10:22:08+09:00 [Chaos] volumes after unchanged
+2026-09-25T10:22:11+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:22:11+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:22:16+09:00 [Chaos] down -v (exchange-pml) rc=0 before E2-r5
+2026-09-25T10:22:17+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2 -Protocol 2 -PartitionAxes -EvidenceDir E2-r5 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\E2-r5
+2026-09-25T10:25:16+09:00 [Chaos] stage5 rc=0 (E2-r5)
+2026-09-25T10:25:22+09:00 [Chaos] CHAOS E2-r5 E2=PASS noVerdict=0
+2026-09-25T10:25:22+09:00 [Chaos] volumes after unchanged
+2026-09-25T10:25:25+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:25:26+09:00 [X8] volumes before unchanged
+2026-09-25T10:26:09+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T10:26:09+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r1\E1\protocol.json
+2026-09-25T10:26:36+09:00 [X8] RC 0
+2026-09-25T10:26:46+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T10:31:22+09:00 [X8] RC 0
+2026-09-25T10:31:27+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:25:31.9147737+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r1\E1\orders500.json
+2026-09-25T10:31:28+09:00 [X8] RC 0
+2026-09-25T10:31:29+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:31:35+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T10:31:35+09:00 [X8] volumes after unchanged
+2026-09-25T10:31:38+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:31:38+09:00 [X8] volumes before unchanged
+2026-09-25T10:32:22+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T10:32:22+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r2\E1\protocol.json
+2026-09-25T10:32:54+09:00 [X8] RC 0
+2026-09-25T10:33:04+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T10:37:35+09:00 [X8] RC 0
+2026-09-25T10:37:40+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:31:44.1464806+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r2\E1\orders500.json
+2026-09-25T10:37:41+09:00 [X8] RC 0
+2026-09-25T10:37:41+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:37:47+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T10:37:47+09:00 [X8] volumes after unchanged
+2026-09-25T10:37:51+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:37:51+09:00 [X8] volumes before unchanged
+2026-09-25T10:38:35+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T10:38:35+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r3\E1\protocol.json
+2026-09-25T10:39:01+09:00 [X8] RC 0
+2026-09-25T10:39:11+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T10:43:45+09:00 [X8] RC 0
+2026-09-25T10:43:50+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:37:56.7449823+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r3\E1\orders500.json
+2026-09-25T10:43:51+09:00 [X8] RC 0
+2026-09-25T10:43:52+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:43:57+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T10:43:57+09:00 [X8] volumes after unchanged
+2026-09-25T10:44:01+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:44:01+09:00 [X8] volumes before unchanged
+2026-09-25T10:44:45+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T10:44:45+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r4\E1\protocol.json
+2026-09-25T10:45:11+09:00 [X8] RC 0
+2026-09-25T10:45:22+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T10:49:55+09:00 [X8] RC 0
+2026-09-25T10:50:00+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:44:07.1099002+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r4\E1\orders500.json
+2026-09-25T10:50:01+09:00 [X8] RC 0
+2026-09-25T10:50:01+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:50:05+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T10:50:05+09:00 [X8] volumes after unchanged
+2026-09-25T10:50:08+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:50:08+09:00 [X8] volumes before unchanged
+2026-09-25T10:50:52+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T10:50:52+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r5\E1\protocol.json
+2026-09-25T10:51:23+09:00 [X8] RC 0
+2026-09-25T10:51:33+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T10:56:10+09:00 [X8] RC 0
+2026-09-25T10:56:15+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T01:50:14.8752591+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\E1-r5\E1\orders500.json
+2026-09-25T10:56:16+09:00 [X8] RC 0
+2026-09-25T10:56:17+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:56:23+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T10:56:23+09:00 [X8] volumes after unchanged
+2026-09-25T10:56:27+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T10:56:27+09:00 [Chaos] volumes before unchanged
+2026-09-25T10:56:33+09:00 [Chaos] down -v (exchange-pml) rc=0 before regress
+2026-09-25T10:56:33+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4,E5,E6,E7,COLD -Protocol 2 -PartitionAxes -EvidenceDir regress -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s4b3-logs\regress
+2026-09-25T11:12:48+09:00 [Chaos] stage5 rc=0 (regress)
+2026-09-25T11:12:54+09:00 [Chaos] CHAOS regress E4=PASS noVerdict=0 E5=PASS noVerdict=0 E6=PASS noVerdict=0 E7=PASS noVerdict=0 COLD=PASS noVerdict=0
+2026-09-25T11:12:54+09:00 [Chaos] volumes after unchanged
+2026-09-25T11:12:57+09:00 [Final] PHASE Final project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T11:12:57+09:00 [Final] volumes before unchanged
+2026-09-25T11:12:57+09:00 [Final] final down -v (exchange-pml) rc=0
+2026-09-25T11:12:58+09:00 [Final] TAG exchange-chaos-app:pml -> sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24
+2026-09-25T11:12:58+09:00 [Final] volumes after unchanged

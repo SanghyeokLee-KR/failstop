@@ -214,17 +214,27 @@ class OrderGatewayReserveMappingTest {
         }
     }
 
-    /** 경합이 아닌 예외의 응답은 S3 와 같다. 비접수 55P03 은 이 경로가 아니다(ApiExceptionHandler 가 500 으로 둔다). */
+    /**
+     * 경합도 DB 불통도 리더 자격 거부도 아닌 예외의 응답은 그대로다. 연결이 아닌 자원 실패(54000)와 DB 밖 예외가 그렇다. DB 불통의
+     * 응답은 OrderGatewayOutageMappingTest 가 본다. 비접수 55P03 은 이 경로가 아니다(ApiExceptionHandler 가 500 으로 둔다).
+     */
     @Test
-    void nonContentionFailuresKeepTheirS3Responses() throws Exception {
-        RuntimeException broken = new org.springframework.dao.DataAccessResourceFailureException("connection refused");
-        OrderGateway gateway = p2(new FakeBridge(intake -> {
-            throw broken;
-        }));
-        RuntimeException e = assertThrows(RuntimeException.class, () -> place(gateway, rich, key(), "50000", "1"));
-        assertSame(broken, e, "경합이 아닌 예외의 응답을 바꿨다");
-        for (String cause : new String[] {"lock_wait", "lock_wait_stuck", "55P03", "57014", "40P01", "40001"}) {
-            assertEquals(0, gateway.intakeContention(cause, "429") + gateway.intakeContention(cause, "409"), cause);
+    void failuresThatAreNeitherContentionNorOutageNorFencingKeepTheirResponses() throws Exception {
+        for (RuntimeException broken : new RuntimeException[] {kr.exchange.journal.DbFailures.sql("54000"),
+                new IllegalArgumentException("주입")}) {
+            OrderGateway gateway = p2(new FakeBridge(intake -> {
+                throw broken;
+            }));
+            RuntimeException e = assertThrows(RuntimeException.class, () -> place(gateway, rich, key(), "50000", "1"));
+            assertSame(broken, e, "그대로 올릴 예외의 응답을 바꿨다: " + broken);
+            for (String cause : new String[] {"lock_wait", "lock_wait_stuck", "55P03", "57014", "40P01", "40001"}) {
+                assertEquals(0, gateway.intakeContention(cause, "429") + gateway.intakeContention(cause, "409"), cause);
+            }
+            for (String cause : new String[] {"connection", "fencing"}) {
+                for (String response : new String[] {"503", "429", "409"}) {
+                    assertEquals(0, gateway.intakeUnavailable(cause, response), cause + "|" + response);
+                }
+            }
         }
     }
 
@@ -434,9 +444,10 @@ class OrderGatewayReserveMappingTest {
                 + constraint + "\"\u0000n" + constraint + "\u0000"));
     }
 
-    /** 저널에 닿지 않는 브리지. 결과는 시험이 정한다. */
+    /** 저널에 닿지 않는 브리지. 결과와 접수 게이트 상태는 시험이 정한다. 게이트는 기본으로 열려 있다(종전 ALWAYS_OPEN). */
     static final class FakeBridge extends EngineBridge {
         final AtomicInteger calls = new AtomicInteger();
+        volatile boolean gateOpen = true;
         private final Function<OrderIntake, SubmitResult> result;
 
         FakeBridge(Function<OrderIntake, SubmitResult> result) {
@@ -450,6 +461,11 @@ class OrderGatewayReserveMappingTest {
         public SubmitResult submit(OrderIntake intake) {
             calls.incrementAndGet();
             return result.apply(intake);
+        }
+
+        @Override
+        public boolean accepting(int marketId) {
+            return gateOpen;
         }
     }
 }

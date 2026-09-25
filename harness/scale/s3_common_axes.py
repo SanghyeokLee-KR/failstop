@@ -17,12 +17,19 @@
              설계상 나올 수 있으므로(E5·E7) 판정은 실험 끝의 리더 노드만 본다. S4 는 강등 문구를 파티션 강등과 노드 치명으로
              바꿨다(S4 설계 4-16). 문구가 코드와 어긋나면 이 축이 공허하게 통과하므로, --expect-demotion 이면 실험 끝의 리더가
              아닌 노드(옛 리더)에서 강등 문구가 1 이상 잡히는지를 양성 대조로 본다.
+          7. (S4b) orders_500_0 을 세 원천으로 본다(아래 orders500). recovery_runs 의 불일치 0 과 양성 축(성공 행 1 이상), 두 api
+             노드 로그의 '처리되지 않은 예외'·'인증 처리 실패로 500' 0줄을 더한다.
+  orders500  주문 경로 500 이 창 안에 한 번도 없었는지 세 원천으로 본다(마켓분할_리더_S4b_설계 4-7). 대상은 POST·DELETE 이고
+          uri 가 /api/v1/orders 로 시작하거나 인증 단계에서 끝난 UNKNOWN 이다. LB 접근 로그는 클라이언트가 받은 500, 프로메테우스
+          max_over_time 은 increase() 의 첫 증가 누락 없는 창 안 최댓값, 노드 누계는 마지막 스크레이프 뒤의 500 이다. 셋 가운데
+          하나라도 읽지 못하거나, 창 안 LB 접근 줄이나 요청 계수 시계열이 하나도 없으면 거짓이다(공허한 0 을 막는다).
 판정은 축마다 참·거짓으로 적고, 하나라도 거짓이면 ok=false 다. 폐기용 스택 가드는 protocol_latch 와 같다.
 
 사용:
   python harness/scale/s3_common_axes.py sample --out <jsonl> --stop-file <경로> [--interval 2]
   python harness/scale/s3_common_axes.py judge --window-from <ISO UTC> --fault-from <ISO UTC> --fault-to <ISO UTC>
          [--samples <jsonl>] [--resource matching-engine] [--expect-demotion] --out <json>
+  python harness/scale/s3_common_axes.py orders500 --window-from <ISO UTC> --out <json>
 종료코드: 0 판정 통과, 1 판정 실패, 2 가드 위반.
 """
 import argparse
@@ -74,6 +81,8 @@ SELECT json_build_object(
         JOIN event_journal e ON e.source_cmd_seq = r.command_seq AND e.event_ordinal = 0
         WHERE e.fencing_epoch <> c.fencing_token),
   'protocol', (SELECT protocol FROM leader_protocol),
+  'recovery_runs_success', (SELECT count(*) FROM recovery_runs WHERE matched),
+  'recovery_runs_mismatch', (SELECT count(*) FROM recovery_runs WHERE matched IS DISTINCT FROM true),
   'leader', (SELECT json_build_object('holder', holder, 'epoch', epoch, 'alive', lease_until > clock_timestamp())
                FROM leader_lease WHERE resource = '{resource}'))
 """.replace('%s', DRAIN_SQL)
@@ -97,10 +106,25 @@ LOG_PATTERNS = {
     'leadershipReleased': '리더십 반납', 'promotions': '리더 승격', 'permissionDenied': 'permission denied',
     'sqlstate42501': '42501', 'deadlock40P01': '40P01', 'deadlockDetected': 'deadlock detected',
     'settlementInsufficient': 'chk_balance_nonneg',
+    # S4b(설계 4-3·7-1 의 4). 앞의 둘은 판정, 나머지는 기록이다.
+    'unhandledException': '처리되지 않은 예외', 'authFailure500': '인증 처리 실패로 500',
+    'replayNoVerdict': '재생이 판정 없이 끝났다', 'rebuildFailed': '파티션 재구성 실패',
+    'clientGone': '클라이언트 연결이 끊겨', 'outageResponse': 'DB 연결 장애·리더 자격 거부 응답',
 }
+API_NODES = ('chaos-api-1', 'chaos-api-2')
+# 주문 경로 500 의 대상(S4b 설계 4-7). 인증 단계에서 끝난 요청은 컨트롤러에 닿지 않아 uri 가 UNKNOWN 이다.
+ORDERS_500_SELECTOR = 'method=~"POST|DELETE",status="500",uri=~"/api/v1/orders.*|UNKNOWN"'
+# 요청 줄의 닫는 따옴표 뒤 상태 코드만 본다. 응답 바이트 수가 500 인 정상 줄을 세지 않는다.
+LB_ORDERS_500 = re.compile(r'"(?:POST|DELETE) /api/v1/orders[^ ]* HTTP/[0-9.]+" 500 ')
+LB_ACCESS_TIME = re.compile(r'\[(\d{2})/(\w{3})/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-]\d{2})(\d{2})\] "[A-Z]+ ')
+# 경로 변수를 품은 uri(예: /api/v1/orders/{id})의 중괄호 때문에 PROM_LINE 으로는 이 줄을 읽지 못한다. 마지막 중괄호까지 레이블이다.
+REQUEST_COUNT_LINE = re.compile(r'^http_server_requests_seconds_count\{(.*)\}\s+(\S+)')
+MONTHS = {m: i for i, m in enumerate(('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'), 1)}
 NODE_COUNTERS = ('exchange_settlement_insufficient_funds_total', 'exchange_settlement_lock_plan_miss_total',
                  'exchange_order_append_transient_total', 'exchange_settlement_transient_retries_total',
-                 'exchange_settlement_transient_exhausted_total', 'exchange_order_reserve_rejected_total')
+                 'exchange_settlement_transient_exhausted_total', 'exchange_order_reserve_rejected_total',
+                 'exchange_order_intake_unavailable_total', 'exchange_order_intake_unresolved_total',
+                 'exchange_order_intake_commit_recovered_total')
 PROM_LINE = re.compile(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+(\S+)')
 
 
@@ -150,9 +174,127 @@ def scrape(port):
             continue
         labels = m.group(2) or ''
         tag = re.search(r'(sqlstate|source)="([^"]+)"', labels)
-        key = m.group(1) + ('{%s=%s}' % (tag.group(1), tag.group(2)) if tag else '')
+        if m.group(1) == 'exchange_order_intake_unavailable_total':
+            got = dict(re.findall(r'(\w+)="([^"]*)"', labels))
+            key = m.group(1) + '{%s|%s}' % (got.get('cause'), got.get('response'))
+        else:
+            key = m.group(1) + ('{%s=%s}' % (tag.group(1), tag.group(2)) if tag else '')
         out[key] = out.get(key, 0.0) + float(m.group(3))
     return out
+
+
+def lb_orders_500(lines, window_from):
+    """LB 접근 로그에서 창 안의 접근 줄 수와 주문 경로 500 줄 수. 창 앞의 줄은 세지 않는다(시각은 초 단위)."""
+    w0 = math.floor(parse_iso(window_from).timestamp())
+    access = hits = 0
+    for line in lines:
+        m = LB_ACCESS_TIME.search(line)
+        if not m or m.group(2) not in MONTHS:
+            continue
+        sign = 1 if m.group(7).startswith('+') else -1
+        offset = dt.timedelta(hours=int(m.group(7)[1:]), minutes=int(m.group(8))) * sign
+        ts = dt.datetime(int(m.group(3)), MONTHS[m.group(2)], int(m.group(1)), int(m.group(4)), int(m.group(5)),
+                         int(m.group(6)), tzinfo=dt.timezone(offset))
+        if ts.timestamp() < w0:
+            continue
+        access += 1
+        if LB_ORDERS_500.search(line):
+            hits += 1
+    return {'access_lines': access, 'orders_500': hits}
+
+
+def node_orders_500(text):
+    """노드 /actuator/prometheus 본문의 주문 경로 500 누계 합. 요청 계수 줄이 하나도 없으면 None(읽지 못함)이다."""
+    seen = False
+    hits = 0.0
+    for line in text.splitlines():
+        m = REQUEST_COUNT_LINE.match(line)
+        if not m:
+            continue
+        seen = True
+        labels = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))
+        uri = labels.get('uri', '')
+        if (labels.get('status') == '500' and labels.get('method') in ('POST', 'DELETE')
+                and (uri.startswith('/api/v1/orders') or uri == 'UNKNOWN')):
+            hits += float(m.group(2))
+    return hits if seen else None
+
+
+# 실험이 멈춘 채 두는 노드(판정 시점에 컨테이너가 돌지 않는 노드. E6 이 kill 한 옛 리더)의 노드 누계 표식이다.
+# 누계를 읽을 수 없으므로 합에서 뺀다(S4b 설계 4-7). 그 노드가 멈추기 전에 낸 500 은 LB 로그와 프로메테우스가 덮는다.
+STOPPED = 'stopped'
+
+
+def unscraped_node(running):
+    """긁지 못한 노드의 노드 누계 값. 컨테이너가 돌지 않으면 STOPPED 이고, 돌고 있거나 확인하지 못했으면 읽지 못함(None)이다."""
+    return STOPPED if running is False else None
+
+
+def container_running(name):
+    """판정 시점에 그 컨테이너가 도는지. docker 로 확인하지 못하면 None 이다."""
+    try:
+        p = subprocess.run(['docker', 'inspect', '-f', '{{.State.Running}}', name], capture_output=True, text=True,
+                           timeout=30)
+    except Exception:
+        return None
+    out = p.stdout.strip() if p.returncode == 0 else ''
+    return {'true': True, 'false': False}.get(out)
+
+
+def judge_orders_500(lb, prom_max, prom_series, nodes):
+    """세 원천의 orders_500_0. 원천마다 읽었는지를 먼저 보고, 모두 읽었고 모두 0 이어야 참이다. 멈춘 노드(STOPPED)는
+    노드 누계에서 뺀다. 뺀 뒤 남은 노드가 없거나 남은 노드를 하나라도 읽지 못했으면 노드 누계를 읽지 못한 것이다."""
+    counted = {k: v for k, v in nodes.items() if v != STOPPED}
+    readable = {
+        'lb': bool(lb.get('ok')) and (lb.get('access_lines') or 0) > 0,
+        'prom': prom_max is not None and (prom_series or 0) > 0,
+        'nodes': bool(counted) and all(v is not None for v in counted.values()),
+    }
+    zero = {
+        'lb': readable['lb'] and lb.get('orders_500') == 0,
+        'prom': readable['prom'] and prom_max == 0,
+        'nodes': readable['nodes'] and sum(counted.values()) == 0,
+    }
+    return {'ok': all(zero.values()), 'readable': readable, 'zero': zero, 'lb': lb, 'prom_max': prom_max,
+            'prom_series': prom_series, 'nodes': nodes, 'stopped': sorted(k for k, v in nodes.items() if v == STOPPED)}
+
+
+def read_orders_500(window_from, now=None):
+    """세 원천을 읽어 judge_orders_500 으로 판정한다. 종전 increase() 값은 기록으로 함께 남긴다."""
+    now = now or time.time()
+    w0 = parse_iso(window_from).timestamp()
+    win = int(math.ceil(now - w0)) + 30
+    p = subprocess.run(['docker', 'logs', '--since', str(int(w0)), 'chaos-lb'], capture_output=True, text=True,
+                       encoding='utf-8', errors='replace', timeout=120)
+    lb = dict(lb_orders_500((p.stdout + p.stderr).splitlines(), window_from), ok=p.returncode == 0)
+    prom_max = total(prom_scalar('sum by (instance) (max_over_time(http_server_requests_seconds_count{%s}[%ds]))'
+                                 % (ORDERS_500_SELECTOR, win), now))
+    prom_series = total(prom_scalar('count(max_over_time(http_server_requests_seconds_count[%ds]))' % win, now))
+    nodes = {}
+    for name, port in NODES:
+        try:
+            with urllib.request.urlopen('http://localhost:%d/actuator/prometheus' % port, timeout=10) as r:
+                nodes[name] = node_orders_500(r.read().decode('utf-8', 'replace'))
+        except Exception:
+            nodes[name] = unscraped_node(container_running(name))
+    res = judge_orders_500(lb, prom_max, prom_series, nodes)
+    res['window_s'] = win
+    res['prom_increase'] = prom_scalar('sum by (instance) (increase(http_server_requests_seconds_count{%s}[%ds]))'
+                                       % (ORDERS_500_SELECTOR, win), now)
+    return res
+
+
+def recovery_axes(state):
+    """recovery_runs 의 불일치 0 과 양성 축(S4b 설계 4-7). 실험마다 P2 전환이 두 노드를 다시 띄워 기동 복구의 성공 행이 늘 있다."""
+    return {'recovery_runs_mismatch_0': state.get('recovery_runs_mismatch') == 0,
+            'recovery_runs_success_gt_0': (state.get('recovery_runs_success') or 0) > 0}
+
+
+def api_log_axis(logs):
+    """두 api 노드 로그에 '처리되지 않은 예외'·'인증 처리 실패로 500' 이 한 줄도 없는가. 로그를 읽지 못한 노드가 있으면 거짓이다."""
+    rows = [logs.get(name) for name in API_NODES]
+    return all(isinstance(c, dict) and c.get('ok') and c.get('unhandledException', 1) + c.get('authFailure500', 1) == 0
+               for c in rows)
 
 
 def log_counts(container):
@@ -304,6 +446,7 @@ def cmd_judge(a):
     res['logs'] = logs
     res['leader_node'] = leader_node
     res['balance_samples'] = summarize_samples(a.samples)
+    res['orders_500'] = read_orders_500(a.window_from)
 
     st = res['state'] if parsed is not None else {}
     node_insufficient = sum(v.get('exchange_settlement_insufficient_funds_total', 0.0)
@@ -317,7 +460,7 @@ def cmd_judge(a):
         'settlement_insufficient_funds_0': total(res['prom']['settlement_insufficient_funds']) == 0 and node_insufficient == 0,
         'lock_plan_miss_0': total(res['prom']['lock_plan_miss']) == 0 and node_miss == 0,
         'append_40P01_0': total(res['prom']['append_40P01']) == 0 and node_40p01 == 0,
-        'orders_500_0': total(res['prom']['orders_500_by_instance']) == 0,
+        'orders_500_0': res['orders_500']['ok'],
         'pg_deadlocks_0': st.get('deadlocks') == 0,
         'reservations_gt_0': (st.get('reservations') or 0) > 0,
         'unsettled_reservations_after_drain_0': drained and st.get('unsettled_reservations') == 0,
@@ -328,7 +471,9 @@ def cmd_judge(a):
         'stale_alert_outside_fault_window_0': res['stale_alert']['error'] is None
                                               and res['stale_alert']['firing_outside_fault_window'] == 0,
         'protocol_2': st.get('protocol') == 2,
+        'api_logs_no_unhandled_or_auth_500': api_log_axis(logs),
     }
+    axes.update(recovery_axes(st))
     if a.expect_demotion:
         # 양성 대조(S4 설계 4-16, 7-2). 장애를 받은 옛 리더가 강등 문구를 남겨야 위 리더 노드 축의 0 이 문구 불일치가 아님을 안다.
         axes['old_leader_demotion_logged'] = demotion_logged(logs, leader_node)
@@ -340,6 +485,20 @@ def cmd_judge(a):
                       'reservations': st.get('reservations'),
                       'reserved_settled_by_later_epoch': st.get('reserved_settled_by_later_epoch'),
                       'deadlocks': st.get('deadlocks'), 'leader_node': leader_node}, ensure_ascii=False), flush=True)
+    return 0 if res['ok'] else 1
+
+
+def cmd_orders500(a):
+    g = pl.guard()
+    if not g['ok']:
+        out = {'ok': False, 'code': 2, 'guard': g, 'error': '가드 위반: ' + '; '.join(g['problems'])}
+        Path(a.out).write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
+        return 2
+    res = read_orders_500(a.window_from)
+    res['window_from'] = a.window_from
+    res['finished'] = pgs.now_iso()
+    Path(a.out).write_text(json.dumps(res, ensure_ascii=False, indent=2, default=str), encoding='utf-8')
+    print(json.dumps({'ok': res['ok'], 'readable': res['readable'], 'zero': res['zero']}, ensure_ascii=False), flush=True)
     return 0 if res['ok'] else 1
 
 
@@ -364,8 +523,11 @@ def main(argv=None):
     j.add_argument('--resource', default='matching-engine', choices=LEASE_RESOURCES)
     j.add_argument('--expect-demotion', action='store_true')
     j.add_argument('--out', required=True)
+    o = sub.add_parser('orders500')
+    o.add_argument('--window-from', required=True)
+    o.add_argument('--out', required=True)
     a = ap.parse_args(argv)
-    return cmd_sample(a) if a.cmd == 'sample' else cmd_judge(a)
+    return {'sample': cmd_sample, 'judge': cmd_judge, 'orders500': cmd_orders500}[a.cmd](a)
 
 
 if __name__ == '__main__':

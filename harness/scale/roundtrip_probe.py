@@ -33,6 +33,9 @@ ADR 0034 S3 판정 입력(마켓분할_리더_S3_설계 7-3 X5). 위에 더한�
               P2 로 올린다. 칸마다 전환 결과와 주행 뒤 모드 상태(예약 행 수, 정산 전 예약)를 남긴다
   단일 마켓   SCALE_MARKETS 가 마켓 하나면 주행 창의 그 마켓 k6 NEW 수를 주행 초로 나눈 접수율과 과포화 여부(요청률의 80퍼센트
               이하), 그 마켓의 명령당 접수 락 보유를 남긴다. 봇 주문과 다른 마켓은 세지 않는다
+
+ADR 0034 S4b 판정 입력(마켓분할_리더_S4b_설계 4-7 X7). 위에 더한다.
+  접수/s(k6 저널 행)  주행 창의 모든 마켓 k6 NEW 행 합을 주행 초로 나눈 칸 값. 1분 창 rate 는 기록으로 남긴다
   이 러너는 칸마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정·exchange-chaos)에서는 시작하지 않는다. 모드 전환 칸은
   CHAOS_PROJECT=exchange-pml, CHAOS_APP_IMAGE=exchange-chaos-app:pml 일 때만 시작한다(7-0, 하네스 검증설계 §2-4)
 
@@ -393,6 +396,16 @@ def submit_crosscheck(scrape0, scrape1, accepts):
     return {'마켓별': per, '저널 행 합': sum((r.get('all_commands') or 0) for r in rows) if rows else None}
 
 
+def journal_accept_rate(accepts, duration):
+    """접수/s(k6 저널 행)(S4b 설계 4-7). k6 주행 창의 k6 NEW 행 합을 주행 초로 나눈다. 봇과 취소 명령(all_commands 에만
+    든다)은 세지 않는다. 창 끝 시각은 k6 종료 뒤 표본 스레드가 멈출 때까지 늦게 찍히므로 창 폭이 아니라 주행 초로 나눈다.
+    창이 없거나 조회가 실패하면 값이 없다."""
+    rows = accepts.get('마켓')
+    if accepts.get('error') or rows is None or not duration:
+        return None
+    return sum((r.get('k6_new') or 0) for r in rows) / float(duration)
+
+
 def single_market(s, market, duration, rate):
     """단일 마켓 과포화 주행의 판정값(S3 설계 7-3 X5 (ii)). 주행 창의 그 마켓 k6 NEW 수 / 주행 초다.
     명령당 접수 락 보유는 그 마켓 라벨의 보유 점유를 접수 시도율로 나눈 값이고 설명에만 쓴다."""
@@ -549,6 +562,8 @@ def main():
 
     accepts = accepts_by_market(run_id, t0, t1)
     s['접수(DB, 마켓별)'] = accepts
+    # 칸 값. 1분 창 rate(접수/s)는 k6 주행 안에서 정점에 닿지 않을 수 있어 기록으로만 남긴다.
+    s['접수/s(k6 저널 행)'] = journal_accept_rate(accepts, a.duration)
     s['접수 시도 계측 대조'] = submit_crosscheck(scrape0, scrape1, accepts)
     s['노드 계측 증가'] = {name: counter_delta(scrape0, scrape1, name) for name in SCRAPE_NAMES}
     counter_rows = [r['counter'] for r in sampler.rows]

@@ -115,6 +115,52 @@ class PartitionTermRaceTest {
         }
     }
 
+    /**
+     * 재구성 완료가 후보 표식을 세우는 사이 참여를 끈다(DB 설계 §5.4-c 9 v2.56). 참여 여부와 표식을 한 락 안에서 다루므로
+     * 끄기는 표식 세우기가 끝난 뒤 같은 락에서 표식을 내린다. 끈 파티션은 다음 획득을 하지 않는다.
+     */
+    @Test
+    void participationTurnedOffWhileTheRebuildRearmsStaysOff() throws Exception {
+        try (Harness h = new Harness()) {
+            HeldRearm hold = h.lease.holdNextRearm();
+            h.runtime.onDiverged();
+            assertTrue(hold.entered.await(WAIT.toMillis(), TimeUnit.MILLISECONDS), "재구성 완료가 표식을 세우지 않았다");
+
+            assertParticipationOffWins(h, hold);
+        }
+    }
+
+    /** 차단기 해제가 후보 표식을 세우는 사이 참여를 끈다. 같은 락 규칙이라 끈 값이 이긴다. */
+    @Test
+    void participationTurnedOffWhileTheBreakerResetRearmsStaysOff() throws Exception {
+        try (Harness h = new Harness()) {
+            assertTrue(h.coordinator.settle(PromotionCoordinator.State.BLOCKED));
+            h.lease.disarm();
+            HeldRearm hold = h.lease.holdNextRearm();
+            Thread reset = new Thread(() -> h.runtime.resetBreaker(), "breaker-reset");
+            reset.start();
+            assertTrue(hold.entered.await(WAIT.toMillis(), TimeUnit.MILLISECONDS), "차단기 해제가 표식을 세우지 않았다");
+
+            assertParticipationOffWins(h, hold);
+            reset.join(WAIT.toMillis());
+        }
+    }
+
+    /** 표식 세우기가 붙잡힌 채 다른 스레드가 참여를 끄고, 그 스레드가 락에 막히거나 끝난 뒤 표식 세우기를 푼다. */
+    private static void assertParticipationOffWins(Harness h, HeldRearm hold) throws Exception {
+        Thread off = new Thread(() -> h.runtime.setParticipate(false), "participate-off");
+        off.start();
+        Awaitility.await().atMost(WAIT).until(() -> off.getState() == Thread.State.BLOCKED || !off.isAlive());
+        hold.release.countDown();
+        off.join(WAIT.toMillis());
+        Awaitility.await().atMost(WAIT).until(() -> h.coordinator.state() == PromotionCoordinator.State.FOLLOWER);
+
+        assertFalse(h.runtime.participating(), "참여 끄기가 사라졌다");
+        assertFalse(h.lease.isArmed(), "참여를 끈 파티션의 후보 표식이 다시 섰다");
+        assertFalse(h.lease.tryAcquire(), "참여를 끈 파티션이 리스를 얻었다");
+        assertEquals(0, h.worker.pending(), "참여를 끈 파티션이 승격을 시작했다");
+    }
+
     /** 워커 줄에서 기다린 승격이 자기 기간의 강등과 재구성을 지나 늦게 돈다. 팔로워를 인계하지 않고 설치하지 않는다. */
     @Test
     void aPromotionThatWaitedPastItsDemotionDoesNotHandTheFollowerOver() throws Exception {
@@ -149,7 +195,7 @@ class PartitionTermRaceTest {
     /** 파티션 하나의 수명주기. 설치할 마켓이 없는 빈 저널이라 승격은 인계 엔진을 그대로 설치하고 게이트를 연다. */
     private static final class Harness implements AutoCloseable {
         final SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        final LeaderLeaseService lease;
+        final HoldableLease lease;
         final FollowerCatchUp follower;
         final HeldRecovery recovery = new HeldRecovery();
         final ManualWorker worker = new ManualWorker();
@@ -160,9 +206,7 @@ class PartitionTermRaceTest {
 
         Harness() {
             PartitionPlan plan = PartitionPlan.single();
-            lease = new LeaderLeaseService(RESOURCE, "node-a", new GrantingStore(), FencingEpochPublisher.NONE,
-                    Duration.ofSeconds(10), Duration.ofSeconds(3), NodeServiceHealth.ALWAYS_SERVICEABLE,
-                    PartitionAcquirePolicy.ALWAYS, new LeaderWriteProgress());
+            lease = new HoldableLease();
             // 승격 조율의 콜백보다 먼저 등록한다. 기간이 세워진 뒤 승격 조율이 받기 전의 틈이 여기다.
             lease.onTermGained(term -> beforeCoordinator.accept(term));
             lease.onRecoverableStandDown(recoverableStandDowns::incrementAndGet);
@@ -194,6 +238,42 @@ class PartitionTermRaceTest {
         public void close() {
             recovery.releaseRebuild();
             runtime.stop();
+        }
+    }
+
+    /** 붙잡힌 표식 세우기. entered 는 진입, release 는 시험이 풀어 줄 때다. */
+    private record HeldRearm(CountDownLatch entered, CountDownLatch release) {
+    }
+
+    /** 후보 표식 세우기(rearm) 진입을 시험이 풀 때까지 붙잡을 수 있는 리스. 붙잡지 않으면 종전 리스와 같다. */
+    private static final class HoldableLease extends LeaderLeaseService {
+        private volatile HeldRearm hold;
+
+        HoldableLease() {
+            super(RESOURCE, "node-a", new GrantingStore(), FencingEpochPublisher.NONE, Duration.ofSeconds(10),
+                    Duration.ofSeconds(3), NodeServiceHealth.ALWAYS_SERVICEABLE, PartitionAcquirePolicy.ALWAYS,
+                    new LeaderWriteProgress());
+        }
+
+        HeldRearm holdNextRearm() {
+            HeldRearm next = new HeldRearm(new CountDownLatch(1), new CountDownLatch(1));
+            hold = next;
+            return next;
+        }
+
+        @Override
+        public boolean rearm() {
+            HeldRearm current = hold;
+            if (current != null) {
+                hold = null;
+                current.entered().countDown();
+                try {
+                    current.release().await(WAIT.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return super.rearm();
         }
     }
 

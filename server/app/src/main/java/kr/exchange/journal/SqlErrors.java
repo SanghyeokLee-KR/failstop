@@ -29,6 +29,57 @@ public final class SqlErrors {
         return TransientDbErrors.sqlState(e);
     }
 
+    /**
+     * 강등 기록과 치명 로그의 SQLSTATE 표기. 원인 사슬에 없고 롤백 실패 뒤에 가려진 앱 예외에 있으면 '08006(앱 예외)'이고,
+     * 둘 다 없으면 '-' 다.
+     */
+    public static String stateLabel(Throwable e) {
+        String state = sqlState(e);
+        if (state != null) {
+            return state;
+        }
+        Throwable app = applicationException(e);
+        String hidden = app == null ? null : sqlState(app);
+        return hidden == null ? "-" : hidden + "(앱 예외)";
+    }
+
+    /**
+     * 원인 사슬을 'UncategorizedSQLException > PSQLException(55P03)' 꼴로 여섯 단계까지 적는다. 롤백 실패면 ' | 앱 예외 '
+     * 뒤에 가려진 원래 예외의 사슬을 붙인다. 강등 기록, 치명 로그, 재생 미완료와 접수의 DB 연결 장애 로그가 같이 쓴다.
+     */
+    public static String describe(Throwable e) {
+        StringBuilder out = new StringBuilder();
+        appendChain(out, e);
+        Throwable app = applicationException(e);
+        if (app != null) {
+            out.append(" | 앱 예외 ");
+            appendChain(out, app);
+        }
+        return out.toString();
+    }
+
+    private static Throwable applicationException(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof org.springframework.transaction.TransactionSystemException tse) {
+                return tse.getApplicationException();
+            }
+        }
+        return null;
+    }
+
+    private static void appendChain(StringBuilder out, Throwable e) {
+        int depth = 0;
+        for (Throwable t = e; t != null && depth < 6; t = t.getCause(), depth++) {
+            if (depth > 0) {
+                out.append(" > ");
+            }
+            out.append(t.getClass().getSimpleName());
+            if (t instanceof SQLException sql && sql.getSQLState() != null) {
+                out.append('(').append(sql.getSQLState()).append(')');
+            }
+        }
+    }
+
     /** 원인 사슬에서 처음 만나는 PostgreSQL 서버 오류의 제약 이름. 없으면 null 이다. */
     public static String constraintName(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {

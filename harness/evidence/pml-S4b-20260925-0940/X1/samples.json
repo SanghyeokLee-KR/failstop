@@ -1,0 +1,236 @@
+[
+  {
+    "at": "2026-09-25T00:44:11.7467111Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 34.0
+  },
+  {
+    "at": "2026-09-25T00:44:27.2156452Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:44:42.7473788Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:44:58.1482152Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:45:13.5294160Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:45:28.9474947Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:45:44.3989608Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:45:59.8334301Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:46:15.3013420Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 36.0
+  },
+  {
+    "at": "2026-09-25T00:46:30.7113315Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:46:46.1988135Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:47:01.7568677Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:47:17.1609314Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:47:32.5382672Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:47:47.9741486Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:48:03.3784542Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:48:18.8229186Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:48:34.2277690Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:48:49.5574639Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:49:04.8896882Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:49:20.2539883Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:49:35.6359160Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 38.0
+  },
+  {
+    "at": "2026-09-25T00:49:51.0032764Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:50:06.3648122Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:50:21.7388720Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:50:37.1380610Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:50:52.4818113Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:51:07.8945007Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:51:23.3283827Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:51:38.6863760Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:51:54.0802626Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:52:09.4339763Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:52:24.8058903Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:52:40.1967348Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:52:55.5525562Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:53:10.9234939Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:53:26.3648396Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:53:41.7540674Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  },
+  {
+    "at": "2026-09-25T00:53:57.1849559Z",
+    "lease_epoch": 6,
+    "lease_alive": true,
+    "connections": 37.0
+  }
+]

@@ -186,7 +186,8 @@ class BootAsFollowerIntegrationTest {
         EventJournalAppender events = new EventJournalAppender(jdbc, tx, null, objectMapper);
         EngineRecovery recovery = new EngineRecovery(replayService, events::append, null, n -> {
         });
-        assertThrows(IllegalStateException.class,
+        // 리더 자격 상실은 판정 없이 끝난 재생이라 예외 타입으로 드러낸다(DB 설계 §5.5 v2.56).
+        assertThrows(NotLeaderException.class,
                 () -> recovery.recover(new MatchingEngineImpl(), marketId -> true, term));
         assertEquals(0, countEvents(seq), "끝난 기간이 크래시 창을 재적재했다");
         lease.close();

@@ -1,5 +1,6 @@
 package kr.exchange.engine;
 
+import kr.exchange.journal.SqlErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +41,11 @@ public class LoopFatalHandler implements Consumer<Throwable> {
 
     @Override
     public void accept(Throwable t) {
-        log.error("단일 라이터 루프 정지(fail-fast)", t);
+        // 원인 SQLSTATE 와 사슬을 한 줄에 싣는다. 롤백 실패 뒤에 가려진 원래 예외는 스택만으로는 드러나지 않는다.
+        LeaderTerm failed = term != null ? term : lease.currentTerm().orElse(null);
+        log.error("단일 라이터 루프 정지(fail-fast): resource={}, epoch={}, sqlstate={}, 원인={}",
+                failed == null ? lease.resource() : failed.resource(), failed == null ? "-" : failed.epoch(),
+                SqlErrors.stateLabel(t), SqlErrors.describe(t), t);
         boolean nodeFatal = t instanceof VirtualMachineError;
         if (runtime != null) {
             runtime.demote(term, nodeFatal ? DemotionReason.NODE_FATAL : DemotionReason.WRITER_FATAL, t);

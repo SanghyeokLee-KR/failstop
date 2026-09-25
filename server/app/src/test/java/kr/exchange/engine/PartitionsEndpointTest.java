@@ -1,16 +1,20 @@
 package kr.exchange.engine;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import kr.exchange.engine.core.MatchingEngineImpl;
+import kr.exchange.journal.DbFailures;
+import kr.exchange.journal.ReplayResult;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
 import org.springframework.boot.availability.ApplicationAvailabilityBean;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +39,8 @@ class PartitionsEndpointTest {
 
     @BeforeEach
     void wire() {
-        worker = Executors.newSingleThreadExecutor();
+        // 승격은 돌리지 않는다. 획득 콜백이 세운 PROMOTING 을 강등 시험이 그대로 쓴다.
+        worker = new IdleWorker();
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         leases = TestPartitions.unstarted(PartitionPlan.single());
         LeaderLeaseService lease = leases.first();
@@ -46,7 +51,16 @@ class PartitionsEndpointTest {
                 List.of(RESOURCE));
         coordinator = new PromotionCoordinator(RESOURCE, marketId -> true, null, router, lease, null,
                 ha.partition(RESOURCE), null, worker);
-        runtime = new PartitionRuntime(RESOURCE, marketId -> true, lease, coordinator, router, null, null,
+        // 강등 뒤 재구성은 빈 저널의 팔로워 복구로 곧바로 끝난다.
+        EngineRecovery emptyJournal = new EngineRecovery(null, (term, events) -> {
+            throw new IllegalStateException("재적재할 크래시 창이 없다");
+        }, null, n -> { }) {
+            @Override
+            public ReplayResult recoverFollower(MatchingEngineImpl engine, java.util.function.IntPredicate scope) {
+                return new ReplayResult(0, 0, 0, List.of());
+            }
+        };
+        runtime = new PartitionRuntime(RESOURCE, marketId -> true, lease, coordinator, router, null, emptyJournal,
                 new PartitionBreaker(3, java.time.Duration.ofMinutes(10)), ha.partition(RESOURCE), leases, true,
                 false, registry);
         endpoint = new PartitionsEndpoint(leases, () -> remote[0]);
@@ -126,6 +140,33 @@ class PartitionsEndpointTest {
         assertEquals(400, endpoint.update("matching-p0", true, null).getStatus(), "수명주기 없는 자원");
     }
 
+    /**
+     * 파티션 치명 강등 기록의 detail 에 원인 SQLSTATE 가 실린다(API 설계 §6-C, S4b 설계 4-6). 롤백 실패로 가려진 원래 예외는 앱
+     * 예외의 SQLSTATE 다. 컨테이너 로그를 잃어도 실행기가 긁은 파티션 조회에 원인이 남는다.
+     */
+    @Test
+    void writerFatalDetailCarriesTheSqlState() {
+        demoteWith(DbFailures.sql("55P03"));
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> runtime.state() == PromotionCoordinator.State.FOLLOWER);
+        demoteWith(DbFailures.rollbackFailed(DbFailures.connectionFailure()));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) endpoint.partitions().get("partitions");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> demotions = (List<Map<String, Object>>) rows.get(0).get("demotions");
+        assertEquals(List.of("WRITER_FATAL: TransactionSystemException sqlstate=08006(앱 예외)",
+                        "WRITER_FATAL: UncategorizedSQLException sqlstate=55P03"),
+                demotions.stream().map(d -> d.get("detail")).toList());
+    }
+
+    /** 이 기간으로 승격 중인 파티션을 그 원인의 라이터 치명으로 강등한다. */
+    private void demoteWith(Throwable cause) {
+        LeaderTerm term = new LeaderTerm(leases.first(), RESOURCE, "node", 5, 1);
+        coordinator.onTermGained(term);
+        assertEquals(PromotionCoordinator.State.PROMOTING, runtime.state(), "승격 중이 아니라 강등이 기록되지 않는다");
+        runtime.demote(term, DemotionReason.WRITER_FATAL, cause);
+    }
+
     @Test
     void loopbackAcceptsNumericAddressesOnly() {
         assertTrue(PartitionsEndpoint.loopback("127.0.0.1"));
@@ -135,5 +176,36 @@ class PartitionsEndpointTest {
         assertFalse(PartitionsEndpoint.loopback("10.0.0.1"));
         assertFalse(PartitionsEndpoint.loopback(null));
         assertFalse(PartitionsEndpoint.loopback(" "));
+    }
+
+    /** 넘겨받은 작업을 돌리지 않는 승격 워커. */
+    private static final class IdleWorker extends java.util.concurrent.AbstractExecutorService {
+        @Override
+        public void execute(Runnable command) {
+        }
+
+        @Override
+        public void shutdown() {
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return List.of();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return false;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return false;
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, java.util.concurrent.TimeUnit unit) {
+            return true;
+        }
     }
 }

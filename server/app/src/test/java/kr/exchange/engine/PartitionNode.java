@@ -14,15 +14,27 @@ import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalReader;
+import kr.exchange.journal.JournalCheckpoints;
+import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
 import kr.exchange.journal.ReserveCheck;
+import kr.exchange.harness.RecoveryRunRecorder;
 import kr.exchange.ledger.MarketCatalog;
 import kr.exchange.ledger.SettlementService;
 import org.springframework.boot.availability.ApplicationAvailabilityBean;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.boot.availability.ReadinessState;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DelegatingDataSource;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -56,6 +68,18 @@ final class PartitionNode implements AutoCloseable {
     @FunctionalInterface
     interface AppendFault {
         void before(LeaderTerm term, CommandDraft draft);
+    }
+
+    /** 커밋된 append 뒤의 주입점. 예외를 던지면 커밋 응답을 잃은 것처럼 접수가 그 예외로 끝나고 라이터 큐에는 들어가지 않는다. */
+    @FunctionalInterface
+    interface AppendAfterFault {
+        void after(LeaderTerm term, CommandDraft draft, AppendResult result);
+    }
+
+    /** 복구 재생의 저널 조회 앞 주입점. 예외를 던지면 그 재생(기동·재구성·승격)이 그 예외로 끝난다. */
+    @FunctionalInterface
+    interface ReplayFault {
+        void before();
     }
 
     /** 노드 옵션. 기본값은 빠른 시험용이다(TTL 3초, 틱 300밀리초). */
@@ -115,6 +139,10 @@ final class PartitionNode implements AutoCloseable {
     private final ReplayService replayService;
     volatile SinkFault sinkFault = (marketId, term, events) -> { };
     volatile AppendFault appendFault = (term, draft) -> { };
+    volatile AppendAfterFault appendAfterFault = (term, draft, result) -> { };
+    volatile ReplayFault replayFault = () -> { };
+    // append 트랜잭션의 머리말 문장에 한 번 던질 SQL 오류. 앱 쪽 append 의 catch(재확인과 강등)가 그대로 돈다.
+    final PrologueFaultDataSource appendPool;
     // 남은 수만큼 승격이 게이트를 열기 직전에 새로 설치한 루프를 멈춘다.
     final java.util.concurrent.atomic.AtomicInteger loopKillsBeforeGate = new java.util.concurrent.atomic.AtomicInteger();
     // readiness 가 한 번이라도 ACCEPTING 이었는가.
@@ -179,11 +207,15 @@ final class PartitionNode implements AutoCloseable {
                 new MarketCatalog(f.app));
         this.settlement = new SettlementService(f.app, f.appTx, null, objectMapper, new MarketCatalog(f.app),
                 f.mapper, nodeProgress);
-        this.appender = new CommandJournalAppender(f.app, f.appTx, null, registry, nodeProgress) {
+        this.appendPool = new PrologueFaultDataSource(f.appPool);
+        this.appender = new CommandJournalAppender(JdbcClient.create(appendPool),
+                new TransactionTemplate(new JdbcTransactionManager(appendPool)), null, registry, nodeProgress) {
             @Override
             public AppendResult append(LeaderTerm term, CommandDraft draft, ReserveCheck check) {
                 appendFault.before(term, draft);
-                return super.append(term, draft, check);
+                AppendResult result = super.append(term, draft, check);
+                appendAfterFault.after(term, draft, result);
+                return result;
             }
         };
         appender.setRequireReservation(options.maxProtocol >= 2);
@@ -198,7 +230,25 @@ final class PartitionNode implements AutoCloseable {
             return new WriterRouter.Shard(engine, loop);
         });
         router.setOpenTermLookup(leases::openTerm);
-        this.recovery = new EngineRecovery(replayService, settlement::appendAndSettle, null, n -> { });
+        // 복구 재생만 주입점을 거친다. 팔로워 따라잡기는 종전 재생 서비스를 쓴다.
+        ReplayService recoveryReplay = new ReplayService(commandReader, new EventJournalReader(f.app), f.mapper,
+                objectMapper, new MarketCatalog(f.app)) {
+            @Override
+            public JournalCheckpoints materializedThroughByMarket(MatchingEngineImpl engine) {
+                replayFault.before();
+                return super.materializedThroughByMarket(engine);
+            }
+
+            @Override
+            public ReplayResult verifyToMarket(kr.exchange.engine.core.MatchingEngine engine, int marketId,
+                                               JournalCheckpoints checkpoints) {
+                replayFault.before();
+                return super.verifyToMarket(engine, marketId, checkpoints);
+            }
+        };
+        this.recovery = new EngineRecovery(recoveryReplay, settlement::appendAndSettle, null, n -> { });
+        // 운영 배선(EngineConfig)처럼 재생 결과를 recovery_runs 에 남긴다(C17 원천).
+        recovery.setRecoveryRecorder(new RecoveryRunRecorder(f.app));
         this.follower = new FollowerCatchUp(replayService, plan, Map.of(), options.followerInterval, registry);
         ApplicationEventPublisher publisher = event -> {
             if (event instanceof AvailabilityChangeEvent<?> change) {
@@ -273,6 +323,48 @@ final class PartitionNode implements AutoCloseable {
 
     ReplayService replayService() {
         return replayService;
+    }
+
+    /** 머리말 문장(append_command_prologue)을 준비하는 순간 한 번 SQL 오류를 던지는 append 풀 감싸개. */
+    static final class PrologueFaultDataSource extends DelegatingDataSource {
+        private final AtomicReference<SQLException> next = new AtomicReference<>();
+
+        PrologueFaultDataSource(DataSource target) {
+            super(target);
+        }
+
+        /** 다음 머리말 문장 하나에 이 오류를 던진다. */
+        void failNextPrologue(SQLException fault) {
+            next.set(fault);
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return faulty(super.getConnection());
+        }
+
+        @Override
+        public Connection getConnection(String username, String password) throws SQLException {
+            return faulty(super.getConnection(username, password));
+        }
+
+        private Connection faulty(Connection connection) {
+            return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                    new Class<?>[] {Connection.class}, (proxy, method, args) -> {
+                        if ("prepareStatement".equals(method.getName()) && args != null
+                                && args[0] instanceof String sql && sql.contains("append_command_prologue")) {
+                            SQLException fault = next.getAndSet(null);
+                            if (fault != null) {
+                                throw fault;
+                            }
+                        }
+                        try {
+                            return method.invoke(connection, args);
+                        } catch (InvocationTargetException e) {
+                            throw e.getCause();
+                        }
+                    });
+        }
     }
 
     /**

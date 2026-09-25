@@ -179,6 +179,15 @@ public class EngineBridge {
     }
 
     /**
+     * 그 마켓의 접수 게이트가 지금 열려 있는가(API 설계 §2-5-c). 메모리 조회라 DB 에 닿지 않는다. 리더 자격 거부의 응답을
+     * 가른다. 재확인이 거짓이면 강등이 같은 스레드에서 게이트를 먼저 닫으므로, 닫힌 게이트는 이 노드가 그 마켓의 리더가
+     * 아니라는 뜻이다.
+     */
+    public boolean accepting(int marketId) {
+        return acceptGate.termBound() ? acceptGate.openTerm(marketId) != null : acceptGate.isAccepting();
+    }
+
+    /**
      * 저널에 커밋된 것이 확인됐지만 큐에 넣지 못한 명령을 그 마켓 라이터가 seq 까지 적용하게 한다.
      * 접수가 append 예외를 받은 뒤 그 명령의 커밋을 저널에서 확인한 경우에 쓴다(OrderGateway).
      */

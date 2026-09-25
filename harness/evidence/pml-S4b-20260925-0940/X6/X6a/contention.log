@@ -1,0 +1,1 @@
+{"variant": "a", "ok": true, "failed": [], "record": {"M_latency_max_ms": 1031.2, "admission_rejected_order_delta": 0.0}, "contention_delta": {"55P03|429": 30.0}}

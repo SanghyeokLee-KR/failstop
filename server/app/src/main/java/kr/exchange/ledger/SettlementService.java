@@ -71,20 +71,21 @@ public class SettlementService {
     private static final Logger log = LoggerFactory.getLogger(SettlementService.class);
 
     private static final short PAYLOAD_SCHEMA_VERSION = 1;
-    // 일시 DB 오류의 재시도 제한. 시도 수(첫 시도 포함)와 경과 시간 중 먼저 닿는 쪽에서 멈춘다.
+    // 일시 DB 오류의 재시도 제한(DB 설계 §5.4 v2.56). 시도 수(첫 시도 포함)와 경과 시간 중 먼저 닿는 쪽에서 멈춘다.
     //
-    // 대기 상한은 시도마다 두 배(100, 200, 400밀리초)이고 실제 대기는 그 절반에서 상한 사이의 무작위 값이다. 여러 마켓
+    // 대기 상한은 100, 200밀리초 뒤로 400밀리초이고 실제 대기는 그 절반에서 상한 사이의 무작위 값이다. 여러 마켓
     // 라이터가 같은 DB 정체에서 한꺼번에 실패해도 같은 순간에 다시 몰리지 않게 흩는다.
     //
     // 시도 수만으로는 시간이 묶이지 않는다. 한 시도는 여러 문장을 보내고 문장마다 prod 기본 풀의 lock_timeout 2초나
-    // statement_timeout 3초까지 기다릴 수 있다. 57014 도 재시도하므로 네 시도가 모두 3초 문장 취소로 끝나면 대기까지
-    // 약 12.7초다. 그래서 첫 시도 시작부터 RETRY_DEADLINE 이 지나면 새 시도를 열지 않는다. 최악은 대략 이 기한에 마지막
-    // 한 시도의 길이를 더한 값이다. 잠금 대기 초과는 그 문장에서 시도를 끝내므로 흔한 경우는 기한 + 2초 안쪽이고,
-    // 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길 수 있다. 이 시간만큼 라이터 한 마켓이 멈추고, 승격 재생의
-    // 크래시 창 재정산도 같은 경로라 그만큼 길어진다(좀비 판정 창 45초, in-flight 예약 TTL 30초와 비교할 값이다).
-    private static final int MAX_ATTEMPTS = 4;
+    // statement_timeout 3초까지 기다릴 수 있다. 그래서 첫 시도 시작부터 RETRY_DEADLINE 이 지나면 새 시도를 열지 않는다.
+    // 최악은 대략 이 기한에 마지막 한 시도의 길이를 더한 값이다. 잠금 대기 초과는 그 문장에서 시도를 끝내므로 흔한 경우는
+    // 기한 + 2초 안쪽이고, 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길 수 있다. 이 시간만큼 라이터 한 마켓이 멈추고,
+    // 승격 재생의 크래시 창 재정산도 같은 경로라 그만큼 길어진다(좀비 판정 창 45초, in-flight 예약 TTL 30초보다 짧아야 한다).
+    // 15초는 멈춘 트랜잭션을 끊는 idle_in_transaction_session_timeout(카오스 10초)에 잠금 대기 초과 2초와 여유를 더한 값이다.
+    private static final int MAX_ATTEMPTS = 8;
     private static final long RETRY_BACKOFF_MS = 100;
-    private static final long DEFAULT_RETRY_DEADLINE_MS = 5_000;
+    private static final long MAX_RETRY_BACKOFF_MS = 400;
+    private static final long DEFAULT_RETRY_DEADLINE_MS = 15_000;
 
     /** notional(quote 지정) 매수의 quote 소진 scale. 엔진 소진액 규약과 동일해야 이벤트
      * 합산 재구성과 어긋나지 않는다(DB 설계 §5.2). 게이트 가드 아닌 산식 상수로 박제한다. */
@@ -331,7 +332,7 @@ public class SettlementService {
     }
 
     /**
-     * 재시도 경과 기한을 바꾼다. 첫 시도 시작부터 이 시간이 지나면 새 시도를 열지 않는다. 기본 5초다.
+     * 재시도 경과 기한을 바꾼다. 첫 시도 시작부터 이 시간이 지나면 새 시도를 열지 않는다. 기본 15초다.
      * 운영 배선은 기본값을 쓴다. 시험이 시도 수보다 기한이 먼저 닿는 경로를 만들 때 쓴다.
      */
     public void setRetryDeadline(java.time.Duration deadline) {
@@ -398,9 +399,9 @@ public class SettlementService {
         }
     }
 
-    /** attempt 번째 실패 뒤의 대기. 상한의 절반에서 상한 사이 무작위 값이다(50~100, 100~200, 200~400밀리초). */
+    /** attempt 번째 실패 뒤의 대기. 상한의 절반에서 상한 사이 무작위 값이다(50~100, 100~200, 그 뒤 200~400밀리초). */
     private static long backoffMs(int attempt) {
-        long cap = RETRY_BACKOFF_MS << (attempt - 1);
+        long cap = Math.min(MAX_RETRY_BACKOFF_MS, RETRY_BACKOFF_MS << (attempt - 1));
         return cap / 2 + ThreadLocalRandom.current().nextLong(cap / 2 + 1);
     }
 

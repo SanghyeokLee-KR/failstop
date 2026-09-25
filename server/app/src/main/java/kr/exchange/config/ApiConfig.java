@@ -397,6 +397,18 @@ public class ApiConfig {
                         .register(meterRegistry);
             }
         }
+        // DB 연결 장애와 리더 자격 거부의 응답 수(API 설계 §2-5-c). 첫 증가를 increase() 가 세도록 여섯 조합을 미리 등록한다.
+        // 경합 계수와 따로 세야 창 밖 접수 경합 상한 축이 DB 장애를 경합으로 세지 않는다.
+        for (String cause : java.util.List.of("connection", "fencing")) {
+            for (String response : java.util.List.of("503", "429", "409")) {
+                io.micrometer.core.instrument.FunctionCounter
+                        .builder("exchange.order.intake.unavailable", gateway,
+                                g -> g.intakeUnavailable(cause, response))
+                        .tags("cause", cause, "response", response)
+                        .description("DB 연결 장애·리더 자격 거부로 끝난 주문 생성·취소 수")
+                        .register(meterRegistry);
+            }
+        }
         // 접수 락과 별개의 직렬 구간이라 따로 잰다(InflightReserves 필드 주석).
         io.micrometer.core.instrument.FunctionCounter
                 .builder("exchange.inflight.lock.wait.nanos", gateway,

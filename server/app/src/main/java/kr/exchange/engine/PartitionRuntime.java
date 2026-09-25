@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import kr.exchange.engine.core.MatchingEngineImpl;
+import kr.exchange.journal.SqlErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,6 @@ public final class PartitionRuntime {
     private final PartitionLeases node;
     private final boolean preferred;
     private final ScheduledExecutorService work;
-    private volatile boolean participate;
     private final Deque<Demotion> history = new ArrayDeque<>();
     private final Map<DemotionReason, Counter> demotions = new EnumMap<>(DemotionReason.class);
     // 자발적 강등 수(하네스 CI/CD §5-2 exchange.leader.standdown{partition}). 두 층 어느 쪽의 판정이든 이 파티션의 STALL 이다.
@@ -80,8 +80,9 @@ public final class PartitionRuntime {
         this.recovery = recovery;
         this.breaker = breaker;
         this.node = node;
-        this.participate = participate;
         this.preferred = preferred;
+        // 참여를 끈 파티션은 후보 표식을 내린 채 시작한다.
+        coordinator.setParticipating(participate);
         this.work = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "partition-work-" + resource);
             t.setDaemon(true);
@@ -138,7 +139,7 @@ public final class PartitionRuntime {
     }
 
     public boolean participating() {
-        return participate;
+        return coordinator.participating();
     }
 
     public PartitionBreaker breaker() {
@@ -150,11 +151,8 @@ public final class PartitionRuntime {
         return scope;
     }
 
-    /** 리스 틱을 시작한다. 참여를 끈 파티션은 후보 표식을 내린 채 시작한다. */
+    /** 리스 틱을 시작한다. */
     public void start() {
-        if (!participate) {
-            lease.disarm();
-        }
         lease.start();
     }
 
@@ -168,7 +166,9 @@ public final class PartitionRuntime {
      * 옛 기간의 실패라 아무것도 하지 않는다. VirtualMachineError 는 노드 치명이다.
      */
     public void demote(LeaderTerm term, DemotionReason reason, Throwable cause) {
-        String detail = cause == null ? reason.name() : reason + ": " + cause.getClass().getSimpleName();
+        // SQLSTATE 는 컨테이너 로그를 잃어도 관리 조회의 강등 기록에 원인이 남게 싣는다(API 설계 §6-C).
+        String detail = cause == null ? reason.name()
+                : reason + ": " + cause.getClass().getSimpleName() + " sqlstate=" + SqlErrors.stateLabel(cause);
         if (reason == DemotionReason.NODE_FATAL) {
             node.nodeFatal(detail);
             return;
@@ -297,7 +297,7 @@ public final class PartitionRuntime {
         if (!coordinator.settle(PromotionCoordinator.State.FOLLOWER)) {
             return;
         }
-        boolean armed = participate && coordinator.rearmIfFollower();
+        boolean armed = coordinator.rearmIfFollower();
         log.info("파티션 재구성 완료, 팔로워로 돌아왔다: resource={}, 후보={}", resource, armed);
     }
 
@@ -306,10 +306,8 @@ public final class PartitionRuntime {
      * 리스는 반납하지 않고 만료시킨다.
      */
     public void setParticipate(boolean on) {
-        participate = on;
+        LeaderTerm held = coordinator.setParticipating(on);
         if (!on) {
-            lease.disarm();
-            LeaderTerm held = coordinator.heldTerm();
             if (held != null) {
                 demote(held, DemotionReason.PLANNED, null);
             }
@@ -330,8 +328,7 @@ public final class PartitionRuntime {
             return false;
         }
         breaker.reset();
-        if (coordinator.transition(PromotionCoordinator.State.BLOCKED, PromotionCoordinator.State.FOLLOWER)
-                && participate) {
+        if (coordinator.transition(PromotionCoordinator.State.BLOCKED, PromotionCoordinator.State.FOLLOWER)) {
             coordinator.rearmIfFollower();
         }
         return true;
@@ -362,7 +359,7 @@ public final class PartitionRuntime {
         out.put("resource", resource);
         out.put("state", coordinator.state().name());
         out.put("epoch", lease.currentTerm().map(LeaderTerm::epoch).orElse(null));
-        out.put("participate", participate);
+        out.put("participate", coordinator.participating());
         out.put("preferred", preferred);
         out.put("armed", lease.isArmed());
         Map<String, Object> breakerView = new LinkedHashMap<>();

@@ -79,5 +79,120 @@ class S4AxesTest(unittest.TestCase):
         self.assertFalse(ax.demotion_logged({'chaos-api-1': {'ok': False}}, 'chaos-api-2'))
 
 
+
+class Orders500Test(unittest.TestCase):
+    """S4b 설계 4-7: orders_500_0 의 세 원천. 하나라도 읽지 못하거나 0 이 아니면 거짓이다."""
+
+    WINDOW = '2026-09-25T01:00:00+00:00'
+    OK_LB = ['10.0.0.9 - - [25/Sep/2026:01:00:05 +0000] "POST /api/v1/orders HTTP/1.1" 201 512 "-" "k6"']
+
+    def lb(self, lines):
+        return dict(ax.lb_orders_500(lines, self.WINDOW), ok=True)
+
+    def test_all_sources_zero_is_true(self):
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, {'chaos-api-1': 0.0, 'chaos-api-2': 0.0})
+        self.assertTrue(got['ok'])
+
+    def test_max_over_time_catches_what_increase_missed(self):
+        # 첫 500 에서야 생긴 시계열은 increase() 가 0 을 준다. max_over_time 은 창 안 최댓값 1 을 준다.
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 1.0, 12.0, {'chaos-api-1': 0.0, 'chaos-api-2': 0.0})
+        self.assertFalse(got['ok'])
+        self.assertFalse(got['zero']['prom'])
+
+    def test_lb_500_inside_the_window_is_false_and_outside_is_ignored(self):
+        inside = self.OK_LB + ['10.0.0.9 - - [25/Sep/2026:01:02:00 +0000] "DELETE /api/v1/orders/abc HTTP/1.1" 500 90 "-" "bot"']
+        self.assertEqual(1, ax.lb_orders_500(inside, self.WINDOW)['orders_500'])
+        self.assertFalse(ax.judge_orders_500(self.lb(inside), 0.0, 12.0, {'a': 0.0})['ok'])
+        before = self.OK_LB + ['10.0.0.9 - - [25/Sep/2026:00:59:59 +0000] "POST /api/v1/orders HTTP/1.1" 500 90 "-" "k6"']
+        self.assertEqual({'access_lines': 1, 'orders_500': 0}, ax.lb_orders_500(before, self.WINDOW))
+
+    def test_response_bytes_of_500_are_not_a_500_status(self):
+        lines = ['10.0.0.9 - - [25/Sep/2026:01:00:07 +0000] "POST /api/v1/orders HTTP/1.1" 200 500 "-" "k6"',
+                 '10.0.0.9 - - [25/Sep/2026:01:00:08 +0000] "GET /api/v1/orders/open HTTP/1.1" 500 60 "-" "web"']
+        self.assertEqual({'access_lines': 2, 'orders_500': 0}, ax.lb_orders_500(lines, self.WINDOW))
+
+    def test_node_total_counts_unknown_uri_post_and_orders_delete(self):
+        text = '\n'.join([
+            '# TYPE http_server_requests_seconds_count counter',
+            'http_server_requests_seconds_count{error="none",exception="none",method="POST",outcome="SERVER_ERROR",'
+            'status="500",uri="UNKNOWN"} 1.0',
+            'http_server_requests_seconds_count{method="DELETE",outcome="SERVER_ERROR",status="500",'
+            'uri="/api/v1/orders/{id}"} 2.0',
+            'http_server_requests_seconds_count{method="GET",status="500",uri="UNKNOWN"} 5.0',
+            'http_server_requests_seconds_count{method="POST",status="500",uri="/api/v1/community/posts"} 7.0',
+            'http_server_requests_seconds_count{method="POST",status="201",uri="/api/v1/orders"} 90.0'])
+        self.assertEqual(3.0, ax.node_orders_500(text))
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, {'chaos-api-1': 3.0, 'chaos-api-2': 0.0})
+        self.assertFalse(got['ok'])
+        self.assertFalse(got['zero']['nodes'])
+
+    def test_unreadable_or_empty_sources_are_false(self):
+        nodes = {'chaos-api-1': 0.0, 'chaos-api-2': 0.0}
+        # LB 로그를 읽지 못했다.
+        self.assertFalse(ax.judge_orders_500({'ok': False, 'access_lines': 0, 'orders_500': 0}, 0.0, 12.0, nodes)['ok'])
+        # 창 안 LB 접근 줄이 하나도 없다(로그 수집이 멈춘 창의 공허한 0).
+        self.assertFalse(ax.judge_orders_500(self.lb([]), 0.0, 12.0, nodes)['ok'])
+        # 프로메테우스 질의 실패와 창 안 요청 계수 시계열 0.
+        self.assertFalse(ax.judge_orders_500(self.lb(self.OK_LB), None, 12.0, nodes)['ok'])
+        self.assertFalse(ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 0.0, nodes)['ok'])
+        # 노드 하나를 긁지 못했다.
+        self.assertFalse(ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, {'chaos-api-1': 0.0, 'chaos-api-2': None})['ok'])
+        self.assertIsNone(ax.node_orders_500('# 요청 계수 없음\njvm_threads_live_threads 30.0'))
+
+    def test_node_stopped_by_the_experiment_is_left_to_the_other_sources(self):
+        # E6 처럼 실험이 kill 한 채 두는 노드는 누계를 읽을 수 없다. 멈춘 노드는 빼고 도는 노드만 센다(S4b 설계 4-7).
+        stopped = {'chaos-api-1': ax.STOPPED, 'chaos-api-2': 0.0}
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, stopped)
+        self.assertTrue(got['ok'])
+        self.assertEqual(['chaos-api-1'], got['stopped'])
+        # 도는 노드의 500 은 여전히 거짓이다.
+        self.assertFalse(ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0,
+                                             {'chaos-api-1': ax.STOPPED, 'chaos-api-2': 1.0})['ok'])
+        # 멈춘 노드가 멈추기 전에 낸 500 은 프로메테우스와 LB 로그가 잡는다.
+        self.assertFalse(ax.judge_orders_500(self.lb(self.OK_LB), 1.0, 12.0, stopped)['ok'])
+        killed = self.OK_LB + ['10.0.0.9 - - [25/Sep/2026:01:01:00 +0000] "POST /api/v1/orders HTTP/1.1" 500 90 "-" "k6"']
+        self.assertFalse(ax.judge_orders_500(self.lb(killed), 0.0, 12.0, stopped)['ok'])
+
+    def test_stopped_nodes_do_not_make_an_unreadable_node_source_readable(self):
+        # 도는 노드를 읽지 못했으면 멈춘 노드가 있어도 읽지 못한 것이다.
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, {'chaos-api-1': ax.STOPPED, 'chaos-api-2': None})
+        self.assertFalse(got['ok'])
+        self.assertFalse(got['readable']['nodes'])
+        # 두 노드가 모두 멈췄으면 노드 누계는 공허하다.
+        got = ax.judge_orders_500(self.lb(self.OK_LB), 0.0, 12.0, {'chaos-api-1': ax.STOPPED, 'chaos-api-2': ax.STOPPED})
+        self.assertFalse(got['ok'])
+        self.assertFalse(got['readable']['nodes'])
+
+    def test_unscraped_node_is_stopped_only_when_its_container_is_not_running(self):
+        # 긁기에 실패한 노드는 컨테이너가 돌지 않을 때만 멈춘 노드다. 돌거나 docker 로 확인하지 못하면 읽지 못한 것이다.
+        self.assertEqual(ax.STOPPED, ax.unscraped_node(False))
+        self.assertIsNone(ax.unscraped_node(True))
+        self.assertIsNone(ax.unscraped_node(None))
+
+
+class S4bAxesTest(unittest.TestCase):
+
+    def test_recovery_runs_axes(self):
+        self.assertEqual({'recovery_runs_mismatch_0': True, 'recovery_runs_success_gt_0': True},
+                         ax.recovery_axes({'recovery_runs_mismatch': 0, 'recovery_runs_success': 3}))
+        self.assertFalse(ax.recovery_axes({'recovery_runs_mismatch': 1, 'recovery_runs_success': 3})['recovery_runs_mismatch_0'])
+        # 성공 행이 없으면 기록 경로가 배선되지 않은 것이라 불일치 0 이 공허하다.
+        self.assertFalse(ax.recovery_axes({'recovery_runs_mismatch': 0, 'recovery_runs_success': 0})['recovery_runs_success_gt_0'])
+        # 상태 질의가 실패하면(키 없음) 둘 다 거짓이다.
+        self.assertEqual({'recovery_runs_mismatch_0': False, 'recovery_runs_success_gt_0': False}, ax.recovery_axes({}))
+        self.assertIn('recovery_runs_mismatch', ax.STATE_SQL)
+
+    def test_api_log_axis(self):
+        clean = {'ok': True, 'unhandledException': 0, 'authFailure500': 0}
+        self.assertTrue(ax.api_log_axis({'chaos-api-1': clean, 'chaos-api-2': clean, 'chaos-bots': {'ok': False}}))
+        self.assertFalse(ax.api_log_axis({'chaos-api-1': clean, 'chaos-api-2': dict(clean, unhandledException=1)}))
+        self.assertFalse(ax.api_log_axis({'chaos-api-1': clean, 'chaos-api-2': dict(clean, authFailure500=2)}))
+        self.assertFalse(ax.api_log_axis({'chaos-api-1': clean, 'chaos-api-2': {'ok': False}}))
+        # 문구는 S4b 코드(ApiExceptionHandler·ApiAuthFilter·EngineRecovery)와 같아야 한다.
+        self.assertEqual('처리되지 않은 예외', ax.LOG_PATTERNS['unhandledException'])
+        self.assertEqual('인증 처리 실패로 500', ax.LOG_PATTERNS['authFailure500'])
+        self.assertEqual('재생이 판정 없이 끝났다', ax.LOG_PATTERNS['replayNoVerdict'])
+
+
 if __name__ == '__main__':
     unittest.main()

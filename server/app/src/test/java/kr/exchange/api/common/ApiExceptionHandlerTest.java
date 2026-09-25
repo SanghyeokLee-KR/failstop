@@ -1,20 +1,37 @@
 package kr.exchange.api.common;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.engine.EngineBridge;
+import kr.exchange.journal.DbFailures;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.sql.SQLException;
 import java.sql.SQLTransientConnectionException;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,10 +66,54 @@ class ApiExceptionHandlerTest {
             throw new UncategorizedSQLException("append", "SELECT * FROM append_command_prologue(...)",
                     new SQLException("canceling statement due to lock timeout", "55P03"));
         }
+
+        @GetMapping("/outage/{kind}")
+        String readOutage(@PathVariable("kind") String kind) {
+            throw OUTAGES.get(kind).get();
+        }
+
+        @PostMapping("/unsafe/{kind}")
+        String unsafeWrite(@PathVariable("kind") String kind) {
+            throw OUTAGES.get(kind).get();
+        }
+
+        @GetMapping("/client-gone")
+        String clientGone() throws AsyncRequestNotUsableException {
+            throw new AsyncRequestNotUsableException("ServletOutputStream failed to write: Broken pipe");
+        }
     }
 
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new FailingController())
-            .setControllerAdvice(new ApiExceptionHandler(new ErrorRenderer(new ObjectMapper())))
+    /** 다시 보내도 한 번의 효과로 모이는 쓰기 처리기(주문·이체와 같은 표식). */
+    @RestController
+    @RetrySafeWrite
+    static class RetrySafeController {
+
+        @PostMapping("/safe/{kind}")
+        String safeWrite(@PathVariable("kind") String kind) {
+            throw OUTAGES.get(kind).get();
+        }
+    }
+
+    private static final Map<String, Supplier<RuntimeException>> OUTAGES = Map.of(
+            "connection-lost", DbFailures::connectionFailure,
+            "terminated", () -> DbFailures.sql("57P01"),
+            "no-state", () -> new DataAccessResourceFailureException("connection refused"),
+            "rollback-failed", () -> DbFailures.rollbackFailed(DbFailures.connectionFailure()),
+            "resource", () -> DbFailures.sql("53200"),
+            "acquire", DbFailures::acquireFailure,
+            "program-limit", () -> DbFailures.sql("54000"));
+
+    private final AtomicInteger rendered = new AtomicInteger();
+
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new FailingController(), new RetrySafeController())
+            .setControllerAdvice(new ApiExceptionHandler(new ErrorRenderer(new ObjectMapper()) {
+                @Override
+                public ObjectNode body(String name, String message, Map<String, Object> detail, Integer retryAfter,
+                                       String requestId) {
+                    rendered.incrementAndGet();
+                    return super.body(name, message, detail, retryAfter, requestId);
+                }
+            }))
             .build();
 
     @Test
@@ -96,5 +157,87 @@ class ApiExceptionHandlerTest {
         mvc.perform(get("/integrity-violation"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.name").value("server_error"));
+    }
+
+    /** 안전 메서드의 DB 연결 장애는 아무것도 쓰지 않았으므로 503 이다(API 설계 §2-5-c). */
+    @Test
+    void safeMethodOutageIs503() throws Exception {
+        for (String kind : new String[] {"connection-lost", "terminated", "no-state", "rollback-failed", "resource"}) {
+            mvc.perform(get("/outage/" + kind))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(header().string("Retry-After", "1"))
+                    .andExpect(jsonPath("$.error.name").value("service_unavailable"))
+                    .andExpect(jsonPath("$.error.message").value("DB 연결 장애. 재조회 후 판단 필요"));
+        }
+    }
+
+    /** 재전송 안전 처리기의 쓰기는 다시 보내도 한 번의 효과로 모이므로 연결 끊김도 503 이다. */
+    @Test
+    void retrySafeWriteOutageIs503() throws Exception {
+        for (String kind : new String[] {"connection-lost", "rollback-failed"}) {
+            mvc.perform(post("/safe/" + kind))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(header().string("Retry-After", "1"))
+                    .andExpect(jsonPath("$.error.name").value("service_unavailable"));
+        }
+    }
+
+    /**
+     * 표식 없는 쓰기(게시판 글 작성처럼 멱등 키 없는 쓰기)의 연결 끊김은 커밋됐을 수 있으므로 500 이다. 인그레스는 500 을 다른
+     * 노드로 다시 보내지 않는다. 로그는 처리되지 않은 예외가 아니라 원인을 밝힌 WARN 이다.
+     */
+    @Test
+    void unmarkedWriteConnectionLossStays500WithoutTheUnhandledLog() throws Exception {
+        ListAppender<ILoggingEvent> logs = captureHandlerLogs();
+        try {
+            for (String kind : new String[] {"connection-lost", "rollback-failed", "resource"}) {
+                mvc.perform(post("/unsafe/" + kind))
+                        .andExpect(status().isInternalServerError())
+                        .andExpect(jsonPath("$.error.name").value("server_error"));
+            }
+            assertFalse(logs.list.stream().anyMatch(e -> e.getFormattedMessage().contains("처리되지 않은 예외")),
+                    "재전송이 안전하지 않은 쓰기의 연결 장애를 처리되지 않은 예외로 남겼다");
+            assertEquals(3, logs.list.stream().filter(e -> e.getFormattedMessage()
+                    .contains("재전송이 안전하지 않은 경로라 500")).count());
+        } finally {
+            releaseHandlerLogs(logs);
+        }
+        // 커넥션 획득 실패는 문장을 보내기 전이라 v2.17 부터 모든 메서드에서 503 이다.
+        mvc.perform(post("/unsafe/acquire"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.name").value("service_unavailable"));
+    }
+
+    /** 연결이 아닌 자원 실패(54000)는 종전처럼 처리되지 않은 예외의 500 이다. */
+    @Test
+    void programLimitStaysServerError() throws Exception {
+        mvc.perform(get("/outage/program-limit"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.name").value("server_error"));
+    }
+
+    /** 클라이언트가 먼저 끊은 요청은 받을 쪽이 없으므로 렌더하지 않는다. */
+    @Test
+    void unusableResponseIsNotRendered() throws Exception {
+        ListAppender<ILoggingEvent> logs = captureHandlerLogs();
+        try {
+            mvc.perform(get("/client-gone")).andExpect(status().isOk());
+            assertEquals(0, rendered.get(), "응답을 쓸 수 없는 요청에 오류 본문을 렌더했다");
+            assertTrue(logs.list.stream().anyMatch(e -> e.getFormattedMessage().contains("클라이언트 연결이 끊겨")));
+            assertFalse(logs.list.stream().anyMatch(e -> e.getFormattedMessage().contains("처리되지 않은 예외")));
+        } finally {
+            releaseHandlerLogs(logs);
+        }
+    }
+
+    private static ListAppender<ILoggingEvent> captureHandlerLogs() {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        ((Logger) LoggerFactory.getLogger(ApiExceptionHandler.class)).addAppender(appender);
+        return appender;
+    }
+
+    private static void releaseHandlerLogs(ListAppender<ILoggingEvent> appender) {
+        ((Logger) LoggerFactory.getLogger(ApiExceptionHandler.class)).detachAppender(appender);
     }
 }

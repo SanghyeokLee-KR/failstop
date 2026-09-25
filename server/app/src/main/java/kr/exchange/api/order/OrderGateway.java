@@ -6,17 +6,22 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.CancelAllResponse;
 import kr.exchange.engine.EngineBridge;
+import kr.exchange.engine.NotLeaderException;
 import kr.exchange.ledger.ProjectionSignal;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandDraft;
+import kr.exchange.journal.DbOutageErrors;
+import kr.exchange.journal.FencingErrors;
 import kr.exchange.journal.ReserveCheck;
 import kr.exchange.journal.SqlErrors;
+import kr.exchange.journal.StaleLeaderException;
 import kr.exchange.ledger.Fees;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
@@ -41,7 +46,8 @@ import java.util.concurrent.atomic.LongAdder;
  *
  * submit 이 예외로 끝나면 저널에 닿았는지를 이 요청의 주문 id 로 확인한다(V47). 커밋 응답만 잃은 것이면 키를 남기고
  * 라이터에 그 명령의 회수를 요청한 뒤 정상 접수처럼 응답한다. 닿지 않았으면 넣은 키를 정리하되, 같은 내용의 다른 요청이
- * 그 키로 대조했으면(공유 표시) 남긴다. 확인마저 실패하면 키와 예약을 남긴 채 원래 예외를 돌려준다.
+ * 그 키로 대조했으면(공유 표시) 남긴다. 확인마저 실패하면 키와 예약을 남긴다. 응답은 원래 예외가 마켓 접수 경합인지, 리더
+ * 자격 거부나 DB 불통인지와 확인이 DB 에 닿았는지로 가른다(API 설계 §2-5-b·§2-5-c).
  */
 public class OrderGateway {
 
@@ -86,7 +92,10 @@ public class OrderGateway {
     private final Map<String, LongAdder> appendTransient = new java.util.concurrent.ConcurrentHashMap<>();
     // 마켓 접수 경합 응답 수(API 설계 §2-5-b). 키는 원인과 응답 코드다.
     private final Map<String, LongAdder> intakeContention = new java.util.concurrent.ConcurrentHashMap<>();
+    // DB 연결 장애와 리더 자격 거부로 끝난 주문 생성·취소의 응답 수(API 설계 §2-5-c). 키는 원인과 응답 코드다.
+    private final Map<String, LongAdder> intakeUnavailable = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile BalanceLookup balances = this::availableBalance;
+    private volatile IntakeResolver resolver = this::resolveInDb;
     // 응답 epoch 를 읽을 리스 행을 마켓에서 정하는 계획. null 이면 matching-engine 이다.
     private volatile kr.exchange.engine.PartitionPlan partitionPlan;
     // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
@@ -140,9 +149,30 @@ public class OrderGateway {
         return n == null ? 0 : n.sum();
     }
 
+    /**
+     * DB 연결 장애와 리더 자격 거부로 끝난 주문 생성·취소의 응답 수(API 설계 §2-5-c). cause 는 connection·fencing, response 는
+     * 503·429·409 다.
+     */
+    public long intakeUnavailable(String cause, String response) {
+        LongAdder n = intakeUnavailable.get(cause + "|" + response);
+        return n == null ? 0 : n.sum();
+    }
+
     /** 가용 잔고 조회를 바꾼다. 시험 전용이다. */
     void setBalanceLookup(BalanceLookup lookup) {
         this.balances = lookup;
+    }
+
+    /** V47 판정 호출. 시험이 실패를 주입하려고 감싼다. */
+    @FunctionalInterface
+    interface IntakeResolver {
+        IntakeResolution resolve(long userId, String clientOrderId, String requestHash, long assignedId,
+                                 boolean discardKey);
+    }
+
+    /** V47 판정 호출을 감싼다. 시험 전용이다. */
+    void interceptResolver(java.util.function.UnaryOperator<IntakeResolver> wrap) {
+        this.resolver = wrap.apply(resolver);
     }
 
     /**
@@ -307,19 +337,19 @@ public class OrderGateway {
                 if (!keyed) {
                     // 키를 잡지 않은 재전송이다. 같은 키의 NEW 가 이미 저널에 있어 append 는 재생만 하므로
                     // 새로 커밋됐을 명령이 없다.
-                    throw submitFailure(e, IntakeOutcome.REPLAY);
+                    throw submitFailure(e, IntakeOutcome.REPLAY, null, market.id());
                 }
                 // append 가 커밋된 뒤 응답만 잃었을 수 있다. 이 요청의 주문 id 로 저널을 보고, 커밋되지 않았으면
                 // 넣은 키를 정리한다(V47). 판정은 같은 키의 append 가 끝나기를 기다린 뒤에 한다.
                 keyResolved = true;
-                IntakeResolution resolution =
-                        resolveFailedSubmit(userId, clientOrderId, requestHash, assignedId, insertedKey);
+                Verdict verdict = resolveFailedSubmit(userId, clientOrderId, requestHash, assignedId, insertedKey);
+                IntakeResolution resolution = verdict.resolution();
                 if (resolution == null) {
                     outcomeUnknown = true;
-                    throw submitFailure(e, IntakeOutcome.UNRESOLVED);
+                    throw submitFailure(e, IntakeOutcome.UNRESOLVED, verdict, market.id());
                 }
                 if (!resolution.journaled()) {
-                    throw submitFailure(e, IntakeOutcome.ofResolution(resolution.outcome()));
+                    throw submitFailure(e, IntakeOutcome.ofResolution(resolution.outcome()), verdict, market.id());
                 }
                 // 커밋은 됐고 명령은 라이터 큐에 들어가지 않았다. 그대로 두면 같은 마켓의 다음 명령이 갭을 드러낼
                 // 때까지 정산되지 않아, 한가한 마켓에서는 in-flight 예약 TTL 이 먼저 끝나 가드가 빈다. 라이터에 회수를
@@ -541,36 +571,64 @@ public class OrderGateway {
     }
 
     /** V47 판정 결과. journaled 면 이 요청의 주문 id 로 커밋된 NEW 가 있고 seq·marketId·fencing 이 그 행의 값이다. */
-    private record IntakeResolution(String outcome, long seq, int marketId, long fencing) {
+    record IntakeResolution(String outcome, long seq, int marketId, long fencing) {
         boolean journaled() {
             return "JOURNALED".equals(outcome);
         }
     }
 
     /**
-     * append 예외 뒤 저널을 보고 키를 정리한다(V47 resolve_failed_order_intake). 판정 자체가 실패하면 null 이다.
-     *
-     * null 이면 커밋 여부를 모른다. 키를 지우지 않고 예약도 바로 풀지 않는다. 커밋됐다면 그 주문의 재시도가 키로 대조해
-     * 멱등 재생으로 수렴하고, 커밋되지 않았다면 재시도가 대조 뒤 command_journal 실재로 잔고 가드를 다시 받는다.
+     * V47 판정의 끝(API 설계 §2-5-c). resolution 이 있으면 판정됐고, 없으면 failure 가 마지막 실패다. 그 실패가 DB 불통이면
+     * 판정이 DB 에 닿지 못한 것이고, 아니면(55P03·57014 등) DB 에 닿았으나 판정하지 못한 것이다.
      */
-    private IntakeResolution resolveFailedSubmit(long userId, String clientOrderId, String requestHash,
-                                                 long assignedId, boolean discardKey) {
-        try {
-            IntakeResolution resolution = jdbc.sql("SELECT * FROM resolve_failed_order_intake(?, ?, ?, ?, ?)")
-                    .params(userId, clientOrderId, requestHash, assignedId, discardKey)
-                    .query((rs, rowNum) -> new IntakeResolution(rs.getString("out_outcome"),
-                            rs.getLong("out_seq"), rs.getInt("out_market_id"), rs.getLong("out_fencing")))
-                    .single();
-            if ("KEPT".equals(resolution.outcome())) {
-                keysKept.increment();
-            }
-            return resolution;
-        } catch (RuntimeException e) {
-            unresolvedFailures.increment();
-            log.warn("append 예외 뒤 저널 판정이 실패했다. 멱등 키를 남기고 in-flight 예약은 지연 회수한다: "
-                    + "user_id={}, client_order_id={}, 원인={}", userId, clientOrderId, e.toString());
-            return null;
+    private record Verdict(IntakeResolution resolution, RuntimeException failure, int calls) {
+        boolean dbUnreachable() {
+            return resolution == null && DbOutageErrors.isOutage(failure);
         }
+    }
+
+    private IntakeResolution resolveInDb(long userId, String clientOrderId, String requestHash, long assignedId,
+                                         boolean discardKey) {
+        return jdbc.sql("SELECT * FROM resolve_failed_order_intake(?, ?, ?, ?, ?)")
+                .params(userId, clientOrderId, requestHash, assignedId, discardKey)
+                .query((rs, rowNum) -> new IntakeResolution(rs.getString("out_outcome"),
+                        rs.getLong("out_seq"), rs.getInt("out_market_id"), rs.getLong("out_fencing")))
+                .single();
+    }
+
+    /**
+     * append 예외 뒤 저널을 보고 키를 정리한다(V47 resolve_failed_order_intake).
+     *
+     * 판정이 실패하면 커밋 여부를 모른다. 키를 지우지 않고 예약도 바로 풀지 않는다. 커밋됐다면 그 주문의 재시도가 키로 대조해
+     * 멱등 재생으로 수렴하고, 커밋되지 않았다면 재시도가 대조 뒤 command_journal 실재로 잔고 가드를 다시 받는다.
+     *
+     * 연결이 끊긴 판정은 한 번 더 부르되 키를 지우지 않는다(API 설계 §2-4). 저널에 없다는 답은 NOT_JOURNALED 라 409 가 된다.
+     */
+    private Verdict resolveFailedSubmit(long userId, String clientOrderId, String requestHash,
+                                        long assignedId, boolean discardKey) {
+        RuntimeException failure;
+        int calls = 0;
+        do {
+            // 첫 판정이 이 키를 지우고 응답만 잃었다면, V47 은 그 사이 같은 해시로 새로 넣은 다른 요청의 키를 이 키와 가르지 못한다.
+            boolean discard = discardKey && calls == 0;
+            calls++;
+            try {
+                IntakeResolution resolution = resolver.resolve(userId, clientOrderId, requestHash, assignedId, discard);
+                if ("KEPT".equals(resolution.outcome())) {
+                    keysKept.increment();
+                }
+                return new Verdict(resolution, null, calls);
+            } catch (RuntimeException e) {
+                failure = e;
+            }
+            // 끊긴 연결은 풀이 버리므로 다시 부르면 다른 연결로 DB 도달 여부를 다시 본다. 획득 실패는 연결 대기만 한 번 더 쓰므로
+            // 다시 부르지 않는다.
+        } while (calls < 2 && DbOutageErrors.kind(failure) == DbOutageErrors.Kind.CONNECTION_LOST);
+        unresolvedFailures.increment();
+        log.warn("append 예외 뒤 저널 판정이 실패했다. 멱등 키를 남기고 in-flight 예약은 지연 회수한다: "
+                        + "user_id={}, client_order_id={}, 판정 호출={}, 원인={}, 메시지={}",
+                userId, clientOrderId, calls, SqlErrors.describe(failure), failure.getMessage());
+        return new Verdict(null, failure, calls);
     }
 
     /**
@@ -586,8 +644,11 @@ public class OrderGateway {
      * P2 의 잔고 부족(append 트랜잭션의 23514 chk_balance_nonneg)은 400 insufficient_funds 다(API 설계 v2.54 §2-3). 트랜잭션
      * 전체가 롤백돼 저널·채번·예약이 남지 않았고, 이 요청의 키는 V47 판정이 이미 정리했다. 다른 제약의 23514 는 잔고 부족이
      * 아니라 결함이라 원래 예외(500)로 둔다.
+     *
+     * 경합 다음은 리더 자격 거부(fencing 거부, 옛 epoch 삽입 0행, 기간 종료)와 DB 불통이다(API 설계 §2-5-c). 둘 다 경합이
+     * 아니므로 좀비 판정 수요에서 빼지 않는다. DB 에 닿지 못하는 리더는 두 층 판정으로 강등돼야 한다.
      */
-    private RuntimeException submitFailure(RuntimeException e, IntakeOutcome outcome) {
+    private RuntimeException submitFailure(RuntimeException e, IntakeOutcome outcome, Verdict verdict, int marketId) {
         String cause = contentionCause(e);
         if (cause != null) {
             boolean confirmed = outcome.confirmedNotAccepted();
@@ -596,6 +657,19 @@ public class OrderGateway {
             boolean excluded = !"lock_wait_stuck".equals(cause);
             return confirmed ? marketContention(excluded)
                     : new ApiException(409, "order_in_progress", "주문 처리 중. 재조회 필요", null, 1, excluded);
+        }
+        if (leaderRejection(e)) {
+            if (!bridge.accepting(marketId)) {
+                // 재확인이 거짓이라 강등이 게이트를 먼저 닫았다. 이 노드는 그 마켓의 리더가 아니므로 페일오버 503 이고 쓰기
+                // 업스트림이 같은 요청을 새 리더로 넘긴다. V47 은 키 정리를 위해 이미 불렀다.
+                ApiException failover = failoverUnavailable();
+                recordUnavailable("fencing", failover, "주문 생성", verdict, e);
+                return failover;
+            }
+            return undecidedIntake("fencing", outcome, verdict, e);
+        }
+        if (DbOutageErrors.isOutage(e)) {
+            return undecidedIntake("connection", outcome, verdict, e);
         }
         if (e instanceof IllegalStateException) {
             return new ApiException(503, "service_unavailable",
@@ -609,6 +683,55 @@ public class OrderGateway {
             return insufficientFunds();
         }
         return e;
+    }
+
+    /**
+     * DB 불통이나 게이트를 연 노드의 리더 자격 거부로 끝난 주문 생성의 응답(API 설계 §2-5-c). 쓰기 업스트림에서 이 노드를 빼는
+     * 503 은 V47 판정마저 DB 에 닿지 못했을 때뿐이다. 판정이 DB 에 닿았으면 마켓 접수 경합과 같은 규칙이다. V47 이 이 요청의
+     * 키를 지웠으면(DISCARDED) 같은 키의 append 와 같은 어드바이저리 락 아래에서 확인한 확정 미접수라 429 이고, 그 밖과
+     * 판정 실패와 재전송은 409 다.
+     */
+    private ApiException undecidedIntake(String cause, IntakeOutcome outcome, Verdict verdict, RuntimeException e) {
+        ApiException response;
+        String counted = cause;
+        if (verdict != null && verdict.dbUnreachable()) {
+            counted = "connection";
+            response = dbUnreachable();
+        } else if (outcome.confirmedNotAccepted()) {
+            response = marketContention(false);
+        } else {
+            response = new ApiException(409, "order_in_progress", "주문 처리 중. 재조회 필요", null, 1);
+        }
+        recordUnavailable(counted, response, "주문 생성", verdict, e);
+        return response;
+    }
+
+    /** fencing 거부, 옛 epoch 의 삽입 0행, append 전 기간 검사의 기간 종료. 그 append 는 롤백됐거나 DB 에 가지 않았다. */
+    private static boolean leaderRejection(RuntimeException e) {
+        return e instanceof NotLeaderException || e instanceof StaleLeaderException
+                || (e instanceof DataAccessException dae && FencingErrors.isFencingRejection(dae));
+    }
+
+    /** 판정이나 재조회마저 DB 에 닿지 못했다. 배치 주문과 일괄 취소가 남은 원소를 시도하지 않게 표식을 단다. */
+    private static ApiException dbUnreachable() {
+        return new ApiException(503, "service_unavailable", "DB 연결 장애. 재조회 후 판단 필요", null, 1, false,
+                ApiException.DbOutage.UNREACHABLE);
+    }
+
+    private static ApiException failoverUnavailable() {
+        return new ApiException(503, "service_unavailable", "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
+    }
+
+    private void recordUnavailable(String cause, ApiException response, String path, Verdict verdict,
+                                   RuntimeException e) {
+        recordUnavailable(cause, response, path, verdict == null ? 0 : verdict.calls(), e);
+    }
+
+    /** 응답마다 계수와 WARN 한 줄(경로, 응답, 확인 호출 수, 원인 사슬)을 남긴다. 확인은 생성이면 V47, 취소면 재조회다. */
+    private void recordUnavailable(String cause, ApiException response, String path, int checks, RuntimeException e) {
+        intakeUnavailable.computeIfAbsent(cause + "|" + response.status(), k -> new LongAdder()).increment();
+        log.warn("DB 연결 장애·리더 자격 거부 응답: 경로={}, 원인={}, 응답={} {}, 확인 호출={}, 예외={}", path, cause,
+                response.status(), response.name(), checks, SqlErrors.describe(e));
     }
 
     /** 잔고 부족의 저널 전 거부. P1 은 사전 가드, P2 는 빠른 거부와 append 트랜잭션의 23514 가 낸다. */
@@ -717,9 +840,10 @@ public class OrderGateway {
     }
 
     /**
-     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝난 수다(라이터 정지). contended 는
-     * 마켓 접수 경합의 429 로 끝난 수다(API 설계 §2-5-b). 두 경우 모두 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수
-     * 있다. suspended 는 정지 마켓의 422 market_suspended 로 남은 수다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다.
+     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝났거나(라이터 정지, 게이트가 닫힌
+     * 리더 자격 거부) DB 연결 장애로 저널 반영을 확인하지 못한 수다(API 설계 §2-5-c). contended 는
+     * 마켓 접수 경합의 429 로 끝난 수다(API 설계 §2-5-b). 두 경우 모두 그 주문은 아직 열려 있을 수 있고 곧바로 다시 취소하면
+     * 닫힐 수 있다. suspended 는 정지 마켓의 422 market_suspended 로 남은 수다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다.
      * 회원 폐쇄는 셋의 합(incomplete)을 미완료로 센다(API 설계 v2.55 §6-E). 체결로 먼저 종결된 주문과 취소 저널 뒤 반영 대기
      * 409 는 다시 부를 필요가 없어 어느 쪽에도 세지 않는다.
      */
@@ -754,7 +878,9 @@ public class OrderGateway {
         int unsubmitted = 0;
         int suspended = 0;
         int contended = 0;
-        for (UUID externalId : orders.openOrderIds(userId, market)) {
+        List<UUID> open = orders.openOrderIds(userId, market);
+        for (int i = 0; i < open.size(); i++) {
+            UUID externalId = open.get(i);
             try {
                 Placement placement = cancel(userId, externalId);
                 if ("CANCELED".equals(placement.row().status())) {
@@ -765,6 +891,20 @@ public class OrderGateway {
                             placement.row().status().toLowerCase(Locale.ROOT)));
                 }
             } catch (ApiException e) {
+                if (e.dbOutage() != ApiException.DbOutage.NONE) {
+                    // 저널에 들어갔을 수 있으나 확인하지 못한 취소다. 단건의 409 를 '저널 뒤 반영 대기'로 보지 않고 미완료로 센다
+                    // (API 설계 §2-5-c). 재조회마저 DB 에 닿지 못했으면 남은 주문의 취소 전 조회가 같은 장애를 원시 예외로 올려
+                    // 앞 결과를 잃으므로 시도하지 않는다.
+                    int until = e.dbOutage() == ApiException.DbOutage.UNREACHABLE ? open.size() : i + 1;
+                    for (UUID skipped : open.subList(i, until)) {
+                        failed.add(new CancelAllResponse.Failure(skipped.toString(), "service_unavailable"));
+                        unsubmitted++;
+                    }
+                    if (until == open.size()) {
+                        break;
+                    }
+                    continue;
+                }
                 String reason = failureReason(e);
                 failed.add(new CancelAllResponse.Failure(externalId.toString(), reason));
                 if (e.status() == 503) {
@@ -811,15 +951,50 @@ public class OrderGateway {
             throw marketSuspended();
         } catch (RuntimeException e) {
             String cause = contentionCause(e);
-            if (cause == null) {
-                throw e;
+            if (cause != null) {
+                // 취소는 네 오류가 모두 커밋 전에 롤백되고 대기 초과는 저널 전에 끝나므로 이 취소 명령이 저널에 없다는 것이
+                // 확정이다. 429 는 그것만 뜻하고 주문 상태는 그 사이 바뀌었을 수 있다(API 설계 §2-5-b).
+                countTransient(e);
+                countContention(cause, "429");
+                throw marketContention(!"lock_wait_stuck".equals(cause));
             }
-            // 취소는 네 오류가 모두 커밋 전에 롤백되고 대기 초과는 저널 전에 끝나므로 이 취소 명령이 저널에 없다는 것이
-            // 확정이다. 429 는 그것만 뜻하고 주문 상태는 그 사이 바뀌었을 수 있다(API 설계 §2-5-b).
-            countTransient(e);
-            countContention(cause, "429");
-            throw marketContention(!"lock_wait_stuck".equals(cause));
+            if (leaderRejection(e)) {
+                // 롤백됐거나 DB 에 가지 않은 취소라 저널에 없다는 것이 확정이다. 게이트를 연 노드는 리더이므로 빼지 않는다.
+                ApiException response = bridge.accepting(intake.marketId())
+                        ? marketContention(false) : failoverUnavailable();
+                recordUnavailable("fencing", response, "취소", 0, e);
+                throw response;
+            }
+            if (DbOutageErrors.isOutage(e)) {
+                throw cancelOutage(intake.assignedOrderId(), e);
+            }
+            throw e;
         }
+    }
+
+    /**
+     * 취소 append 가 DB 불통으로 끝났다(API 설계 §2-5-c). 취소에는 V47 같은 저널 판정이 없어 대상 주문을 다시 읽어 DB 도달
+     * 여부만 본다. 취소가 저널에 들어갔는지는 모르므로 읽혔으면 상태와 무관하게 409 이고, 읽기마저 DB 에 닿지 못했을 때만
+     * 쓰기 업스트림에서 이 노드를 빼는 503 이다. 끊긴 연결은 풀이 버리므로 연결 끊김이면 한 번 더 읽는다.
+     */
+    private ApiException cancelOutage(long orderId, RuntimeException e) {
+        RuntimeException failure;
+        int reads = 0;
+        do {
+            reads++;
+            try {
+                orders.byInternalId(orderId);
+                failure = null;
+            } catch (RuntimeException readFailure) {
+                failure = readFailure;
+            }
+        } while (failure != null && reads < 2
+                && DbOutageErrors.kind(failure) == DbOutageErrors.Kind.CONNECTION_LOST);
+        ApiException response = failure != null && DbOutageErrors.isOutage(failure) ? dbUnreachable()
+                : new ApiException(409, "order_in_progress", "취소 처리 중. 재조회 필요", null, 1, false,
+                        ApiException.DbOutage.REACHED);
+        recordUnavailable("connection", response, "취소", reads, e);
+        return response;
     }
 
     private OrderQueryService.OrderRow awaitRow(

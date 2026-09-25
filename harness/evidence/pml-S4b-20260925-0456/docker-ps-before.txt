@@ -1,0 +1,26 @@
+upbeat_meninsky postgres:17-alpine Up 1 second 
+beautiful_mclaren postgres:17-alpine Up 47 seconds 
+trusting_haibt postgres:17-alpine Up About a minute 
+peaceful_wozniak postgres:17-alpine Up About a minute 
+epic_einstein postgres:17-alpine Up About a minute 
+great_johnson postgres:17-alpine Up About a minute 
+compassionate_spence postgres:17-alpine Up About a minute 
+tender_almeida postgres:17-alpine Up About a minute 
+stupefied_goldstine postgres:17-alpine Up About a minute 
+practical_nightingale postgres:17-alpine Up About a minute 
+interesting_lehmann postgres:17-alpine Up About a minute 
+trusting_moore postgres:17-alpine Up 2 minutes 
+sweet_matsumoto postgres:17-alpine Up 2 minutes 
+xenodochial_neumann postgres:17-alpine Up 2 minutes 
+unruffled_kepler postgres:17-alpine Up 2 minutes 
+recursing_gould postgres:17-alpine Up 2 minutes 
+intelligent_feynman postgres:17-alpine Up 2 minutes 
+upbeat_tesla postgres:17-alpine Up 3 minutes 
+practical_haibt postgres:17-alpine Up 3 minutes 
+condescending_euler postgres:17-alpine Up 4 minutes 
+epic_yalow postgres:17-alpine Up 4 minutes 
+gallant_cartwright postgres:17-alpine Up 4 minutes 
+vigilant_lalande postgres:17-alpine Up 4 minutes 
+goofy_jones postgres:17-alpine Up 4 minutes 
+wizardly_keldysh postgres:17-alpine Up 5 minutes 
+testcontainers-ryuk-5c5f8d27-efea-42a1-a692-da1015d848e8 testcontainers/ryuk:0.12.0 Up 5 minutes 

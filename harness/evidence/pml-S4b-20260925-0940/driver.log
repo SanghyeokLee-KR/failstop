@@ -1,0 +1,48 @@
+2026-09-25T09:42:03+09:00 START X1 :: -Phase X1 -WithX6
+2026-09-25T10:01:37+09:00 END X1 rc=0
+2026-09-25T10:01:37+09:00 VERDICT X1 :: 2026-09-25T10:01:30+09:00 [X1] X1 verdict=PASS fails=[]
+2026-09-25T10:01:37+09:00 VERDICT X6 :: 2026-09-25T10:00:50+09:00 [X1] X6 rc=0
+2026-09-25T10:01:37+09:00 START B1 :: -Phase B1
+2026-09-25T10:08:38+09:00 END B1 rc=0
+2026-09-25T10:08:38+09:00 VERDICT B1 :: 2026-09-25T10:08:31+09:00 [B1] B1 verdict=PASS measured=3/3 fails=[]
+2026-09-25T10:08:38+09:00 START E2-r1 :: -Phase Chaos -Experiments E2 -SubDir E2-r1
+2026-09-25T10:12:00+09:00 END E2-r1 rc=0
+2026-09-25T10:12:00+09:00 VERDICT E2-r1 :: 2026-09-25T10:11:58+09:00 [Chaos] CHAOS E2-r1 E2=PASS noVerdict=0
+2026-09-25T10:12:00+09:00 E2 round=1 pass=True streak=1 causeA_lines=0
+2026-09-25T10:12:00+09:00 START E2-r2 :: -Phase Chaos -Experiments E2 -SubDir E2-r2
+2026-09-25T10:15:26+09:00 END E2-r2 rc=0
+2026-09-25T10:15:26+09:00 VERDICT E2-r2 :: 2026-09-25T10:15:25+09:00 [Chaos] CHAOS E2-r2 E2=PASS noVerdict=0
+2026-09-25T10:15:26+09:00 E2 round=2 pass=True streak=2 causeA_lines=0
+2026-09-25T10:15:26+09:00 START E2-r3 :: -Phase Chaos -Experiments E2 -SubDir E2-r3
+2026-09-25T10:18:48+09:00 END E2-r3 rc=0
+2026-09-25T10:18:48+09:00 VERDICT E2-r3 :: 2026-09-25T10:18:47+09:00 [Chaos] CHAOS E2-r3 E2=PASS noVerdict=0
+2026-09-25T10:18:48+09:00 E2 round=3 pass=True streak=3 causeA_lines=0
+2026-09-25T10:18:48+09:00 START E2-r4 :: -Phase Chaos -Experiments E2 -SubDir E2-r4
+2026-09-25T10:22:09+09:00 END E2-r4 rc=0
+2026-09-25T10:22:09+09:00 VERDICT E2-r4 :: 2026-09-25T10:22:08+09:00 [Chaos] CHAOS E2-r4 E2=PASS noVerdict=0
+2026-09-25T10:22:09+09:00 E2 round=4 pass=True streak=4 causeA_lines=0
+2026-09-25T10:22:09+09:00 START E2-r5 :: -Phase Chaos -Experiments E2 -SubDir E2-r5
+2026-09-25T10:25:23+09:00 END E2-r5 rc=0
+2026-09-25T10:25:23+09:00 VERDICT E2-r5 :: 2026-09-25T10:25:22+09:00 [Chaos] CHAOS E2-r5 E2=PASS noVerdict=0
+2026-09-25T10:25:23+09:00 E2 round=5 pass=True streak=5 causeA_lines=0
+2026-09-25T10:25:23+09:00 START E1-r1 :: -Phase X8 -X8Experiments E1 -SubDir E1-r1
+2026-09-25T10:31:36+09:00 END E1-r1 rc=0
+2026-09-25T10:31:36+09:00 VERDICT E1-r1 :: 2026-09-25T10:31:29+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:31:36+09:00 START E1-r2 :: -Phase X8 -X8Experiments E1 -SubDir E1-r2
+2026-09-25T10:37:49+09:00 END E1-r2 rc=0
+2026-09-25T10:37:49+09:00 VERDICT E1-r2 :: 2026-09-25T10:37:41+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:37:49+09:00 START E1-r3 :: -Phase X8 -X8Experiments E1 -SubDir E1-r3
+2026-09-25T10:43:59+09:00 END E1-r3 rc=0
+2026-09-25T10:43:59+09:00 VERDICT E1-r3 :: 2026-09-25T10:43:52+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:43:59+09:00 START E1-r4 :: -Phase X8 -X8Experiments E1 -SubDir E1-r4
+2026-09-25T10:50:06+09:00 END E1-r4 rc=0
+2026-09-25T10:50:06+09:00 VERDICT E1-r4 :: 2026-09-25T10:50:01+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:50:06+09:00 START E1-r5 :: -Phase X8 -X8Experiments E1 -SubDir E1-r5
+2026-09-25T10:56:24+09:00 END E1-r5 rc=0
+2026-09-25T10:56:24+09:00 VERDICT E1-r5 :: 2026-09-25T10:56:17+09:00 [X8] X8 E1 rc=0 verdict=PASS gate=PASS demotions=0 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T10:56:24+09:00 START regress :: -Phase Chaos -Experiments E4,E5,E6,E7,COLD -SubDir regress
+2026-09-25T11:12:55+09:00 END regress rc=0
+2026-09-25T11:12:55+09:00 VERDICT regress :: 2026-09-25T11:12:54+09:00 [Chaos] CHAOS regress E4=PASS noVerdict=0 E5=PASS noVerdict=0 E6=PASS noVerdict=0 E7=PASS noVerdict=0 COLD=PASS noVerdict=0
+2026-09-25T11:12:55+09:00 START Final :: -Phase Final
+2026-09-25T11:12:59+09:00 END Final rc=0
+2026-09-25T11:12:59+09:00 DRIVER DONE

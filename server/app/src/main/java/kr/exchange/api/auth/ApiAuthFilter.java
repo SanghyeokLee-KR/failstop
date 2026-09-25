@@ -10,6 +10,8 @@ import kr.exchange.api.common.ErrorRenderer;
 import kr.exchange.api.common.PublicMarketPaths;
 import kr.exchange.api.common.RequestBodyLimit;
 import kr.exchange.engine.LeaderWriteProgress;
+import kr.exchange.journal.DbOutageErrors;
+import kr.exchange.journal.SqlErrors;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -119,6 +121,14 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                     "일시적 처리 불가. 잠시 후 재시도 필요", null, 1));
             return;
         } catch (RuntimeException e) {
+            if (DbOutageErrors.isOutage(e)) {
+                // 끊긴 연결로 조회한 경우 등(API 설계 §2-5-c). 인증은 읽기만 하고 nonce 는 노드 메모리라 어느 메서드든 다른
+                // 노드로 넘어가도 아무것도 두 번 일어나지 않는다.
+                log.warn("인증 조회가 DB 연결 장애로 끝났다: {} {} {}", method, path, SqlErrors.describe(e));
+                errorRenderer.write(response, new ApiException(503, "service_unavailable",
+                        "일시적 처리 불가. 잠시 후 재시도 필요", null, 1));
+                return;
+            }
             // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
             // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
             //

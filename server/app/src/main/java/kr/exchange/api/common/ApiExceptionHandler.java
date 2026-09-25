@@ -5,18 +5,26 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.NotLeaderException;
 import kr.exchange.engine.NotReadyException;
+import kr.exchange.journal.DbOutageErrors;
+import kr.exchange.journal.SqlErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.UUID;
@@ -114,6 +122,49 @@ public class ApiExceptionHandler {
         log.warn("일시적 DB 접근 실패 request_id={}: {}", requestId, e.getMessage());
         return render(new ApiException(503, "service_unavailable",
                 "일시적 처리 불가. 잠시 후 재시도 필요", null, 1), response, requestId);
+    }
+
+    /**
+     * DB 연결 장애(API 설계 §2-5-c). 연결 끊김은 커밋됐을 수 있고 인그레스는 503 을 받은 POST 까지 다른 노드로 다시 보내므로,
+     * 503 은 아무것도 쓰지 않은 안전 메서드와 다시 보내도 한 번의 효과로 모이는 처리기(RetrySafeWrite)에만 낸다. 그 밖의 쓰기는
+     * 500 이라 다시 실행되지 않는다. 54xxx·58xxx 처럼 연결이 아닌 자원 실패는 종전처럼 처리되지 않은 예외다.
+     */
+    @ExceptionHandler({TransactionSystemException.class, DataAccessResourceFailureException.class})
+    public ResponseEntity<Object> dbConnectionFailure(RuntimeException e, HttpServletRequest request,
+                                                      HttpServletResponse response) {
+        if (!DbOutageErrors.isOutage(e)) {
+            return unexpected(e, response);
+        }
+        String requestId = resolveRequestId(response);
+        if (retrySafe(request)) {
+            log.warn("DB 연결 장애 request_id={}: {} {} {}", requestId, request.getMethod(), request.getRequestURI(),
+                    SqlErrors.describe(e));
+            return render(new ApiException(503, "service_unavailable",
+                    "DB 연결 장애. 재조회 후 판단 필요", null, 1), response, requestId);
+        }
+        log.warn("DB 연결 장애로 쓰기 결과를 확인하지 못했다(재전송이 안전하지 않은 경로라 500) request_id={}: {} {} {}",
+                requestId, request.getMethod(), request.getRequestURI(), SqlErrors.describe(e));
+        return render(new ApiException(500, "server_error", "일시적 서버 오류입니다."), response, requestId);
+    }
+
+    private static boolean retrySafe(HttpServletRequest request) {
+        String method = request.getMethod();
+        if ("GET".equals(method) || "HEAD".equals(method) || "OPTIONS".equals(method)) {
+            return true;
+        }
+        // 인자로 받는 HandlerMethod 는 처리기가 없으면 해석에 실패하므로 매핑이 남긴 요청 속성에서 읽는다.
+        return request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE) instanceof HandlerMethod handler
+                && AnnotatedElementUtils.hasAnnotation(handler.getBeanType(), RetrySafeWrite.class);
+    }
+
+    /**
+     * 클라이언트나 LB 가 먼저 끊어 응답을 쓸 수 없는 요청(API 설계 §2-5-c). 받을 쪽이 없으므로 렌더하지 않고 서버 오류로 세지
+     * 않는다. 응답 인자를 받아야 스프링이 요청을 처리된 것으로 보고 뷰를 찾지 않는다.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void clientGone(AsyncRequestNotUsableException e, HttpServletRequest request,
+                           HttpServletResponse response) {
+        log.warn("클라이언트 연결이 끊겨 응답을 쓰지 못했다: {} {}", request.getMethod(), request.getRequestURI());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

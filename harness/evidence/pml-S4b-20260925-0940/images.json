@@ -1,0 +1,23 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+  "created": "2026-09-25T00:40:47.624531274Z",
+  "refTag": "exchange-chaos-app:s4b3ref",
+  "previousImageId": "sha256:e7baeb2f2f109d117c085e2dc167e82afb8caae2eaa759bc9b78afa6552795df",
+  "previousCreated": "2026-09-24T22:04:59.348827465Z",
+  "previousRefTag": "exchange-chaos-app:s4b2ref",
+  "s3RefImageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "s3RefTag": "exchange-chaos-app:s3ref",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "48629d5d02ae61b2de7ae12a082fb689a1ce2eee",
+  "trackedDiffSha256": "e0a2a7ff3bf002201e23883441e6fb8c2b0004bcf9cfd587efdd7844f82a81c6",
+  "changedPaths": 52,
+  "jarSha256": "39aabcbd37c9770039007c6994b25d5b571364a02cbd43d87b015a9e1df9f6e7",
+  "jarWritten": "2026-09-25T09:15:32.9845127+09:00",
+  "flyway": {
+    "rows": 54,
+    "max_version": 53,
+    "failed": 0
+  },
+  "note": "S4b 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD(48629d5d) 위 작업 트리 변경(S4b 코드와 문서, F1 정산 재시도 한도, 설계 14절 I1 끊긴 V47 판정 재호출의 키 보존·I2 시험)을 담는다"
+}

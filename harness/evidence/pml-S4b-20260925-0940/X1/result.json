@@ -1,0 +1,693 @@
+{
+  "phase": "X1",
+  "verdict": "PASS",
+  "axes": {
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "settlement_insufficient_funds_0": true,
+    "writer_fatal_demotion_logs_0": true,
+    "reservations_in_window_gt_0": true,
+    "unsettled_reservations_after_drain_0": true,
+    "orders_500_0": true,
+    "intake_unavailable_0": true,
+    "recovery_runs_mismatch_0": true,
+    "recovery_runs_success_gt_0": true,
+    "api_logs_no_unhandled_or_auth_500": true,
+    "append_40P01_0": true,
+    "pg_deadlocks_0": true,
+    "lock_plan_miss_0": true,
+    "leader_epoch_unchanged": true,
+    "logins_app_role": true,
+    "no_permission_function_errors": true,
+    "snapshots_3_markets_new_epoch": true,
+    "protocol_transition": true,
+    "s4_one_accepting_one_follower": true,
+    "s4_contention_cap": true,
+    "s4_partition_alerts_0": true,
+    "s4_leader_demotions_0": true,
+    "s4_lb_no_live_upstreams_502_0": true,
+    "s4_demotions_both_nodes_0": true
+  },
+  "pre": {
+    "flyway": {
+      "rows": 54,
+      "max_version": 53,
+      "failed": 0
+    },
+    "protocol": "1",
+    "containers": {
+      "chaos-api-1": {
+        "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+      },
+      "chaos-api-2": {
+        "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+      },
+      "chaos-bots": {
+        "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "profiles": "SPRING_PROFILES_ACTIVE=bots"
+      }
+    }
+  },
+  "roles": [
+    {
+      "role": "pml_app",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_bot",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_read",
+      "super": false,
+      "login": true,
+      "member_of": null
+    }
+  ],
+  "p1Leader": {
+    "holder": "5a577a45-d0f5-4641-b0ff-3c4aa9b42832",
+    "epoch": 2,
+    "alive": true
+  },
+  "protocol": {
+    "ok": true,
+    "retired": [
+      {
+        "resource": "matching-p0",
+        "retired_epoch": 3,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-p1",
+        "retired_epoch": 4,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-engine",
+        "retired_epoch": 5,
+        "protocol": 2
+      }
+    ],
+    "newLeaderEpoch": 6,
+    "expectedLeaderEpoch": 6,
+    "drainSeconds": 2.3
+  },
+  "lease": {
+    "afterTransition": {
+      "holder": "3bc9b47e-6281-4d99-a1c4-9e7eebfba3ff",
+      "epoch": 6,
+      "alive": true
+    },
+    "end": {
+      "holder": "3bc9b47e-6281-4d99-a1c4-9e7eebfba3ff",
+      "epoch": 6,
+      "alive": true
+    },
+    "sampledEpochs": [
+      6
+    ]
+  },
+  "window": {
+    "from": "2026-09-25 00:44:11.589",
+    "to": "2026-09-25 00:54:12.765",
+    "minutes": 10,
+    "botOps": 300
+  },
+  "counts": {
+    "p2_new": 21441,
+    "reservations": 21441,
+    "reservations_in_window": 21377,
+    "snapshot_markets_epoch": 3,
+    "trades_since": 15522
+  },
+  "connections": {
+    "ips": {
+      "chaos-toxiproxy": "172.18.0.10",
+      "chaos-bots": "172.18.0.14"
+    },
+    "rows": [
+      {
+        "usename": "exchange",
+        "client_addr": "172.18.0.9",
+        "n": 1
+      },
+      {
+        "usename": "exchange",
+        "client_addr": null,
+        "n": 1
+      },
+      {
+        "usename": "pml_app",
+        "client_addr": "172.18.0.10",
+        "n": 23
+      },
+      {
+        "usename": "pml_bot",
+        "client_addr": "172.18.0.14",
+        "n": 10
+      }
+    ],
+    "apiLogins": [
+      "pml_app"
+    ],
+    "botLogins": [
+      "pml_bot"
+    ],
+    "maxTotal": 35.0
+  },
+  "connectionMax": 38.0,
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_bot",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 207,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-api-2": {
+      "lines": 203,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-bots": {
+      "lines": 46,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    }
+  },
+  "partitions": {
+    "oneAccepting": {
+      "states": [
+        "18080/matching-engine=ACCEPTING",
+        "28080/matching-engine=FOLLOWER"
+      ],
+      "ok": true
+    },
+    "acquireLockTimeouts": 0.0
+  },
+  "contention": {
+    "window": {
+      "outside": 0.0,
+      "appends_outside": 16915.74054693392,
+      "cap": 0.001,
+      "inside_by_cause_response": null,
+      "acquire_lock_timeouts": 0.0
+    }
+  },
+  "pg": {
+    "before": {
+      "xact_commit": 23593,
+      "deadlocks": 0,
+      "at": "2026-09-25T09:44:11.438895+09:00"
+    },
+    "after": {
+      "xact_commit": 383243,
+      "deadlocks": 0,
+      "at": "2026-09-25T09:54:12.658703+09:00"
+    },
+    "deadlocksDelta": 0
+  },
+  "metricsWindow": {
+    "18080": {
+      "exchange_admission_rejected_total{scope=order}": 0.0,
+      "exchange_admission_rejected_total{scope=query}": 0.0,
+      "exchange_admission_rejected_total{scope=requery}": 0.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_contention_total{40001|409}": 0.0,
+      "exchange_order_intake_contention_total{40001|429}": 0.0,
+      "exchange_order_intake_contention_total{40P01|409}": 0.0,
+      "exchange_order_intake_contention_total{40P01|429}": 0.0,
+      "exchange_order_intake_contention_total{55P03|409}": 0.0,
+      "exchange_order_intake_contention_total{55P03|429}": 0.0,
+      "exchange_order_intake_contention_total{57014|409}": 0.0,
+      "exchange_order_intake_contention_total{57014|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+      "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+      "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+      "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+      "exchange_partition_demotions_total{reason=STALL}": 0.0,
+      "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+      "exchange_partition_state": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_422": 7.0,
+      "orders_post_201": 15080.0
+    },
+    "28080": {
+      "exchange_admission_rejected_total{scope=order}": 0.0,
+      "exchange_admission_rejected_total{scope=query}": 0.0,
+      "exchange_admission_rejected_total{scope=requery}": 0.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_contention_total{40001|409}": 0.0,
+      "exchange_order_intake_contention_total{40001|429}": 0.0,
+      "exchange_order_intake_contention_total{40P01|409}": 0.0,
+      "exchange_order_intake_contention_total{40P01|429}": 0.0,
+      "exchange_order_intake_contention_total{55P03|409}": 0.0,
+      "exchange_order_intake_contention_total{55P03|429}": 0.0,
+      "exchange_order_intake_contention_total{57014|409}": 0.0,
+      "exchange_order_intake_contention_total{57014|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+      "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+      "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+      "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+      "exchange_partition_demotions_total{reason=STALL}": 0.0,
+      "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+      "exchange_partition_state": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0
+    }
+  },
+  "metricsTotal": {
+    "18080": {
+      "exchange_admission_rejected_total{scope=order}": 33.0,
+      "exchange_admission_rejected_total{scope=query}": 0.0,
+      "exchange_admission_rejected_total{scope=requery}": 0.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 142.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_contention_total{40001|409}": 0.0,
+      "exchange_order_intake_contention_total{40001|429}": 0.0,
+      "exchange_order_intake_contention_total{40P01|409}": 0.0,
+      "exchange_order_intake_contention_total{40P01|429}": 0.0,
+      "exchange_order_intake_contention_total{55P03|409}": 10.0,
+      "exchange_order_intake_contention_total{55P03|429}": 132.0,
+      "exchange_order_intake_contention_total{57014|409}": 0.0,
+      "exchange_order_intake_contention_total{57014|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|409}": 14.0,
+      "exchange_order_intake_contention_total{lock_wait|429}": 61.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+      "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+      "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+      "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+      "exchange_partition_demotions_total{reason=STALL}": 0.0,
+      "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+      "exchange_partition_state": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_409": 24.0,
+      "orders_post_422": 11.0,
+      "orders_post_429": 190.0,
+      "orders_post_200": 6.0,
+      "orders_post_201": 21369.0
+    },
+    "28080": {
+      "exchange_admission_rejected_total{scope=order}": 0.0,
+      "exchange_admission_rejected_total{scope=query}": 0.0,
+      "exchange_admission_rejected_total{scope=requery}": 0.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_contention_total{40001|409}": 0.0,
+      "exchange_order_intake_contention_total{40001|429}": 0.0,
+      "exchange_order_intake_contention_total{40P01|409}": 0.0,
+      "exchange_order_intake_contention_total{40P01|429}": 0.0,
+      "exchange_order_intake_contention_total{55P03|409}": 0.0,
+      "exchange_order_intake_contention_total{55P03|429}": 0.0,
+      "exchange_order_intake_contention_total{57014|409}": 0.0,
+      "exchange_order_intake_contention_total{57014|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+      "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+      "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+      "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+      "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+      "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+      "exchange_partition_demotions_total{reason=STALL}": 0.0,
+      "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+      "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+      "exchange_partition_state": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0
+    }
+  },
+  "drain": {
+    "botsStopRc": 0,
+    "drained": true,
+    "state": {
+      "ok": true,
+      "error": null,
+      "ts": "2026-09-25T10:00:54+09:00",
+      "protocol": 2,
+      "changed_at": "2026-09-25T09:43:33.95764+09:00",
+      "history": [
+        {
+          "id": 1,
+          "protocol": 1,
+          "prev_protocol": null,
+          "epoch_floor": 0,
+          "changed_at": "2026-09-25T09:42:26.092757+09:00",
+          "changed_by": "exchange"
+        },
+        {
+          "id": 2,
+          "protocol": 2,
+          "prev_protocol": 1,
+          "epoch_floor": 2,
+          "changed_at": "2026-09-25T09:43:33.95764+09:00",
+          "changed_by": "exchange"
+        }
+      ],
+      "lease": [
+        {
+          "resource": "matching-engine",
+          "holder": "3bc9b47e-6281-4d99-a1c4-9e7eebfba3ff",
+          "epoch": 6,
+          "alive": true
+        },
+        {
+          "resource": "matching-p0",
+          "holder": "",
+          "epoch": 3,
+          "alive": false
+        },
+        {
+          "resource": "matching-p1",
+          "holder": "",
+          "epoch": 4,
+          "alive": false
+        }
+      ],
+      "retired": [
+        {
+          "epoch": 3,
+          "resource": "matching-p0",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T09:43:33.960494+09:00"
+        },
+        {
+          "epoch": 4,
+          "resource": "matching-p1",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T09:43:33.960734+09:00"
+        },
+        {
+          "epoch": 5,
+          "resource": "matching-engine",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T09:43:33.960839+09:00"
+        }
+      ],
+      "acquisitions_by_protocol": {
+        "2": 4,
+        "1": 2
+      },
+      "reservations": 21441,
+      "unsettled_new": 0,
+      "unsettled_reservations": 0,
+      "oldest_unsettled_reservation_s": null,
+      "db_now": "2026-09-25T10:00:54.412589+09:00",
+      "code": 0
+    }
+  },
+  "authoritative": {
+    "port": 18080,
+    "verdict": "PASS",
+    "checks": 31,
+    "notOk": [],
+    "ok": true
+  },
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "ok": true
+  },
+  "alertsDuringRun": [
+    {
+      "name": "EdgeProbeDown",
+      "state": "firing",
+      "activeAt": "2026-09-25T00:42:22.748511023Z"
+    },
+    {
+      "name": "EdgeProbeSlow",
+      "state": "firing",
+      "activeAt": "2026-09-25T00:42:22.748511023Z"
+    }
+  ],
+  "alertsAfterDrain": [
+    {
+      "name": "OrderP99SloBreach",
+      "state": "firing",
+      "activeAt": "2026-09-25T00:55:02.748511023Z"
+    },
+    {
+      "name": "BotFleetDown",
+      "state": "pending",
+      "activeAt": "2026-09-25T01:01:02.748511023Z"
+    },
+    {
+      "name": "EdgeProbeDown",
+      "state": "firing",
+      "activeAt": "2026-09-25T00:42:22.748511023Z"
+    },
+    {
+      "name": "EdgeProbeSlow",
+      "state": "firing",
+      "activeAt": "2026-09-25T00:42:22.748511023Z"
+    }
+  ],
+  "s4AxesRc": {
+    "pre": 0,
+    "post": 0,
+    "judge": 0,
+    "stack": "2026-09-25T00:42:11.6431185+00:00"
+  },
+  "orders500": {
+    "rc": 0,
+    "ok": true,
+    "readable": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "zero": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "file": "orders500.json"
+  },
+  "recoveryRuns": {
+    "success": 6,
+    "mismatch": 0
+  },
+  "host": {
+    "before": {
+      "at": "2026-09-25T00:42:11.4655668Z",
+      "cpuTotalPct": [
+        3.3,
+        6.7,
+        4.3,
+        12.4,
+        2.6
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-25T01:01:30.1048919Z",
+      "cpuTotalPct": [
+        9.6,
+        19.4,
+        9.7,
+        16.2,
+        8.9
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    }
+  }
+}

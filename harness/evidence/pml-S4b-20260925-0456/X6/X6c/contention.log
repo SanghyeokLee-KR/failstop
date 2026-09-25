@@ -1,0 +1,1 @@
+{"variant": "c", "ok": true, "failed": [], "record": {"admission_rejected_order_delta": 0.0}, "contention_delta": {"55P03|409": 10.0, "lock_wait|409": 13.0, "55P03|429": 13.0, "lock_wait|429": 26.0}}

@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "readable": {
+    "lb": true,
+    "prom": true,
+    "nodes": true
+  },
+  "zero": {
+    "lb": true,
+    "prom": true,
+    "nodes": true
+  },
+  "lb": {
+    "access_lines": 4734,
+    "orders_500": 0,
+    "ok": true
+  },
+  "prom_max": 0.0,
+  "prom_series": 23.0,
+  "nodes": {
+    "chaos-api-1": 0.0,
+    "chaos-api-2": 0.0
+  },
+  "window_s": 387,
+  "prom_increase": 0.0,
+  "window_from": "2026-09-24T22:23:16.8466178+00:00",
+  "finished": "2026-09-25T07:29:13+09:00"
+}

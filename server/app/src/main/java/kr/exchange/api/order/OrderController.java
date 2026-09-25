@@ -10,6 +10,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
+import kr.exchange.api.common.RetrySafeWrite;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.BatchResponse;
 import kr.exchange.api.order.dto.CancelAllResponse;
@@ -32,8 +33,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** 주문 REST(§4-B). 인증 컨텍스트는 ApiAuthFilter가 request attribute로 주입한다. */
+/**
+ * 주문 REST(§4-B). 인증 컨텍스트는 ApiAuthFilter가 request attribute로 주입한다. 생성은 client_order_id 멱등, 취소는 종결
+ * 주문의 재취소 멱등이라 다시 보내도 한 번의 효과로 모인다(RetrySafeWrite).
+ */
 @RestController
+@RetrySafeWrite
 @RequestMapping("/api/v1/orders")
 public class OrderController {
 
@@ -148,6 +153,18 @@ public class OrderController {
                     results.add(new BatchResponse.Item(i, clientOrderId, "in_progress", null, null,
                             new BatchResponse.InProgressError(e.name(), e.retryAfter())));
                     inProgress++;
+                    if (e.dbOutage() == ApiException.DbOutage.UNREACHABLE) {
+                        // 저널 확인마저 DB 에 닿지 못했다. 남은 원소의 접수 전 조회가 같은 장애를 원시 예외로 올려 앞 원소의
+                        // 결과를 잃지 않게 시도하지 않는다(API 설계 §2-5-c). 같은 배열을 다시 보내면 새로 접수된다.
+                        for (int rest = i + 1; rest < array.size(); rest++) {
+                            JsonNode skipped = array.get(rest);
+                            results.add(new BatchResponse.Item(rest, skipped.hasNonNull("client_order_id")
+                                    ? skipped.get("client_order_id").asText() : null, "in_progress", null, null,
+                                    new BatchResponse.InProgressError("service_unavailable", 1)));
+                            inProgress++;
+                        }
+                        break;
+                    }
                 } else {
                     results.add(new BatchResponse.Item(i, clientOrderId, "rejected", null, null,
                             new BatchResponse.RejectedError(e.name(), e.getMessage(), e.detail())));

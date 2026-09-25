@@ -209,7 +209,7 @@ class SettlementRetryClassificationTest {
 
         assertInstanceOf(DataAccessException.class, fatal.get());
         assertEquals("55P03", TransientDbErrors.sqlState(fatal.get()));
-        assertEquals(3, settlement.transientRetries() - before, "시도 상한 4회(재시도 3회)를 지키지 않았다");
+        assertEquals(7, settlement.transientRetries() - before, "시도 상한 8회(재시도 7회)를 지키지 않았다");
         assertEquals(1, settlement.transientExhausted(), "재시도 소진을 세지 않았다");
         assertFalse(lease.isLeader(), "한도를 넘긴 sink 실패가 강등하지 않았다");
         assertEquals(0, queryLong("SELECT count(*) FROM orders WHERE id = " + oid));

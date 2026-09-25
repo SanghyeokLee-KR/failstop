@@ -1,0 +1,128 @@
+{
+  "sub": "regress-E6r",
+  "rc": 0,
+  "host": {
+    "before": {
+      "at": "2026-09-24T23:01:06.6161660Z",
+      "cpuTotalPct": [
+        12.2,
+        9.6,
+        8.8,
+        13.4,
+        10.5
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 1
+    },
+    "after": {
+      "at": "2026-09-24T23:04:30.6870504Z",
+      "cpuTotalPct": [
+        18.3,
+        4.2,
+        4.1,
+        8.0,
+        3.9
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    }
+  },
+  "experiments": [
+    {
+      "experiment": "E6",
+      "verdict": "PASS",
+      "runId": "E6-20260925-080209",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 280,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 207,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 3529,
+        "status500": 0,
+        "status502": 169,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 169,
+        "first5xx": "2026-09-24T23:03:18.0000000+00:00",
+        "last5xx": "2026-09-24T23:03:24.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 3702,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 29.0,
+        "nodes": {
+          "chaos-api-1": "stopped",
+          "chaos-api-2": 0.0
+        },
+        "stopped": [
+          "chaos-api-1"
+        ],
+        "window_s": 207,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 4,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {},
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 6.276,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    }
+  ]
+}

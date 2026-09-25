@@ -77,6 +77,8 @@ public class PromotionCoordinator implements AutoCloseable {
     // 종전 배선의 부팅 승격(recover가 이미 처리)과 런타임 승격을 가른다. arm 이전 gain은 부팅 몫이라 무시한다.
     // 파티션 배선은 기동이 늘 팔로워라 처음부터 참이다.
     private volatile boolean armed;
+    // 참여 여부(DB 설계 §5.4-c 9). stateLock 안에서만 바꾸고, 후보 표식을 세우는 경로도 같은 락 안에서 읽는다.
+    private volatile boolean participating = true;
     // 승격 시도 세대. [재생 실패로 리스를 놓음 → 리스 만료 → 같은 노드가 재승격]이 정상 경로라 앞선 시도가 뒷정리를 하는
     // 동안 새 gain이 들어올 수 있다. 세대가 다르면 뒤늦은 시도의 상태 전이·반납을 전부 무시해, 낡은 시도가 새 승격의
     // 상태나 새로 얻은 리스를 지우지 못하게 한다.
@@ -302,7 +304,28 @@ public class PromotionCoordinator implements AutoCloseable {
      */
     boolean rearmIfFollower() {
         synchronized (stateLock) {
-            return state == State.FOLLOWER && lease.rearm();
+            return state == State.FOLLOWER && participating && lease.rearm();
+        }
+    }
+
+    boolean participating() {
+        return participating;
+    }
+
+    /**
+     * 참여를 켜고 끈다(PartitionRuntime). 끄면 같은 락 안에서 후보 표식을 내리므로, 재구성 완료나 차단기 해제의 rearm 과
+     * 엇갈려도 끈 파티션의 표식이 다시 서지 않는다. 켤 때는 값만 바꾸고 표식은 호출자가 rearmIfFollower 로 세운다.
+     *
+     * @return 끌 때 이 파티션이 승격 중이거나 접수 중이던 기간. 없으면 null 이다
+     */
+    LeaderTerm setParticipating(boolean on) {
+        synchronized (stateLock) {
+            participating = on;
+            if (on) {
+                return null;
+            }
+            lease.disarm();
+            return heldTerm;
         }
     }
 
@@ -633,11 +656,6 @@ public class PromotionCoordinator implements AutoCloseable {
             state = next;
             return true;
         }
-    }
-
-    /** 승격 중이거나 접수 중인 기간. 계획 강등이 쓴다. */
-    LeaderTerm heldTerm() {
-        return heldTerm;
     }
 
     /**

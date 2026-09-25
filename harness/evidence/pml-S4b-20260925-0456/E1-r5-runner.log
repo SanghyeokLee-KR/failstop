@@ -1,0 +1,12 @@
+2026-09-25T06:33:33+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T06:33:33+09:00 [X8] volumes before unchanged
+2026-09-25T06:34:17+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T06:34:17+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0456\E1-r5\E1\protocol.json
+2026-09-25T06:34:44+09:00 [X8] RC 0
+2026-09-25T06:34:54+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T06:39:29+09:00 [X8] RC 1
+2026-09-25T06:39:34+09:00 [X8] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-24T21:33:39.2827830+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0456\E1-r5\E1\orders500.json
+2026-09-25T06:39:34+09:00 [X8] RC 0
+2026-09-25T06:39:35+09:00 [X8] X8 E1 rc=1 verdict=FAIL gate=FAIL demotions=1 acquireLockTimeouts=0 orders500=True unhandled=0
+2026-09-25T06:39:39+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T06:39:39+09:00 [X8] volumes after unchanged

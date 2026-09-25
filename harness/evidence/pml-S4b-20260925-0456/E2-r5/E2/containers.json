@@ -1,0 +1,162 @@
+{
+  "chaos-api-1": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 10879,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-09-24T21:06:23.89957083Z",
+    "FinishedAt": "2026-09-24T21:06:23.26411284Z",
+    "Health": {
+      "Status": "healthy",
+      "FailingStreak": 22,
+      "Log": [
+        {
+          "Start": "2026-09-24T21:08:30.756391727Z",
+          "End": "2026-09-24T21:08:30.804325589Z",
+          "ExitCode": 22,
+          "Output": "curl: (22) The requested URL returned error: 503\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:33.80525642Z",
+          "End": "2026-09-24T21:08:33.863811529Z",
+          "ExitCode": 22,
+          "Output": "curl: (22) The requested URL returned error: 503\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:36.865161766Z",
+          "End": "2026-09-24T21:08:36.920084815Z",
+          "ExitCode": 22,
+          "Output": "curl: (22) The requested URL returned error: 503\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:39.92102744Z",
+          "End": "2026-09-24T21:08:39.992739232Z",
+          "ExitCode": 22,
+          "Output": "curl: (22) The requested URL returned error: 503\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:42.993138343Z",
+          "End": "2026-09-24T21:08:43.053359868Z",
+          "ExitCode": 22,
+          "Output": "curl: (22) The requested URL returned error: 503\n"
+        }
+      ]
+    }
+  },
+  "chaos-api-2": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 11291,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-09-24T21:06:34.788120738Z",
+    "FinishedAt": "2026-09-24T21:06:22.722104953Z",
+    "Health": {
+      "Status": "healthy",
+      "FailingStreak": 0,
+      "Log": [
+        {
+          "Start": "2026-09-24T21:08:32.299478351Z",
+          "End": "2026-09-24T21:08:32.367759398Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\"}"
+        },
+        {
+          "Start": "2026-09-24T21:08:35.368933152Z",
+          "End": "2026-09-24T21:08:35.420013349Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\"}"
+        },
+        {
+          "Start": "2026-09-24T21:08:38.420718104Z",
+          "End": "2026-09-24T21:08:38.483860027Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\"}"
+        },
+        {
+          "Start": "2026-09-24T21:08:41.484755621Z",
+          "End": "2026-09-24T21:08:41.544259961Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\"}"
+        },
+        {
+          "Start": "2026-09-24T21:08:44.544880892Z",
+          "End": "2026-09-24T21:08:44.612026358Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\"}"
+        }
+      ]
+    }
+  },
+  "chaos-bots": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 143,
+    "Error": "",
+    "StartedAt": "2026-09-24T21:07:43.392121643Z",
+    "FinishedAt": "2026-09-24T21:08:19.284708261Z"
+  },
+  "chaos-pg": {
+    "Status": "running",
+    "Running": true,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 8481,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-09-24T21:05:47.224056673Z",
+    "FinishedAt": "0001-01-01T00:00:00Z",
+    "Health": {
+      "Status": "healthy",
+      "FailingStreak": 0,
+      "Log": [
+        {
+          "Start": "2026-09-24T21:08:32.791968509Z",
+          "End": "2026-09-24T21:08:32.850635675Z",
+          "ExitCode": 0,
+          "Output": "/var/run/postgresql:5432 - accepting connections\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:35.85165135Z",
+          "End": "2026-09-24T21:08:35.902873546Z",
+          "ExitCode": 0,
+          "Output": "/var/run/postgresql:5432 - accepting connections\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:38.903288755Z",
+          "End": "2026-09-24T21:08:38.946351291Z",
+          "ExitCode": 0,
+          "Output": "/var/run/postgresql:5432 - accepting connections\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:41.946969475Z",
+          "End": "2026-09-24T21:08:41.998619912Z",
+          "ExitCode": 0,
+          "Output": "/var/run/postgresql:5432 - accepting connections\n"
+        },
+        {
+          "Start": "2026-09-24T21:08:44.999447339Z",
+          "End": "2026-09-24T21:08:45.055771557Z",
+          "ExitCode": 0,
+          "Output": "/var/run/postgresql:5432 - accepting connections\n"
+        }
+      ]
+    }
+  }
+}

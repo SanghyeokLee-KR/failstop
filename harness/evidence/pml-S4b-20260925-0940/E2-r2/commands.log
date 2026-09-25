@@ -1,0 +1,22 @@
+2026-09-25T10:12:08+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=E2 LatchBeforeTraffic=False SnapshotEvidence=False Protocol=2 Project=exchange-pml
+2026-09-25T10:12:08+09:00 START E2
+2026-09-25T10:12:46+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\protocol.json
+2026-09-25T10:13:13+09:00 RC 0
+2026-09-25T10:13:13+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\budget.json
+2026-09-25T10:13:13+09:00 RC 0
+2026-09-25T10:13:14+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\partition_pre.json
+2026-09-25T10:13:14+09:00 RC 0
+2026-09-25T10:13:14+09:00 EXPERIMENT E2 pwsh -NoProfile -File harness/scripts/e2-db-cut.ps1
+2026-09-25T10:14:44+09:00 EXPERIMENT E2 rc=0
+2026-09-25T10:14:46+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T01:12:08.9130375+00:00 --fault-from 2026-09-25T01:13:14.5648725+00:00 --fault-to 2026-09-25T01:14:44.4600535+00:00 --samples harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\balance_samples.jsonl --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\s3_common.json
+2026-09-25T10:15:11+09:00 RC 0
+2026-09-25T10:15:11+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\partition_post.json
+2026-09-25T10:15:11+09:00 RC 0
+2026-09-25T10:15:11+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T01:12:08.9130375+00:00 --fault-from 2026-09-25T01:13:14.5648725+00:00 --fault-to 2026-09-25T01:14:44.4600535+00:00 --pre harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\partition_pre.json --post harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\partition_post.json --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\partition_axes.json
+2026-09-25T10:15:12+09:00 RC 0
+2026-09-25T10:15:12+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\protocol_state.json
+2026-09-25T10:15:13+09:00 RC 0
+2026-09-25T10:15:14+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\conn_samples.jsonl --out harness\evidence\pml-S4b-20260925-0940\E2-r2\E2\connections.json
+2026-09-25T10:15:14+09:00 RC 0
+2026-09-25T10:15:19+09:00 END E2 down rc=0
+2026-09-25T10:15:19+09:00 DONE E2=PASS
