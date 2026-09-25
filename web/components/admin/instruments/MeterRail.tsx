@@ -48,7 +48,7 @@ export function MeterRail({ value, max, min = 0, threshold, tone, marks, ariaLab
   return (
     <div className={styles.rail} {...aria}>
       <div className={styles.track}>
-        <span className={styles.fill} data-tone={tone} style={{ width: `${fillPct}%` }} />
+        <span className={styles.fill} data-tone={tone} style={{ transform: `scaleX(${fillPct / 100})` }} />
       </div>
       {marks?.map((m, i) => (
         <span

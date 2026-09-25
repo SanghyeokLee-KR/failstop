@@ -11,8 +11,7 @@ import type { AdminInquiry } from "@/lib/admin/types";
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, Segmented, segmentedTabId } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -79,12 +78,12 @@ export default function AdminSupportPage() {
     <div className={styles.page}>
       <PageHeader
         title="문의 답변"
-        desc="회원 문의. 답변은 사용자 문의 화면에 그대로 노출"
+        desc="회원 문의입니다. 답변은 회원의 문의 화면에 그대로 보입니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="inquiries-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="inquiries-panel" />
       </div>
 
       <PanelCard title="문의 목록">

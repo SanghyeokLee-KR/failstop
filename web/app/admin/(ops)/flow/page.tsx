@@ -6,13 +6,14 @@
  * 그 역할을 대신한다. Docker 에서 먼저 되면 같은 화면을 AWS 로 옮긴다(2026-09-23 사용자 결정).
  * 노드 이름은 AWS 역할 이름이고, 그 역할을 맡은 컨테이너나 호스트 프로세스는 구성도가 옆에 적는다.
  *
- * 백엔드에 연결하지 않았다. 값은 모두 lib/admin/flowSim.ts 가 만들고 주행은 lib/admin/flowRun.ts 가
- * 지표 관제(/admin/monitor)와 함께 들고 있다. 사건의 순서와 간격은 로컬 Docker 에서 잰 기록을
- * 재생하고 사건 사이의 값은 지어낸다. 머리에는 설명 줄을 두지 않는다(2026-09-23 사용자 결정). 값의
- * 출처는 무대 머리 줄 맨 왼쪽의 출처 칩('재생 · 로컬 측정 기록')이 보여 준다.
+ * 백엔드에 연결하지 않았다. 주행은 lib/admin/flowRun.ts 가 지표 관제(/admin/monitor)와 함께 들고 있고 두 모드가
+ * 있다. 재생하지 않는 동안은 관제 시뮬레이터의 한 판에서 옮긴 관제 값이라 관제센터와 같은 숫자를 그린다. 노드를
+ * 눌러 재생을 걸면 로컬 Docker 에서 잰 기록의 사건 순서를 재생하고 사건 사이의 값은 lib/admin/flowSim.ts 가
+ * 지어낸다. 머리에는 설명 줄을 두지 않는다(2026-09-23 사용자 결정). 값의 출처는 화면 머리의 표식(시뮬레이션,
+ * 재생 중에는 '재생 · 관제 값과 별개')과 무대 머리 줄 맨 왼쪽의 출처가 보여 준다.
  *
  * 무대 머리 줄은 출처 칩, 재생 중에만 서는 상황 자막, 크게 보기 순서다(관리자 설계 7-10 (i)). 자막이
- * 재생 알약과 같은 내용을 실어 이 화면의 머리 조작은 알약 없이 일시정지와 초기화만 둔다.
+ * 재생 표지와 같은 내용을 실어 이 화면의 머리 조작은 표지 없이 일시정지와 초기화만 둔다.
  *
  * 이 화면은 구성도만 둔다. 사건 기록 목록도 사용자 요청으로 뺐고 보조기술용 알림만 남겼다. 체결률, 리스, CPU, 사용률 추이는 지표 관제로 옮겼고, 리더·세대·
  * Primary 같은 판독 줄도 사용자 요청으로 뺐다. 그 값은 노드 팝오버에 있다.
@@ -27,7 +28,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PanelCard from "@/components/PanelCard";
-import { PageHeader } from "@/components/admin/ui";
+import Skeleton from "@/components/Skeleton";
+import { PageHeader, SimMark } from "@/components/admin/ui";
+import { useAdminResource } from "@/components/admin/useAdminResource";
 import FlowTopology, { type FlowPick } from "@/components/admin/flow/FlowTopology";
 import FlowRunControls from "@/components/admin/flow/FlowRunControls";
 import FlowCaption from "@/components/admin/flow/FlowCaption";
@@ -36,8 +39,10 @@ import ExperimentDialog from "@/components/admin/flow/ExperimentDialog";
 import EventLog from "@/components/admin/flow/EventLog";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/flow/flow.module.css";
+import { getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { availability, describeScenario, nodeViews } from "@/lib/admin/flowSim";
-import { useFlowClock, useFlowRun } from "@/lib/admin/flowRun";
+import { replayBase, useFlowClock, useFlowRun } from "@/lib/admin/flowRun";
+import { teamsDelivery } from "@/lib/admin/integrations";
 
 /**
  * 구성도의 설계 폭. 구성도는 잰 폭에 맞춰 가로 위치만 늘리고 카드 크기는 그대로 둔다. 넓은 화면에
@@ -57,6 +62,9 @@ const MAX_ZOOM = 2.4;
 const MIN_ZOOM = 0.62;
 /** 셸의 본문 스크롤 상자(AdminShell 의 main#admin-main). 평소 보기의 남은 높이를 이 상자 기준으로 잰다 */
 const SCROLL_ROOT_ID = "admin-main";
+/** 관제 값 모드에서 첫 판을 기다리는 동안의 골격 높이. 구성도의 설계 높이(FlowTopology H)와 같다 */
+const STAGE_H = 659;
+const NO_CPU = { api1: null, api2: null, app3: null };
 
 /**
  * 평소 보기에서 구성도가 쓸 수 있는 높이. 본문 스크롤 상자의 아래 끝에서 무대 본문 윗변을 빼고, 무대 아래에
@@ -86,11 +94,21 @@ export default function FlowPage() {
   useFlowClock();
   // 선택자를 값 하나씩 둔다. 객체를 돌려주는 선택자는 매번 새 참조라 다시 그리기가 멈추지 않는다
   const key = useFlowRun((r) => r.key);
+  const mode = useFlowRun((r) => r.mode);
+  const waiting = useFlowRun((r) => r.waiting);
   const origin = useFlowRun((r) => r.origin);
   const state = useFlowRun((r) => r.state);
   // 구성도는 지금 CPU 만 쓴다. 표본 배열 대신 마지막 표본의 값을 고르면 참조가 표본마다 한 번만 바뀐다.
-  // 주행은 첫 표본을 만들어 둔 채 시작하므로 마지막 표본이 늘 있다(flowRun.ts boot)
-  const cpuNow = useFlowRun((r) => r.samples[r.samples.length - 1].cpu);
+  // 관제 값 모드는 첫 판이 오기 전에 표본이 없어 그동안 무대를 골격으로 둔다(waiting)
+  const cpuNow = useFlowRun((r) => r.samples[r.samples.length - 1]?.cpu ?? NO_CPU);
+  // 보고 경로 자리(AI 운영 보고, Teams)는 설정 화면의 Teams 행과 같은 판정을 읽는다
+  const loadDesk = useCallback(() => getAdminApi().getReports(), []);
+  const desk = useAdminResource(loadDesk, { cadence: "idle" });
+  const teams = teamsDelivery(desk.data);
+  const delivery = useMemo(
+    () => ({ state: teams.state, lastReportAt: teams.lastReportAt, lastSentAt: teams.last?.at ?? null }),
+    [teams.state, teams.lastReportAt, teams.last?.at],
+  );
   const [pick, setPick] = useState<FlowPick | null>(null);
   const [expanded, setExpanded] = useState(false);
   const expandBtnRef = useRef<HTMLButtonElement>(null);
@@ -111,6 +129,8 @@ export default function FlowPage() {
   };
 
   const views = useMemo(() => nodeViews(state, cpuNow), [state, cpuNow]);
+  // 관제 값 모드에서 고른 재생은 재생 세계의 첫 상태에서 설명하고 막힘을 판정한다
+  const pickBase = pick === null ? null : mode === "live" ? replayBase(pick.id, pick.target) : state;
 
   /* 크게 보기. 구성도 상자를 뷰포트 전체로 띄우고, 되면 브라우저 전체 화면도 함께 건다. 페이지 전체를
      전체 화면으로 올리는 이유는 재생 대화상자가 body 포털이라서다. 구성도 상자만 전체 화면으로 올리면
@@ -178,7 +198,11 @@ export default function FlowPage() {
 
   return (
     <div className={styles.root}>
-      <PageHeader title="서비스 흐름" actions={<FlowRunControls indicator={false} />} />
+      <PageHeader
+        title="서비스 흐름"
+        mark={mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
+        actions={<FlowRunControls indicator={false} />}
+      />
 
       <PanelCard srTitle="서비스 구성">
         <div
@@ -189,7 +213,7 @@ export default function FlowPage() {
         >
           <div className={styles.stageBar}>
             {expanded && <span className={styles.stageTitle}>서비스 흐름</span>}
-            <SourceChip />
+            <SourceChip mode={mode} />
             {/* 자막이 없을 때도 가운데 칸을 비워 두어 크게 보기 버튼이 오른쪽 끝에 남는다 */}
             <div className={styles.stageCaption}>
               <FlowCaption />
@@ -210,7 +234,11 @@ export default function FlowPage() {
           <div className={styles.stageBody} ref={bodyRef}>
             <div className={styles.zoomBox} style={{ width: zoom.w * zoom.k, height: zoom.h * zoom.k }}>
               <div ref={innerRef} className={styles.zoomInner} style={{ width: zoom.w, transform: `scale(${zoom.k})` }}>
-                <FlowTopology state={state} views={views} onPick={onPick} />
+                {waiting ? (
+                  <Skeleton variant="card" width="100%" height={STAGE_H} />
+                ) : (
+                  <FlowTopology state={state} views={views} onPick={onPick} delivery={delivery} />
+                )}
               </div>
             </div>
           </div>
@@ -220,10 +248,10 @@ export default function FlowPage() {
         <EventLog key={key} events={state.events} origin={origin} visible={false} />
       </PanelCard>
 
-      {pick !== null && (
+      {pick !== null && pickBase !== null && (
         <ExperimentDialog
-          view={describeScenario(state, pick.id, pick.target)}
-          availability={availability(state, pick.id, pick.target)}
+          view={describeScenario(pickBase, pick.id, pick.target)}
+          availability={availability(pickBase, pick.id, pick.target)}
           onStart={startPicked}
           onClose={closeDialog}
         />

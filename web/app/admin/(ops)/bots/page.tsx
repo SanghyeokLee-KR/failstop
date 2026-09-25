@@ -3,10 +3,12 @@
 /**
  * 봇 플릿(/admin/bots). start/stop/pause·OPS·생성은 BOT_OPS 즉시 실행(가역).
  * 실행 중 파라미터 변경은 파괴 액션으로 승인 티켓 필수(1인 승인, §2-1, §3-2).
+ * 플릿 상태를 읽지 못한 동안에는 시작·정지·발행률·국면·생성 조작을 막는다(관리자 설계 4-2 v1.12). 모르는 상태에서
+ * 누른 조작이 무엇을 바꿨는지 화면이 말할 수 없기 때문이다.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import { BOT_TYPES, BOT_TYPE_LABEL } from "@/lib/admin/types";
 import type { BotType, DestructiveAction, MarketSimState, SimStatus } from "@/lib/admin/types";
@@ -24,7 +26,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, SimMark, StateChip, StatStrip, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
@@ -56,7 +58,7 @@ function successRateTone(rate: number): Health | undefined {
 }
 
 export default function BotsPage() {
-  const canOps = useCan("BOT_OPS");
+  const canOpsRole = useCan("BOT_OPS");
   const [newType, setNewType] = useState<BotType>("MARKET_MAKER");
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
   const [newCount, setNewCount] = useState(1);
@@ -74,6 +76,9 @@ export default function BotsPage() {
   const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { cadence: "idle", isSessionError });
   const sim = res.data;
   const load = res.reload;
+  // 상태를 모르면 조작을 막는다. 권한이 있어도 같다
+  const blocked = !sim || res.error;
+  const canOps = canOpsRole && !blocked;
 
   const run = async <T,>(
     fn: () => Promise<T>,
@@ -135,10 +140,12 @@ export default function BotsPage() {
      종전에는 이것을 12행으로 폈는데, 세로를 세 배로 쓰면서 가로는 800px 를 비워 놨다.
      행렬로 두면 마켓 하나가 한 줄이라 세 마켓을 한눈에 견주고, 남는 가로에 마켓 단위 관측치
      (체결률·실측 방향)가 들어간다. 그 둘은 지금 시장 생동감에서 한 번에 한 마켓씩만 보인다 */
+  /* 열 폭은 하한과 비율이다. 고정 폭을 더하면 1280 창에서 표가 본문보다 넓어져 가로로 넘쳤다. 하한은 가장 긴
+     머리글과 값('수렴 중 2개 유형', '▲ 매수 0.35')이 한 줄에 드는 폭이다 */
   const typeCol = (t: BotType): DataColumn<FleetRow> => ({
     key: t,
     label: BOT_TYPE_LABEL[t],
-    width: "110px",
+    width: "minmax(72px, 1fr)",
     align: "center",
     render: (m) => {
       const s = m.scale[t];
@@ -151,26 +158,26 @@ export default function BotsPage() {
 
   const botCols: DataColumn<FleetRow>[] = [
     // 마켓은 식별 텍스트라 왼쪽이다. 나머지 대수 열은 한두 자리 행렬이라 가운데에 둔다(§12-7 예외)
-    { key: "market", label: "마켓", width: "130px", align: "left", render: (m) => m.market },
+    { key: "market", label: "마켓", width: "minmax(88px, 1.1fr)", align: "left", render: (m) => m.market },
     ...BOT_TYPES.map(typeCol),
     {
       key: "sum",
       label: "합계",
-      width: "90px",
+      width: "minmax(56px, 0.8fr)",
       align: "center",
       render: (m) => BOT_TYPES.reduce((n, t) => n + (m.scale[t]?.active ?? 0), 0),
     },
     {
       key: "fill",
       label: "체결률",
-      width: "96px",
+      width: "minmax(64px, 0.9fr)",
       align: "center",
       render: (m) => m.fillRatio,
     },
     {
       key: "bias",
       label: "실측 방향",
-      width: "130px",
+      width: "minmax(96px, 1.1fr)",
       align: "center",
       // 프리셋 타일과 같은 표기다. 같은 값을 두 곳에서 다른 모양으로 적지 않는다
       render: (m) => {
@@ -183,8 +190,8 @@ export default function BotsPage() {
       label: "가동",
       // 마켓 뒤 열은 중앙 정렬이다. 한 자리 수가 넓은 머리글 아래 우측에 붙어 있으면 제 이름표에서
       // 떨어져 보이고, 자릿수가 모두 같아 우측 정렬로 얻는 자리 맞춤도 없다.
-      // 남는 폭은 이 열이 받는다
-      width: "minmax(140px, 1fr)",
+      // 남는 폭은 이 열이 가장 많이 받는다
+      width: "minmax(128px, 1.4fr)",
       align: "center",
       /* 이 열이 답하는 것은 "이 봇들이 지금 일하고 있는가"다. 대수가 목표에 닿았다는 뜻의
          "목표 도달"은 작업이 끝났다는 뜻으로 읽혔다. 봇은 끝나는 일이 아니라 계속 호가를 낸다.
@@ -194,10 +201,10 @@ export default function BotsPage() {
       render: (m) => {
         // 미보고는 정지가 아니다. 정지로 칠하면 도는 플릿을 멈춘 것으로 읽는다
         if (sim?.running == null) return <span className={styles.stateTextDim}>-</span>;
-        if (!sim.running) return <span className={styles.neutralPill}>플릿 정지</span>;
-        if (sim.paused) return <span className={styles.neutralPill}>일시정지</span>;
+        if (!sim.running) return <StateChip tone="off" label="플릿 정지" />;
+        if (sim.paused) return <StateChip tone="neutral" label="일시정지" />;
         const off = BOT_TYPES.filter((t) => m.scale[t] && m.scale[t]!.active !== m.scale[t]!.target).length;
-        if (off > 0) return <span className={styles.neutralPill}>수렴 중 {off}개 유형</span>;
+        if (off > 0) return <StateChip tone="neutral" label={`수렴 중 ${off}개 유형`} />;
         return <span className={styles.stateText}>거래 중</span>;
       },
     },
@@ -205,23 +212,22 @@ export default function BotsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="봇 플릿" actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />} />
+      <PageHeader
+        title="봇 플릿"
+        mark={isAdminHttp() ? undefined : <SimMark />}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
+      />
 
       {res.error ? (
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
       ) : !sim ? (
-        <div className={styles.kpiGrid} data-cols="3">
-          {/* 미터 타일·보조행 타일 실측 높이와 같은 값이라 로드 후 시프트 0 */}
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={122} />
-          ))}
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={106} />
-          ))}
-        </div>
+        /* 요약 한 상자와 같은 높이라 불러온 뒤 판이 움직이지 않는다 */
+        <Skeleton variant="card" width="100%" height={180} />
       ) : (
         // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
-        <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-cols="3" data-stale={res.stale ? "" : undefined}>
+        <div className={styles.staleRegion} data-stale={res.stale ? "" : undefined}>
+          {/* 여섯 칸은 같은 카드를 늘어놓지 않고 한 헤어라인 상자다(§12-14 StatStrip) */}
+          <StatStrip label="플릿 요약" count={6}>
           {/* 원천이 셋이라 수치의 출처를 함께 적는다. 미보고를 정지로 칠하면 도는 플릿을
               멈춘 것으로 읽고, 조작 버튼을 누르게 된다 */}
           <StatTile
@@ -278,6 +284,7 @@ export default function BotsPage() {
             tone={sim.duplicateFillTotal ? "danger" : undefined}
             alarm={!!sim.duplicateFillTotal}
           />
+          </StatStrip>
         </div>
       )}
 
@@ -286,7 +293,8 @@ export default function BotsPage() {
           장면 전환과 미세 조정이 스크롤로 갈라진다 */}
       <div className={styles.opsRow} data-cols="control">
       <PanelCard title="플릿 제어">
-        {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
+        {!canOpsRole && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
+        {canOpsRole && blocked && <PermissionNote>플릿 상태를 읽지 못해 조작을 막았습니다. 새로고침으로 다시 읽습니다</PermissionNote>}
         <div className={styles.controlRow}>
           <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿 시작 완료"))}>
             시작
@@ -294,7 +302,7 @@ export default function BotsPage() {
           <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지 전환 완료"))}>
             일시정지 전환
           </button>
-          {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 알약으로 붙여 두면
+          {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 단추로 붙여 두면
               일시정지 전환을 겨냥하다 한 칸 빗나가 전 마켓 호가 공급이 끊긴다 */}
           <span className={styles.controlSep} aria-hidden="true" />
           <button type="button" className={styles.dangerBtn} disabled={!canOps} onClick={() => setStopOpen(true)}>
@@ -355,7 +363,7 @@ export default function BotsPage() {
       <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />
 
       <PanelCard title="봇 생성">
-        {!canOps && <PermissionNote>봇 생성 권한(BOT_OPS 이상) 없음</PermissionNote>}
+        {!canOpsRole && <PermissionNote>봇 생성 권한(BOT_OPS 이상) 없음</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>유형</span>
@@ -397,7 +405,7 @@ export default function BotsPage() {
 
       <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 경보색은 권한 부족 등 이탈 전용 */}
-        <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션. 승인 발급 후 요청자가 실행</p>
+        <p className={styles.formHelp}>실행 중인 봇의 파라미터를 바꾸는 일은 파괴 액션이라 승인을 발급한 뒤 요청자가 실행합니다</p>
         {sim && namedBots.length === 0 && (
           <p className={styles.formHelp}>
             기동 중인 플릿은 봇 id를 발행하지 않음(유형별 파킹 풀). 대상 지정이 필요한 이 경로는
@@ -450,7 +458,7 @@ export default function BotsPage() {
           actions={paramActions}
           onChange={load}
           emptyLabel="대기 중인 파라미터 변경 승인 없음"
-          emptyDesc="위 폼에서 요청하면 여기에서 발급·실행"
+          emptyDesc="위 폼에서 요청하면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
     </div>

@@ -16,8 +16,8 @@
 
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CommandChip } from "@/components/admin/DrillStepper";
-import { HEALTH_ICON, HealthPill, type Health } from "@/components/admin/ui";
+import { CommandChip } from "@/components/admin/CommandChip";
+import { HEALTH_ICON, StateChip, type Health } from "@/components/admin/ui";
 import type { Availability, Risk, ScenarioView } from "@/lib/admin/flowSim";
 import styles from "./panels.module.css";
 
@@ -133,7 +133,7 @@ export default function ExperimentDialog({ view, availability, onStart, onClose 
           </div>
           <span className={styles.dialogRisk}>
             {riskHealth ? (
-              <HealthPill health={riskHealth} label={`위험도 ${view.risk}`} />
+              <StateChip tone={riskHealth} label={`위험도 ${view.risk}`} />
             ) : (
               <span className={styles.riskInk}>위험도 {view.risk}</span>
             )}

@@ -12,11 +12,47 @@
   height: 100vh;
   overflow: hidden;
   background: var(--bg-muted);
+  /* 한국어는 낱말 안에서 줄을 바꾸지 않는다. 공백 없이 칸보다 긴 토막(URL, 긴 영문 식별자)만 끊는다(§12-12) */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  /* 여러 줄 글의 끝 줄에 낱말 하나만 남지 않게 줄을 고른다(§12-12 v1.14). 줄 수와 칸 폭은 그대로다 */
+  text-wrap: pretty;
+  /* AI 상담 패널 폭. 패널이 열리면 셸(본문 밀기)과 body(토스트 자리)에 운영자가 정한 폭을 인라인으로 싣는다 */
+  --admin-chat-w: 440px;
+}
+/* 관리 평면 글자 여섯 단계(12·13·14·18·24·28)와 굵기 셋(400·600·700, §12-2 v1.14). 거래 화면의 램프는 그대로 두고
+   관리 셸과 셸 밖에 뜨는 층(모달, 드로어, 확인 대화상자)에서만 토큰을 다시 잇는다 */
+.typeScale {
+  /* 크기를 적지 않은 글(화면 낭독 글, 표 칸, 이름표)이 body의 15px를 물려받지 않게 본문 14px로 둔다. 줄 높이는
+     body가 절대값으로 물려주는 그대로라 줄 상자 높이는 바뀌지 않는다 */
+  font-size: var(--font-body-sm-size);
+  --font-micro-size: var(--font-dense-size);
+  --font-micro-line: var(--font-dense-line);
+  --font-micro-weight: var(--fw-regular);
+  --font-body-size: var(--font-body-sm-size);
+  --font-body-line: var(--font-body-sm-line);
+  --font-body-lg-size: var(--font-title-3-size);
+  --font-body-lg-line: var(--font-title-3-line);
+  --font-title-2-size: var(--font-title-3-size);
+  --font-title-2-line: var(--font-title-3-line);
+  --font-display-lg-size: var(--font-display-md-size);
+  --font-display-lg-line: var(--font-display-md-line);
+  --fw-light: var(--fw-regular);
+  --fw-medium: var(--fw-regular);
+}
+/* AI 상담 패널이 열린 1600px 이상 창에서는 본문 스크롤 상자가 패널 폭만큼 비켜 선다. 운영자 바는 전폭 그대로다 */
+@media (min-width: 1600px) {
+  .shell[data-chat] .content {
+    margin-right: var(--admin-chat-w);
+  }
 }
 .booting {
   min-height: 100vh;
 }
 
+/* 1280x800 창에서 목록 끝(바닥 줄과 사용자 카드)이 스크롤 없이 보이는 높이 예산으로 간격을 잡는다.
+   시연 묶음이 접힌 기본 모양에서 메뉴 목록이 570px이고, 800px 창에서 목록 자리는 574px이다(2026-09-25 실측).
+   명판 줄은 위 8px에 높이 40px이라 가운데가 운영자 바(56px)의 가운데와 같은 28px에 선다 */
 .sidebar {
   width: 232px;
   flex-shrink: 0;
@@ -25,17 +61,26 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
   background: var(--surface-default);
   box-shadow: inset -1px 0 0 var(--border-subtle);
 }
 
+/* 단추(36px)의 누르는 자리는 위아래 4px씩 넓혀 44px이다. 줄 밖으로 2px씩 나가는 자리는 위 여백과 아래 간격 안이다 */
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-2);
+  min-height: 40px;
+  padding: 0 0 0 var(--space-2);
+}
+/* 명판 줄 오른쪽 단추 묶음(AI 상담, 메뉴 접기). 단추 사이 8px은 두 히트 영역이 맞닿는 간격이다 */
+.brandTools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
 }
 .brandMark {
   display: flex;
@@ -49,38 +94,98 @@
   color: var(--text-strong);
 }
 
+/* 메뉴가 늘어 짧은 창(820px)에서 바닥 줄과 겹치지 않게 목록만 스크롤한다 */
 .nav {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-/* 의미 그룹(상황·제어·거버넌스) 구획. 그룹 명판이 스캔 경로의 정거장 역할을 한다 */
+/* 의미 그룹(관제·인프라·조치·시연) 구획. 그룹 명판이 스캔 경로의 정거장이자 접기 단추다 */
 .navGroup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 .navGroup + .navGroup {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
+}
+/* 묶음 머리. 시각 32px에 투명 ::after로 위 8px·아래 4px을 더해 누르는 자리가 44px이다(§10-2).
+   위는 묶음 사이 12px 안, 아래는 머리와 첫 항목 사이 6px 안에서만 넓힌다 */
+.navGroupHead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  margin-bottom: 6px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-radius: var(--control-radius);
+  text-align: left;
+}
+.navGroupHead::after {
+  content: "";
+  position: absolute;
+  inset: -8px 0 -4px;
+}
+.navGroupHead:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.navGroupHead:hover:not(:disabled) .navGroupLabel {
+  color: var(--text-default);
+}
+.navGroupHead:disabled {
+  cursor: default;
+}
+/* 접힌 묶음은 따라오는 항목이 없어 머리 아래 간격을 두지 않는다 */
+.navGroupHead[aria-expanded="false"] {
+  margin-bottom: 0;
 }
 .navGroupLabel {
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-1);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-medium);
   letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
+/* 접힌 묶음의 항목 수. 무엇이 들었는지 이름 옆에 작게 둔다 */
+.navGroupCount {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.navGroupChevron {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  transform: rotate(-90deg);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.navGroupChevron[data-open] {
+  transform: none;
+}
+.navGroupItems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* 항목은 시각 40px이고 누르는 자리는 투명 ::after로 위아래 2px씩 늘려 44px이다. 늘린 자리는 항목 사이 4px 안이다 */
 .navLink {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 var(--space-3);
   border-radius: var(--panel-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
+}
+.navLink::after {
+  content: "";
+  position: absolute;
+  inset: -2px 0;
 }
 /* 아이콘은 장식 채널(의미는 라벨). 휴지 상태는 tertiary, 상호작용 시 라벨 잉크를 상속한다 */
 .navIcon {
@@ -115,21 +220,31 @@
   background: var(--chrome-accent);
 }
 
-/* 사이드바 접기 단추. 명판 줄 오른쪽 끝에 서고, 접힌 기둥에서는 혼자 남아 가운데 선다 */
-.sidebarToggle {
+/* 명판 줄의 아이콘 단추(AI 상담, 메뉴 접기). 시각 36px에 투명 ::after로 누르는 자리를 44px로 늘린다 */
+.brandAction {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-left: auto;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  border-radius: var(--panel-radius);
+  border-radius: var(--control-radius);
   color: var(--text-secondary);
 }
-.sidebarToggle:hover {
+.brandAction::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.brandAction:hover {
   color: var(--text-default);
   background: var(--surface-hover);
+}
+/* 상담이 열려 있는 동안. 크롬 악센트 글자와 sunken 면으로 눌린 상태를 적는다(aria-expanded 병기) */
+.brandAction[data-active] {
+  color: var(--chrome-accent);
+  background: var(--surface-sunken);
 }
 .navLabel {
   min-width: 0;
@@ -151,10 +266,12 @@
 }
 .sidebar[data-collapsed] .brandMark,
 .sidebar[data-collapsed] .brandText,
-.sidebar[data-collapsed] .navGroupLabel {
+.sidebar[data-collapsed] .navGroupHead {
   display: none;
 }
-.sidebar[data-collapsed] .sidebarToggle {
+/* 아이콘 기둥에서는 두 단추를 세로로 쌓는다 */
+.sidebar[data-collapsed] .brandTools {
+  flex-direction: column;
   margin-left: 0;
 }
 .sidebar[data-collapsed] .navGroup + .navGroup {
@@ -165,6 +282,48 @@
 .sidebar[data-collapsed] .navLink {
   justify-content: center;
   padding: 0;
+}
+/* 메뉴 옆 상태 배지 자리. 접힌 기둥에서는 글자 배지 대신 8px 모양 하나를 아이콘(가운데 16px)의 오른쪽 위
+   모서리에 얹는다(§12-9 v1.14). 모양 둘레 2px은 사이드바 면과 같은 색으로 파내 아이콘 선과 붙어 보이지 않게 한다.
+   목록 상자(세로 스크롤)가 가로로 넘친 것을 자르므로 표식은 링크 폭(48px) 안에 선다 */
+.navBadgeSlot {
+  display: inline-flex;
+  margin-left: auto;
+}
+.sidebar[data-collapsed] .navBadgeSlot {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 2px);
+  margin: 0;
+}
+.sidebar[data-collapsed] .navBadgeSlot > * {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-default);
+  line-height: 0;
+  justify-content: center;
+}
+.sidebar[data-collapsed] .navLink:hover .navBadgeSlot > * {
+  background: var(--surface-hover);
+}
+.sidebar[data-collapsed] .navLink[data-active] .navBadgeSlot > * {
+  background: var(--surface-sunken);
+}
+.sidebar[data-collapsed] .navBadgeSlot [data-badge-part="ink"] {
+  display: none;
+}
+.sidebar[data-collapsed] .navBadgeSlot [data-badge-part="mark"] {
+  display: inline-flex;
+}
+/* 평면 전환 링크 위 상태 줄(AI 운영 모드). 접힌 기둥에서는 공간이 없어 뺀다 */
+.navFoot {
+  flex-shrink: 0;
+}
+.sidebar[data-collapsed] .navFoot {
+  display: none;
 }
 .sidebar[data-collapsed] .navLabel {
   position: absolute;
@@ -210,47 +369,58 @@
   letter-spacing: 0;
   color: var(--text-strong);
 }
-/* 평면 식별은 로그인 플레이트 소관이라 좌측 명판 없이 우측 정렬만 남긴다 */
+/* 화면 낭독 전용 패널 제목(PanelCard srTitle)도 제목 기본 크기(1.5em)를 받지 않고 본문 크기다(§12-2 여섯 단계) */
+.content :global(h2.sr-only) {
+  font-size: inherit;
+}
+/* 운영자 바. 왼쪽은 평면이 넘기는 검색, 오른쪽은 전체 상태·경보 종·시각·테마·사용자 메뉴다.
+   좌우 여백은 본문 판형(.page)과 같은 24px이라 검색칸 왼쪽 끝이 화면 제목과 한 줄에 선다 */
 .opbar {
   position: sticky;
   top: 0;
   z-index: var(--z-nav);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-4);
   height: 56px;
-  padding: 0 var(--space-5);
+  padding: 0 var(--space-6);
   background: var(--surface-default);
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
+.opbarLead {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
 .opbarRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-/* 신원·세션·인증서·기기 제어를 hairline으로 구획해 판독 단위를 분리한다 */
-.opbarSeg {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.opbarDivider {
-  width: 1px;
-  height: 20px;
   flex-shrink: 0;
-  background: var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
-.opName {
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
+/* 현재 시각(KST). 관제 화면의 모든 '몇 초 전'이 이 시계를 기준으로 읽힌다 */
+.clock {
+  padding: 0 var(--space-1);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
   white-space: nowrap;
+}
+.clockZone {
+  color: var(--text-secondary);
+}
+/* 1440px보다 좁은 창에서는 날짜를 거둬 검색칸과 정지 단추의 자리를 지킨다(레이아웃 §7) */
+@media (max-width: 1439px) {
+  .clockDate {
+    display: none;
+  }
 }
 .roleRow {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 .sessionTtl {
@@ -313,34 +483,24 @@
   resize: vertical;
   font-family: inherit;
 }
-/* ===== 인증서 전환기 =====
-   select를 버리고 트리거 + 팝오버로 바꾼다. select는 포커스 상태에서 화살표 키가 스치기만 해도
-   감사 기록상 신원이 바뀐다. 전환은 열기·선택 2클릭의 명시 행위여야 한다 */
-.certSwitch {
+/* ===== 사용자 메뉴 =====
+   신원, 세션 남은 시간, 인증서 전환, 세션 종료를 한 팝오버에 싣는다. 인증서 전환은 select가 아니라
+   열기·선택 두 번의 명시 행위다. select는 포커스 상태에서 화살표 키가 스치기만 해도 감사 기록상
+   신원이 바뀐다 */
+.userMenu {
   position: relative;
 }
-.certBtn {
+.userBtn {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
+  min-height: 40px;
+  padding: 0 var(--space-2) 0 var(--space-1);
   border-radius: var(--control-radius);
-  background: var(--surface-default);
   color: var(--text-default);
-  font-size: var(--font-body-sm-size);
 }
-/* 셰브런은 ::before + order로 우측에 앉힌다. ::after는 §8 히트 확장 전용 슬롯 */
-.certBtn::before {
-  content: "";
-  order: 2;
-  width: 12px;
-  height: 12px;
-  background: var(--select-chevron) no-repeat center;
-}
-.certBtn::after {
+.userBtn::after {
   content: "";
   position: absolute;
   left: 0;
@@ -349,22 +509,112 @@
   height: 44px;
   transform: translateY(-50%);
 }
-.certBtn:hover {
+.userBtn:hover,
+.userBtn[aria-expanded="true"] {
   background: var(--surface-hover);
 }
-.certMenu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: var(--z-nav);
-  min-width: 200px;
+/* 이름 첫 글자 표지. 사진 자리가 아니라 누구의 세션인지 한눈에 가르는 자리라 무채로 둔다 */
+.avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userText {
   display: flex;
   flex-direction: column;
-  padding: var(--space-1);
+  align-items: flex-start;
+  min-width: 0;
+}
+.userName {
+  font-size: var(--font-caption-size);
+  line-height: 17px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.userRole {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.userChevron {
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+.userPanel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-dropdown);
+  width: 280px;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-default);
   border-radius: var(--control-radius);
   background: var(--surface-elevated);
   box-shadow: var(--shadow-2);
+}
+.userPanelHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.userPanelName {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userPanelId {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.userPanelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.userPanelRow b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userPanelGroup {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.userPanelLabel {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.userPanelFoot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-3);
 }
 .certMenuItem {
   display: flex;
@@ -414,8 +664,8 @@
 .roleBadge {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-semibold);
@@ -429,6 +679,7 @@
 }
 
 /* ===== 진입 화면 ===== */
+/* 로그인은 셸 밖 화면이라 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
 .login {
   display: flex;
   align-items: center;
@@ -436,6 +687,8 @@
   min-height: 100vh;
   padding: var(--space-8) var(--space-6);
   background: var(--bg-muted);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .passwordLogin {
   display: grid;
@@ -587,6 +840,37 @@
   /* desc 유무와 무관하게 높이를 예약한다(타이틀 32 + desc 21 + 간격 4). 화면 전환 시 첫 패널 시프트 0 */
   min-height: 57px;
 }
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+/* 값의 출처 표식(§12-12). 무채 점선 네모 하나다. 재생은 관제 판과 다른 세계라 한 단 크고 실선이다.
+   주의 상태가 아니라 값의 세계가 다르다는 사실이라 주황을 쓰지 않는다 */
+.simMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.simMark[data-kind="replay"] {
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  border: 2px solid var(--border-strong);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
 .pageTitle {
   font-size: var(--font-title-1-size);
   line-height: var(--font-title-1-line);
@@ -622,60 +906,80 @@
   max-width: 640px;
 }
 
-/* ===== KPI 타일 ===== */
-.kpiGrid {
+/* ===== 판독 묶음(StatStrip, §12-14) =====
+   한 헤어라인 상자를 칸 사이 1px 틈으로 가른다. 틈으로 비치는 상자 면(--border-subtle)이 세로·가로 헤어라인이
+   되어 두 줄로 접혀도 선이 끊기지 않는다. 같은 모양의 카드를 여러 장 늘어놓지 않는다 */
+.statStripWrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+.statStrip {
+  --strip-cols: 3;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
+  grid-template-columns: repeat(var(--strip-cols), minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
 }
-/* 격자 비대칭(§6.4): 그룹별 실제 지표 수에 맞춰 만행한다. 균등 슬롯 채우기 금지 */
-.kpiGrid[data-cols="3"] {
-  grid-template-columns: repeat(3, 1fr);
+.statStrip[data-cells="2"] {
+  --strip-cols: 2;
 }
-.kpiGrid[data-cols="2"] {
-  grid-template-columns: repeat(2, 1fr);
+.statStrip[data-cells="4"] {
+  --strip-cols: 4;
 }
-/* 원장 행: 유일하게 돈의 소실을 말하는 불변식 지표에 폭·크기 우위를 준다.
-   리소스 압력·누적 카운터와 같은 폭이면 위계가 격자에 종속된다 */
-.kpiGrid[data-cols="ledger"] {
-  grid-template-columns: 1.6fr 1fr 1fr;
+.statStrip[data-cells="5"] {
+  --strip-cols: 5;
 }
-/* 정숙 계기(§6.4): 지표 타일은 그림자로 띄우지 않는다. 헤어라인으로 구획하고 라운드 12로 통일한다.
-   양 테마 동일 규칙(다크 전용 보더 분기 제거) */
+@container (min-width: 1200px) {
+  .statStrip[data-cells="6"] {
+    --strip-cols: 6;
+  }
+}
+@container (max-width: 640px) {
+  .statStrip[data-cells="4"] {
+    --strip-cols: 2;
+  }
+}
 .statTile {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-height: 96px;
-  padding: var(--space-4);
+  min-width: 0;
+  min-height: 88px;
+  padding: var(--space-3) var(--space-4);
   background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
 }
-/* 지표 라벨은 명판이 아니라 평문 캡션. 명판(자간 확장)은 그룹 라벨·헤더 전용으로 배급한다 */
+/* 장애 칸만 면을 칠한다(멱등 위반). 형태 기호와 값 색이 뜻을 함께 싣는다 */
+.statTile[data-alarm="danger"] {
+  background: var(--color-danger-bg);
+}
+.statTile[data-alarm="warning"] {
+  background: var(--color-warning-bg);
+}
 .statLabel {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
-  font-weight: var(--fw-medium);
   color: var(--text-secondary);
 }
-/* 700 히어로 절제(§3): 값은 기본 600, 화면당 단일 대표 지표만 data-hero로 700 승격.
-   20px+ 큰 숫자 자간 밀착 -0.01em로 계기 밀착감 통일(§3.2) */
 .statValue {
-  font-size: var(--font-title-2-size);
-  line-height: var(--font-title-2-line);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
   font-weight: var(--fw-semibold);
-  letter-spacing: -0.01em;
   color: var(--text-strong);
+  white-space: nowrap;
 }
-/* 히어로는 굵기 한 단계로는 이웃 카운터와 구분되지 않는다. 크기 자체를 title-1로 승격한다 */
+/* 화면의 대표 칸 하나만 크게 둔다(§12-2 28/700) */
 .statValue[data-hero] {
-  font-size: var(--font-title-1-size);
-  line-height: var(--font-title-1-line);
+  font-size: var(--font-display-md-size);
+  line-height: var(--font-display-md-line);
   font-weight: var(--fw-bold);
-}
-.statValue[data-tone="success"] {
-  color: var(--color-success-text);
+  letter-spacing: -0.01em;
 }
 .statValue[data-tone="warning"] {
   color: var(--color-warning-text);
@@ -683,69 +987,98 @@
 .statValue[data-tone="danger"] {
   color: var(--color-danger);
 }
-/* 보조 행: sub 전용. 부재 시 렌더를 생략하고 고정 높이는 타일 min-height가 감당한다 */
-.statAux {
-  display: flex;
-  align-items: center;
-  min-height: var(--font-caption-line);
+.statShape {
+  align-self: center;
+  margin-right: var(--space-1);
 }
-/* 라벨(caption)과 같은 크기면 타일이 2단으로 납작해진다. 보조행은 micro로 한 단 내린다 */
-.statSub {
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
+.statShape[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.statShape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.statUnit {
+  margin-left: 2px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-regular);
   color: var(--text-secondary);
 }
-/* 컴팩트 레일용 저높이 변형. 값은 title-3로 강등, 위계는 라벨·명도가 유지한다 */
-.statTile[data-compact] {
-  /* 실콘텐츠 실측(보더 2 + 패딩 24 + 라벨 18 + 값 26 + 보조 18 + gap 8 = 96). /admin 스켈레톤 96px와 동치 */
-  min-height: 96px;
-  padding: var(--space-3) var(--space-4);
+.statSub {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
 }
-.statTile[data-compact] .statValue {
-  font-size: var(--font-title-3-size);
-  line-height: var(--font-title-3-line);
+.statMeter {
+  display: block;
+  margin-top: auto;
+  padding-top: var(--space-1);
 }
-/* 컴팩트 레일 타일의 화면 이동 래퍼. 시각은 무채 유지, 상호작용 신호는 surface 이동만 */
-.railLink {
-  display: grid;
+/* 칸이 다른 화면으로 가는 링크일 때. 무채 그대로 두고 면만 옮겨 누를 수 있음을 알린다 */
+.statLink {
+  display: flex;
   min-width: 0;
-  border-radius: var(--panel-radius);
   color: inherit;
   text-decoration: none;
+  background: var(--surface-default);
 }
-.railLink:hover .statTile {
+.statLink > .statTile {
+  flex: 1;
+}
+.statLink:hover > .statTile {
   background: var(--surface-hover);
 }
-/* 색 단독 금지 보조 채널(§4-3): 값 옆 심각도 형태. 색은 statValue tone에서 상속 */
-.toneIcon {
-  margin-right: var(--space-1);
-  font-size: 0.68em;
-  vertical-align: 0.12em;
+
+/* ===== 상태 칩(StateChip, §12-14) =====
+   네모 칩 하나. 정상은 면·테두리 없이 초록 형태와 잉크 글자, 주의는 주의 테두리와 글자, 장애는 장애 테두리·글자와
+   옅은 면, 중지·중립은 무채 테두리다. 둥근 알약은 쓰지 않는다 */
+.stateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  white-space: nowrap;
 }
-/* 경보 승격(§6.4 경보 위계): 균일 격자에서 위험 타일만 톤 보더 + 좌측 상태 레일로 도드라지게 한다.
-   레일은 inset box-shadow라 레이아웃 시프트 0. 색 외 채널은 값 옆 toneIcon이 병기 */
-.statTile[data-alarm="warning"] {
+.stateChip[data-tone="success"] {
+  padding-left: 0;
+  color: var(--text-strong);
+}
+.stateChip[data-tone="success"] > svg {
+  color: var(--color-success);
+}
+.stateChip[data-tone="warning"] {
   border-color: var(--color-warning-text);
-  box-shadow: inset 3px 0 0 var(--color-warning-text);
+  color: var(--color-warning-text);
 }
-.statTile[data-alarm="danger"] {
+.stateChip[data-tone="danger"] {
   border-color: var(--color-danger);
-  box-shadow: inset 3px 0 0 var(--color-danger);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.stateChip[data-tone="neutral"],
+.stateChip[data-tone="off"] {
+  border-color: var(--border-default);
+}
+.stateChip[data-tone="off"] > svg {
+  color: var(--text-secondary);
 }
 
-/* 의미 그룹 구획(§6.4 스캔 경로): 헬스·운영·승인 KPI를 헤어라인으로 나눈다.
-   명판(§6.3)은 micro + 자간 확장으로 그룹을 식별한다 */
-.kpiGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+/* ===== 형태 기호(StatusShape, §12-3) ===== */
+.statusShape {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  overflow: visible;
 }
-.kpiGroup:first-of-type {
-  padding-top: 0;
-  border-top: 0;
-}
+
+/* 승인 목록의 '최근 처리' 명판. micro + 자간 확장으로 묶음을 식별한다(§6.3) */
 .kpiGroupLabel {
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
@@ -763,6 +1096,11 @@
 /* 정상 무채 원칙: 기본 상태는 pill 없이 잉크 강등 텍스트로 남긴다(상태어 자체가 라벨) */
 .stateText {
   color: var(--text-secondary);
+}
+/* 처리할 차례인 행(출금 대기). 이상 상태가 아니라 주황을 쓰지 않고 굵은 잉크로 가른다 */
+.queueWait {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
 }
 /* 행위 불가 상태. 상태어는 정보라 장식 대역(tertiary)을 쓸 수 없다.
    흰 배경에서 tertiary는 3.59:1로 1.4.3의 4.5:1에 미달한다. secondary는 4.75:1.
@@ -807,136 +1145,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* ===== 종합 헬스 히어로(/admin 1층) =====
-   화면 단일 대표 지표. 상태어 존이 가장 넓고, 우측으로 갈수록 좁아지는 비대칭 3열.
-   배경 플래시는 헬스 전이 사건에만 발화한다(정지가 기본값). */
-.healthHero {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 0.9fr;
-  gap: var(--space-5);
-  align-items: center;
-  min-height: 128px;
-  padding: var(--space-5) var(--space-6);
-  background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
-  transition: background-color var(--dur-flash) var(--ease-standard);
-}
-.healthHero[data-transition="success"] {
-  background-color: var(--color-health-flash-success);
-}
-.healthHero[data-transition="warning"] {
-  background-color: var(--color-health-flash-warning);
-}
-.healthHero[data-transition="danger"] {
-  background-color: var(--color-health-flash-danger);
-}
-.heroMain {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-/* 계기 명판 규격(gauge-plate 동일). 히어로 명판·보조 계기 라벨 공용 */
-.heroPlate {
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-medium);
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-}
-.heroWord {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-display-md-size);
-  line-height: var(--font-display-md-line);
-  font-weight: var(--fw-bold);
-  letter-spacing: -0.01em;
-}
-/* 정상은 잉크다. 이 문구는 화면에서 가장 큰 활자라 초록으로 칠하면 "괜찮다"가 아니라
-   "여기를 보라"가 된다. 볼 곳은 이탈이 생겼을 때만 있어야 한다 */
-.heroWord[data-health="success"] {
-  color: var(--text-strong);
-}
-/* 형태만 상태 색을 받는다(§12-3). 28px 그래픽이라 3:1 기준, 흰 면 4.27:1 */
-.heroWord[data-health="success"] .heroMark {
-  color: var(--color-success);
-}
-.heroWord[data-health="warning"] {
-  color: var(--color-warning-text);
-}
-.heroWord[data-health="danger"] {
-  color: var(--color-danger);
-}
-/* 좌측 hairline이 상태어·계기 사이 판독 단위를 구획한다 */
-.heroGauge {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  padding: 0 var(--space-5);
-  border-left: 1px solid var(--border-subtle);
-}
-.heroGaugeValue {
-  font-size: var(--font-title-2-size);
-  line-height: var(--font-title-2-line);
-  font-weight: var(--fw-semibold);
-  letter-spacing: -0.01em;
-  color: var(--text-strong);
-}
-.heroGaugeValue[data-tone="danger"] {
-  color: var(--color-danger);
-}
-.heroGaugeValue[data-tone="warning"] {
-  color: var(--color-warning-text);
-}
-/* 판독 보조행. 검사 시각 또는 미수집 사유와 관측 딥링크가 한 줄에 선다 */
-.heroGaugeSub {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
-/* 우측 키·값 칼럼. 잔여 정보는 계기 승격 없이 캡션 3행으로만 남긴다 */
-.heroKv {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: 0 var(--space-5);
-  border-left: 1px solid var(--border-subtle);
-}
-.heroKvRow {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-}
-.heroKvLabel {
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-.heroKvValue {
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-}
-.heroKvValue[data-tone="warning"] {
-  color: var(--color-warning-text);
-}
-.heroKvValue[data-tone="danger"] {
-  color: var(--color-danger);
-}
-@media (prefers-reduced-motion: reduce) {
-  /* dur 0ms로도 정지 배경이 남는 플래시라 명시 킬(tokens.css §5 패턴) */
-  .healthHero[data-transition] {
-    background: var(--surface-default) !important;
-  }
 }
 
 /* ===== 버튼 ===== */
@@ -998,6 +1206,11 @@
 .neutralBtn:hover:not(:disabled) {
   background: var(--surface-control-hover);
 }
+/* 층(모달·드로어·확인 대화상자)의 면은 --surface-elevated라 다크에서 중립 단추 면과 같은 색이 된다. 층 안의 중립
+   단추는 1px 안쪽 테두리로 모양을 남긴다(§12-5). 포커스 때는 전역 이중 링의 안쪽 헤어라인에 자리를 내준다 */
+[data-layer] .neutralBtn:not(:disabled):not(:focus-visible) {
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
 .dangerBtn {
   background: transparent;
   border-color: var(--color-danger);
@@ -1019,20 +1232,6 @@
   cursor: not-allowed;
 }
 
-.neutralPill {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  /* 중립 메타 pill이라 micro 기본 무게로 강등(경보 pill과 무게 위계 분리) */
-  font-weight: var(--fw-medium);
-  color: var(--text-default);
-  background: var(--surface-sunken);
-  white-space: nowrap;
-}
-
 /* ===== 컨트롤 행·폼 ===== */
 .controlRow,
 .formRow {
@@ -1040,6 +1239,10 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
+}
+/* 폼 줄의 단추는 입력칸(40px)과 윗선·아랫선을 맞춘다(§12-5 v1.14) */
+.formRow > button {
+  min-height: 40px;
 }
 /* 가역 조작과 파괴 조작 사이 물리적 간격. 오조작은 거리로 막는다 */
 .controlSep {
@@ -1059,14 +1262,6 @@
 
 .throttle input[type="range"] {
   width: 100%;
-}
-
-.paramCell {
-  font-size: var(--font-caption-size);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ===== 계기 슬라이더(§6.2) =====
@@ -1089,7 +1284,7 @@
 .scaleRow input[type="range"]::-webkit-slider-runnable-track,
 .throttle input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   background:
     repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
     var(--surface-sunken);
@@ -1098,7 +1293,7 @@
 .scaleRow input[type="range"]::-moz-range-track,
 .throttle input[type="range"]::-moz-range-track {
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   background:
     repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
     var(--surface-sunken);
@@ -1236,7 +1431,7 @@
   background:
     repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
     linear-gradient(90deg, var(--color-down), var(--surface-sunken) 50%, var(--color-up));
-  border-radius: var(--radius-full);
+  border-radius: 1px;
   height: 6px;
   align-self: center;
 }
@@ -1271,8 +1466,9 @@
   margin-top: var(--space-3);
   flex-wrap: wrap;
 }
+/* 자동 균형이 꺼지면 강도는 쓰이지 않는다. 투명도로 흐리면 라벨 대비가 무너지므로(§12-6) 글자만 한 단 낮춘다 */
 .biasControls .field[data-dim] {
-  opacity: 0.5;
+  color: var(--text-secondary);
 }
 .biasControls .field input[type="range"] {
   width: 180px;
@@ -1298,16 +1494,19 @@
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
+/* 미리보기 칸은 패널과 같은 면에 헤어라인을 둔다. sunken 면에 틴트를 겹치면 글자 대비가 4.5:1 아래로 떨어진다 */
 .flashCell {
   position: relative;
   display: inline-flex;
   align-items: center;
   padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
-  background: var(--surface-sunken);
+  color: var(--text-default);
+  background: var(--surface-default);
 }
 .flashCell[data-dir="up"] {
   color: var(--color-up-text);
@@ -1384,11 +1583,6 @@
 }
 
 /* ===== 승인 목록 ===== */
-.approvalEmpty {
-  padding: var(--space-4) 0;
-  font-size: var(--font-body-sm-size);
-  color: var(--text-secondary);
-}
 .approvalList {
   display: flex;
   flex-direction: column;
@@ -1459,13 +1653,6 @@
 
 /* ===== 카오스 =====
    카탈로그는 승인 목록과 같은 행 문법의 주사 존. 상세 설명은 주입 확인 다이얼로그 소관 */
-/* 짧은 패널 두 장은 세로 적층 대신 2열로 눕혀 첫 화면에 함께 올린다 */
-.pairGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-  align-items: stretch;
-}
 /* ===== 공지 ===== */
 .noticeForm {
   display: flex;
@@ -1564,6 +1751,10 @@
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
+/* 세로 폼의 제출 단추는 판 폭으로 늘이지 않고 제 폭으로 왼쪽에 선다(§12-5) */
+.roleEditor > button {
+  align-self: flex-start;
+}
 .roleEditorTarget {
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
@@ -1610,9 +1801,10 @@
   border-radius: var(--control-radius);
   background: var(--bg-muted);
 }
-/* 보유 역할 신호는 위치 신호(좌측 인셋 hairline). 색 단독 금지·시프트 0 */
-.roleGrantRow[data-held] {
-  box-shadow: inset 2px 0 0 0 var(--chrome-accent);
+/* 보유 역할은 '보유' 칩이 적는다(행 면과 왼쪽 선은 그대로). 칩이 요청 단추 앞에 서도 단추 자리는 오른쪽 끝이다 */
+.roleGrantRow > .roleCheckLabel {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ===== 감사 =====
@@ -1753,7 +1945,7 @@
   align-items: center;
   height: 22px;
   padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-xs);
   background: var(--surface-sunken);
   font-size: var(--font-micro-size);
   font-weight: var(--fw-semibold);
@@ -1826,8 +2018,7 @@
   margin-left: var(--space-4);
   padding: var(--space-3);
   background: var(--surface-sunken);
-  border-left: 2px solid var(--chrome-accent);
-  border-radius: 0 var(--control-radius) var(--control-radius) 0;
+  border-radius: var(--control-radius);
 }
 .inquiryAnswerLabel {
   font-size: var(--font-micro-size);
@@ -1845,21 +2036,42 @@
 /* ===== 국면 프리셋 ===== */
 /* 이름과 효과를 한 타일에 싣는다. 국면 선택은 값 조정이 아니라 장면 전환이라
    버튼 문구만으로는 무엇이 바뀌는지 안 보인다 */
+/* 국면 프리셋 세 열 격자(레이아웃 §7 v1.7). 완만과 급변을 두 줄로 가르고 줄마다 이름표를 둔다 */
+.presetGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.presetGroup + .presetGroup {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.presetGroupLabel {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
 .presetBtn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   gap: var(--space-1);
+  min-width: 0;
   min-height: 56px;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   /* 비활성의 점선 테두리가 상자 크기를 흔들지 않게 자리를 잡아 둔다 */
   border: 1px solid transparent;
   border-radius: var(--panel-radius);
   background: var(--surface-control);
   color: var(--text-strong);
   text-align: left;
-  white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-standard);
 }
 .presetBtn:hover:not(:disabled) {
@@ -1898,8 +2110,9 @@
 }
 .presetMeta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
+  column-gap: var(--space-1);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-medium);
@@ -1910,6 +2123,10 @@
 /* 방향은 시세 도메인이라 유채가 허용된다. 색 단독이 아니라 방향어·화살표·부호 병기다.
    틴트 위 소형 텍스트라 -text가 아니라 -strong을 쓴다(디자인시스템 §8). -text는 흰 배경
    기준값이라 컨트롤 면에서 3.99:1로 떨어진다 */
+.presetMeta > span,
+.presetLabel {
+  white-space: nowrap;
+}
 .presetBias[data-dir="up"] {
   color: var(--color-up-strong);
 }
@@ -1942,42 +2159,10 @@
 }
 .presetClamp {
   padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-xs);
   font-size: var(--font-micro-size);
   color: var(--color-warning-text);
   background: var(--color-warning-bg);
-}
-
-/* 정상 상태 표기. 필을 세우지 않고 점만 초록, 글자는 잉크로 적는다(§12-3, ui.tsx HealthPill).
-   상태어는 판독 대상이라 micro가 아니라 caption 잉크다(§12-2) */
-.healthInk {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-default);
-}
-/* 점은 그래픽이라 3:1 기준이다(흰 면 4.27:1) */
-.healthDot {
-  color: var(--color-success);
-}
-/* 중지(꺼짐)는 판정이 아니라 무채다. 형태 ○가 상태를 싣는다 */
-.healthInk[data-off] {
-  color: var(--text-secondary);
-}
-
-/* 빈 상태가 늘어난 카드 안에서 세로 중앙에 선다. stretchCard는 왼쪽 열 높이를 흡수하려고
-   늘어나는데, 그 안의 빈 상태가 위에 붙어 있으면 아래 여백만 길어져 비어 있는 것이 아니라
-   잘린 것처럼 보인다(고객 평면 목록과 같은 규약) */
-.stretchCard :global(.panel-body) {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.stretchCard :global(.empty-state) {
-  flex: 1;
-  min-height: 0;
 }
 
 /* ===== 회원 운영 ===== */
@@ -2045,24 +2230,6 @@
   text-overflow: ellipsis;
 }
 
-/* 판정 범위 표기. 표는 창이고 판정은 전체라 그 구분을 헤더가 말한다 */
-.verdictScope {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  font-weight: var(--font-caption-weight);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-/* 표 셀 말줄임. 재생 창 식별자는 seq 자릿수에 따라 길어지는데 .cell에 overflow 처리가
-   없어 하이픈 뒤에서 줄바꿈이 나 행 높이가 무너진다. 원문은 title이 보존한다 */
-.cellEllipsis {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* ===== 용량 콘솔(ADR 0015) =====
    노드 카드는 .nodeCard 를 그대로 쓴다. 여기 있는 것은 그 격자와 권고 줄, 그리고
    계약과 관측을 나란히 싣는 정의 목록이다. */
@@ -2081,23 +2248,33 @@
   border-radius: var(--panel-radius);
   background: var(--surface-default);
 }
-/* 등급을 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 등급마다 달라진다 */
+/* 등급은 왼쪽 띠가 아니라 판정어의 형태 기호와 글자 색이 싣는다(§12-14 왼쪽 2px 선은 선택 표시 하나).
+   주의·장애 권고만 틀 테두리를 상태색으로 올린다 */
 .capacityAdvice[data-health="warning"] {
-  box-shadow: inset 3px 0 0 var(--color-warning-text);
+  border-color: var(--color-warning-text);
 }
 .capacityAdvice[data-health="danger"] {
-  box-shadow: inset 3px 0 0 var(--color-danger);
-}
-.capacityAdvice[data-health="success"] {
-  box-shadow: inset 3px 0 0 var(--color-success-text);
+  border-color: var(--color-danger);
 }
 /* 권고 헤드라인은 이 화면의 결론이라 가장 작은 글자로 두지 않는다(§12-2 판정어 14/600).
    문구는 서버 응답 본문 그대로이고 크기와 무게만 올린다 */
-.capacityAdvice .healthInk,
-.capacityAdvice :global(.status-pill) {
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);
   font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.verdict[data-tone="success"] > svg {
+  color: var(--color-success);
+}
+.verdict[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.verdict[data-tone="danger"] {
+  color: var(--color-danger);
 }
 .capacityNote {
   margin: var(--space-3) 0 0;
@@ -2106,12 +2283,11 @@
   line-height: var(--font-body-line);
 }
 /* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1) */
+/* 노드의 제약 표지(증설 불가, 계약 밖). 모양은 무채 상태 칩(§12-14)이고 여기서는 앞 글과의 간격만 준다 */
 .capacityTag {
+  display: inline-flex;
   margin-left: var(--space-2);
-  padding: 0 var(--space-2);
-  border-radius: var(--control-radius);
-  background: var(--surface-sunken);
-  color: var(--text-default);
+  vertical-align: middle;
 }
 .capacityTable {
   width: 100%;
@@ -2127,8 +2303,10 @@
 }
 /* 열 머리는 무엇을 읽는지 알려 주는 정보라 tertiary(장식·비활성 전용)를 쓸 수 없다 */
 .capacityTable thead th {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
   color: var(--text-secondary);
-  font-weight: 500;
 }
 .capacityTable tbody th {
   color: var(--text-strong);
@@ -2171,15 +2349,6 @@
 }
 .nodeStripRow:last-child {
   border-bottom: 0;
-}
-/* 리더 좌측 레일. 유채 fill이 아니라 크롬 악센트 선이다(§5-1 fill 금지) */
-.nodeStripRow[data-leader]::before {
-  content: "";
-  position: absolute;
-  inset: var(--space-1) auto var(--space-1) 0;
-  width: 2px;
-  border-radius: var(--radius-full);
-  background: var(--chrome-accent);
 }
 .nodeStripId {
   display: flex;
@@ -2230,35 +2399,96 @@
   color: var(--text-secondary);
 }
 
-/* 평면 전환 링크. 내비 목록 바깥 바닥에 두어 "화면 하나"로 읽히지 않게 한다.
+/* 바닥 줄. 설정과 평면 전환 링크를 한 줄에 나란히 두고 세로 헤어라인으로 가른다.
    가로 음수 여백으로 사이드바 패딩을 상쇄해 구분선이 면 끝까지 닿는다 */
+.dockLinks {
+  display: flex;
+  margin: 0 calc(var(--space-4) * -1);
+  border-top: 1px solid var(--border-subtle);
+}
 .navCross {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
   /* 캡션 한 줄에 패딩을 더하면 43px이라 탭 타깃(§10-2)에 1px 모자란다. 높이를 직접 보장한다 */
   min-height: 44px;
-  margin: auto calc(var(--space-4) * -1) 0;
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+  padding: 0 var(--space-4);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
   text-decoration: none;
 }
+.navCross + .navCross {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
 .navCross:hover {
   background: var(--surface-hover);
   color: var(--text-default);
 }
+.navCross[data-active] {
+  color: var(--chrome-accent);
+  background: var(--surface-sunken);
+}
 .navCrossIcon {
+  display: inline-flex;
   flex-shrink: 0;
 }
+.sidebar[data-collapsed] .dockLinks {
+  flex-direction: column;
+  margin-left: calc(var(--space-3) * -1);
+  margin-right: calc(var(--space-3) * -1);
+}
 .sidebar[data-collapsed] .navCross {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar[data-collapsed] .navCross + .navCross {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+/* 사이드바 바닥의 사용자 카드. 바닥 줄 바로 아래 헤어라인으로 붙이고 사이드바 바닥까지 채운다 */
+.sessionCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  margin: calc(var(--space-3) * -1) calc(var(--space-4) * -1) 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.sessionCardText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sessionCardName {
+  font-size: var(--font-caption-size);
+  line-height: 17px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessionCardMeta {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar[data-collapsed] .sessionCard {
   justify-content: center;
   margin-left: calc(var(--space-3) * -1);
   margin-right: calc(var(--space-3) * -1);
   padding-left: 0;
   padding-right: 0;
+}
+.sidebar[data-collapsed] .sessionCardText {
+  display: none;
 }
 
 /* ===== 백오피스 진입점(/admin/back) =====
@@ -2301,45 +2531,34 @@
   white-space: nowrap;
 }
 
-/* ===== 최종 실측 도장(전 관리 화면 머리) =====
-   manual 갱신 화면이 값의 나이를 말하는 자리. 시각은 판독이고 버튼은 조작이라
-   같은 줄에 두되 무게를 가른다 */
+/* ===== 마지막 조회(수동 갱신 관리 화면 머리, §12-14 v1.14) =====
+   관제센터 머리의 수집 상태와 같은 판독 한 줄과 중립 단추다. 판독은 13px 중간 굵기, 모양 기호는 잉크 무채(수동으로
+   읽은 값이라 실시간의 초록을 쓰지 않는다), 지연이면 주의 잉크, 조회 전이면 점선 원이다 */
 .stamp {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
-.stampTime {
+.stampText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
-  color: var(--text-secondary);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
   white-space: nowrap;
 }
+.stampShape {
+  color: var(--text-secondary);
+}
+.stampText[data-kind="stale"],
+.stampText[data-kind="stale"] .stampShape {
+  color: var(--color-warning-text);
+}
+/* 단추는 머리의 다른 조작(neutralBtn)과 같은 규격이고 아이콘과 낱말 사이만 준다 */
 .stampBtn {
-  position: relative;
-  min-height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--control-radius);
-  background: var(--surface-control);
-  color: var(--text-default);
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  cursor: pointer;
-}
-.stampBtn:hover {
-  background: var(--surface-control-hover);
-}
-/* 시각 높이 32에 히트 44를 투명 확장으로 얹는다(§10-2). inset으로 위아래를 벌리면 기준이
-   테두리 안쪽(padding box 30px)이라 42px에 그친다. 높이를 직접 준다 */
-.stampBtn::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 44px;
-  transform: translateY(-50%);
+  gap: 6px;
 }
 
 /* ===== 관측 딥링크·원천 표기 =====
@@ -2481,267 +2700,8 @@
   grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
 }
 
-/* ===== 시연 화면 =====
-   대본 레일이 위, 단계 기둥이 아래다. 레일은 고르는 자리라 가볍게 두고
-   단계는 읽는 자리라 무게를 준다. 단계를 카드 격자로 놓지 않는 이유는 순서가
-   있는 것이기 때문이다. 왼쪽 번호 기둥이 순서를 말한다. */
-/* 바깥 여백은 page 래퍼의 세로 리듬이 준다. 여기서 또 주면 이 줄만 간격이 두 배가 된다 */
-.drillRail {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-.drillTab {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-height: 88px;
-  padding: var(--space-3);
-  text-align: left;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
-  background: var(--surface-default);
-  cursor: pointer;
-}
-.drillTab:hover {
-  background: var(--surface-control-hover);
-}
-/* 선택은 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 상태마다 달라진다.
-   surface-control을 깔았을 때 라이트에서 secondary 설명·단계 수가 3.93:1로 떨어졌다 */
-.drillTab[data-active] {
-  box-shadow: inset 3px 0 0 var(--text-strong);
-}
-.drillTabTitle {
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-}
-.drillTabLead {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
-.drillTabMeta {
-  margin-top: auto;
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  color: var(--text-secondary);
-}
-
-/* 증명하려는 것과 주행 조작을 한 줄에 마주 세운다. 왼쪽은 읽는 것, 오른쪽은 누르는 것 */
-.drillLead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--surface-seam);
-  margin-bottom: var(--space-3);
-}
-.drillRunBar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-}
-.drillProgress {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  font-size: var(--font-title-3-size);
-  line-height: var(--font-title-3-line);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-  white-space: nowrap;
-}
-.drillProgressNote {
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-regular);
-  color: var(--text-secondary);
-}
-
-.drillClaim {
-  margin: 0;
-  max-width: 68ch;
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  color: var(--text-default);
-}
-/* 사전 조건은 단계가 아니다. 번호 기둥 밖에 눕혀 둔다 */
-.drillPrep {
-  display: flex;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--panel-radius);
-  background: var(--surface-sunken);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-default);
-}
-/* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1).
-   본문과 같은 잉크지만 micro 크기와 고정 칼럼이 라벨임을 가른다 */
-.drillPrepLabel {
-  flex: none;
-  font-size: var(--font-micro-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-default);
-  white-space: nowrap;
-}
-.drillPrep ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.drillPrep li + li {
-  margin-top: var(--space-1);
-}
-/* 명령 칩은 히트를 위아래 6px씩 넓힌다. 칩 줄 둘이 4px로 붙으면 두 히트가 8px 겹쳐
-   아래 칩이 위 칩의 가장자리를 가져간다(§10-2 겹침 금지). 칩 줄끼리만 12px를 둔다 */
-.drillPrepCmd + .drillPrepCmd {
-  margin-top: var(--space-3);
-}
-.drillNote {
-  margin: 0 0 var(--space-4);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
-
-/* 단계 기둥. 헤어라인으로만 나누고 카드 테두리를 두르지 않는다(정숙 계기) */
-.drillSteps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.drillStep {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: var(--space-3);
-  /* 왼쪽 여백을 모든 줄에 같이 준다. 현재 줄에만 주면 그 줄의 번호 기둥이 12px 밀려
-     세로로 이어지던 기둥이 한 칸에서 꺾인다 */
-  padding: var(--space-3) 0 var(--space-3) var(--space-3);
-  border-top: 1px solid var(--surface-seam);
-}
-.drillStep:first-child {
-  border-top: 0;
-}
-/* 지금 볼 단계만 한 단 들어 올린다. 나머지는 눕혀 둔다 */
-.drillStep[data-current] {
-  box-shadow: inset 2px 0 0 var(--text-strong);
-}
-.drillStep[data-state="BLOCKED"] .drillValue {
-  color: var(--text-secondary);
-}
-.drillIndex {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--surface-sunken);
-  font-size: var(--font-micro-size);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-}
-.drillStep[data-state="MET"] .drillIndex {
-  color: var(--color-success-text);
-}
-.drillStep[data-current] .drillIndex {
-  background: var(--surface-control);
-  color: var(--text-strong);
-}
-/* 판정하지 않는 줄은 한 단 물린다. 읽을 수는 있고 주장하지는 않는다는 신호다.
-   opacity로 줄 전체를 흐리지 않는다(§12-6). 제목만 secondary로 낮추고 번호 원을 점선으로
-   비우며, 상태어 앞의 ○가 뜻을 싣는다. 설명과 판독값은 제 잉크 그대로다 */
-.drillStep[data-state="NO_SOURCE"] .drillTitle,
-.drillStep[data-state="BLOCKED"] .drillTitle {
-  color: var(--text-secondary);
-}
-.drillStep[data-state="NO_SOURCE"] .drillIndex,
-.drillStep[data-state="BLOCKED"] .drillIndex {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
-}
-.drillBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.drillHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-/* 패널 안 항목 제목(§12-2). 패널 제목(14/600 strong)보다 크거나 진하게 두지 않는다 */
-.drillTitle {
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  font-weight: var(--fw-semibold);
-  color: var(--text-default);
-}
-/* 판독값과 상태어를 오른쪽에 모은다. 줄마다 같은 자리라 값끼리 한 열로 읽힌다 */
-.drillMeasure {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex: none;
-  text-align: right;
-}
-.drillValue {
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  color: var(--text-strong);
-}
-.drillState {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  min-width: 56px;
-  justify-content: flex-end;
-  white-space: nowrap;
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
-.drillState[data-tone="success"] {
-  color: var(--color-success-text);
-}
-.drillState[data-tone="warning"] {
-  color: var(--color-warning-text);
-}
-.drillDetail {
-  margin: 0;
-  max-width: 88ch;
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
-/* 기록은 지금 값이 아니라 이번 주행의 흔적이라 한 단 낮춘다 */
-.drillStamp {
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  color: var(--text-secondary);
-}
-.drillActions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-}
-/* 단계의 추이 링크가 혼자 한 줄을 차지하면 줄이 18px이다. 44px 히트가 단계 아래 여백(12px)을
-   1px 넘고, 그 자리를 다음 단계가 덮는다. 링크 상자를 칩 높이로 세워 히트가 제 단계 안에
-   머물게 한다 */
-.drillActions .boardLink {
-  min-height: 32px;
-}
-/* 호스트 명령. 버튼처럼 보이지 않게 둔다. 누르면 복사만 되고 실행되지 않는다 */
-.drillCommand {
+/* 호스트 명령 칩. 버튼처럼 보이지 않게 둔다. 누르면 복사만 되고 실행되지 않는다 */
+.commandChip {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -2754,7 +2714,7 @@
   cursor: pointer;
 }
 /* 칩은 줄 안에 얹혀 시각 높이 32px를 넘기지 않는다. 히트만 44px로 넓힌다(§10-2) */
-.drillCommand::after {
+.commandChip::after {
   content: "";
   position: absolute;
   left: 0;
@@ -2763,11 +2723,11 @@
   height: 44px;
   transform: translateY(-50%);
 }
-.drillCommand:hover {
+.commandChip:hover {
   background: var(--surface-control);
 }
 /* 사람이 옮겨 칠 문자열이라 l/1·O/0 판독에 12px이 하한이다(§12-2). 칩 높이 32px 안에 든다 */
-.drillCommand code {
+.commandChip code {
   font-family: var(--font-mono);
   font-size: var(--font-dense-size);
   line-height: var(--font-dense-line);
@@ -2777,32 +2737,10 @@
   text-overflow: ellipsis;
 }
 /* sunken 면에서 secondary는 4.27:1이라 미달이다. default 11.11:1 */
-.drillCopy {
+.commandCopy {
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   color: var(--text-default);
-}
-
-@media (max-width: 1080px) {
-  .drillRail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .drillLead {
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  /* 좁은 폭에서는 판독을 제목 아래로 내린다. 한 줄에 넣으면 제목이 두 글자씩 끊긴다 */
-  .drillHead {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-  .drillMeasure {
-    text-align: left;
-  }
-  .drillState {
-    min-width: 0;
-  }
 }
 
 /* 원장의 받은 범위를 적는 자리. 계기가 아니라 고지라 무채로 눕힌다 */
@@ -2811,12 +2749,4 @@
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
-}
-
-/* 사전 조건의 명령 칩. 줄 안에 얹히므로 한 줄 높이를 넘기지 않는다 */
-.drillPrep li {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }

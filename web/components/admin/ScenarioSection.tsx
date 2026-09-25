@@ -62,9 +62,9 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
         onClick={() => void activate(def)}
       >
         <span className={styles.presetLabel}>{def.label}</span>
+        {/* 칸이 좁으면 방향 값이 통째로 다음 줄로 내려간다. 가운뎃점은 앞 토막에 붙어 줄 머리에 서지 않는다(§12-12) */}
         <span className={styles.presetMeta}>
-          <span>OPS {multLabel(def.opsMult)}</span>
-          <span aria-hidden="true">·</span>
+          <span>OPS {multLabel(def.opsMult)}{"\u00a0"}·</span>
           <span className={styles.presetBias} data-dir={bias.dir}>
             {bias.text}
           </span>
@@ -78,13 +78,16 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
 
   return (
     <PanelCard title="국면 프리셋" actions={<span className={styles.panelMeta}>승인 불요 · 전량 감사</span>}>
-      {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
-      <div className={styles.controlRow}>
-        {calm.map(tile)}
-        {/* 균형 제어를 끄는 두 국면은 스스로 되돌아오지 않는다. 정지 버튼과 같은 규약으로
-            거리를 둬 완만한 국면을 겨냥하다 폭주로 빗나가는 것을 막는다 */}
-        <span className={styles.controlSep} aria-hidden="true" />
-        {surge.map(tile)}
+      {!canOps && <PermissionNote>봇 제어 권한이 없거나 플릿 상태를 읽지 못해 조작을 막았습니다</PermissionNote>}
+      {/* 같은 크기의 세 열 격자다(레이아웃 §7 v1.7). 균형 제어를 끄는 급변 국면은 스스로 되돌아오지 않아 아래 줄로
+          떼고 이름표를 달아, 완만한 국면을 겨냥하다 폭주로 빗나가는 것을 막는다 */}
+      <div className={styles.presetGroup}>
+        <span className={styles.presetGroupLabel}>완만 · 균형 제어 켬</span>
+        <div className={styles.presetGrid}>{calm.map(tile)}</div>
+      </div>
+      <div className={styles.presetGroup}>
+        <span className={styles.presetGroupLabel}>급변 · 균형 제어 끔</span>
+        <div className={styles.presetGrid}>{surge.map(tile)}</div>
       </div>
       {last && (
         <div className={styles.presetReadout}>

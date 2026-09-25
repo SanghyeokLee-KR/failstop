@@ -16,6 +16,7 @@
 
 import { HEALTH_ICON } from "@/components/admin/ui";
 import type { FlowEvent, Health } from "@/lib/admin/flowSim";
+import { hms } from "@/lib/admin/timeText";
 import styles from "./flow.module.css";
 
 /** 눈에 보이는 목록의 길이 */
@@ -26,12 +27,9 @@ const MAX_TABLE_ROWS = 50;
 /** 형태 기호는 aria-hidden 이라 판정은 이 말로 읽힌다 */
 export const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/** 벽시계 초를 이 기기의 시각 HH:MM:SS 로 적는다 */
+/** 벽시계 초를 KST HH:MM:SS 로 적는다(디자인 시스템 §12-12) */
 export function clock(sec: number): string {
-  const d = new Date(sec * 1000);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return hms(new Date(sec * 1000).toISOString());
 }
 
 export interface EventLogProps {

@@ -76,7 +76,11 @@ export type DestructiveAction =
   | "operators.create"
   | "operators.status"
   | "operators.roles"
-  | "members.close";
+  | "members.close"
+  // 관제센터 세 액션은 API §3-6에 아직 없다. 서버 계약 초안(관리자 설계 4-4)이고 sim만 실행한다
+  | "ops.threshold.set"
+  | "ops.ai.auto"
+  | "ops.ai.limits";
 
 /**
  * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 원장 최초 상태가 ISSUED이고
@@ -92,7 +96,32 @@ export type ApprovalPayload =
   | { action: "operators.create"; operatorId: string; displayName: string }
   | { action: "operators.status"; operatorId: string; status: OperatorStatus }
   | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole }
-  | { action: "members.close"; externalId: string; email: string };
+  | { action: "members.close"; externalId: string; email: string }
+  | {
+      action: "ops.threshold.set";
+      key: ThresholdKey;
+      label: string;
+      unit: ThresholdUnit;
+      from: number;
+      to: number;
+      reason: string;
+      /** 되돌리기면 되돌리는 변경의 id. 이력이 어떤 변경을 되돌린 것인지 잇는다 */
+      revertOf: string | null;
+      /** AI 조치안을 승인한 변경이면 그 조치안 id */
+      proposalId: string | null;
+    }
+  | { action: "ops.ai.auto"; hours: number; reason: string }
+  | {
+      action: "ops.ai.limits";
+      key: AiLimitKey;
+      label: string;
+      unit: string;
+      from: number;
+      to: number;
+      reason: string;
+      /** 되돌리기면 되돌리는 변경의 id */
+      revertOf: string | null;
+    };
 
 /**
  * 승인 원장 프로젝션(GET /admin/v1/approvals). token과 payload는 응답에 없어 여기에도 없다.
@@ -183,6 +212,11 @@ export interface CapacityNode {
   /** 누적 요청 수. 초당 값은 화면이 두 표본의 차로 낸다 */
   httpRequests: number | null;
   wsClients: number | null;
+  /**
+   * 기동 중(PENDING)이거나 내리는 중(DRAINING)인 app-3. sim이 관제 시뮬레이터의 앱 계층에서 옮겨 온다.
+   * 서버 응답에는 이 축이 없어 비어 있고, 그때 화면은 계약(expected)과 응답(reachable)만으로 읽는다
+   */
+  lifecycle?: "PENDING" | "DRAINING" | null;
 }
 
 export type CapacityAdviceLevel = "ok" | "info" | "warn" | "danger";
@@ -638,5 +672,765 @@ export interface AdminOverview {
   currentOps: number | null;
   pendingApprovals: number;
   suspendedMarkets: number;
+  /** 누적 체결 수. 초당 체결은 화면이 두 표본의 차로 낸다 */
+  tradesTotal: number;
+  /** 리더가 맡은 마켓 파티션 수. 서버 status가 노드별 마켓을 내지 않으면 미보고(null)다 */
+  marketPartitions: number | null;
   generatedAt: string;
+}
+
+/* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+ *
+ * 관제 데이터는 칸마다 원천이 다르고 원천이 붙는 시점도 다르다. 그래서 칸마다 준비됨과
+ * 원천 연결 전을 갈라 싣는다. 연결 전을 빈 배열이나 0으로 채우면 화면이 정상을 단정한다(ADR 0027). */
+
+/** 값의 출처. SIM은 브라우저 시뮬레이터, LIVE는 관측 원천의 실측이다 */
+export type OpsOrigin = "SIM" | "LIVE";
+
+/** 배포 환경. 서버 설정이 원천이다(2단계). 모르면 UNKNOWN이고 화면이 짐작하지 않는다 */
+export type OpsEnvironment = "SIMULATOR" | "LOCAL_DOCKER" | "SCHOOL_AWS" | "PERSONAL_AWS" | "UNKNOWN";
+
+/** 칸 하나. 원천을 붙이기 전이면 값 대신 붙일 원천의 이름을 싣는다 */
+export type OpsSection<T> = { state: "READY"; data: T } | { state: "NOT_CONNECTED"; source: string };
+
+/** 서비스 목표. 상태 요약 칸이 벗어났는지를 이 값과 견준다 */
+export interface OpsSlo {
+  availabilityPct: number;
+  p95Ms: number;
+  errorRatePct: number;
+}
+
+export interface OpsSummary {
+  /** 외부 프로브 성공률(최근 5분) */
+  availabilityPct: number | null;
+  p95Ms: number | null;
+  errorRatePct: number | null;
+  slo: OpsSlo;
+}
+
+export type OpsHostRole = "APP" | "DB_PRIMARY" | "DB_STANDBY" | "BOT_OBS";
+/** 수집 상태. 마지막 수집이 폴링 두 주기를 넘기면 STALE, 받은 적이 없으면 MISSING */
+export type OpsCollect = "OK" | "STALE" | "MISSING";
+
+/** 매칭 노드가 맡은 마켓 묶음(ADR 0034 마켓별 리더). 노드가 멈추면 다른 매칭 노드가 넘겨받는다 */
+export interface OpsPartition {
+  id: string;
+  markets: string[];
+}
+
+export interface OpsHost {
+  id: string;
+  role: OpsHostRole;
+  instanceType: string;
+  az: string;
+  collect: OpsCollect;
+  collectedAt: string | null;
+  cpuPct: number | null;
+  memPct: number | null;
+  diskUsedPct: number | null;
+  /** t3 버스트 크레딧 잔량 */
+  cpuCredits: number | null;
+  /** 매칭 노드만 있다 */
+  partition: OpsPartition | null;
+}
+
+/**
+ * 온프레미스 AI 추론 서버(ADR 0038). 구축 전이라 sim 값이거나 원천 연결 전이다.
+ * EC2 호스트와 재는 것이 달라 호스트 목록에 넣지 않는다.
+ */
+export interface AiServer {
+  id: string;
+  hardware: string;
+  runtime: string;
+  /** 적재 모델. 모델은 평가로 정하므로 sim은 실제 모델 이름을 적지 않는다 */
+  model: string;
+  collectedAt: string | null;
+  gpuPct: number | null;
+  memUsedGb: number | null;
+  memTotalGb: number;
+  /** 최근 판단 요청의 추론 지연. 요청이 없었으면 null */
+  p50Ms: number | null;
+  p95Ms: number | null;
+  /** 마지막 판단 요청 한 건의 추론 지연. 서비스 흐름의 ai-1 카드가 응답 순간에 적는다. 요청이 없었으면 null */
+  lastMs: number | null;
+  tokensPerSec: number | null;
+  /** 대기 중인 판단 요청 수 */
+  queue: number | null;
+  /** 관제 서버와의 연결 */
+  link: "OK" | "DOWN";
+  /** 구축 전이라 연결과 값이 시뮬레이터의 가정인가. 화면은 '시뮬레이션 가정'을 함께 적는다 */
+  assumed: boolean;
+  /** 지금 판단 요청을 처리하는 중인가 */
+  busy: boolean;
+  /** 마지막으로 끝낸 판단 요청의 순번. 화면이 요청·응답이 오간 순간을 알아챈다 */
+  served: number;
+  /** 마지막으로 판단 요청에 답한 시각. 답한 적이 없으면 null */
+  lastServedAt: string | null;
+}
+
+/** 마켓 파티션 하나의 매칭 리더(ADR 0034). 세대는 파티션마다 따로 오른다 */
+export interface OpsLeader {
+  partition: string;
+  node: string;
+  epoch: number;
+  markets: string[];
+}
+
+/**
+ * 거래 칸. 매칭 리더와 시장 봇 발행률, 초당 체결이다. 관제센터의 거래 요약 띠, 봇 플릿, 서비스 흐름이 같은
+ * 값을 읽는다. 목표 발행률은 운영자·AI가 정한 값이고 지금 발행률은 봇이 실제로 내는 값이다(정지면 0)
+ */
+export interface OpsTrading {
+  leaders: OpsLeader[];
+  botTargetOps: number;
+  botOps: number;
+  tradesPerSec: number;
+}
+
+/** 상태 요약 추세선의 범위(시간) */
+export type TrendRange = 1 | 6 | 24;
+export type TrendMetric = "availability" | "p95" | "errors" | "alerts" | "incidents";
+
+/**
+ * 상태 요약 칸 하나의 추세. points는 오래된 것부터 같은 간격이고 값이 없으면 null이다.
+ * current와 previous는 지금 구간과 바로 앞 같은 길이 구간의 대표값이다. 비율·지연은 평균,
+ * 경보는 발생 수, 사건은 연 수다.
+ */
+export interface OpsTrendSeries {
+  points: (number | null)[];
+  current: number | null;
+  previous: number | null;
+}
+
+export type OpsTrends = Record<TrendRange, Record<TrendMetric, OpsTrendSeries>>;
+
+export type ReadNodeState = "IN_SERVICE" | "PENDING" | "DRAINING" | "OFF";
+
+/** 자동 증설 자리의 노드(app-3) */
+export interface ReadNode {
+  id: string;
+  state: ReadNodeState;
+  cpuPct: number | null;
+  instanceType: string;
+  az: string;
+}
+
+/**
+ * 앱 계층(ADR 0030, 사용자 정정 2026-09-25). app-1·app-2는 늘 켜진 매칭 리더이면서 조회도 받는 고정 노드이고, 부하가
+ * 오르면 조회 전용 app-3가 Auto Scaling으로 켜진다(0~1대). 대수는 앱 계층 전체로 센다(최소 2 · 최대 3). 매칭 리더와
+ * DB는 ASG가 관리하지 않으므로 nodes에는 자동으로 켜고 끄는 app-3만 있다. 이름은 조회를 나누는 계층이라는 뜻으로 둔다
+ */
+export interface ReadTier {
+  /** 앱 계층 최소·최대 대수(2·3) */
+  min: number;
+  max: number;
+  /** 앱 계층 희망 대수. 3이면 app-3가 켜져 있거나 켜지는 중이다 */
+  desired: number;
+  /** 늘 켜진 앱 노드(app-1·app-2). ASG 밖이다 */
+  fixed: string[];
+  /** 지금 조회를 받는 앱 노드 수(고정 두 대와 켜진 app-3) */
+  serving: number;
+  /** Auto Scaling이 켜고 끄는 자리(app-3) */
+  nodes: ReadNode[];
+  /** 조회를 받는 앱 노드의 평균 CPU. 받는 노드가 없으면 null */
+  avgCpuPct: number | null;
+}
+
+export type ReplicationStream = "STREAMING" | "CATCHUP" | "STOPPED";
+
+/** DB 복제. 비동기라 지연 동안 쓰인 기록은 Primary를 잃으면 함께 잃을 수 있다(ADR 0024) */
+export interface Replication {
+  primary: string;
+  standby: string;
+  stream: ReplicationStream;
+  lagBytes: number | null;
+  lagSec: number | null;
+}
+
+export type AlertSeverity = "critical" | "warning" | "info";
+export type AlertState = "FIRING" | "ACKED" | "SILENCED";
+
+/** 화면에서 강조할 자리. 근거 칩과 경보가 무엇을 가리키는지 적는다 */
+export type OpsRef =
+  | { kind: "HOST"; id: string }
+  | { kind: "READ_TIER" }
+  | { kind: "REPLICATION" }
+  | { kind: "BACKUP" }
+  | { kind: "SLO"; metric: "availability" | "p95" | "errors" }
+  | { kind: "ALERT"; id: string };
+
+export interface OpsAlert {
+  id: string;
+  name: string;
+  severity: AlertSeverity;
+  target: string;
+  detail: string;
+  since: string;
+  thresholdKey: ThresholdKey | null;
+  ref: OpsRef | null;
+  state: AlertState;
+  ackBy: string | null;
+  ackAt: string | null;
+  silencedUntil: string | null;
+  silencedBy: string | null;
+  /** 이미 한 번 보류했는가. 같은 경보를 잇달아 보류하지 못한다(ADR 0035) */
+  silencedBefore: boolean;
+}
+
+export type IncidentEventKind =
+  | "OPENED"
+  | "AI_JUDGED"
+  | "APPROVED"
+  | "REJECTED"
+  | "DEFERRED"
+  | "ACTED"
+  | "AUTO_ACTED"
+  | "AUTO_REVERTED"
+  | "REVERTED"
+  | "MODE"
+  | "NOTIFIED"
+  | "ACKED"
+  | "SILENCED"
+  | "RESOLVED";
+
+export type OpsActor = "SYSTEM" | "AI" | "OPERATOR";
+
+/** 기록 한 줄. 사건에 속하지 않는 조치(모드 전환, 경보 없는 축소 등)는 incidentId가 null이다 */
+export interface IncidentEvent {
+  id: string;
+  at: string;
+  kind: IncidentEventKind;
+  actor: OpsActor;
+  actorName: string;
+  text: string;
+  incidentId: string | null;
+}
+
+export interface Incident {
+  id: string;
+  title: string;
+  severity: AlertSeverity;
+  openedAt: string;
+  resolvedAt: string | null;
+}
+
+/** 최신이 앞이다 */
+export interface IncidentLog {
+  incidents: Incident[];
+  events: IncidentEvent[];
+}
+
+/** Databasus 백업 결과. 관제센터는 판독만 하고 백업 설정을 바꾸지 않는다 */
+export type JobOutcome = "SUCCESS" | "FAILED" | "NONE";
+
+export interface OpsBackup {
+  tool: "Databasus";
+  lastSuccessAt: string | null;
+  lastSizeBytes: number | null;
+  running: boolean;
+  offsite: { target: "SFTP" | "S3"; outcome: JobOutcome; at: string | null };
+  restoreCheck: { outcome: JobOutcome; lastSuccessAt: string | null; lastFailureAt: string | null };
+  nextAt: string | null;
+  /** 오늘 운영자·AI가 즉시 실행한 횟수. 자동 즉시 실행은 하루 1회다(ADR 0035) */
+  manualRunsToday: number;
+}
+
+export interface OpsJobs {
+  backup: OpsBackup;
+  certificate: { domain: string; expiresAt: string };
+  dailyReport: { hour: number; channel: "Teams"; lastSentAt: string | null };
+}
+
+export type ThresholdKey =
+  | "read.scale_out_cpu"
+  | "read.scale_in_cpu"
+  | "host.cpu_alert"
+  | "host.mem_alert"
+  | "host.disk_free_alert"
+  | "db.replication_lag_alert"
+  | "backup.delay_alert"
+  | "bot.capacity_guard"
+  | "host.cpu_credit_alert";
+
+export type ThresholdUnit = "%" | "초" | "시간" | "크레딧";
+
+export interface OpsThreshold {
+  key: ThresholdKey;
+  label: string;
+  appliesTo: string;
+  unit: ThresholdUnit;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  /** AI가 한 번에 바꿀 수 있는 폭. 운영자 변경에는 걸리지 않는다 */
+  aiMaxStep: number;
+  aiSuggested: number | null;
+  aiReason: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export type ThresholdVia = "MANUAL" | "AI_APPROVED" | "AI_AUTO" | "REVERT";
+
+export interface ThresholdChange {
+  id: string;
+  key: ThresholdKey;
+  label: string;
+  unit: ThresholdUnit;
+  from: number;
+  to: number;
+  at: string;
+  by: string;
+  via: ThresholdVia;
+  approvalId: string | null;
+  reason: string;
+  revertOf: string | null;
+  /** 이 변경을 이미 되돌렸는가 */
+  reverted: boolean;
+}
+
+export interface ThresholdRegistry {
+  items: OpsThreshold[];
+  history: ThresholdChange[];
+}
+
+/** AI 운영 모드(ADR 0035). 수동이 기본이다. STOPPED는 운영자가 AI 즉시 정지를 누른 상태이고 재개하면 수동이다 */
+export type AiMode = "MANUAL" | "AUTO" | "STOPPED";
+
+export interface AiStop {
+  at: string;
+  by: string;
+}
+
+/** 운영자가 1인 승인으로 바꾸는 AI 한도(ADR 0035). AI는 바꿀 수 없다 */
+export type AiLimitKey = "confidencePct" | "autoCap" | "thresholdPerItem" | "botCooldownMin" | "backupDiskFreePct";
+
+export interface AiLimit {
+  key: AiLimitKey;
+  label: string;
+  desc: string;
+  unit: string;
+  value: number;
+  /** 자동 모드 중에 넓히는 쪽으로 바꾼 값. 이번 자동 모드가 끝나면 적용된다 */
+  pending: number | null;
+  /** 코드에 고정한 하드 범위. 이 밖의 값은 입력 단계에서 막는다 */
+  min: number;
+  max: number;
+  /** 값을 올리면 AI가 할 수 있는 일이 줄어드는가 */
+  tighterWhenHigher: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+/** NOW는 곧바로, NEXT_AUTO는 이번 자동 모드가 끝난 뒤(다음 활성부터) 적용한 변경이다 */
+export type AiLimitApply = "NOW" | "NEXT_AUTO";
+
+export interface AiLimitChange {
+  id: string;
+  key: AiLimitKey;
+  label: string;
+  unit: string;
+  from: number;
+  to: number;
+  at: string;
+  by: string;
+  approvalId: string;
+  reason: string;
+  revertOf: string | null;
+  reverted: boolean;
+  apply: AiLimitApply;
+}
+
+export interface AiAutoGrant {
+  since: string;
+  until: string;
+  reason: string;
+  by: string;
+  approvalId: string;
+}
+
+/** 허용 목록 조치 다섯 종. 금지 목록 조치는 이 어휘에 없어 카드가 될 수 없다 */
+export type AiActionKind = "READ_NODES" | "THRESHOLD" | "SILENCE" | "BOT_LOAD" | "BACKUP_NOW";
+export type AiRisk = "LOW" | "MEDIUM";
+export type AiProposalStatus =
+  | "PROPOSED"
+  | "APPROVED"
+  | "REJECTED"
+  | "DEFERRED"
+  | "AUTO_EXECUTED"
+  | "REVERTED"
+  | "AUTO_REVERTED"
+  | "WITHDRAWN"
+  /** AI 즉시 정지로 만료된 조치안. 승인할 수 없다 */
+  | "EXPIRED";
+
+export interface AiEvidence {
+  id: string;
+  label: string;
+  value: string;
+  /** 경보 근거면 그 경보의 심각도. 지표 근거는 null */
+  severity: AlertSeverity | null;
+  ref: OpsRef | null;
+}
+
+export interface AiProposal {
+  id: string;
+  kind: AiActionKind;
+  title: string;
+  target: string;
+  impact: string;
+  risk: AiRisk;
+  revertPlan: string;
+  confidencePct: number;
+  status: AiProposalStatus;
+  createdAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  /** 자동 실행 뒤 되돌릴 수 있는 마감. 관찰 창과 같다 */
+  revertibleUntil: string | null;
+  /** 자동 모드에서 실행하지 않고 기다리는 이유 */
+  autoHold: string | null;
+  /** 처리된 조치안이 실제로 바꾼 것. 되돌린 조치는 되돌린 방향과 이유다. 대기 중이면 null */
+  outcome: string | null;
+  /** 바꾸는 값의 전후(앱 계층 2 → 3대, 임계 60 → 55%). 보류·백업처럼 수로 적을 전후가 없으면 null */
+  change: { from: number; to: number; unit: string } | null;
+  /** 비용이 무엇이 늘고 주는지. 시간당 요금 같은 수치는 적지 않는다 */
+  cost: string;
+  /**
+   * 자동 모드에서 실행할 수 있는 조치인가(ADR 0035, 사용자 확정 2026-09-25). 임계값은 더 민감하게 하는 방향만, 시장 봇
+   * 부하 줄임은 bot-1 CPU가 봇 용량 보호 기준 이상일 때만 자동이다. 아니면 자동 모드에서도 '승인 필요'다
+   */
+  autoAllowed: boolean;
+}
+
+/** 판단 과정의 후보 조치 하나 */
+export interface AiTraceCandidate {
+  id: string;
+  kind: AiActionKind;
+  title: string;
+  confidencePct: number;
+  risk: AiRisk;
+}
+
+/**
+ * 정책 엔진 검사 행(ADR 0035의 자동 실행 조건). PASS는 통과, BLOCK은 자동 실행을 막음, HOLD는 수동 모드라 운영자
+ * 승인을 기다림, NA는 그 후보에 해당하지 않음이다
+ */
+export type AiCheckRule =
+  | "ALLOWED"
+  | "OBSERVE"
+  | "CAP"
+  | "COOLDOWN"
+  | "FRESH"
+  | "CONFIDENCE"
+  | "STREAK"
+  | "STEP"
+  | "PER_ITEM"
+  | "BACKUP_TODAY"
+  | "DIRECTION"
+  | "BOT_GUARD"
+  | "MODE";
+export type AiCheckState = "PASS" | "BLOCK" | "HOLD" | "NA";
+
+export interface AiTraceCheck {
+  rule: AiCheckRule;
+  label: string;
+  /** 후보 순서와 같다 */
+  results: { state: AiCheckState; note: string }[];
+}
+
+/** 판단 한 번의 과정. 판단한 순간의 근거, 가설, 후보와 후보마다의 정책 엔진 검사, 결과다 */
+export interface AiJudgmentTrace {
+  mode: AiMode;
+  evidence: AiEvidence[];
+  evidenceAt: string | null;
+  hypothesis: string | null;
+  candidates: AiTraceCandidate[];
+  checks: AiTraceCheck[];
+  result: string;
+}
+
+export interface AiJudgment {
+  id: string;
+  at: string;
+  summary: string;
+  outcome: string;
+  /** 판단 과정. 판단이 아닌 기록(AI 정지 등)은 null이다 */
+  trace: AiJudgmentTrace | null;
+}
+
+/**
+ * 모드 줄 알림(디자인 시스템 §12-9). 자동 되돌림, AI 정지와 재개, 자동 상한 도달, 유효 시간 만료 뒤 30초 동안
+ * 모드 줄이 그 사건을 한 줄로 적는다. until이 지나면 관제 판이 싣지 않는다
+ */
+export interface AiNotice {
+  kind: "AUTO_REVERTED" | "STOPPED" | "RESUMED" | "AUTO_CAP" | "AUTO_EXPIRED";
+  at: string;
+  until: string;
+  text: string;
+  tone: "warning" | "neutral";
+  /** 사건 기록에서 열 사건. 사건 밖의 일이면 null */
+  incidentId: string | null;
+}
+
+export interface AiCooldown {
+  kind: AiActionKind;
+  until: string;
+}
+
+/** 자동 조치 뒤 관찰 창. 창 안에서 악화하면 자동으로 되돌리고 수동으로 바꾼다 */
+export interface AiObservation {
+  startedAt: string;
+  until: string;
+  action: string;
+}
+
+export interface AiDesk {
+  mode: AiMode;
+  auto: AiAutoGrant | null;
+  thinking: boolean;
+  model: string;
+  judgedAt: string | null;
+  evidenceAt: string | null;
+  situation: string;
+  hypothesis: string | null;
+  confidencePct: number | null;
+  evidence: AiEvidence[];
+  proposals: AiProposal[];
+  history: AiJudgment[];
+  /** 이번 자동 모드에서 실행한 조치 수와 상한. 자동을 새로 켜면 0부터 센다 */
+  autoUsed: number;
+  autoCap: number;
+  stopped: AiStop | null;
+  limits: AiLimit[];
+  limitHistory: AiLimitChange[];
+  cooldowns: AiCooldown[];
+  observation: AiObservation | null;
+  /**
+   * 같은 조치를 지난날 몇 번 실행했고 몇 번 되돌렸는가. 감사 기록에서 센 값이고 열쇠는
+   * aiPolicy.actionKey다. 기록이 없는 조치는 열쇠가 없다
+   */
+  actionStats: Record<string, { runs: number; reverts: number }>;
+  /** 모드 줄 알림. 30초가 지났거나 알릴 일이 없으면 null */
+  notice: AiNotice | null;
+  /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 그중 되돌린 수. 감사 기록에서 센다 */
+  recent: { runs: number; reverts: number };
+}
+
+export type OpsScenarioId = "READ_SURGE" | "NIGHT_SCALE_IN";
+
+export interface OpsScenarioView {
+  id: OpsScenarioId;
+  title: string;
+  startedAt: string;
+  elapsedSec: number;
+}
+
+export interface ControlCenter {
+  /** 칸이 모두 연결 전이면 null이다 */
+  origin: OpsOrigin | null;
+  environment: OpsEnvironment;
+  generatedAt: string;
+  /** 근거 지표를 마지막으로 모은 시각 */
+  collectedAt: string | null;
+  summary: OpsSection<OpsSummary>;
+  hosts: OpsSection<OpsHost[]>;
+  readTier: OpsSection<ReadTier>;
+  replication: OpsSection<Replication>;
+  alerts: OpsSection<OpsAlert[]>;
+  incidents: OpsSection<IncidentLog>;
+  jobs: OpsSection<OpsJobs>;
+  thresholds: OpsSection<ThresholdRegistry>;
+  ai: OpsSection<AiDesk>;
+  aiServer: OpsSection<AiServer>;
+  trading: OpsSection<OpsTrading>;
+  trends: OpsSection<OpsTrends>;
+  /** sim 시나리오 재생. 재생 중이 아니거나 http면 null */
+  scenario: OpsScenarioView | null;
+  /**
+   * 관제 서버가 붙인 원천의 상태(서버 계약 초안의 overview sources). 연동 설정 화면이 읽는다.
+   * 관리 API에 관제 모듈이 없어 모르면 null이다
+   */
+  sources: OpsSourceState[] | null;
+}
+
+export type AiDecision = "APPROVE" | "REJECT" | "DEFER";
+
+/** 담당자와 연락 체계 한 줄. 역할 이름은 보고 서비스의 권고 담당 역할과 같다(intervention.py) */
+export interface OnCallEntry {
+  role: string;
+  person: string;
+  operatorId: string | null;
+  /** 연락 경로 */
+  channel: string;
+  /** 대응 시간 */
+  hours: string;
+}
+
+/** 관제 서버가 부르는 원천. teams는 관제 서버의 통지기이고, 일일·사건 보고의 Teams 전송은 보고 서비스가 한다 */
+export type OpsSourceName = "prometheus" | "alertmanager" | "databasus" | "llm" | "teams";
+
+/** READY는 붙어서 읽힘, NOT_CONNECTED는 설정 없음, UNAVAILABLE은 설정은 있으나 마지막 확인이 실패했다는 뜻이다 */
+export interface OpsSourceState {
+  name: OpsSourceName;
+  state: "READY" | "NOT_CONNECTED" | "UNAVAILABLE";
+  /** 마지막으로 성공한 확인 시각. 모르면 null */
+  checkedAt: string | null;
+  /** 실패 분류 코드(timeout, unreachable 등). READY면 null */
+  reason: string | null;
+}
+
+/* ===== AI 상담(관리자 설계 4-6) =====
+ * 운영자가 대화로 지금 상태를 묻는 칸이다. 조회만 하고 조치를 실행하지 않는다. 서버 계약 초안은
+ * POST /admin/v1/msp/ai/chat이고(요청: 질문과 최근 대화, 응답: 답·근거·수집 시각·모델·상태) 연결 전이다. */
+
+/** 질문 길이 상한(글자). 서버 계약 초안과 같고 입력칸이 남은 글자를 보인다 */
+export const CHAT_MAX_CHARS = 500;
+/** 질문과 함께 보내는 최근 대화 수. 운영자·AI가 세 번 주고받은 만큼이다 */
+export const CHAT_RECENT_TURNS = 6;
+
+export type AiChatRole = "operator" | "ai";
+
+export interface AiChatTurn {
+  role: AiChatRole;
+  text: string;
+}
+
+/** OK는 답이 있음, STOPPED는 AI 정지 중이라 답하지 않음, NOT_CONFIGURED는 상담 모델 설정이 없음 */
+export type AiChatState = "OK" | "STOPPED" | "NOT_CONFIGURED";
+
+export type AiChatEvidenceKind = "METRIC" | "ALERT" | "INCIDENT" | "PROPOSAL" | "THRESHOLD" | "HOST";
+
+/** 답이 근거로 든 항목. id는 관제 판의 항목을 가리키고(예: alert:{id}), 값은 답을 낸 순간의 값이다 */
+export interface AiChatEvidence {
+  id: string;
+  kind: AiChatEvidenceKind;
+  label: string;
+  value: string;
+  /** 경보 근거면 그 경보의 심각도 */
+  severity: AlertSeverity | null;
+}
+
+export interface AiChatReply {
+  state: AiChatState;
+  /** 합니다체 답. state가 OK가 아니면 빈 문자열이다 */
+  answer: string;
+  evidence: AiChatEvidence[];
+  /** 근거를 모은 시각 */
+  collectedAt: string | null;
+  /** 답을 낸 모델. sim은 모델이 아니라 규칙이라 그렇게 적는다 */
+  model: string | null;
+  /** 실행을 요청한 질문이라 실행하지 않고 조치 카드·승인 절차로 안내한 답인가 */
+  declined: boolean;
+  /** 답이 가리키는 절차. 화면은 이 값으로 그 절차가 있는 화면 링크만 보이고 실행 단추는 두지 않는다 */
+  guide: AiChatGuide | null;
+}
+
+/**
+ * 답이 안내하는 운영 절차. app-3 켜기·끄기, 임계값 변경, AI 모드, 경보 보류, 백업 즉시 실행, 대기 조치안의
+ * 승인, 금지 목록(AI가 어느 모드에서도 하지 않는 일)이다
+ */
+export type AiChatGuide = "READ_NODES" | "THRESHOLD" | "MODE" | "SILENCE" | "BACKUP" | "PROPOSAL" | "FORBIDDEN";
+
+/* ===== 운영 보고(관리자 설계 4-7) =====
+ * bot-1 보고 서비스(deploy/reporting)가 만든 일일·사건 보고와 Teams 전송 기록이다. 관제 콘솔은 읽기만
+ * 한다. 표시 모델은 보고 서비스의 공통 표시 모델(presentation.py build_brief)과 개입 판정(intervention.py)의
+ * 필드를 그대로 옮긴 것이다. 서버 계약 초안은 보고 서비스 읽기 프록시(GET /admin/v1/msp/reports)이고
+ * 연결 전이다. */
+
+export type ReportKind = "daily" | "incident";
+
+/** 보고 서비스의 작업 상태(reporter.py jobs.status). sent는 웹훅이 접수했다는 뜻이고 채널 게시의 증거가 아니다 */
+export type ReportJobStatus = "pending" | "processing" | "queued" | "sending" | "sent" | "dead";
+
+/** 개입 판정(intervention.py). P1 즉시 대응, P2 담당자 조치, P3 담당자 확인, P4 관찰 유지 */
+export type InterventionCode = "immediate" | "scheduled" | "verify" | "monitor";
+
+export interface ReportAction {
+  priority: string;
+  owner: string;
+  timing: string;
+  task: string;
+  doneWhen: string;
+}
+
+export interface ReportMetric {
+  label: string;
+  value: string;
+  detail: string;
+  /** observed 관측, attention 기준 초과, unknown 확인 필요(자료 없음·오래됨) */
+  status: "observed" | "attention" | "unknown";
+}
+
+export interface ReportEvent {
+  name: string;
+  /** 진행, 해제, 확인 필요 */
+  statusLabel: string;
+  target: string;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+/** 보고 한 건의 전송 시도(reporter.py job_attempts) */
+export interface ReportAttempt {
+  attempt: number;
+  at: string;
+  status: "sent" | "queued" | "dead";
+  /** 정제한 오류 코드(http_429 등). 성공이면 null */
+  error: string | null;
+}
+
+export interface OpsReport {
+  id: string;
+  kind: ReportKind;
+  createdAt: string;
+  sentAt: string | null;
+  status: ReportJobStatus;
+  title: string;
+  /** 사건 전환(presentation.py status.code). 일일 보고는 unknown이나 mixed일 수 있다 */
+  transition: "firing" | "resolved" | "mixed" | "unknown";
+  intervention: { code: InterventionCode; priority: string; label: string; reason: string };
+  customer: string;
+  environment: string;
+  /** 보고 기준 시각(근거 수집 시각) */
+  collectedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  lead: string;
+  impact: string;
+  currentState: string;
+  events: ReportEvent[];
+  actions: ReportAction[];
+  /** 후속 관측. 카드는 이 가운데 확인 필요가 아닌 넷을 싣는다 */
+  metrics: ReportMetric[];
+  analysis: {
+    /** facts-only는 AI 없이 수집 근거로만 판정, 그 밖은 AI 참고 분석이 붙은 보고다 */
+    mode: "facts-only" | "mock" | "gemini" | "remote";
+    note: string;
+    /** AI 요약. 없으면 빈 문자열이다 */
+    summary: string;
+    model: string | null;
+  };
+  /** 미확인 자료 */
+  gaps: string[];
+  /** 자동 조치 여부. 보고 서비스는 조치하지 않고, AI 자동 모드가 한 일은 그 사실을 적는다 */
+  autoAction: string;
+  /** PDF·HTML 보고서의 서명 주소. 파일이 없거나 서명할 수 없으면 null이다 */
+  links: { pdf: string | null; html: string | null };
+  attempts: ReportAttempt[];
+}
+
+export interface ReportDesk {
+  reports: OpsReport[];
+  delivery: {
+    lastDailySentAt: string | null;
+    /** 아직 보내지 않은 작업 수(pending·processing·queued·sending) */
+    pending: number;
+    /** 다시 보내지 않는 실패 수 */
+    dead: number;
+    nextDailyAt: string | null;
+  };
+  /** Teams 연결 시험(운영 자료를 싣지 않는 모의 전송) 기록. 최신이 앞이다 */
+  tests: ReportAttempt[];
 }

@@ -48,6 +48,14 @@ import type {
   ReportResolution,
   ReportStatus,
   AdminTransferStatus,
+  AiDecision,
+  AiChatReply,
+  AiChatTurn,
+  ControlCenter,
+  OnCallEntry,
+  OpsScenarioId,
+  OpsSection,
+  ReportDesk,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -55,11 +63,14 @@ export class AdminError extends Error {
   readonly code: string;
   /** 429 응답의 Retry-After(초). 폴링 백오프 근거. 없으면 null */
   readonly retryAfter: number | null;
-  constructor(code: string, message: string, retryAfter: number | null = null) {
+  /** 서버가 답한 HTTP 상태. 본문의 오류 이름이 상태와 다를 때(404인데 다른 이름) 상태로 가른다. 서버 응답이 아니면 null */
+  readonly status: number | null;
+  constructor(code: string, message: string, retryAfter: number | null = null, status: number | null = null) {
     super(message);
     this.name = code;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.status = status;
   }
 }
 
@@ -186,6 +197,50 @@ export interface AdminApi {
   getOperators(): Promise<AdminOperator[]>;
   /** 감사 로그 한 쪽. append-only라 영구 누적이다 */
   getAudit(opts?: PageOpts): Promise<AdminPage<AuditEntry>>;
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+   * 원천은 sim뿐이다. http 어댑터는 서버를 부르지 않고 칸마다 원천 연결 전을 돌려주며,
+   * 조작은 source_unavailable로 거절한다. 화면은 그 전에 조작을 막는다 */
+  getControlCenter(): Promise<ControlCenter>;
+  /** 경보 확인. 확인 기록이고 경보를 끄지 않는다 */
+  ackAlert(alertId: string): Promise<void>;
+  /** 경보 보류. 최대 30분, 장애 등급 불가, 같은 경보 연속 불가(ADR 0035) */
+  silenceAlert(alertId: string, minutes: number): Promise<void>;
+  /** AI 조치안 결정. 승인은 실행이고, 임계값 조치안은 1인 승인 티켓(ops.threshold.set)을 발급·소각한다 */
+  decideAiProposal(proposalId: string, decision: AiDecision): Promise<void>;
+  /** 자동 실행된 조치를 되돌리기 창 안에서 되돌린다 */
+  revertAiAction(proposalId: string): Promise<void>;
+  /** 자동 모드 켜기. 사유와 유효 시간을 받아 1인 승인 티켓(ops.ai.auto)을 발급·소각한다 */
+  enableAiAuto(hours: number, reason: string): Promise<void>;
+  /** 자동에서 수동으로. 승인 없이 세션만 있으면 된다 */
+  stopAiAuto(): Promise<void>;
+  /** AI 즉시 정지. 두 모드 어디서든 승인 없이 세션만 있으면 된다 */
+  stopAi(): Promise<void>;
+  /** AI 재개. 사유를 받아 수동으로만 돌린다. 승인 티켓은 없고 SUPER가 한다 */
+  resumeAi(reason: string): Promise<void>;
+  /** Databasus 백업 즉시 실행 */
+  runBackupNow(): Promise<void>;
+  /** 시나리오 재생이 있는 원천인가. sim만 true다 */
+  readonly opsScenarios: boolean;
+  startOpsScenario(id: OpsScenarioId): Promise<void>;
+  /** 관제 시뮬레이션을 처음 상태로 되돌린다 */
+  resetOps(): Promise<void>;
+
+  /* ===== AI 상담(관리자 설계 4-6) =====
+   * 서버 계약 초안은 POST /admin/v1/msp/ai/chat이다. http 어댑터는 그 경로가 생기기 전까지 질문을 보내지 않는다 */
+  /** 상담의 원천. sim은 관제 판을 읽는 규칙 답이고, http는 서버 연결 전이다 */
+  readonly aiChat: "SIM" | "NOT_CONNECTED";
+  /** 관제 상태를 묻는다. 조회만 하고 조치를 실행하지 않는다. recent는 최근 대화(CHAT_RECENT_TURNS개까지)다 */
+  askAi(question: string, recent: AiChatTurn[]): Promise<AiChatReply>;
+
+  /* ===== 운영 보고(관리자 설계 4-7) =====
+   * bot-1 보고 서비스의 보고와 Teams 전송 기록을 읽는다. 서버 계약 초안은 보고 서비스 읽기 프록시
+   * (GET /admin/v1/msp/reports)이고 http 어댑터는 연결 전이다 */
+  getReports(): Promise<OpsSection<ReportDesk>>;
+  /** Teams 연결 시험. 운영 자료를 싣지 않는 모의 메시지 한 건을 밖으로 보낸다 */
+  sendTeamsTest(): Promise<void>;
+  /** 담당자와 연락 체계. sim은 예시, http는 운영자·당번 명부 연결 전이다 */
+  getOnCall(): Promise<OpsSection<OnCallEntry[]>>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

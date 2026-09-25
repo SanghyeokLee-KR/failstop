@@ -650,7 +650,7 @@ export function TierSwatch() {
  * 없고 늘 꺼짐 모양(회색 점선과 화살촉)이다. 같은 경로·촉 함수와 꺼짐 규칙을 써서 구성도의 다른 꺼짐 선과
  * 한 모양으로 읽힌다
  */
-export function ReserveWires({ width, height, paths }: { width: number; height: number; paths: Pt[][] }) {
+export function ReserveWires({ width, height, paths, kind = "off" }: { width: number; height: number; paths: Pt[][]; kind?: "off" | "idle" | "down" }) {
   return (
     <svg
       className={styles.wires}
@@ -661,7 +661,7 @@ export function ReserveWires({ width, height, paths }: { width: number; height: 
       focusable="false"
     >
       {paths.map((pts, i) => (
-        <g key={i} className={styles.conn} data-kind="off" data-tier={0}>
+        <g key={i} className={styles.conn} data-kind={kind} data-tier={0}>
           <path className={styles.wire} d={wirePath(pts)} />
           <path className={styles.arrow} d={arrowPath(pts)} />
         </g>

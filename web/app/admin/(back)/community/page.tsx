@@ -18,9 +18,8 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, Segmented, segmentedTabId, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -44,7 +43,7 @@ const REASON_LABEL: Record<ReportReason, string> = {
   ETC: "기타",
 };
 
-/** 대상 상태는 경보가 아니라 사실이다. 무채 알약으로 적고 색을 쓰지 않는다 */
+/** 대상 상태는 경보가 아니라 사실이다. 무채 상태 칩(§12-14)으로 적고 색을 쓰지 않는다 */
 const TARGET_LABEL: Record<ContentStatus, string> = {
   VISIBLE: "노출 중",
   HIDDEN: "숨김",
@@ -146,14 +145,14 @@ export default function AdminCommunityPage() {
     <div className={styles.page}>
       <PageHeader
         title="커뮤니티 신고"
-        desc="회원 신고 큐. 대상 처리와 신고 종결을 함께 기록"
+        desc="회원 신고 큐입니다. 대상 처리와 신고 종결을 함께 기록합니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
       </div>
 
       <PanelCard title="신고 목록">
@@ -178,7 +177,7 @@ export default function AdminCommunityPage() {
                       <span className={styles.categoryChip}>{REASON_LABEL[row.reason]}</span>
                       <span className={styles.auditNs}>{TYPE_LABEL[row.targetType]}</span>
                       {row.targetStatus && (
-                        <span className={styles.neutralPill}>{TARGET_LABEL[row.targetStatus]}</span>
+                        <StateChip tone="neutral" label={TARGET_LABEL[row.targetStatus]} />
                       )}
                       {row.targetAuthor && <span className={styles.auditNs}>{row.targetAuthor}</span>}
                       <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>

@@ -19,7 +19,7 @@ import RoleBadge from "@/components/admin/RoleBadge";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, StateChip } from "@/components/admin/ui";
 import styles from "@/components/admin/admin.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
@@ -56,7 +56,7 @@ export default function OperatorsPage() {
     <div className={styles.page}>
       <PageHeader
         title="운영자·역할"
-        desc="생성·상태·역할 변경은 1인 승인"
+        desc="운영자 생성과 상태·역할 변경은 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -82,7 +82,7 @@ export default function OperatorsPage() {
                     )}
                   </div>
                   <div className={styles.opStatus}>
-                    {op.status === "ACTIVE" ? <HealthPill health="success" label="활성" /> : <span className={styles.neutralPill}>비활성</span>}
+                    {op.status === "ACTIVE" ? <StateChip tone="success" label="활성" /> : <StateChip tone="off" label="비활성" />}
                   </div>
                   <button
                     type="button"
@@ -112,9 +112,9 @@ export default function OperatorsPage() {
               <span className={styles.opManageLabel}>
                 상태
                 {selected.status === "ACTIVE" ? (
-                  <HealthPill health="success" label="활성" />
+                  <StateChip tone="success" label="활성" />
                 ) : (
-                  <span className={styles.neutralPill}>비활성</span>
+                  <StateChip tone="off" label="비활성" />
                 )}
               </span>
               {selected.status === "ACTIVE" ? (
@@ -158,6 +158,8 @@ export default function OperatorsPage() {
                       <RoleBadge role={r} />
                       <small>{ROLE_DESC[r]}</small>
                     </span>
+                    {/* 보유는 상태라 왼쪽 선이 아니라 칩으로 적는다(왼쪽 2px 선은 '고른 것' 한 뜻, §12-14) */}
+                    {held && <StateChip tone="neutral" shape="circle" label="보유" />}
                     <RequestButton
                       action="operators.roles"
                       payload={{ action: "operators.roles", operatorId: selected.operatorId, grant: held ? "REVOKE" : "GRANT", role: r }}
@@ -241,7 +243,7 @@ export default function OperatorsPage() {
           actions={actions}
           onChange={load}
           emptyLabel="대기 중인 운영자 승인 없음"
-          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행"
+          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
     </div>

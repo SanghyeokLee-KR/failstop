@@ -12,6 +12,9 @@ import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles
 import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
+import { actionKey } from "./aiPolicy";
+import { BASE_BOT_OPS, OpsSim, type OpsActorRef } from "./opsSim";
+import { onBeat } from "./ticker";
 import type {
   AdminPage,
   PageOpts,
@@ -34,7 +37,6 @@ import type {
   DirectionBiasResult,
   FleetScaleResult,
   FleetScaleTargets,
-  HaNode,
   ControlApply,
   HaRecovery,
   HaStatus,
@@ -64,16 +66,23 @@ import type {
   ScenarioName,
   ScenarioResult,
   ScenarioMarketResult,
+  AiActionKind,
+  AiChatReply,
+  AiChatTurn,
+  AiDecision,
+  ControlCenter,
+  OnCallEntry,
+  OpsScenarioId,
+  OpsSection,
+  ReportDesk,
 } from "./types";
-import { FLEET_TYPE_CAP } from "./types";
+import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
 const DEMO_CA = "demo-ca (Exchange Admin Demo Root)";
-/* 시뮬레이터 권고 임계. 계약 기본값을 그대로 쓴다. 실서버는 환경 설정이 정본이고
-   화면은 응답의 thresholds 를 읽으므로 여기 값이 화면 눈금을 정하지 않는다 */
-const SIM_SCALE_OUT_CPU = 0.6;
-const SIM_SCALE_IN_CPU = 0.3;
+/* JVM 힙 상한. t3.small(2GiB)에 앱 하나를 올린 로컬 실측 규모를 따른다 */
+const SIM_HEAP_MAX = 742_000_000;
 
 let seq = 0;
 function uid(prefix: string): string {
@@ -82,6 +91,162 @@ function uid(prefix: string): string {
 }
 function rand(lo: number, hi: number): number {
   return lo + Math.random() * (hi - lo);
+}
+
+function actorOf(s: { operatorId: string; displayName: string }): OpsActorRef {
+  return { id: s.operatorId, name: s.displayName };
+}
+
+/**
+ * 용량 권고. 종류와 순서는 서버(CapacityAdminController)를 따른다. 매칭 노드 응답 없음과 계약·관측 어긋남이 부하보다
+ * 먼저다. 서버와 한 가지가 다르다. 어긋난 창(기동·내림 중)에는 부하 권고를 내지 않는다. 방금 누른 증설이 준비되는
+ * 동안 '조회 부하 높음 · 증설 불가'나 같은 증설 단추를 다시 보이면 이미 한 조치를 또 하라는 말이 된다
+ */
+export function capacityAdvice(
+  plan: { min: number; desired: number; max: number },
+  up: number,
+  avg: number | null,
+  th: { scaleOut: number; scaleIn: number },
+  leadersDown: string[],
+): CapacityAdvice[] {
+  const out: CapacityAdvice[] = [];
+  if (leadersDown.length > 0) {
+    out.push({
+      id: "leader_down", level: "danger", headline: "주문 접수 중단",
+      detail: `주문을 처리하는 매칭 노드 ${leadersDown.join("·")}가 응답하지 않습니다. 그 노드가 맡은 마켓의 주문이 멈추고 조회는 남은 앱 노드가 계속 받습니다. app-3를 켜도 주문은 재개되지 않습니다.`,
+      action: null,
+    });
+  }
+  if (up < plan.desired) {
+    out.push({
+      id: "under_provisioned", level: "warn", headline: "노드 부족",
+      detail: `있어야 할 앱 노드가 ${plan.desired}대인데 ${up}대만 응답합니다. 켠 app-3가 준비 중이거나 한 대가 멈춘 상태입니다.`,
+      action: null,
+    });
+  }
+  if (up > plan.desired) {
+    out.push({
+      id: "over_provisioned", level: "warn", headline: "노드 초과",
+      detail: `있어야 할 앱 노드가 ${plan.desired}대인데 ${up}대가 응답합니다. app-3 끄기가 끝나지 않았고 그동안 비용이 더 나갑니다.`,
+      action: null,
+    });
+  }
+  if (avg === null) {
+    out.push({
+      id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
+      detail: "조회를 받는 앱 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.",
+      action: null,
+    });
+    return out;
+  }
+  if (up !== plan.desired) return out;
+  const pct = Math.round(avg * 100);
+  if (avg >= th.scaleOut && plan.desired < plan.max) {
+    out.push({
+      id: "scale_out", level: "warn", headline: "조회 부하 높음",
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. app-3를 켜면 조회가 세 노드로 나뉘고 서비스는 멈추지 않습니다.`,
+      action: "SCALE_OUT",
+    });
+  } else if (avg >= th.scaleOut) {
+    out.push({
+      id: "at_max", level: "warn", headline: "조회 부하 높음 · 증설 불가",
+      detail: `평균 사용률이 ${pct}%인데 이미 앱 계층 최대 ${plan.max}대입니다. 최대 대수를 올리려면 비용 판단이 먼저입니다.`,
+      action: null,
+    });
+  } else if (avg <= th.scaleIn && plan.desired > plan.min) {
+    out.push({
+      id: "scale_in", level: "info", headline: "조회 부하 낮음",
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. app-3를 끄면 비용이 줄고, 끄기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`,
+      action: "SCALE_IN",
+    });
+  } else {
+    out.push({
+      id: "steady", level: "ok", headline: "안정",
+      detail: `조회를 받는 앱 노드의 평균 사용률이 ${pct}%입니다. 할 조치가 없습니다.`,
+      action: null,
+    });
+  }
+  return out;
+}
+
+/**
+ * 용량 판을 관제 시뮬레이터의 한 판에서 만든다. 관제센터와 서버·노드 화면이 쓰는 노드 이름(app-1·app-2·app-3),
+ * 대수, 임계(임계값 레지스트리의 증설·축소 CPU)를 그대로 쓰므로 세 화면이 한 모델로 움직인다.
+ *
+ * 계약(최소·희망·최대)은 앱 계층 2~3대다(ADR 0030, 사용자 정정 2026-09-25). app-1·app-2는 매칭 리더이면서 조회도 받는
+ * 고정 노드라 늘리고 줄이는 대상이 아니지만 대수와 평균에는 든다. 조회 전용 app-3만 켜고 끈다. app-3가 기동 중이거나
+ * 내리는 중이면 계약과 관측이 어긋난 창이라 reconciled가 false다.
+ */
+export function capacityOf(c: ControlCenter, counted: (id: string, live: boolean, perSec: number) => number | null): CapacityState {
+  const tier = c.readTier.state === "READY" ? c.readTier.data : null;
+  const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
+  const items = c.thresholds.state === "READY" ? c.thresholds.data.items : [];
+  const ratio = (key: string, fallback: number) => (items.find((t) => t.key === key)?.value ?? fallback) / 100;
+  const apps: CapacityNode[] = hosts
+    .filter((h) => h.role === "APP")
+    .map((h, i) => {
+      const up = h.collect !== "MISSING";
+      const cpu = h.collect === "OK" && h.cpuPct !== null ? h.cpuPct / 100 : null;
+      return {
+        id: h.id,
+        az: h.az,
+        instanceType: h.instanceType,
+        engine: true,
+        scalable: false,
+        expected: true,
+        reachable: up,
+        // 마켓별 리더(ADR 0034) 배치라 두 대가 각자 맡은 마켓의 리더이고, 조회도 함께 받는다
+        leader: up,
+        servesReads: up,
+        cpuRatio: cpu,
+        cpuCount: up ? 2 : null,
+        heapUsedBytes: up ? 560_000_000 + i * 24_000_000 : null,
+        heapMaxBytes: up ? SIM_HEAP_MAX : null,
+        httpRequests: counted(h.id, up, 40 + (cpu ?? 0) * 120),
+        wsClients: up ? 0 : null,
+        lifecycle: null,
+      };
+    });
+  const reads: CapacityNode[] = (tier?.nodes ?? []).map((n, i) => {
+    const live = n.state === "IN_SERVICE" || n.state === "DRAINING";
+    const cpu = live && n.cpuPct !== null ? n.cpuPct / 100 : null;
+    return {
+      id: n.id,
+      az: n.az,
+      instanceType: n.instanceType,
+      engine: false,
+      scalable: true,
+      expected: n.state === "IN_SERVICE" || n.state === "PENDING",
+      reachable: live,
+      leader: false,
+      servesReads: n.state === "IN_SERVICE",
+      cpuRatio: cpu,
+      cpuCount: live ? 2 : null,
+      heapUsedBytes: live ? 610_000_000 + i * 20_000_000 : null,
+      heapMaxBytes: live ? SIM_HEAP_MAX : null,
+      httpRequests: counted(n.id, live, (cpu ?? 0) * 520),
+      wsClients: live ? (n.state === "DRAINING" ? 24 : 360 + i * 40) : null,
+      lifecycle: n.state === "PENDING" || n.state === "DRAINING" ? n.state : null,
+    };
+  });
+
+  const plan = { min: tier?.min ?? 2, desired: tier?.desired ?? 2, max: tier?.max ?? 3 };
+  // 앱 계층에서 응답하는 노드 수. 고정 두 대와 켜져 있는(내리는 중 포함) app-3다
+  const up = apps.filter((n) => n.reachable).length + reads.filter((n) => n.reachable).length;
+  const avg = tier === null || tier.avgCpuPct === null ? null : tier.avgCpuPct / 100;
+  const scaleOut = ratio("read.scale_out_cpu", 60);
+  const scaleIn = ratio("read.scale_in_cpu", 30);
+  const down = apps.filter((n) => !n.reachable).map((n) => n.id);
+  return {
+    tier: "read",
+    plan: { ...plan, updatedBy: "sim", updatedAt: c.generatedAt },
+    observedTotal: up,
+    reconciled: up === plan.desired,
+    readAvgCpuRatio: avg,
+    thresholds: { scaleOutCpuRatio: scaleOut, scaleInCpuRatio: scaleIn },
+    nodes: [...apps, ...reads],
+    advice: capacityAdvice(plan, up, avg, { scaleOut, scaleIn }, down),
+  };
 }
 
 const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
@@ -200,24 +365,11 @@ export class SimAdminApi implements AdminApi {
     minNotional: "5000",
   }));
 
-  private nodes: HaNode[] = [
-    { id: "engine-01", role: "leader", epoch: 7, seq: 148_233, followerLagMs: 0, ownedMarkets: COIN_META.map((c) => c.market), health: "healthy" },
-    { id: "engine-02", role: "follower", epoch: 7, seq: 148_231, followerLagMs: 12, ownedMarkets: [], health: "healthy" },
-    { id: "engine-03", role: "follower", epoch: 7, seq: 148_230, followerLagMs: 18, ownedMarkets: [], health: "healthy" },
-  ];
-  private epoch = 7;
   /**
-   * 용량 콘솔 상태(ADR 0015). 계약면만 든다. 관측면은 부를 때마다 만든다.
-   *
-   * 실측을 미러한다. 노드 규격과 AZ 배치는 정본 6.5 사이징 표이고, 조회 전용 노드는
-   * 매칭엔진을 끄고 뜬다. 세 번째 노드는 부하 구간에만 존재하므로 초기 desired는 2다.
+   * 용량 판의 노드별 누적 요청 수. 화면이 두 조회의 차로 초당 요청을 내므로 누적값이 시간에 따라 늘어야 한다.
+   * 대수와 사용률은 관제 시뮬레이터(this.ops)가 정본이고 여기에는 누적 카운터만 둔다
    */
-  private capacityDesired = 2;
-  private readonly capacityNodes = [
-    { id: "app-1", az: "ap-northeast-2a", instanceType: "t4g.small", engine: true, scalable: false },
-    { id: "app-2", az: "ap-northeast-2c", instanceType: "t4g.small", engine: false, scalable: true },
-    { id: "app-3", az: "ap-northeast-2c", instanceType: "t4g.small", engine: false, scalable: true },
-  ];
+  private capacityCounters = new Map<string, { at: number; total: number }>();
   // 재생 소요 실측 분포(2026-08-30, n=34: min 40 · p50 73 · max 159ms)를 미러한 시드 6건.
   // 초 단위 페일오버 RTO 대역은 다른 축이다. 단건 시드는 RtoSpark가 접힌다
   private recovery: RecoveryRun[] = [
@@ -249,18 +401,19 @@ export class SimAdminApi implements AdminApi {
     detail: "정상",
     checkedAt: isoNow(),
   }));
+  /** 누적 체결. 관제 시뮬레이터의 초당 체결을 종합 조회 사이의 시간만큼 쌓는다 */
   private tradesTotal = 4_182_557;
-  private simRate = 120;
+  private tradesAt = Date.now();
   private simRunning = true;
   private simPaused = false;
   private duplicateFillTotal = 0;
   private bots: Bot[] = this.seedBots();
 
   /**
-   * 프리셋 배수 기준선(§6-A v2.31). 시드 플릿과 초기 OPS를 한 번만 잡는다. 활성화 시점
+   * 프리셋 배수 기준선(§6-A v2.31). 시드 플릿과 기준 발행률을 한 번만 잡는다. 활성화 시점
    * 현재값을 곱하면 재활성화가 누적돼 spike 3회가 기준선 OPS의 1000배가 된다.
    */
-  private readonly baseRate = this.simRate;
+  private readonly baseRate = BASE_BOT_OPS;
   private readonly scenarioBaseline = this.captureBaseline();
 
   // 시장 생동감 상태(인메모리, 봇_방향성 §7-1 volatile 규율과 동형). 외부 의존 0
@@ -268,13 +421,41 @@ export class SimAdminApi implements AdminApi {
   private biasStates = new Map<string, BiasState>();
   private tradeFlash: TradeFlash = "normal";
 
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private stopTick: (() => void) | null = null;
+
+  /** 관제센터 시뮬레이션(관리자 설계 4-4). AI가 한 일도 감사 로그에 AI 운영 계정으로 남긴다 */
+  private readonly opsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null) =>
+    this.log({ operatorId: actor.id, displayName: actor.name }, action, target, approvalId, "OK");
+  private ops = new OpsSim(Date.now(), this.opsAudit);
 
   constructor() {
+    // 관제 시뮬레이터가 시드한 지난 사건의 AI 조치도 감사 로그에 있어야 두 기록이 같은 말을 한다.
+    // 초기화(resetOps)는 사건만 새로 시드하므로 여기서 한 번만 붙인다
+    for (const e of this.ops.seededAudit) {
+      this.audit.push({
+        id: uid("aud"), at: e.at, operatorId: e.actor.id, operatorName: e.actor.name, action: e.action,
+        target: e.target, approvalId: null, result: "OK", requestId: uid("req"),
+      });
+    }
     if (typeof window !== "undefined") {
       this.restore();
       this.start();
     }
+    if (this.restoredRate !== null) this.ops.seedBotTarget(this.restoredRate);
+    this.syncFleet();
+  }
+
+  /**
+   * 봇 목록이 바뀔 때마다 관제 시뮬레이터에 알린다. 발행률의 정본은 관제 시뮬레이터라 봇 플릿, 종합 조회,
+   * 관제 판이 같은 값을 읽는다(관리자 설계 4-4 sim 단일 원천)
+   */
+  private syncFleet(): void {
+    const sum = this.bots.filter((b) => b.active).reduce((a, b) => a + b.ops, 0);
+    this.ops.setFleet(sum, this.simRunning && !this.simPaused);
+  }
+
+  private botTarget(): number {
+    return this.ops.botLoad(Date.now()).target;
   }
 
   /**
@@ -296,6 +477,8 @@ export class SimAdminApi implements AdminApi {
    * localStorage 로 두면 어제 눌러 둔 정지가 오늘 처음 연 화면에 남는다.
    */
   private static readonly STORE_KEY = "admin.sim.fleet.v1";
+  /** 새로고침 전에 운영자가 정한 발행률. 관제 시뮬레이터를 세운 뒤 기록 없이 되살린다 */
+  private restoredRate: number | null = null;
 
   private restore(): void {
     try {
@@ -304,7 +487,7 @@ export class SimAdminApi implements AdminApi {
       const p = JSON.parse(raw) as Partial<FleetSnapshot>;
       if (typeof p.running === "boolean") this.simRunning = p.running;
       if (typeof p.paused === "boolean") this.simPaused = p.paused;
-      if (typeof p.rate === "number" && p.rate > 0) this.simRate = p.rate;
+      if (typeof p.rate === "number" && p.rate > 0) this.restoredRate = p.rate;
       if (Array.isArray(p.bots) && p.bots.length > 0) this.bots = p.bots;
       if (p.flash) this.tradeFlash = p.flash;
       if (p.scale) this.scaleTargets = new Map(p.scale);
@@ -320,7 +503,7 @@ export class SimAdminApi implements AdminApi {
     const snap: FleetSnapshot = {
       running: this.simRunning,
       paused: this.simPaused,
-      rate: this.simRate,
+      rate: this.botTarget(),
       bots: this.bots,
       flash: this.tradeFlash,
       scale: [...this.scaleTargets],
@@ -357,34 +540,17 @@ export class SimAdminApi implements AdminApi {
     return out;
   }
 
+  /** 콘솔 공용 박자(ticker.ts)를 탄다. 탭이 숨으면 박자와 함께 멈추고 다시 보이면 이어 간다 */
   private start(): void {
-    if (this.timer) return;
-    this.timer = setInterval(() => this.tick(), 1000);
+    if (this.stopTick) return;
+    this.stopTick = onBeat(() => this.tick());
   }
 
+  /**
+   * 매칭 리더와 체결은 관제 시뮬레이터가 소유한다(관리자 설계 4-4 sim 단일 원천). 여기서는 불변식 검사 시각과
+   * 방향 편향의 측정값만 굴린다. 리더를 무작위로 바꾸던 옛 HA 시뮬레이션은 관제 판과 다른 리더를 말해 지웠다
+   */
   private tick(): void {
-    // HA seq 단조 증가 + follower lag 요동
-    for (const n of this.nodes) {
-      if (n.role === "leader" && n.health !== "down") n.seq += Math.round(rand(3, 9));
-      if (n.role === "follower") {
-        // 중단 노드는 복제가 멎는다. seq·lag를 재추첨하면 죽은 노드가 산 노드보다 빠른 역전이 생긴다
-        if (n.health === "down") continue;
-        n.seq = Math.min(n.seq + Math.round(rand(3, 9)), this.leader().seq);
-        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0)));
-      }
-    }
-    this.tradesTotal += Math.round(rand(20, 90) * (this.simPaused ? 0 : 1));
-
-    // 리더 사망(E4·E6 주입)은 즉시, 드문 자연 degraded는 확률적으로 failover → 복구 run 적재(§2-3)
-    const leader = this.leader();
-    if (leader.health === "down") {
-      this.failover();
-    } else if (leader.health === "healthy" && Math.random() < 0.008) {
-      leader.health = "degraded";
-    } else if (leader.health === "degraded" && Math.random() < 0.4) {
-      this.failover();
-    }
-
     for (const inv of this.invariants) inv.checkedAt = isoNow();
 
     // 측정 net bias가 effective로 느슨하게 수렴(관측 프록시). 자동균형 on이면 강도만큼 빠르게 당긴다
@@ -394,46 +560,6 @@ export class SimAdminApi implements AdminApi {
         st.measured = clampBias(st.measured + (st.effective - st.measured) * pull + rand(-0.01, 0.01));
       }
     }
-  }
-
-  private leader(): HaNode {
-    return this.nodes.find((n) => n.role === "leader") ?? this.nodes[0];
-  }
-
-  private failover(): void {
-    const old = this.leader();
-    const next = this.nodes.find((n) => n.role === "follower" && n.health !== "down");
-    if (!next) {
-      if (old.health === "degraded") old.health = "healthy";
-      return;
-    }
-    this.epoch += 1;
-    old.role = "follower";
-    // 중단 노드는 승격 뒤에도 중단으로 남고, 자연 발생 degraded만 승격과 함께 회복한다
-    old.health = old.health === "down" ? "down" : "healthy";
-    old.ownedMarkets = [];
-    old.followerLagMs = 20;
-    next.role = "leader";
-    next.epoch = this.epoch;
-    next.ownedMarkets = this.markets.map((m) => m.symbol);
-    next.followerLagMs = 0;
-    for (const n of this.nodes) n.epoch = this.epoch;
-    // 재생 소요다. 페일오버 RTO가 아니다(실측 40~159ms).
-    const replayMs = Math.round(rand(40, 160));
-    const replayFrom = next.seq - Math.round(rand(80, 180));
-    this.recovery.unshift({
-      id: uid("rec"),
-      startedAt: isoNow(),
-      durationMs: replayMs,
-      rpoMs: null,
-      replayedFromSeq: replayFrom,
-      replayedToSeq: next.seq,
-      fpReplay: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
-      fpLive: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
-      matched: true,
-      verdict: "PASS",
-    });
-    this.recovery = this.recovery.slice(0, 20);
   }
 
   listDemoCerts(): DemoClientCert[] {
@@ -614,14 +740,14 @@ export class SimAdminApi implements AdminApi {
     if (!can(s.roles, ACTION_CAP[a.action])) {
       return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한 부족"));
     }
-    this.applyEffect(a.payload, s);
+    this.applyEffect(a.payload, s, a.id);
     a.state = "CONSUMED";
     a.consumedAt = isoNow();
     this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK");
     return Promise.resolve();
   }
 
-  private applyEffect(payload: ApprovalPayload, by: AdminSession): void {
+  private applyEffect(payload: ApprovalPayload, by: AdminSession, approvalId: string): void {
     switch (payload.action) {
       case "sim.bots.params": {
         const bot = this.bots.find((b) => b.id === payload.botId);
@@ -695,6 +821,16 @@ export class SimAdminApi implements AdminApi {
       case "members.close":
         this.closeMember(payload.externalId);
         break;
+      case "ops.threshold.set":
+        this.ops.applyThreshold(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason,
+          payload.revertOf, payload.proposalId, Date.now());
+        break;
+      case "ops.ai.auto":
+        this.ops.enableAuto(payload.hours, payload.reason, actorOf(by), approvalId, Date.now());
+        break;
+      case "ops.ai.limits":
+        this.ops.setLimit(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason, payload.revertOf, Date.now());
+        break;
     }
   }
 
@@ -707,19 +843,29 @@ export class SimAdminApi implements AdminApi {
 
   private overallHealth(): "success" | "warning" | "danger" {
     const inv = summarizeInvariants(this.invariants);
-    if (this.nodes.some((n) => n.health === "down") || inv.state === "VIOLATED") return "danger";
+    if (inv.state === "VIOLATED") return "danger";
     // 미수집·부분수집은 통과가 아니다. http 어댑터와 같은 판정식을 쓴다
-    if (this.nodes.some((n) => n.health === "degraded") || inv.state !== "PASS") return "warning";
+    if (inv.state !== "PASS") return "warning";
     return "success";
   }
 
+  /**
+   * 종합 조회. 매칭 리더와 발행률, 체결은 관제 시뮬레이터에서 읽는다. 마켓별 리더(ADR 0034)라 리더가 둘이어서
+   * 리더 칸에는 두 노드를, 세대에는 가장 최근 세대를 적는다. 관제센터 거래 요약 띠는 sim에서 이 조회가 아니라
+   * 관제 판의 거래 칸을 읽는다
+   */
   getOverview(): Promise<AdminOverview> {
     this.auth("VIEW");
     this.sweep();
+    const now = Date.now();
+    const load = this.ops.botLoad(now);
+    this.tradesTotal += Math.round(load.tradesPerSec * Math.max(0, (now - this.tradesAt) / 1000));
+    this.tradesAt = now;
+    const leaders = this.ops.leaders();
     return Promise.resolve({
       overallHealth: this.overallHealth(),
-      epoch: this.epoch,
-      leaderNodeId: this.leader().id,
+      epoch: Math.max(...leaders.map((l) => l.epoch)),
+      leaderNodeId: leaders.map((l) => l.node).join("·"),
       invariants: summarizeInvariants(this.invariants),
       // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
       lastRtoMs: null,
@@ -730,111 +876,267 @@ export class SimAdminApi implements AdminApi {
       // 발급형: ISSUED는 소각 대기분(발급=승인). 발급 전 요청은 서버 상태가 아니라 카운트하지 않는다
       pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
+      tradesTotal: this.tradesTotal,
+      marketPartitions: leaders.reduce((a, l) => a + l.markets.length, 0),
       generatedAt: isoNow(),
     });
   }
 
-  /* ===== 용량(ADR 0015 수동 스케일링) ===== */
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) ===== */
+
+  readonly opsScenarios = true;
+
+  getControlCenter(): Promise<ControlCenter> {
+    this.auth("VIEW");
+    const now = Date.now();
+    const c = this.ops.snapshot(now);
+    if (c.ai.state === "READY") {
+      c.ai.data.actionStats = this.aiActionStats();
+      c.ai.data.recent = this.aiRecent(now);
+    }
+    return Promise.resolve(c);
+  }
+
+  /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 되돌린 수. 평상 AI 패널의 한 줄이 쓴다(디자인 시스템 §12-9) */
+  private aiRecent(now: number): { runs: number; reverts: number } {
+    const out = { runs: 0, reverts: 0 };
+    for (const e of this.audit) {
+      if (e.result !== "OK" || now - Date.parse(e.at) > 86_400_000) continue;
+      const m = /^ai\.(approve|auto|auto_revert|revert):/.exec(e.action);
+      if (!m) continue;
+      if (m[1] === "approve" || m[1] === "auto") out.runs += 1;
+      else out.reverts += 1;
+    }
+    return out;
+  }
+
+  /** 같은 AI 조치를 몇 번 실행했고 몇 번 되돌렸는지 감사 로그에서 센다. AI 판단 요약의 '되돌리기' 칸이 쓴다 */
+  private aiActionStats(): Record<string, { runs: number; reverts: number }> {
+    const out: Record<string, { runs: number; reverts: number }> = {};
+    for (const e of this.audit) {
+      const m = /^ai\.(approve|auto|auto_revert|revert):([A-Z_]+)$/.exec(e.action);
+      if (!m || e.result !== "OK") continue;
+      const key = actionKey(m[2] as AiActionKind, e.target);
+      const s = (out[key] ??= { runs: 0, reverts: 0 });
+      if (m[1] === "approve" || m[1] === "auto") s.runs += 1;
+      else s.reverts += 1;
+    }
+    return out;
+  }
+
+  ackAlert(alertId: string): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.ackAlert(alertId, actorOf(s), Date.now());
+    this.log(s, "ops.alert.ack", alertId, null, "OK");
+    return Promise.resolve();
+  }
+
+  silenceAlert(alertId: string, minutes: number): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.silenceAlert(alertId, minutes, actorOf(s), Date.now());
+    this.log(s, "ops.alert.silence", `${alertId} ${minutes}m`, null, "OK");
+    return Promise.resolve();
+  }
+
+  async decideAiProposal(proposalId: string, decision: AiDecision): Promise<void> {
+    // 승인은 인프라 조치라 SUPER다. 거절과 나중에는 조치를 줄이는 쪽이라 조회 권한으로 된다
+    const s = this.auth(decision === "APPROVE" ? "SUPER" : "VIEW");
+    const now = Date.now();
+    this.ops.checkDecision(proposalId, decision, now);
+    const t = decision === "APPROVE" ? this.ops.thresholdProposal(proposalId) : null;
+    if (t) {
+      // 임계값 변경은 승인 티켓 필수다. 막힐 이유를 먼저 본 뒤 발급해 쓸모없는 티켓을 남기지 않는다
+      const issued = await this.issueApproval(s.operatorId, "ops.threshold.set", {
+        action: "ops.threshold.set", key: t.key, label: t.label, unit: t.unit, from: t.from, to: t.to,
+        reason: "AI 조치안 승인", revertOf: null, proposalId,
+      });
+      await this.consumeApproval(issued);
+      return;
+    }
+    this.ops.decide(proposalId, decision, actorOf(s), now);
+  }
+
+  revertAiAction(proposalId: string): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.revert(proposalId, actorOf(s), Date.now());
+    return Promise.resolve();
+  }
+
+  async enableAiAuto(hours: number, reason: string): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.checkAuto(hours, reason, Date.now());
+    const issued = await this.issueApproval(s.operatorId, "ops.ai.auto", { action: "ops.ai.auto", hours, reason: reason.trim() });
+    await this.consumeApproval(issued);
+  }
+
+  stopAiAuto(): Promise<void> {
+    // 자동 끄기와 AI 정지는 누구든 언제든 된다. 조치를 멈추는 쪽이라 승인과 역할을 요구하지 않는다(ADR 0035)
+    const s = this.auth("VIEW");
+    this.ops.stopAuto(actorOf(s), Date.now());
+    this.log(s, "ops.ai.manual", "AI 자동 모드", null, "OK");
+    return Promise.resolve();
+  }
+
+  stopAi(): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.stopAi(actorOf(s), Date.now());
+    this.log(s, "ops.ai.stop", "AI 운영", null, "OK");
+    return Promise.resolve();
+  }
+
+  resumeAi(reason: string): Promise<void> {
+    // 재개는 AI가 다시 조치안을 내게 하는 쪽이라 조치안 승인과 같은 SUPER로 둔다
+    const s = this.auth("SUPER");
+    this.ops.resumeAi(reason, actorOf(s), Date.now());
+    this.log(s, "ops.ai.resume", `AI 운영 · 사유 ${reason.trim()}`, null, "OK");
+    return Promise.resolve();
+  }
+
+  runBackupNow(): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.runBackup(actorOf(s), Date.now());
+    return Promise.resolve();
+  }
+
+  startOpsScenario(id: OpsScenarioId): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.startScenario(id, Date.now());
+    this.log(s, "ops.scenario.start", id, null, "OK");
+    return Promise.resolve();
+  }
+
+  resetOps(): Promise<void> {
+    const s = this.auth("VIEW");
+    // 관제 세계 전체를 처음으로 돌린다. 봇 발행률도 기준값으로 돌아가고 봇 목록은 그대로다
+    this.ops = new OpsSim(Date.now(), this.opsAudit);
+    this.syncFleet();
+    this.log(s, "ops.scenario.reset", "관제 시뮬레이션", null, "OK");
+    return Promise.resolve();
+  }
+
+  /* ===== AI 상담(관리자 설계 4-6) ===== */
+
+  readonly aiChat = "SIM" as const;
+
+  /**
+   * 관제 시뮬레이터의 지금 판으로 규칙 답을 낸다. 규칙(aiChat.ts)은 처음 물을 때 불러온다. 상담을 열지 않는
+   * 화면의 첫 번들에 답 규칙과 문장이 실리지 않게 한다
+   */
+  async askAi(question: string, _recent: AiChatTurn[]): Promise<AiChatReply> {
+    const s = this.auth("VIEW");
+    const text = question.trim();
+    if (text.length === 0 || text.length > CHAT_MAX_CHARS) {
+      throw new AdminError("invalid_parameter", `질문은 1~${CHAT_MAX_CHARS}자`);
+    }
+    const { answerFromCenter } = await import("./aiChat");
+    const now = Date.now();
+    const reply = answerFromCenter(text, this.ops.snapshot(now), now);
+    // 서버 계약 초안처럼 상담도 감사에 남긴다(ops.ai.chat). 무엇을 물었는지가 기록의 목적이라 질문 앞머리를 대상에 적는다
+    this.log(s, "ops.ai.chat", text.length > 60 ? `${text.slice(0, 60)}…` : text, null, "OK");
+    return reply;
+  }
+
+  /* ===== 운영 보고(관리자 설계 4-7) ===== */
+
+  private opsReports: ReportDesk | null = null;
+
+  /** 보고 예시(reportSim.ts)는 보고서·설정 화면이 처음 읽을 때 불러온다. 다른 화면의 첫 번들에 싣지 않는다 */
+  private async reportDesk(): Promise<ReportDesk> {
+    if (this.opsReports === null) {
+      const { simReportDesk } = await import("./reportSim");
+      this.opsReports ??= simReportDesk(Date.now());
+    }
+    return this.opsReports;
+  }
+
+  async getReports(): Promise<OpsSection<ReportDesk>> {
+    this.auth("VIEW");
+    const d = await this.reportDesk();
+    return { state: "READY", data: { ...d, reports: [...d.reports], tests: [...d.tests] } };
+  }
+
+  getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
+    this.auth("VIEW");
+    // 예시 명부다. 역할 이름은 보고 서비스의 권고 담당 역할과 같게 둔다
+    return Promise.resolve({
+      state: "READY",
+      data: [
+        { role: "총괄 · DB 운영 담당", person: "김수퍼", operatorId: "op-01", channel: "Teams 운영 채널 멘션 · 당번 호출", hours: "평일 09~18시 · 야간은 당번" },
+        { role: "Linux·관측 운영 담당", person: "이오퍼", operatorId: "op-02", channel: "Teams 운영 채널 멘션", hours: "평일 09~18시" },
+        { role: "서비스 운영 담당", person: "당번 교대", operatorId: null, channel: "당번 호출 · 사건 보고 P1·P2", hours: "야간·주말 주 단위 교대" },
+      ],
+    });
+  }
+
+  /** 모의 전송이다. 밖으로 보내는 자리라 총괄 권한과 감사를 요구한다 */
+  async sendTeamsTest(): Promise<void> {
+    const s = this.auth("SUPER");
+    const d = await this.reportDesk();
+    d.tests = [{ attempt: 1, at: isoNow(), status: "sent" as const, error: null }, ...d.tests].slice(0, 10);
+    this.log(s, "ops.report.teams_test", "Teams 연결 시험(모의)", null, "OK");
+  }
+
+  /* ===== 용량(앱 계층 희망 대수 · app-3 켜기·끄기) ===== */
 
   getCapacity(): Promise<CapacityState> {
     this.auth("VIEW");
-    return Promise.resolve(this.capacitySnapshot());
+    return Promise.resolve(this.capacitySnapshot(Date.now()));
   }
 
   scaleOut(reason?: string): Promise<CapacityState> {
-    return Promise.resolve(this.capacityChange(+1, "capacity.scale_out", reason));
+    return Promise.resolve(this.capacityChange(1, "capacity.scale_out", reason));
   }
 
   scaleIn(reason?: string): Promise<CapacityState> {
     return Promise.resolve(this.capacityChange(-1, "capacity.scale_in", reason));
   }
 
-  private capacityChange(delta: number, action: string, reason?: string): CapacityState {
+  /**
+   * 희망 대수를 바꾼다(app-3 켜기·끄기). 관제 시뮬레이터의 앱 계층을 그대로 움직이므로 관제센터의 앱 계층 칸과 AI 판단이 같은
+   * 대수를 본다. 범위를 넘으면 시뮬레이터가 CAPACITY_OUT_OF_BOUNDS를 던지고 여기서 거부로 감사한다
+   */
+  private capacityChange(delta: 1 | -1, action: string, reason?: string): CapacityState {
     // 용량 변경은 비용을 쓰는 인프라 조치라 SUPER 를 요구한다(서버와 같은 판정).
     const session = this.auth("SUPER");
-    const min = 2;
-    const max = 3;
-    const next = this.capacityDesired + delta;
-    if (next < min || next > max) {
-      this.log(session, action, "app", null, "DENIED");
-      throw new AdminError("CAPACITY_OUT_OF_BOUNDS",
-        next < min ? `최소 ${min}대 아래로 축소 불가` : `최대 ${max}대 위로 증설 불가`);
+    const now = Date.now();
+    try {
+      this.ops.scaleReadNodes(delta, actorOf(session), now);
+    } catch (e) {
+      this.log(session, action, "앱 계층 · app-3", null, "DENIED");
+      throw e;
     }
-    this.capacityDesired = next;
-    this.log(session, action, "app", null, "OK");
+    this.log(session, action, "앱 계층 · app-3", null, "OK");
     void reason;
-    return this.capacitySnapshot();
+    return this.capacitySnapshot(now);
   }
 
-  /**
-   * 관측면을 만든다. 시뮬레이터라 값을 지어내지만 두 가지는 실제와 같게 둔다.
-   *
-   * 하나. 계약과 관측이 즉시 일치하지 않는다. 실제 조정기가 노드를 세우는 데 약 17초가
-   * 걸리므로 버튼 직후에는 어긋난 창이 있다. 여기서는 desired가 오른 직후 한 번은 관측이
-   * 따라가지 않은 것으로 낸다면 화면 검증이 어려우므로 즉시 맞춘다. 그 대신 화면이
-   * reconciled를 실제로 소비하는지는 http 어댑터에서 확인한다.
-   *
-   * 둘. 리더는 하나뿐이고 조회 전용 노드는 readiness가 503이다. 이것이 설계이고
-   * 화면 문구가 그것을 정상으로 읽어야 한다.
-   */
-  private capacitySnapshot(): CapacityState {
-    const nodes: CapacityNode[] = this.capacityNodes.map((c, i) => {
-      const expected = i < this.capacityDesired;
-      const reachable = expected;
-      const cpu = reachable ? 0.28 + i * 0.06 : null;
-      return {
-        id: c.id,
-        az: c.az,
-        instanceType: c.instanceType,
-        engine: c.engine,
-        scalable: c.scalable,
-        expected,
-        reachable,
-        leader: reachable && c.engine,
-        servesReads: reachable,
-        cpuRatio: cpu,
-        cpuCount: reachable ? 2 : null,
-        heapUsedBytes: reachable ? 620_000_000 + i * 20_000_000 : null,
-        heapMaxBytes: reachable ? 742_000_000 : null,
-        httpRequests: reachable ? 1_200_000 + i * 90_000 : null,
-        wsClients: reachable ? 380 + i * 40 : null,
-      };
+  /** 용량 판. 누적 요청 카운터만 이 어댑터가 들고 나머지는 관제 시뮬레이터의 한 판에서 만든다(capacityOf) */
+  private capacitySnapshot(now: number): CapacityState {
+    const c = this.ops.snapshot(now);
+    const at = c.collectedAt === null ? now : Date.parse(c.collectedAt);
+    // 누적 요청은 초당 값을 적분해 늘린다. 내려간 노드는 카운터를 지워 다시 뜨면 0부터 센다(화면은 재기동으로 읽는다)
+    return capacityOf(c, (id, live, perSec) => {
+      if (!live) {
+        this.capacityCounters.delete(id);
+        return null;
+      }
+      const prev = this.capacityCounters.get(id) ?? { at, total: 0 };
+      const total = Math.round(prev.total + Math.max(0, (at - prev.at) / 1000) * perSec);
+      this.capacityCounters.set(id, { at, total });
+      return total;
     });
-    const serving = nodes.filter((n) => n.servesReads && n.cpuRatio !== null);
-    const avg = serving.length === 0
-      ? null
-      : serving.reduce((a, n) => a + (n.cpuRatio ?? 0), 0) / serving.length;
-    const pct = avg === null ? 0 : Math.round(avg * 100);
-    const advice: CapacityAdvice[] = avg === null
-      ? [{ id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
-          detail: "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 권고를 내지 않는다.", action: null }]
-      : avg >= SIM_SCALE_OUT_CPU && this.capacityDesired < 3
-        ? [{ id: "scale_out", level: "warn", headline: "조회 부하 높음",
-            detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.`, action: "SCALE_OUT" }]
-        : avg <= SIM_SCALE_IN_CPU && this.capacityDesired > 2
-          ? [{ id: "scale_in", level: "info", headline: "조회 부하 낮음",
-              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.`, action: "SCALE_IN" }]
-          : [{ id: "steady", level: "ok", headline: "안정",
-              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 조치 불요.`, action: null }];
-    const up = nodes.filter((n) => n.reachable).length;
-    return {
-      tier: "app",
-      plan: { min: 2, desired: this.capacityDesired, max: 3, updatedBy: "sim", updatedAt: isoNow() },
-      observedTotal: up,
-      reconciled: up === this.capacityDesired,
-      readAvgCpuRatio: avg,
-      thresholds: { scaleOutCpuRatio: SIM_SCALE_OUT_CPU, scaleInCpuRatio: SIM_SCALE_IN_CPU },
-      nodes,
-      advice,
-    };
   }
 
+  /** 매칭 노드 두 대가 각자 맡은 파티션의 리더다(ADR 0034). 관제 시뮬레이터의 배치를 그대로 옮긴다 */
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
+    const leaders = this.ops.leaders();
     return Promise.resolve({
-      epoch: this.epoch,
-      leaderNodeId: this.leader().id,
-      nodes: this.nodes.map((n) => ({ ...n, ownedMarkets: n.ownedMarkets.slice() })),
+      epoch: Math.max(...leaders.map((l) => l.epoch)),
+      leaderNodeId: leaders.map((l) => l.node).join("·"),
+      nodes: leaders.map((l) => ({
+        id: l.node, role: "leader" as const, epoch: l.epoch, seq: 0, followerLagMs: 0, ownedMarkets: l.markets.map((m) => `KRW-${m}`), health: "healthy" as const,
+      })),
       tradesTotal: this.tradesTotal,
       generatedAt: isoNow(),
     });
@@ -862,10 +1164,7 @@ export class SimAdminApi implements AdminApi {
   }
 
   private currentOps(): number {
-    if (!this.simRunning || this.simPaused) return 0;
-    const active = this.bots.filter((b) => b.active);
-    const raw = active.reduce((sum, b) => sum + b.ops, 0);
-    return Math.min(raw, this.simRate);
+    return this.ops.botLoad(Date.now()).current;
   }
 
   getSimStatus(): Promise<SimStatus> {
@@ -878,7 +1177,7 @@ export class SimAdminApi implements AdminApi {
       stale: false,
       running: this.simRunning,
       paused: this.simPaused,
-      rate: this.simRate,
+      rate: this.botTarget(),
       currentOps: this.currentOps(),
       botCount: this.bots.length,
       activeBots: active,
@@ -931,6 +1230,7 @@ export class SimAdminApi implements AdminApi {
     this.simRunning = true;
     this.simPaused = false;
     for (const b of this.bots) b.active = true;
+    this.syncFleet();
     this.log(s, "sim.start", "전체 봇", null, "OK");
     return Promise.resolve();
   }
@@ -939,6 +1239,7 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("BOT_OPS");
     this.simRunning = false;
     for (const b of this.bots) b.active = false;
+    this.syncFleet();
     this.log(s, "sim.stop", "전체 봇", null, "OK");
     return Promise.resolve();
   }
@@ -946,6 +1247,7 @@ export class SimAdminApi implements AdminApi {
   simPause(): Promise<void> {
     const s = this.auth("BOT_OPS");
     this.simPaused = !this.simPaused;
+    this.syncFleet();
     this.log(s, "sim.pause", `paused=${this.simPaused}`, null, "OK");
     return Promise.resolve();
   }
@@ -957,8 +1259,8 @@ export class SimAdminApi implements AdminApi {
     if (next <= 0) {
       return Promise.reject(new AdminError("invalid_parameter", "target_ops는 양수여야 합니다."));
     }
-    this.simRate = next;
-    this.log(s, "sim.rate", `${this.simRate} OPS`, null, "OK");
+    this.ops.setBotTarget(next, actorOf(s), "봇 플릿 화면", Date.now());
+    this.log(s, "sim.rate", `${next} OPS`, null, "OK");
     // 목 어댑터는 거버너와 한 프로세스라 항상 즉시 적용이다.
     return Promise.resolve({ applyPath: "local" as const, queuedCommandId: 0 });
   }
@@ -982,6 +1284,7 @@ export class SimAdminApi implements AdminApi {
       });
     }
     this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), [type]: target });
+    this.syncFleet();
     this.log(s, "sim.bots.create", `${type} ${market} +${created}`, null, "OK");
     return Promise.resolve({ created, appliedTarget: target, fleetTotal: this.bots.length, clamped, fleetPresent: true });
   }
@@ -991,6 +1294,7 @@ export class SimAdminApi implements AdminApi {
     const before = this.bots.length;
     this.bots = this.bots.filter((b) => b.id !== botId);
     if (this.bots.length === before) return Promise.reject(new AdminError("invalid_parameter", "대상 봇 없음"));
+    this.syncFleet();
     this.log(s, "sim.bots.delete", botId, null, "OK");
     return Promise.resolve();
   }
@@ -1008,6 +1312,7 @@ export class SimAdminApi implements AdminApi {
       this.convergeScale(market, type, t);
     }
     this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), ...applied });
+    this.syncFleet();
     this.log(s, "sim.scale", market, null, "OK");
     return Promise.resolve({ market, applied, clamped, fleetPresent: true });
   }
@@ -1071,7 +1376,8 @@ export class SimAdminApi implements AdminApi {
   activateScenario(name: ScenarioName): Promise<ScenarioResult> {
     const s = this.auth("BOT_OPS");
     const def = scenarioDef(name);
-    this.simRate = Math.max(1, Math.round(this.baseRate * def.opsMult));
+    const rate = Math.max(1, Math.round(this.baseRate * def.opsMult));
+    this.ops.setBotTarget(rate, actorOf(s), `봇 국면 프리셋 ${name}`, Date.now());
 
     const universe = new Set<string>([
       ...this.scenarioBaseline.keys(),
@@ -1115,6 +1421,7 @@ export class SimAdminApi implements AdminApi {
       markets.push({ market, scaleApplied: base != null, applied, effectiveBias: biasStr(effective) });
     }
 
+    this.syncFleet();
     this.log(s, "sim.scenario", name, null, "OK");
     return Promise.resolve({
       scenario: name,
@@ -1122,7 +1429,7 @@ export class SimAdminApi implements AdminApi {
       // 물리 분리에서만 나오므로 여기서 재현할 대상이 아니다.
       applyPath: "local" as const,
       queuedCommandId: 0,
-      targetOps: String(this.simRate),
+      targetOps: String(rate),
       baseOps: String(this.baseRate),
       autoBalance: def.autoBalance,
       targetNetBias: def.targetBias,

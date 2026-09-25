@@ -57,6 +57,15 @@ import type {
   AdminMemberDetail,
   CommunityReport,
   ContentStatus,
+  ControlCenter,
+  OpsEnvironment,
+  OpsSourceName,
+  OpsSourceState,
+  AiChatReply,
+  AiChatTurn,
+  ReportDesk,
+  OpsSection,
+  OnCallEntry,
   MemberStatus,
   MemberTransition,
   ModerationAction,
@@ -188,6 +197,11 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
     case "members.close":
       // 자원 스코프다. target은 대상 회원의 external_id(§6-E 바인딩)
       return { action: "members.close", target: payload.externalId };
+    case "ops.threshold.set":
+    case "ops.ai.auto":
+    case "ops.ai.limits":
+      // 서버 승인 원장이 모르는 액션이다. 발급을 보내면 서버가 거절하므로 보내지 않는다
+      throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
   }
 }
 
@@ -585,6 +599,66 @@ function verdictOf(v: string | undefined): RecoveryVerdict | null {
  * 서버 쪽 짝은 두 겹으로 막혀 있다. 설정이 on-profile: dev 아래에 있고,
  * StartupSecretValidator 가 운영 기동에서 trusted-forwarding=true 를 보면 기동을 중단한다.
  */
+/** 관제센터 조작의 거절 사유. 서버 엔드포인트가 없어 요청을 보내지 않는다 */
+const OPS_NOT_CONNECTED = "관제 원천 연결 전(2단계). 서버에 해당 엔드포인트 없음";
+
+/** ETag를 기억해 둘 GET 수. 커서마다 주소가 달라 끝없이 늘지 않게 오래된 것부터 버린다 */
+const ETAG_KEEP = 64;
+
+/** 관리 API 한 판 조회(서버 계약 초안 GET /admin/v1/msp/overview)에서 이 화면이 지금 읽는 필드 */
+interface WireOverview {
+  environment?: string;
+  generated_at?: string;
+  sources?: { name?: string; state?: string; last_poll_at?: string | null; reason?: string | null }[];
+}
+
+const SOURCE_NAMES: readonly OpsSourceName[] = ["prometheus", "alertmanager", "databasus", "llm", "teams"];
+const ENVIRONMENTS: readonly OpsEnvironment[] = ["LOCAL_DOCKER", "SCHOOL_AWS", "PERSONAL_AWS", "UNKNOWN"];
+
+/**
+ * 원천 상태. 모르는 이름과 상태는 버리고 짐작하지 않는다. 확인 시각은 경보 폴러면 마지막 폴링,
+ * 그 밖의 붙은 원천은 한 판을 만든 시각이다
+ */
+function sourcesOf(w: WireOverview): OpsSourceState[] {
+  const out: OpsSourceState[] = [];
+  for (const s of w.sources ?? []) {
+    const name = SOURCE_NAMES.find((n) => n === s.name);
+    const state = s.state === "READY" || s.state === "NOT_CONNECTED" || s.state === "UNAVAILABLE" ? s.state : null;
+    if (!name || !state) continue;
+    const checkedAt = name === "alertmanager" ? s.last_poll_at ?? null : state === "READY" ? w.generated_at ?? null : null;
+    out.push({ name, state, checkedAt, reason: state === "UNAVAILABLE" ? s.reason ?? null : null });
+  }
+  return out;
+}
+
+/**
+ * 관제센터 한 판. 칸의 값은 아직 옮기지 않아 칸마다 붙일 원천을 적는다(2단계). 서버가 답했으면 환경과
+ * 원천 상태만 싣고, 관제 모듈이 꺼져 404였으면 그것도 모르는 채로 둔다
+ */
+function boardOf(w: WireOverview | null): ControlCenter {
+  const nc = (source: string) => ({ state: "NOT_CONNECTED" as const, source });
+  return {
+    origin: null,
+    environment: ENVIRONMENTS.find((e) => e === w?.environment) ?? "UNKNOWN",
+    generatedAt: w?.generated_at ?? isoNow(),
+    collectedAt: null,
+    summary: nc("외부 프로브와 Prometheus 조회 API · 2단계"),
+    hosts: nc("Prometheus node_exporter 조회 · 2단계"),
+    readTier: nc("AWS Auto Scaling과 Prometheus 조회 · 2단계"),
+    replication: nc("PostgreSQL 복제 지표 · 2단계"),
+    alerts: nc("Alertmanager API · 2단계"),
+    incidents: nc("사건 기록 저장소 · 2단계"),
+    jobs: nc("Databasus API, 인증서·보고 서비스 상태 · 2단계"),
+    thresholds: nc("임계값 레지스트리(DB) · 2단계"),
+    ai: nc("AI 판단 서비스와 서버 정책 엔진 · 2단계"),
+    aiServer: nc("온프레미스 AI 서버 상태 API · 구축 전"),
+    trading: nc("관제 서버의 거래 칸 · 2단계"),
+    trends: nc("Prometheus 범위 조회 · 2단계"),
+    scenario: null,
+    sources: w ? sourcesOf(w) : null,
+  };
+}
+
 const DEV_OPERATOR_CNS: string[] = (process.env.NEXT_PUBLIC_ADMIN_DEV_CN ?? "")
   .split(",")
   .map((s) => s.trim())
@@ -599,12 +673,31 @@ export class HttpAdminApi implements AdminApi {
   private listeners = new Set<(s: AdminSession | null) => void>();
   /** 헤더로 실을 운영자 CN. dev 게이트웨이 모드에서만 채워진다 */
   private forwardCn: string | null = null;
+  /** 떠 있는 GET. 같은 신원·주소의 요청이 겹치면 새로 보내지 않고 이 응답을 나눠 쓴다 */
+  private inflight = new Map<string, Promise<unknown>>();
+  /** 서버가 ETag를 준 GET의 태그와 본문. 다음 요청에 If-None-Match를 싣고 304면 이 본문을 쓴다 */
+  private etags = new Map<string, { tag: string; body: unknown }>();
 
   constructor(base: string) {
     this.base = base.replace(/\/+$/, "");
   }
 
-  private async http<T>(path: string, init: RequestInit = {}, authorization?: string): Promise<T> {
+  /**
+   * GET은 신원과 주소를 열쇠로 겹친 요청을 합친다. 폴러와 화면이 같은 조회를 같은 순간에 부르면 요청은
+   * 한 건이고, 관리 요청 한 건이 운영자 버킷에서 10토큰을 쓰므로 합친 만큼 버킷이 남는다
+   */
+  private http<T>(path: string, init: RequestInit = {}, authorization?: string): Promise<T> {
+    if ((init.method ?? "GET") !== "GET" || authorization !== undefined) return this.send<T>(path, init, authorization, null);
+    const key = `${this.session?.operatorId ?? ""} ${path}`;
+    const running = this.inflight.get(key);
+    if (running) return running as Promise<T>;
+    const p = this.send<T>(path, init, undefined, key).finally(() => this.inflight.delete(key));
+    this.inflight.set(key, p);
+    return p;
+  }
+
+  private async send<T>(path: string, init: RequestInit, authorization: string | undefined, cacheKey: string | null): Promise<T> {
+    const cached = cacheKey === null ? undefined : this.etags.get(cacheKey);
     const headers: Record<string, string> = {
       ...(init.body != null ? JSON_HEADERS : {}),
       ...(this.session ? { Authorization: `Bearer ${this.session.token}` } : {}),
@@ -612,9 +705,11 @@ export class HttpAdminApi implements AdminApi {
       // 세션 발급 후에도 매 요청에 싣는다. AdminAuthFilter 가 세션 operator 를 현재 mTLS
       // 신원과 재대조하므로(관리자 설계 §3-6 4단계) 발급 때만 실으면 다음 요청이 401 이다
       ...(this.forwardCn ? { "X-Operator-Cn": this.forwardCn } : {}),
+      ...(cached ? { "If-None-Match": cached.tag } : {}),
     };
     // mTLS 클라이언트 인증은 브라우저가 TLS 핸드셰이크에서 처리한다
     const res = await fetch(`${this.base}${path}`, { ...init, headers, credentials: "include" });
+    if (res.status === 304 && cached) return cached.body as T;
     if (!res.ok) {
       const rateLimited = res.status === 429;
       let code = rateLimited
@@ -623,7 +718,9 @@ export class HttpAdminApi implements AdminApi {
           ? "jwt_verification"
           : res.status === 403
             ? "admin_forbidden"
-            : "server_error";
+            : res.status === 404
+              ? "not_found"
+              : "server_error";
       let retryAfter: number | null = null;
       let message = rateLimited ? rateLimitMessage(null) : "관리 요청 실패";
       try {
@@ -644,10 +741,17 @@ export class HttpAdminApi implements AdminApi {
       if (rateLimited && (code === "too_many_requests" || code === "rate_limited")) {
         message = rateLimitMessage(retryAfter);
       }
-      throw new AdminError(code, message, retryAfter);
+      throw new AdminError(code, message, retryAfter, res.status);
     }
     if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    const body = (await res.json()) as T;
+    const tag = cacheKey === null ? null : res.headers?.get("ETag") ?? null;
+    if (cacheKey !== null && tag) {
+      this.etags.delete(cacheKey);
+      this.etags.set(cacheKey, { tag, body });
+      if (this.etags.size > ETAG_KEEP) this.etags.delete(this.etags.keys().next().value as string);
+    }
+    return body;
   }
 
   private opId(): string {
@@ -883,6 +987,10 @@ export class HttpAdminApi implements AdminApi {
           body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
+      case "ops.threshold.set":
+      case "ops.ai.auto":
+      case "ops.ai.limits":
+        throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
     }
   }
 
@@ -918,8 +1026,98 @@ export class HttpAdminApi implements AdminApi {
       currentOps: sim.currentOps,
       pendingApprovals: pending,
       suspendedMarkets: markets.filter((m) => m.state === "HALTED").length,
+      tradesTotal: ha.tradesTotal,
+      // 서버 status는 노드별 마켓을 내지 않아 리더 하나로 합성한다(getHaStatus). 0이 아니라 미보고다
+      marketPartitions: null,
       generatedAt: ha.generatedAt,
     };
+  }
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+   * 한 판은 관리 API의 한 판 조회 한 건(서버 계약 초안 GET /admin/v1/msp/overview)으로 읽는다. 칸의 값을
+   * 화면 형식으로 옮기는 일은 2단계라 아직 칸마다 붙일 원천을 적어 돌려주고 값을 지어내지 않는다.
+   * 서버가 답하면 환경과 원천 상태만 싣는다. 관제 모듈이 꺼진 배포는 이 경로가 404다 */
+
+  readonly opsScenarios = false;
+
+  async getControlCenter(): Promise<ControlCenter> {
+    try {
+      return boardOf(await this.http<WireOverview>("/admin/v1/msp/overview"));
+    } catch (e) {
+      // 관제 모듈이 없는 배포다. 오류 본문의 이름은 배포마다 달라 상태로 가른다
+      if (e instanceof AdminError && (e.status === 404 || e.code === "not_found")) return boardOf(null);
+      throw e;
+    }
+  }
+
+  private opsRejected(): Promise<never> {
+    return Promise.reject(new AdminError("source_unavailable", OPS_NOT_CONNECTED));
+  }
+
+  ackAlert(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  silenceAlert(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  decideAiProposal(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  revertAiAction(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  enableAiAuto(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  stopAiAuto(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  stopAi(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  resumeAi(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  runBackupNow(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  startOpsScenario(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  resetOps(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  /* ===== AI 상담·운영 보고(관리자 설계 4-6·4-7) =====
+   * 서버 계약 초안(POST /admin/v1/msp/ai/chat, GET /admin/v1/msp/reports)만 있고 경로가 아직 없다.
+   * 없는 경로를 부르지 않는다. 화면은 이 원천 상태를 보고 입력과 전송 단추를 미리 막는다 */
+
+  readonly aiChat = "NOT_CONNECTED" as const;
+
+  askAi(): Promise<AiChatReply> {
+    return Promise.reject(new AdminError("source_unavailable", "AI 상담 연결 전. 서버 상담 경로(POST /admin/v1/msp/ai/chat) 없음"));
+  }
+
+  getReports(): Promise<OpsSection<ReportDesk>> {
+    return Promise.resolve({ state: "NOT_CONNECTED", source: "보고 서비스 읽기 프록시(GET /admin/v1/msp/reports) · 2단계" });
+  }
+
+  sendTeamsTest(): Promise<void> {
+    return Promise.reject(new AdminError("source_unavailable", "Teams 연결 시험 연결 전. 서버 계약 없음"));
+  }
+
+  getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
+    return Promise.resolve({ state: "NOT_CONNECTED", source: "운영자·당번 명부 · 2단계" });
   }
 
   /* ===== 용량(ADR 0015) ===== */

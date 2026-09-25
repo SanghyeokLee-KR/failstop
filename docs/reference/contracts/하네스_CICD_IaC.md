@@ -10,7 +10,7 @@ DB는 명시적인 사설 호스트 주소에 published port를 연결한다. �
 
 새 배포 연결 상한은 `(엔진 2 + 교체 1) × (32+14+2) + 조회 최대 2 × (8+1+1) + 봇 1 × (8+1+1) + 운영 10 + 복제 4 = 188`이다. DB의 `max_connections=200`, 관리자 예약 3으로 일반 한도 197을 둔다. [검사기](../../../deploy/check-config.py)가 최대 대수·교체 여유와 풀 설정을 함께 검사한다. 현재 접속 사용량이나 2 GiB 메모리 적정성의 측정값이 아니며 AWS 부하 검증이 필요하다. 아래 과거 배포 106 대 97의 부족 문제를 이 설정이 대체한다.
 
-호스트 node_exporter, 제한된 pg_monitor 로그인, 검증된 file discovery, 기존 Grafana를 사용한다. 수집 실패·지표 부재를 0으로 채우지 않는다. 기본 Teams 알림과 근거 보고는 독립 경로이며 보고는 09:00 KST timer와 영속 SQLite outbox를 사용한다. 기본 분석은 mock, 실제 AI 모델은 미정이고 AI는 운영 조치를 실행하지 않는다.
+호스트 node_exporter, 제한된 pg_monitor 로그인, 검증된 file discovery, 기존 Grafana를 사용한다. 수집 실패·지표 부재를 0으로 채우지 않는다. 기본 Teams 알림과 근거 보고는 독립 경로이며 보고는 09:00 KST timer와 영속 SQLite outbox를 사용한다. 기본 분석은 mock, 실제 AI 모델은 미정이고 보고 서비스의 AI는 운영 조치를 실행하지 않는다. 관리 콘솔 관제센터의 AI 조치는 [ADR 0035](../adr/0035-ai-operations-authority.md)의 수동·자동 모드와 허용 목록 안에서만 하며 기본으로 꺼져 있다.
 
 > 전제 계약: `docs/reference/contracts/백엔드_DB_설계.md`, `docs/reference/contracts/백엔드_API_설계.md`, `docs/reference/contracts/하네스_검증설계.md`. 판번호는 각 문서 헤더가 갖는다. 여기에 복사하지 않는다. 복사한 판번호는 반드시 드리프트한다.
 >
@@ -184,12 +184,12 @@ digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열
 |---|---|---|
 | style | 인라인 (git diff 추가 줄 검사) | S |
 | doclinks | `pwsh scripts/check-doclinks.ps1` | U |
-| tokens | `node scripts/check-tokens.mjs` | T |
+| tokens | `node scripts/check-tokens.mjs`, `node --test scripts/tests/copy-tone.test.mjs` | T |
 | browser | `node scripts/check-browser.mjs` | T-5 |
 
 `style` 잡은 추가된 줄만 본다. `git diff --unified=0 origin/base...HEAD`로 모으고 `.html`, `.pdf`, `.svg`, `.lock`, `.jar`, `package-lock.json`, `node_modules`, `web/out`, `web/.next`, `docs/archive`를 뺀다. 커밋 메시지에도 같은 패턴을 건다.
 
-`tokens` 잡은 `npm ci` 없이 돈다. `check-tokens.mjs`의 import가 `node:fs`, `node:path`, `node:url` 셋뿐이라 외부 의존이 없다.
+`tokens` 잡은 `npm ci` 없이 돈다. `check-tokens.mjs`의 import가 `node:fs`, `node:path`, `node:url`과 같은 폴더의 카피 규칙 모듈 `copy-tone.mjs`뿐이라 외부 의존이 없다. 같은 잡이 카피 규칙 시험(`node --test`)도 돌린다.
 
 ---
 
@@ -409,7 +409,7 @@ severity는 critical 6, warning 16, 템플릿 1이다. 템플릿 1은 `Invariant
 
 `ReplicationReplayDelayHigh`는 임계를 규칙에 적지 않고 관제센터 임계값 레지스트리의 `exchange_ops_threshold{key="db.replication_lag_alert"}`를 `last_over_time(...[7d])`로 읽는다(2026-09-25). 값이 미설정(NaN)이거나 게이지가 수집된 적이 없으면 비교가 늘 거짓이라 울리지 않는다. 이 스택에는 관리 JVM 수집 잡이 아직 없어(§8-1) 지금은 울리지 않는다. 판정은 `exchange-alerts.test.yml`의 promtool 시험이 고정한다. 게이지가 없거나 NaN이면 지연 100초에도 조용하고, 30초를 넣으면 2분 뒤 경보다.
 
-**CRITICAL 계열 발화 시 앱 자동 조치 상한.** 원장과 저널은 자동 수정하지 않는다. 정정은 `REVERSAL` 상계 분개와 1인 승인 티켓으로만 한다(ADR 0019). 알람에 자동 액션을 연결하지 않는다. 판정은 자동이고 실행은 사람이다(정본 §7.5). 2026-09-24 관제센터 2단계 설계는 알람을 AI 판단의 근거로 쓰지만, 알람이 곧바로 조치를 부르지 않고 허용 목록 조치만 서버 정책 엔진을 거쳐 실행한다(ADR 0035 자동 모드). 구현 전이며 이 문장과의 관계는 §8-2의 9번에 남겼다.
+**CRITICAL 계열 발화 시 앱 자동 조치 상한.** 원장과 저널은 자동 수정하지 않는다. 정정은 `REVERSAL` 상계 분개와 1인 승인 티켓으로만 한다(ADR 0019). 알람에 자동 액션을 연결하지 않는다. 판정은 자동이고 실행은 사람이다(정본 §7.5). 2026-09-24 관제센터 2단계 설계는 알람을 AI 판단의 근거로 쓰지만, 알람이 곧바로 조치를 부르지 않고 허용 목록 조치만 서버 정책 엔진을 거쳐 실행한다([ADR 0035](../adr/0035-ai-operations-authority.md) 자동 모드). ADR 0035가 이 문장의 예외를 대체 범위로 적는다. 2026-09-25 저장소에 구현했으나 기본으로 꺼져 있고 배포하지 않았다.
 
 ### 5-7. Alertmanager
 
@@ -553,7 +553,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 6. **배포 평면 검증.** `deploy/` 셋이 스스로 미검증이라 적고 `.env.example`로는 파싱도 안 된다.
 7. **`load/artifacts/` 102개.** `.gitignore`가 없어 결과가 계속 쌓인다.
 8. **E3.** Redis를 넣어 살릴지, 카탈로그에서 뺄지 정한다.
-9. **알람 자동 조치 금지와 AI 자동 모드.** §5-6과 머리 절은 알람에 자동 액션을 연결하지 않고 AI가 운영 조치를 실행하지 않는다고 적는다. 사용자가 2026-09-24 확정한 ADR 0035의 자동 모드는 허용 목록 다섯 종을 AI 판단과 서버 정책 엔진으로 자동 실행한다. 구현 전이다. ADR 0035를 병합할 때 두 문장을 대체 관계에 맞게 고친다.
+9. **알람 자동 조치 금지와 AI 자동 모드(2026-09-25 병합에서 해소).** 사용자가 2026-09-24 확정한 ADR 0035의 자동 모드는 허용 목록 다섯 종을 AI 판단과 서버 정책 엔진으로 자동 실행한다. §5-6과 머리 절은 이 예외를 ADR 0035의 대체 범위로 적도록 고쳤다. 서버 쪽은 2026-09-25 구현했으나 기본으로 꺼져 있고 배포하지 않았다.
 
 ---
 
@@ -633,7 +633,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 | color-literal | 색 리터럴 금지. 토큰으로 소비 | 코인 브랜드색(engine.ts), 대비 계산 입력(brandChip.ts), tokens.css |
 | undefined-token | var(--x)의 x가 어디에도 선언되지 않음 | 없음 |
 | dead-token | 시맨틱·별칭 토큰의 소비처 0 | 팔레트 램프(미사용 단계는 결함 아님) |
-| copy-tone | UI 카피 존댓말 종결 금지. web/ 문자열·JSX와 server/ ApiException 메시지를 함께 본다 | 시드 게시글·댓글(사용자 작성물) |
+| copy-tone | 평면별 UI 카피 종결형(2026-09-25 개정). 관리 콘솔(`web/app/admin`, `web/components/admin`, `web/lib/admin`)은 반말 평서문 종결 금지(문장은 합니다체), 그 밖의 web/ 문자열·JSX와 server/ ApiException 메시지는 존댓말 종결 금지. 규칙은 `scripts/copy-tone.mjs`, 시험은 `scripts/tests/copy-tone.test.mjs` | 시드 게시글·댓글과 신고 본문(사용자 작성물) |
 | direction-format | formatChangeRate 직접 호출 금지, formatDirectional 사용 | 허용 목록에 이유 기재 시 |
 | focus-ring | :focus 계열에서 자체 outline 선언 금지 | none 또는 --focus-outline-* 소비 |
 

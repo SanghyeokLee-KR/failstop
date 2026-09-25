@@ -1,0 +1,207 @@
+/* ============================================================================
+   settings.module.css. 설정 화면(관리자 설계 4-8). 연동 상태 표, Teams 연결 시험, AI 한도·모드,
+   담당자·연락 체계. 패널은 관제 화면 공용 패널(control.module.css .panel)을 쓰고 여기에는 표와 줄만 둔다.
+   ========================================================================== */
+
+.integrations {
+  width: 100%;
+  border-collapse: collapse;
+  word-break: keep-all;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.integrations th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  text-align: left;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.integrations td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: middle;
+}
+.integrations tr:last-child td {
+  border-bottom: 0;
+}
+.integrations th[data-num],
+.integrations td[data-num] {
+  text-align: right;
+}
+.integrations td[data-act] {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.name b {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.name span {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.state {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.state[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.state[data-tone="off"] {
+  color: var(--text-default);
+}
+/* 상태 형태(StatusShape SVG). 한 줄 상태어 안에서 줄 가운데에 서고, 글자는 기준선 정렬 그대로다 */
+.shape {
+  align-self: center;
+}
+.testWord {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.shape[data-tone="success"] {
+  color: var(--color-success);
+}
+.shape[data-tone="off"] {
+  color: var(--text-secondary);
+}
+.shape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.detail {
+  color: var(--text-default);
+  overflow-wrap: anywhere;
+}
+.checked {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.prose {
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-default);
+  word-break: keep-all;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.row > :last-child {
+  margin-left: auto;
+}
+.reason {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.tests {
+  display: flex;
+  flex-direction: column;
+}
+.test {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.test + .test {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+
+/* AI 한도 요약. 값은 표 문법(이름 왼쪽, 수치 오른쪽 tabular)이다 */
+.limits {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.limits dt {
+  color: var(--text-default);
+}
+.limits dd {
+  text-align: right;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.contacts {
+  width: 100%;
+  border-collapse: collapse;
+  word-break: keep-all;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.contacts th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  text-align: left;
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.contacts td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: top;
+}
+.contacts tr:last-child td {
+  border-bottom: 0;
+}
+.contacts td b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.contacts td small {
+  display: block;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}

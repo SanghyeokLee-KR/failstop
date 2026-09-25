@@ -1,0 +1,198 @@
+/* 관리 콘솔 모달·드로어(디자인 시스템 §12-13). 토큰만 소비한다 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--overlay-dim);
+  /* 층은 셸 밖(body 포털)에 뜨므로 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  animation: fadeIn var(--dur-dialog) var(--ease-decelerate) both;
+}
+.overlay[data-kind="drawer"] {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--space-9));
+  background: var(--surface-elevated);
+  /* 다크에서는 그림자가 면에 묻혀 가장자리가 사라진다. 헤어라인이 층의 경계를 싣는다 */
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-4);
+  color: var(--text-default);
+  animation: dialogIn var(--dur-dialog) var(--ease-decelerate) both;
+}
+.panel:focus {
+  outline: none;
+}
+.overlay[data-kind="drawer"] .panel {
+  height: 100vh;
+  max-height: none;
+  border-right: 0;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  animation-name: drawerIn;
+  animation-duration: var(--dur-base);
+}
+.overlay[data-closing] {
+  animation: fadeOut var(--dur-fast) var(--ease-accelerate) both;
+}
+.overlay[data-closing] .panel {
+  animation: dialogOut var(--dur-fast) var(--ease-accelerate) both;
+}
+.overlay[data-kind="drawer"][data-closing] .panel {
+  animation-name: drawerOut;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@keyframes dialogOut {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@keyframes drawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes drawerOut {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+/* ===== 머리 ===== */
+.head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.headMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--space-1);
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.title {
+  min-width: 0;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: 2px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.close {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--control-radius);
+  color: var(--text-secondary);
+}
+/* 시각 32px, 누르는 자리 44px(§10-2) */
+.close::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+/* 머리 아래에 붙는 줄(탭 목록) */
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ===== 본문과 단추 줄 ===== */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5);
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* 움직임 줄이기. 층은 움직임 없이 나타나고 사라진다(§12-4) */
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .panel,
+  .overlay[data-closing],
+  .overlay[data-closing] .panel {
+    animation: none;
+  }
+}

@@ -20,7 +20,7 @@ npm run dev
 
 `npm run build`는 추적 파일 [.env.production](.env.production)의 `NEXT_PUBLIC_DATASOURCE=http`를 읽어 실제 백엔드용으로 빌드한다. 개발 서버는 이 파일을 읽지 않으므로 값을 주지 않으면 시뮬레이터로 뜬다. 두 경우 모두 셸 환경 변수가 가장 우선하고 그다음이 `.env.local`이다.
 
-API·WebSocket 주소 설정은 실행 가이드에 있다. `NEXT_PUBLIC_*` 값은 빌드할 때 결과물에 들어가므로, 배포 후 주소를 바꾸려면 다시 빌드해야 한다. 관리자 연결은 [lib/admin/api.ts](lib/admin/api.ts)의 `NEXT_PUBLIC_ADMIN_DATASOURCE`와 `NEXT_PUBLIC_ADMIN_BASE`로 별도 설정할 수 있다. `NEXT_PUBLIC_ADMIN_DATASOURCE`를 주지 않으면 `NEXT_PUBLIC_DATASOURCE`를 따른다.
+API·WebSocket 주소 설정은 실행 가이드에 있다. `NEXT_PUBLIC_*` 값은 빌드할 때 결과물에 들어가므로, 배포 후 주소를 바꾸려면 다시 빌드해야 한다. 관리자 연결은 [lib/admin/api.ts](lib/admin/api.ts)의 `NEXT_PUBLIC_ADMIN_DATASOURCE`와 `NEXT_PUBLIC_ADMIN_BASE`로 별도 설정할 수 있다. `NEXT_PUBLIC_ADMIN_DATASOURCE`를 주지 않으면 `NEXT_PUBLIC_DATASOURCE`를 따른다. 관리 콘솔의 외부 도구 딥링크 주소는 `NEXT_PUBLIC_GRAFANA_BASE`(Grafana 추이)와 `NEXT_PUBLIC_DATABASUS_BASE`(Databasus 백업 화면)로 넣는다. 값이 없으면 링크를 그리지 않는다.
 
 ## 화면을 고칠 때
 
