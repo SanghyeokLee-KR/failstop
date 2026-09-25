@@ -1,0 +1,97 @@
+{
+  "experiment": "W4",
+  "started": "2026-09-25T22:46:58+09:00",
+  "window_from": "2026-09-25T13:43:52.4881488+00:00",
+  "fault_from": "2026-09-25T13:44:52.4987743+00:00",
+  "fault_to": "2026-09-25T13:45:26.2770638+00:00",
+  "facts": {
+    "accept_rate_during": 28.470529408088005,
+    "accept_rate_before": 29.277881233188495,
+    "accept_ratio": 0.9724245132811967,
+    "leader_5xx": 0.0,
+    "demotions": 0.0,
+    "append_p99_during": 0.006920268068809526,
+    "append_p99_before": 0.008391713891111117,
+    "reconnected_at": "2026-09-25T13:45:28.499000Z",
+    "sub_connected_min_during_alarm": 1.0,
+    "dropped_by_reason": {
+      "candle_overflow": 0.0,
+      "disconnected": 3667.542938254081,
+      "malformed": 0.0,
+      "queue_full": 0.0,
+      "stale": 0.0,
+      "write_timeout": 6.025550035486161
+    },
+    "follower_degraded_at": "2026-09-25T13:45:08.499000Z",
+    "leader_degraded_max": 0.0,
+    "follower_watch": {
+      "closes1013": 1,
+      "refusals": {
+        "handshake_errors": 9,
+        "status_503": 3
+      }
+    },
+    "leader_watch": {
+      "closes": 0
+    },
+    "receive_again_at_ms": {
+      "chaos-api-1": {
+        "KRW-BTC": 1790343932510,
+        "KRW-ETH": 1790343932510,
+        "KRW-XRP": 1790343932510
+      },
+      "chaos-api-2": {
+        "KRW-BTC": 1790343932510,
+        "KRW-ETH": 1790343932510,
+        "KRW-XRP": 1790343932510
+      },
+      "lb": {
+        "KRW-BTC": 1790343932510,
+        "KRW-ETH": 1790343932510,
+        "KRW-XRP": 1790343932510
+      }
+    },
+    "freshness": {
+      "pairs": 94,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 0.648936170212766,
+      "follower_all_seq0": false
+    },
+    "freshness_alarm_after_8s": {
+      "pairs": 24,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 0.0,
+      "follower_all_seq0": true
+    },
+    "fallback_owner_silent": 403.2898931183199,
+    "follower_lag_max_after": 0.065
+  },
+  "axes": {
+    "accept_ratio_ge_90pct": true,
+    "leader_5xx_0": true,
+    "demotions_0": true,
+    "append_p99_le_1_5x": true,
+    "connected_back_within_30s": true,
+    "sub_link_kept_during_alarm": true,
+    "dropped_write_timeout_or_queue_full_ge_1": true,
+    "follower_degraded_within_20s": true,
+    "follower_degraded_back_0": true,
+    "leader_degraded_always_0": true,
+    "follower_watch_1013": true,
+    "follower_watch_handshake_refused": true,
+    "leader_watch_kept_connection": true,
+    "leader_watch_kept_receiving": true,
+    "all_watchers_receive_again_within_60s": true,
+    "freshness_during_and_60s_after_all_ok": true,
+    "follower_book_seq0_during_alarm": true,
+    "mirror_fallback_owner_silent_ge_1": true,
+    "follower_gate_open_within_30s": true,
+    "follower_lag_max_le_5s_after": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T22:46:58+09:00"
+}

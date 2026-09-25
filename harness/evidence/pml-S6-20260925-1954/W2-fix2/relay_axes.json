@@ -1,0 +1,74 @@
+{
+  "experiment": "W2",
+  "started": "2026-09-25T22:41:56+09:00",
+  "window_from": "2026-09-25T13:38:22.3591352+00:00",
+  "fault_from": "2026-09-25T13:39:22.3618681+00:00",
+  "fault_to": "2026-09-25T13:40:23.9762660+00:00",
+  "facts": {
+    "accept_rate_during": 26.218414560970732,
+    "accept_rate_before": 26.380674862492885,
+    "accept_ratio": 0.9938492740474638,
+    "leader_5xx": 0.0,
+    "demotions": 0.0,
+    "append_p99_during": 0.008328570898235275,
+    "append_p99_before": 0.012183343620919376,
+    "reconnected_at": "2026-09-25T13:40:32.362000Z",
+    "connected_zero_at": "2026-09-25T13:39:24.362000Z",
+    "follower_degraded_at": "2026-09-25T13:39:30.362000Z",
+    "leader_degraded_max": 0.0,
+    "follower_watch": {
+      "closes1013": 1,
+      "refusals": {
+        "handshake_errors": 30,
+        "status_503": 10
+      }
+    },
+    "leader_watch": {
+      "closes": 0
+    },
+    "receive_again_at_ms": {
+      "chaos-api-1": {
+        "KRW-BTC": 1790343632347,
+        "KRW-ETH": 1790343632347,
+        "KRW-XRP": 1790343632347
+      },
+      "chaos-api-2": {
+        "KRW-BTC": 1790343632347,
+        "KRW-ETH": 1790343632347,
+        "KRW-XRP": 1790343632347
+      },
+      "lb": {
+        "KRW-BTC": 1790343632347,
+        "KRW-ETH": 1790343632347,
+        "KRW-XRP": 1790343632347
+      }
+    },
+    "freshness": {
+      "pairs": 122,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 0.4426229508196721,
+      "follower_all_seq0": false
+    }
+  },
+  "axes": {
+    "accept_ratio_ge_90pct": true,
+    "leader_5xx_0": true,
+    "demotions_0": true,
+    "append_p99_le_1_5x": true,
+    "connected_back_within_15s": true,
+    "connected_went_0": true,
+    "follower_degraded_within_20s": true,
+    "follower_degraded_back_0": true,
+    "leader_degraded_always_0": true,
+    "follower_watch_1013": true,
+    "follower_watch_handshake_refused": true,
+    "leader_watch_kept_connection": true,
+    "leader_watch_kept_receiving": true,
+    "all_watchers_receive_again_within_60s": true,
+    "freshness_during_and_60s_after_all_ok": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T22:41:56+09:00"
+}

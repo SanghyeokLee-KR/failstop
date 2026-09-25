@@ -1,0 +1,94 @@
+{
+  "experiment": "W3",
+  "started": "2026-09-25T20:35:42+09:00",
+  "window_from": "2026-09-25T11:32:30.5531242+00:00",
+  "fault_from": "2026-09-25T11:33:30.5640232+00:00",
+  "fault_to": "2026-09-25T11:34:10.7056789+00:00",
+  "facts": {
+    "accept_rate_during": 26.317174588136215,
+    "accept_rate_before": 27.60535209324781,
+    "accept_ratio": 0.9533359509141461,
+    "leader_5xx": 0.0,
+    "demotions": 0.0,
+    "append_p99_during": 0.008588335714285713,
+    "append_p99_before": 0.008888144527244362,
+    "reconnected_at": "2026-09-25T11:34:14.564000Z",
+    "connected_zero_at": "2026-09-25T11:33:46.564000Z",
+    "follower_degraded_at": "2026-09-25T11:33:44.564000Z",
+    "leader_degraded_max": 0.0,
+    "follower_watch": {
+      "closes1013": 1,
+      "refusals": {
+        "handshake_errors": 15,
+        "status_503": 5
+      }
+    },
+    "leader_watch": {
+      "closes": 0
+    },
+    "receive_again_at_ms": {
+      "chaos-api-1": {
+        "KRW-BTC": 1790336060540,
+        "KRW-ETH": 1790336060540,
+        "KRW-XRP": 1790336060540
+      },
+      "chaos-api-2": {
+        "KRW-BTC": 1790336060540,
+        "KRW-ETH": 1790336060540,
+        "KRW-XRP": 1790336060540
+      },
+      "lb": {
+        "KRW-BTC": 1790336060540,
+        "KRW-ETH": 1790336060540,
+        "KRW-XRP": 1790336060540
+      }
+    },
+    "freshness": {
+      "pairs": 100,
+      "all_ok": false,
+      "bad": 1,
+      "bad_first": [
+        {
+          "t": 1790336011.7233317,
+          "at": "2026-09-25T11:33:31.723332Z",
+          "leader_node": "chaos-api-1",
+          "follower_node": "chaos-api-2",
+          "leader": {
+            "status": 200,
+            "epoch": 5,
+            "seq": 681
+          },
+          "follower": {
+            "status": 200,
+            "epoch": 5,
+            "seq": 675
+          }
+        }
+      ],
+      "follower_nonzero_ratio": 0.57,
+      "follower_all_seq0": false
+    },
+    "heap_before": 68845728.0,
+    "heap_during": 64899344.0
+  },
+  "axes": {
+    "accept_ratio_ge_90pct": true,
+    "leader_5xx_0": true,
+    "demotions_0": true,
+    "append_p99_le_1_5x": true,
+    "connected_back_within_20s": true,
+    "connected_went_0": true,
+    "follower_degraded_within_20s": true,
+    "follower_degraded_back_0": true,
+    "leader_degraded_always_0": true,
+    "follower_watch_1013": true,
+    "follower_watch_handshake_refused": true,
+    "leader_watch_kept_connection": true,
+    "leader_watch_kept_receiving": true,
+    "all_watchers_receive_again_within_60s": true,
+    "freshness_during_and_60s_after_all_ok": false,
+    "heap_growth_le_64MiB": true
+  },
+  "ok": false,
+  "finished": "2026-09-25T20:35:42+09:00"
+}

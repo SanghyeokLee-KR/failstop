@@ -1,0 +1,168 @@
+{
+  "at": "2026-09-25T22:48:55+09:00",
+  "nodes": {
+    "chaos-api-1": {
+      "partitions": {
+        "plan": [
+          "matching-engine"
+        ],
+        "partitioned": false,
+        "partitions": [
+          {
+            "resource": "matching-engine",
+            "state": "ACCEPTING",
+            "epoch": 5,
+            "participate": true,
+            "preferred": false,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              1,
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      "metrics": {
+        "exchange_journal_append_seconds_count": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-engine\"}": 1.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-engine\"}": 6.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_node_serviceable": 1.0,
+        "exchange_node_write_completion_ratio": 1.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"429\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_serviceable{partition=\"matching-engine\"}": 1.0,
+        "exchange_partition_state{partition=\"matching-engine\"}": 2.0,
+        "exchange_partition_write_completion_ratio{partition=\"matching-engine\"}": 1.0
+      }
+    },
+    "chaos-api-2": {
+      "partitions": {
+        "plan": [
+          "matching-engine"
+        ],
+        "partitioned": false,
+        "partitions": [
+          {
+            "resource": "matching-engine",
+            "state": "FOLLOWER",
+            "epoch": null,
+            "participate": true,
+            "preferred": false,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              1,
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      "metrics": {
+        "exchange_journal_append_seconds_count": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-engine\"}": 2.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-engine\"}": 0.0,
+        "exchange_node_serviceable": 1.0,
+        "exchange_node_write_completion_ratio": 1.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"429\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_serviceable{partition=\"matching-engine\"}": 1.0,
+        "exchange_partition_state{partition=\"matching-engine\"}": 0.0,
+        "exchange_partition_write_completion_ratio{partition=\"matching-engine\"}": 1.0
+      }
+    }
+  },
+  "leader_lease": [
+    {
+      "resource": "matching-engine",
+      "holder": "ff3be6d6-e2a0-45eb-a8f4-c8f1c285823c",
+      "epoch": 5,
+      "alive": true
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "",
+      "epoch": 2,
+      "alive": false
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "",
+      "epoch": 3,
+      "alive": false
+    }
+  ],
+  "lb": {
+    "ok": true,
+    "no_live_upstreams": 2,
+    "status_502": 2
+  }
+}

@@ -120,6 +120,15 @@ Write-Host "T5(체결 재개)=$t5Disp first_trade_at=$firstTradeTs"
 Write-Section 'ⓓ 드레인 + 사후 권위 run'
 # C13a가 CRITICAL이라 부하 중에 재면 in-flight가 유실로 계상돼 위양성 FAIL이 난다.
 # 봇 쓰기를 끊고 물질화가 끝난 뒤 잰다. try 범위는 사후 run까지만 둔다(종료코드 누출 방지).
+# 드레인 전에 부하를 몇 초 더 둘 수 있다(CHAOS_E4_HOLD_LOAD_SEC, 기본 0 이라 종전과 같다). S6 관문 W5 는 '새 epoch 의 첫
+# 메시지가 kill 뒤 RTO + 5초 안'을 마켓마다 보므로, 그 창 동안 모든 마켓에 부하가 있어야 한다. 곧바로 멈추면 그 사이 주문이 없던
+# 마켓의 첫 메시지가 봇이 다시 뜬 뒤로 밀린다(2026-09-25 W5-fix 의 KRW-XRP). adr0022-stage5-chaos.ps1 -Relay 가 6초를 준다.
+$holdLoadSec = 0
+if ($env:CHAOS_E4_HOLD_LOAD_SEC) { $holdLoadSec = [int]$env:CHAOS_E4_HOLD_LOAD_SEC }
+if ($holdLoadSec -gt 0) {
+    Write-Host "드레인 전 부하 유지 ${holdLoadSec}s(CHAOS_E4_HOLD_LOAD_SEC)"
+    Start-Sleep -Seconds $holdLoadSec
+}
 $botsStopped = Stop-BotLoad
 $drained = $false
 try {

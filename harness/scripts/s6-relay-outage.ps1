@@ -1,4 +1,5 @@
-# ADR 0034 S6 관문 실험 W1~W4(마켓분할_리더_S6_설계 7-2, 하네스 검증설계 §3 E13). 아직 돌린 적이 없다(NOT RUN 초안).
+# ADR 0034 S6 관문 실험 W1~W4(마켓분할_리더_S6_설계 7-2, 하네스 검증설계 §3 E13). 2026-09-25 관문 주행에서 처음 돌렸다
+# (harness/evidence/pml-S6-20260925-1954/).
 #   W1 중계 기본. P2, 봇 부하, 주입 없이 -W1Sec 동안 관찰한다.
 #   W2 브로커 정지. docker stop chaos-broker 60초 뒤 docker start.
 #   W3 브로커 멈춤. docker pause chaos-broker 40초 뒤 unpause.
@@ -177,6 +178,8 @@ function Invoke-OutageRun {
             $faultFrom = [DateTimeOffset]::UtcNow
             if ((Invoke-Fault 'inject') -ne 0) { $row['판정'] = 'BLOCKED'; $row['사유'] = '주입 명령 실패'; $script:exitCode = 5; Invoke-Fault 'restore' | Out-Null; return }
             Start-Sleep -Seconds $faultSec
+            # 되돌리기 명령은 부른 뒤 몇 초 걸려 돌아온다. 장애가 풀린 시각은 그 사이다. 부른 시각을 따로 남긴다(판정 --restore-at).
+            $restoreAt = [DateTimeOffset]::UtcNow
             $restoreRc = Invoke-Fault 'restore'
             $faultTo = [DateTimeOffset]::UtcNow
             $row['restoreRc'] = $restoreRc
@@ -184,6 +187,7 @@ function Invoke-OutageRun {
         }
         $row['window'] = [ordered]@{ stackFrom = $stackFrom.ToString('o'); from = $windowFrom.ToString('o')
             faultFrom = $(if ($faultFrom) { $faultFrom.ToString('o') } else { $null }); faultTo = $(if ($faultTo) { $faultTo.ToString('o') } else { $null })
+            restoreAt = $(if ($faultFrom) { $restoreAt.ToString('o') } else { $null })
             to = [DateTimeOffset]::UtcNow.ToString('o') }
 
         # 관찰자와 표본기를 멈춰 마지막 상태를 받은 뒤 판정한다.
@@ -196,7 +200,7 @@ function Invoke-OutageRun {
         $judgeArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', $Experiment, '--evidence', (Get-RelPath $EvidenceDir),
             '--window-from', $windowFrom.ToString('o'), '--leader', $leader, '--follower', $follower,
             '--out', (Get-RelPath (Join-Path $EvidenceDir 'relay_axes.json')))
-        if ($faultFrom) { $judgeArgs += @('--fault-from', $faultFrom.ToString('o'), '--fault-to', $faultTo.ToString('o')) }
+        if ($faultFrom) { $judgeArgs += @('--fault-from', $faultFrom.ToString('o'), '--fault-to', $faultTo.ToString('o'), '--restore-at', $restoreAt.ToString('o')) }
         $relayRc = Invoke-Logged 'python' $judgeArgs (Join-Path $EvidenceDir 'relay_axes.log')
 
         # 공통 판정(S3 설계 7-3, S4b 까지 그대로). 봇을 멈추고 드레인한 뒤 판정한다. 장애 창이 없으면(W1) 끝 시각을 창으로 넘긴다.

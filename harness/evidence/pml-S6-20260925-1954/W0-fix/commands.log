@@ -1,0 +1,48 @@
+2026-09-25T21:49:19+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=E4,E7 LatchBeforeTraffic=False SnapshotEvidence=False Protocol=2 PartitionAxes=True Relay=False WsGateAxes=True Project=exchange-pml
+2026-09-25T21:49:20+09:00 START E4
+2026-09-25T21:49:53+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\protocol.json
+2026-09-25T21:50:19+09:00 RC 0
+2026-09-25T21:50:19+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\budget.json
+2026-09-25T21:50:20+09:00 RC 0
+2026-09-25T21:50:20+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\partition_pre.json
+2026-09-25T21:50:20+09:00 RC 0
+2026-09-25T21:50:20+09:00 EXPERIMENT E4 pwsh -NoProfile -File harness/scripts/e4-leader-kill.ps1
+2026-09-25T21:51:12+09:00 EXPERIMENT E4 rc=0
+2026-09-25T21:51:15+09:00 REJOIN docker start chaos-api-1
+2026-09-25T21:51:28+09:00 REJOIN chaos-api-1 ok=True joinSeconds=12.7 promotionLines=0
+2026-09-25T21:51:28+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T12:49:20.4373037+00:00 --fault-from 2026-09-25T12:50:20.6423159+00:00 --fault-to 2026-09-25T12:51:12.2961439+00:00 --samples harness\evidence\pml-S6-20260925-1954\W0-fix\E4\balance_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\s3_common.json
+2026-09-25T21:51:52+09:00 RC 0
+2026-09-25T21:51:52+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\partition_post.json
+2026-09-25T21:51:52+09:00 RC 0
+2026-09-25T21:51:52+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T12:49:20.4373037+00:00 --fault-from 2026-09-25T12:50:20.6423159+00:00 --fault-to 2026-09-25T12:51:12.2961439+00:00 --pre harness\evidence\pml-S6-20260925-1954\W0-fix\E4\partition_pre.json --post harness\evidence\pml-S6-20260925-1954\W0-fix\E4\partition_post.json --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\partition_axes.json
+2026-09-25T21:51:53+09:00 RC 0
+2026-09-25T21:51:53+09:00 RUN python harness/scale/s6_relay_axes.py gate --mode simple --lb-since 2026-09-25T12:51:53.2703573+00:00 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\ws_gate.json --expect-follower chaos-api-1
+2026-09-25T21:51:55+09:00 RC 0
+2026-09-25T21:51:55+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\protocol_state.json
+2026-09-25T21:51:55+09:00 RC 0
+2026-09-25T21:51:57+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S6-20260925-1954\W0-fix\E4\conn_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W0-fix\E4\connections.json
+2026-09-25T21:51:57+09:00 RC 0
+2026-09-25T21:52:03+09:00 END E4 down rc=0
+2026-09-25T21:52:03+09:00 START E7
+2026-09-25T21:52:36+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\protocol.json
+2026-09-25T21:53:02+09:00 RC 0
+2026-09-25T21:53:02+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\budget.json
+2026-09-25T21:53:03+09:00 RC 0
+2026-09-25T21:53:03+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\partition_pre.json
+2026-09-25T21:53:03+09:00 RC 0
+2026-09-25T21:53:03+09:00 EXPERIMENT E7 pwsh -NoProfile -File harness/scripts/e7-gray-pause.ps1
+2026-09-25T21:54:33+09:00 EXPERIMENT E7 rc=0
+2026-09-25T21:54:36+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T12:52:03.6166568+00:00 --fault-from 2026-09-25T12:53:03.4994608+00:00 --fault-to 2026-09-25T12:54:33.7709504+00:00 --samples harness\evidence\pml-S6-20260925-1954\W0-fix\E7\balance_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\s3_common.json --expect-demotion
+2026-09-25T21:55:01+09:00 RC 0
+2026-09-25T21:55:01+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\partition_post.json
+2026-09-25T21:55:01+09:00 RC 0
+2026-09-25T21:55:01+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T12:52:03.6166568+00:00 --fault-from 2026-09-25T12:53:03.4994608+00:00 --fault-to 2026-09-25T12:54:33.7709504+00:00 --pre harness\evidence\pml-S6-20260925-1954\W0-fix\E7\partition_pre.json --post harness\evidence\pml-S6-20260925-1954\W0-fix\E7\partition_post.json --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\partition_axes.json
+2026-09-25T21:55:02+09:00 RC 0
+2026-09-25T21:55:02+09:00 RUN python harness/scale/s6_relay_axes.py gate --mode simple --lb-since 2026-09-25T12:55:02.1017001+00:00 --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\ws_gate.json --expect-follower chaos-api-1
+2026-09-25T21:55:03+09:00 RC 0
+2026-09-25T21:55:04+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\protocol_state.json
+2026-09-25T21:55:04+09:00 RC 0
+2026-09-25T21:55:05+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S6-20260925-1954\W0-fix\E7\conn_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W0-fix\E7\connections.json
+2026-09-25T21:55:05+09:00 RC 0
+2026-09-25T21:55:11+09:00 END E7 down rc=0
+2026-09-25T21:55:11+09:00 DONE E4=PASS E7=PASS

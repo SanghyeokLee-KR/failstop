@@ -1,0 +1,13 @@
+2026-09-25T21:28:42+09:00 RUN s6-relay-outage Experiment=W1 Image=exchange-chaos-app:pml BotOps=300 Project=exchange-pml
+2026-09-25T21:28:42+09:00 OVERLAYS harness/docker-compose.relay.yml
+2026-09-25T21:29:20+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S6-20260925-1954\W1-fix\protocol.json
+2026-09-25T21:29:49+09:00 RC 0
+봇 OPS=300 적용(chaos-bots 재기동, settle 5s)
+2026-09-25T21:39:58+09:00 RUN python harness/scale/s6_relay_axes.py watch --log harness\evidence\pml-S6-20260925-1954\W1-fix\watch.log --out harness\evidence\pml-S6-20260925-1954\W1-fix\watch.json
+2026-09-25T21:39:59+09:00 RC 0
+2026-09-25T21:39:59+09:00 RUN python harness/scale/s6_relay_axes.py judge --experiment W1 --evidence harness\evidence\pml-S6-20260925-1954\W1-fix --window-from 2026-09-25T12:29:57.2855036+00:00 --leader chaos-api-1 --follower chaos-api-2 --out harness\evidence\pml-S6-20260925-1954\W1-fix\relay_axes.json
+2026-09-25T21:39:59+09:00 RC 0
+2026-09-25T21:39:59+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T12:28:42.8419995+00:00 --fault-from 2026-09-25T12:39:59.3744080+00:00 --fault-to 2026-09-25T12:39:59.3744080+00:00 --samples harness\evidence\pml-S6-20260925-1954\W1-fix\balance_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W1-fix\s3_common.json
+2026-09-25T21:40:33+09:00 RC 0
+2026-09-25T21:40:40+09:00 END W1 down rc=0
+2026-09-25T21:40:40+09:00 DONE W1 PASS

@@ -1,13 +1,14 @@
 """S6 관문 실험의 WebSocket 중계 축(마켓분할_리더_S6_설계 7-1·7-2, 하네스 검증설계 S6 패치 노트 (3)·(4)·(7)).
 
-실험 W0~W5 는 아직 돌리지 않았다(NOT RUN). 이 파일은 실행기(adr0022-stage5-chaos.ps1 -Relay·-WsGateAxes, s6-relay-outage.ps1)가
-부를 채집기와 판정 규칙의 초안이다. 도커·DB·HTTP 에 닿지 않는 판정 함수는 test_s6_relay_axes.py 가 본다.
+실행기(adr0022-stage5-chaos.ps1 -Relay·-WsGateAxes, s6-relay-outage.ps1)가 부르는 채집기와 판정 규칙이다. 2026-09-25 관문 주행
+(harness/evidence/pml-S6-20260925-1954/)에서 처음 돌렸고, 그때 드러난 도구 결함(W0 LB 증거, W5 창, 빈 p99)을 고쳤다. 도커·DB·HTTP 에 닿지 않는 판정 함수는 test_s6_relay_axes.py 가 본다.
 
 하위 명령
   gate       WS 수용 판정의 스택 표본(W0·W5). 두 노드 호스트 포트로 GET /api/v1/orderbook·/ticker 를 N 회 뜨고, 두 노드와 LB 에
              WS 핸드셰이크를 시도하며, 두 노드의 exchange_ws_gate_open·exchange_ws_relay_handshake_refused_total, 리스 행, LB 로그를
              ws_gate.json 에 남긴다. --mode simple(W0): 팔로워의 호가·티커가 모두 seq 0 이고 epoch 가 리스 epoch, 팔로워 직접
-             핸드셰이크가 503 과 Retry-After: 5, 리더와 LB 는 101, LB 로그에 /ws/ 의 503 으로 한 노드를 빼는 줄 뒤 101 줄이 있고,
+             핸드셰이크가 503 과 Retry-After: 5, 리더와 LB 는 101, LB 경유 핸드셰이크가 팔로워의 503 뒤 101 을 받았고(LB 로그 줄이나
+             그 핸드셰이크 앞뒤 팔로워 거절 계수 증가),
              팔로워 gate.open 0·거절(relay_required) 1 이상, 리더 gate.open 1. --mode broker(W5): 두 노드 모두 gate.open 1 이고
              핸드셰이크 101, LB 101.
   freshness  미러 신선도 표본기. 1초마다 리더 호스트 포트의 호가를 뜨고 --lag-ms 뒤 팔로워 호스트 포트에서 같은 요청을 떠 쌍을
@@ -23,7 +24,7 @@
   python harness/scale/s6_relay_axes.py freshness --out <jsonl> --stop-file <path> [--interval 1] [--lag-ms 500]
   python harness/scale/s6_relay_axes.py watch --log <docker logs 파일> --out <json>
   python harness/scale/s6_relay_axes.py judge --experiment W1|W2|W3|W4|W5 --evidence <실험 폴더>
-         --window-from <ISO> [--fault-from <ISO> --fault-to <ISO>] [--kill-at <ISO>] --out <json>
+         --window-from <ISO> [--fault-from <ISO> --fault-to <ISO>] [--kill-at <ISO> --rto-sec <초> --rejoin-at <ISO>] --out <json>
 종료코드: 0 판정 통과(수집 명령은 수집 성공), 1 판정 실패, 2 수집 실패.
 """
 import argparse
@@ -71,6 +72,8 @@ HEAP_GROWTH_MAX_BYTES = 64 * 1024 * 1024
 W4_FALLBACK_AFTER_S = 8.0
 W4_LAG_MAX_S = 5.0
 W5_FIRST_NEW_EPOCH_MARGIN_S = 5.0
+# 신선도 표본기가 리더 표본 뒤 팔로워 표본을 뜨기까지의 간격(freshness --lag-ms 기본값). 표본 쌍의 t 는 리더 표본 시각이다.
+FRESHNESS_LAG_S = 0.5
 
 
 def parse_iso(s):
@@ -188,8 +191,13 @@ def lease_epoch(leases, resource='matching-engine'):
     return None
 
 
-def gate_axes(mode, nodes, lb_handshake, leader, lease_epoch_value, lb_text, expect_follower=None):
-    """gate 판정(설계 7-2 W0·W5). nodes 는 {노드: {book, ticker, handshake, metrics}} 다."""
+def gate_axes(mode, nodes, lb_handshake, leader, lease_epoch_value, lb_text, expect_follower=None, lb_refused_delta=None):
+    """gate 판정(설계 7-2 W0·W5). nodes 는 {노드: {book, ticker, handshake, metrics}} 다.
+
+    lb_refused_delta 는 LB 경유 핸드셰이크 앞뒤로 읽은 팔로워의 거절 계수(relay_required) 차이다. 기본 스택 nginx.conf 는 error_log 를
+    두지 않아 nginx 기본 수준(error)으로 찍히므로, 1차 노드를 뺄 때의 [warn] 줄('upstream server temporarily disabled')이 남지 않는다
+    (2026-09-25 관문 첫 W0 주행에서 확인). 그래서 'LB 가 팔로워의 503 뒤 다음 노드로 넘겨 101 을 받았다'를 LB 로그 줄이나 이 차이로 본다.
+    """
     axes = {}
     if mode == 'simple':
         follower = None
@@ -207,7 +215,8 @@ def gate_axes(mode, nodes, lb_handshake, leader, lease_epoch_value, lb_text, exp
         axes['follower_handshake_503_retry_after_5'] = hs.get('status') == 503 and hs.get('retry_after') == '5'
         axes['leader_handshake_101'] = (lead.get('handshake') or {}).get('status') == 101
         axes['lb_handshake_101'] = (lb_handshake or {}).get('status') == 101
-        axes['lb_log_503_then_101'] = lb_ws_retry_seen(lb_text)
+        axes['lb_follower_503_then_101'] = (lb_handshake or {}).get('status') == 101 and (
+            lb_ws_retry_seen(lb_text) or (lb_refused_delta is not None and lb_refused_delta >= 1))
         axes['follower_gate_closed'] = metric_value(f.get('metrics'), 'exchange_ws_gate_open') == 0
         refused = metric_value(f.get('metrics'), 'exchange_ws_relay_handshake_refused_total', reason='relay_required')
         axes['follower_refused_relay_required_ge_1'] = refused is not None and refused >= 1
@@ -390,6 +399,21 @@ def epoch_rise_once(state, market, kill_ms, limit_ms):
     return len(new_epochs) == 1 and first - kill_ms <= limit_ms, first
 
 
+def w5_freshness_from(rejoin_at):
+    """W5 미러 신선도 판정 창의 시작. 설계 7-2 는 '합류 뒤' 표본을 본다. kill 한 옛 리더가 되살아나기 전에는 팔로워 응답이 없어
+    판정을 채우지 못하므로 창을 합류 시각(rejoin.json 의 joinedAt)부터 잡는다. 합류하지 못했으면 None 이고 축은 거짓이다."""
+    return rejoin_at
+
+
+def alarm_samples_end(fault_to, restore_at=None, lag_s=FRESHNESS_LAG_S):
+    """W4 '경보 끝까지' 표본 창의 끝(표본 쌍의 t 기준). 경보를 푸는 rabbitmqctl 은 부른 뒤 1~3초 걸려 돌아오므로 fault_to(명령이
+    돌아온 시각)보다 먼저 경보가 풀린다. 그래서 되돌리기 명령을 부른 시각(restore_at)을 끝으로 쓰고, 팔로워 표본이 리더 표본보다
+    lag_s 늦게 뜨므로 그만큼 앞당긴다. restore_at 이 없으면 fault_to 에서 앞당긴다(2026-09-25 관문 W4-fix 에서 경보가 풀린 뒤 뜬
+    팔로워 표본 하나가 창에 들어왔다)."""
+    end = restore_at if restore_at is not None else fault_to
+    return end - lag_s
+
+
 def accept_ratio(during, before):
     """창 안 접수율 / 창 앞 접수율. 창 앞이 0 이거나 읽지 못했으면 None 이다."""
     if during is None or before is None or before <= 0:
@@ -476,17 +500,29 @@ def cmd_gate(a):
         partitions[name] = node_partitions(port)
         nodes[name] = {'book': book, 'ticker': ticker, 'handshake': handshake,
                        'metrics': parse_metrics(text) if text is not None else {'error': err}}
+    refused_before = {name: metric_value(x['metrics'], 'exchange_ws_relay_handshake_refused_total', reason='relay_required')
+                      for name, x in nodes.items()}
     lb = ws_handshake(LB_PORT)
+    refused_after = {}
+    for name, port in NODES:
+        text_after, _ = http_text('http://localhost:%d/actuator/prometheus' % port)
+        refused_after[name] = (metric_value(parse_metrics(text_after), 'exchange_ws_relay_handshake_refused_total',
+                                            reason='relay_required') if text_after is not None else None)
     leases, lease_err = pgs.parse_json_row(*pgs.run_psql(LEASE_SQL, timeout=60))
     # LB 로그는 핸드셰이크 뒤에 읽는다. 위 LB 핸드셰이크 자체가 503 재시도 증거를 남긴다
     time.sleep(1.0)
     lb_text, lb_err = docker_logs(LB, since=a.lb_since)
     leader = leader_from_partitions(partitions)
     epoch = lease_epoch(leases)
-    axes = gate_axes(a.mode, nodes, lb, leader, epoch, lb_text or '', a.expect_follower)
+    follower = next((n for n, _ in NODES if n != leader), None) if leader else None
+    lb_refused_delta = None
+    if follower and refused_before.get(follower) is not None and refused_after.get(follower) is not None:
+        lb_refused_delta = refused_after[follower] - refused_before[follower]
+    axes = gate_axes(a.mode, nodes, lb, leader, epoch, lb_text or '', a.expect_follower, lb_refused_delta)
     res = {'started': started, 'mode': a.mode, 'market': a.market, 'leader': leader, 'lease_epoch': epoch,
            'leases': leases if leases is not None else {'error': lease_err}, 'partitions': partitions,
            'nodes': nodes, 'lb_handshake': lb, 'lb_log': {'error': lb_err, 'ws_retry_seen': lb_ws_retry_seen(lb_text or '')},
+           'lb_refused': {'before': refused_before, 'after': refused_after, 'follower_delta': lb_refused_delta},
            'axes': axes, 'ok': bool(axes) and all(axes.values()), 'finished': pgs.now_iso()}
     Path(a.out).write_text(json.dumps(res, ensure_ascii=False, indent=2, default=str), encoding='utf-8')
     print(json.dumps({'ok': res['ok'], 'failed': [k for k, v in axes.items() if not v], 'leader': leader},
@@ -549,6 +585,15 @@ def scalar(expr, at):
     return float(res[0]['value'][1])
 
 
+def scalar_or_none(expr, at):
+    """scalar 와 같되 빈 결과(계열 없음)와 NaN 을 None 으로 둔다. 계열이 있어야 뜻이 있는 값(지연 최댓값, 계열 수)에 쓴다."""
+    res = prom('/api/v1/query', {'query': expr, 'time': '%.3f' % at})
+    if isinstance(res, dict) or not res:
+        return None
+    v = float(res[0]['value'][1])
+    return None if v != v else v
+
+
 def by_label(expr, label, at):
     res = prom('/api/v1/query', {'query': expr, 'time': '%.3f' % at})
     if isinstance(res, dict) or res is None:
@@ -593,9 +638,16 @@ def window_rate(expr, start, end):
 
 
 def window_p99(bucket, start, end):
+    """창의 p99. 버킷 계열이 없거나 표본이 없으면(빈 결과, NaN) None 이다. scalar 처럼 빈 결과를 0 으로 읽으면 버킷을 내지
+    않는 타이머가 'p99 0초'로 보인다(2026-09-25 관문 첫 W2 주행)."""
     if end <= start:
         return None
-    return scalar('histogram_quantile(0.99, sum by (le) (rate(%s[%ds])))' % (bucket, max(1, round(end - start))), end)
+    res = prom('/api/v1/query', {'query': 'histogram_quantile(0.99, sum by (le) (rate(%s[%ds])))'
+                                 % (bucket, max(1, round(end - start))), 'time': '%.3f' % end})
+    if isinstance(res, dict) or not res:
+        return None
+    v = float(res[0]['value'][1])
+    return None if v != v else v
 
 
 def load_json(path):
@@ -670,7 +722,9 @@ def judge_w1(ev, a, win_from, win_to):
     facts['book_set_diff_ratio'] = ratio
     axes['book_set_diff_le_0_1pct'] = ratio is not None and ratio <= W1_SET_DIFF_MAX
     facts['dropped'] = window_increase('exchange_ws_relay_dropped_total', win_from, win_to)
-    axes['dropped_0'] = facts['dropped'] == 0
+    # 계열이 없으면 합이 빈 결과라 0 으로 읽힌다. 두 노드의 유실 계수 계열이 있어야 0 을 믿는다.
+    facts['dropped_series'] = scalar_or_none('count(exchange_ws_relay_dropped_total)', win_to)
+    axes['dropped_0'] = facts['dropped'] == 0 and (facts['dropped_series'] or 0) >= 2
     conn = series_range('exchange_ws_relay_connected', win_from + 30, win_to)
     facts['connected_min'] = min((v for s in conn or [] for _, v in s['values']), default=None)
     axes['connected_always_1'] = facts['connected_min'] == 1
@@ -687,7 +741,7 @@ def judge_w1(ev, a, win_from, win_to):
     return facts, axes
 
 
-def judge_outage(exp, ev, a, win_from, fault_from, fault_to, follower_node, leader_node):
+def judge_outage(exp, ev, a, win_from, fault_from, fault_to, follower_node, leader_node, restore_at=None):
     """W2(정지)·W3(멈춤)·W4(메모리 경보)."""
     fi, li = INSTANCES[follower_node], INSTANCES[leader_node]
     facts, axes = common_rest_axes(win_from, fault_from, fault_to, li)
@@ -756,7 +810,7 @@ def judge_outage(exp, ev, a, win_from, fault_from, fault_to, follower_node, lead
         axes['heap_growth_le_64MiB'] = (heap_before is not None and heap_during is not None
                                         and heap_during - heap_before <= HEAP_GROWTH_MAX_BYTES)
     if exp == 'W4':
-        fs8 = freshness_summary(pairs, fault_from + W4_FALLBACK_AFTER_S, fault_to)
+        fs8 = freshness_summary(pairs, fault_from + W4_FALLBACK_AFTER_S, alarm_samples_end(fault_to, restore_at))
         facts['freshness_alarm_after_8s'] = fs8
         axes['follower_book_seq0_during_alarm'] = fs8['follower_all_seq0']
         fb = window_increase('exchange_ws_mirror_fallback_total{instance="%s",reason="owner_silent"}' % fi,
@@ -765,13 +819,13 @@ def judge_outage(exp, ev, a, win_from, fault_from, fault_to, follower_node, lead
         axes['mirror_fallback_owner_silent_ge_1'] = fb is not None and fb >= 1
         gate = series_range('exchange_ws_gate_open{instance="%s"}' % fi, fault_to, fault_to + 30)
         axes['follower_gate_open_within_30s'] = first_time_all(gate, lambda v: v == 1, fault_to) is not None
-        lag = scalar('max(max_over_time(exchange_ws_relay_lag_seconds_max{instance="%s"}[60s]))' % fi, fault_to + 60)
+        lag = scalar_or_none('max(max_over_time(exchange_ws_relay_lag_seconds_max{instance="%s"}[60s]))' % fi, fault_to + 60)
         facts['follower_lag_max_after'] = lag
         axes['follower_lag_max_le_5s_after'] = lag is not None and lag <= W4_LAG_MAX_S
     return facts, axes
 
 
-def judge_w5(ev, a, win_from, kill_at, rto_s, follower_node='chaos-api-2'):
+def judge_w5(ev, a, win_from, kill_at, rto_s, follower_node='chaos-api-2', rejoin_at=None):
     """W5 리더 kill(P2, 중계). E4 규칙과 공통 판정은 실행기가 따로 본다. 여기는 중계 축이다."""
     watch = watch_nodes(load_json(Path(ev) / 'watch.json'))
     pairs = load_jsonl(Path(ev) / 'freshness.jsonl')
@@ -795,7 +849,9 @@ def judge_w5(ev, a, win_from, kill_at, rto_s, follower_node='chaos-api-2'):
     facts['epoch_rises'] = rises
     gate = series_range('exchange_ws_gate_open{instance="chaos-api-1:8080"}', kill_at, time.time())
     axes['rejoined_api1_gate_open'] = first_time_all(gate, lambda v: v == 1, kill_at) is not None
-    fs = freshness_summary(pairs, kill_at + (rto_s or 30))
+    fresh_from = w5_freshness_from(rejoin_at)
+    facts['freshness_from'] = iso(fresh_from) if fresh_from else None
+    fs = freshness_summary(pairs, fresh_from) if fresh_from else {'pairs': 0, 'all_ok': False, 'error': '합류 시각이 없다'}
     facts['freshness_after_rejoin'] = fs
     axes['freshness_after_rejoin_all_ok'] = fs['all_ok']
     return facts, axes
@@ -815,13 +871,16 @@ def cmd_judge(a):
         if fault_from is None or fault_to is None:
             facts, axes = {'error': '장애 창이 없다'}, {'fault_window_given': False}
         else:
-            facts, axes = judge_outage(a.experiment, ev, a, win_from, fault_from, fault_to, a.follower, a.leader)
+            restore_at = parse_iso(a.restore_at).timestamp() if a.restore_at else None
+            facts, axes = judge_outage(a.experiment, ev, a, win_from, fault_from, fault_to, a.follower, a.leader,
+                                       restore_at=restore_at)
     else:
         kill_at = parse_iso(a.kill_at).timestamp() if a.kill_at else fault_from
         if kill_at is None:
             facts, axes = {'error': 'kill 시각이 없다'}, {'kill_at_given': False}
         else:
-            facts, axes = judge_w5(ev, a, win_from, kill_at, a.rto_sec)
+            rejoin_at = parse_iso(a.rejoin_at).timestamp() if a.rejoin_at else None
+            facts, axes = judge_w5(ev, a, win_from, kill_at, a.rto_sec, rejoin_at=rejoin_at)
     res['facts'] = facts
     res['axes'] = axes
     res['ok'] = bool(axes) and all(axes.values())
@@ -858,6 +917,8 @@ def main(argv=None):
     j.add_argument('--fault-to', default=None)
     j.add_argument('--kill-at', default=None)
     j.add_argument('--rto-sec', type=float, default=None)
+    j.add_argument('--rejoin-at', default=None)
+    j.add_argument('--restore-at', default=None)
     j.add_argument('--leader', default='chaos-api-1')
     j.add_argument('--follower', default='chaos-api-2')
     j.add_argument('--out', required=True)

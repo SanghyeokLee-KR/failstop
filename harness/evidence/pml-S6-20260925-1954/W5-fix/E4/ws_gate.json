@@ -1,0 +1,556 @@
+{
+  "started": "2026-09-25T21:48:56+09:00",
+  "mode": "broker",
+  "market": "KRW-BTC",
+  "leader": "chaos-api-2",
+  "lease_epoch": 6,
+  "leases": [
+    {
+      "resource": "matching-engine",
+      "holder": "ff13aa19-cd8c-44fc-be77-13649f2a433d",
+      "epoch": 6,
+      "alive": true
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "",
+      "epoch": 2,
+      "alive": false
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "",
+      "epoch": 3,
+      "alive": false
+    }
+  ],
+  "partitions": {
+    "chaos-api-1": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "chaos-api-2": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 6,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": {
+    "chaos-api-1": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        }
+      ],
+      "handshake": {
+        "status": 101,
+        "retry_after": null,
+        "at": "2026-09-25T21:48:56+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 0.0,
+        "exchange_ws_gate_open": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"absent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"owner_silent\"}": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"relay_down\"}": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"absent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"owner_silent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_relay_connected{link=\"pub\"}": 1.0,
+        "exchange_ws_relay_connected{link=\"sub\"}": 1.0,
+        "exchange_ws_relay_degraded{cause=\"link_down\"}": 0.0,
+        "exchange_ws_relay_degraded{cause=\"owner_silent\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"candle_overflow\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"disconnected\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"malformed\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"queue_full\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"stale\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"write_timeout\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001\"}": 152.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001048576\"}": 152.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001398101\"}": 152.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001747626\"}": 152.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002097151\"}": 162.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002446676\"}": 162.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002796201\"}": 162.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003145726\"}": 167.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003495251\"}": 167.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003844776\"}": 167.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.004194304\"}": 180.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.005592405\"}": 182.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.006990506\"}": 182.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.008388607\"}": 182.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.009786708\"}": 182.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.011184809\"}": 184.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.01258291\"}": 187.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.013981011\"}": 187.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.015379112\"}": 187.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.016777216\"}": 187.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.022369621\"}": 190.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.027962026\"}": 193.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.033554431\"}": 199.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.039146836\"}": 203.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.044739241\"}": 210.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.050331646\"}": 210.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.055924051\"}": 211.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.061516456\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.067108864\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.089478485\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.111848106\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.134217727\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.156587348\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.178956969\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.20132659\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.223696211\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.246065832\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.268435456\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.357913941\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.447392426\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.536870911\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.626349396\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.715827881\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.805306366\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.894784851\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.984263336\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.073741824\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.431655765\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.789569706\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.147483647\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.505397588\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.863311529\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.22122547\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.579139411\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.937053352\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"4.294967296\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"5.726623061\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"7.158278826\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"8.589934591\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"10.021590356\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"11.453246121\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"12.884901886\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"14.316557651\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"15.748213416\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"17.179869184\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"22.906492245\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"28.633115306\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"30.0\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"+Inf\"}": 213.0,
+        "exchange_ws_relay_lag_seconds_count": 213.0,
+        "exchange_ws_relay_lag_seconds_sum": 1.234,
+        "exchange_ws_relay_lag_seconds_max": 0.056,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"hb\"}": 129.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"topic\"}": 29.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"user\"}": 55.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"hb\"}": 0.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"topic\"}": 0.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"user\"}": 0.0,
+        "exchange_ws_relay_queue_size": 0.0
+      }
+    },
+    "chaos-api-2": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 141
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 85
+        }
+      ],
+      "handshake": {
+        "status": 101,
+        "retry_after": null,
+        "at": "2026-09-25T21:48:56+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 2.0,
+        "exchange_ws_gate_open": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"absent\"}": 10.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"owner_silent\"}": 113.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"absent\"}": 3.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"owner_silent\"}": 6.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_relay_connected{link=\"pub\"}": 1.0,
+        "exchange_ws_relay_connected{link=\"sub\"}": 1.0,
+        "exchange_ws_relay_degraded{cause=\"link_down\"}": 0.0,
+        "exchange_ws_relay_degraded{cause=\"owner_silent\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"candle_overflow\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"disconnected\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"malformed\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"queue_full\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"stale\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"write_timeout\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001\"}": 5264.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001048576\"}": 5264.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001398101\"}": 5264.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001747626\"}": 5264.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002097151\"}": 5406.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002446676\"}": 5406.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002796201\"}": 5406.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003145726\"}": 5452.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003495251\"}": 5452.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003844776\"}": 5452.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.004194304\"}": 5485.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.005592405\"}": 5504.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.006990506\"}": 5515.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.008388607\"}": 5538.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.009786708\"}": 5552.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.011184809\"}": 5577.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.01258291\"}": 5593.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.013981011\"}": 5613.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.015379112\"}": 5633.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.016777216\"}": 5640.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.022369621\"}": 5670.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.027962026\"}": 5711.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.033554431\"}": 5736.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.039146836\"}": 5748.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.044739241\"}": 5750.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.050331646\"}": 5750.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.055924051\"}": 5750.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.061516456\"}": 5750.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.067108864\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.089478485\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.111848106\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.134217727\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.156587348\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.178956969\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.20132659\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.223696211\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.246065832\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.268435456\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.357913941\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.447392426\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.536870911\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.626349396\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.715827881\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.805306366\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.894784851\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.984263336\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.073741824\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.431655765\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.789569706\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.147483647\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.505397588\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.863311529\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.22122547\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.579139411\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.937053352\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"4.294967296\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"5.726623061\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"7.158278826\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"8.589934591\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"10.021590356\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"11.453246121\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"12.884901886\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"14.316557651\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"15.748213416\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"17.179869184\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"22.906492245\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"28.633115306\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"30.0\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"+Inf\"}": 5751.0,
+        "exchange_ws_relay_lag_seconds_count": 5751.0,
+        "exchange_ws_relay_lag_seconds_sum": 8.079,
+        "exchange_ws_relay_lag_seconds_max": 0.062,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"hb\"}": 214.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"topic\"}": 1977.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"user\"}": 3560.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"hb\"}": 227.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"topic\"}": 610.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"user\"}": 1138.0,
+        "exchange_ws_relay_queue_size": 0.0
+      }
+    }
+  },
+  "lb_handshake": {
+    "status": 101,
+    "retry_after": null,
+    "at": "2026-09-25T21:48:56+09:00"
+  },
+  "lb_log": {
+    "error": null,
+    "ws_retry_seen": false
+  },
+  "lb_refused": {
+    "before": {
+      "chaos-api-1": 0.0,
+      "chaos-api-2": 0.0
+    },
+    "after": {
+      "chaos-api-1": 0.0,
+      "chaos-api-2": 0.0
+    },
+    "follower_delta": 0.0
+  },
+  "axes": {
+    "chaos-api-1_gate_open": true,
+    "chaos-api-1_handshake_101": true,
+    "chaos-api-2_gate_open": true,
+    "chaos-api-2_handshake_101": true,
+    "lb_handshake_101": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T21:48:57+09:00"
+}

@@ -1,0 +1,2741 @@
+{
+  "ws://chaos-api-2:8080/ws/v1": {
+    "latest": {
+      "v": 1,
+      "node": "ws://chaos-api-2:8080/ws/v1",
+      "final": false,
+      "at": 1790334571822,
+      "startedAt": 1790334361813,
+      "connects": 37,
+      "opens": 4,
+      "closes": [
+        {
+          "at": 1790334392384,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334427477,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334429480,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334431481,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334433483,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334435485,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334437487,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334439489,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334441491,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334443493,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334445495,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334447497,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334449497,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334451499,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334453501,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334455503,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334457504,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334459507,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334461509,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334463510,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334465512,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334467514,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334469516,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334471519,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334473520,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334475522,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334477524,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334479524,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334481526,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334483527,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334485529,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334487531,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334489533,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334491535,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334493537,
+          "code": null,
+          "reason": null,
+          "opened": false
+        },
+        {
+          "at": 1790334532380,
+          "code": null,
+          "reason": null,
+          "opened": true
+        }
+      ],
+      "closeCodes": {
+        "null": 36
+      },
+      "handshakeErrors": 33,
+      "errors": [
+        {
+          "at": 1790334392384,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334427477,
+          "handshake": false,
+          "error": "websocket: close 1013: relay_unavailable"
+        },
+        {
+          "at": 1790334429479,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334431481,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334433483,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334435484,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334437487,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334439489,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334441491,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334443493,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334445495,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334447497,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334449497,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334451499,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334453501,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334455503,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334457504,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334459506,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334461509,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334463510,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334465512,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334467514,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334469516,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334471518,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334473520,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334475522,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334477523,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334479524,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334481526,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334483527,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334485529,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334487531,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334489532,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334491535,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334493537,
+          "handshake": true,
+          "error": "websocket: bad handshake"
+        },
+        {
+          "at": 1790334532380,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        }
+      ],
+      "refusals": [
+        {
+          "at": 1790334429480,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334435485,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334441491,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334447497,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334453501,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334459506,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334465512,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334471519,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334477524,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334483527,
+          "status": 503,
+          "retryAfter": "5"
+        },
+        {
+          "at": 1790334489533,
+          "status": 503,
+          "retryAfter": "5"
+        }
+      ],
+      "epochRises": [],
+      "stompErrors": 2,
+      "parseErrors": 0,
+      "markets": {
+        "KRW-BTC": {
+          "orderbook": {
+            "realtime": 1531,
+            "snapshot": 3,
+            "zero": 1,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361856
+            },
+            "firstAt": 1790334361856,
+            "lastAt": 1790334571646,
+            "ranges": {
+              "5": [
+                [
+                  18,
+                  336
+                ],
+                [
+                  358,
+                  678
+                ],
+                [
+                  1620,
+                  2078
+                ],
+                [
+                  2123,
+                  2557
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 1118,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361977
+            },
+            "firstAt": 1790334361977,
+            "lastAt": 1790334571646
+          },
+          "trade": {
+            "messages": 1131,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361970
+            },
+            "firstAt": 1790334361970,
+            "lastAt": 1790334571645
+          }
+        },
+        "KRW-ETH": {
+          "orderbook": {
+            "realtime": 1260,
+            "snapshot": 3,
+            "zero": 1,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361857
+            },
+            "firstAt": 1790334361857,
+            "lastAt": 1790334571796,
+            "ranges": {
+              "5": [
+                [
+                  14,
+                  298
+                ],
+                [
+                  316,
+                  580
+                ],
+                [
+                  1246,
+                  1579
+                ],
+                [
+                  1592,
+                  1970
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 644,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362211
+            },
+            "firstAt": 1790334362211,
+            "lastAt": 1790334571790
+          },
+          "trade": {
+            "messages": 657,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362204
+            },
+            "firstAt": 1790334362204,
+            "lastAt": 1790334571787
+          }
+        },
+        "KRW-XRP": {
+          "orderbook": {
+            "realtime": 789,
+            "snapshot": 2,
+            "zero": 2,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361858
+            },
+            "firstAt": 1790334361858,
+            "lastAt": 1790334571737,
+            "ranges": {
+              "5": [
+                [
+                  9,
+                  122
+                ],
+                [
+                  139,
+                  352
+                ],
+                [
+                  893,
+                  1136
+                ],
+                [
+                  1156,
+                  1374
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 507,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362060
+            },
+            "firstAt": 1790334362060,
+            "lastAt": 1790334571737
+          },
+          "trade": {
+            "messages": 563,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362053
+            },
+            "firstAt": 1790334362053,
+            "lastAt": 1790334571737
+          }
+        }
+      }
+    },
+    "series": [
+      {
+        "at": 1790334371813,
+        "markets": {
+          "KRW-BTC": [
+            109,
+            88,
+            86
+          ],
+          "KRW-ETH": [
+            96,
+            41,
+            41
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334381814,
+        "markets": {
+          "KRW-BTC": [
+            215,
+            162,
+            157
+          ],
+          "KRW-ETH": [
+            174,
+            90,
+            90
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334391813,
+        "markets": {
+          "KRW-BTC": [
+            315,
+            242,
+            236
+          ],
+          "KRW-ETH": [
+            274,
+            141,
+            140
+          ],
+          "KRW-XRP": [
+            106,
+            70,
+            61
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334401814,
+        "markets": {
+          "KRW-BTC": [
+            405,
+            319,
+            312
+          ],
+          "KRW-ETH": [
+            377,
+            191,
+            190
+          ],
+          "KRW-XRP": [
+            167,
+            114,
+            98
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334411814,
+        "markets": {
+          "KRW-BTC": [
+            531,
+            404,
+            397
+          ],
+          "KRW-ETH": [
+            459,
+            240,
+            237
+          ],
+          "KRW-XRP": [
+            237,
+            165,
+            147
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334421813,
+        "markets": {
+          "KRW-BTC": [
+            637,
+            484,
+            477
+          ],
+          "KRW-ETH": [
+            547,
+            294,
+            288
+          ],
+          "KRW-XRP": [
+            326,
+            235,
+            209
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334431814,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 2,
+        "opens": 2
+      },
+      {
+        "at": 1790334441815,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 7,
+        "opens": 2
+      },
+      {
+        "at": 1790334451815,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 12,
+        "opens": 2
+      },
+      {
+        "at": 1790334461815,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 17,
+        "opens": 2
+      },
+      {
+        "at": 1790334471816,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 22,
+        "opens": 2
+      },
+      {
+        "at": 1790334481816,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 27,
+        "opens": 2
+      },
+      {
+        "at": 1790334491818,
+        "markets": {
+          "KRW-BTC": [
+            638,
+            485,
+            478
+          ],
+          "KRW-ETH": [
+            548,
+            295,
+            289
+          ],
+          "KRW-XRP": [
+            327,
+            236,
+            210
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 32,
+        "opens": 2
+      },
+      {
+        "at": 1790334501818,
+        "markets": {
+          "KRW-BTC": [
+            720,
+            541,
+            532
+          ],
+          "KRW-ETH": [
+            627,
+            328,
+            321
+          ],
+          "KRW-XRP": [
+            348,
+            252,
+            224
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 3
+      },
+      {
+        "at": 1790334511819,
+        "markets": {
+          "KRW-BTC": [
+            828,
+            628,
+            618
+          ],
+          "KRW-ETH": [
+            702,
+            370,
+            363
+          ],
+          "KRW-XRP": [
+            405,
+            290,
+            258
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 3
+      },
+      {
+        "at": 1790334521820,
+        "markets": {
+          "KRW-BTC": [
+            949,
+            703,
+            692
+          ],
+          "KRW-ETH": [
+            794,
+            412,
+            405
+          ],
+          "KRW-XRP": [
+            474,
+            330,
+            297
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 3
+      },
+      {
+        "at": 1790334531821,
+        "markets": {
+          "KRW-BTC": [
+            1091,
+            807,
+            796
+          ],
+          "KRW-ETH": [
+            879,
+            463,
+            454
+          ],
+          "KRW-XRP": [
+            569,
+            404,
+            363
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 3
+      },
+      {
+        "at": 1790334541821,
+        "markets": {
+          "KRW-BTC": [
+            1197,
+            884,
+            872
+          ],
+          "KRW-ETH": [
+            996,
+            521,
+            512
+          ],
+          "KRW-XRP": [
+            617,
+            440,
+            397
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 4
+      },
+      {
+        "at": 1790334551822,
+        "markets": {
+          "KRW-BTC": [
+            1303,
+            961,
+            947
+          ],
+          "KRW-ETH": [
+            1083,
+            576,
+            564
+          ],
+          "KRW-XRP": [
+            681,
+            488,
+            438
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 4
+      },
+      {
+        "at": 1790334561823,
+        "markets": {
+          "KRW-BTC": [
+            1430,
+            1054,
+            1041
+          ],
+          "KRW-ETH": [
+            1179,
+            616,
+            604
+          ],
+          "KRW-XRP": [
+            733,
+            527,
+            473
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 4
+      },
+      {
+        "at": 1790334571822,
+        "markets": {
+          "KRW-BTC": [
+            1531,
+            1131,
+            1118
+          ],
+          "KRW-ETH": [
+            1260,
+            657,
+            644
+          ],
+          "KRW-XRP": [
+            789,
+            563,
+            507
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 33,
+        "opens": 4
+      }
+    ]
+  },
+  "ws://chaos-api-1:8080/ws/v1": {
+    "latest": {
+      "v": 1,
+      "node": "ws://chaos-api-1:8080/ws/v1",
+      "final": false,
+      "at": 1790334571822,
+      "startedAt": 1790334361812,
+      "connects": 6,
+      "opens": 6,
+      "closes": [
+        {
+          "at": 1790334401854,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334441851,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334481849,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334521849,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334561848,
+          "code": null,
+          "reason": null,
+          "opened": true
+        }
+      ],
+      "closeCodes": {
+        "null": 5
+      },
+      "handshakeErrors": 0,
+      "errors": [
+        {
+          "at": 1790334401854,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334441851,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334481849,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334521849,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334561848,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        }
+      ],
+      "refusals": [],
+      "epochRises": [],
+      "stompErrors": 5,
+      "parseErrors": 0,
+      "markets": {
+        "KRW-BTC": {
+          "orderbook": {
+            "realtime": 2401,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361866
+            },
+            "firstAt": 1790334361866,
+            "lastAt": 1790334571644,
+            "ranges": {
+              "5": [
+                [
+                  18,
+                  447
+                ],
+                [
+                  474,
+                  892
+                ],
+                [
+                  926,
+                  1430
+                ],
+                [
+                  1467,
+                  1930
+                ],
+                [
+                  1948,
+                  2456
+                ],
+                [
+                  2478,
+                  2557
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 1676,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361976
+            },
+            "firstAt": 1790334361976,
+            "lastAt": 1790334571646
+          },
+          "trade": {
+            "messages": 1712,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361969
+            },
+            "firstAt": 1790334361969,
+            "lastAt": 1790334571643
+          }
+        },
+        "KRW-ETH": {
+          "orderbook": {
+            "realtime": 1871,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361866
+            },
+            "firstAt": 1790334361866,
+            "lastAt": 1790334571795,
+            "ranges": {
+              "5": [
+                [
+                  14,
+                  409
+                ],
+                [
+                  439,
+                  763
+                ],
+                [
+                  782,
+                  1137
+                ],
+                [
+                  1150,
+                  1494
+                ],
+                [
+                  1503,
+                  1889
+                ],
+                [
+                  1903,
+                  1970
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 919,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362210
+            },
+            "firstAt": 1790334362210,
+            "lastAt": 1790334571790
+          },
+          "trade": {
+            "messages": 950,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362203
+            },
+            "firstAt": 1790334362203,
+            "lastAt": 1790334571787
+          }
+        },
+        "KRW-XRP": {
+          "orderbook": {
+            "realtime": 1286,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361867
+            },
+            "firstAt": 1790334361867,
+            "lastAt": 1790334571734,
+            "ranges": {
+              "5": [
+                [
+                  8,
+                  194
+                ],
+                [
+                  209,
+                  519
+                ],
+                [
+                  536,
+                  776
+                ],
+                [
+                  795,
+                  1039
+                ],
+                [
+                  1065,
+                  1318
+                ],
+                [
+                  1321,
+                  1374
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 799,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362059
+            },
+            "firstAt": 1790334362059,
+            "lastAt": 1790334571735
+          },
+          "trade": {
+            "messages": 909,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362052
+            },
+            "firstAt": 1790334362052,
+            "lastAt": 1790334571732
+          }
+        }
+      }
+    },
+    "series": [
+      {
+        "at": 1790334371813,
+        "markets": {
+          "KRW-BTC": [
+            109,
+            88,
+            86
+          ],
+          "KRW-ETH": [
+            96,
+            41,
+            41
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334381814,
+        "markets": {
+          "KRW-BTC": [
+            215,
+            162,
+            157
+          ],
+          "KRW-ETH": [
+            174,
+            90,
+            90
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334391813,
+        "markets": {
+          "KRW-BTC": [
+            315,
+            242,
+            236
+          ],
+          "KRW-ETH": [
+            274,
+            141,
+            140
+          ],
+          "KRW-XRP": [
+            106,
+            70,
+            61
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334401814,
+        "markets": {
+          "KRW-BTC": [
+            427,
+            340,
+            333
+          ],
+          "KRW-ETH": [
+            395,
+            197,
+            196
+          ],
+          "KRW-XRP": [
+            184,
+            126,
+            110
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334411814,
+        "markets": {
+          "KRW-BTC": [
+            526,
+            410,
+            403
+          ],
+          "KRW-ETH": [
+            447,
+            233,
+            231
+          ],
+          "KRW-XRP": [
+            239,
+            169,
+            151
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334421813,
+        "markets": {
+          "KRW-BTC": [
+            632,
+            490,
+            483
+          ],
+          "KRW-ETH": [
+            535,
+            287,
+            282
+          ],
+          "KRW-XRP": [
+            328,
+            239,
+            213
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334431814,
+        "markets": {
+          "KRW-BTC": [
+            732,
+            565,
+            557
+          ],
+          "KRW-ETH": [
+            629,
+            345,
+            337
+          ],
+          "KRW-XRP": [
+            414,
+            297,
+            265
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334441815,
+        "markets": {
+          "KRW-BTC": [
+            845,
+            643,
+            636
+          ],
+          "KRW-ETH": [
+            718,
+            382,
+            371
+          ],
+          "KRW-XRP": [
+            495,
+            352,
+            309
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334451815,
+        "markets": {
+          "KRW-BTC": [
+            957,
+            706,
+            697
+          ],
+          "KRW-ETH": [
+            798,
+            397,
+            385
+          ],
+          "KRW-XRP": [
+            536,
+            387,
+            340
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334461815,
+        "markets": {
+          "KRW-BTC": [
+            1044,
+            774,
+            765
+          ],
+          "KRW-ETH": [
+            873,
+            445,
+            429
+          ],
+          "KRW-XRP": [
+            621,
+            445,
+            390
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334471816,
+        "markets": {
+          "KRW-BTC": [
+            1185,
+            857,
+            844
+          ],
+          "KRW-ETH": [
+            970,
+            484,
+            465
+          ],
+          "KRW-XRP": [
+            683,
+            486,
+            420
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334481816,
+        "markets": {
+          "KRW-BTC": [
+            1350,
+            973,
+            948
+          ],
+          "KRW-ETH": [
+            1074,
+            535,
+            512
+          ],
+          "KRW-XRP": [
+            735,
+            518,
+            448
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334491818,
+        "markets": {
+          "KRW-BTC": [
+            1463,
+            1043,
+            1014
+          ],
+          "KRW-ETH": [
+            1152,
+            573,
+            550
+          ],
+          "KRW-XRP": [
+            800,
+            559,
+            484
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334501818,
+        "markets": {
+          "KRW-BTC": [
+            1585,
+            1126,
+            1094
+          ],
+          "KRW-ETH": [
+            1248,
+            620,
+            595
+          ],
+          "KRW-XRP": [
+            854,
+            599,
+            518
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334511819,
+        "markets": {
+          "KRW-BTC": [
+            1693,
+            1213,
+            1180
+          ],
+          "KRW-ETH": [
+            1323,
+            662,
+            637
+          ],
+          "KRW-XRP": [
+            911,
+            637,
+            552
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334521820,
+        "markets": {
+          "KRW-BTC": [
+            1814,
+            1288,
+            1254
+          ],
+          "KRW-ETH": [
+            1415,
+            704,
+            679
+          ],
+          "KRW-XRP": [
+            980,
+            677,
+            591
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334531821,
+        "markets": {
+          "KRW-BTC": [
+            1938,
+            1374,
+            1340
+          ],
+          "KRW-ETH": [
+            1491,
+            748,
+            721
+          ],
+          "KRW-XRP": [
+            1049,
+            736,
+            642
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334541821,
+        "markets": {
+          "KRW-BTC": [
+            2089,
+            1480,
+            1445
+          ],
+          "KRW-ETH": [
+            1621,
+            817,
+            790
+          ],
+          "KRW-XRP": [
+            1117,
+            786,
+            689
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334551822,
+        "markets": {
+          "KRW-BTC": [
+            2195,
+            1557,
+            1521
+          ],
+          "KRW-ETH": [
+            1708,
+            872,
+            842
+          ],
+          "KRW-XRP": [
+            1181,
+            834,
+            730
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334561823,
+        "markets": {
+          "KRW-BTC": [
+            2322,
+            1650,
+            1614
+          ],
+          "KRW-ETH": [
+            1804,
+            912,
+            882
+          ],
+          "KRW-XRP": [
+            1233,
+            873,
+            765
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334571822,
+        "markets": {
+          "KRW-BTC": [
+            2401,
+            1712,
+            1676
+          ],
+          "KRW-ETH": [
+            1871,
+            950,
+            919
+          ],
+          "KRW-XRP": [
+            1286,
+            909,
+            799
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 6
+      }
+    ]
+  },
+  "ws://chaos-lb:8080/ws/v1": {
+    "latest": {
+      "v": 1,
+      "node": "ws://chaos-lb:8080/ws/v1",
+      "final": false,
+      "at": 1790334571822,
+      "startedAt": 1790334361812,
+      "connects": 6,
+      "opens": 6,
+      "closes": [
+        {
+          "at": 1790334401853,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334427477,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334461850,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334501849,
+          "code": null,
+          "reason": null,
+          "opened": true
+        },
+        {
+          "at": 1790334541848,
+          "code": null,
+          "reason": null,
+          "opened": true
+        }
+      ],
+      "closeCodes": {
+        "null": 5
+      },
+      "handshakeErrors": 0,
+      "errors": [
+        {
+          "at": 1790334401853,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334427477,
+          "handshake": false,
+          "error": "websocket: close 1013: relay_unavailable"
+        },
+        {
+          "at": 1790334461850,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334501849,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        },
+        {
+          "at": 1790334541848,
+          "handshake": false,
+          "error": "websocket: close 1002 (protocol error)"
+        }
+      ],
+      "refusals": [],
+      "epochRises": [],
+      "stompErrors": 4,
+      "parseErrors": 0,
+      "markets": {
+        "KRW-BTC": {
+          "orderbook": {
+            "realtime": 2372,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361866
+            },
+            "firstAt": 1790334361866,
+            "lastAt": 1790334571644,
+            "ranges": {
+              "5": [
+                [
+                  18,
+                  447
+                ],
+                [
+                  474,
+                  678
+                ],
+                [
+                  749,
+                  1123
+                ],
+                [
+                  1149,
+                  1701
+                ],
+                [
+                  1723,
+                  2224
+                ],
+                [
+                  2245,
+                  2557
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 1649,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361976
+            },
+            "firstAt": 1790334361976,
+            "lastAt": 1790334571646
+          },
+          "trade": {
+            "messages": 1685,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361969
+            },
+            "firstAt": 1790334361969,
+            "lastAt": 1790334571643
+          }
+        },
+        "KRW-ETH": {
+          "orderbook": {
+            "realtime": 1800,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361866
+            },
+            "firstAt": 1790334361866,
+            "lastAt": 1790334571795,
+            "ranges": {
+              "5": [
+                [
+                  14,
+                  409
+                ],
+                [
+                  439,
+                  580
+                ],
+                [
+                  647,
+                  936
+                ],
+                [
+                  964,
+                  1324
+                ],
+                [
+                  1334,
+                  1706
+                ],
+                [
+                  1727,
+                  1970
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 871,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362210
+            },
+            "firstAt": 1790334362210,
+            "lastAt": 1790334571790
+          },
+          "trade": {
+            "messages": 897,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362203
+            },
+            "firstAt": 1790334362203,
+            "lastAt": 1790334571787
+          }
+        },
+        "KRW-XRP": {
+          "orderbook": {
+            "realtime": 1259,
+            "snapshot": 6,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334361867
+            },
+            "firstAt": 1790334361867,
+            "lastAt": 1790334571734,
+            "ranges": {
+              "5": [
+                [
+                  8,
+                  194
+                ],
+                [
+                  209,
+                  352
+                ],
+                [
+                  427,
+                  661
+                ],
+                [
+                  668,
+                  1202
+                ],
+                [
+                  1212,
+                  1374
+                ]
+              ]
+            }
+          },
+          "ticker": {
+            "realtime": 790,
+            "snapshot": 0,
+            "zero": 0,
+            "stale": 0,
+            "oldEpoch": 0,
+            "gapCount": 0,
+            "gaps": [],
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362059
+            },
+            "firstAt": 1790334362059,
+            "lastAt": 1790334571735
+          },
+          "trade": {
+            "messages": 895,
+            "epochs": [
+              5
+            ],
+            "epochFirstAt": {
+              "5": 1790334362052
+            },
+            "firstAt": 1790334362052,
+            "lastAt": 1790334571732
+          }
+        }
+      }
+    },
+    "series": [
+      {
+        "at": 1790334371813,
+        "markets": {
+          "KRW-BTC": [
+            109,
+            88,
+            86
+          ],
+          "KRW-ETH": [
+            96,
+            41,
+            41
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334381814,
+        "markets": {
+          "KRW-BTC": [
+            215,
+            162,
+            157
+          ],
+          "KRW-ETH": [
+            174,
+            90,
+            90
+          ],
+          "KRW-XRP": [
+            70,
+            48,
+            40
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334391813,
+        "markets": {
+          "KRW-BTC": [
+            315,
+            242,
+            236
+          ],
+          "KRW-ETH": [
+            274,
+            141,
+            140
+          ],
+          "KRW-XRP": [
+            106,
+            70,
+            61
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334401814,
+        "markets": {
+          "KRW-BTC": [
+            427,
+            340,
+            333
+          ],
+          "KRW-ETH": [
+            395,
+            197,
+            196
+          ],
+          "KRW-XRP": [
+            184,
+            126,
+            110
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 1
+      },
+      {
+        "at": 1790334411814,
+        "markets": {
+          "KRW-BTC": [
+            526,
+            410,
+            403
+          ],
+          "KRW-ETH": [
+            447,
+            233,
+            231
+          ],
+          "KRW-XRP": [
+            239,
+            169,
+            151
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334421813,
+        "markets": {
+          "KRW-BTC": [
+            632,
+            490,
+            483
+          ],
+          "KRW-ETH": [
+            535,
+            287,
+            282
+          ],
+          "KRW-XRP": [
+            328,
+            239,
+            213
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 2
+      },
+      {
+        "at": 1790334431814,
+        "markets": {
+          "KRW-BTC": [
+            661,
+            504,
+            496
+          ],
+          "KRW-ETH": [
+            562,
+            298,
+            293
+          ],
+          "KRW-XRP": [
+            339,
+            249,
+            223
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334441815,
+        "markets": {
+          "KRW-BTC": [
+            774,
+            582,
+            575
+          ],
+          "KRW-ETH": [
+            651,
+            335,
+            327
+          ],
+          "KRW-XRP": [
+            420,
+            304,
+            267
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334451815,
+        "markets": {
+          "KRW-BTC": [
+            920,
+            665,
+            655
+          ],
+          "KRW-ETH": [
+            750,
+            362,
+            353
+          ],
+          "KRW-XRP": [
+            478,
+            351,
+            308
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334461815,
+        "markets": {
+          "KRW-BTC": [
+            1007,
+            733,
+            723
+          ],
+          "KRW-ETH": [
+            825,
+            410,
+            397
+          ],
+          "KRW-XRP": [
+            563,
+            409,
+            358
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 3
+      },
+      {
+        "at": 1790334471816,
+        "markets": {
+          "KRW-BTC": [
+            1122,
+            805,
+            792
+          ],
+          "KRW-ETH": [
+            894,
+            439,
+            424
+          ],
+          "KRW-XRP": [
+            618,
+            447,
+            386
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334481816,
+        "markets": {
+          "KRW-BTC": [
+            1287,
+            921,
+            896
+          ],
+          "KRW-ETH": [
+            998,
+            490,
+            471
+          ],
+          "KRW-XRP": [
+            670,
+            479,
+            414
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334491818,
+        "markets": {
+          "KRW-BTC": [
+            1437,
+            1007,
+            978
+          ],
+          "KRW-ETH": [
+            1089,
+            536,
+            516
+          ],
+          "KRW-XRP": [
+            754,
+            535,
+            464
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334501818,
+        "markets": {
+          "KRW-BTC": [
+            1559,
+            1090,
+            1058
+          ],
+          "KRW-ETH": [
+            1185,
+            583,
+            561
+          ],
+          "KRW-XRP": [
+            808,
+            575,
+            498
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 4
+      },
+      {
+        "at": 1790334511819,
+        "markets": {
+          "KRW-BTC": [
+            1645,
+            1165,
+            1132
+          ],
+          "KRW-ETH": [
+            1250,
+            616,
+            594
+          ],
+          "KRW-XRP": [
+            865,
+            613,
+            532
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334521820,
+        "markets": {
+          "KRW-BTC": [
+            1766,
+            1240,
+            1206
+          ],
+          "KRW-ETH": [
+            1342,
+            658,
+            636
+          ],
+          "KRW-XRP": [
+            934,
+            653,
+            571
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334531821,
+        "markets": {
+          "KRW-BTC": [
+            1908,
+            1344,
+            1310
+          ],
+          "KRW-ETH": [
+            1427,
+            709,
+            685
+          ],
+          "KRW-XRP": [
+            1029,
+            727,
+            637
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334541821,
+        "markets": {
+          "KRW-BTC": [
+            2059,
+            1450,
+            1415
+          ],
+          "KRW-ETH": [
+            1557,
+            778,
+            754
+          ],
+          "KRW-XRP": [
+            1097,
+            777,
+            684
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 5
+      },
+      {
+        "at": 1790334551822,
+        "markets": {
+          "KRW-BTC": [
+            2144,
+            1515,
+            1478
+          ],
+          "KRW-ETH": [
+            1623,
+            816,
+            791
+          ],
+          "KRW-XRP": [
+            1151,
+            820,
+            721
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 6
+      },
+      {
+        "at": 1790334561823,
+        "markets": {
+          "KRW-BTC": [
+            2271,
+            1608,
+            1572
+          ],
+          "KRW-ETH": [
+            1719,
+            856,
+            831
+          ],
+          "KRW-XRP": [
+            1203,
+            859,
+            756
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 6
+      },
+      {
+        "at": 1790334571822,
+        "markets": {
+          "KRW-BTC": [
+            2372,
+            1685,
+            1649
+          ],
+          "KRW-ETH": [
+            1800,
+            897,
+            871
+          ],
+          "KRW-XRP": [
+            1259,
+            895,
+            790
+          ]
+        },
+        "closes1013": 0,
+        "handshakeErrors": 0,
+        "opens": 6
+      }
+    ]
+  }
+}

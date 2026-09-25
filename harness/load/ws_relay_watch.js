@@ -1,4 +1,6 @@
-// S6 관문의 k6 WS 관찰자(마켓분할_리더_S6_설계 7-1, 하네스 검증설계 S6 패치 노트 (3)). 아직 스택에서 돌린 적이 없다(NOT RUN).
+// S6 관문의 k6 WS 관찰자(마켓분할_리더_S6_설계 7-1, 하네스 검증설계 S6 패치 노트 (3)). 2026-09-25 관문 주행에서 처음 돌렸다.
+//
+// 2026-09-25 관문 첫 W2 주행 뒤 두 곳을 고쳤다. STOMP 하트비트를 보내고(HEARTBEAT_MS), 종료 코드를 error 이벤트 문자열에서 읽는다.
 //
 // 노드 주소마다 VU 하나가 연결 하나로 마켓 셋의 호가·체결·티커를 구독한다. 노드·마켓별 수신 수, 받은 epoch, 조밀 채널(호가·티커)
 // 결번, epoch 상승, 재연결, 종료 코드(1013 포함), 핸드셰이크 실패와 뒤따라 뜬 거절 코드를 센다. 호가는 받은 (epoch, seq) 를
@@ -30,6 +32,12 @@ const FLUSH_MS = 10000;
 const CAP = 200;
 // 거절 코드 표본 간격. 핸드셰이크가 연달아 실패해도 확인 요청은 이 간격에 한 번이다.
 const PROBE_EVERY_MS = 5000;
+// STOMP 하트비트 간격. CONNECT 는 heart-beat:10000,10000 을 약속하므로(lib/stomp.js) 클라이언트가 10초 안에 무엇이든 보내야 한다.
+// 보내지 않으면 서버 내장 브로커가 약 40초마다 ERROR 뒤 1002 로 닫는다(2026-09-25 S6 관문 W2 첫 주행에서 확인). 웹 클라이언트
+// (stompjs)처럼 하트비트를 보낸다. 절반 간격으로 보내 지연 여유를 둔다.
+const HEARTBEAT_MS = 5000;
+// k6 의 close 이벤트는 서버가 보낸 종료 코드를 싣지 않고, 같은 사건의 error 이벤트 문자열('websocket: close 1013: ...')에만 남는다.
+const CLOSE_IN_ERROR = /close (\d{4})(?::\s*(.*))?/;
 const DEST = /^\/topic\/(orderbook|trade|ticker)\.(.+)$/;
 
 export const options = {
@@ -161,6 +169,7 @@ export default function () {
   let stopped = false;
   let lastProbe = 0;
   let flushTimer = null;
+  let beatTimer = null;
 
   function flush(final) {
     state.at = Date.now();
@@ -182,12 +191,18 @@ export default function () {
     // 재연결은 모든 채널을 다시 맞춘다(웹 클라이언트와 같다). 기준점을 새로 잡는다
     const baseline = newBaseline();
     let opened = false;
+    let errCode = null;
+    let errReason = null;
     const socket = new WebSocket(url);
     ws = socket;
     socket.onopen = () => {
       opened = true;
       state.opens += 1;
       socket.send(connectFrame(host));
+      if (beatTimer !== null) clearInterval(beatTimer);
+      beatTimer = setInterval(() => {
+        if (!stopped && ws === socket) socket.send('\n');
+      }, HEARTBEAT_MS);
       MARKETS.forEach((m, i) => {
         socket.send(subscribeFrame(`ob-${i}`, `/topic/orderbook.${m}`));
         socket.send(subscribeFrame(`tr-${i}`, `/topic/trade.${m}`));
@@ -202,7 +217,13 @@ export default function () {
     };
     socket.onerror = (e) => {
       const now = Date.now();
-      push(state.errors, { at: now, handshake: !opened, error: String((e && e.error) || e) });
+      const text = String((e && e.error) || e);
+      const cm = CLOSE_IN_ERROR.exec(text);
+      if (cm) {
+        errCode = parseInt(cm[1], 10);
+        errReason = cm[2] || null;
+      }
+      push(state.errors, { at: now, handshake: !opened, error: text });
       if (!opened) {
         state.handshakeErrors += 1;
         if (now - lastProbe >= PROBE_EVERY_MS) {
@@ -212,8 +233,12 @@ export default function () {
       }
     };
     socket.onclose = (e) => {
-      const code = e && typeof e.code === 'number' ? e.code : null;
-      push(state.closes, { at: Date.now(), code, reason: (e && e.reason) || null, opened });
+      if (beatTimer !== null && ws === socket) {
+        clearInterval(beatTimer);
+        beatTimer = null;
+      }
+      const code = e && typeof e.code === 'number' ? e.code : errCode;
+      push(state.closes, { at: Date.now(), code, reason: (e && e.reason) || errReason, opened });
       const k = String(code);
       state.closeCodes[k] = (state.closeCodes[k] || 0) + 1;
       if (!stopped && Date.now() + RECONNECT_MS < deadline) {
@@ -227,6 +252,7 @@ export default function () {
   setTimeout(() => {
     stopped = true;
     if (flushTimer !== null) clearTimeout(flushTimer);
+    if (beatTimer !== null) clearInterval(beatTimer);
     flush(true);
     if (ws !== null) ws.close();
   }, Math.max(0, deadline - Date.now()));

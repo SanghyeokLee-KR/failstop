@@ -1,0 +1,51 @@
+{
+  "experiment": "W5",
+  "started": "2026-09-25T22:50:37+09:00",
+  "window_from": "2026-09-25T13:48:54.6907680Z",
+  "fault_from": null,
+  "fault_to": null,
+  "facts": {
+    "survivor_opens": 1,
+    "survivor_degraded_max_while_follower": 0.0,
+    "epoch_rises": {
+      "KRW-BTC": {
+        "ok": true,
+        "first_new_epoch_at_ms": 1790344181098,
+        "gaps_after": 0
+      },
+      "KRW-ETH": {
+        "ok": true,
+        "first_new_epoch_at_ms": 1790344181490,
+        "gaps_after": 0
+      },
+      "KRW-XRP": {
+        "ok": true,
+        "first_new_epoch_at_ms": 1790344181063,
+        "gaps_after": 0
+      }
+    },
+    "freshness_from": "2026-09-25T13:50:08.566136Z",
+    "freshness_after_rejoin": {
+      "pairs": 27,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 1.0,
+      "follower_all_seq0": false
+    }
+  },
+  "axes": {
+    "survivor_watch_reconnect_0": true,
+    "survivor_never_degraded": true,
+    "KRW-BTC_epoch_rise_once_within_rto_plus_5s": true,
+    "KRW-BTC_dense_gaps_after_rise_0": true,
+    "KRW-ETH_epoch_rise_once_within_rto_plus_5s": true,
+    "KRW-ETH_dense_gaps_after_rise_0": true,
+    "KRW-XRP_epoch_rise_once_within_rto_plus_5s": true,
+    "KRW-XRP_dense_gaps_after_rise_0": true,
+    "rejoined_api1_gate_open": true,
+    "freshness_after_rejoin_all_ok": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T22:50:37+09:00"
+}

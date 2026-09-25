@@ -295,8 +295,11 @@ function Invoke-Experiment {
         # S4 관문의 COLD 는 '기동은 늘 팔로워'를 판정에 더한다(S4 설계 7-2 X5).
         $expArgs = @()
         if ($PartitionAxes -and $Exp -eq 'COLD') { $expArgs += '-S4Boot' }
+        # 중계 주행의 E4(W5)는 kill 뒤 RTO + 5초 동안 모든 마켓에 부하가 있어야 마켓별 새 epoch 첫 메시지를 잰다(S6 설계 7-2 W5).
+        # e4-leader-kill.ps1 이 드레인 전에 부하를 6초 더 둔다. 다른 주행과 다른 실험에는 주지 않는다.
+        if ($Relay -and $Exp -eq 'E4') { $env:CHAOS_E4_HOLD_LOAD_SEC = '6' } else { Remove-Item Env:CHAOS_E4_HOLD_LOAD_SEC -ErrorAction SilentlyContinue }
         try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot $scripts[$Exp]) @expArgs *> $console; $expRc = $LASTEXITCODE }
-        finally { $ErrorActionPreference = $eap }
+        finally { $ErrorActionPreference = $eap; Remove-Item Env:CHAOS_E4_HOLD_LOAD_SEC -ErrorAction SilentlyContinue }
         $t1 = [DateTimeOffset]::UtcNow
         Write-RunLog "EXPERIMENT $Exp rc=$expRc"
         $row['exitCode'] = $expRc
@@ -392,10 +395,13 @@ function Invoke-Experiment {
             if ($Exp -eq 'E4') {
                 $killHit = Select-String -Path $console -Pattern 'T0=(\S+) killed=' | Select-Object -First 1
                 $killAt = $(if ($killHit) { $killHit.Matches[0].Groups[1].Value } else { $t0.ToString('o') })
+                # 창의 시작은 관찰자를 띄운 때다. 스택 기동과 P2 전환의 재기동 구간은 '팔로워였던 동안'에 넣지 않는다. 미러 신선도는
+                # 옛 리더가 합류한 뒤부터 본다(설계 7-2 W5). 두 시각은 2026-09-25 관문 주행 전에 보정했다.
                 $relayArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', 'W5', '--evidence', (Get-RelPath $dir),
-                    '--window-from', $stackFrom.ToString('o'), '--kill-at', $killAt, '--follower', 'chaos-api-2', '--leader', 'chaos-api-1',
+                    '--window-from', $row['relayWatch'].startedAt, '--kill-at', $killAt, '--follower', 'chaos-api-2', '--leader', 'chaos-api-1',
                     '--out', (Get-RelPath (Join-Path $dir 'relay_axes.json')))
                 if ($verdict -and $verdict.failover -and $verdict.failover.rtoSeconds) { $relayArgs += @('--rto-sec', "$($verdict.failover.rtoSeconds)") }
+                if ($row['rejoin'] -and $row['rejoin']['joinedAt']) { $relayArgs += @('--rejoin-at', "$($row['rejoin']['joinedAt'])") }
                 $relayRc = Invoke-Logged 'python' $relayArgs (Join-Path $dir 'relay_axes.log')
                 $relayAxes = $null
                 $relayPath = Join-Path $dir 'relay_axes.json'

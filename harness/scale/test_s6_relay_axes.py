@@ -80,7 +80,13 @@ class GateAxesTest(unittest.TestCase):
         axes = ax.gate_axes('simple', self.nodes(gate_open=1.0, refused=0.0), {'status': 101}, 'chaos-api-2', 7, '')
         self.assertFalse(axes['follower_gate_closed'])
         self.assertFalse(axes['follower_refused_relay_required_ge_1'])
-        self.assertFalse(axes['lb_log_503_then_101'])
+        self.assertFalse(axes['lb_follower_503_then_101'], 'LB 로그 줄도 거절 계수 증가도 없으면 거짓이다')
+        axes = ax.gate_axes('simple', self.nodes(), {'status': 101}, 'chaos-api-2', 7, '', lb_refused_delta=1.0)
+        self.assertTrue(axes['lb_follower_503_then_101'], '기본 nginx.conf 는 [warn] 줄을 남기지 않아 거절 계수 증가로 본다')
+        axes = ax.gate_axes('simple', self.nodes(), {'status': 101}, 'chaos-api-2', 7, '', lb_refused_delta=0.0)
+        self.assertFalse(axes['lb_follower_503_then_101'], '팔로워를 거치지 않은 101 은 넘김의 증거가 아니다')
+        axes = ax.gate_axes('simple', self.nodes(), {'status': 503}, 'chaos-api-2', 7, '', lb_refused_delta=1.0)
+        self.assertFalse(axes['lb_follower_503_then_101'])
 
     def test_no_leader_fails_closed(self):
         axes = ax.gate_axes('simple', self.nodes(), {'status': 101}, None, 7, self.LB_LOG)
@@ -199,6 +205,26 @@ class RangesAndEpochsTest(unittest.TestCase):
         self.assertFalse(ax.epoch_rise_once(twice, 'KRW-BTC', 10_000, 15_000)[0], '두 번 오르면 거짓이다')
         none = state('n', {'KRW-BTC': {'orderbook': {'epochs': [5]}}})
         self.assertFalse(ax.epoch_rise_once(none, 'KRW-BTC', 10_000, 15_000)[0])
+
+
+    def test_w5_freshness_window_starts_at_rejoin(self):
+        # 2026-09-25 관문 주행 전 보정. kill 뒤 RTO 부터 잡으면 옛 리더가 멈춘 동안의 무응답 표본이 들어와 늘 거짓이 된다
+        pairs = [{'t': 100, 'leader': {'status': 200, 'epoch': 6, 'seq': 10}, 'follower': {'status': None, 'epoch': None, 'seq': None}},
+                 {'t': 130, 'leader': {'status': 200, 'epoch': 6, 'seq': 20}, 'follower': {'status': 200, 'epoch': 6, 'seq': 0}}]
+        self.assertFalse(ax.freshness_summary(pairs, 90)['all_ok'], '멈춘 동안의 표본을 넣으면 거짓이다')
+        start = ax.w5_freshness_from(120)
+        self.assertTrue(ax.freshness_summary(pairs, start)['all_ok'])
+        self.assertIsNone(ax.w5_freshness_from(None), '합류하지 못했으면 창이 없다')
+
+
+    def test_w4_alarm_window_ends_before_restore_was_issued(self):
+        # 2026-09-25 관문 W4-fix: 되돌리기 명령을 부른 뒤 경보가 풀리고 명령이 돌아오기 전에 뜬 팔로워 표본이 '경보 동안'에 들어왔다
+        self.assertAlmostEqual(129.5, ax.alarm_samples_end(133.2, 130.0))
+        self.assertAlmostEqual(132.7, ax.alarm_samples_end(133.2))
+        pairs = [{'t': 125.0, 'leader': {'status': 200, 'epoch': 5, 'seq': 1056}, 'follower': {'status': 200, 'epoch': 5, 'seq': 0}},
+                 {'t': 133.16, 'leader': {'status': 200, 'epoch': 5, 'seq': 1069}, 'follower': {'status': 200, 'epoch': 5, 'seq': 1070}}]
+        self.assertFalse(ax.freshness_summary(pairs, 108, 133.2)['follower_all_seq0'])
+        self.assertTrue(ax.freshness_summary(pairs, 108, ax.alarm_samples_end(133.2, 130.0))['follower_all_seq0'])
 
 
 class PromHelpersTest(unittest.TestCase):

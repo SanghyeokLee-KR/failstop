@@ -42,6 +42,9 @@ services:
       EXCHANGE_WS_RELAY_BROKER_VIRTUAL_HOST: exchange
       EXCHANGE_WS_RELAY_BROKER_LOGIN: exch-relay
       EXCHANGE_WS_RELAY_BROKER_PASSCODE: ${CHAOS_RELAY_PASSCODE:?harness/.env.chaos 에 CHAOS_RELAY_PASSCODE 가 필요하다}
+      # W2~W4 의 'append p99 가 창 앞의 1.5배 이하' 판정(s6_relay_axes.py)이 쓰는 버킷이다. 기본 스택은 저널 append 타이머에 버킷을
+      # 내지 않아 histogram_quantile 이 빈 결과였다(2026-09-25 관문 첫 W2 주행). 관측만 더하고 동작은 바꾸지 않는다
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.exchange.journal.append":true}'
     # 브로커가 늦게 떠도 앱은 뜬다(REST 는 중계를 기다리지 않는다, API§5-1). 실행기의 확인이 브로커 헬스를 따로 본다
     depends_on:
       chaos-broker: { condition: service_started }

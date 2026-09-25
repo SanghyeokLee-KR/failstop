@@ -1,0 +1,370 @@
+{
+  "started": "2026-09-25T23:14:15+09:00",
+  "mode": "simple",
+  "market": "KRW-BTC",
+  "leader": "chaos-api-2",
+  "lease_epoch": 6,
+  "leases": [
+    {
+      "resource": "matching-engine",
+      "holder": "c682e0bf-2af2-454d-a629-358c4b97efa6",
+      "epoch": 6,
+      "alive": true
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "",
+      "epoch": 2,
+      "alive": false
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "",
+      "epoch": 3,
+      "alive": false
+    }
+  ],
+  "partitions": {
+    "chaos-api-1": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 1
+          },
+          "demotions": [
+            {
+              "reason": "LEASE_LOST_WHILE_ACCEPTING",
+              "detail": "renew 거부(만료 또는 탈취됨)",
+              "at": "2026-09-25T14:13:33.706471058Z"
+            }
+          ],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "chaos-api-2": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 6,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": {
+    "chaos-api-1": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 0
+        }
+      ],
+      "handshake": {
+        "status": 503,
+        "retry_after": "5",
+        "at": "2026-09-25T23:14:15+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 1.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 0.0,
+        "exchange_ws_gate_open": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 1.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0
+      }
+    },
+    "chaos-api-2": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 408
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        },
+        {
+          "status": 200,
+          "epoch": 6,
+          "seq": 284
+        }
+      ],
+      "handshake": {
+        "status": 101,
+        "retry_after": null,
+        "at": "2026-09-25T23:14:15+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-engine\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 0.0,
+        "exchange_ws_gate_open": 1.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0
+      }
+    }
+  },
+  "lb_handshake": {
+    "status": 101,
+    "retry_after": null,
+    "at": "2026-09-25T23:14:15+09:00"
+  },
+  "lb_log": {
+    "error": null,
+    "ws_retry_seen": false
+  },
+  "lb_refused": {
+    "before": {
+      "chaos-api-1": 1.0,
+      "chaos-api-2": 0.0
+    },
+    "after": {
+      "chaos-api-1": 2.0,
+      "chaos-api-2": 0.0
+    },
+    "follower_delta": 1.0
+  },
+  "axes": {
+    "leader_found": true,
+    "follower_is_expected": true,
+    "follower_orderbook_seq0_lease_epoch": true,
+    "follower_ticker_seq0_lease_epoch": true,
+    "follower_handshake_503_retry_after_5": true,
+    "leader_handshake_101": true,
+    "lb_handshake_101": true,
+    "lb_follower_503_then_101": true,
+    "follower_gate_closed": true,
+    "follower_refused_relay_required_ge_1": true,
+    "leader_gate_open": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T23:14:17+09:00"
+}
