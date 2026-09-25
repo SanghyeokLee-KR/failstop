@@ -9,12 +9,20 @@ name: ci-backend
 #
 # observability 잡은 하네스 관측 산출물(prometheus 규칙·설정, grafana 대시보드)을 promtool·jq로
 # 검증한다. paths가 워크플로 단위라 관측 산출물만 바뀐 PR도 build-test가 함께 돈다(빈도 낮아 수용).
+#
+# server/** 밖의 경로 가운데 server/app/build.gradle.kts 의 test 작업이 입력으로 선언한 파일도 싣는다(하네스_CICD_IaC.md §2-1).
+# 서버 시험이 그 파일을 읽으므로 문서·SQL만 바꾼 PR도 백엔드 시험을 거쳐야 한다. 계약 문서는 V55ContractBlockTest·S7Audit 이
+# DB 설계의 SQL 블록을 뽑아 대조한다(ADR 0034 S7). 시험 입력을 더하면 아래 두 목록을 함께 고친다.
 on:
   pull_request:
     branches: [main, develop]
     paths:
       - 'server/**'
       - 'deploy/provision-runtime-roles.sql'
+      - 'deploy/vm-lab/build/build-files/db/summary.sql'
+      - 'harness/sql/**'
+      - 'harness/relay/**'
+      - 'docs/reference/contracts/**'
       - 'harness/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
@@ -25,6 +33,10 @@ on:
     paths:
       - 'server/**'
       - 'deploy/provision-runtime-roles.sql'
+      - 'deploy/vm-lab/build/build-files/db/summary.sql'
+      - 'harness/sql/**'
+      - 'harness/relay/**'
+      - 'docs/reference/contracts/**'
       - 'harness/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'

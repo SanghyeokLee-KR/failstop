@@ -827,7 +827,15 @@ class InvariantBandAxisIntegrationTest {
                     yield Long.parseLong(f[1]);
                 }
                 case C22_FENCING_MONOTONIC -> {
-                    assertRow(check, f, 6, Set.of("time", "market"));
+                    // V48 객체가 모두 있는 스키마는 C22' 판(열 arm, tbl, subject, 팔 셋)이고 없으면 개정 전 판(열 여섯, 팔 둘)이다
+                    // (ADR 0034 S7, DB 설계 §6.4 ⑯). 이 시험의 DB 는 모든 마이그레이션을 올려 C22' 판이 나온다.
+                    if (f.length == 3) {
+                        assertRow(check, f, 3, Set.of("time", "market", "boundary"));
+                        assertTrue(Set.of("command_journal", "snapshots").contains(f[1]),
+                                check.name() + " 행 형식: " + String.join("|", f));
+                    } else {
+                        assertRow(check, f, 6, Set.of("time", "market"));
+                    }
                     yield 1;
                 }
                 case C23_COUNTER_SEQ_CONSISTENCY -> {

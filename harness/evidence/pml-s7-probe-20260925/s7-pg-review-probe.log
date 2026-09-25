@@ -1,0 +1,103 @@
+source=documents(DB 설계 §3.10 V55, §6.4 ⑯·⑳) + c22p-count-r2.sql + segment-old-rows.sql
+v55 lines=163 sha256=f750f412d27be052
+c22p lines=43 sha256=5688848d0f35e3d6
+c30 lines=23 sha256=dae5cf60c032f4e3
+c22p-count lines=31 sha256=9920986165c54033
+segment-old-rows lines=12 sha256=3a4a372d818706d6
+repository max migration=V54
+start 2026-09-25T12:56:37Z container=pml-probe-s7rv-90468203 image=postgres:17-alpine digest=postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== R7-0 applied repository migrations: 55 files
+v55 exit=0
+FEE_INCOME shards: 1:0,1:1,2:0,2:1,3:0,3:1,4:0,4:1
+partition map: 1:matching-p0,2:matching-p1,3:matching-p1
+view c22p-view ok
+view c30-view ok
+view c22pn-view ok
+view seg-view ok
+c22p columns: arm,tbl,subject
+
+== R7-1 1->2, 래치 뒤 선행 조건이 없다. 파티션 리스 행은 보통 경로로 지울 수 없고, 트리거를 끈 세션에서 지우면 lease_row_missing 한 줄만 난다
+retired matching-p0 1 P2
+retired matching-p1 2 P2
+retired matching-engine 3 P2
+latched_at 2026-09-25 12:56:43.947113+00
+  (blockers(3) 끝)
+-- 보통 세션의 DELETE(롤백)
+BEGIN
+ERROR:  23503: update or delete on table "leader_lease" violates foreign key constraint "lease_acquisitions_resource_fkey" on table "lease_acquisitions"
+DETAIL:  Key (resource)=(matching-p1) is still referenced from table "lease_acquisitions".
+SCHEMA NAME:  public
+TABLE NAME:  lease_acquisitions
+CONSTRAINT NAME:  lease_acquisitions_resource_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2612
+ROLLBACK
+-- session_replication_role = replica 세션(복원 도구의 트리거 끄기 흉내)의 DELETE 뒤 blockers(3), 롤백
+BEGIN
+SET
+DELETE 1
+  blocker lease_row_missing | matching-p1
+  (blockers(3) 끝, 남은 파티션 대응 행 3)
+ROLLBACK
+lease rows after rollback: matching-engine,matching-p0,matching-p1
+
+== R7-2 고친 C22' 목록 판과 수 판은 P2·P3 행에서 0 이고 같다. 구간 경계 증분 표본(old_rows)은 전환 뒤 늘지 않는다
+me epoch(P2)=4
+1000000000001
+2000000000001
+1000000000001
+1
+2000000000001
+  P2 epoch=4
+  P2 행 뒤: C22p time=0 market=0 boundary(cmd)=0 boundary(snap)=0 | 수 판=0 같음=true | C30=0 | old_rows=2:P2:0
+retired matching-p0 5 P3
+retired matching-p1 6 P3
+retired matching-engine 7 P3
+  2->3 직후(노드 시작 전): C22p time=0 market=0 boundary(cmd)=0 boundary(snap)=0 | 수 판=0 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5
+p0 epoch=8 p1 epoch=9
+1000000000002
+2000000000002
+1000000000003
+2000000000003
+1000000000002
+2
+3
+2000000000002
+  P3 epochs p0=8 p1=9
+  P3 행 뒤: C22p time=0 market=0 boundary(cmd)=0 boundary(snap)=0 | 수 판=0 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5
+
+== R7-3 2->3 뒤 새 트랜잭션이 P2 구간 epoch 로 쓴 스냅샷(V6)과 행이 없던 마켓 3 의 명령(V3)은 구간 경계 팔이 센다(각각 롤백)
+4
+3000000000001
+  V6 스냅샷: C22p time=0 market=0 boundary(cmd)=0 boundary(snap)=1 | 수 판=1 같음=true | C30=0 | old_rows=2:P2:0,3:P3:6
+  V3 명령: C22p time=0 market=0 boundary(cmd)=1 boundary(snap)=0 | 수 판=1 같음=true | C30=0 | old_rows=2:P2:0,3:P3:6
+
+== R7-4 A 는 3->2 전에 트랜잭션을 열고 6초 뒤 옛 P3 epoch 로 마켓 3(새 구간 행 없음)과 마켓 1(새 구간 행 먼저 커밋)에 쓴다
+retired matching-p0 10 P2
+retired matching-p1 11 P2
+retired matching-engine 12 P2
+changed_at(3->2) 2026-09-25 12:56:49.628275+00
+  3->2 직후(A 커밋 전): C22p time=0 market=0 boundary(cmd)=0 boundary(snap)=0 | 수 판=0 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5,4:P2:13
+me epoch(P2 되돌린 뒤)=13
+new-segment market1 seq 1000000000004
+BEGIN
+A tx_start 2026-09-25 12:56:47.616638+00
+
+A market3 seq 3000000000001
+A market1 seq 1000000000005
+COMMIT
+A committed 2026-09-25 12:56:53.629675+00
+  A 커밋 뒤: C22p time=0 market=1 boundary(cmd)=0 boundary(snap)=0 | 수 판=1 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5,4:P2:15
+  last rows m1 seq=1000000000004 epoch=13 created_before_3to2=false
+  last rows m1 seq=1000000000005 epoch=8 created_before_3to2=true
+  last rows m3 seq=3000000000001 epoch=9 created_before_3to2=true
+
+== R7-5 3->2 뒤 새 트랜잭션이 P3 epoch 로 쓴 이벤트·체결은 C22'·C30 이 세지 못하고 구간 경계 증분이 센다. 스냅샷은 구간 경계 팔이 센다(롤백)
+2000000000003
+1000000000003
+5
+  V8 이벤트·체결: C22p time=0 market=1 boundary(cmd)=0 boundary(snap)=0 | 수 판=1 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5,4:P2:17
+  V9 + 스냅샷: C22p time=0 market=1 boundary(cmd)=0 boundary(snap)=1 | 수 판=2 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5,4:P2:18
+  끝(롤백 뒤): C22p time=0 market=1 boundary(cmd)=0 boundary(snap)=0 | 수 판=1 같음=true | C30=0 | old_rows=2:P2:0,3:P3:5,4:P2:15
+history: 1:P1:floor=0 2:P2:floor=0 3:P3:floor=4 4:P2:floor=9
+end 2026-09-25T12:56:56Z

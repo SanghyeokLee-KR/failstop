@@ -1,4 +1,5 @@
-"""ADR 0034 S3 모드 전환 도구(마켓분할_리더_S3_설계 7-2). 폐기용 스택(compose 프로젝트 exchange-pml)에서만 돈다.
+"""ADR 0034 S3·S7 모드 전환 도구(마켓분할_리더_S3_설계 7-2, 마켓분할_리더_S7_설계 4-4·4-5). 폐기용 스택(compose 프로젝트
+exchange-pml)에서만 돈다.
 
 하위 명령
   state                   모드, 이력, 퇴역 행, 예약 행 수, 정산 전 NEW 수, 정산 전 예약 수와 가장 오래된 나이를 낸다
@@ -8,8 +9,21 @@
                           확인 -> 봇 재개. 이미 목표 모드면 아무것도 하지 않고 already=true 와 현재 이력을 남긴 채 0 으로 끝난다.
   transition --target 1 --allow-downgrade
                           2->1. ADR 0034 결정 8 과 시험 R1 을 확인한 뒤에만 쓴다.
+  transition --target 3 [--latch-band]
+                          P3(파티션 리더 모드)로 올린다(S7 설계 4-4, DB 설계 §5.4-e 1). 사전 확인(두 노드의 게이지
+                          exchange_leader_protocol_max 3, leader_protocol_blockers(3)이 unsettled_new·band_latch_missing 밖의
+                          줄을 내지 않음, 두 컨테이너의 선호 설정 api-1 matching-p0·api-2 matching-p1) -> 봇 정지 -> 드레인 ->
+                          api-2·api-1 정지 -> 필요하면 1->2 -> 명령 대역 래치(없고 --latch-band 를 준 경우만. 래치가 없고 인자도
+                          없으면 BLOCKED) -> 2->3 -> 구간 경계 표본(노드 시작 전) -> 두 노드를 함께 시작 -> 90초 안 선호 배정,
+                          어긋나면 비선호 노드의 그 파티션 참여를 껐다가 선호 노드가 얻은 뒤 켠다 -> 두 노드 게이지(boot 3,
+                          inflight 0), C29 0, 두 파티션 epoch 가 마지막 퇴역 epoch 보다 큼 -> 봇 재개.
+  transition --target 2 --allow-downgrade
+                          P3 에서 3->2 되돌리기(DB 설계 §5.4-e 2). 두 노드를 멈춘 채 전환하고 구간 경계 표본을 뜬 뒤 api-1 을 먼저
+                          시작해 matching-engine 을 마지막 퇴역 epoch 뒤로 얻는 것을 보고 api-2 를 시작한다.
+  blockers --target N     leader_protocol_blockers(N) 의 사유를 읽기만 한다(정지 창 전의 미리 보기).
 
-허용된 출발 모드(1->2 의 1, 2->1 의 2)가 아니면 전환 함수를 부르지 않고 3 으로 끝난다. 같은 스택에서 전환을 두 번 부르는
+허용된 출발 모드(1->2 의 1, 2->1 의 2, 2->3 과 1->3 의 1·2, 3->2 의 3)가 아니면 전환 함수를 부르지 않고 3 으로 끝난다. 3->1 은
+받지 않는다(먼저 3->2). 같은 스택에서 전환을 두 번 부르는
 절차 실수가 전환 함수의 55000 으로 칸을 망치지 않게 하려는 것이다(S3 설계 11절 R3).
 
 가드(S3 설계 7-0). CHAOS_PROJECT 가 exchange-pml 이 아니거나 CHAOS_APP_IMAGE 가 exchange-chaos-app:pml 이 아니면 시작하지
@@ -25,7 +39,11 @@ docker compose stop·start 와 효과가 같고, 라벨을 먼저 확인하므�
   python harness/scale/protocol_latch.py state --out <json>
   python harness/scale/protocol_latch.py transition --target 2 --out <json>
 
-종료코드: 0 성공(already 포함), 1 실패, 2 가드 위반(시작하지 않음), 3 허용되지 않은 출발 모드, 4 BLOCKED(드레인 상한 초과).
+명령 대역 래치(latch_command_band_cutover)는 되돌릴 수 없다. 이 도구는 폐기용 스택 가드를 통과하고 --latch-band 를 준 경우에만
+부른다(ADR 0034 결정한 값 9).
+
+종료코드: 0 성공(already 포함), 1 실패, 2 가드 위반(시작하지 않음), 3 허용되지 않은 출발 모드, 4 BLOCKED(드레인 상한 초과,
+P3 사전 확인 실패, 래치 없음).
 """
 import argparse
 import json
@@ -39,6 +57,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pg_samplers as pgs  # noqa: E402
+import s7_axes as s7  # noqa: E402
 
 PROJECT = 'exchange-pml'
 IMAGE = 'exchange-chaos-app:pml'
@@ -52,6 +71,13 @@ DRAIN_POLL_S = 2
 DRAIN_STREAK = 2
 LEADER_WAIT_S = 240
 NODE_WAIT_S = 180
+# P3 배정(S7 설계 4-4). 두 노드를 함께 시작한 뒤 이 시간 안에 선호 배정이어야 하고, 재배치는 한 번에 이 시간까지 기다린다.
+ASSIGN_WAIT_S = 90
+RELOCATE_WAIT_S = 90
+PREFERRED = {'chaos-api-1': 'matching-p0', 'chaos-api-2': 'matching-p1'}
+PREFERRED_ENV = 'EXCHANGE_LEADER_PARTITION_PREFERRED'
+# 정지 창에 들어가기 전에는 드레인과 래치가 아직 남아 있을 수 있다. 그 밖의 사유는 정지 창에서 풀 수 없다.
+PRECHECK_ALLOWED_BLOCKERS = ('unsettled_new', 'band_latch_missing')
 
 EXIT_OK, EXIT_FAIL, EXIT_GUARD, EXIT_MODE, EXIT_BLOCKED = 0, 1, 2, 3, 4
 
@@ -80,6 +106,7 @@ SELECT json_build_object(
   'oldest_unsettled_reservation_s', (SELECT floor(EXTRACT(EPOCH FROM clock_timestamp() - min(r.created_at)))
               FROM order_reservations r
               WHERE NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = r.command_seq)),
+  'latched', EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq'),
   'db_now', clock_timestamp())
 """ % UNSETTLED_NEW_SQL
 
@@ -88,19 +115,69 @@ LEADER_SQL = ("SELECT json_build_object('holder', holder, 'epoch', epoch, 'alive
               "FROM leader_lease WHERE resource = '%s'")
 LEASE_RESOURCES = ('matching-engine', 'matching-p0', 'matching-p1')
 
-GAUGES = ('exchange_leader_protocol_boot', 'exchange_order_inflight_enabled')
+GAUGES = ('exchange_leader_protocol_boot', 'exchange_order_inflight_enabled', 'exchange_leader_protocol_max')
+BLOCKERS_SQL = ("SELECT coalesce(json_agg(json_build_object('blocker', blocker, 'detail', detail)), '[]'::json) "
+                "FROM leader_protocol_blockers(%d::smallint)")
+C29_SQL = ("SELECT json_build_object('n', (SELECT count(*) FROM markets m WHERE NOT EXISTS (SELECT 1 FROM market_lease_partition p "
+           "WHERE p.market_id = m.id)) + (SELECT count(*) FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) "
+           "AS r(resource) WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource)) "
+           "+ (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM leader_protocol))")
 GAUGE_LINE = re.compile(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{[^}]*\})?\s+(\S+)')
+
+
+# 오르는 전이와 그 단계, 내리는 전이(확인 인자 필요). 1->3 은 1->2 를 먼저 부르는 두 단계다. 3->1 은 받지 않는다.
+UP_STEPS = {(1, 2): [2], (2, 3): [3], (1, 3): [2, 3]}
+DOWN_STEPS = {(2, 1): [1], (3, 2): [2]}
+
+
+def plan_steps(current, target, allow_downgrade):
+    """부를 전환 함수 목표의 목록. [] 는 이미 목표 모드, None 은 이 도구가 부르지 않는 전이다(S7 설계 4-4)."""
+    if current is None or target is None:
+        return None
+    if current == target:
+        return []
+    if (current, target) in UP_STEPS:
+        return list(UP_STEPS[(current, target)])
+    if (current, target) in DOWN_STEPS and allow_downgrade:
+        return list(DOWN_STEPS[(current, target)])
+    return None
 
 
 def plan_transition(current, target, allow_downgrade):
     """'already', 'call', 'refuse' 가운데 하나. 전환 함수를 부르기 전에 도구가 스스로 가른다."""
-    if current == target:
-        return 'already'
-    if current == 1 and target == 2:
-        return 'call'
-    if current == 2 and target == 1 and allow_downgrade:
-        return 'call'
-    return 'refuse'
+    steps = plan_steps(current, target, allow_downgrade)
+    if steps is None:
+        return 'refuse'
+    return 'already' if not steps else 'call'
+
+
+def latch_decision(latched, latch_band):
+    """명령 대역 래치. 'present'(이미 있음), 'latch'(이 창에서 건다), 'blocked'(없고 --latch-band 도 없음)."""
+    if latched:
+        return 'present'
+    return 'latch' if latch_band else 'blocked'
+
+
+def precheck_problems(gauges, blockers, preferred_env):
+    """2->3 정지 창 전 확인(DB 설계 §5.4-e 1). gauges 는 {노드: node_gauges 결과}, blockers 는 [{blocker, detail}] 이나 None,
+    preferred_env 는 {노드: 선호 설정 값}이다. 빈 목록이면 정지 창에 들어가도 된다."""
+    problems = []
+    for node, resource in sorted(PREFERRED.items()):
+        g = gauges.get(node) or {}
+        value = (g.get('values') or {}).get('exchange_leader_protocol_max') if g.get('ok') else None
+        if value != 3.0:
+            problems.append('%s 의 exchange_leader_protocol_max 가 3 이 아니다(%r). S7 바이너리가 아니다' % (node, value))
+        if preferred_env.get(node) != resource:
+            problems.append('%s 의 %s 가 %r 이다. %s 이어야 한다(P3 오버레이)' % (node, PREFERRED_ENV,
+                                                                         preferred_env.get(node), resource))
+    if blockers is None:
+        problems.append('leader_protocol_blockers(3)를 읽지 못했다')
+    else:
+        extra = [b for b in blockers if b.get('blocker') not in PRECHECK_ALLOWED_BLOCKERS]
+        if extra:
+            problems.append('정지 창에서 풀 수 없는 선행 조건: ' + '; '.join(
+                '%s: %s' % (b.get('blocker'), b.get('detail')) for b in extra))
+    return problems
 
 
 def guard_problems(env, labels, image_ids, pml_image_id):
@@ -359,6 +436,266 @@ def transition(target, allow_downgrade=False):
         out['finished'] = pgs.now_iso()
 
 
+def blockers(target):
+    rows, _ = pgs.parse_json_row(*pgs.run_psql(BLOCKERS_SQL % target, timeout=120))
+    return rows
+
+
+def preferred_env(name):
+    """컨테이너 환경에서 선호 설정 한 줄만 고른다. 다른 환경 변수(비밀 값 포함)는 읽지 않는다."""
+    out = inspect(name, '{{range .Config.Env}}{{if eq (index (split . "=") 0) "%s"}}{{.}}{{end}}{{end}}' % PREFERRED_ENV)
+    if not out or '=' not in out:
+        return None
+    return out.split('=', 1)[1]
+
+
+def call_latch():
+    """명령 대역 래치(되돌릴 수 없다, ADR 0022 6-b). 폐기용 스택 가드와 --latch-band 뒤에만 부른다."""
+    rc, out, err = pgs.run_psql("SELECT 'LATCHED|' || latch_command_band_cutover()", timeout=120)
+    ok = rc == 0 and 'LATCHED|' in (out or '')
+    return {'ok': ok, 'rc': rc, 'latched_at': (out or '').strip().split('|', 1)[-1] if ok else None,
+            'stderr': (err or '').strip()[-400:]}
+
+
+def c29():
+    row, _ = pgs.parse_json_row(*pgs.run_psql(C29_SQL, timeout=60))
+    return (row or {}).get('n')
+
+
+class Ops:
+    """정지 창의 부작용을 모은 것. 시험은 같은 이름의 가짜로 순서를 본다(test_protocol_latch)."""
+
+    def guard(self):
+        return guard()
+
+    def state(self):
+        return state()
+
+    def blockers(self, target):
+        return blockers(target)
+
+    def gauges(self, port):
+        return node_gauges(port)
+
+    def preferred_env(self, name):
+        return preferred_env(name)
+
+    def running(self, name):
+        return running(name)
+
+    def docker(self, args):
+        return docker(args)[0]
+
+    def drain(self):
+        return drain_wait()
+
+    def latch(self):
+        return call_latch()
+
+    def call(self, target, allow_downgrade):
+        return call_transition(target, allow_downgrade)
+
+    def segment(self):
+        return s7.segment_count()
+
+    def partitions(self):
+        return s7.all_partitions()
+
+    def set_participate(self, node, resource, value):
+        return s7.set_participate(node, resource, value)
+
+    def leader(self, resource):
+        return leader(resource)
+
+    def http_ok(self, port, path):
+        return http_ok(port, path)
+
+    def c29(self):
+        return c29()
+
+    def sleep(self, seconds):
+        time.sleep(seconds)
+
+
+def wait_ops(ops, check, limit_s, step_s=2.0):
+    waited = 0.0
+    while waited < limit_s:
+        v = check()
+        if v:
+            return v, waited
+        ops.sleep(step_s)
+        waited += step_s
+    return None, waited
+
+
+def settle_assignment(ops, out):
+    """두 노드를 함께 시작한 뒤 선호 배정을 기다리고, 한 노드가 비선호 파티션을 쥐었으면 옮긴다(DB 설계 §5.4-e 1, 결정 4)."""
+    status, waited = wait_ops(ops, lambda: s7.assignment(ops.partitions())[0] != 'wait' or None, ASSIGN_WAIT_S)
+    state_, moves = s7.assignment(ops.partitions())
+    out['assignment_first'] = {'state': state_, 'moves': moves, 'waited_s': waited}
+    relocations = []
+    for node, resource in moves:
+        preferred_node = next(n for n, r in PREFERRED.items() if r == resource)
+        off = ops.set_participate(node, resource, False)
+        got, w = wait_ops(ops, lambda: s7.owner_of(ops.partitions(), resource) == preferred_node, RELOCATE_WAIT_S)
+        on = ops.set_participate(node, resource, True)
+        relocations.append({'from': node, 'to': preferred_node, 'resource': resource, 'participate_off': off,
+                            'participate_on': on, 'moved': bool(got), 'waited_s': w})
+    out['relocations'] = relocations
+    final, _ = s7.assignment(ops.partitions())
+    out['assignment'] = final
+    return final == 'ok'
+
+
+def transition_partition(target, allow_downgrade=False, latch_band=False, ops=None):
+    """P3 로 오르거나(1·2 -> 3) P3 에서 내린다(3 -> 2). S7 설계 4-4·4-5."""
+    ops = ops or Ops()
+    out = {'ok': False, 'already': False, 'target': target, 'allow_downgrade': allow_downgrade,
+           'latch_band': latch_band, 'code': EXIT_FAIL, 'error': None, 'started': pgs.now_iso(), 'order': []}
+    g = ops.guard()
+    out['guard'] = g
+    if not g['ok']:
+        out.update(error='가드 위반: ' + '; '.join(g['problems']), code=EXIT_GUARD)
+        return out
+    before = ops.state()
+    out['before'] = before
+    if not before.get('ok'):
+        out['error'] = '모드를 읽지 못했다: %s' % before.get('error')
+        return out
+    current = before.get('protocol')
+    steps = plan_steps(current, target, allow_downgrade)
+    out['steps'] = steps
+    if steps is None:
+        out.update(error='출발 모드 P%s 에서 P%s 로는 이 도구가 전환 함수를 부르지 않는다' % (current, target), code=EXIT_MODE)
+        return out
+    if not steps:
+        out.update(ok=True, already=True, code=EXIT_OK, history=before.get('history'))
+        return out
+    up = target == 3
+    latch = 'present'
+    if up:
+        gauges = {name: ops.gauges(port) for name, port in API}
+        envs = {name: ops.preferred_env(name) for name, _ in API}
+        pre_blockers = ops.blockers(3)
+        out['precheck'] = {'gauges': gauges, 'preferred_env': envs, 'blockers': pre_blockers}
+        problems = precheck_problems(gauges, pre_blockers, envs)
+        latch = latch_decision(before.get('latched'), latch_band)
+        out['latch_decision'] = latch
+        if latch == 'blocked':
+            problems.append('명령 대역 래치가 없다. 폐기용 DB 에서만 --latch-band 로 건다(ADR 0034 결정한 값 9)')
+        if problems:
+            out.update(error='BLOCKED: ' + '; '.join(problems), code=EXIT_BLOCKED)
+            return out
+    bots_were_running = ops.running(BOTS)
+    out['bots'] = {'running_before': bots_were_running}
+    stopped = []
+    try:
+        if bots_were_running:
+            out['bots']['stop_rc'] = ops.docker(['stop', BOTS])
+            out['order'].append('stop:' + BOTS)
+        d = ops.drain()
+        out['drain'] = d
+        out['order'].append('drain')
+        if not d['ok']:
+            out.update(error='BLOCKED: %d초 안에 정산 전 NEW 가 0 이 되지 않았다' % DRAIN_LIMIT_S, code=EXIT_BLOCKED)
+            return out
+        for name in ('chaos-api-2', 'chaos-api-1'):
+            rc = ops.docker(['stop', name])
+            out.setdefault('stop', {})[name] = rc
+            out['order'].append('stop:' + name)
+            stopped.append(name)
+            if rc != 0:
+                out['error'] = '%s 정지 실패(rc=%s)' % (name, rc)
+                return out
+        calls = []
+        for step in steps:
+            if step == 3 and latch == 'latch':
+                lr = ops.latch()
+                out['latch'] = lr
+                out['order'].append('latch')
+                if not lr.get('ok'):
+                    out['error'] = '명령 대역 래치 실패: %s' % lr.get('stderr')
+                    return out
+            call = ops.call(step, step < (current if not calls else calls[-1]['target']))
+            call['target'] = step
+            calls.append(call)
+            out['order'].append('call:%d' % step)
+            if call.get('rc') != 0 or len(call.get('rows') or []) != 3:
+                out['calls'] = calls
+                out['error'] = '전환 함수 실패(P%d, rc=%s): %s' % (step, call.get('rc'), call.get('stderr'))
+                return out
+        out['calls'] = calls
+        last_retired = max(r['retired_epoch'] for r in calls[-1]['rows'])
+        out['last_retired_epoch'] = last_retired
+        # 구간 경계 표본은 전환 함수 직후, 노드를 시작하기 전에 뜬다(설계 4-7). 뒤 표본과 이력 행마다 같아야 한다.
+        out['segment_after_cutover'] = ops.segment()
+        out['order'].append('segment')
+        if up:
+            for name in ('chaos-api-1', 'chaos-api-2'):
+                out.setdefault('start', {})[name] = ops.docker(['start', name])
+                out['order'].append('start:' + name)
+                stopped.remove(name)
+            assigned = settle_assignment(ops, out)
+        else:
+            out.setdefault('start', {})['chaos-api-1'] = ops.docker(['start', 'chaos-api-1'])
+            out['order'].append('start:chaos-api-1')
+            stopped.remove('chaos-api-1')
+
+            def new_leader():
+                lead = ops.leader('matching-engine')
+                return lead if (lead and lead.get('alive') and int(lead.get('epoch') or 0) > last_retired
+                                and ops.http_ok(18080, '/actuator/health/readiness')) else None
+
+            lead, waited = wait_ops(ops, new_leader, LEADER_WAIT_S)
+            out['leader'] = {'lease': lead, 'waited_s': waited}
+            out.setdefault('start', {})['chaos-api-2'] = ops.docker(['start', 'chaos-api-2'])
+            out['order'].append('start:chaos-api-2')
+            stopped.remove('chaos-api-2')
+            live, _ = wait_ops(ops, lambda: ops.http_ok(28080, '/actuator/health/liveness'), NODE_WAIT_S)
+            out['api2_liveness'] = bool(live)
+            assigned = lead is not None and bool(live)
+        nodes = {name: ops.gauges(port) for name, port in API}
+        out['nodes'] = nodes
+        after = ops.state()
+        out['after'] = after
+        out['history'] = after.get('history')
+        leases = {row.get('resource'): row for row in after.get('lease') or []}
+        checks = {
+            'gauges_boot': all(n.get('ok') and n['values'].get('exchange_leader_protocol_boot') == float(target)
+                               for n in nodes.values()),
+            'gauges_inflight_0': all(n.get('ok') and n['values'].get('exchange_order_inflight_enabled') == 0.0
+                                     for n in nodes.values()),
+            'mode_after': after.get('protocol') == target,
+            'history_last': bool(after.get('history')) and after['history'][-1].get('protocol') == target,
+            'retire_order': [r['resource'] for r in calls[-1]['rows']] == ['matching-p0', 'matching-p1',
+                                                                            'matching-engine'],
+            'segment_sampled_before_start': bool((out.get('segment_after_cutover') or {}).get('ok')),
+        }
+        if up:
+            checks['preferred_assignment'] = assigned
+            checks['c29_0'] = ops.c29() == 0
+            checks['partition_epochs_after_last_retired'] = all(
+                int((leases.get(r) or {}).get('epoch') or 0) > last_retired for r in ('matching-p0', 'matching-p1'))
+            checks['gauges_max_3'] = all(n.get('ok') and n['values'].get('exchange_leader_protocol_max') == 3.0
+                                         for n in nodes.values())
+        else:
+            checks['engine_leader_after_last_retired'] = assigned
+        out['checks'] = checks
+        failed = [k for k, v in checks.items() if not v]
+        if failed:
+            out['error'] = '전환 뒤 확인 실패: %s' % ', '.join(failed)
+            return out
+        out.update(ok=True, code=EXIT_OK)
+        return out
+    finally:
+        for name in list(stopped):
+            out.setdefault('recovery_start', {})[name] = ops.docker(['start', name])
+        if bots_were_running:
+            out['bots']['start_rc'] = ops.docker(['start', BOTS])
+            out['order'].append('start:' + BOTS)
+        out['finished'] = pgs.now_iso()
+
+
 def drain_only():
     out = {'ok': False, 'code': EXIT_FAIL, 'error': None}
     g = guard()
@@ -393,9 +730,14 @@ def main(argv=None):
     d = sub.add_parser('drain')
     d.add_argument('--out')
     t = sub.add_parser('transition')
-    t.add_argument('--target', type=int, required=True, choices=(1, 2))
+    t.add_argument('--target', type=int, required=True, choices=(1, 2, 3))
     t.add_argument('--allow-downgrade', action='store_true')
+    t.add_argument('--latch-band', action='store_true',
+                   help='명령 대역 래치가 없으면 이 창에서 건다(되돌릴 수 없다, 폐기용 DB 만)')
     t.add_argument('--out')
+    b = sub.add_parser('blockers')
+    b.add_argument('--target', type=int, required=True, choices=(1, 2, 3))
+    b.add_argument('--out')
     a = ap.parse_args(argv)
     if a.cmd == 'state':
         g = guard()
@@ -406,8 +748,17 @@ def main(argv=None):
             res['code'] = EXIT_OK if res['ok'] else EXIT_FAIL
     elif a.cmd == 'drain':
         res = drain_only()
+    elif a.cmd == 'blockers':
+        g = guard()
+        rows = blockers(a.target) if g['ok'] else None
+        res = {'ok': rows is not None, 'code': EXIT_OK if rows is not None else (EXIT_GUARD if not g['ok'] else EXIT_FAIL),
+               'target': a.target, 'blockers': rows, 'guard': g}
     else:
-        res = transition(a.target, a.allow_downgrade)
+        current = state().get('protocol') if guard()['ok'] else None
+        if a.target == 3 or current == 3:
+            res = transition_partition(a.target, a.allow_downgrade, a.latch_band)
+        else:
+            res = transition(a.target, a.allow_downgrade)
     text = json.dumps(res, ensure_ascii=False, indent=2, default=str)
     if a.out:
         Path(a.out).write_text(text, encoding='utf-8')

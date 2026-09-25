@@ -1,0 +1,179 @@
+source=documents(DB 설계 §3.10 V55, §6.4 ⑯·⑳)
+v55 lines=163 sha256=f750f412d27be052
+c22p lines=33 sha256=3971e61573f06649
+c30 lines=23 sha256=dae5cf60c032f4e3
+repository max migration=V54
+start 2026-09-25T11:40:51Z container=pml-probe-s7pg-2175928933 image=postgres:17-alpine port=127.0.0.1:50825
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== P7-0 applied repository migrations: 55 files (max 54)
+before V55 FEE_INCOME shards: 1:0,2:0,3:0
+v55 exit=0
+after V55 FEE_INCOME shards: 1:0:bal=0.000000000000000000,1:1:bal=0.000000000000000000,2:0:bal=0.000000000000000000,2:1:bal=0.000000000000000000,3:0:bal=0.000000000000000000,3:1:bal=0.000000000000000000
+GENESIS/GATEWAY shard 1 rows: 0
+trigger: trg_accounts_fee_income_shard CREATE TRIGGER trg_accounts_fee_income_shard AFTER INSERT ON public.accounts FOR EACH ROW WHEN ((((new.owner_type)::text = 'SYSTEM'::text) AND ((new.purpose)::text = 'FEE_INCOME'::text) AND (new.shard = 0))) EXECUTE FUNCTION seed_fee_income_shard()
+function leader_protocol_blockers secdef=false acl={postgres=X/postgres,harness_role=X/postgres}
+function seed_fee_income_shard secdef=true acl={postgres=X/postgres}
+function set_leader_protocol secdef=false acl={postgres=X/postgres}
+view c22p ok
+view c30 ok
+
+== P7-1 앱 로그인이 자산 4 와 그 FEE_INCOME 샤드 0 을 넣으면 샤드 1 이 같이 생긴다. 같은 행 재삽입은 ON CONFLICT 로 넘긴다
+INSERT 0 1
+INSERT 0 2
+INSERT 0 0
+asset 4 system accounts: FEE_INCOME:0,FEE_INCOME:1,GENESIS:0
+-- 앱 로그인이 트리거 함수를 자기 임시 표에 걸 수 없다(EXECUTE 회수)
+CREATE TABLE
+ERROR:  42501: permission denied for function seed_fee_income_shard
+LOCATION:  aclcheck_error, aclchk.c:2843
+-- 조회 로그인은 선행 조건 함수를 부르고 전환 함수는 부르지 못한다. 앱 로그인은 둘 다 부르지 못한다
+hr blockers(3) rows=1
+ERROR:  permission denied for function set_leader_protocol
+ERROR:  permission denied for function leader_protocol_blockers
+ERROR:  permission denied for function set_leader_protocol
+
+== P7-2 P1 에서 1->3 은 전이 거부. 1->2 뒤 선행 조건을 하나씩 어기고 푼다
+protocol=1 lease=matching-engine::0:false matching-p0::0:false matching-p1::0:false
+  blocker band_latch_missing | journal_cutover 에 command_seq 행이 없다(ADR 0022 6-b)
+  (blockers(3) 끝)
+ERROR:  55000: 프로토콜 전이 P1 -> P3는 받지 않는다(1->2, 2->1, 2->3, 3->2 만)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+retired matching-p0 1 P2
+retired matching-p1 2 P2
+retired matching-engine 3 P2
+protocol=2 lease=matching-engine::3:false matching-p0::1:false matching-p1::2:false
+  blocker band_latch_missing | journal_cutover 에 command_seq 행이 없다(ADR 0022 6-b)
+  (blockers(3) 끝)
+-- 래치 없이 2->3
+ERROR:  55000: P2 -> P3 전환의 선행 조건이 어긋난다. band_latch_missing: journal_cutover 에 command_seq 행이 없다(ADR 0022 6-b)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+latched_at 2026-09-25 11:40:55.058577+00
+  (blockers(3) 끝)
+-- 정산되지 않은 NEW 하나(P2 리더 N1 의 epoch 로)
+me epoch(P2)=4
+  NEW seq=1000000000001
+  blocker unsettled_new | 1건(앞 seq: 1000000000001)
+  (blockers(3) 끝)
+  blocker unsettled_new | 1건(앞 seq: 1000000000001)
+  (blockers(2) 끝)
+  (ACCEPTED 이벤트로 정산 흉내)
+  (blockers(3) 끝)
+-- 수수료 샤드 1 이 없는 자산(트리거를 잠시 끄고 자산 5·마켓 3 을 넣음)
+  blocker fee_shard_missing | FEE_INCOME 샤드 0·1 이 모두 있지 않은 자산 5
+  (blockers(3) 끝)
+-- 대응·카운터·대역 잎이 없는 마켓(시드 트리거를 끄고 마켓 6 을 넣음)
+  blocker band_leaf_missing | 대역 잎이 없는 마켓 6
+  blocker market_partition_missing | 마켓 6
+  blocker market_counter_missing | 마켓:카운터 6:command_seq,6:event_seq
+  (blockers(3) 끝)
+
+
+  (blockers(3) 끝)
+-- app_role 에 leader_lease UPDATE(표 전체, 열 하나)와 command_journal INSERT 를 되돌려 준 경우
+  blocker app_role_lease_update | app_role 이 leader_lease 를 UPDATE 할 수 있다(V49 회수가 되돌려졌다)
+  (blockers(3) 끝)
+  blocker app_role_lease_update | app_role 이 leader_lease 를 UPDATE 할 수 있다(V49 회수가 되돌려졌다)
+  (blockers(3) 끝)
+  blocker app_role_journal_insert | app_role 이 command_journal 에 직접 INSERT 할 수 있다(V49 회수가 되돌려졌다)
+  (blockers(3) 끝)
+  (blockers(3) 끝)
+-- 모두 풀린 뒤 2->3
+history before: 1:P1:floor=0 2:P2:floor=0
+retired matching-p0 5 P3
+retired matching-p1 6 P3
+retired matching-engine 7 P3
+protocol=3 lease=matching-engine::7:false matching-p0::5:false matching-p1::6:false
+history after: 1:P1:floor=0 2:P2:floor=0 3:P3:floor=4
+resource for market 1=matching-p0 2=matching-p1 6=matching-p1
+
+== P7-3 P3 에서 최고 모드 2 획득과 matching-engine 획득은 거부, 최고 모드 3 은 두 파티션을 얻는다. 3->2 는 확인 인자가 필요하다
+ERROR:  55000: 이 호출은 P2 까지만 안다. 현재 P3에서는 리스를 획득하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 리스 자원 matching-engine은 P3에서 획득할 수 없다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+p0 epoch=8
+p1 epoch=9
+acq 9 matching-p1 N2 P3 ACQUIRE
+acq 8 matching-p0 N1 P3 ACQUIRE
+acq 7 matching-engine  P3 RETIRE
+acq 6 matching-p1  P3 RETIRE
+acq 5 matching-p0  P3 RETIRE
+protocol=3 lease=matching-engine::7:false matching-p0:N1:8:true matching-p1:N2:9:true
+-- 시장 도출 fencing: p0 의 holder·epoch 로 p1 마켓(2) 행을 넣으면 0행
+append p1 market with p0 lease rows=0
+append p0 market with p0 lease rows=1
+ERROR:  55000: 프로토콜 전이 P3 -> P1는 받지 않는다(1->2, 2->1, 2->3, 3->2 만)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 프로토콜 전이 P3 -> P3는 받지 않는다(1->2, 2->1, 2->3, 3->2 만)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: P3 -> P2 는 되돌리기다. 2->1 은 ADR 0034 결정 8 과 시험 R1, 3->2 는 DB 설계 §5.4-e 되돌리기 절차를 확인한 뒤 p_allow_downgrade => true 로만 한다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+
+== P7-4 p1 행에 KEY SHARE 를 쥔 세션이 7초 머무는 동안 3->2 는 5초 뒤 55P03 으로 끝나고 아무것도 바꾸지 않는다
+Timing is on.
+ERROR:  55P03: canceling statement due to lock timeout
+LOCATION:  ProcessInterrupts, postgres.c:3399
+Time: 5004.842 ms (00:05.005)
+BEGIN
+ks epoch=9
+
+COMMIT
+protocol=3 lease=matching-engine::7:false matching-p0:N1:8:true matching-p1:N2:9:true
+
+== P7-5 C22'·C30. P3 두 파티션 행을 번갈아 넣으면 옛 C22 시간 축 팔은 거짓 위반을 내고 C22' 는 0 이다
+  C22(옛) time=0 market=0 | C22' time=0 market=0 boundary=0 | C30=0 | rows=2
+1000000000003
+2000000000002
+1000000000004
+2000000000003
+1000000000005
+1000000000002
+2000000000001
+1
+2000000000002
+  C22(옛) time=2 market=0 | C22' time=0 market=0 boundary=0 | C30=0 | rows=7
+-- 주입 V1: p0 를 N2 가 새 epoch 로 넘겨받은 뒤 옛 p0 epoch 로 쓴 행(같은 파티션의 역행)
+p0 epoch(N2)=10
+  C22(옛) time=2 market=0 | C22' time=0 market=0 boundary=0 | C30=0 | rows=8
+1000000000007
+V1 time 1
+V1 market 1
+-- 주입 V2: p1 마켓(2) 행을 p0 epoch 로(명령·이벤트·스냅샷·체결 넷)
+2000000000004
+2000000000003
+2
+2000000000004
+V2 C30 command_journal 1
+V2 C30 event_journal 1
+V2 C30 snapshots 1
+V2 C30 trades 1
+-- 주입 V3: P2 구간 epoch(퇴역 전 matching-engine 획득)로 P3 에서 쓴 행(구간 경계)
+  P2 ACQUIRE epoch=4 (없으면 아래에서 P2 로 내려 만든다)
+  C22(옛) time=2 market=0 | C22' time=0 market=0 boundary=0 | C30=0 | rows=8
+  (마켓 3 에는 행이 없다. 마켓 안 팔이 볼 앞 행이 없어 구간 경계 팔만 이 행을 잡는다)
+3000000000001
+V3 C22p boundary 1
+V3 C30 0
+V3 C22old time 3
+-- 주입 V4·V5: P3 퇴역 epoch 로 쓴 행, 획득 이력이 없는 P3 범위 epoch 로 쓴 행
+1000000000007
+1000000000007
+V4 C30 1
+V5 C30 1
+-- 되돌리기(3->2, 확인 인자) 뒤 P2 행을 더해도 C22'·C30 은 0 이다
+retired matching-p0 11 P2
+retired matching-p1 12 P2
+retired matching-engine 13 P2
+me epoch(P2)=14
+1000000000007
+2000000000004
+1000000000008
+  C22(옛) time=2 market=0 | C22' time=0 market=0 boundary=0 | C30=0 | rows=11
+history: 1:P1:floor=0 2:P2:floor=0 3:P3:floor=4 4:P2:floor=10
+fee shards (resource of shard): 1:0,1:1,2:0,2:1,3:0,3:1,4:0,4:1,5:0,5:1
+
+== P7-6 비용 표본: 한 트랜잭션에 명령 20만 행을 더해 옛 C22, C22', C30 문장의 실행 시간을 잰다(롤백, 1,000,000행 판정은 NOT RUN)
+  Execution Time: 131.595 ms
+  Execution Time: 567.941 ms
+  Execution Time: 22.474 ms
+== done 2026-09-25T11:41:05Z

@@ -98,7 +98,25 @@ function noteMessage(destination, body) {
   }
 }
 
-const browser = await chromium.launch();
+/*
+ * 브라우저. playwright 가 내려받는 chromium 을 먼저 쓰고, 없으면(npx playwright install 을 하지 않은 PC) 설치된 Chrome, Edge 순으로
+ * 쓴다(S7 구현 검토 라운드 1). 내려받기 없이 관찰을 돌리기 위해서다. 무엇을 썼는지 결과의 browser 에 적는다. 셋 다 없으면 첫 오류로 끝난다.
+ */
+async function launchBrowser() {
+  const tries = [{ name: "chromium" }, { name: "chrome", channel: "chrome" }, { name: "msedge", channel: "msedge" }];
+  let first = null;
+  for (const t of tries) {
+    try {
+      return { browser: await chromium.launch(t.channel ? { channel: t.channel } : {}), name: t.name };
+    } catch (e) {
+      first ??= e;
+    }
+  }
+  throw first;
+}
+
+const launched = await launchBrowser();
+const browser = launched.browser;
 try {
   const page = await browser.newPage();
   page.on("request", (req) => {
@@ -132,6 +150,7 @@ const tickerMarkets = after
 const count = (p) => after.filter((r) => r.path === p).length;
 const result = {
   url: URL_ARG,
+  browser: launched.name,
   startedAt: new Date(t0).toISOString(),
   durationSec: DURATION_S,
   settleSec: SETTLE_S,

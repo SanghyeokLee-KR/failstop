@@ -25,7 +25,7 @@ import {
   type DrillStep,
 } from "../lib/admin/drills";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
-import type { CapacityNode, CapacityState, HaRecovery, HaStatus, SimStatus } from "../lib/admin/types";
+import type { CapacityNode, CapacityState, HaLease, HaRecovery, HaStatus, SimStatus } from "../lib/admin/types";
 
 const EMPTY: DrillSignals = { cap: null, sim: null, ha: null, rec: null };
 
@@ -374,6 +374,41 @@ const BEFORE: DrillSignals = {
 function leaderAfter(nodes: CapacityNode[], epoch: number): DrillSignals {
   return { ...BEFORE, cap: { ...BEFORE.cap!, nodes }, ha: { ...ha, epoch } };
 }
+
+/** 리스 표 한 행. 서버는 모드가 쓰는 자원만 낸다(API 설계 §6-C `leases[]`) */
+const leaseRow = (resource: string, holder: string, epoch: number): HaLease => ({
+  resource,
+  holder,
+  epoch,
+  leaseUntil: null,
+  leaderAlive: true,
+  leaseRemainingMs: null,
+  markets: [],
+});
+
+test("파티션 리더 모드(P3)에서는 리더 전환 대본을 시작하지 않고 사유를 적는다", () => {
+  const leader = drill("leader");
+  const before = step(leader, "before");
+  // P3: 두 노드가 파티션 하나씩 쥐어 둘 다 리더로 보인다. 세대는 matching-p0 한 행의 값이다
+  const split: DrillSignals = {
+    ...BEFORE,
+    cap: { ...BEFORE.cap!, nodes: [node("chaos-api-1", { leader: true }), node("chaos-api-2", { leader: true })] },
+    ha: { ...ha, epoch: 21, leases: [leaseRow("matching-p0", "n1", 21), leaseRow("matching-p1", "n2", 22)] },
+  };
+  const ev = evaluateDrill(leader, split, { since: T(0), steps: {} }, T(1));
+  assert.equal(ev.currentIndex, 0, "P3에서 첫 단계를 넘기면 리더 두 대를 결함으로 읽는 뒤 단계로 간다");
+  assert.deepEqual(ev.checks[0], { state: "PENDING", readout: "파티션 리스 matching-p0·matching-p1 · P1·P2 전용 대본" });
+  assert.deepEqual(ev.fresh, {}, "P3 관측은 이 대본의 기준 리더로 기록하지 않는다");
+  // 한 노드가 두 파티션을 모두 쥐어 리더가 한 대로 보여도 P3이다
+  const consolidated: DrillSignals = {
+    ...split,
+    cap: { ...BEFORE.cap!, nodes: [node("chaos-api-1", { leader: true }), node("chaos-api-2", { leader: false })] },
+  };
+  assert.equal(before.check(consolidated, {}).state, "PENDING");
+  // P1·P2의 리스 행(matching-engine)은 종전 판정 그대로다
+  const single: DrillSignals = { ...BEFORE, ha: { ...ha, epoch: 7, leases: [leaseRow("matching-engine", "n2", 7)] } };
+  assert.deepEqual(before.check(single, {}), { state: "MET", readout: "리더 chaos-api-2 · 세대 7" });
+});
 
 test("팔로워만 멈추면 리더 중단이 아니다", () => {
   const kill = step(drill("leader"), "kill");

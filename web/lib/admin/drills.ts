@@ -151,6 +151,15 @@ function leaderOf(s: DrillSignals | undefined): string | null {
   return leaders.length === 1 ? leaders[0].id : null;
 }
 
+/**
+ * 파티션 리더 모드(P3)의 리스 자원. 서버는 모드가 쓰는 자원만 낸다. P1·P2는 matching-engine 하나이고 P3은
+ * matching-p0·matching-p1이다(API 설계 §6-C `leases[]`). P3에서는 노드마다 파티션 리더라 두 노드가 모두 리더로 보이는 것이
+ * 정상이고, 세대(`epoch`)는 matching-p0 한 행의 값이다. 단일 리더를 전제한 판정이 맞지 않으므로 이 목록으로 모드를 가른다.
+ */
+function partitionResources(ha: HaStatus): string[] {
+  return (ha.leases ?? []).map((l) => l.resource).filter((r) => r !== "matching-engine");
+}
+
 /* ===== 1. 트래픽 임계와 조회 증설 ===== */
 
 /**
@@ -331,6 +340,10 @@ const DRILL_LEADER: DrillDef = {
       check: (s) => {
         const ha = s.ha;
         if (!ha) return missing("리더 상태");
+        // 파티션 리더 모드(P3)에서는 이 대본을 시작하지 않는다. 리더 두 대를 결함으로 읽고, 세대가 한 파티션 값이라 다른
+        // 파티션의 인계를 보지 못한다. P3 시연은 harness/scripts/s7-p3-demo.ps1 과 아래 리스 표가 맡는다(S7 설계 4-11)
+        const partitions = partitionResources(ha);
+        if (partitions.length > 0) return pending(`파티션 리스 ${partitions.join("·")} · P1·P2 전용 대본`);
         return capCheck(s, (c) => {
           const leaders = c.nodes.filter((n) => n.reachable && n.leader);
           return leaders.length === 1

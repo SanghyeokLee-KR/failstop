@@ -96,7 +96,20 @@ public class EngineConfig {
                 .builder("exchange.leader.protocol.boot", boot, b -> b.protocol())
                 .description("기동 때 읽은 리더 모드(1 단일 리더, 2 접수 시점 예약). 전환 뒤 두 노드가 같은 값인지 본다")
                 .register(meterRegistry);
+        registerProtocolMaxGauge(meterRegistry);
         return boot;
+    }
+
+    /**
+     * 이 바이너리가 획득할 수 있는 최고 리더 모드(DB 설계 §5.4-c 13, S7 설계 4-2). 3 이면 파티션 가능 바이너리다. 모드 전환 절차가
+     * 2->3 을 부르기 전에 두 앱 노드의 값이 3 인지 본다(§5.4-e 1). DB 를 읽지 않는 상수라 기동 모드와 무관하게 늘 같은 값이다.
+     * 조회 역할 노드는 리스를 얻지 않으므로 내지 않는다(기동 모드 게이지와 같은 규칙).
+     */
+    static void registerProtocolMaxGauge(MeterRegistry meterRegistry) {
+        io.micrometer.core.instrument.Gauge
+                .builder("exchange.leader.protocol.max", () -> kr.exchange.engine.lease.LeaseResources.MAX_PROTOCOL)
+                .description("이 바이너리가 획득할 수 있는 최고 리더 모드(3 이면 파티션 가능). 2->3 전환 전에 두 노드가 3 인지 본다")
+                .register(meterRegistry);
     }
 
     /**

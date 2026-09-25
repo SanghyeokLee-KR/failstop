@@ -112,12 +112,14 @@ compose.yaml         카오스 스택 진입점
 
 | 워크플로 | 트리거 | 잡 | paths |
 |---|---|---|---|
-| `ci-backend` | PR + push (main, develop) | build-test, observability | `server/**`, `harness/prometheus/**`, `harness/grafana/dashboards/**`, 자기 파일 |
+| `ci-backend` | PR + push (main, develop) | build-test, observability | `server/**`, `deploy/provision-runtime-roles.sql`, `deploy/vm-lab/build/build-files/db/summary.sql`, `harness/sql/**`, `harness/relay/**`, `docs/reference/contracts/**`, `harness/prometheus/**`, `harness/grafana/dashboards/**`, 자기 파일 |
 | `ci-web` | PR + push (main, develop) | build-test | `web/**`, `scripts/prune-admin-bundle.mjs`, 자기 파일 |
 | `image` | `workflow_run`(ci-backend 성공, main) + 수동 | build-push | 없음 |
 | `style` | PR (main, develop) | style, doclinks, tokens, browser | 없음 |
 
 `image`는 `ci-backend` 성공에 물려 있다. 백엔드가 깨지면 이미지가 나가지 않는다.
+
+`ci-backend`의 paths는 `server/**` 밖에서 서버 시험이 읽는 파일도 싣는다. 목록은 `server/app/build.gradle.kts`의 `test` 작업이 입력으로 선언한 파일과 같다. 런타임 역할 스크립트, VM 실습망의 `summary.sql` 사본, 하네스 SQL, 중계 설정, 계약 문서 폴더가 여기에 든다. 계약 문서 폴더가 드는 이유는 `V55ContractBlockTest`와 판정 목록 판 시험(`S7Audit`)이 DB 설계의 SQL 블록을 뽑아 V55·앱 enum과 대조하기 때문이다(ADR 0034 S7). 문서만 고친 PR이 그 블록을 어긋나게 해도 백엔드 CI가 돈다. 시험 입력을 더하면 두 목록을 함께 고친다.
 
 `style.yml`만 `permissions`도 `concurrency`도 `timeout-minutes`도 없다. 나머지 셋은 앞의 둘을 갖는다. `image.yml`에 `timeout-minutes`가 없다.
 
@@ -224,6 +226,8 @@ digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열
 
 (2026-09-25, ADR 0034 S6) WebSocket 중계 실험용 오버레이 `harness/docker-compose.relay.yml`을 코드 단계에서 더한다. `chaos-broker`(`rabbitmq:4.3.6-alpine`, STOMP 61613, 호스트 포트 없음, `deploy.resources` 320MiB·CPU 1, Erlang `+S 2:2`, 헬스체크 `rabbitmq-diagnostics -q check_port_listener 61613`, 설정 `harness/relay/enabled_plugins`·`harness/relay/rabbitmq.conf`)를 더하고, api-1·api-2를 `EXCHANGE_WS_RELAY_MODE=broker`로 띄우며, chaos-lb에 `harness/nginx/nginx.relay.conf`를 마운트한다. `harness/scripts/up.ps1 -Relay`가 겹친다. 기본 기동과 위 표의 서비스 수는 바뀌지 않는다. 실험 실행기가 실험마다 스택을 다시 세울 때도 오버레이가 빠지지 않도록 `harness/scripts/lib.ps1`의 `Invoke-Compose`·`Invoke-ComposeQuiet`이 환경 변수 `CHAOS_COMPOSE_OVERLAYS`(`harness/` 아래 파일 경로, 세미콜론 구분)를 읽어 기본 파일 뒤에 `-f`로 겹친다. 목록의 파일이 없거나 `harness/` 밖이면 멈춘다. `up.ps1 -Relay`와 `adr0022-stage5-chaos.ps1 -Relay`가 이 변수를 채우고, 뒤의 것은 스택을 세운 뒤 오버레이가 실제로 걸렸는지(`chaos-broker` 헬스, 두 앱 컨테이너의 모드, LB 설정 마운트) 확인해 아니면 그 실험을 BLOCKED로 끝낸다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-19다.
 
+(2026-09-25, ADR 0034 S7) 파티션 리더 모드(P3) 실험용 오버레이 `harness/docker-compose.p3.yml`을 코드 단계에서 더한다. 서비스를 더하지 않는다. api-1·api-2에 선호 파티션(`EXCHANGE_LEADER_PARTITION_PREFERRED`, 각각 `matching-p0`·`matching-p1`)과 JDBC 주소(`SPRING_DATASOURCE_URL`)를 주고 chaos-lb에 `harness/nginx/nginx.partition-relay.conf`를 마운트한다. JDBC 주소는 기본 파일의 Toxiproxy 주소(api-1 `chaos-toxiproxy:15432`, api-2 `:25432`)를 지키고 `?ApplicationName=chaos-api-1`·`chaos-api-2`만 붙인다. P3 실험 Q8의 행 잠금 표본이 연결 이름으로 노드를 가르기 때문이다. 중계 오버레이 뒤에 겹쳐야 한다. compose는 같은 컨테이너 경로의 마운트를 뒤 파일 것으로 바꾸므로 순서가 뒤집히면 chaos-lb가 `nginx.relay.conf`로 뜨고, 중계 오버레이가 마운트를 덮은 뒤에는 `CHAOS_LB_CONF`가 효과가 없다(2026-09-25 `docker compose config` 해석, `harness/evidence/pml-s7-probe-20260925/README.md` C7). 그래서 `up.ps1 -P3`와 실험 실행기의 `-P3`는 `CHAOS_COMPOSE_OVERLAYS`를 `docker-compose.relay.yml;docker-compose.p3.yml` 순서로 채우고(`-P3`는 `-Relay`를 함께 켠다), 스택을 세운 뒤 chaos-lb 마운트 원본, 두 앱 컨테이너의 선호 파티션과 중계 모드와 JDBC 주소, `leader_protocol` 값을 확인해 하나라도 어긋나면 그 실험을 BLOCKED로 끝낸다. 환경은 변수 한 줄만 고르는 템플릿으로 읽어 비밀 값 줄을 가져오지 않는다. P3 전환 자체는 오버레이가 하지 않는다. 소유자가 `harness/scale/protocol_latch.py transition --target 3`으로 정지 창에서 한다(하네스 검증설계 §3 P3 실험 문단). 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-9다.
+
 ### 3-2. Toxiproxy 배선
 
 `harness/toxiproxy/populate.json`이 프록시 2개를 정의한다. `pg-api1`과 `pg-api2`다. 노드별로 DB 경로를 따로 끊을 수 있어야 리더만 겨냥한 실험이 성립한다.
@@ -237,6 +241,8 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 `harness/nginx/nginx.conf`가 API 로드밸런서이고 `harness/nginx/web.conf`가 웹 서빙과 동일 출처 프록시다.
 
 2026-09-25 ADR 0034 S5부터 `chaos-lb`는 compose 변수 `CHAOS_LB_CONF`가 가리키는 파일을 쓴다. 기본값은 `./nginx/nginx.conf`라 종전 스택과 같다. `harness/nginx/nginx.partition.conf`는 종전 블록을 줄 단위로 그대로 두고 파티션 쓰기 업스트림 둘(`exchange_p0`·`exchange_p1`)과 마켓 힌트 헤더(`X-Exchange-Market`) 맵, 주문 쓰기 location을 더한 파일이고 S5 관문 실행기가 고를 때만 쓴다. 계약은 하네스 검증설계 §3 LB 배선의 2026-09-25 S5 항목, 응답은 API 설계 §2-5-d다. 두 파일의 보존 블록과 맵은 `harness/scale/test_nginx_partition_conf.py`가 대조한다.
+
+2026-09-25 ADR 0034 S7은 두 파일을 합친 `harness/nginx/nginx.partition-relay.conf`를 코드 단계에서 더한다. `nginx.relay.conf`의 블록 전부(`exchange_write`·`exchange_read`·`exchange_any`·`exchange_ws`와 그 location들)에 `nginx.partition.conf`의 파티션 업스트림 둘, 두 맵, 주문 쓰기 location을 더하고 두 원본은 바꾸지 않는다. 접근 로그는 파티션 형식(`ups`=시도한 업스트림 주소, `ust`=상태 목록) 하나다. 블록이 원본과 줄 단위로 같은지는 `harness/scale/test_nginx_p3_conf.py`가 대조한다. 이 파일은 P3 오버레이(§3-1)만 마운트하고 `CHAOS_LB_CONF`로 고르지 않는다. 폐기용 nginx 1.29.8에서 초안의 `nginx -t`와 라우팅을 확인했다(`harness/evidence/pml-s7-probe-20260925/README.md` N7).
 
 `web.conf`는 `^/(admin/v1|harness|actuator)/`를 404로 막는다. 관리 API와 하네스 API는 공개 진입으로 나가지 않는다. 관리 화면 자체(`/admin`)는 막지 않는다.
 
@@ -329,6 +335,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 2026-09-25 ADR 0034 S5(REST 라우팅과 요청 경계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-1·4-4·4-6, 응답 계약은 API 설계 §2-5-d·§4-B-3, 인계 규칙은 DB 설계 §5.4-d다. 새 지표는 여섯이고 모두 Counter다. `exchange.routing.precheck{result}`는 소유권 선검사 필터의 결과 수다(`accepted` 이 노드가 그 마켓을 접수함, `not_owner` 선검사 `503`, `unresolved` 마켓을 찾지 못해 뒤 단계로 넘김). 필터 밖의 소유 아님 `503`은 세지 않는다. `exchange.routing.cancel_not_owner`는 게이트웨이가 힌트 없는 단건 취소에 낸 소유 아님 `503`(`route=not_owner`, 대상 주문을 읽은 뒤 채번 전) 수다. 설계 검토 대응(2026-09-25)에서 첫 판의 '게이트웨이의 `503`도 `not_owner`로 센다'를 이렇게 나눴다. 그래야 선검사 계수를 인그레스 접근 로그의 첫 시도 `503` 줄 수와 대조할 수 있다(S5 설계 7-2 Z1). `exchange.routing.hint.rejected{reason}`은 힌트와 배치 규칙의 `400` 수다(`market_hint_mismatch`·`market_hint_duplicate`·`batch_single_market`). `exchange.db.read_retry{site,outcome}`은 연결 끊김 뒤 한 번 더 읽은 수다(`site` = `auth`·`order`, `outcome` = `recovered`·`unreachable`). `exchange.order.cancel_handoff.requests{outcome}`은 요청자가 넣은 인계 행의 결말 수(`done`·`pending`·`not_started`·`insert_failed`), `exchange.order.cancel_handoff.worker{outcome}`은 작업자의 처리 수(`claimed`·`reclaimed`·`completed`·`complete_lost`·`stopped`·`resumed`·`expired`·`error`)다. `resumed`는 같은 기간 안에서 멈춘 행을 이어 한 수, `expired`는 만료로 닫은 행 수, `error`는 주문 단위 `server_error`와 행 단위 예외 수다(DB 설계 §5.4-d 3·6). 태그 값을 모두 기동 때 미리 등록해 프로메테우스 `increase()`가 첫 증가를 센다. 규칙과 대시보드는 이 이름들을 보지 않으므로 위 참조 수는 그대로이고, 코드가 들어가면 고유 이름 개수를 다시 센다. S5 관문 판정기가 앞의 넷과 인계 계수를 실험 앞뒤로 읽는다(하네스 검증설계 S5 패치 노트 (4)).
 
 2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17, 동작 계약은 API 설계 §5-1·§5-6(v2.58, S6 브랜치에서는 v2.57로 적었고 S5 병합 때 옮겼다)이다. 새 지표는 아홉이다. `exchange.ws.gate.open`(Gauge, 이 노드가 WS를 받으면 1)과 `exchange.ws.relay.handshake_refused{reason}`(FunctionCounter, `relay_unavailable`·`relay_required`)은 WS 게이트가 있는 모든 노드에서 두 모드 모두 등록한다(엔진을 끈 노드는 `gate.open`이 늘 0). `simple` 모드에서도 다른 노드가 유효한 리스를 쥔 노드는 WS를 거절하기 때문이다(API §5-6). 나머지 일곱은 중계 모드(`exchange.ws.relay.mode=broker`)인 노드만 등록한다. `exchange.ws.relay.connected{link}`(Gauge, `pub`·`sub` 연결이 붙었으면 1), `exchange.ws.relay.messages{direction,kind}`(FunctionCounter, `out`·`in`과 `topic`·`user`·`hb`), `exchange.ws.relay.dropped{reason}`(FunctionCounter, `queue_full`·`disconnected`·`write_timeout`·`stale`·`malformed`·`candle_overflow`), `exchange.ws.relay.queue.size`(Gauge), `exchange.ws.relay.degraded{cause}`(Gauge, 그 원인 `link_down`·`owner_silent`으로 중계 불능이면 1), `exchange.ws.relay.lag`(Timer, 봉투의 `x-sent-at`부터 받은 시각까지), `exchange.ws.mirror.fallback{kind,reason}`(FunctionCounter, 호가·티커 REST나 구독 스냅샷이 미러 대신 DB 집계로 간 수, `relay_down`·`owner_silent`·`behind`·`absent`·`epoch_mismatch`)다. 태그 조합은 기동 때 모두 미리 등록해 0부터 보이게 한다. 같은 날 설계 검토 지적을 반영해 게이트 지표와 `hb`·`stale`·`cause`·`owner_silent`·`behind`를 더했다(S6 설계 11절). 코드가 들어갈 때 위 개수와 참조 수를 다시 센다.
+
+2026-09-25 ADR 0034 S7(P3 전환과 파티션 실험)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-2·4-4다. 새 지표는 하나다. `exchange.leader.protocol.max`(Gauge)는 이 바이너리가 구현한 최고 리더 모드(`LeaseResources.MAX_PROTOCOL`, S7부터 3)다. 기동 모드 게이지 `exchange.leader.protocol.boot` 옆에 조회 역할이 아닌 노드에서만 등록한다. P2→P3 전환 도구가 전환 전에 두 앱 노드의 이 값이 3인지 보고 아니면 전환하지 않는다(DB 설계 §5.4-e). DB 전환 함수는 앱 노드의 바이너리를 볼 수 없으므로 이 확인은 도구 몫이고, 확인을 건너뛰어도 최고 모드 2의 옛 바이너리는 P3 DB에서 어떤 리스도 얻지 못한다(DB 설계 §5.4-c 13). 파티션 리더 축 지표의 `partition` 태그는 P3에서 `matching-p0`·`matching-p1` 두 값을 갖는다(S4 계약 그대로). 코드가 들어갈 때 위 개수를 다시 센다.
 
 ### 5-3. Prometheus
 
@@ -478,15 +486,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **32** | 판정 블록. `\echo '== C` 39행에서 스키마 조건 분기의 중복 7행(C14 1, C29 2, C31 2, C24·C25 각 1)을 뺀다 |
-| `InvariantCheck.java` enum | 31 | 32에서 C04가 빠진다 |
-| 카탈로그 코드 | 30 | C01~C29, C31(C30은 ADR 0034 S7 예약 번호) |
+| `harness/sql/invariants.sql` | **32** | 판정 블록. `\echo '== C` 39행에서 스키마 조건 분기의 중복 7행(C14 1, C29 2, C31 2, C24·C25 각 1)을 뺀다. S7 코드 뒤 **33**(C30 블록 하나, 중복은 C30 2·C22 종전 판 1이 더해진다) |
+| `InvariantCheck.java` enum | 31 | 32에서 C04가 빠진다. S7 코드 뒤 32 |
+| 카탈로그 코드 | 31 | C01~C31(C30은 2026-09-25 ADR 0034 S7 계약이 등재했고 코드는 S7) |
 
 C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 8이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 8이다. S7 코드가 C30(CRITICAL·AUTHORITATIVE_ONLY)을 넣으면 CRITICAL 20, AUTHORITATIVE_ONLY 9가 된다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
 
-개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다. 같은 날 ADR 0034 S3 계약이 C31(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 먼저 등재하고 C14 술어를 C14'로 개정했다. C31은 첫 등재 때 SCHEDULED였으나 같은 날 설계 검토 뒤 비용 때문에 권위 run 한정으로 옮겼다(`하네스_검증설계.md` §4-1 C31, §4-2 ④). 같은 날 같은 브랜치의 S3 코드가 C31을 `InvariantCheck.java`(권위 run 한정의 최근 창 판)와 `invariants.sql`·`summary.sql`(전수 판)에 넣고 C14'의 예약 표 유무 분기와 C29·C31의 N/A·FAIL 분기를 더해 위 값으로 다시 셌다. `summary.sql`의 판정 어휘에 N/A가 더해졌다(`하네스_검증설계.md` §4-1 판정 어휘).
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다. 같은 날 ADR 0034 S3 계약이 C31(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 먼저 등재하고 C14 술어를 C14'로 개정했다. C31은 첫 등재 때 SCHEDULED였으나 같은 날 설계 검토 뒤 비용 때문에 권위 run 한정으로 옮겼다(`하네스_검증설계.md` §4-1 C31, §4-2 ④). 같은 날 같은 브랜치의 S3 코드가 C31을 `InvariantCheck.java`(권위 run 한정의 최근 창 판)와 `invariants.sql`·`summary.sql`(전수 판)에 넣고 C14'의 예약 표 유무 분기와 C29·C31의 N/A·FAIL 분기를 더해 위 값으로 다시 셌다. `summary.sql`의 판정 어휘에 N/A가 더해졌다(`하네스_검증설계.md` §4-1 판정 어휘). 2026-09-25 ADR 0034 S7 계약이 C30(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 등재하고 C22 술어를 C22'로 개정했다. 표의 S7 뒤 값은 계약으로 센 예정 값이고 코드가 들어갈 때 다시 센다.
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 

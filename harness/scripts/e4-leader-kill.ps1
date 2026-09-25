@@ -4,11 +4,16 @@
 # 종속시켜 신선한 스택의 리더가 결정적으로 api-1이 된다. 생략하면 앞선 실행이 죽인 노드를 대상
 # 삼게 되므로 아래에서 실 리더를 다시 감지한다.
 # docker kill은 restart 정책을 건너뛰므로(실측 Docker 29.5.2) 자동 부활을 전제로 판정하지 않는다.
-param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e4.env'))
+# -Resource 는 볼 리스 자원이다(S4 설계 4-18, S7 설계 4-13). P1·P2 는 matching-engine 이고 P3(파티션 리더 모드)에서는 필수다.
+# 모든 상태·포트 조회와 리더 감지, 체결 재개 술어, 적재가 그 자원을 쓴다. P3 에서는 epoch 판정이 '정확히 +1' 대신
+# '옛 epoch 뒤 그 자원의 ACQUIRE 이력이 정확히 하나이고 holder 가 생존 노드'다(하네스 검증설계 §5-1, lib.ps1 Test-P3AcquireOnce).
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e4.env'), [string] $Resource)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $cfg = Read-EnvFile $ConfigPath
+$leaseResource = Get-LeaseResource -Resource $Resource
+$partitioned = $leaseResource -ne 'matching-engine'
 
 $runId = "E4-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $target = $cfg['TARGET_NODE']
@@ -19,7 +24,7 @@ function Get-CheckRows { param($Run, [string] $Name)
 }
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
-Write-Section "E4 시작 runId=$runId"
+Write-Section "E4 시작 runId=$runId resource=$leaseResource"
 
 Write-Section 'warmup'
 # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400, 드레인
@@ -40,7 +45,7 @@ Write-Host "체결 증분: $((Get-TradeCount) - $tradesBase) (누적 $(Get-Trade
 # 되고, 그때는 승격이 없어 epoch 불변·RTO n/a로 확정 FAIL이 난다. 그 FAIL은 코드 결함이 아니라
 # 판정 결함이다. Get-LeaderContainer는 다중 매치를 모호로 보고 $null을 돌려주므로 감지 실패는
 # 강행하지 않고 멈춘다(E5·E6와 동형).
-$detected = Get-LeaderContainer
+$detected = Get-LeaderContainer -Resource $leaseResource
 if (-not $detected) {
     throw '리더 감지 실패. 실 리더를 특정하지 못한 채 kill하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 확인한 뒤 재실행한다.'
 }
@@ -51,9 +56,9 @@ $standbyPort = if ($detected -eq 'chaos-api-1') { $Global:CHAOS.Api2Port } else 
 Write-Host "리더 감지: $target (config TARGET_NODE와 무관하게 실 리더 대상). standby 포트=$standbyPort"
 
 Write-Section 'ⓐ 사전 권위 run'
-$prePort = Get-LiveNodePort
+$prePort = Get-LiveNodePort -Resource $leaseResource
 Reset-LoadtestAcks -Port $prePort
-$statusBefore = Get-HarnessStatus -Port $prePort
+$statusBefore = Get-HarnessStatus -Port $prePort -Resource $leaseResource
 $oldEpoch = [long]$statusBefore.epoch
 $oldHolder = $statusBefore.holder
 $leaseUntilBefore = ([datetimeoffset]$statusBefore.leaseUntil).UtcDateTime
@@ -69,21 +74,21 @@ if (Test-FailoverClockGuard -ExperimentId 'E4' -RunId $runId) { exit 0 }
 # 감지(워밍업 직후)와 주입 사이에 사전 권위 run(최대 60s)·시계가드가 들어간다. 카오스 리스 TTL이
 # 6s라 그 창에서 리더가 바뀔 수 있고, 그러면 감지값이 다시 팔로워를 가리켜 이번 실행이 막으려던
 # 위양성이 그대로 재현된다.
-$reDetected = Get-LeaderContainer
+$reDetected = Get-LeaderContainer -Resource $leaseResource
 if ($reDetected -ne $target) {
     $now = if ($reDetected) { $reDetected } else { '판별 불가' }
     throw "주입 직전 리더 교체 감지(감지 $target -> 현재 $now). 대상이 팔로워가 되므로 주입하지 않는다."
 }
 # 스탠바이 도달성 전제. 승격 후보가 없는 상태에서 리더를 죽이면 두 노드가 모두 죽고, 관찰 루프
 # 다음의 $statusAfter 조회가 예외로 터져 verdict·failover_runs 적재·증거 출력이 통째로 사라진다.
-try { Get-HarnessStatus -Port $standbyPort | Out-Null }
+try { Get-HarnessStatus -Port $standbyPort -Resource $leaseResource | Out-Null }
 catch { throw "스탠바이(포트 $standbyPort) 미응답. 승격 후보 없이 kill하면 클러스터가 전멸하고 증거도 남지 않는다. down -v + up으로 스택을 새로 세운 뒤 재실행한다." }
 
 Write-Section 'ⓑ 주입: docker kill'
 # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
 # 스냅샷을 쓰면 사전 권위 run·시계가드·리더 재확인이 도는 동안의 갱신분이 그대로
 # 다운타임에 더해져 과대 산출된다.
-$leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
+$leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort -Resource $leaseResource).leaseUntil).UtcDateTime
 $t0 = (Get-Date).ToUniversalTime()
 $tradesAtKill = Get-TradeCount
 & docker kill $target | Out-Null
@@ -91,11 +96,11 @@ Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) killed=$target trades_at_k
 
 Write-Section 'ⓒ 관찰(개입 금지)'
 $t2 = Wait-For {
-    try { $s = Get-HarnessStatus -Port $standbyPort; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
+    try { $s = Get-HarnessStatus -Port $standbyPort -Resource $leaseResource; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
     catch { $false }
 } -TimeoutSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -PollSec 0.5
 if (-not $t2) { Write-Host '경고: 승격 미관찰(타임아웃)' -ForegroundColor Yellow }
-$statusAfter = Get-HarnessStatus -Port $standbyPort
+$statusAfter = Get-HarnessStatus -Port $standbyPort -Resource $leaseResource
 $newEpoch = [long]$statusAfter.epoch
 $newHolder = $statusAfter.holder
 Write-Host "T2(승격)=$(if($t2){$t2.ToUniversalTime().ToString('o')}else{'n/a'}) new_epoch=$newEpoch"
@@ -104,7 +109,7 @@ Write-Host "T2(승격)=$(if($t2){$t2.ToUniversalTime().ToString('o')}else{'n/a'}
 # catch-up 배치의 커밋 가시화 지연과 무관한 재개 시점을 가리킨다. 술어는 lib.ps1 공용
 # Get-FirstTradeSql(정본 §5-1 검산식, command_journal.fencing_token 축)을 쓴다.
 $t0Iso = $t0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-$firstTradeSql = Get-FirstTradeSql -OldEpoch $oldEpoch -T0Iso $t0Iso
+$firstTradeSql = Get-FirstTradeSql -OldEpoch $oldEpoch -T0Iso $t0Iso -Resource $leaseResource
 $obsResume = Wait-For {
     -not [string]::IsNullOrWhiteSpace((Invoke-Psql $firstTradeSql))
 } -TimeoutSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -PollSec 0.5
@@ -139,7 +144,7 @@ try {
         $residualDisp = 'n/a(psql 무응답)'; if ($null -ne $residual) { $residualDisp = $residual }
         Write-Host "경고: 드레인 미완(잔여 $residualDisp 건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
     }
-    $postPort = Get-LiveNodePort
+    $postPort = Get-LiveNodePort -Resource $leaseResource
     $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
 }
 finally {
@@ -185,8 +190,23 @@ if (-not $botsStopped) {
     }
 }
 
+# epoch 판정. P1·P2 는 종전 그대로 '정확히 +1'이다. P3 은 epoch 가 모든 자원을 통틀어 배정되므로 다른 파티션의 epoch 가 더 크면
+# 새 epoch 가 옛 epoch + 1 이 아니다. 그래서 '옛 epoch 뒤 그 자원의 ACQUIRE 이력이 T5 까지 정확히 하나이고 holder 가 생존 노드'로
+# 읽는다(하네스 검증설계 §5-1). T5 가 없으면 규칙을 볼 창이 없어 거짓이다.
+$p3Epoch = $null
+if ($partitioned) {
+    if ($t5) {
+        $p3Epoch = Test-P3AcquireOnce -Resource $leaseResource -OldEpoch $oldEpoch -OldHolder $oldHolder -Until $t5 -SurvivorPort $standbyPort
+    } else {
+        $p3Epoch = [ordered]@{ resource = $leaseResource; oldEpoch = $oldEpoch; ok = $false; '사유' = 'T5(체결 재개) 없음' }
+    }
+    $epochOk = [bool]$p3Epoch['ok']
+} else {
+    $epochOk = $newEpoch -eq $oldEpoch + 1
+}
+
 $verdict = 'FAIL'
-if ($post.criticalClean -and $t5 -and ($newEpoch -eq $oldEpoch + 1) -and ($null -ne $rto) -and ($rto -lt $rtoTarget)) {
+if ($post.criticalClean -and $t5 -and $epochOk -and ($null -ne $rto) -and ($rto -lt $rtoTarget)) {
     $verdict = 'PASS'
 }
 
@@ -203,13 +223,18 @@ $body = @{
                  cmdGap = "$cmdGap"; evtGap = "$evtGap"; tradesBefore = "$tradesBefore";
                  tradesAfter = "$tradesAfter"; drainValid = "$drainValid" }
 }
-$rec = Record-Failover -Port $postPort -Body $body
+$rec = Record-Failover -Port $postPort -Body $body -Resource $leaseResource
 
 Write-Host ''
 Write-Host '── E4 증거 ─────────────────────────────' -ForegroundColor Green
 Write-Host ("verdict            : {0}" -f $verdict)
 Write-Host ("RTO(체결 재개)     : {0} s (목표 < {1})" -f $rtoDisplay, $rtoTarget)
 Write-Host ("epoch              : {0} -> {1}" -f $oldEpoch, $newEpoch)
+if ($partitioned) {
+    Write-Host ("P3 epoch 규칙      : {0} (자원 {1}, ACQUIRE {2}건, 생존 노드 epoch {3})" -f $epochOk, $leaseResource,
+        $(if ($null -ne $p3Epoch['acquires']) { @($p3Epoch['acquires']).Count } else { 'n/a' }),
+        $(if ($null -ne $p3Epoch['survivorEpoch']) { $p3Epoch['survivorEpoch'] } else { 'n/a' }))
+}
 Write-Host ("자산합 위반(C01)   : {0}" -f $assetSum)
 Write-Host ("중복 접수(C07/C07')  : {0}" -f $dupOrder)
 Write-Host ("중복 체결(C08)     : {0}" -f $dupFill)
@@ -248,6 +273,7 @@ Invoke-Psql "SELECT check_name, ok, violated_rows FROM invariant_checks WHERE de
 
 Save-VerdictFile -ExperimentId 'E4' -RunId $runId -Verdict $verdict -Metrics @{
     c16LoadtestAcksRows = $c16rows; c17RecoveryRunsRows = $c17rows
+    resource = $leaseResource; epochOk = $epochOk; p3Epoch = $p3Epoch; killed = $target
 }
 if ($verdict -ne 'PASS') {
     Write-Host ''

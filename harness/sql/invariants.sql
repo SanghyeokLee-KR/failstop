@@ -1,12 +1,12 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 카탈로그 C01~C29·C31의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- 불변식 카탈로그 C01~C31의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
 -- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
 -- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
 -- C20~C25의 술어 정본은 앱 InvariantCheck enum이고 C24·C25는 V13 검증 뷰다. 사본 산식을 두면
 -- 라이브와 감사가 두 벌로 갈리므로 축어 이식만 한다.
--- C16·C19·C13a·C22~C25는 권위 run/정지 상태에서만 유효하다. 라이브 프로젝션 지연·스테일
+-- C16·C19·C13a·C22~C25·C30은 권위 run/정지 상태에서만 유효하다. 라이브 프로젝션 지연·스테일
 -- loadtest_acks·미재구축 원가가 오탐을 만든다(§4-2 ④, InvariantCheck.Scope.AUTHORITATIVE_ONLY).
 -- C08·C09·C11·C12·C18에는 앱 enum의 90일 윈도가 없다. 전량 스캔이라 위반을 놓치지는 않지만
 -- 파티션 축이 서로 달라(trades=created_at, event_journal=event_seq, command_journal=seq)
@@ -17,9 +17,10 @@
 \timing off
 
 -- 스키마 판정(ADR 0034 S3 판정 어휘, 하네스 검증설계 §4-1). V48 객체 다섯(표 넷과 lease_resource_for_market)과 V50 객체
--- 둘(order_reservations, order_reserve_amount)을 센다. C29·C31 은 대상 객체가 모두 있으면 평가하고, 모두 없으면 N/A(대상
+-- 둘(order_reservations, order_reserve_amount)을 센다. C29·C30·C31 은 대상 객체가 모두 있으면 평가하고, 모두 없으면 N/A(대상
 -- 없음), 일부만 있으면 FAIL 이다(반쯤 적용됐거나 손상된 스키마). N/A 는 통과도 미평가(SKIP)도 아니다. C14 는 예약 표가
--- 있으면 정산 전 예약 항을 더한 판, 없으면 그 항 없는 판으로 돈다. 예약이 있을 수 없는 스키마라 같은 판정이다.
+-- 있으면 정산 전 예약 항을 더한 판, 없으면 그 항 없는 판으로 돈다. 예약이 있을 수 없는 스키마라 같은 판정이다. C22 는 V48
+-- 객체가 모두 있으면 프로토콜 구간을 가르는 C22' 판, 아니면 개정 전 판으로 돈다(ADR 0034 S7).
 -- 무조건 조회하면 ON_ERROR_STOP 경로가 없는 객체에서 멈춰 뒤 판정까지 버리므로 psql 조건문으로 가른다.
 SELECT (to_regclass('public.market_lease_partition') IS NOT NULL)::int
      + (to_regclass('public.leader_protocol') IS NOT NULL)::int
@@ -252,9 +253,49 @@ SELECT r.event_seq FROM event_emission_registry r
 LEFT JOIN event_journal e ON e.event_seq = r.event_seq
 WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL;
 
-\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소(시간 축 팔 + 마켓 안 팔) =='
--- 행 수가 InvariantCheck.C22_FENCING_MONOTONIC 값이다. 시간 축 팔은 마켓 사이 epoch 역행까지 본다.
--- 마켓 안 팔은 시계를 읽지 않아 시계 역행이 가린 마켓 안 역행을 잡는다(ADR 0022 6-2).
+\if :has_partition_lease
+\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 단조, S7 개정판(시간 축 팔 + 마켓 안 팔 + 구간 경계 팔) =='
+-- 행 수가 InvariantCheck.C22_FENCING_MONOTONIC 값이다(앱은 같은 술어의 수 판). SQL 정본은 DB 설계 §6.4 ⑯ 이다(ADR 0034 S7).
+-- 프로토콜 구간은 leader_protocol_history 의 epoch_floor 로 가른다. 구간 k 의 epoch 는 (floor_k, floor_{k+1}] 이고 첫 행(V48 시드)
+-- 앞의 epoch 는 첫 구간이다. 시간 축 팔은 P1·P2 구간 행을 전역 하나, P3 구간 행을 그 마켓 파티션별로 본다. 마켓 안 팔은 종전
+-- 그대로다. 구간 경계 팔은 어떤 구간 epoch 로 기록된 command_journal·snapshots 행의 created_at(DB 의 트랜잭션 시작 시각)이
+-- 다음 전환의 changed_at 이후인 행이다. 전환을 가로지른 트랜잭션과 event_journal·trades 는 이 팔이 보지 못하고 T4-2 전환 판과
+-- 실험의 구간 경계 증분(harness/scale/s7_axes.py segment-count)이 본다(DB 설계 §5.4-e 5). 파티션을 넘는 쓰기는 C30 이 센다.
+-- 시간 축 팔과 구간 경계 팔은 DB 서버 시계 역행(PostgreSQL 프라이머리 전환 포함) 뒤 split-brain 없이도 행을 낼 수 있다(9-17).
+WITH seg AS (
+    SELECT h.protocol,
+           CASE WHEN h.id = min(h.id) OVER () THEN -1 ELSE h.epoch_floor END AS lo,
+           lead(h.epoch_floor) OVER (ORDER BY h.id) AS hi,
+           lead(h.changed_at) OVER (ORDER BY h.id) AS ended_at
+      FROM leader_protocol_history h
+), j AS (
+    SELECT c.seq, c.market_id, c.created_at, c.fencing_token, s.ended_at,
+           CASE WHEN s.protocol = 3 THEN coalesce(m.resource, '?') ELSE '*' END AS arm_key
+      FROM command_journal c
+      LEFT JOIN seg s ON c.fencing_token > s.lo AND (s.hi IS NULL OR c.fencing_token <= s.hi)
+      LEFT JOIN market_lease_partition m ON m.market_id = c.market_id
+)
+SELECT 'time' AS arm, 'command_journal' AS tbl, t.seq AS subject FROM (
+    SELECT j.seq, j.fencing_token,
+           lag(j.fencing_token) OVER (PARTITION BY j.arm_key ORDER BY j.created_at, j.seq) AS prev
+      FROM j) t
+ WHERE t.prev > t.fencing_token
+UNION ALL
+SELECT 'market', 'command_journal', t.seq FROM (
+    SELECT c.seq, c.fencing_token, lag(c.fencing_token) OVER (PARTITION BY c.market_id ORDER BY c.seq) AS prev
+      FROM command_journal c) t
+ WHERE t.prev > t.fencing_token
+UNION ALL
+SELECT 'boundary', 'command_journal', j.seq FROM j WHERE j.ended_at IS NOT NULL AND j.created_at >= j.ended_at
+UNION ALL
+SELECT 'boundary', 'snapshots', n.snapshot_id
+  FROM snapshots n
+  JOIN seg s ON n.fencing_epoch > s.lo AND (s.hi IS NULL OR n.fencing_epoch <= s.hi)
+ WHERE s.ended_at IS NOT NULL AND n.created_at >= s.ended_at;
+\else
+\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소(시간 축 팔 + 마켓 안 팔, V48 객체 없는 스키마의 개정 전 판) =='
+-- V48 객체가 모두 있지 않은 스키마(V47 이하 복원본, 손상된 스키마)에는 프로토콜 이력이 없어 구간을 가를 수 없다. 개정 전
+-- 판을 쓴다. P3 구간이 없는 DB 에서 C22' 의 두 팔은 이 판과 같은 행을 낸다(하네스 검증설계 §4-1 C22').
 -- 시간 축 팔은 DB 서버 시계 역행(PostgreSQL 프라이머리 전환 포함) 뒤 split-brain 없이도 행을 낼 수 있다(9-17).
 SELECT 'time' AS arm, t.seq, t.market_id, t.created_at, t.prev, t.fencing_token FROM (
     SELECT seq, market_id, created_at, fencing_token,
@@ -269,6 +310,7 @@ SELECT 'market', t.seq, t.market_id, t.created_at, t.prev, t.fencing_token FROM 
     FROM command_journal
 ) t
 WHERE t.prev > t.fencing_token;
+\endif
 
 \echo '== C23 COUNTER_SEQ_CONSISTENCY [CRITICAL, 권위 run 한정] 채번 카운터 > 그 축의 저널 최대값 =='
 -- next_value가 저널 최대값 이하이면 다음 채번이 기존 값과 충돌한다(재사용). 네 문장의 행 수 합이
@@ -327,7 +369,7 @@ WHERE c.seq < s.band_span
   AND c.created_at > b.first_band_at
 ORDER BY c.market_id, c.seq;
 
--- C29·C31 은 파일 머리의 스키마 판정(v48_objects·v50_objects)으로 평가·N/A·FAIL 을 가른다.
+-- C29·C30·C31 은 파일 머리의 스키마 판정(v48_objects·v50_objects)으로 평가·N/A·FAIL 을 가른다.
 
 \if :has_partition_lease
 \echo '== C29 MARKET_PARTITION_MAP [CRITICAL] 마켓 파티션 대응·리스 행·모드 래치 누락 0 =='
@@ -350,6 +392,41 @@ ORDER BY 1, 2;
 \echo '   대상 객체(market_lease_partition·leader_protocol·leader_protocol_history·lease_acquisitions·lease_resource_for_market)가 모두 없어 판정 대상이 없다. 통과로 세지 않는다.'
 \else
 \echo '== C29 MARKET_PARTITION_MAP [CRITICAL] FAIL: V48 객체 일부 누락(반쯤 적용됐거나 손상된 스키마) =='
+SELECT 'missing_v48_objects' AS term, (5 - :v48_objects)::text AS subject, 5 - :v48_objects AS violations;
+\endif
+
+\if :has_partition_lease
+\echo '== C30 FENCING_RESOURCE_MATCH [CRITICAL, 권위 run 한정] 파티션 epoch 의 자원 대조 =='
+-- 행 수가 InvariantCheck.C30_FENCING_RESOURCE_MATCH 값이다. SQL 정본은 DB 설계 §6.4 ⑳ 이다(ADR 0034 S7). P3 구간 epoch 로
+-- 기록된 명령·이벤트·체결·스냅샷 행 가운데 그 epoch 의 획득 이력이 없거나, 획득(ACQUIRE)이 아니거나(게시·퇴역 epoch), 획득 때
+-- 모드가 3 이 아니거나, 획득 자원이 그 행 마켓의 파티션과 다른 행이다. 파티션을 넘는 쓰기(split-brain)의 사후 백스톱이다.
+-- P3 구간이 없는 DB 에서는 0행이다. 조치는 위반 epoch 를 lease_acquisitions 에서 찾아 어느 노드가 어느 자원의 epoch 로 다른
+-- 파티션 마켓에 썼는지 가리는 것이다(검증설계 §4-3).
+WITH seg AS (
+    SELECT h.protocol,
+           CASE WHEN h.id = min(h.id) OVER () THEN -1 ELSE h.epoch_floor END AS lo,
+           lead(h.epoch_floor) OVER (ORDER BY h.id) AS hi
+      FROM leader_protocol_history h
+), p3 AS (
+    SELECT lo, hi FROM seg WHERE protocol = 3
+), w AS (
+    SELECT 'command_journal' AS tbl, c.seq AS subject, c.market_id, c.fencing_token AS epoch FROM command_journal c
+    UNION ALL SELECT 'event_journal', e.event_seq, e.market_id, e.fencing_epoch FROM event_journal e
+    UNION ALL SELECT 'trades', t.id, t.market_id, t.fencing_epoch FROM trades t
+    UNION ALL SELECT 'snapshots', s.snapshot_id, s.market_id, s.fencing_epoch FROM snapshots s
+)
+SELECT w.tbl, w.subject
+  FROM w
+  JOIN p3 ON w.epoch > p3.lo AND (p3.hi IS NULL OR w.epoch <= p3.hi)
+  LEFT JOIN lease_acquisitions a ON a.epoch = w.epoch
+  LEFT JOIN market_lease_partition m ON m.market_id = w.market_id
+ WHERE a.epoch IS NULL OR a.origin <> 'ACQUIRE' OR a.protocol <> 3
+    OR m.resource IS NULL OR m.resource <> a.resource;
+\elif :no_partition_lease
+\echo '== C30 FENCING_RESOURCE_MATCH [CRITICAL] N/A: V48 객체 없음(V47 이하 스키마) =='
+\echo '   대상 객체(market_lease_partition·leader_protocol·leader_protocol_history·lease_acquisitions·lease_resource_for_market)가 모두 없어 판정 대상이 없다. 통과로 세지 않는다.'
+\else
+\echo '== C30 FENCING_RESOURCE_MATCH [CRITICAL] FAIL: V48 객체 일부 누락(반쯤 적용됐거나 손상된 스키마) =='
 SELECT 'missing_v48_objects' AS term, (5 - :v48_objects)::text AS subject, 5 - :v48_objects AS violations;
 \endif
 

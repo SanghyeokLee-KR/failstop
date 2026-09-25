@@ -1,0 +1,26 @@
+start 2026-09-25T11:59:25Z container=pml-probe-s7rl-24486386 image=postgres:17-alpine
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+5s
+CREATE EXTENSION
+1.2
+CREATE TABLE
+INSERT 0 3
+
+== P7-8a 세션 A(application_name=chaos-api-1)가 행 1 을 UPDATE 하고 커밋 전에 머문다
+11:59:28.677 pgrowlocks: (0,1) No Key Update app=chaos-api-1 state=idle in transaction
+
+== P7-8b 세션 A 의 psql 을 SIGSTOP 으로 멈춘다(docker pause 흉내). 행 1 은 잠긴 채이고 행 2 는 곧바로 바뀐다
+11:59:29.636 stopped psql pid=111
+11:59:29.682 pgrowlocks: (0,1) No Key Update app=chaos-api-1 state=idle in transaction
+11:59:30.036 row 2 update: SET
+UPDATE 1
+11:59:30.361 row 1 update (lock_timeout 1s): ERROR:  canceling statement due to lock timeout
+
+== P7-8c 시한(5초)이 멈춘 세션을 끊어 행 1 잠금이 풀리는 시각(세션 A 가 idle in transaction 이 된 시각부터 잰다)
+11:59:32.874 pgrowlocks empty after 3.3s from stop, 5.7s from idle-in-transaction start
+11:59:33.000 row 1 update after release: SET
+UPDATE 1
+11:59:33.351 balances: 1=1 2=1 3=0
+server log:
+[113] FATAL:  terminating connection due to idle-in-transaction timeout
+end 2026-09-25T11:59:34Z

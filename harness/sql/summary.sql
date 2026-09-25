@@ -8,27 +8,29 @@
 --   WARN(C15·C24·C25)은 §4-3이 WARN에 거래 정지를 금지하므로 게이트에서 뺀다.
 -- 판정 어휘(하네스 검증설계 §4-1 '판정 어휘', ADR 0034 S3): verdict 는 PASS·FAIL·SKIP·N/A 넷이다.
 --   SKIP 은 평가하지 못한 행이다(violated_rows IS NULL). 지금 SKIP 을 내는 행은 WARN 인 C24·C25(V13 부재)뿐이다.
---   N/A 는 그 판정이 읽는 마이그레이션 객체가 모두 없어 구조적으로 대상이 없는 행이다. C29(V48 객체 다섯)와
+--   N/A 는 그 판정이 읽는 마이그레이션 객체가 모두 없어 구조적으로 대상이 없는 행이다. C29·C30(V48 객체 다섯)과
 --   C31(V50 객체 둘)만 낸다. violated_rows 는 NULL 이다. 대상 객체가 일부만 있으면 FAIL 이고 violated_rows 는 없는 객체 수다.
 --   이 파일을 읽는 복원·복구 점검(deploy/backup/backup.py, deploy/linux/postgresql의 두 점검,
 --   deploy/lab/run.py, VM 실습망의 두 스크립트)은 CRITICAL·HIGH 행의 FAIL·SKIP 을 실패로 세고, N/A 는 통과로 세지 않고
---   not_applicable 에 따로 적는다. C29·C31 밖의 N/A 는 형식 오류다. 게이트를 verdict='FAIL'만 세도록 바꾸면 미평가 SKIP 이
---   조용히 지난다.
+--   not_applicable 에 따로 적는다. C29·C30·C31 밖의 N/A 는 형식 오류다. 게이트를 verdict='FAIL'만 세도록 바꾸면 미평가 SKIP 이
+--   조용히 지난다. C30 은 ADR 0034 S7 이 더했다. 이 파일과 소비자는 같은 릴리스의 것을 함께 쓴다(이전 판 소비자는 C30 의 N/A 를
+--   형식 오류로 본다).
 -- 범위: scope='CONDITIONAL' 행은 권위 run/정지 상태에서만 유효해 상시 스케줄 판정에서 제외한다.
 -- C20~C25의 술어 정본은 앱 InvariantCheck enum이고 C24·C25는 V13 검증 뷰다. 축어 이식만 한다.
 -- C31 은 전수 판이다. 앱 enum 은 비용 때문에 권위 run 한정·최근 창 판을 쓴다(하네스 검증설계 §4-1 C31).
+-- C22 는 V48 객체가 모두 있으면 C22'(프로토콜 구간을 가르는 세 팔의 수 판, 앱 enum 과 같은 문장), 아니면 개정 전 두 팔이다.
 -- C08·C09·C11·C12·C18의 90일 윈도 미정합은 invariants.sql 헤더 참조.
 -- 본문에 psql 메타명령(\if/\else/\endif)이 있어 UNION을 -c 인라인으로 재조립할 수 없다.
 --   뷰 부재는 파스타임 실패라 CASE로 피할 수 없고 \if가 유일한 수단이다.
 -- ============================================================================
 \pset pager off
 
--- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 32개 판정이 통째로
+-- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 33개 판정이 통째로
 -- 사라진다(ON_ERROR_STOP 경로에서 exit 3). 부재 시 두 행을 SKIP으로 낸다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset
 -- 스키마 판정(ADR 0034 S3 판정 어휘, 하네스 검증설계 §4-1). V48 객체 다섯(표 넷과 lease_resource_for_market)과 V50 객체
--- 둘(order_reservations, order_reserve_amount)을 센다. C29·C31 은 대상 객체가 모두 있으면 평가하고, 모두 없으면 N/A(대상
+-- 둘(order_reservations, order_reserve_amount)을 센다. C29·C30·C31 은 대상 객체가 모두 있으면 평가하고, 모두 없으면 N/A(대상
 -- 없음), 일부만 있으면 FAIL 이다(반쯤 적용됐거나 손상된 스키마). N/A 는 통과도 미평가(SKIP)도 아니다. C14 는 예약 표가
 -- 있으면 정산 전 예약 항을 더한 판, 없으면 그 항 없는 판으로 돈다. 예약이 있을 수 없는 스키마라 같은 판정이다.
 -- 무조건 조회하면 ON_ERROR_STOP 경로가 없는 객체에서 멈춰 뒤 판정까지 버리므로 psql 조건문으로 가른다.
@@ -216,8 +218,42 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
            + (SELECT count(*) FROM event_emission_registry r
                 LEFT JOIN event_journal e ON e.event_seq = r.event_seq
                 WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL)
+\if :has_partition_lease
     UNION ALL SELECT 'C22','FENCING_MONOTONIC','CRITICAL','CONDITIONAL',
-           -- 시간 축 팔 + 마켓 안 팔. InvariantCheck 축어(ADR 0022 6-2). 시계 역행 뒤 거짓 양성 한계는 9-17.
+           -- C22'(ADR 0034 S7): 시간 축 팔(P1·P2 전역, P3 파티션별) + 마켓 안 팔 + 구간 경계 팔(명령·스냅샷). InvariantCheck 축어.
+           -- 목록 판은 DB 설계 §6.4 ⑯ 과 invariants.sql 이다. 시계 역행 뒤 거짓 양성 한계는 ADR 0022 9-17.
+           (WITH seg AS (
+                SELECT array_agg(CASE WHEN x.rn = 1 THEN 0 ELSE x.epoch_floor + 1 END ORDER BY x.id) AS lb,
+                       array_agg(x.protocol ORDER BY x.id) AS prot,
+                       array_agg(x.ended_at ORDER BY x.id) AS ended,
+                       (SELECT array_agg(CASE p.resource WHEN 'matching-p0' THEN 1 WHEN 'matching-p1' THEN 2 ELSE 9 END
+                                         ORDER BY m.id)
+                          FROM generate_series(1, (SELECT coalesce(max(id), 0) FROM markets)) m(id)
+                          LEFT JOIN market_lease_partition p ON p.market_id = m.id) AS part
+                  FROM (SELECT h.id, h.protocol, h.epoch_floor, row_number() OVER (ORDER BY h.id) AS rn,
+                               lead(h.changed_at) OVER (ORDER BY h.id) AS ended_at
+                          FROM leader_protocol_history h) x
+            ), j AS (
+                SELECT c.seq, c.fencing_token, c.created_at, c.market_id, s.prot, s.ended, s.part,
+                       greatest(width_bucket(c.fencing_token, s.lb), 1) AS b
+                  FROM command_journal c CROSS JOIN seg s
+            )
+            SELECT (SELECT count(*) FILTER (WHERE t.prev > t.fencing_token) + count(*) FILTER (WHERE t.bnd)
+                      FROM (SELECT j.fencing_token,
+                                   lag(j.fencing_token) OVER (
+                                       PARTITION BY CASE WHEN j.prot[j.b] = 3 THEN coalesce(j.part[j.market_id], 9) ELSE 0 END
+                                       ORDER BY j.created_at, j.seq) AS prev,
+                                   j.created_at >= j.ended[j.b] AS bnd
+                              FROM j) t)
+                 + (SELECT count(*) FROM (
+                        SELECT c.fencing_token, lag(c.fencing_token) OVER (PARTITION BY c.market_id ORDER BY c.seq) AS prev
+                          FROM command_journal c) t
+                     WHERE t.prev > t.fencing_token)
+                 + (SELECT count(*) FROM snapshots n CROSS JOIN seg s
+                     WHERE n.created_at >= s.ended[greatest(width_bucket(n.fencing_epoch, s.lb), 1)]))
+\else
+    UNION ALL SELECT 'C22','FENCING_MONOTONIC','CRITICAL','CONDITIONAL',
+           -- V48 객체가 모두 있지 않은 스키마의 개정 전 판. 시간 축 팔 + 마켓 안 팔(ADR 0022 6-2). 시계 역행 한계는 9-17.
            (SELECT (
                 SELECT count(*) FROM (
                     SELECT fencing_token,
@@ -233,6 +269,7 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                 ) t
                 WHERE t.prev > t.fencing_token
             ))
+\endif
     UNION ALL SELECT 'C23','COUNTER_SEQ_CONSISTENCY','CRITICAL','CONDITIONAL',
            -- 명세 부재 + 명령 레거시 팔 + 명령 대역 팔 + 이벤트 팔. InvariantCheck 축어(ADR 0022 6-3).
            (WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
@@ -281,9 +318,33 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                  + (SELECT count(*) FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) AS r(resource)
                     WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource))
                  + (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM leader_protocol))
+    UNION ALL SELECT 'C30','FENCING_RESOURCE_MATCH','CRITICAL','CONDITIONAL',
+           -- P3 구간 epoch 로 기록된 네 표의 행 가운데 획득 이력이 없거나 ACQUIRE 가 아니거나 모드 3 이 아니거나 자원이 그 마켓의
+           -- 파티션과 다른 행 수(ADR 0034 S7, DB 설계 §6.4 ⑳). InvariantCheck 축어.
+           (WITH seg AS (
+                SELECT h.protocol,
+                       CASE WHEN h.id = min(h.id) OVER () THEN -1 ELSE h.epoch_floor END AS lo,
+                       lead(h.epoch_floor) OVER (ORDER BY h.id) AS hi
+                  FROM leader_protocol_history h
+            ), p3 AS (
+                SELECT lo, hi FROM seg WHERE protocol = 3
+            ), w AS (
+                SELECT c.market_id, c.fencing_token AS epoch FROM command_journal c
+                UNION ALL SELECT e.market_id, e.fencing_epoch FROM event_journal e
+                UNION ALL SELECT t.market_id, t.fencing_epoch FROM trades t
+                UNION ALL SELECT s.market_id, s.fencing_epoch FROM snapshots s
+            )
+            SELECT count(*)
+              FROM w
+              JOIN p3 ON w.epoch > p3.lo AND (p3.hi IS NULL OR w.epoch <= p3.hi)
+              LEFT JOIN lease_acquisitions a ON a.epoch = w.epoch
+              LEFT JOIN market_lease_partition m ON m.market_id = w.market_id
+             WHERE a.epoch IS NULL OR a.origin <> 'ACQUIRE' OR a.protocol <> 3
+                OR m.resource IS NULL OR m.resource <> a.resource)
 \else
-    -- 모두 없으면 NULL(아래 na 가 N/A 로 적는다), 일부만 있으면 없는 객체 수(FAIL).
+    -- 모두 없으면 NULL(아래 na 가 N/A 로 적는다), 일부만 있으면 없는 객체 수(FAIL). C29·C30 이 같은 V48 객체 다섯을 읽는다.
     UNION ALL SELECT 'C29','MARKET_PARTITION_MAP','CRITICAL','ALWAYS', NULLIF(5 - :v48_objects, 5)
+    UNION ALL SELECT 'C30','FENCING_RESOURCE_MATCH','CRITICAL','CONDITIONAL', NULLIF(5 - :v48_objects, 5)
 \endif
 \if :has_reservations
     UNION ALL SELECT 'C31','RESERVATION_LINK','CRITICAL','ALWAYS',
@@ -329,8 +390,9 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
     UNION ALL SELECT 'C25','POSITION_COST_SANITY','WARN','CONDITIONAL', NULL
 \endif
 ), na(code) AS (
-    -- N/A 표시. 대상 객체가 모두 없는 C29·C31 만 여기 든다. 출력 열 머리는 그대로다.
+    -- N/A 표시. 대상 객체가 모두 없는 C29·C30·C31 만 여기 든다. 출력 열 머리는 그대로다.
     SELECT 'C29' WHERE :v48_objects = 0
+    UNION ALL SELECT 'C30' WHERE :v48_objects = 0
     UNION ALL SELECT 'C31' WHERE :v50_objects = 0
 )
 SELECT code, check_name, severity, scope, violated_rows,

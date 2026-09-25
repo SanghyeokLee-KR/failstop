@@ -1,4 +1,5 @@
 """S3 관문 장애 실험(X2~X4)의 공통 판정 축(마켓분할_리더_S3_설계 7-3). harness/scripts/adr0022-stage5-chaos.ps1 -Protocol 2 가 부른다.
+S7 관문(-Protocol 3, 마켓분할_리더_S7_설계 4-13)도 같은 축을 쓰고 --protocol 3 과 실험이 옮긴 파티션 자원(--resource)을 넘긴다.
 
 하위 명령
   sample  실험이 도는 동안 잔고 행 대기를 표본으로 뜬다. 행 잠금을 기다리는 백엔드는 balances 의 tuple 잠금을 쥐거나 기다리므로
@@ -28,7 +29,7 @@
 사용:
   python harness/scale/s3_common_axes.py sample --out <jsonl> --stop-file <경로> [--interval 2]
   python harness/scale/s3_common_axes.py judge --window-from <ISO UTC> --fault-from <ISO UTC> --fault-to <ISO UTC>
-         [--samples <jsonl>] [--resource matching-engine] [--expect-demotion] --out <json>
+         [--samples <jsonl>] [--resource matching-engine] [--protocol 2] [--expect-demotion] --out <json>
   python harness/scale/s3_common_axes.py orders500 --window-from <ISO UTC> --out <json>
 종료코드: 0 판정 통과, 1 판정 실패, 2 가드 위반.
 """
@@ -301,6 +302,11 @@ def read_orders_500(window_from, now=None):
     return res
 
 
+def protocol_axis(state, expected):
+    """모드 축(S3 설계 7-3, S7 설계 4-13). 실험 끝 leader_protocol 이 실행기가 올린 모드(2 또는 3)인가. 읽지 못하면 거짓이다."""
+    return 'protocol_%d' % expected, (state or {}).get('protocol') == expected
+
+
 def recovery_axes(state):
     """recovery_runs 의 불일치 0 과 양성 축(S4b 설계 4-7). 실험마다 P2 전환이 두 노드를 다시 띄워 기동 복구의 성공 행이 늘 있다."""
     return {'recovery_runs_mismatch_0': state.get('recovery_runs_mismatch') == 0,
@@ -487,9 +493,10 @@ def cmd_judge(a):
                                     for c in logs.values()),
         'stale_alert_outside_fault_window_0': res['stale_alert']['error'] is None
                                               and res['stale_alert']['firing_outside_fault_window'] == 0,
-        'protocol_2': st.get('protocol') == 2,
         'api_logs_no_unhandled_or_auth_500': api_log_axis(logs),
     }
+    name, value = protocol_axis(st, a.protocol)
+    axes[name] = value
     axes.update(recovery_axes(st))
     if a.expect_demotion:
         # 양성 대조(S4 설계 4-16, 7-2). 장애를 받은 옛 리더가 강등 문구를 남겨야 위 리더 노드 축의 0 이 문구 불일치가 아님을 안다.
@@ -538,6 +545,8 @@ def main(argv=None):
     j.add_argument('--fault-to', required=True)
     j.add_argument('--samples', default=None)
     j.add_argument('--resource', default='matching-engine', choices=LEASE_RESOURCES)
+    j.add_argument('--protocol', type=int, default=2, choices=(2, 3),
+                   help='실행기가 올린 모드. S3~S6 관문은 2, S7 관문(-Protocol 3)은 3 이다')
     j.add_argument('--expect-demotion', action='store_true')
     j.add_argument('--out', required=True)
     o = sub.add_parser('orders500')

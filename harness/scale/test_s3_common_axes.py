@@ -2,6 +2,8 @@
 
 돌리는 법: python -B -m unittest harness/scale/test_s3_common_axes.py
 """
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -192,6 +194,22 @@ class S4bAxesTest(unittest.TestCase):
         self.assertEqual('처리되지 않은 예외', ax.LOG_PATTERNS['unhandledException'])
         self.assertEqual('인증 처리 실패로 500', ax.LOG_PATTERNS['authFailure500'])
         self.assertEqual('재생이 판정 없이 끝났다', ax.LOG_PATTERNS['replayNoVerdict'])
+
+
+class ProtocolAxisTest(unittest.TestCase):
+    """S7 설계 4-13. 공통 판정의 모드 축은 실행기의 -Protocol 값(2 또는 3)을 본다."""
+
+    def test_protocol_axis_names_the_expected_mode(self):
+        self.assertEqual(('protocol_2', True), ax.protocol_axis({'protocol': 2}, 2))
+        self.assertEqual(('protocol_3', True), ax.protocol_axis({'protocol': 3}, 3))
+        self.assertEqual(('protocol_3', False), ax.protocol_axis({'protocol': 2}, 3))
+        self.assertEqual(('protocol_2', False), ax.protocol_axis({}, 2), '상태를 읽지 못하면 참으로 세지 않는다')
+
+    def test_cli_accepts_protocol_3_and_partition_resources(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            ax.main(['judge', '--window-from', 'x', '--fault-from', 'x', '--fault-to', 'x', '--protocol', '4',
+                     '--out', 'x'])
+        self.assertIn('matching-p1', ax.LEASE_RESOURCES)
 
 
 class S5CountersTest(unittest.TestCase):

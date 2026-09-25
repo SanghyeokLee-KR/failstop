@@ -227,6 +227,184 @@ class RangesAndEpochsTest(unittest.TestCase):
         self.assertTrue(ax.freshness_summary(pairs, 108, ax.alarm_samples_end(133.2, 130.0))['follower_all_seq0'])
 
 
+class P3PartitionNodeTest(unittest.TestCase):
+    """S7 설계 4-13·6-3. P3 에서는 모든 파티션을 쥔 노드가 없어 신선도 표본기가 자원을 받아 소유 노드를 고른다."""
+
+    P3 = {'chaos-api-1': {'partitions': [{'resource': 'matching-p0', 'state': 'ACCEPTING'},
+                                         {'resource': 'matching-p1', 'state': 'FOLLOWER'}]},
+          'chaos-api-2': {'partitions': [{'resource': 'matching-p0', 'state': 'FOLLOWER'},
+                                         {'resource': 'matching-p1', 'state': 'ACCEPTING'}]}}
+
+    def test_owner_of_picks_the_single_accepting_node(self):
+        self.assertEqual('chaos-api-1', ax.owner_of(self.P3, 'matching-p0'))
+        self.assertEqual('chaos-api-2', ax.owner_of(self.P3, 'matching-p1'))
+        self.assertIsNone(ax.leader_from_partitions(self.P3), 'P3 에는 모든 파티션을 쥔 노드가 없다')
+        both = {'chaos-api-1': {'partitions': [{'resource': 'matching-p0', 'state': 'ACCEPTING'}]},
+                'chaos-api-2': {'partitions': [{'resource': 'matching-p0', 'state': 'ACCEPTING'}]}}
+        self.assertIsNone(ax.owner_of(both, 'matching-p0'), '둘이 쥐었으면 고르지 않는다')
+        none = {'chaos-api-1': {'partitions': [{'resource': 'matching-p0', 'state': 'PROMOTING'}]},
+                'chaos-api-2': {'error': 503}}
+        self.assertIsNone(ax.owner_of(none, 'matching-p0'))
+
+    def test_pair_nodes_with_and_without_resource(self):
+        self.assertEqual(('chaos-api-2', 'chaos-api-1'), ax.pair_nodes(self.P3, 'matching-p1'))
+        self.assertEqual(('chaos-api-1', 'chaos-api-2'), ax.pair_nodes(self.P3, 'matching-p0'))
+        self.assertEqual((None, None), ax.pair_nodes(self.P3), '자원 없이는 P3 에서 짝을 짓지 못한다(종전 동작)')
+        p2 = {'chaos-api-1': {'partitions': [{'resource': 'matching-engine', 'state': 'ACCEPTING'}]},
+              'chaos-api-2': {'partitions': [{'resource': 'matching-engine', 'state': 'FOLLOWER'}]}}
+        self.assertEqual(('chaos-api-1', 'chaos-api-2'), ax.pair_nodes(p2))
+
+    def test_partition_format_ust_counts_as_ws_retry(self):
+        line = ('172.18.0.1 - - [25/Sep/2026:10:00:01 +0000] "GET /ws/v1 HTTP/1.1" 101 0 "-" "k6" '
+                'ups="172.18.0.5:8080, 172.18.0.6:8080" ust="503, 101" hint="-" route="-" rt=0.012')
+        self.assertTrue(ax.lb_ws_retry_seen(line))
+        other = line.replace('"GET /ws/v1', '"GET /api/v1/ticker')
+        self.assertFalse(ax.lb_ws_retry_seen(other), '/ws/ 가 아닌 요청은 증거가 아니다')
+        plain = line.replace('ust="503, 101"', 'ust="101"')
+        self.assertFalse(ax.lb_ws_retry_seen(plain))
+
+
+def w6_state(opens=1, rises=None, gaps=None):
+    markets = {m: {'orderbook': {'epochs': [5] if m != 'KRW-ETH' else [6, 9], 'gaps': list((gaps or {}).get(m, []))},
+                   'trade': {'epochs': [5] if m != 'KRW-ETH' else [6, 9]}, 'ticker': {'epochs': []}}
+               for m in ('KRW-BTC', 'KRW-XRP', 'KRW-ETH')}
+    return state('ws://chaos-api-1:8080/ws/v1', markets, opens=opens,
+                 epochRises=rises if rises is not None else [{'at': 20_000, 'market': 'KRW-ETH', 'epoch': 9}])
+
+
+class W6Test(unittest.TestCase):
+    """S7 설계 6-3 W6 판정의 경계. kill 10초, RTO 12초라 영향 마켓의 새 epoch 는 27초 안이어야 한다."""
+
+    KILL = 10_000
+    RTO = 12.0
+    AFFECTED = ['KRW-ETH']
+    UNAFFECTED = ['KRW-BTC', 'KRW-XRP']
+
+    def axes(self, st):
+        return ax.w6_watch_axes(st, self.KILL, self.RTO, self.AFFECTED, self.UNAFFECTED)[1]
+
+    def test_good_run_passes(self):
+        axes = self.axes(w6_state())
+        self.assertTrue(all(axes.values()), axes)
+
+    def test_unaffected_epoch_rise_fails(self):
+        rises = [{'at': 20_000, 'market': 'KRW-ETH', 'epoch': 9}, {'at': 21_000, 'market': 'KRW-BTC', 'epoch': 11}]
+        axes = self.axes(w6_state(rises=rises))
+        self.assertFalse(axes['KRW-BTC_unaffected_epoch_rise_0'], '비영향 마켓 epoch 상승 1 이면 거짓이다')
+        self.assertTrue(axes['KRW-XRP_unaffected_epoch_rise_0'])
+
+    def test_affected_rise_zero_or_twice_fails(self):
+        self.assertFalse(self.axes(w6_state(rises=[]))['KRW-ETH_affected_epoch_rise_once_within_rto_plus_5s'])
+        twice = w6_state(rises=[{'at': 20_000, 'market': 'KRW-ETH', 'epoch': 9},
+                                {'at': 22_000, 'market': 'KRW-ETH', 'epoch': 10}])
+        twice['markets']['KRW-ETH']['orderbook']['epochs'] = [6, 9, 10]
+        self.assertFalse(self.axes(twice)['KRW-ETH_affected_epoch_rise_once_within_rto_plus_5s'])
+        late = w6_state(rises=[{'at': 40_000, 'market': 'KRW-ETH', 'epoch': 9}])
+        self.assertFalse(self.axes(late)['KRW-ETH_affected_epoch_rise_once_within_rto_plus_5s'], 'RTO + 5초 밖')
+
+    def test_survivor_reconnect_and_gaps_fail(self):
+        self.assertFalse(self.axes(w6_state(opens=2))['survivor_watch_reconnect_0'], '생존 노드 재연결 1 이면 거짓이다')
+        gaps = self.axes(w6_state(gaps={'KRW-BTC': [{'at': 15_000}], 'KRW-ETH': [{'at': 25_000}]}))
+        self.assertFalse(gaps['KRW-BTC_unaffected_dense_gaps_0'])
+        self.assertFalse(gaps['KRW-ETH_affected_dense_gaps_after_rise_0'])
+        before = self.axes(w6_state(gaps={'KRW-BTC': [{'at': 5_000}]}))
+        self.assertTrue(before['KRW-BTC_unaffected_dense_gaps_0'], 'kill 앞의 결번은 이 판정 밖이다')
+
+    def test_swapped_victim_and_survivor_change_the_result(self):
+        # api-2 에 붙은 관찰자는 p1 소유자가 죽을 때 연결이 끊겨 다시 열린다(opens 2). 인자를 뒤집으면 그 관찰자를 보게 된다.
+        watch = {'chaos-api-1': {'latest': w6_state()}, 'chaos-api-2': {'latest': w6_state(opens=2)}}
+        good = ax.w6_watch_axes(watch['chaos-api-1']['latest'], self.KILL, self.RTO, self.AFFECTED, self.UNAFFECTED)[1]
+        bad = ax.w6_watch_axes(watch['chaos-api-2']['latest'], self.KILL, self.RTO, self.AFFECTED, self.UNAFFECTED)[1]
+        self.assertTrue(all(good.values()))
+        self.assertFalse(all(bad.values()))
+
+    def test_web_axes(self):
+        kill = self.KILL
+        web = {'requests': [{'at': kill - 5_000, 'path': '/api/v1/ticker', 'query': {'markets': 'KRW-BTC,KRW-ETH,KRW-XRP'}},
+                            {'at': kill + 13_000, 'path': '/api/v1/ticker', 'query': {'markets': 'KRW-ETH'}},
+                            {'at': kill + 13_100, 'path': '/api/v1/accounts', 'query': {}},
+                            {'at': kill + 13_200, 'path': '/api/v1/orders/open', 'query': {}}],
+               'ws': {'markets': {'KRW-BTC|orderbook': {'epochs': {'5': kill - 9_000}, 'gaps': 0},
+                                  'KRW-XRP|ticker': {'epochs': {'5': kill - 9_000}, 'gaps': 0},
+                                  'KRW-ETH|ticker': {'epochs': {'6': kill - 9_000, '9': kill + 12_000}, 'gaps': 0}}}}
+        axes = ax.web_w6_axes(web, kill, self.AFFECTED, self.UNAFFECTED)
+        self.assertTrue(all(axes.values()), axes)
+        extra = json.loads(json.dumps(web))
+        extra['requests'][1]['query']['markets'] = 'KRW-ETH,KRW-BTC'
+        self.assertFalse(ax.web_w6_axes(extra, kill, self.AFFECTED, self.UNAFFECTED)['web_ticker_resync_only_affected'])
+        twice = json.loads(json.dumps(web))
+        twice['requests'].append({'at': kill + 14_000, 'path': '/api/v1/accounts', 'query': {}})
+        self.assertFalse(ax.web_w6_axes(twice, kill, self.AFFECTED, self.UNAFFECTED)['web_accounts_rest_once'])
+        moved = json.loads(json.dumps(web))
+        moved['ws']['markets']['KRW-BTC|orderbook']['epochs']['7'] = kill + 12_000
+        self.assertFalse(ax.web_w6_axes(moved, kill, self.AFFECTED, self.UNAFFECTED)['web_KRW-BTC_epoch_kept'])
+
+    def test_verdict_without_web_is_not_run(self):
+        core = {'survivor_watch_reconnect_0': True, 'web_observed': False}
+        self.assertEqual(ax.NOT_RUN_WEB, ax.verdict_with_web(core, False), '웹 관찰 파일이 없으면 NOT RUN(웹 관찰)')
+        self.assertEqual('FAIL', ax.verdict_with_web(dict(core, survivor_watch_reconnect_0=False), False),
+                         '웹 밖 축이 거짓이면 웹 관찰과 무관하게 FAIL')
+        self.assertEqual('PASS', ax.verdict_with_web({'x': True, 'web_observed': True, 'web_y': True}, True))
+        self.assertEqual('FAIL', ax.verdict_with_web({'x': True, 'web_observed': True, 'web_y': False}, True))
+
+
+class W7Test(unittest.TestCase):
+    """S7 설계 6-3 W7 판정의 경계."""
+
+    def good(self):
+        markets = {}
+        for m, epoch in (('KRW-BTC', 5), ('KRW-XRP', 5), ('KRW-ETH', 6)):
+            markets[m] = {'orderbook': {'realtime': 150, 'epochs': [epoch], 'gaps': []}, 'trade': {'messages': 12,
+                                                                                                 'epochs': [epoch]},
+                          'ticker': {'realtime': 40, 'epochs': [epoch]}}
+        return state('ws://chaos-api-1:8080/ws/v1', markets, opens=1, epochRises=[])
+
+    def axes(self, st):
+        return ax.w7_watch_axes(st, 1_000, 600_000, ['KRW-BTC', 'KRW-XRP'], ['KRW-ETH'])[1]
+
+    def test_good_run_passes(self):
+        axes = self.axes(self.good())
+        self.assertTrue(all(axes.values()), axes)
+
+    def test_same_epoch_on_both_partitions_fails(self):
+        st = self.good()
+        for kind in ('orderbook', 'trade', 'ticker'):
+            st['markets']['KRW-ETH'][kind]['epochs'] = [5]
+        self.assertFalse(self.axes(st)['partition_epochs_differ'], '두 파티션 epoch 가 같으면 거짓이다')
+
+    def test_rise_in_window_and_low_volume_fail(self):
+        st = self.good()
+        st['epochRises'] = [{'at': 300_000, 'market': 'KRW-ETH', 'epoch': 8}]
+        self.assertFalse(self.axes(st)['KRW-ETH_epoch_rise_0'], '창 안 상승 1 이면 거짓이다')
+        low = self.good()
+        low['markets']['KRW-ETH']['orderbook']['realtime'] = 99
+        self.assertFalse(self.axes(low)['KRW-ETH_book_ge_100'], '한 파티션 마켓 수신이 문턱 아래면 거짓이다')
+        self.assertFalse(self.axes(dict(self.good(), opens=2))['one_connection'])
+
+    def test_web_axes(self):
+        web = {'restAfterSettle': 0, 'ws': {'markets': {'KRW-BTC|orderbook': {'epochs': {'5': 1}},
+                                                        'KRW-ETH|ticker': {'epochs': {'6': 1}}}}}
+        self.assertTrue(all(ax.web_w7_axes(web, ['KRW-BTC', 'KRW-XRP'], ['KRW-ETH']).values()))
+        self.assertFalse(ax.web_w7_axes(dict(web, restAfterSettle=2), ['KRW-BTC'], ['KRW-ETH'])[
+            'web_rest_after_first_load_0'])
+
+
+class JudgeCliTest(unittest.TestCase):
+
+    def test_judge_accepts_w6_and_w7(self):
+        import contextlib
+        import io
+        sink = io.StringIO()
+        for exp in ('W6', 'W7'):
+            with self.assertRaises(SystemExit) as cm, contextlib.redirect_stdout(sink):
+                ax.main(['judge', '--experiment', exp, '--help'])
+            self.assertEqual(0, cm.exception.code, exp)
+        with self.assertRaises(SystemExit) as cm, contextlib.redirect_stderr(sink):
+            ax.main(['judge', '--experiment', 'W8', '--evidence', '.', '--window-from', '2026-09-25T00:00:00Z',
+                     '--out', 'x'])
+        self.assertEqual(2, cm.exception.code, 'W8 은 받지 않는다')
+
+
 class PromHelpersTest(unittest.TestCase):
 
     def test_first_time_all_requires_every_series_at_the_same_time(self):

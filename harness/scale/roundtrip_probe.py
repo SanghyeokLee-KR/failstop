@@ -31,6 +31,9 @@ ADR 0022 8단계 판정 입력(stage8_judge.py 가 읽는다). 위에 더한다.
 ADR 0034 S3 판정 입력(마켓분할_리더_S3_설계 7-3 X5). 위에 더한다.
   모드 전환   --protocol-before-traffic 2 이면 스택을 세운 직후, 래치·키 발급·봇 예열 전에 protocol_latch.transition 으로
               P2 로 올린다. 칸마다 전환 결과와 주행 뒤 모드 상태(예약 행 수, 정산 전 예약)를 남긴다
+              --protocol-before-traffic 3 이면(ADR 0034 S7 Q12, S7 설계 5-2) protocol_latch.transition_partition 으로 명령 대역
+              래치와 함께 P3 로 올린다. 스택은 CHAOS_EXTRA_COMPOSE 에 중계·P3 오버레이(relay;p3 순서)를 준 채 세운다. 래치를
+              같이 거므로 --latch-before-traffic 과 함께 주지 않는다
   단일 마켓   SCALE_MARKETS 가 마켓 하나면 주행 창의 그 마켓 k6 NEW 수를 주행 초로 나눈 접수율과 과포화 여부(요청률의 80퍼센트
               이하), 그 마켓의 명령당 접수 락 보유를 남긴다. 봇 주문과 다른 마켓은 세지 않는다
 
@@ -462,11 +465,13 @@ def main():
                     help='ADR 0022 6단계 B6. 되돌릴 수 없는 래치를 새로 세운 카오스 DB 에 건다')
     a_.add_argument('--commit-delay', type=int, default=None, help='ADR 0022 8단계 칸 값. 마이크로초')
     a_.add_argument('--commit-siblings', type=int, default=None, help='ADR 0022 8단계 칸 값')
-    a_.add_argument('--protocol-before-traffic', type=int, choices=(2,), default=None,
-                    help='ADR 0034 S3. 스택을 세운 직후 키 발급과 봇 예열 전에 이 모드로 전환한다(protocol_latch)')
+    a_.add_argument('--protocol-before-traffic', type=int, choices=(2, 3), default=None,
+                    help='ADR 0034 S3·S7. 스택을 세운 직후 키 발급과 봇 예열 전에 이 모드로 전환한다(protocol_latch)')
     a = a_.parse_args()
     if (a.commit_delay is None) != (a.commit_siblings is None):
         a_.error('--commit-delay 와 --commit-siblings 는 함께 준다')
+    if a.protocol_before_traffic == 3 and a.latch_before_traffic:
+        a_.error('--protocol-before-traffic 3 은 명령 대역 래치를 함께 건다. --latch-before-traffic 을 함께 주지 않는다')
     # 칸마다 down -v 를 한다. 보존 스택이면 시작하지 않는다(하네스 검증설계 §2-4). 모드 전환 칸은 S3 폐기용 스택
     # (exchange-pml, exchange-chaos-app:pml)에서만 돈다(S3 설계 7-0). ADR 0022 단계 절차는 자기 태그로 이 러너를 부른다.
     problems = cs.disposable_problems(protocol=a.protocol_before_traffic is not None)
@@ -482,16 +487,20 @@ def main():
     protocol = None
     if a.protocol_before_traffic is not None:
         # 스택 기동 직후, 래치·키 발급·봇 예열보다 먼저 한다. 봇은 스택과 함께 떠 있으므로 전환 도구가 멈추고 드레인한 뒤 되살린다.
-        protocol = pl.transition(a.protocol_before_traffic)
+        if a.protocol_before_traffic == 3:
+            protocol = pl.transition_partition(3, latch_band=True)
+        else:
+            protocol = pl.transition(a.protocol_before_traffic)
         if not protocol['ok']:
             print('  모드 전환 실패(code=%s): %s' % (protocol['code'], protocol['error']), flush=True)
             if a.out:
                 io.open(a.out + '.protocol-failed.json', 'w', encoding='utf-8').write(
                     json.dumps(protocol, ensure_ascii=False, indent=2, default=str))
             return 1
-        print('  모드 전환 P%d, 새 리더 epoch %s, 호출 %sms' % (
+        print('  모드 전환 P%d, 새 리더 epoch %s, 호출 %sms, 배정 %s' % (
             a.protocol_before_traffic, protocol.get('new_leader_epoch'),
-            (protocol.get('call') or {}).get('duration_ms')), flush=True)
+            (protocol.get('call') or (protocol.get('calls') or [{}])[-1]).get('duration_ms'),
+            protocol.get('assignment')), flush=True)
     latch = None
     if a.latch_before_traffic:
         # 키 발급, 봇 워밍업, k6 보다 먼저 건다. 봇은 스택 기동과 함께 돌므로 호출 전 저널 행 수를 함께 남긴다.

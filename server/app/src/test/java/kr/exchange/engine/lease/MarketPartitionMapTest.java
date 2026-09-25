@@ -1,5 +1,6 @@
 package kr.exchange.engine.lease;
 
+import kr.exchange.harness.HarnessSqlCodes;
 import kr.exchange.harness.InvariantCheck;
 import org.junit.jupiter.api.Test;
 
@@ -121,12 +122,17 @@ class MarketPartitionMapTest {
         Map<String, String> after = summaryByCode(v48);
         assertEquals(after.keySet(), before.keySet(), "V47 DB 에서 빠진 판정이 있다");
         assertTrue(after.size() > 30, "summary.sql 판정 행이 모자라다: " + after.keySet());
-        // C31 은 V50 객체를 읽으므로 V47 DB 에서 함께 N/A 다. 두 코드의 판정 전체는 HarnessSqlVerdictTest 가 본다.
+        // C30 은 C29 와 같은 V48 객체를, C31 은 V50 객체를 읽으므로 V47 DB 에서 함께 N/A 다. N/A 코드의 판정 전체는
+        // HarnessSqlVerdictTest 가 본다. 목록은 두 시험이 같은 상수로 읽는다(S7 설계 6-5).
         for (String code : after.keySet()) {
-            if (!code.equals("C29") && !code.equals("C31")) {
+            if (!HarnessSqlCodes.NOT_APPLICABLE.contains(code)) {
                 assertEquals(after.get(code), before.get(code), code);
             }
         }
+        for (String code : HarnessSqlCodes.NOT_APPLICABLE) {
+            assertTrue(before.get(code).endsWith("|N/A"), "V47 DB 의 " + code + " 가 N/A 가 아니다: " + before.get(code));
+        }
+        assertEquals("C30|FENCING_RESOURCE_MATCH|CRITICAL|CONDITIONAL|0|PASS", after.get("C30"));
         assertEquals("C29|MARKET_PARTITION_MAP|CRITICAL|ALWAYS|0|PASS", after.get("C29"));
         // 2026-09-24 S3 개정: V48 객체가 모두 없는 스키마는 SKIP(미평가)이 아니라 N/A(대상 없음)다(하네스 검증설계 §4-1).
         assertEquals("C29|MARKET_PARTITION_MAP|CRITICAL|ALWAYS||N/A", before.get("C29"));

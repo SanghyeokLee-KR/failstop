@@ -735,6 +735,77 @@ class MigrationSmokeTest {
         }
     }
 
+    /**
+     * V55(ADR 0034 S7, DB 설계 §3.10). 모드 전환 함수의 2<->3, 선행 조건 함수, FEE_INCOME 샤드 1 트리거의 객체와 권한이다.
+     * 트리거 함수는 소유자 권한(SECURITY DEFINER, search_path 고정)이고 PUBLIC EXECUTE 가 없다. 선행 조건 함수는 하네스 조회
+     * 역할만 부른다. 전환 함수는 V50 그대로 앱과 PUBLIC 모두 부르지 못한다(CREATE OR REPLACE 는 권한을 바꾸지 않는다).
+     * 마이그레이션은 저장소 파일 수만큼 모두 성공했고 마지막 판이 55 다.
+     */
+    @Test
+    void v55PartitionProtocolCutoverObjectsAndPrivileges() throws Exception {
+        try (Connection conn = open()) {
+            assertEquals(55, queryInt(conn, "SELECT max(version::int) FROM flyway_schema_history WHERE success"));
+            assertEquals(migrationFiles(), queryInt(conn,
+                    "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"),
+                    "성공한 마이그레이션 수가 저장소 파일 수와 다르다");
+            for (String fn : List.of("seed_fee_income_shard()", "leader_protocol_blockers(smallint)",
+                    "set_leader_protocol(smallint, boolean)")) {
+                assertTrue(queryBool(conn, "SELECT to_regprocedure('" + fn + "') IS NOT NULL"), fn + " 이 없다");
+                assertFalse(queryBool(conn, """
+                        SELECT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+                                        WHERE p.oid = '%s'::regprocedure AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+                        """.formatted(fn)), "PUBLIC 이 " + fn + " 을 부를 수 있다");
+                assertTrue(queryBool(conn, "SELECT proacl IS NOT NULL FROM pg_proc WHERE oid = '" + fn + "'::regprocedure"),
+                        fn + " 의 기본 PUBLIC EXECUTE 가 회수되지 않았다");
+            }
+            assertTrue(queryBool(conn, "SELECT prosecdef FROM pg_proc WHERE oid = 'seed_fee_income_shard()'::regprocedure"),
+                    "트리거 함수가 소유자 권한이 아니다");
+            assertTrue(queryBool(conn, """
+                    SELECT 'search_path=public, pg_temp' = ANY (proconfig)
+                      FROM pg_proc WHERE oid = 'seed_fee_income_shard()'::regprocedure
+                    """), "트리거 함수의 search_path 가 고정되지 않았다");
+            assertFalse(queryBool(conn,
+                    "SELECT prosecdef FROM pg_proc WHERE oid = 'leader_protocol_blockers(smallint)'::regprocedure"),
+                    "선행 조건 함수는 호출자 권한이어야 한다(읽기 전용)");
+            assertEquals("s", queryString(conn,
+                    "SELECT provolatile::text FROM pg_proc WHERE oid = 'leader_protocol_blockers(smallint)'::regprocedure"),
+                    "선행 조건 함수가 STABLE 이 아니다");
+            assertTrue(queryBool(conn,
+                    "SELECT has_function_privilege('harness_role', 'leader_protocol_blockers(smallint)', 'EXECUTE')"),
+                    "harness_role 이 선행 조건 함수를 부르지 못한다");
+            for (String fn : List.of("leader_protocol_blockers(smallint)", "seed_fee_income_shard()",
+                    "set_leader_protocol(smallint, boolean)")) {
+                assertFalse(queryBool(conn, "SELECT has_function_privilege('app_role', '" + fn + "', 'EXECUTE')"),
+                        "app_role 이 " + fn + " 을 부를 수 있다");
+            }
+            assertEquals("5s", queryString(conn, """
+                    SELECT split_part(c, '=', 2) FROM pg_proc p, unnest(p.proconfig) c
+                     WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure AND c LIKE 'lock_timeout=%'
+                    """), "전환 함수의 잠금 대기 상한이 5초가 아니다");
+            try (ResultSet rs = conn.createStatement().executeQuery("""
+                    SELECT t.tgenabled, pg_get_triggerdef(t.oid)
+                      FROM pg_trigger t WHERE t.tgrelid = 'accounts'::regclass
+                       AND t.tgname = 'trg_accounts_fee_income_shard' AND NOT t.tgisinternal
+                    """)) {
+                assertTrue(rs.next(), "샤드 1 트리거가 없다");
+                assertEquals("O", rs.getString(1), "샤드 1 트리거가 켜져 있지 않다");
+                String def = rs.getString(2);
+                assertTrue(def.contains("AFTER INSERT ON public.accounts") && def.contains("FOR EACH ROW"), def);
+                assertTrue(def.contains("'SYSTEM'") && def.contains("'FEE_INCOME'") && def.contains("shard = 0"), def);
+            }
+            // V55 는 모드를 바꾸지 않는다.
+            assertEquals(1, queryLong(conn, "SELECT protocol FROM leader_protocol"), "V55 가 모드를 바꿨다");
+        }
+    }
+
+    private static int migrationFiles() throws Exception {
+        java.net.URL dir = MigrationSmokeTest.class.getClassLoader().getResource("db/migration");
+        assertNotNull(dir, "classpath db/migration 없음");
+        try (var files = java.nio.file.Files.list(java.nio.file.Path.of(dir.toURI()))) {
+            return (int) files.filter(p -> p.getFileName().toString().matches("V\\d+__.+\\.sql")).count();
+        }
+    }
+
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
@@ -834,6 +905,13 @@ class MigrationSmokeTest {
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             rs.next();
             return rs.getBoolean(1);
+        }
+    }
+
+    private String queryString(Connection conn, String sql) throws SQLException {
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            assertTrue(rs.next(), "결과 없음: " + sql);
+            return rs.getString(1);
         }
     }
 }
