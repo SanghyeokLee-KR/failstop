@@ -37,9 +37,10 @@ try {
     if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     Write-Section 'ⓐ 사전 권위 run'
-    $prePort = Get-LiveNodePort
+    # 자원을 넘긴다. P3 에서는 자원 없는 /harness/v1/status 가 400 이다(S7 설계 4-13, Q6).
+    $prePort = Get-LiveNodePort -Resource $leaseResource
     Reset-LoadtestAcks -Port $prePort
-    $s0 = Get-HarnessStatus -Port $prePort
+    $s0 = Get-HarnessStatus -Port $prePort -Resource $leaseResource
     $oldEpoch = [long]$s0.epoch; $oldHolder = $s0.holder
     $leaseUntilBefore = ([datetimeoffset]$s0.leaseUntil).UtcDateTime
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
@@ -61,7 +62,7 @@ try {
     # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
     # 스냅샷을 쓰면 사전 권위 run·메트릭 기저·시계가드가 도는 동안의 갱신분이 그대로
     # 다운타임에 더해져 과대 산출된다.
-    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort -Resource $leaseResource).leaseUntil).UtcDateTime
     $t0 = (Get-Date).ToUniversalTime()
     $tradesAtInject = Get-TradeCount
     # timeout=0: 연결 유지·무응답(소켓/풀 타임아웃 검증). 리더 DB 경로만 차단(노드 축 선택성).

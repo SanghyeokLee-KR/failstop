@@ -552,11 +552,12 @@ class SettlementIntegrationTest {
                 .single();
     }
 
+    // P1 정산은 샤드 0 에 게시한다. V55 뒤에는 자산마다 샤드 1 계정(잔고 0)도 있어 샤드를 좁혀 한 행을 읽는다(ADR 0034 S7).
     private static BigDecimal feeBalance(int assetId) {
         return jdbc.sql("""
                         SELECT b.balance FROM balances b
                         JOIN accounts a ON a.id = b.account_id
-                        WHERE a.owner_type = 'SYSTEM' AND a.purpose = 'FEE_INCOME' AND a.asset_id = ?
+                        WHERE a.owner_type = 'SYSTEM' AND a.purpose = 'FEE_INCOME' AND a.asset_id = ? AND a.shard = 0
                         """)
                 .params(assetId)
                 .query(BigDecimal.class)

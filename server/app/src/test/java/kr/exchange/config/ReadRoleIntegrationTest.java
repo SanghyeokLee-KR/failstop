@@ -111,6 +111,8 @@ class ReadRoleIntegrationTest {
         assertEquals(1, boot.protocol());
         assertFalse(boot.fromDatabase(), "조회 노드가 leader_protocol 을 읽으려 했다");
         assertNull(meters.find("exchange.leader.protocol.boot").gauge(), "조회 노드가 기동 모드 게이지를 냈다");
+        // 바이너리 능력 게이지도 리스를 얻는 노드만 낸다(S7 설계 4-2). 조회 노드는 모드 전환 절차의 확인 대상이 아니다.
+        assertNull(meters.find("exchange.leader.protocol.max").gauge(), "조회 노드가 바이너리 능력 게이지를 냈다");
 
         // 양성 대조: 이 로그인으로 실제 감시 질의와 모드 조회를 돌리면 권한 오류다. 빈을 빼는 이유가 실제로 성립한다.
         DriverManagerDataSource reader = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), "runtime_read", PASSWORD);
@@ -179,7 +181,12 @@ class ReadRoleIntegrationTest {
         assertEquals(12, jdbc.sql("SELECT count(*) FROM markets").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM users").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM accounts WHERE owner_type = 'USER'").query(Integer.class).single());
-        assertEquals(39, jdbc.sql("SELECT count(*) FROM accounts WHERE owner_type = 'SYSTEM'").query(Integer.class).single());
+        // 자산마다 샤드 0 셋(FEE_INCOME·GENESIS·GATEWAY)과 V55 트리거가 더한 FEE_INCOME 샤드 1 하나다(ADR 0034 S7, DB 설계 §3.10).
+        assertEquals(39, jdbc.sql("SELECT count(*) FROM accounts WHERE owner_type = 'SYSTEM' AND shard = 0")
+                .query(Integer.class).single());
+        assertEquals(13, jdbc.sql("SELECT count(*) FROM accounts WHERE owner_type = 'SYSTEM' AND shard = 1"
+                + " AND purpose = 'FEE_INCOME'").query(Integer.class).single());
+        assertEquals(52, jdbc.sql("SELECT count(*) FROM accounts WHERE owner_type = 'SYSTEM'").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM balances WHERE balance <> 0").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM ledger_transactions").query(Integer.class).single());
     }

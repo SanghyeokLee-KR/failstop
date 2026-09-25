@@ -102,4 +102,11 @@ tasks.withType<Test> {
     // 관문 기록용 회 수(S3 설계 6-4, `-Dpml.doubleSpend.rounds=1000`). 명령줄의 -D 는 Gradle JVM 에만 가므로 시험 JVM 으로
     // 넘긴다. 주지 않으면 시험의 기본값을 쓴다. 시스템 속성은 작업 입력이라 값이 바뀌면 캐시된 결과를 쓰지 않는다.
     System.getProperty("pml.doubleSpend.rounds")?.let { systemProperty("pml.doubleSpend.rounds", it) }
+    // 교차 노드 이중 지출의 회 수(S7 설계 6-2, `-Dpml.crossNodeDoubleSpend.rounds=1000`). 위와 같은 이유로 넘긴다.
+    System.getProperty("pml.crossNodeDoubleSpend.rounds")?.let { systemProperty("pml.crossNodeDoubleSpend.rounds", it) }
+    // 판정 목록 판을 계약 문서에서 뽑아 돌리는 시험(S7Audit, V55ContractBlockTest)이 읽는 DB 설계. 문서가 바뀌면 캐시된 결과를
+    // 쓰지 않는다. 경로는 시험이 작업 디렉터리에서 찾으므로 시스템 속성으로 넘기지 않는다(비ASCII 파일명).
+    // server 밖의 시험 입력은 .github/workflows/ci-backend.yml 의 paths 에도 둔다. 없으면 그 파일만 바꾼 PR 에서 백엔드 CI 가 돌지 않는다.
+    inputs.dir(rootProject.file("../docs/reference/contracts")).withPropertyName("contractDocs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

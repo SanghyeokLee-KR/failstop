@@ -1,0 +1,32 @@
+start 2026-09-25T11:30:22Z compose=5.1.4
+base: project=pml-probe-s7cfg
+  chaos-lb volumes: ['nginx/nginx.conf -> /etc/nginx/nginx.conf']
+  chaos-api-1 preferred=None relay_mode=None lease_provider=postgres
+  chaos-api-2 preferred=None relay_mode=None lease_provider=postgres
+  chaos-bots preferred=None relay_mode=None lease_provider=None
+  broker=False
+relay: project=pml-probe-s7cfg
+  chaos-lb volumes: ['nginx/nginx.relay.conf -> /etc/nginx/nginx.conf']
+  chaos-api-1 preferred=None relay_mode=broker lease_provider=postgres
+  chaos-api-2 preferred=None relay_mode=broker lease_provider=postgres
+  chaos-bots preferred=None relay_mode=None lease_provider=None
+  broker=True
+relay_p3: project=pml-probe-s7cfg
+  chaos-lb volumes: ['nginx/nginx.partition-relay.conf -> /etc/nginx/nginx.conf']
+  chaos-api-1 preferred=matching-p0 relay_mode=broker lease_provider=postgres
+  chaos-api-2 preferred=matching-p1 relay_mode=broker lease_provider=postgres
+  chaos-bots preferred=None relay_mode=None lease_provider=None
+  broker=True
+p3_relay_reversed: project=pml-probe-s7cfg
+  chaos-lb volumes: ['nginx/nginx.relay.conf -> /etc/nginx/nginx.conf']
+  chaos-api-1 preferred=matching-p0 relay_mode=broker lease_provider=postgres
+  chaos-api-2 preferred=matching-p1 relay_mode=broker lease_provider=postgres
+  chaos-bots preferred=None relay_mode=None lease_provider=None
+  broker=True
+relay_with_lbconf: project=pml-probe-s7cfg
+  chaos-lb volumes: ['nginx/nginx.relay.conf -> /etc/nginx/nginx.conf']
+  chaos-api-1 preferred=None relay_mode=broker lease_provider=postgres
+  chaos-api-2 preferred=None relay_mode=broker lease_provider=postgres
+  chaos-bots preferred=None relay_mode=None lease_provider=None
+  broker=True
+end 2026-09-25T11:30:26Z

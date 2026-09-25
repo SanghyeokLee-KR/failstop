@@ -52,9 +52,10 @@ import java.util.function.LongSupplier;
  * 파티션 단위 리더 노드 하나의 시험 배선(S4 설계 6-2). 운영 EngineConfig 의 조립과 같다. 파티션마다 리스 서비스·승격 조율·
  * 수명주기를 두고, 마켓별 라이터는 승격이 그 기간으로 설치한다. 기동은 늘 팔로워다.
  *
- * P3 흉내는 ReservationFixture DB 를 P2 로 올린 뒤 소유자가 모드 래치를 3 으로 바꾼다(PartitionLeaseDb.setProtocol). 마켓
- * 1(KRW-BTC)은 matching-p0, 2(KRW-ETH)·3(KRW-XRP)은 matching-p1 이다(V48 대응). 정산은 수수료 샤드 0 하나를 쓴다. 샤드
- * 1 계정은 S7 의 선행 조건이라 이 배선에서는 만들지 않는다(S4 설계 4-19).
+ * P3 흉내는 ReservationFixture DB 를 P2 로 올린 뒤 소유자가 모드 래치를 3 으로 바꾼다(PartitionLeaseDb.setProtocol). S7 의 새
+ * 시험은 운영과 같은 전환 함수(set_leader_protocol)로 올린다(S7 설계 6-1). 마켓 1(KRW-BTC)은 matching-p0, 2(KRW-ETH)·
+ * 3(KRW-XRP)은 matching-p1 이다(V48 대응). 정산은 운영 배선(EngineConfig.settlementService)처럼 계획을 받아 P3 에서 마켓 파티션의
+ * 번호를 수수료 샤드로 쓴다(p0 마켓 샤드 0, p1 마켓 샤드 1). 샤드 1 계정은 V55 가 자산마다 만든다(S7 설계 4-8, DB 설계 §3.10).
  */
 final class PartitionNode implements AutoCloseable {
 
@@ -85,6 +86,9 @@ final class PartitionNode implements AutoCloseable {
     /** 노드 옵션. 기본값은 빠른 시험용이다(TTL 3초, 틱 300밀리초). */
     static final class Options {
         short maxProtocol = 3;
+        // 기동 때 읽은 모드(계획과 접수 시점 예약을 정한다). null 이면 종전처럼 maxProtocol 을 쓴다. S7 바이너리는 최고 모드
+        // 3 을 넘기면서 P2 DB 에서 뜨면 단일 계획이다(운영 EngineConfig 가 LeaderProtocolBoot 로 계획을 고르는 것과 같다).
+        Integer bootProtocol;
         Duration ttl = Duration.ofSeconds(3);
         Duration tick = Duration.ofMillis(300);
         Duration acquireLockTimeout = Duration.ofMillis(200);
@@ -110,6 +114,17 @@ final class PartitionNode implements AutoCloseable {
         Options protocol(int protocol) {
             this.maxProtocol = (short) protocol;
             return this;
+        }
+
+        /** S7 바이너리(최고 모드 3)가 이 모드로 떴다. 2 면 단일 계획과 접수 시점 예약이다. */
+        Options boot(int protocol) {
+            this.maxProtocol = 3;
+            this.bootProtocol = protocol;
+            return this;
+        }
+
+        int bootProtocol() {
+            return bootProtocol != null ? bootProtocol : maxProtocol;
         }
 
         Options stallClock(LongSupplier clock, Duration standdownAfter) {
@@ -157,7 +172,7 @@ final class PartitionNode implements AutoCloseable {
         this.name = name;
         this.f = f;
         this.options = options;
-        this.plan = options.maxProtocol >= 3 ? PartitionPlan.partitioned(f.app) : PartitionPlan.single();
+        this.plan = options.bootProtocol() >= 3 ? PartitionPlan.partitioned(f.app) : PartitionPlan.single();
         String holder = name + "-" + UUID.randomUUID();
         LeaderStallDetector nodeHealth = LeaderStallDetector.node(null, nodeProgress, options.standdownAfter,
                 registry, options.stallClock);
@@ -211,6 +226,7 @@ final class PartitionNode implements AutoCloseable {
                 new MarketCatalog(f.app));
         this.settlement = new SettlementService(f.app, f.appTx, null, objectMapper, new MarketCatalog(f.app),
                 f.mapper, nodeProgress);
+        settlement.setPartitionPlan(plan);
         this.appendPool = new PrologueFaultDataSource(f.appPool);
         this.appender = new CommandJournalAppender(JdbcClient.create(appendPool),
                 new TransactionTemplate(new JdbcTransactionManager(appendPool)), null, registry, nodeProgress) {
@@ -222,7 +238,7 @@ final class PartitionNode implements AutoCloseable {
                 return result;
             }
         };
-        appender.setRequireReservation(options.maxProtocol >= 2);
+        appender.setRequireReservation(options.bootProtocol() >= 2);
         this.router = new WriterRouter((marketId, engine, term, slot) -> {
             PartitionRuntime runtime = leases.runtime(term.resource()).orElseThrow();
             SingleWriterLoop loop = new SingleWriterLoop(1024, engine, events -> {
@@ -297,6 +313,11 @@ final class PartitionNode implements AutoCloseable {
 
     PartitionRuntime runtime(String resource) {
         return leases.runtime(resource).orElseThrow();
+    }
+
+    /** 이 노드의 리스 보유자 이름. 모든 파티션이 같이 쓴다. */
+    String holder() {
+        return leases.get(plan.partitions().get(0)).holder();
     }
 
     LeaderLeaseService lease(String resource) {

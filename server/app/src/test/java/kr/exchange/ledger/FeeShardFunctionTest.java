@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 수수료 샤드 함수(S4 설계 4-19, DB 설계 §1.2·§5.4-c 11, ADR 0034 결정 10). P1·P2 는 샤드 0 하나이고, P3 은 그 마켓 파티션의
  * 번호다. 두 파티션의 정산이 같은 수수료 잔고 행을 다투지 않게 하려는 것이다. 정산 잠금 계획은 그 배치 마켓 샤드의 수수료
- * 계정을 넣는다. 샤드 1 계정은 S4 가 만들지 않으므로(S7 선행 조건) P3 흉내 픽스처가 만든다.
+ * 계정을 넣는다. 샤드 1 계정은 V55 가 모드와 무관하게 만든다(S7 설계 4-1, DB 설계 §3.10). 그래서 이 시험은 계정을 넣지 않고 V55 가
+ * 만든 계정을 쓴다. 종전처럼 직접 넣으면 유일 제약 23505 다.
  */
 class FeeShardFunctionTest {
 
@@ -51,10 +52,8 @@ class FeeShardFunctionTest {
         try (ReservationFixture f = ReservationFixture.create("pml_fee_shard", 2)) {
             f.db.setProtocol(3);
             for (int asset : new int[] {KRW, ETH}) {
-                f.owner.sql("""
-                        INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard)
-                        VALUES ('SYSTEM', 0, 'FEE_INCOME', ?, 1)
-                        """).param(asset).update();
+                assertEquals(1, f.count("SELECT count(*) FROM accounts WHERE owner_type = 'SYSTEM' AND owner_id = 0"
+                        + " AND purpose = 'FEE_INCOME' AND shard = 1 AND asset_id = " + asset), "V55 가 샤드 1 계정을 만들지 않았다");
             }
             long alice = f.user("alice", new BigDecimal("100000000"));
             long bob = f.user("bob", BigDecimal.ZERO);

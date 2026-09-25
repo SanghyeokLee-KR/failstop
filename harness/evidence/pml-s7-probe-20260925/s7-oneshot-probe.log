@@ -1,0 +1,10 @@
+start 2026-09-25T12:14:03Z container=pml-probe-s7os-2885322108 image=postgres:17-alpine
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== P7-9 첫 KRW-ETH(마켓 2) 행은 S7F01 로 실패하고, 롤백 뒤에도 시퀀스가 남아 두 번째는 통과한다. 마켓 1 은 처음부터 통과한다
+market 1 first : INSERT 0 1
+market 2 first : ERROR:  S7F01: S7 Q10 한 번 치명 주입(market 2)
+sequence after rollback: 1 called=true
+market 2 second: INSERT 0 1
+rows: 1:1 3:2
+trigger dropped: 0
+end 2026-09-25T12:14:06Z

@@ -66,7 +66,9 @@ class ProtocolLatchRaceTest {
                 SQLException refused = switching.get(30, TimeUnit.SECONDS);
                 assertTrue(refused != null, "미예약 NEW 가 남았는데 전환이 커밋됐다");
                 assertEquals("55000", refused.getSQLState(), refused.getMessage());
-                assertTrue(refused.getMessage().contains("정산되지 않은 주문 생성 명령"), refused.getMessage());
+                // V55 는 선행 조건을 leader_protocol_blockers 의 식별자로 모아 알린다(DB 설계 §3.10). V50 판은 같은 술어를
+                // '정산되지 않은 주문 생성 명령' 문장으로 냈다.
+                assertTrue(refused.getMessage().contains("unsettled_new"), refused.getMessage());
             }
             assertEquals(1, f.protocol(), "전환이 모드를 바꿨다");
             assertEquals(0, f.count("SELECT count(*) FROM lease_acquisitions WHERE origin = 'RETIRE'"));

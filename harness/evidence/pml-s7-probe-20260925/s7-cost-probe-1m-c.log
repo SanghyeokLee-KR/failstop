@@ -1,0 +1,17 @@
+start 2026-09-25T11:20:42Z container=pml-probe-s7cost-1083816541 image=postgres:17-alpine cpus=1 N=1000000
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0~V55
+3
+4
+2026-09-25 11:20:45.880954+00
+3
+8
+9
+history 1:P1:0 2:P2:0 3:P3:4
+leases matching-engine:7 matching-p0:8 matching-p1:9
+rows=1000000 leaves=16
+q_6_c22p_arrays result=0
+  q_6_c22p_arrays run1 Execution Time: 1293.360 ms
+  q_6_c22p_arrays run2 Execution Time: 1358.061 ms
+  q_6_c22p_arrays run3 Execution Time: 1322.149 ms
+done 2026-09-25T11:20:54Z

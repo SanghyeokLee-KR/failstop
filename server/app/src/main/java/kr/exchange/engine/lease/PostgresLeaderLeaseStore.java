@@ -48,7 +48,7 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
 
     /**
      * 파티션 배선. 획득은 이 풀 위의 트랜잭션 하나에서 잠금 대기 상한을 건 뒤 부른다(DB 설계 §5.4-c 3). 운영은 maxProtocol 에
-     * LeaseResources.MAX_PROTOCOL 을 넘기고, P3 흉내 시험만 3을 넘긴다.
+     * LeaseResources.MAX_PROTOCOL(S7 부터 3)을 넘긴다. 시험은 옛 바이너리를 흉내 내려고 더 낮은 값을 넘길 수 있다.
      */
     public PostgresLeaderLeaseStore(DataSource leaseDataSource, String resource, short maxProtocol,
                                     Duration acquireLockTimeout) {

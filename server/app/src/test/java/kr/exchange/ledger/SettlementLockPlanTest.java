@@ -160,6 +160,8 @@ class SettlementLockPlanTest {
             f.submit(appender, engine, settlement, f.limit(KRW_BTC, bob, BUY, "50000", "0.1"));
             assertEquals(0, settlement.lockPlanMisses(), "준비 단계에서 계획 밖 게시가 났다");
 
+            // 수수료 계정 집합은 V55 뒤 샤드 1(잔고 0, P3 전용)까지 담는다. 이 배치(P2)는 샤드 0 에만 게시하므로 집합을 모두
+            // 계획에서 빼도 단언(계획 밖 게시가 수수료 leg 수만큼 센다)은 그대로 선다(ADR 0034 S7, S7 설계 6-5).
             java.util.Set<Long> fee = new java.util.HashSet<>(f.owner.sql(
                             "SELECT id FROM accounts WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'")
                     .query(Long.class).list());

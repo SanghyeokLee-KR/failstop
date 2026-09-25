@@ -150,7 +150,9 @@ public class LeaseStoreConfig {
     public LeaseStoreProvider postgresLeaseStores(@Qualifier("leaseDataSource") DataSource leaseDataSource,
                                                   EngineProperties engineProps, MeterRegistry registry) {
         // 계측은 두 보관소에 똑같이 건다. 한쪽만 계측하면 옮기기 전후를 같은 축으로 비교할 수 없다.
-        // 운영은 최고 모드 2를 넘긴다(DB 설계 §5.4-c 13). 그래서 P3 DB 에서는 어떤 파티션도 얻지 못한다.
+        // 획득에는 이 바이너리가 아는 최고 모드 LeaseResources.MAX_PROTOCOL 을 넘긴다(S7 부터 3, DB 설계 §5.4-c 13). 그래서 P3 DB 에서
+        // 파티션 리스를 얻는다. 모드의 권위는 DB 라서 P1·P2 DB 에서는 결과가 같다. 최고 모드 2 인 S6 이전 바이너리는 P3 DB 에서
+        // 어떤 파티션도 얻지 못하고 팔로워로 남는다.
         return resource -> new MeteredLeaderLeaseStore(
                 new PostgresLeaderLeaseStore(leaseDataSource, resource, LeaseResources.MAX_PROTOCOL,
                         engineProps.leaseAcquireLockTimeout()),

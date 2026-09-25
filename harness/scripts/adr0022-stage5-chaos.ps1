@@ -28,12 +28,26 @@
 # -WsGateAxes 이면 실험 스크립트와 공통 판정 뒤, 분리 판정 전에 s6_relay_axes.py gate 로 WS 수용 판정의 스택 표본을 ws_gate.json 에
 # 남긴다(설계 7-2 W0·W5). -Relay 가 없으면 simple 모드 판정(팔로워 seq 0·리스 epoch·503, 리더와 LB 101)이고, 있으면 broker 모드 판정
 # (두 노드 gate.open 1·101)이다. 거짓이면 분리 판정은 FAIL(WS 게이트 축)이다. 공통 판정이 봇을 멈춘 뒤라 LB 핸드셰이크가 봇 쓰기에
-# 밀려 빠진 1차 노드를 건너뛰지 않는다. -Relay·-WsGateAxes 는 -Protocol 2 와 함께만 돈다. -Relay 가 없는데 오버레이 목록에 중계
+# 밀려 빠진 1차 노드를 건너뛰지 않는다. -Relay·-WsGateAxes 는 -Protocol 2 이상과 함께만 돈다. -Relay 가 없는데 오버레이 목록에 중계
 # 오버레이가 남아 있으면 시작하지 않는다(W0 는 기본 스택이다).
-# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2] [-PartitionAxes] [-Relay] [-WsGateAxes]
+# -Protocol 3 이면 ADR 0034 S7 관문 주행이다(마켓분할_리더_S7_설계 4-13, 5-2). -P3 와 함께만 돌고 -P3 는 -Relay 를 함께 켠다(P3 에서는
+# 두 노드가 모두 중계에 기댄다). CHAOS_COMPOSE_OVERLAYS 를 중계·P3 오버레이(relay;p3 순서)로 채우고, 스택을 세운 뒤
+# protocol_latch.py transition --target 3 --latch-band 로 P3 에 올린다. 이어 Q0 준비 판정(lib.ps1 Invoke-P3Preflight)을
+# p3-preflight.json 에 남기고 하나라도 거짓이면 그 실험은 BLOCKED 다. E2·E4·E5·E6·E7·COLD 는 -Resource(matching-p0 또는 matching-p1)가
+# 없으면 시작하지 않고 실험 스크립트에 그 자원을 넘긴다. 실험 동안 희생 epoch 표본기(s7_axes.py epoch-sampler)를 띄우고, 공통 판정
+# (s3_common_axes.py judge --protocol 3 --resource) 뒤에 P3 공통 축(구간 경계 증분 segment-judge, 희생 epoch 집합의 구 쓰기 증분
+# victim-writes, 생존 파티션 ACK 간격 ack-interval)을 p3_axes.json 에 남긴다. 희생 노드가 두 파티션을 쥐었으면 생존 파티션이 없어
+# ACK 간격은 판정하지 않고 적기만 한다. 축이 거짓이면 분리 판정은 FAIL(P3 공통 판정), 양성 축이 모자라면 NOT RUN(P3 공통 판정)이다.
+# E4 의 중계 판정은 W5 대신 W6(희생·생존 노드, 영향·비영향 마켓)이고, 웹 관찰 파일이 없으면 분리 판정은 NOT RUN(웹 관찰)이다.
+# -WebObserveUrl 을 주면 E4 동안 harness/scripts/s6-web-resync.mjs 로 웹 거래 화면을 관찰하고 kill 시각을 표지 파일로 넘긴다(웹은
+# s7-p3-gate.ps1 이 빌드해 띄운다). -SurvivorLoadOps 를 주면 생존 파티션 마켓만 치는 k6 개방 루프(calibrate.js, MARKET_HINT=1)를 실험
+# 동안 더한다. -ConsolidateOn 을 주면 준비 판정 뒤 두 파티션을 그 노드로 모은다(Q3b). 합류 단계는 팔로워 상태 게이지를 모든 계열
+# (파티션마다)에서 본다.
+# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2|3] [-PartitionAxes] [-Relay] [-WsGateAxes]
+#       [-P3 -Resource matching-p1 [-WebObserveUrl http://localhost:3000/exchange/KRW-BTC] [-SurvivorLoadOps 20] [-ConsolidateOn chaos-api-1]]
 # 실험마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정 또는 exchange-chaos)에서는 시작하지 않는다(하네스 검증설계 §2-4 보존
 # 스택 가드). 환경 변수가 빠지면 프로젝트가 exchange-chaos 가 되어 보존 볼륨을 지우기 때문이다. 이미지 태그는 절차가 정한다
-# (7단계 절차는 -Ref 로 구운 태그를 넘긴다). -Protocol 2 는 CHAOS_PROJECT=exchange-pml 과 -Image exchange-chaos-app:pml 에서만 돈다(S3 설계 7-0).
+# (7단계 절차는 -Ref 로 구운 태그를 넘긴다). -Protocol 2·3 은 CHAOS_PROJECT=exchange-pml 과 -Image exchange-chaos-app:pml 에서만 돈다(S3 설계 7-0).
 # 종료코드: 0 전 실험 PASS 이고 연결 고갈 없음, 1 그 밖, 5 BLOCKED(시작 전 조건).
 # 비밀 파일(harness/.env.chaos)은 compose 에 경로로만 넘기고 읽지 않는다.
 param(
@@ -45,12 +59,18 @@ param(
     [switch] $LatchBeforeTraffic,
     [switch] $SnapshotEvidence,
     [int] $SnapshotWaitSec = 180,
-    [ValidateSet(1, 2)][int] $Protocol = 1,
+    [ValidateSet(1, 2, 3)][int] $Protocol = 1,
     [switch] $PartitionAxes,
     [int] $RejoinTimeoutSec = 180,
     [switch] $Relay,
     [switch] $WsGateAxes,
-    [int] $WatchSec = 1200
+    [int] $WatchSec = 1200,
+    [switch] $P3,
+    [string] $Resource = '',
+    [string] $WebObserveUrl = '',
+    [int] $WebObserveSec = 300,
+    [int] $SurvivorLoadOps = 0,
+    [string] $ConsolidateOn = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,9 +78,11 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
+# P3 에서는 두 노드가 모두 마켓 절반만 쥐어 WS 가 중계에만 기댄다(S7 설계 2-9·4-10). 그래서 -P3 는 -Relay 를 함께 켠다.
+if ($P3) { $Relay = $true }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($Relay -or $WsGateAxes) { 'pml-s6-chaos' } elseif ($PartitionAxes) { 'pml-s4-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
+$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($P3 -or $Protocol -eq 3) { 'pml-s7-chaos' } elseif ($Relay -or $WsGateAxes) { 'pml-s6-chaos' } elseif ($PartitionAxes) { 'pml-s4-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
 $runDir = "$runName-$date"
 if ($SnapshotEvidence) { $runDir = Join-Path $runDir $(if ($LatchBeforeTraffic) { 'band' } else { 'global' }) }
 if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runDir" }
@@ -75,6 +97,8 @@ $reachActions = @{ E2 = @(); E4 = @('kill', 'die'); E5 = @('disconnect', 'connec
     COLD = @('stop', 'start') }
 $eventActions = @('kill', 'die', 'stop', 'start', 'restart', 'oom', 'pause', 'unpause', 'disconnect', 'connect')
 $apiNodes = @('chaos-api-1', 'chaos-api-2')
+# 중계 관찰자(ws_relay_watch.js)가 받는 마켓. W6 의 영향·비영향 마켓은 이 가운데 -Resource 파티션의 마켓과 나머지다(S7 설계 4-13).
+$watchMarkets = 'KRW-BTC,KRW-ETH,KRW-XRP'
 # 스냅샷 채집기가 로그와 지표를 뜨는 노드와 포트. lib.ps1 의 포트를 그대로 넘긴다.
 $snapshotApi = 'chaos-api-1={0},chaos-api-2={1}' -f $Global:CHAOS.Api1Port, $Global:CHAOS.Api2Port
 
@@ -112,10 +136,11 @@ function Get-RelPath {
     return [System.IO.Path]::GetRelativePath($repo, $Path)
 }
 
-# invariants.sql 을 psql 로 통째로 돌린 출력에서 C22 두 팔의 행 수를 센다. 술어를 이 파일에 복제하지 않는다.
+# invariants.sql 을 psql 로 통째로 돌린 출력에서 C22 팔마다 행 수를 센다. 술어를 이 파일에 복제하지 않는다. V48 객체가 있는 스키마는
+# C22' 판이라 구간 경계 팔(boundary)이 더 있다(ADR 0034 S7, 하네스 검증설계 §4-1).
 function Get-C22Arms {
     param([string] $Text, $Rc)
-    $inC22 = $false; $seen = $false; $failed = $false; $time = 0; $market = 0
+    $inC22 = $false; $seen = $false; $failed = $false; $time = 0; $market = 0; $boundary = 0
     foreach ($line in ($Text -split "`r?`n")) {
         if ($line -like '== C22 *') { $inC22 = $true; $seen = $true; continue }
         if (-not $inC22) { continue }
@@ -123,9 +148,10 @@ function Get-C22Arms {
         if ($line -match 'ERROR:') { $failed = $true }
         elseif ($line -like 'time|*') { $time++ }
         elseif ($line -like 'market|*') { $market++ }
+        elseif ($line -like 'boundary|*') { $boundary++ }
     }
-    if ($Rc -ne 0 -or -not $seen -or $failed) { return [ordered]@{ ok = $false; timeArm = $null; marketArm = $null } }
-    return [ordered]@{ ok = $true; timeArm = $time; marketArm = $market }
+    if ($Rc -ne 0 -or -not $seen -or $failed) { return [ordered]@{ ok = $false; timeArm = $null; marketArm = $null; boundaryArm = $null } }
+    return [ordered]@{ ok = $true; timeArm = $time; marketArm = $market; boundaryArm = $boundary }
 }
 
 # 사건 줄은 실험 전에 띄운 docker events 스트림이 파일로 흘린 것이다. 네트워크 사건의 컨테이너 id 는 down 전 이름으로 바꾼다.
@@ -147,9 +173,20 @@ function Get-DockerEvents {
     return , $events
 }
 
+# 팔로워 상태 게이지(exchange_follower_catchup_state)의 모든 계열 값. 계열은 파티션마다 하나다. 긁지 못하면 $null 이다.
+function Get-FollowerStates {
+    param([int] $Port)
+    try { $text = Invoke-RestMethod -Uri "http://localhost:$Port/actuator/prometheus" -TimeoutSec 5 } catch { return $null }
+    $values = @([regex]::Matches(($text | Out-String), 'exchange_follower_catchup_state\{[^}]*\}\s+([-0-9.eE]+)') |
+        ForEach-Object { [double]$_.Groups[1].Value })
+    return , $values
+}
+
 # E4 합류 단계(S4 설계 7-2 X2). docker kill 한 옛 리더를 되살려 팔로워로 합류하는지 본다. '기동은 늘 팔로워'의 스택 확인이다.
 # 되살린 노드가 liveness UP 과 팔로워 상태 1 을 내고 /actuator/partitions 에서 FOLLOWER 이며, 그 노드 로그에 승격 문구가 없고
 # (부팅 획득 없음), leader_lease 의 holder·epoch 가 되살리기 전과 같고, 그 노드의 파티션 강등 계수가 0 이어야 참이다.
+# 팔로워 상태는 모든 계열(파티션마다)이 1 이어야 한다. P1·P2 는 계열이 하나라 종전과 같고, P3 는 되살린 노드가 두 파티션 모두
+# 팔로워이고 옛 파티션을 되찾지 않는 것(결정 4)을 본다(S7 설계 4-13).
 function Invoke-RejoinStep {
     param([string] $Dir)
     $res = [ordered]@{ ok = $false }
@@ -167,13 +204,15 @@ function Invoke-RejoinStep {
     $joined = Wait-For {
         $live = $false
         try { $live = (Invoke-RestMethod -Uri "http://localhost:$port/actuator/health/liveness" -TimeoutSec 3).status -eq 'UP' } catch { $live = $false }
-        $state = Get-AppMetric -Port $port -Pattern 'exchange_follower_catchup_state\{[^}]*\}\s+([-0-9.eE]+)'
+        $states = Get-FollowerStates -Port $port
         $parts = $null
         try { $parts = Invoke-RestMethod -Uri "http://localhost:$port/actuator/partitions" -TimeoutSec 3 } catch { $parts = $null }
         $follower = $parts -and @($parts.partitions | Where-Object { $_.state -ne 'FOLLOWER' }).Count -eq 0 -and @($parts.partitions).Count -gt 0
-        $live -and ($null -ne $state) -and ([double]$state -eq 1) -and $follower
+        $allOne = $null -ne $states -and $states.Count -gt 0 -and @($states | Where-Object { $_ -ne 1 }).Count -eq 0
+        $live -and $allOne -and $follower
     } -TimeoutSec $RejoinTimeoutSec -PollSec 2
     $res['joinedAt'] = $(if ($joined) { $joined.ToString('o') } else { $null })
+    $res['followerStates'] = Get-FollowerStates -Port $port
     $res['joinSeconds'] = $(if ($joined) { [math]::Round(($joined - $startedAt.UtcDateTime).TotalSeconds, 1) } else { $null })
     $since = $startedAt.ToUnixTimeSeconds()
     $logText = (& cmd /c "docker logs --since $since $node 2>&1" | Out-String)
@@ -195,6 +234,82 @@ function Invoke-RejoinStep {
     return $res
 }
 
+# 판정 JSON 한 개를 읽는다. 없거나 깨졌으면 $null 이다.
+function Read-JudgeFile {
+    param([string] $Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    try { return (Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable) } catch { return $null }
+}
+
+# P3 공통 판정의 S7 몫(하네스 검증설계 §3 P3 실험 공통 판정, S7 설계 5-2). 공통 판정(s3_common_axes.py)이 봇을 멈추고 비운 뒤에 부른다.
+#   1) 구간 경계 증분: 전환 직후 표본(protocol.json)과 지금 표본(segment_post.json)이 이력 행마다 같다(segment.json).
+#   2) 희생 epoch 집합의 구 쓰기 증분: 주입 직전 -Resource 행의 holder 가 쥔 파티션 epoch 마다 주입 뒤 행 수가 늘지 않았다
+#      (victim_writes.json, epoch_samples.jsonl).
+#   3) 생존 파티션 ACK 간격: 희생 노드가 쥐지 않은 파티션 마켓의 NEW 간격 최대가 기준선 + 1초 이하(ack_interval.json). 희생 노드가
+#      두 파티션을 모두 쥐었으면 생존 파티션이 없어 판정하지 않고 적기만 한다.
+#   4) 희생 노드가 -Resource 밖의 파티션도 쥐었으면 그 파티션의 RTO < 30초(rto_<자원>.json, Q3b 의 '두 파티션 모두').
+# 결과는 p3_axes.json 이다. fail 은 거짓 축, notRun 은 양성 축이 모자란 판정이다.
+function Invoke-P3CommonAxes {
+    param([string] $Dir, [string] $Console)
+    $res = [ordered]@{ fail = @(); notRun = @(); files = [ordered]@{} }
+    Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'segment-count', '--out', (Get-RelPath (Join-Path $Dir 'segment_post.json'))) `
+        (Join-Path $Dir 'segment_post.log') | Out-Null
+    Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'segment-judge', '--pre', (Get-RelPath (Join-Path $Dir 'protocol.json')),
+        '--post', (Get-RelPath (Join-Path $Dir 'segment_post.json')), '--out', (Get-RelPath (Join-Path $Dir 'segment.json'))) `
+        (Join-Path $Dir 'segment.log') | Out-Null
+    $judges = [ordered]@{ segment = Read-JudgeFile (Join-Path $Dir 'segment.json') }
+    $t0Hit = Select-String -Path $Console -Pattern 'T0=(\S+)' | Select-Object -First 1
+    $injectAt = $(if ($t0Hit) { $t0Hit.Matches[0].Groups[1].Value } else { $null })
+    $res['injectAt'] = $injectAt
+    if ($injectAt -and $Resource) {
+        Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'victim-writes', '--samples', (Get-RelPath (Join-Path $Dir 'epoch_samples.jsonl')),
+            '--inject-at', $injectAt, '--resource', $Resource, '--out', (Get-RelPath (Join-Path $Dir 'victim_writes.json'))) `
+            (Join-Path $Dir 'victim_writes.log') | Out-Null
+        $judges['victimWrites'] = Read-JudgeFile (Join-Path $Dir 'victim_writes.json')
+        $victim = @()
+        if ($judges['victimWrites'] -and $judges['victimWrites']['facts']) { $victim = @($judges['victimWrites']['facts']['victim_resources']) }
+        # 희생 노드가 -Resource 밖의 파티션도 쥐었으면(Q3b) 그 파티션의 RTO 도 잰다. -Resource 파티션의 RTO 는 실험 스크립트가 잰다.
+        $victimMap = $(if ($judges['victimWrites'] -and $judges['victimWrites']['facts']) { $judges['victimWrites']['facts']['victim_map'] } else { $null })
+        if ($victimMap) {
+            foreach ($epoch in @($victimMap.Keys)) {
+                $r = $victimMap[$epoch]
+                if ($r -eq $Resource) { continue }
+                $rtoFile = Join-Path $Dir "rto_$r.json"
+                Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'partition-rto', '--resource', $r, '--old-epoch', "$epoch",
+                    '--inject-at', $injectAt, '--out', (Get-RelPath $rtoFile)) (Join-Path $Dir "rto_$r.log") | Out-Null
+                $judges["rto_$r"] = Read-JudgeFile $rtoFile
+            }
+        }
+        $split = Get-PartitionMarkets
+        $survivorRes = @('matching-p0', 'matching-p1' | Where-Object { $victim -notcontains $_ })
+        if ($victim.Count -eq 0 -or -not $split) {
+            $res['ackInterval'] = '희생 파티션이나 파티션 마켓을 읽지 못했다'
+            $res['notRun'] += 'ackInterval'
+        } elseif ($survivorRes.Count -eq 0) {
+            $res['ackInterval'] = '생존 파티션 없음(희생 노드가 두 파티션을 쥐었다). 판정하지 않고 적기만 한다'
+        } else {
+            $survivorMarkets = (@($survivorRes | ForEach-Object { $split[$_] }) | ForEach-Object { $_ }) -join ','
+            $affectedMarkets = @($split[$Resource]) -join ','
+            Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'ack-interval', '--survivor-markets', $survivorMarkets,
+                '--affected-markets', $affectedMarkets, '--inject-at', $injectAt, '--out', (Get-RelPath (Join-Path $Dir 'ack_interval.json'))) `
+                (Join-Path $Dir 'ack_interval.log') | Out-Null
+            $judges['ackInterval'] = Read-JudgeFile (Join-Path $Dir 'ack_interval.json')
+        }
+    } else {
+        $res['사유'] = '주입 시각(T0) 줄이나 -Resource 가 없어 희생 epoch 집합과 ACK 간격을 볼 수 없다'
+        $res['notRun'] += @('victimWrites', 'ackInterval')
+    }
+    foreach ($k in $judges.Keys) {
+        $v = $(if ($judges[$k]) { [string]$judges[$k]['verdict'] } else { $null })
+        $res['files'][$k] = $v
+        if ($v -eq 'PASS') { continue }
+        if ($v -eq 'NOT RUN') { $res['notRun'] += $k } else { $res['fail'] += $k }
+    }
+    $res['ok'] = $res['fail'].Count -eq 0 -and $res['notRun'].Count -eq 0
+    Save-Text (Join-Path $Dir 'p3_axes.json') ($res | ConvertTo-Json -Depth 8)
+    return $res
+}
+
 function Invoke-Experiment {
     param([string] $Exp)
     $dir = Join-Path $EvidenceDir $Exp
@@ -208,6 +323,11 @@ function Invoke-Experiment {
     $stop = Join-Path $dir 'stop-conn'
     $stopBalance = Join-Path $dir 'stop-balance'
     $stopFresh = Join-Path $dir 'stop-freshness'
+    $epochSampler = $null
+    $stopEpoch = Join-Path $dir 'stop-epoch'
+    $k6Load = $null
+    $webObs = $null
+    $markFile = Join-Path $dir 'kill-mark.txt'
     try {
         Write-RunLog "START $Exp"
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
@@ -221,27 +341,51 @@ function Invoke-Experiment {
         if (@($running.Values | Where-Object { $_ -ne $imageId }).Count -gt 0) {
             $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '고정한 이미지로 뜨지 않았다'; return $row
         }
-        if ($Protocol -eq 2) {
-            # 실험 스크립트 전에 P2 로 전환한다(S3 설계 7-2). 도구가 봇을 멈추고 드레인한 뒤 두 노드를 다시 띄우고 봇을 되살린다.
-            $protocolRc = Invoke-Logged 'python' @('harness/scale/protocol_latch.py', 'transition', '--target', '2', '--out',
-                (Get-RelPath (Join-Path $dir 'protocol.json'))) (Join-Path $dir 'protocol.log')
+        if ($Protocol -ge 2) {
+            # 실험 스크립트 전에 모드를 올린다(S3 설계 7-2, S7 설계 4-13). 도구가 봇을 멈추고 드레인한 뒤 두 노드를 다시 띄우고 봇을
+            # 되살린다. P3 는 명령 대역 래치를 함께 건다(폐기용 DB 만, ADR 0034 결정한 값 9).
+            $transitionArgs = @('harness/scale/protocol_latch.py', 'transition', '--target', "$Protocol")
+            if ($Protocol -eq 3) { $transitionArgs += '--latch-band' }
+            $transitionArgs += @('--out', (Get-RelPath (Join-Path $dir 'protocol.json')))
+            $protocolRc = Invoke-Logged 'python' $transitionArgs (Join-Path $dir 'protocol.log')
             $row['protocolTransition'] = [ordered]@{ rc = $protocolRc; file = 'protocol.json' }
-            if ($protocolRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "P2 전환 실패(rc=$protocolRc). protocol.json 을 본다"; return $row }
+            if ($protocolRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "P$Protocol 전환 실패(rc=$protocolRc). protocol.json 을 본다"; return $row }
         }
-        if ($Relay) {
+        if ($P3) {
+            # Q0 준비 판정(S7 설계 5-2 Q0). 전환 도구가 앱 노드를 다시 띄운 뒤라 그 컨테이너의 환경과 파티션 배정을 본다.
+            $preflight = Invoke-P3Preflight -Dir $dir -TransitionFile (Join-Path $dir 'protocol.json') -RunId "Q0-$Exp-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            $row['p3Preflight'] = [ordered]@{ ok = $preflight['ok']; failed = $preflight['failed']; relocated = $preflight['relocated']; file = 'p3-preflight.json' }
+            if (-not $preflight['ok']) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = 'Q0 준비 판정 실패. p3-preflight.json 을 본다'; return $row }
+            if ($ConsolidateOn) {
+                # Q3b. 두 파티션을 한 노드로 모은 뒤 그 노드를 주입 대상으로 삼는다(S7 설계 5-2).
+                $moved = Move-PartitionsTo -Node $ConsolidateOn
+                Save-Text (Join-Path $dir 'consolidate.json') ($moved | ConvertTo-Json -Depth 6)
+                $row['consolidate'] = [ordered]@{ node = $ConsolidateOn; ok = $moved['ok']; file = 'consolidate.json' }
+                if (-not $moved['ok']) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "두 파티션을 $ConsolidateOn 으로 모으지 못했다. consolidate.json 을 본다"; return $row }
+            }
+        } elseif ($Relay) {
             # 오버레이가 실제로 걸렸는지 본다(S6 설계 4-19). 전환 도구가 앱 노드를 다시 띄운 뒤라 그 컨테이너의 환경을 본다.
             $preflight = Test-RelayOverlay
             Save-Text (Join-Path $dir 'relay-preflight.json') ($preflight | ConvertTo-Json -Depth 6)
             $row['relayPreflight'] = $preflight
             if (-not $preflight['ok']) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '중계 오버레이 확인 실패. relay-preflight.json 을 본다'; return $row }
-            $watch = Start-RelayWatch -Name "pml-s6-watch-$Exp" -OutDir $dir -DurationSec $WatchSec
+        }
+        if ($Relay) {
+            $watch = Start-RelayWatch -Name "pml-s6-watch-$Exp" -OutDir $dir -DurationSec $WatchSec -Markets $watchMarkets
             $row['relayWatch'] = $watch
             Write-RunLog "WATCH start $($watch.name) rc=$($watch.rc)"
             if ($watch.rc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "관찰자 기동 실패(rc=$($watch.rc))"; return $row }
             Remove-Item $stopFresh -Force -ErrorAction SilentlyContinue
-            $freshness = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru `
-                -ArgumentList @('harness/scale/s6_relay_axes.py', 'freshness', '--out', (Get-RelPath (Join-Path $dir 'freshness.jsonl')),
-                    '--stop-file', (Get-RelPath $stopFresh)) `
+            $freshArgs = @('harness/scale/s6_relay_axes.py', 'freshness', '--out', (Get-RelPath (Join-Path $dir 'freshness.jsonl')),
+                '--stop-file', (Get-RelPath $stopFresh))
+            if ($P3) {
+                # 표본 마켓(KRW-BTC)의 파티션을 ACCEPTING 으로 쥔 노드를 소유 노드로 짝짓는다(S7 설계 4-13).
+                $split = Get-PartitionMarkets
+                $btcResource = $(if ($split) { @($split.Keys | Where-Object { @($split[$_]) -contains 'KRW-BTC' }) | Select-Object -First 1 } else { $null })
+                if (-not $btcResource) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = 'KRW-BTC 의 파티션을 읽지 못했다'; return $row }
+                $freshArgs += @('--resource', $btcResource)
+            }
+            $freshness = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru -ArgumentList $freshArgs `
                 -RedirectStandardOutput (Join-Path $dir 'freshness.out') -RedirectStandardError (Join-Path $dir 'freshness.err')
         }
         if ($LatchBeforeTraffic) {
@@ -268,7 +412,7 @@ function Invoke-Experiment {
             -ArgumentList @('harness/scale/pg_samplers.py', 'connections', '--out', (Get-RelPath $samplesPath),
                 '--stop-file', (Get-RelPath $stop), '--interval', '5') `
             -RedirectStandardOutput (Join-Path $dir 'conn_sampler.out') -RedirectStandardError (Join-Path $dir 'conn_sampler.err')
-        if ($Protocol -eq 2) {
+        if ($Protocol -ge 2) {
             Remove-Item $stopBalance -Force -ErrorAction SilentlyContinue
             $balanceSampler = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru `
                 -ArgumentList @('harness/scale/s3_common_axes.py', 'sample', '--out', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')),
@@ -287,6 +431,35 @@ function Invoke-Experiment {
             $row['partitionAxes'] = [ordered]@{ pre = (Invoke-Logged 'python' @('harness/scale/s4_partition_axes.py', 'snapshot', '--out',
                 (Get-RelPath (Join-Path $dir 'partition_pre.json'))) (Join-Path $dir 'partition_pre.log')) }
         }
+        if ($P3) {
+            # 희생 epoch 집합 표본기(S7 설계 5-2 공통 판정). 주입 직전 표본이 희생 노드와 그 epoch 를 정한다.
+            Remove-Item $stopEpoch -Force -ErrorAction SilentlyContinue
+            $epochSampler = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru `
+                -ArgumentList @('harness/scale/s7_axes.py', 'epoch-sampler', '--out', (Get-RelPath (Join-Path $dir 'epoch_samples.jsonl')),
+                    '--stop-file', (Get-RelPath $stopEpoch), '--interval', '1') `
+                -RedirectStandardOutput (Join-Path $dir 'epoch_sampler.out') -RedirectStandardError (Join-Path $dir 'epoch_sampler.err')
+            if ($SurvivorLoadOps -gt 0) {
+                # 생존 파티션 마켓만 치는 k6 개방 루프(하네스 검증설계 §3 P3 공통 판정의 부하). 계정은 그 마켓으로 다시 발급한다.
+                $split = Get-PartitionMarkets
+                $survivorMarkets = $(if ($split) { (@($split.Keys | Where-Object { $_ -ne $Resource } | ForEach-Object { $split[$_] }) | ForEach-Object { $_ }) -join ',' } else { '' })
+                $keys = $(if ($survivorMarkets) { Initialize-LoadKeys -Markets $survivorMarkets } else { 0 })
+                if ($keys -lt 1) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '생존 파티션 부하 계정을 발급하지 못했다'; return $row }
+                $k6Load = Start-SurvivorLoad -Name "pml-s7-k6-$Exp" -Markets $survivorMarkets -Ops $SurvivorLoadOps -DurationSec $WatchSec -RunId "s7surv$Exp"
+                $row['survivorLoad'] = $k6Load
+                Write-RunLog "K6 start $($k6Load.name) rc=$($k6Load.rc) markets=$survivorMarkets ops=$SurvivorLoadOps"
+                if ($k6Load.rc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "생존 파티션 부하 기동 실패(rc=$($k6Load.rc))"; return $row }
+            }
+            if ($WebObserveUrl -and $Exp -eq 'E4') {
+                # W6 웹 관찰(S7 설계 4-13). 실험 스크립트 전에 띄우고, 스크립트가 끝나면 kill 시각을 표지 파일에 적는다.
+                Remove-Item $markFile -Force -ErrorAction SilentlyContinue
+                $webObs = Start-Process -FilePath 'node' -WorkingDirectory $repo -NoNewWindow -PassThru `
+                    -ArgumentList @('harness/scripts/s6-web-resync.mjs', "--url=$WebObserveUrl", "--duration=$WebObserveSec",
+                        "--out=$(Get-RelPath (Join-Path $dir 'web_resync.json'))", "--mark-file=$(Get-RelPath $markFile)") `
+                    -RedirectStandardOutput (Join-Path $dir 'web_resync.out') -RedirectStandardError (Join-Path $dir 'web_resync.err')
+                $row['webObserve'] = [ordered]@{ url = $WebObserveUrl; durationSec = $WebObserveSec; startedAt = (Now-Iso) }
+                Write-RunLog "WEB observe start $WebObserveUrl"
+            }
+        }
         $t0 = [DateTimeOffset]::UtcNow
         $console = Join-Path $dir 'console.log'
         Write-RunLog "EXPERIMENT $Exp pwsh -NoProfile -File $($row.script)"
@@ -295,6 +468,8 @@ function Invoke-Experiment {
         # S4 관문의 COLD 는 '기동은 늘 팔로워'를 판정에 더한다(S4 설계 7-2 X5).
         $expArgs = @()
         if ($PartitionAxes -and $Exp -eq 'COLD') { $expArgs += '-S4Boot' }
+        # 볼 리스 자원(S4 설계 4-18, S7 설계 4-13). P3 에서는 실험 스크립트가 이 자원 없이 시작하지 않는다.
+        if ($Resource) { $expArgs += @('-Resource', $Resource) }
         try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot $scripts[$Exp]) @expArgs *> $console; $expRc = $LASTEXITCODE }
         finally { $ErrorActionPreference = $eap }
         $t1 = [DateTimeOffset]::UtcNow
@@ -303,6 +478,20 @@ function Invoke-Experiment {
         $row['window'] = [ordered]@{ from = $t0.ToString('o'); to = $t1.ToString('o') }
         New-Item -ItemType File -Force -Path $stop | Out-Null
         if (-not $sampler.WaitForExit(30000)) { Stop-Process -Id $sampler.Id -Force }
+        if ($epochSampler) {
+            New-Item -ItemType File -Force -Path $stopEpoch | Out-Null
+            if (-not $epochSampler.WaitForExit(30000)) { Stop-Process -Id $epochSampler.Id -Force }
+        }
+        # 생존 파티션 부하는 공통 판정의 드레인 전에 멈춘다. 돌고 있으면 새 NEW 가 들어와 드레인이 끝나지 않는다.
+        if ($k6Load) {
+            Stop-SurvivorLoad -Name $k6Load.name -LogPath (Join-Path $LocalLogDir "$Exp-k6-survivor.log")
+            Write-RunLog "K6 stop $($k6Load.name)"
+            $k6Load = $null
+        }
+        if ($webObs) {
+            $killHit = Select-String -Path $console -Pattern 'T0=(\S+) killed=' | Select-Object -First 1
+            if ($killHit) { Save-Text $markFile $killHit.Matches[0].Groups[1].Value }
+        }
         if ($balanceSampler) {
             New-Item -ItemType File -Force -Path $stopBalance | Out-Null
             if (-not $balanceSampler.WaitForExit(30000)) { Stop-Process -Id $balanceSampler.Id -Force }
@@ -331,12 +520,13 @@ function Invoke-Experiment {
             # 합류 단계(S4 설계 7-2 X2). 공통 판정 전에 돈다. 봇을 멈추기 전이라 새 리더가 부하를 받는 동안 합류한다.
             $row['rejoin'] = Invoke-RejoinStep $dir
         }
-        if ($Protocol -eq 2) {
-            # 공통 판정(S3 설계 7-3). 봇을 멈추고 드레인한 뒤 판정하므로 뒤의 증거 수집은 무부하 상태에서 돈다.
+        if ($Protocol -ge 2) {
+            # 공통 판정(S3 설계 7-3, S7 설계 4-13). 봇을 멈추고 드레인한 뒤 판정하므로 뒤의 증거 수집은 무부하 상태에서 돈다.
             $commonArgs = @('harness/scale/s3_common_axes.py', 'judge', '--window-from', $stackFrom.ToString('o'),
                 '--fault-from', $t0.ToString('o'), '--fault-to', $t1.ToString('o'),
-                '--samples', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')),
+                '--samples', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')), '--protocol', "$Protocol",
                 '--out', (Get-RelPath (Join-Path $dir 's3_common.json')))
+            if ($Resource) { $commonArgs += @('--resource', $Resource) }
             # 옛 리더 강등 문구의 양성 대조(S4 설계 7-2). 문구가 코드와 어긋나면 리더 노드 축이 공허하게 통과한다.
             if ($PartitionAxes -and @('E5', 'E7') -contains $Exp) { $commonArgs += '--expect-demotion' }
             $commonRc = Invoke-Logged 'python' $commonArgs (Join-Path $dir 's3_common.log')
@@ -348,6 +538,10 @@ function Invoke-Experiment {
                 reservations = $(if ($common -and $common['state']) { $common['state']['reservations'] } else { $null })
                 reservedSettledByLaterEpoch = $(if ($common -and $common['state']) { $common['state']['reserved_settled_by_later_epoch'] } else { $null })
                 file = 's3_common.json' }
+        }
+        if ($P3) {
+            # P3 공통 판정의 S7 몫(구간 경계 증분, 희생 epoch 집합, 생존 파티션 ACK 간격). 위 공통 판정이 봇을 멈추고 비운 뒤다.
+            $row['p3Axes'] = Invoke-P3CommonAxes -Dir $dir -Console $console
         }
         if ($PartitionAxes) {
             $postRc = Invoke-Logged 'python' @('harness/scale/s4_partition_axes.py', 'snapshot', '--out',
@@ -390,17 +584,41 @@ function Invoke-Experiment {
             Invoke-Logged 'python' @('harness/scale/s6_relay_axes.py', 'watch', '--log', (Get-RelPath (Join-Path $dir 'watch.log')),
                 '--out', (Get-RelPath (Join-Path $dir 'watch.json'))) (Join-Path $dir 'watch_merge.log') | Out-Null
             if ($Exp -eq 'E4') {
-                $killHit = Select-String -Path $console -Pattern 'T0=(\S+) killed=' | Select-Object -First 1
+                $killHit = Select-String -Path $console -Pattern 'T0=(\S+) killed=(\S+)' | Select-Object -First 1
                 $killAt = $(if ($killHit) { $killHit.Matches[0].Groups[1].Value } else { $t0.ToString('o') })
-                $relayArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', 'W5', '--evidence', (Get-RelPath $dir),
-                    '--window-from', $stackFrom.ToString('o'), '--kill-at', $killAt, '--follower', 'chaos-api-2', '--leader', 'chaos-api-1',
-                    '--out', (Get-RelPath (Join-Path $dir 'relay_axes.json')))
+                if ($Protocol -eq 3) {
+                    # W6(S6 설계 7-2, S7 설계 4-13). P2 모양의 W5 는 P3 에서 쓰지 않는다. 희생 노드는 콘솔의 killed=, 영향 마켓은 관찰 마켓
+                    # 가운데 -Resource 파티션의 마켓이다.
+                    $victim = $(if ($killHit) { $killHit.Matches[0].Groups[2].Value } else { '' })
+                    $survivor = $(if ($victim -eq 'chaos-api-1') { 'chaos-api-2' } elseif ($victim -eq 'chaos-api-2') { 'chaos-api-1' } else { '' })
+                    $split = Get-PartitionMarkets
+                    $observed = @($watchMarkets.Split(','))
+                    $affected = @($observed | Where-Object { $split -and @($split[$Resource]) -contains $_ })
+                    $unaffected = @($observed | Where-Object { $affected -notcontains $_ })
+                    if ($webObs) {
+                        # 웹 관찰이 끝나야 판정 파일이 생긴다. 실험 스크립트 전에 띄웠으므로 남은 시간만 기다린다.
+                        if (-not $webObs.WaitForExit(($WebObserveSec + 120) * 1000)) { Stop-Process -Id $webObs.Id -Force }
+                        $row['webObserve']['exitCode'] = $(if ($webObs.HasExited) { $webObs.ExitCode } else { $null })
+                        $row['webObserve']['file'] = Test-Path (Join-Path $dir 'web_resync.json')
+                        $webObs = $null
+                    }
+                    $relayArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', 'W6', '--evidence', (Get-RelPath $dir),
+                        '--window-from', $stackFrom.ToString('o'), '--kill-at', $killAt, '--victim', $victim, '--survivor', $survivor,
+                        '--affected-markets', ($affected -join ','), '--unaffected-markets', ($unaffected -join ','),
+                        '--out', (Get-RelPath (Join-Path $dir 'relay_axes.json')))
+                } else {
+                    $relayArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', 'W5', '--evidence', (Get-RelPath $dir),
+                        '--window-from', $stackFrom.ToString('o'), '--kill-at', $killAt, '--follower', 'chaos-api-2', '--leader', 'chaos-api-1',
+                        '--out', (Get-RelPath (Join-Path $dir 'relay_axes.json')))
+                }
                 if ($verdict -and $verdict.failover -and $verdict.failover.rtoSeconds) { $relayArgs += @('--rto-sec', "$($verdict.failover.rtoSeconds)") }
                 $relayRc = Invoke-Logged 'python' $relayArgs (Join-Path $dir 'relay_axes.log')
                 $relayAxes = $null
                 $relayPath = Join-Path $dir 'relay_axes.json'
                 if (Test-Path $relayPath) { $relayAxes = Get-Content $relayPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
                 $row['relayAxes'] = [ordered]@{ rc = $relayRc; ok = $(if ($relayAxes) { $relayAxes['ok'] } else { $false })
+                    experiment = $(if ($Protocol -eq 3) { 'W6' } else { 'W5' })
+                    verdict = $(if ($relayAxes) { $relayAxes['verdict'] } else { $null })
                     failed = $(if ($relayAxes -and $relayAxes['axes']) { @($relayAxes['axes'].Keys | Where-Object { -not $relayAxes['axes'][$_] }) } else { @('판정 파일 없음') })
                     file = 'relay_axes.json' }
             }
@@ -416,7 +634,7 @@ function Invoke-Experiment {
                 "FROM invariant_checks i WHERE i.details->>'run_id' = '$runId'"))
         }
         Save-Text (Join-Path $dir 'leader_lease.json') (Invoke-Psql "SELECT coalesce(json_agg(l), '[]'::json) FROM leader_lease l")
-        if ($Protocol -eq 2) {
+        if ($Protocol -ge 2) {
             # 주행 뒤 모드 상태(예약 행 수, 정산 전 예약, 퇴역 행). 위 공통 판정이 봇을 멈추고 드레인한 뒤의 값이다.
             Invoke-Logged 'python' @('harness/scale/protocol_latch.py', 'state', '--out',
                 (Get-RelPath (Join-Path $dir 'protocol_state.json'))) (Join-Path $dir 'protocol_state.log') | Out-Null
@@ -517,15 +735,21 @@ function Invoke-Experiment {
             elseif (-not $expVerdict) { 'NOT RUN' }
             elseif ($expVerdict -eq 'SKIP') { 'NOT RUN(시계 스큐 SKIP)' }
             else { $expVerdict })
-        if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS' -and -not $row['s3Common'].ok) { $row['분리 판정'] = 'FAIL(공통 판정)' }
+        if ($Protocol -ge 2 -and $row['분리 판정'] -eq 'PASS' -and -not $row['s3Common'].ok) { $row['분리 판정'] = 'FAIL(공통 판정)' }
+        if ($P3 -and $row['분리 판정'] -eq 'PASS' -and $row['p3Axes'] -and -not $row['p3Axes'].ok) {
+            $row['분리 판정'] = $(if ($row['p3Axes'].fail.Count -gt 0) { 'FAIL(P3 공통 판정)' } else { 'NOT RUN(P3 공통 판정)' })
+        }
         if ($PartitionAxes -and $row['분리 판정'] -eq 'PASS' -and -not $row['partitionAxes'].ok) { $row['분리 판정'] = 'FAIL(파티션 축)' }
         if ($PartitionAxes -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['rejoin'].ok) { $row['분리 판정'] = 'FAIL(합류)' }
         if ($WsGateAxes -and $row['분리 판정'] -eq 'PASS' -and -not $row['wsGate'].ok) { $row['분리 판정'] = 'FAIL(WS 게이트 축)' }
-        if ($Relay -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['relayAxes'].ok) { $row['분리 판정'] = 'FAIL(중계 축)' }
+        if ($Relay -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['relayAxes'].ok) {
+            # W6 은 웹 밖 축이 모두 참이고 웹 관찰 파일만 없으면 NOT RUN(웹 관찰)이다(s6_relay_axes.verdict_with_web).
+            $row['분리 판정'] = $(if ($row['relayAxes'].verdict -eq 'NOT RUN(웹 관찰)') { 'NOT RUN(웹 관찰)' } else { 'FAIL(중계 축)' })
+        }
         # 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)을 분리 판정에 건다. 실험 스크립트의 판정은 C13A 를 게이팅에서
         # 빼고(lib.ps1 CHAOS_GATING_EXEMPT_CHECKS) E7 은 부하를 멈추지 않은 채 사후 run 을 뜬다. 이 축이 없으면 rpo_records 가 1 인
         # 주행이 PASS 로 남는다(S3 구현 검토, 관문 X3 반복 r1·r2). 물질화 전 NEW 를 센 것인지는 판정을 바꾸지 않고 증거에 적는다.
-        if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS') {
+        if ($Protocol -ge 2 -and $row['분리 판정'] -eq 'PASS') {
             $rpoRecords = $(if ($verdict -and $verdict.failover) { $verdict.failover.rpoRecords } else { $null })
             $postC13a = @($verdict.invariants | Where-Object { $_.window -eq 'post' -and "$($_.check)" -eq 'C13A_ORDER_MATERIALIZED' -and -not $_.ok }).Count
             $row['rpoAxis'] = [ordered]@{ rpoRecords = $rpoRecords; postC13A = $postC13a }
@@ -598,8 +822,14 @@ function Invoke-Experiment {
             New-Item -ItemType File -Force -Path $stopFresh | Out-Null
             if (-not $freshness.WaitForExit(30000)) { Stop-Process -Id $freshness.Id -Force }
         }
-        # 관찰자가 실험 네트워크에 붙어 있으면 down 이 네트워크를 지우지 못한다. 판정 전에 예외로 나왔어도 여기서 멈춘다.
+        if ($epochSampler -and -not $epochSampler.HasExited) {
+            New-Item -ItemType File -Force -Path $stopEpoch | Out-Null
+            if (-not $epochSampler.WaitForExit(30000)) { Stop-Process -Id $epochSampler.Id -Force }
+        }
+        if ($webObs -and -not $webObs.HasExited) { Stop-Process -Id $webObs.Id -Force }
+        # 관찰자와 k6 부하가 실험 네트워크에 붙어 있으면 down 이 네트워크를 지우지 못한다. 판정 전에 예외로 나왔어도 여기서 멈춘다.
         if ($watch) { Stop-RelayWatch -Name $watch.name -LogPath (Join-Path $dir 'watch.log') }
+        if ($k6Load) { Stop-SurvivorLoad -Name $k6Load.name -LogPath (Join-Path $LocalLogDir "$Exp-k6-survivor.log") }
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
         Write-RunLog "END $Exp down rc=$code"
     }
@@ -610,24 +840,45 @@ if (-not $Image) { Write-Host '-Image 가 필요하다. 5단계는 4단계 B4 �
 # 보존 스택 가드(하네스 검증설계 §2-4). 실험마다 down -v 를 하므로 보존 스택에서는 아무것도 지우거나 세우지 않는다. lib.ps1 은
 # CHAOS_PROJECT 가 없으면 exchange-chaos 를 쓰므로 미설정도 여기서 걸린다. 이미지 태그는 S3 경로에서만 묶는다(S3 설계 7-0).
 if ($Global:CHAOS.Project -eq 'exchange-chaos') { Write-Host 'CHAOS_PROJECT 가 보존 스택 exchange-chaos 다(미설정 포함). 보존 볼륨을 지울 수 있어 시작하지 않는다. 폐기용 이름(예: exchange-pml)을 준다.'; exit 5 }
-if ($Protocol -eq 2 -and ($Global:CHAOS.Project -ne 'exchange-pml' -or $Image -ne 'exchange-chaos-app:pml')) {
-    Write-Host "S3 경로(-Protocol 2)는 CHAOS_PROJECT=exchange-pml, -Image exchange-chaos-app:pml 에서만 돈다(지금 $($Global:CHAOS.Project), $Image)."; exit 5
+if ($Protocol -ge 2 -and ($Global:CHAOS.Project -ne 'exchange-pml' -or $Image -ne 'exchange-chaos-app:pml')) {
+    Write-Host "S3~S7 경로(-Protocol 2·3)는 CHAOS_PROJECT=exchange-pml, -Image exchange-chaos-app:pml 에서만 돈다(지금 $($Global:CHAOS.Project), $Image)."; exit 5
 }
-if ($PartitionAxes -and $Protocol -ne 2) { Write-Host '-PartitionAxes 는 -Protocol 2 와 함께만 돈다(S4 설계 7-1).'; exit 5 }
-if (($Relay -or $WsGateAxes) -and $Protocol -ne 2) { Write-Host '-Relay·-WsGateAxes 는 -Protocol 2 와 함께만 돈다(S6 설계 7-2).'; exit 5 }
+if ($PartitionAxes -and $Protocol -lt 2) { Write-Host '-PartitionAxes 는 -Protocol 2 이상과 함께만 돈다(S4 설계 7-1).'; exit 5 }
+if (($Relay -or $WsGateAxes) -and $Protocol -lt 2) { Write-Host '-Relay·-WsGateAxes 는 -Protocol 2 이상과 함께만 돈다(S6 설계 7-2).'; exit 5 }
+# P3 모드와 P3 오버레이는 함께만 쓴다(S7 설계 4-13). 오버레이 없이 P3 에 올리면 선호 설정이 없어 배정을 볼 수 없고 LB 가 파티션
+# 쓰기를 가르지 못한다. 오버레이만 겹치고 P2 로 돌리면 선호 설정은 뜻이 없고 판정이 P2 모양이다.
+if ($Protocol -eq 3 -and -not $P3) { Write-Host '-Protocol 3 은 -P3(중계·P3 오버레이)와 함께만 돈다(S7 설계 4-13).'; exit 5 }
+if ($P3 -and $Protocol -ne 3) { Write-Host '-P3 는 -Protocol 3 과 함께만 돈다(S7 설계 4-13).'; exit 5 }
+if (-not $P3 -and (Test-P3OverlayListed)) { Write-Host 'CHAOS_COMPOSE_OVERLAYS 에 P3 오버레이가 있다. -Protocol 3 -P3 를 주거나 목록을 비운다.'; exit 5 }
 if (-not $Relay -and (Test-RelayOverlayListed)) { Write-Host 'CHAOS_COMPOSE_OVERLAYS 에 중계 오버레이가 있다. -Relay 를 주거나 목록을 비운다(W0 는 기본 스택이다).'; exit 5 }
 $wanted = @($Experiments.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
+# 볼 리스 자원(S4 설계 4-18, S7 설계 4-13). P3 에서는 한 사건이 파티션 하나만 옮기므로 자원 없이 시작하지 않는다.
+if ($Protocol -eq 3) {
+    if (@('matching-p0', 'matching-p1') -notcontains $Resource) {
+        $needs = @($wanted | Where-Object { @('E2', 'E4', 'E5', 'E6', 'E7', 'COLD') -contains $_ })
+        if ($needs.Count -gt 0 -or $Resource) { Write-Host ("-Protocol 3 의 {0} 은 -Resource matching-p0 또는 matching-p1 이 필요하다(지금 '{1}')." -f ($needs -join ','), $Resource); exit 5 }
+    }
+} elseif ($Resource -and $Resource -ne 'matching-engine') {
+    Write-Host "P$Protocol 에는 파티션 자원이 없다(-Resource $Resource). P1·P2 의 자원은 matching-engine 하나다."; exit 5
+}
+if (($WebObserveUrl -or $SurvivorLoadOps -gt 0 -or $ConsolidateOn) -and $Protocol -ne 3) {
+    Write-Host '-WebObserveUrl·-SurvivorLoadOps·-ConsolidateOn 은 -Protocol 3 에서만 쓴다(S7 설계 4-13, 5-2).'; exit 5
+}
+if ($ConsolidateOn -and @('chaos-api-1', 'chaos-api-2') -notcontains $ConsolidateOn) { Write-Host "-ConsolidateOn 은 앱 노드 이름이다: $ConsolidateOn"; exit 5 }
 if (Test-Path (Join-Path $EvidenceDir 'summary.json')) { Write-Host '이미 summary.json 이 있다. 증거를 덮지 않는다.'; exit 5 }
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
-Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence Protocol=$Protocol PartitionAxes=$PartitionAxes Relay=$Relay WsGateAxes=$WsGateAxes Project=$($Global:CHAOS.Project)"
+Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence Protocol=$Protocol PartitionAxes=$PartitionAxes Relay=$Relay WsGateAxes=$WsGateAxes P3=$P3 Resource=$Resource SurvivorLoadOps=$SurvivorLoadOps WebObserve=$([bool]$WebObserveUrl) ConsolidateOn=$ConsolidateOn Project=$($Global:CHAOS.Project)"
 if (-not (Test-Path $Global:CHAOS.EnvFile)) { Write-RunLog 'BLOCKED harness/.env.chaos 가 없다'; exit 5 }
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { Write-RunLog 'BLOCKED 도커 데몬 미응답'; exit 5 }
 $imageId = (& docker image inspect $Image --format '{{.Id}}' 2>$null | Out-String).Trim()
 if (-not $imageId) { Write-RunLog "BLOCKED 이미지가 없다: $Image"; exit 5 }
-if ($Relay) {
+if ($P3) {
+    try { Set-P3Overlay } catch { Write-RunLog "BLOCKED $($_.Exception.Message)"; exit 5 }
+    Write-RunLog "OVERLAYS $env:CHAOS_COMPOSE_OVERLAYS"
+} elseif ($Relay) {
     try { Set-RelayOverlay } catch { Write-RunLog "BLOCKED $($_.Exception.Message)"; exit 5 }
     Write-RunLog "OVERLAYS $env:CHAOS_COMPOSE_OVERLAYS"
 }
@@ -646,6 +897,11 @@ $summary = [ordered]@{
     partitionAxes = [bool]$PartitionAxes
     relay = [bool]$Relay
     wsGateAxes = [bool]$WsGateAxes
+    p3 = [bool]$P3
+    resource = $Resource
+    webObserveUrl = $WebObserveUrl
+    survivorLoadOps = $SurvivorLoadOps
+    consolidateOn = $ConsolidateOn
     composeOverlays = $env:CHAOS_COMPOSE_OVERLAYS
     project = $Global:CHAOS.Project
     springProfiles = $env:CHAOS_SPRING_PROFILES

@@ -14,6 +14,11 @@ exchange-chaos-app:pml)에서만 돈다. 가드는 protocol_latch 와 같다.
   z4       인계. (a) 팔로워의 마켓 없는 일괄 취소 (b) chaos-api-3 의 같은 요청 (c) chaos-admin 의 회원 폐쇄 (d) 두 노드의
            참여를 끄고 리더가 게이트를 닫은 뒤 폐쇄, 참여를 켜고 새 리더가 선 뒤 다시 폐쇄.
   lbsplit  Z1 LB 접근 로그(파티션 형식)를 힌트, 첫 시도 업스트림, 상태 목록으로 나눈다.
+  q16      ADR 0034 S7 Q16 두 파티션 인계(S7 설계 5-2 Q16, 하네스 검증설계 §3 P3 실험 Q16). P3 스택에서만 돈다. (1) 회원 A 가
+           p0·p1 마켓에 네 주문을 두고 api-1 에 마켓 없는 일괄 취소를 보낸다(p1 주문은 인계 행으로 api-2 가 취소). (2) api-1 의
+           matching-p1 참여를 끄고 회원 C 가 네 주문을 둔 뒤 api-2 를 docker pause 한 채 api-1 에 일괄 취소, 관리 평면에 회원 폐쇄를
+           보낸다. 요청마다 시각과 p1 리스 행(holder·만료)을 적는다. (3) api-2 를 재개하고 인계 행이 끝나는지 본 뒤 참여를 켠다.
+           판정은 harness/scale/s7_axes.py handoff 가 이 출력으로 한다. 요청 시점에 p1 을 유효하게 쥔 노드가 api-2 밖이면 NOT RUN 이다.
   zroute   Z1d(설계 밖 보충). 봇을 멈춘 파티션 LB 스택에서 LB 로 여섯 요청(힌트 있는 ETH·BTC 생성, 힌트 없는 ETH 생성, 맵에
            없는 힌트, 힌트 없는 일괄 취소, 힌트 실은 조회)을 보내 첫 시도 업스트림을 LB 로그로 본다. 힌트 없는 요청과 맵에 없는
            힌트가 종전 쓰기 경로(1차 리더)로 가는지, 조회는 힌트로 가르지 않는지 실제 요청으로 확인한다.
@@ -31,6 +36,7 @@ compose 가 마운트)로 한다. 세션 토큰과 승인 토큰은 표준 입�
   python harness/scale/s5_route_probe.py z2 --out <json>
   python harness/scale/s5_route_probe.py z3 --out <json>
   python harness/scale/s5_route_probe.py z4 --out <json>
+  python harness/scale/s5_route_probe.py q16 --out <json>
   python harness/scale/s5_route_probe.py lbsplit --log <파일> --from <ISO> --to <ISO> --out <json>
 """
 import argparse
@@ -573,8 +579,9 @@ def audit_rows(external_id):
     return count("SELECT count(*) FROM admin_audit_log WHERE action = 'members.close' AND target = '%s'" % external_id)
 
 
-def set_participate(container, value):
-    body = json.dumps({'resource': 'matching-engine', 'participate': value})
+def set_participate(container, value, resource='matching-engine'):
+    """POST /actuator/partitions(loopback 전용)를 그 컨테이너 안에서 부른다. P3 에서는 자원을 준다(S7 설계 4-13, Q9·Q16)."""
+    body = json.dumps({'resource': resource, 'participate': value})
     p = subprocess.run(['docker', 'exec', container, 'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'POST',
                         '-H', 'Content-Type: application/json', '-d', body, 'http://localhost:8080/actuator/partitions'],
                        capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
@@ -701,6 +708,99 @@ def run_z4(a):
     res['lease'] = {'before': lease0, 'mid': lease_mid, 'end': lease()}
     res['axes'] = axes
     res['ok'] = all(axes.values())
+    return write(a.out, res)
+
+
+def partition_lease(resource):
+    raw = psql("SELECT json_build_object('holder', holder, 'epoch', epoch, 'alive', lease_until > clock_timestamp(), "
+               "'lease_until', lease_until, 'db_now', clock_timestamp()) FROM leader_lease WHERE resource = '%s'" % resource)
+    return json.loads(raw) if raw else None
+
+
+def partition_epoch(port, resource):
+    rows = ((partitions(port) or {}).get('partitions')) or []
+    for row in rows:
+        if row.get('resource') == resource and row.get('state') == 'ACCEPTING':
+            return row.get('epoch')
+    return None
+
+
+def holder_node(lease_row, holders):
+    """p1 리스 행을 유효하게 쥔 노드. holders 는 {holder: 노드}이고 만료됐으면 None 이다."""
+    if not lease_row or not lease_row.get('alive'):
+        return None
+    return holders.get(lease_row.get('holder'), 'unknown')
+
+
+def run_q16(a):
+    """S7 Q16. 두 파티션 인계와 멈춘 소유 노드(설계 5-2 Q16). 판정은 s7_axes.py handoff 다."""
+    g = guard()
+    if not g['ok']:
+        return write(a.out, {'phase': 'Q16', 'ok': False, 'error': 'guard', 'guard': g})
+    res = {'phase': 'Q16', 'at': now_iso()}
+    holders = {}
+    for node, port in API.items():
+        for resource in ('matching-p0', 'matching-p1'):
+            epoch = partition_epoch(port, resource)
+            row = partition_lease(resource)
+            if epoch is not None and row and int(row['epoch']) == int(epoch):
+                holders[row['holder']] = node
+    res['holders'] = {v: k[:8] for k, v in holders.items()}
+    if partition_epoch(API['chaos-api-2'], 'matching-p1') is None or partition_epoch(API['chaos-api-1'], 'matching-p0') is None:
+        res.update(ok=False, error='시작 배정이 선호(api-1 p0, api-2 p1)가 아니다')
+        return write(a.out, res)
+    try:
+        keys = issue_keys('KRW-BTC,KRW-ETH', 2)
+    except Exception as e:
+        res.update(ok=False, error=str(e))
+        return write(a.out, res)
+    A, C = keys
+    psql("UPDATE users SET kind = 'HUMAN' WHERE id = %d" % C['user_id'])
+    res['users'] = {'A': A['user_id'], 'C': C['user_id']}
+    # (1) 두 노드가 살아 있을 때. api-1 은 p0 주문을 직접, p1 주문은 인계 행으로 넘긴다.
+    ids_a, placed_a = place_four(A)
+    wait_open(ids_a)
+    t0 = time.monotonic()
+    live = call(API['chaos-api-1'], 'DELETE', '/api/v1/orders', A, timeout=60)
+    res['live'] = {'placed': placed_a, 'response': live, 'elapsed_ms': round((time.monotonic() - t0) * 1000, 1)}
+    time.sleep(0.5)
+    res['live']['order_states'] = order_states(ids_a)
+    res['live']['handoff_rows'] = handoff_rows(A['user_id'])
+    # (2) api-1 의 p1 참여를 끈다. 끄지 않으면 api-1 이 p1 만료 뒤 1×TTL 에 넘겨받아 두 요청을 직접 처리한다(설계 11절 지적 4).
+    res['api1_p1_participate_off'] = set_participate('chaos-api-1', False, 'matching-p1')
+    ids_c, placed_c = place_four(C)
+    wait_open(ids_c)
+    res['paused_placed'] = placed_c
+    paused = []
+    token = None
+    try:
+        token = admin_session()
+        res['pause_rc'] = pl.docker(['pause', 'chaos-api-2'])[0]
+        lease_row = partition_lease('matching-p1')
+        r = call(API['chaos-api-1'], 'DELETE', '/api/v1/orders', C, timeout=60)
+        paused.append({'kind': 'cancel_all', 'at': now_iso(), 'p1_lease': lease_row,
+                       'p1_holder_node': holder_node(lease_row, holders), 'status': r.get('status'),
+                       'canceled_count': r.get('body_canceled_count'), 'failed': r.get('body_failed')})
+        lease_row = partition_lease('matching-p1')
+        close = admin_close(token, C['external_id'])
+        paused.append({'kind': 'member_close', 'at': now_iso(), 'p1_lease': lease_row,
+                       'p1_holder_node': holder_node(lease_row, holders), 'status': close.get('status'),
+                       'error': close.get('error'), 'pending_reasons': close.get('pending_reasons')})
+    except Exception as e:
+        res['paused_error'] = str(e)
+    finally:
+        res['unpause_rc'] = pl.docker(['unpause', 'chaos-api-2'])[0]
+    res['paused_requests'] = paused
+    # (3) 재개 뒤 인계 행이 소유 노드에서 끝나거나 요청자가 포기했는지 본다. 끝나지 않은 행(PENDING·CLAIMED)이 0 이 될 때까지.
+    deadline = time.monotonic() + 90
+    rows = handoff_rows(C['user_id'])
+    while time.monotonic() < deadline and any(x['state'] in ('PENDING', 'CLAIMED') for x in rows):
+        time.sleep(1)
+        rows = handoff_rows(C['user_id'])
+    res['after_resume'] = {'handoff_rows': rows, 'order_states': order_states(ids_c),
+                           'open_rows': sum(1 for x in rows if x['state'] in ('PENDING', 'CLAIMED'))}
+    res['api1_p1_participate_on'] = set_participate('chaos-api-1', True, 'matching-p1')
+    res['ok'] = True
     return write(a.out, res)
 
 
@@ -931,7 +1031,7 @@ def main(argv=None):
     k.add_argument('--markets', required=True)
     k.add_argument('--count', type=int, default=4)
     k.add_argument('--out', required=True)
-    for name in ('z2', 'z3', 'z4', 'zroute'):
+    for name in ('z2', 'z3', 'z4', 'zroute', 'q16'):
         p = sub.add_parser(name)
         p.add_argument('--out', required=True)
     s = sub.add_parser('lbsplit')
@@ -943,7 +1043,7 @@ def main(argv=None):
     s.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     return {'keys': run_keys, 'z2': run_z2, 'z3': run_z3, 'z4': run_z4, 'zroute': run_zroute,
-            'lbsplit': run_lbsplit}[a.cmd](a)
+            'lbsplit': run_lbsplit, 'q16': run_q16}[a.cmd](a)
 
 
 if __name__ == '__main__':

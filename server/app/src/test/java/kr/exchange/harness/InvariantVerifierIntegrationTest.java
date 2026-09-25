@@ -290,6 +290,16 @@ class InvariantVerifierIntegrationTest {
         assertEquals(InvariantCheck.Scope.AUTHORITATIVE_ONLY, c31.scope());
         assertTrue(scheduled.stream().noneMatch(r -> r.check() == c31), "C31 은 상시 스케줄에서 빠져야 한다");
         assertTrue(run.results().stream().anyMatch(r -> r.check() == c31 && r.ok()), "C31 이 권위 run 에서 돌지 않았다");
+        // C30(파티션 epoch 의 자원 대조)은 네 표 전량을 훑는 스냅샷 판정이라 권위 run 한정이다(ADR 0034 S7, 하네스 검증설계 §4-2 ④).
+        // 카탈로그는 앱 enum 32개다(하네스 검증설계 §4-1 개수).
+        InvariantCheck c30 = InvariantCheck.valueOf("C30_FENCING_RESOURCE_MATCH");
+        assertEquals(InvariantCheck.Severity.CRITICAL, c30.severity());
+        assertEquals(InvariantCheck.Scope.AUTHORITATIVE_ONLY, c30.scope());
+        assertTrue(scheduled.stream().noneMatch(r -> r.check() == c30), "C30 은 상시 스케줄에서 빠져야 한다");
+        assertTrue(run.results().stream().anyMatch(r -> r.check() == c30 && r.ok()), "C30 이 권위 run 에서 돌지 않았다");
+        assertTrue(run.results().stream().anyMatch(r -> r.check() == InvariantCheck.C22_FENCING_MONOTONIC && r.ok()),
+                "C22' 가 권위 run 에서 돌지 않았다");
+        assertEquals(32, InvariantCheck.values().length, "앱 enum 개수가 카탈로그(32)와 다르다");
         // 권위 run 은 같은 트랜잭션 안에서 JIT 을 끄고 돈다(감사 문장의 JIT 컴파일이 실행보다 길다, S3 설계 3절 P8).
         assertEquals("off", verifier.lastAuthoritativeJit(), "권위 run 트랜잭션의 jit 가 off 가 아니다");
         assertEquals("on", count("SELECT CASE WHEN current_setting('jit') = 'on' THEN 1 ELSE 0 END") == 1 ? "on"

@@ -2,10 +2,13 @@
 #   1) 호스트에서 :app:bootJar 빌드(프로젝트는 ASCII 경로에 있어야 한다)
 #   2) app.jar를 빌드 컨텍스트로 복사 → 이미지 빌드
 #   3) compose up --wait
-# 사용: pwsh -File scripts/up.ps1 [-Obs] [-Relay]
+# 사용: pwsh -File scripts/up.ps1 [-Obs] [-Relay] [-P3]
 #   -Relay  WebSocket 중계 오버레이(harness/docker-compose.relay.yml)를 겹친다(ADR 0034 S6, 마켓분할_리더_S6_설계 4-19).
 #           CHAOS_COMPOSE_OVERLAYS 를 그 파일로 채우고 이미 다른 값이면 멈춘다. 브로커 비밀 값은 .env.chaos 의 CHAOS_RELAY_PASSCODE 다.
-param([switch] $Obs, [switch] $Relay)
+#   -P3     중계 오버레이 뒤에 P3 오버레이(harness/docker-compose.p3.yml)를 겹친다(ADR 0034 S7, 마켓분할_리더_S7_설계 4-9). -Relay 를
+#           함께 켠다. 선호 파티션과 LB 합본(nginx.partition-relay.conf)만 겹치고 모드는 바꾸지 않는다. P3 로 올리는 것은 전환 도구
+#           (harness/scale/protocol_latch.py transition --target 3)다.
+param([switch] $Obs, [switch] $Relay, [switch] $P3)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -30,7 +33,10 @@ if (-not (Test-Path $Global:CHAOS.EnvFile)) {
     throw ".env.chaos 부재. harness/.env.chaos.example를 harness/.env.chaos로 복사하고 CHAOS_MASTER_KEY_BASE64 등 값을 채운 뒤 다시 실행한다."
 }
 # 오버레이 확인은 빌드 전에 한다. 비밀 값이 없으면 compose 해석에서 멈추므로 이미지를 굽기 전에 알린다.
-if ($Relay) {
+if ($P3) {
+    Set-P3Overlay
+    Write-Host "중계·P3 오버레이: $env:CHAOS_COMPOSE_OVERLAYS"
+} elseif ($Relay) {
     Set-RelayOverlay
     Write-Host "중계 오버레이: $env:CHAOS_COMPOSE_OVERLAYS"
 }

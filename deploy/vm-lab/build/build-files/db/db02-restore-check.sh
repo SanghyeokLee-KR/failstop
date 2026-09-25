@@ -184,10 +184,10 @@ if not source_counts:
     problems.append('DB01 결과 JSON에 source_counts가 없다')
 elif source_counts != restored:
     problems.append('원본과 복원 건수가 다르다')
-# summary.sql은 C01부터 C29와 C31을 낸다. 행이 모자라면 일부 판정이 사라진 것이다.
-# summary.sql 판정 어휘(하네스 검증설계 §4-1, ADR 0034 S3). N/A 는 C29·C31 만 낼 수 있고 통과로도 실패로도 세지 않는다.
+# summary.sql은 C01부터 C31까지 낸다(C30은 ADR 0034 S7). 행이 모자라면 일부 판정이 사라진 것이다.
+# summary.sql 판정 어휘(하네스 검증설계 §4-1, ADR 0034 S3·S7). N/A 는 C29·C30·C31 만 낼 수 있고 통과로도 실패로도 세지 않는다.
 VERDICTS = ('PASS', 'FAIL', 'SKIP', 'N/A')
-bad_na = [r.get('code') for r in rows if r.get('verdict') == 'N/A' and r.get('code') not in ('C29', 'C31')]
+bad_na = [r.get('code') for r in rows if r.get('verdict') == 'N/A' and r.get('code') not in ('C29', 'C30', 'C31')]
 if len(rows) < 28 or any(r.get('verdict') not in VERDICTS for r in rows) or bad_na:
     problems.append('정합성 검사 결과가 불완전하다')
 failed = [r['code'] for r in rows
