@@ -33,6 +33,7 @@ final class AiPolicy {
     // 봇 부하 1회 최대 절반(1단계 화면 규칙)과 결과 하한(제안값)
     static final BigDecimal BOT_MIN_FACTOR = new BigDecimal("0.5");
     static final BigDecimal BOT_FLOOR_OPS = new BigDecimal("1.0");
+    static final String BOT_GUARD = "bot.capacity_guard";
     // 쿨다운이 없는 종류(보류, 백업)도 사람이 거절한 같은 조치를 곧바로 자동 실행하지 않는다(제안값, 정책 A9).
     static final Duration REJECT_HOLD_MIN = Duration.ofMinutes(15);
 
@@ -141,6 +142,7 @@ final class AiPolicy {
             case AiAction.ReadNodes r -> r.delta() > 0 ? d1ScaleOut(f.evidence())
                     : d2ScaleIn(f.evidence(), f.scaleInSustain(), f.now());
             case AiAction.Threshold t -> d3Threshold(t, f.evidence());
+            case AiAction.BotLoad b -> d4BotLoad(f.evidence());
             default -> null;
         };
     }
@@ -559,6 +561,23 @@ final class AiPolicy {
                 ? readOver(ev, current) : AiEvidence.beyond(t.key(), current, item.value());
         return over ? new Denial("D3", "direction_conflict", "방향 모순: 근거 지표 " + ApiFormats.amount(current)
                 + "가 이미 임계를 넘은 상태에서 임계를 둔하게 바꾸지 않습니다.") : null;
+    }
+
+    /**
+     * D4. 봇 부하 줄이기는 bot-1 CPU 가 봇 용량 보호 임계 이상일 때만. 그 임계가 AI 봇 부하 줄임의 기준이고(설계 5-1),
+     * 미설정이거나 CPU 를 모르면 줄이지 않는다. 경보 문장에 끼워 넣은 지시를 모델이 따라도 근거의 수치가 막는다.
+     */
+    static Denial d4BotLoad(AiEvidence ev) {
+        AiEvidence.Threshold guard = ev.thresholds().get(BOT_GUARD);
+        Double cpu = ev.metric(AiEvidence.BOT_HOST_CPU).value();
+        if (guard == null || guard.value() == null || cpu == null) {
+            return new Denial("D4", "direction_conflict", "방향 모순: 봇 용량 보호 임계나 봇 호스트 CPU를 모르면 봇 부하를"
+                    + " 줄이지 않습니다.");
+        }
+        BigDecimal value = BigDecimal.valueOf(cpu);
+        return value.compareTo(guard.value()) >= 0 ? null
+                : new Denial("D4", "direction_conflict", "방향 모순: 봇 호스트 CPU " + ratio(value) + "가 용량 보호 임계 "
+                + ApiFormats.amount(guard.value()) + " 이상이 아닙니다.");
     }
 
     /** 경보를 덜 울리게(조회 임계는 용량 보호를 약하게) 하는 방향인가. */

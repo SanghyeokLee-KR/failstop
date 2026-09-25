@@ -71,7 +71,10 @@ dependencies {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    // 로컬 LLM 평가(@Tag("llm-eval"))는 실제 모델을 부르므로 기본 test·build 에서 빼고 llmEval 태스크에서만 돌린다.
+    useJUnitPlatform {
+        if (name == "llmEval") includeTags("llm-eval") else excludeTags("llm-eval")
+    }
     // 테스트 워커의 파일·경로 인코딩을 UTF-8로 고정해 콘솔 코드페이지와 무관하게 재현되게 한다.
     // 다만 이 설정으로 비ASCII 프로젝트 경로가 구제되지는 않는다. 워커가 @argfile 클래스패스를
     // cp949로 디코딩해 ClassNotFoundException을 내는 문제는 프로젝트를 ASCII 경로에 두어야만
@@ -85,4 +88,19 @@ tasks.withType<Test> {
     systemProperty("harness.sql.dir", harnessSql.absolutePath)
     inputs.file(rootProject.file("../deploy/provision-runtime-roles.sql"))
         .withPropertyName("runtimeRoleProvisioning").withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// 로컬 LLM 판단 평가(docs/measurements/20260925.md). check·build 에 걸지 않는다. 모델과 조건은 -Pllm.eval.* 로 준다.
+// 예: .\gradlew.bat :app:llmEval -Pllm.eval.models=gpt-oss:20b -Pllm.eval.out=<결과 폴더>
+tasks.register<Test>("llmEval") {
+    description = "로컬 Ollama 모델로 관제센터 AI 판단과 상담을 평가한다."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    outputs.upToDateWhen { false }
+    testLogging.showStandardStreams = true
+    listOf("base-url", "models", "runs", "think", "timeout-seconds", "out", "label", "set", "scenarios", "chat",
+        "allow-other-loaded").forEach { key ->
+        providers.gradleProperty("llm.eval.$key").orNull?.let { systemProperty("llm.eval.$key", it) }
+    }
 }

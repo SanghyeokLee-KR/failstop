@@ -806,20 +806,29 @@ class AiLoopIntegrationTest {
     }
 
     @Test
-    void 축소_후보인_동안은_근거가_같아도_평온_주기로_쉬지_않고_표본을_모은다() {
+    void 축소_후보인_동안은_평온_주기로_쉬지_않고_지속을_채운_주기에_한_번_더_묻는다() throws Exception {
         rig.nodes(3);
         src.cpu = 0.10;
         src.llmContent = NONE;
         rig.ticks(1, MINUTE);
         assertEquals(1, src.chatCalls());
+        assertFalse(lastEvidence().path("catalog").toString().contains("READ_NODE_REMOVE_ONE"),
+                "지속을 채우기 전에는 축소를 보이지 않는다");
         int probes = src.node.requests("/actuator/prometheus").size();
 
         rig.ticks(3, MINUTE);
 
-        assertEquals(1, src.chatCalls(), "근거가 같으면 모델은 다시 부르지 않는다");
-        assertEquals(3.0, rig.skips("unchanged"));
+        assertEquals(2, src.chatCalls(), "지속을 채우면 카탈로그에 축소가 나타나 근거가 바뀐다");
+        assertTrue(lastEvidence().path("catalog").toString().contains("READ_NODE_REMOVE_ONE"));
+        assertEquals(2.0, rig.skips("unchanged"), "그 뒤 근거가 같으면 모델은 다시 부르지 않는다");
         assertEquals(0.0, rig.skips("calm_wait"), "축소 후보인 동안은 평온 주기로 쉬지 않는다");
         assertTrue(src.node.requests("/actuator/prometheus").size() > probes, "주기마다 노드를 잰다");
+    }
+
+    private JsonNode lastEvidence() throws Exception {
+        List<StubSource.Request> sent = src.llm.requests("/v1/chat/completions");
+        JsonNode body = rig.mapper.readTree(sent.get(sent.size() - 1).body());
+        return rig.mapper.readTree(body.path("messages").get(1).path("content").asText());
     }
 
     @Test

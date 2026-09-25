@@ -22,18 +22,21 @@ public sealed interface AiAction {
     enum Verb {
         NO_ACTION(null, "조치하지 않습니다. 근거가 부족하거나 확신이 없거나, 허용 목록의 조치로 고칠 수 없는 문제일 때"
                 + " 고릅니다. target 과 value 는 빈 문자열입니다."),
-        READ_NODE_ADD_ONE(Kind.READ_NODES, "조회 노드를 1대 늘립니다. 조회 계층 평균 CPU가 증설 임계 이상이고 희망 대수가"
-                + " 최대보다 작을 때만 뜻이 있습니다."),
-        READ_NODE_REMOVE_ONE(Kind.READ_NODES, "조회 노드를 1대 줄입니다. 조회 계층 평균 CPU가 축소 임계 미만으로 한동안"
-                + " 이어지고 희망 대수가 최소보다 클 때만 뜻이 있습니다."),
-        THRESHOLD_RAISE(Kind.THRESHOLD, "임계값 항목 하나를 올립니다. target 은 항목 키, value 는 지금 값보다 큰 새 값이며"
-                + " 한 번에 그 항목의 최대 변경폭까지만 바꿉니다."),
-        THRESHOLD_LOWER(Kind.THRESHOLD, "임계값 항목 하나를 내립니다. target 은 항목 키, value 는 지금 값보다 작은 새 값이며"
-                + " 한 번에 그 항목의 최대 변경폭까지만 바꿉니다."),
+        READ_NODE_ADD_ONE(Kind.READ_NODES, "조회 노드를 1대 늘립니다. 지금 목표로 둔 희망 대수(desired)를 1 늘리는 조치입니다."
+                + " 조회 계층 평균 CPU가 증설 임계 이상이고 희망 대수가 최대(max)보다 작을 때만 catalog 에 있으므로, catalog 에"
+                + " 있으면 이 조건은 이미 채운 것입니다."),
+        READ_NODE_REMOVE_ONE(Kind.READ_NODES, "조회 노드를 1대 줄입니다. 조회 계층 평균 CPU가 축소 임계 미만인 상태가 정해진"
+                + " 지속 시간 이상 이어지고 희망 대수(desired)가 최소(min)보다 클 때만 catalog 에 있으므로, catalog 에 있으면"
+                + " 지속 시간을 포함한 이 조건은 이미 채운 것입니다."),
+        THRESHOLD_RAISE(Kind.THRESHOLD, "임계값 항목 하나를 올립니다. target 은 catalog 의 항목 키, value 는 지금 값보다 큰 새"
+                + " 값이며 한 번에 그 항목의 최대 변경폭까지만 바꿉니다. 울리는 경보나 이미 넘은 지표를 가리려고 쓰지 않습니다."),
+        THRESHOLD_LOWER(Kind.THRESHOLD, "임계값 항목 하나를 내립니다. target 은 catalog 의 항목 키, value 는 지금 값보다 작은 새"
+                + " 값이며 한 번에 그 항목의 최대 변경폭까지만 바꿉니다. 울리는 경보나 이미 넘은 지표를 가리려고 쓰지 않습니다."),
         ALERT_SILENCE(Kind.SILENCE, "warning 경보 하나를 1~30분 보류합니다. 운영자가 등록한 계획 작업 창 안의 경보만 됩니다."
                 + " target 은 경보 지문, value 는 분입니다. 고칠 수 없는 문제를 가리려고 쓰지 않습니다."),
-        BOT_LOAD_REDUCE(Kind.BOT_LOAD, "시장 봇 발행률을 줄입니다. value 는 0.5 이상 1 미만의 배율입니다. 늘리는 조치는"
-                + " 없습니다."),
+        BOT_LOAD_REDUCE(Kind.BOT_LOAD, "시장 봇 발행률을 줄입니다. 봇 호스트 CPU(bot_host_cpu)가 봇 용량 보호 임계"
+                + "(bot.capacity_guard) 이상일 때만 뜻이 있고, 그때만 catalog 에 있습니다. value 는 0.5 이상 1 미만의"
+                + " 배율입니다. 조회 계층, DB, 지연 문제를 풀려고 쓰지 않고, 늘리는 조치는 없습니다."),
         BACKUP_RUN_NOW(Kind.BACKUP_NOW, "DB 백업을 지금 한 번 실행합니다.");
 
         private final Kind kind;

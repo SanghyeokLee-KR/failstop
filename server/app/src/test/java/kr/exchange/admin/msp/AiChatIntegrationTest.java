@@ -131,7 +131,8 @@ class AiChatIntegrationTest {
         List<AiChat.Message> history = List.of(new AiChat.Message("user", "조회 노드는 몇 대인가요?"),
                 new AiChat.Message("assistant", "희망 2대입니다."));
 
-        chat(rig).ask(AiRig.VIEWER, "지금도 같나요?", history, "req");
+        AiChat.Answer a = chat(rig).ask(AiRig.VIEWER, "지금도 같나요?", history, "req");
+        assertEquals("조회 계층 평균 CPU", a.citations().get(0).get("label"), "값이 평균 CPU 임을 이름에 드러낸다");
 
         JsonNode messages = lastChatRequest().path("messages");
         assertEquals(4, messages.size(), "시스템, 대화 두 칸, 근거와 질문");

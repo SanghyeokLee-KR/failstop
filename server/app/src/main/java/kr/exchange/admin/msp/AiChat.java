@@ -317,7 +317,7 @@ public class AiChat {
         }
         if (ev.read() != null) {
             AiEvidence.ReadTier r = ev.read();
-            Map<String, Object> item = item("read_tier", "조회 계층");
+            Map<String, Object> item = item("read_tier", "조회 계층 평균 CPU");
             item.put("min", r.min());
             item.put("desired", r.desired());
             item.put("max", r.max());

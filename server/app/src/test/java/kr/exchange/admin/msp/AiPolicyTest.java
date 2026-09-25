@@ -348,6 +348,27 @@ class AiPolicyTest {
         denied("B3", AiPolicy.b3Source(new AiEvidence.Bot(null, "unknown", null)));
     }
 
+    @Test
+    void D4_봇_부하는_봇_호스트_CPU가_용량_보호_임계_이상일_때만_줄인다() {
+        AiFixtures.Ev ev = new AiFixtures.Ev().metric(AiEvidence.BOT_HOST_CPU, 0.93, NOW);
+        denied("D4", AiPolicy.d4BotLoad(ev.build()), "기준이 미설정이면 줄이지 않는다");
+        ev.threshold(AiPolicy.BOT_GUARD, "0.85", "0.50", "0.90", "0.05", false);
+        assertNull(AiPolicy.d4BotLoad(ev.build()));
+        ev.metric(AiEvidence.BOT_HOST_CPU, 0.28, NOW);
+        AiPolicy.Denial idle = AiPolicy.d4BotLoad(ev.build());
+        denied("D4", idle, "봇 호스트가 한가하다");
+        assertEquals("direction_conflict", idle.code());
+        ev.metric(AiEvidence.BOT_HOST_CPU, null, null);
+        denied("D4", AiPolicy.d4BotLoad(ev.build()), "CPU 를 모른다");
+
+        AiAction.BotLoad half = new AiAction.BotLoad(new BigDecimal("0.5"));
+        denied("D4", AiPolicy.proposal(half, AiFixtures.facts(ev.build(), AiFixtures.manual(), null, AiPolicy.History.NONE)),
+                "제안 때도 막는다");
+        ev.metric(AiEvidence.BOT_HOST_CPU, 0.93, NOW);
+        assertNull(AiPolicy.auto(half, AiFixtures.facts(ev.build(), AiFixtures.auto(), AiFixtures.request(2, "0.9"),
+                AiPolicy.History.NONE)), "전제가 서면 자동 실행 조합을 지난다");
+    }
+
     /* ===== 백업 ===== */
 
     @Test

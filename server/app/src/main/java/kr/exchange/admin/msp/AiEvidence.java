@@ -258,6 +258,9 @@ public record AiEvidence(
         }
         out.put("alerts", al);
         out.put("alerts_polled_at", alertsPolledAt == null ? null : ApiFormats.time(alertsPolledAt));
+        // 경보 목록의 신선도. 지표의 collect 와 같은 기준이라 모델이 오래된 경보 목록으로 보류를 고르지 않게 한다.
+        out.put("alerts_collect", alertsPolledAt == null ? "MISSING"
+                : Duration.between(alertsPolledAt, collectedAt).compareTo(MAX_AGE) > 0 ? "STALE" : "OK");
         Map<String, Object> met = new LinkedHashMap<>();
         metrics.forEach((name, m) -> met.put(name, measure(m.value(), m.sampledAt(),
                 name.endsWith("_seconds") ? 3 : 4)));
