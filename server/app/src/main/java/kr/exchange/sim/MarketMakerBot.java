@@ -368,7 +368,7 @@ public class MarketMakerBot implements Runnable {
             }
             String orderId = resting.remove(priceTicks);
             if (orderId != null) {
-                client.cancelOrder(orderId);
+                client.cancelOrder(props.market(), orderId);
             }
         }
         int attempts = 0;
@@ -426,7 +426,7 @@ public class MarketMakerBot implements Runnable {
         String body = "{\"market\":\"" + props.market() + "\",\"side\":\"" + side
                 + "\",\"ord_type\":\"limit\",\"price\":\"" + price + "\",\"volume\":\"" + volume
                 + "\",\"client_order_id\":\"" + coid + "\"}";
-        BotApiClient.Response response = client.placeOrder(body);
+        BotApiClient.Response response = client.placeOrder(props.market(), body);
         if (response.status() == 201 || response.status() == 200) {
             // 접수 확정. coid 소비. 이후 같은 레벨 재발주는 새 주문이라 새 coid를 쓴다.
             pendingCoid.remove(priceTicks);

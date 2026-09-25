@@ -44,7 +44,8 @@ export default function OpenOrdersMini({ market }: { market: string }) {
     if (canceling.has(order.id)) return;
     setCanceling((s) => new Set(s).add(order.id));
     try {
-      const canceled = await getDataSource().cancelOrder(order.id);
+      // 마켓 힌트로 그 마켓을 접수하는 노드에 보낸다(API 설계 §2-5-d)
+      const canceled = await getDataSource().cancelOrder(order.id, order.market);
       // 200 응답이 권위 Order다. 재조회 왕복 전에 행을 확정한다(§4-B-2)
       upsertOrder(canceled);
       toast("주문 취소 완료", "info");

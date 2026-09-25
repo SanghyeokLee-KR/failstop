@@ -12,13 +12,15 @@ import java.io.IOException;
 
 /**
  * /api/v1/* 전 경로 바디 크기 상한(§2-6·§2-7). ApiAuthFilter가 서명 검증 대상에서 제외하는
- * /auth/·/community/ 평면도 여기서 상한이 걸린다. 인증·서명 검증보다 앞서(order 5 < ApiAuthFilter 10)
+ * /auth/·/community/ 평면도 여기서 상한이 걸린다. 인증·서명 검증보다 앞서(order 4 < ApiAuthFilter 10)
  * 실행돼 미인증 요청의 무제한 버퍼링·거대 password 유입을 바인딩 전에 끊는다.
  *
- * 상한 내 바디는 캐시해 다운스트림(ApiAuthFilter 서명 검증·컨트롤러 파싱)이 같은 바이트를 재소비한다.
+ * 상한 내 바디는 캐시해 다운스트림(소유권 선검사·ApiAuthFilter 서명 검증·컨트롤러 파싱)이 같은 바이트를 재소비한다.
+ * 순서는 바디 상한 4, 소유권 선검사 5, 수용 제한 6, IP 버킷 7, 인증 10이다(API 설계 §2-5-d v2.57). 선검사가 바디의
+ * 마켓을 읽으므로 바디를 한 번만 읽도록 이 필터가 앞에 선다.
  */
 @Component
-@Order(5)
+@Order(4)
 public class RequestSizeLimitFilter extends OncePerRequestFilter {
 
     private final ErrorRenderer errorRenderer;

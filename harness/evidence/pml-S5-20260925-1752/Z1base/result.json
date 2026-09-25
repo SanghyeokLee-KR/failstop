@@ -1,0 +1,593 @@
+{
+  "phase": "Z1base",
+  "verdict": "RECORD",
+  "safetyOk": true,
+  "safety": {
+    "lb_nginx_t_ok_and_sha_same": true,
+    "lease_unchanged": true,
+    "trades_in_window_gt_0": true,
+    "image_is_base": true,
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "orders_500_0": true,
+    "drained_and_unsettled_0": true,
+    "recovery_runs_mismatch_0": true,
+    "api_logs_no_unhandled_or_auth_500": true,
+    "no_permission_function_errors": true
+  },
+  "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+  "baseRef": "exchange-chaos-app:s4b3ref",
+  "leader": "chaos-api-1",
+  "lb": {
+    "lbConf": "default",
+    "file": "harness/nginx/nginx.conf",
+    "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+    "nginxTRc": 0,
+    "sha256Inside": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "sha256Repo": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "same": true,
+    "envChaosLbConf": ""
+  },
+  "k6WsTotals": {
+    "ws_epoch_resync_fail": 0,
+    "ws_seq_gap{phase:steady,dest:orderbook}": 0,
+    "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}": 76630,
+    "ws_seq_observed{phase:steady,dest:trade}": 53920,
+    "ws_stale_discarded{phase:steady,dest:orderbook}": 0,
+    "ws_stale_discarded{phase:steady,dest:trade}": 0
+  },
+  "k6FailedRuns": [],
+  "window": {
+    "from": "2026-09-25 09:22:30.899",
+    "to": "2026-09-25 09:30:34.734",
+    "t0": "2026-09-25T09:22:30.9101411+00:00",
+    "t1": "2026-09-25T09:30:34.5254486+00:00",
+    "botOps": 300,
+    "k6Runs": 4
+  },
+  "k6": [
+    {
+      "runId": "z1b1182230",
+      "rc": 0,
+      "from": "2026-09-25T09:22:30.9166500+00:00",
+      "to": "2026-09-25T09:24:31.6934538+00:00",
+      "log": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base-k6\\z1b1182230.log",
+      "sha256": "a3c2fb649734e11d9a205b586ce28e7146e800adbd3ee079d67e30a2a41169a2",
+      "thresholdLines": [
+        "accepted_req_duration{scenario:orders_steady,phase:steady}",
+        "[통과] 'p(95)<200' p(95)=22.58ms",
+        "[통과] 'p(99)<500' p(99)=36.88ms",
+        "accepted_total{phase:steady,replay:false}",
+        "[통과] 'count>900' count=1350",
+        "checks{check:idempotent_safe}",
+        "[통과] 'rate==1' rate=100.00%",
+        "http_req_failed{name:lookup,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "market_contention{phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "ws_epoch_resync_fail",
+        "[통과] 'count==0' count=0",
+        "ws_seq_gap{phase:steady,dest:orderbook}",
+        "[통과] 'count==0' count=0",
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}",
+        "[통과] 'count>100' count=19940",
+        "ws_seq_observed{phase:steady,dest:trade}",
+        "[통과] 'count>10' count=13980",
+        "ws_stale_discarded{phase:steady,dest:orderbook}",
+        "[통과] 'count<200' count=0",
+        "ws_stale_discarded{phase:steady,dest:trade}",
+        "[통과] 'count<10' count=0"
+      ],
+      "ws": {
+        "ws_epoch_resync_fail": 0,
+        "ws_seq_gap{phase:steady,dest:orderbook}": 0,
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}": 19940,
+        "ws_seq_observed{phase:steady,dest:trade}": 13980,
+        "ws_stale_discarded{phase:steady,dest:orderbook}": 0,
+        "ws_stale_discarded{phase:steady,dest:trade}": 0
+      },
+      "failedThresholds": []
+    },
+    {
+      "runId": "z1b2182431",
+      "rc": 0,
+      "from": "2026-09-25T09:24:31.8625670+00:00",
+      "to": "2026-09-25T09:26:32.6582547+00:00",
+      "log": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base-k6\\z1b2182431.log",
+      "sha256": "7d9f276e20816504d24c2e6a88958575b424cd42953a8a222fab3efe4c0179d4",
+      "thresholdLines": [
+        "accepted_req_duration{scenario:orders_steady,phase:steady}",
+        "[통과] 'p(95)<200' p(95)=19.84ms",
+        "[통과] 'p(99)<500' p(99)=28.68ms",
+        "accepted_total{phase:steady,replay:false}",
+        "[통과] 'count>900' count=1350",
+        "checks{check:idempotent_safe}",
+        "[통과] 'rate==1' rate=100.00%",
+        "http_req_failed{name:lookup,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "market_contention{phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "ws_epoch_resync_fail",
+        "[통과] 'count==0' count=0",
+        "ws_seq_gap{phase:steady,dest:orderbook}",
+        "[통과] 'count==0' count=0",
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}",
+        "[통과] 'count>100' count=18660",
+        "ws_seq_observed{phase:steady,dest:trade}",
+        "[통과] 'count>10' count=12760",
+        "ws_stale_discarded{phase:steady,dest:orderbook}",
+        "[통과] 'count<200' count=0",
+        "ws_stale_discarded{phase:steady,dest:trade}",
+        "[통과] 'count<10' count=0"
+      ],
+      "ws": {
+        "ws_epoch_resync_fail": 0,
+        "ws_seq_gap{phase:steady,dest:orderbook}": 0,
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}": 18660,
+        "ws_seq_observed{phase:steady,dest:trade}": 12760,
+        "ws_stale_discarded{phase:steady,dest:orderbook}": 0,
+        "ws_stale_discarded{phase:steady,dest:trade}": 0
+      },
+      "failedThresholds": []
+    },
+    {
+      "runId": "z1b3182632",
+      "rc": 0,
+      "from": "2026-09-25T09:26:32.7902405+00:00",
+      "to": "2026-09-25T09:28:33.5203870+00:00",
+      "log": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base-k6\\z1b3182632.log",
+      "sha256": "6cf5b1e354a77fc5b70815c68dd4aa313be386bf6d57702522343ceb1b02eb44",
+      "thresholdLines": [
+        "accepted_req_duration{scenario:orders_steady,phase:steady}",
+        "[통과] 'p(95)<200' p(95)=23.53ms",
+        "[통과] 'p(99)<500' p(99)=31.46ms",
+        "accepted_total{phase:steady,replay:false}",
+        "[통과] 'count>900' count=1350",
+        "checks{check:idempotent_safe}",
+        "[통과] 'rate==1' rate=100.00%",
+        "http_req_failed{name:lookup,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "market_contention{phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "ws_epoch_resync_fail",
+        "[통과] 'count==0' count=0",
+        "ws_seq_gap{phase:steady,dest:orderbook}",
+        "[통과] 'count==0' count=0",
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}",
+        "[통과] 'count>100' count=19180",
+        "ws_seq_observed{phase:steady,dest:trade}",
+        "[통과] 'count>10' count=13670",
+        "ws_stale_discarded{phase:steady,dest:orderbook}",
+        "[통과] 'count<200' count=0",
+        "ws_stale_discarded{phase:steady,dest:trade}",
+        "[통과] 'count<10' count=0"
+      ],
+      "ws": {
+        "ws_epoch_resync_fail": 0,
+        "ws_seq_gap{phase:steady,dest:orderbook}": 0,
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}": 19180,
+        "ws_seq_observed{phase:steady,dest:trade}": 13670,
+        "ws_stale_discarded{phase:steady,dest:orderbook}": 0,
+        "ws_stale_discarded{phase:steady,dest:trade}": 0
+      },
+      "failedThresholds": []
+    },
+    {
+      "runId": "z1b4182833",
+      "rc": 0,
+      "from": "2026-09-25T09:28:33.6214908+00:00",
+      "to": "2026-09-25T09:30:34.3726085+00:00",
+      "log": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base-k6\\z1b4182833.log",
+      "sha256": "837324cd479dc22cada300d9e4be45e91381a5ab8ccda21d4b2002d8e8265f24",
+      "thresholdLines": [
+        "accepted_req_duration{scenario:orders_steady,phase:steady}",
+        "[통과] 'p(95)<200' p(95)=21.63ms",
+        "[통과] 'p(99)<500' p(99)=29.1ms",
+        "accepted_total{phase:steady,replay:false}",
+        "[통과] 'count>900' count=1349",
+        "checks{check:idempotent_safe}",
+        "[통과] 'rate==1' rate=100.00%",
+        "http_req_failed{name:lookup,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "market_contention{phase:steady}",
+        "[통과] 'rate<0.001' rate=0.00%",
+        "ws_epoch_resync_fail",
+        "[통과] 'count==0' count=0",
+        "ws_seq_gap{phase:steady,dest:orderbook}",
+        "[통과] 'count==0' count=0",
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}",
+        "[통과] 'count>100' count=18850",
+        "ws_seq_observed{phase:steady,dest:trade}",
+        "[통과] 'count>10' count=13510",
+        "ws_stale_discarded{phase:steady,dest:orderbook}",
+        "[통과] 'count<200' count=0",
+        "ws_stale_discarded{phase:steady,dest:trade}",
+        "[통과] 'count<10' count=0"
+      ],
+      "ws": {
+        "ws_epoch_resync_fail": 0,
+        "ws_seq_gap{phase:steady,dest:orderbook}": 0,
+        "ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}": 18850,
+        "ws_seq_observed{phase:steady,dest:trade}": 13510,
+        "ws_stale_discarded{phase:steady,dest:orderbook}": 0,
+        "ws_stale_discarded{phase:steady,dest:trade}": 0
+      },
+      "failedThresholds": []
+    }
+  ],
+  "lease": {
+    "before": {
+      "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+      "epoch": 5,
+      "alive": true
+    },
+    "after": {
+      "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+      "epoch": 5,
+      "alive": true
+    },
+    "samples": [
+      {
+        "at": "2026-09-25T09:24:31.8499887+00:00",
+        "epoch": 5,
+        "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+        "alive": true
+      },
+      {
+        "at": "2026-09-25T09:26:32.7840797+00:00",
+        "epoch": 5,
+        "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+        "alive": true
+      },
+      {
+        "at": "2026-09-25T09:28:33.6129489+00:00",
+        "epoch": 5,
+        "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+        "alive": true
+      },
+      {
+        "at": "2026-09-25T09:30:34.5172645+00:00",
+        "epoch": 5,
+        "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+        "alive": true
+      }
+    ]
+  },
+  "trades": 11739,
+  "lbWindow": {
+    "access": 37448,
+    "partitionFormat": 0,
+    "status500": 0,
+    "status502": 0,
+    "status503": 0,
+    "status504": 0,
+    "noLiveUpstreams": 0,
+    "twoAttempts": 0,
+    "maxRt": 0.0,
+    "first5xx": null,
+    "last5xx": null
+  },
+  "metricsWindow": {
+    "18080": {
+      "orders_post_201": 19143.0
+    },
+    "28080": {}
+  },
+  "tail": {
+    "axes": {
+      "invariants_summary": true,
+      "invariants_authoritative": true,
+      "orders_500_0": true,
+      "drained_and_unsettled_0": true,
+      "recovery_runs_mismatch_0": true,
+      "api_logs_no_unhandled_or_auth_500": true,
+      "no_permission_function_errors": true
+    },
+    "orders500": {
+      "rc": 0,
+      "ok": true,
+      "readable": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "zero": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "file": "orders500.json"
+    },
+    "drained": true,
+    "state": {
+      "ok": true,
+      "error": null,
+      "ts": "2026-09-25T18:30:40+09:00",
+      "protocol": 2,
+      "changed_at": "2026-09-25T18:20:58.32516+09:00",
+      "history": [
+        {
+          "id": 1,
+          "protocol": 1,
+          "prev_protocol": null,
+          "epoch_floor": 0,
+          "changed_at": "2026-09-25T18:20:35.211954+09:00",
+          "changed_by": "exchange"
+        },
+        {
+          "id": 2,
+          "protocol": 2,
+          "prev_protocol": 1,
+          "epoch_floor": 1,
+          "changed_at": "2026-09-25T18:20:58.32516+09:00",
+          "changed_by": "exchange"
+        }
+      ],
+      "lease": [
+        {
+          "resource": "matching-engine",
+          "holder": "65784f31-2ae1-4d11-af01-728faf879d5c",
+          "epoch": 5,
+          "alive": true
+        },
+        {
+          "resource": "matching-p0",
+          "holder": "",
+          "epoch": 2,
+          "alive": false
+        },
+        {
+          "resource": "matching-p1",
+          "holder": "",
+          "epoch": 3,
+          "alive": false
+        }
+      ],
+      "retired": [
+        {
+          "epoch": 2,
+          "resource": "matching-p0",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:20:58.327142+09:00"
+        },
+        {
+          "epoch": 3,
+          "resource": "matching-p1",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:20:58.327347+09:00"
+        },
+        {
+          "epoch": 4,
+          "resource": "matching-engine",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:20:58.327447+09:00"
+        }
+      ],
+      "acquisitions_by_protocol": {
+        "2": 4,
+        "1": 1
+      },
+      "reservations": 20814,
+      "unsettled_new": 0,
+      "unsettled_reservations": 0,
+      "oldest_unsettled_reservation_s": null,
+      "db_now": "2026-09-25T18:30:40.592652+09:00",
+      "code": 0
+    },
+    "authoritative": {
+      "port": 18080,
+      "verdict": "PASS",
+      "checks": 31,
+      "notOk": [],
+      "ok": true
+    },
+    "summary": {
+      "rc": 0,
+      "rows": 32,
+      "gateRows": 29,
+      "notPass": [],
+      "ok": true
+    },
+    "logs": {
+      "chaos-api-1": {
+        "lines": 279,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 2,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      },
+      "chaos-api-2": {
+        "lines": 203,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      },
+      "chaos-bots": {
+        "lines": 98,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      }
+    },
+    "recoveryRuns": {
+      "success": 4,
+      "mismatch": 0
+    },
+    "botsStopRc": 0
+  },
+  "partitions": {
+    "18080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "28080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=false"
+    }
+  },
+  "stack": "2026-09-25T09:20:20.6493685+00:00",
+  "containerLogs": {
+    "chaos-api-1": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base\\chaos-api-1.log",
+      "sha256": "56e741e1fd39d3644d8bb7dc8a632bd9773115db3d8339f02d20e553d5374b6a",
+      "bytes": 69578
+    },
+    "chaos-api-2": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base\\chaos-api-2.log",
+      "sha256": "1a62dc3d0d73b50017ded8ec51e28261d38c929534eb10204cd91830719ebfa2",
+      "bytes": 56018
+    },
+    "chaos-bots": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base\\chaos-bots.log",
+      "sha256": "5633e8c6366f5ca6e6a305937f661bde3990a8355fe7335786974808a90ad70b",
+      "bytes": 15133
+    },
+    "chaos-lb": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base\\chaos-lb.log",
+      "sha256": "7517dfd095403a8a7eb8850b19898626c28ea5c2611a2369baf7116f3fcf17d6",
+      "bytes": 5085384
+    }
+  },
+  "lbLog": {
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z1base-chaos-lb.log",
+    "sha256": "617d666516cb140d507d985f3df95b0f85276d66037244b4f761afd482b9bdcd"
+  },
+  "host": {
+    "before": {
+      "at": "2026-09-25T09:20:20.6470830Z",
+      "cpuTotalPct": [
+        4.5,
+        1.8,
+        2.0,
+        0.8,
+        1.7
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 0
+    },
+    "after": {
+      "at": "2026-09-25T09:31:14.1162765Z",
+      "cpuTotalPct": [
+        31.2,
+        14.5,
+        24.5,
+        13.8,
+        23.0
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 3
+    }
+  }
+}

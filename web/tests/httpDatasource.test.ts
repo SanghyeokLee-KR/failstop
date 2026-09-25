@@ -10,6 +10,7 @@ import {
   ApiError,
   HttpStompDataSource,
   jitteredReconnectDelayMs,
+  requestHeaders,
   WS_RECONNECT_BASE_MS,
   WS_RECONNECT_MAX_MS,
   type StompFactory,
@@ -24,6 +25,8 @@ interface RecordedCall {
   url: string;
   method: string;
   auth: string | null;
+  /** 마켓 힌트 헤더(API 설계 §2-5-d). requestHeaders 가 호출부 헤더 이름을 소문자로 모은다 */
+  hint: string | null;
 }
 
 function jsonRes(status: number, body: unknown): Response {
@@ -46,6 +49,7 @@ function makeFetch(routes: Record<string, Route>) {
       url,
       method: init?.method ?? "GET",
       auth: headers["Authorization"] ?? null,
+      hint: headers["x-exchange-market"] ?? null,
     };
     calls.push(call);
     const route = routes[path];
@@ -533,6 +537,36 @@ test("cancelOrder: UUID(order.id)는 정규 라우트, client_order_id는 by-cli
   const deletes = calls.filter((c) => c.method === "DELETE");
   assert.ok(deletes[0].url.endsWith(`/api/v1/orders/${uuid}`));
   assert.ok(deletes[1].url.endsWith("/api/v1/orders/by-client/web-abc-123"));
+});
+
+test("주문 쓰기는 마켓 힌트를 싣는다: 생성은 바디의 market, 취소는 넘긴 마켓, 모르면 싣지 않는다", async () => {
+  const uuid = "1b4e28ba-2fa1-11d2-883f-0016d3cca427";
+  const order = { id: uuid, status: "OPEN", market: "KRW-ETH" };
+  const { ds, calls } = newDs({
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(15 * 60_000) }),
+    "/api/v1/orders": () => jsonRes(201, order),
+    [`/api/v1/orders/${uuid}`]: () => jsonRes(200, { ...order, status: "CANCELED" }),
+  });
+  await ds.placeOrder({
+    market: "KRW-ETH", side: "bid", ord_type: "limit", price: "50000", volume: "0.1", client_order_id: "web-1",
+  });
+  await ds.cancelOrder(uuid, "KRW-ETH");
+  await ds.cancelOrder(uuid);
+  const writes = calls.filter((c) => c.method !== "GET" && !c.url.includes("/demo/session"));
+  assert.equal(writes.length, 3);
+  assert.equal(writes[0].method, "POST");
+  assert.equal(writes[0].hint, "KRW-ETH", "생성에 힌트가 없다");
+  assert.equal(writes[1].hint, "KRW-ETH", "마켓을 넘긴 취소에 힌트가 없다");
+  assert.equal(writes[2].hint, null, "마켓을 모르는 취소에 힌트를 실었다");
+  // 호출부 헤더를 살리면서 인증 헤더는 어댑터가 정한다(requestHeaders)
+  assert.ok(writes[0].auth?.startsWith("Bearer "));
+});
+
+test("requestHeaders: 호출부의 힌트 헤더를 보존하고 인증·Content-Type 은 어댑터가 정한다", () => {
+  const headers = requestHeaders({ "X-Exchange-Market": "KRW-BTC", Authorization: "Bearer caller" }, true, "tok");
+  assert.equal(headers["x-exchange-market"], "KRW-BTC");
+  assert.equal(headers.Authorization, "Bearer tok");
+  assert.equal(headers["Content-Type"], "application/json; charset=utf-8");
 });
 
 /* ===== STOMP: seq/epoch ===== */

@@ -14,33 +14,51 @@ import java.util.UUID;
  * 테스트용 클라이언트 서명기(§3-3, §3-5 의사코드와 동일 규약).
  * canonical 산출은 서버 구현(CanonicalRequests)을 공유해 왕복 계약을 검증한다.
  */
-final class TestSigner {
+public final class TestSigner {
 
     private TestSigner() {
     }
 
-    static String bearerForBody(String accessKey, String secret, String method, String path,
+    public static String bearerForBody(String accessKey, String secret, String method, String path,
                                 byte[] body) {
         String canonical = CanonicalRequests.forBody(method, path, body);
         return bearer(accessKey, secret, CanonicalRequests.sha512Hex(canonical),
                 System.currentTimeMillis(), UUID.randomUUID().toString());
     }
 
-    static String bearerForQuery(String accessKey, String secret, String method, String path,
+    public static String bearerForQuery(String accessKey, String secret, String method, String path,
                                  Map<String, String> params) {
         return bearer(accessKey, secret, queryHash(method, path, params),
                 System.currentTimeMillis(), UUID.randomUUID().toString());
     }
 
-    static String bearerWith(String accessKey, String secret, String queryHash,
+    public static String bearerWith(String accessKey, String secret, String queryHash,
                              long timestamp, String nonce) {
         return bearer(accessKey, secret, queryHash, timestamp, nonce);
     }
 
-    static String queryHash(String method, String path, Map<String, String> params) {
+    public static String queryHash(String method, String path, Map<String, String> params) {
         Map<String, String[]> multi = new TreeMap<>();
         params.forEach((k, v) -> multi.put(k, new String[]{v}));
         return CanonicalRequests.sha512Hex(CanonicalRequests.forQuery(method, path, multi));
+    }
+
+    /**
+     * 바디 서명 요청의 Bearer. nonce 와 recvWindow 를 고른다. 같은 서명 요청을 여러 노드에 다시 보내는 시험(S5 선검사)이 같은
+     * nonce 로 허용창 안에 다시 보낸다.
+     */
+    public static String bearerForBody(String accessKey, String secret, String method, String path, byte[] body,
+                                       String nonce, long recvWindowMs) {
+        String canonical = CanonicalRequests.forBody(method, path, body);
+        return bearer(accessKey, secret, CanonicalRequests.sha512Hex(canonical), System.currentTimeMillis(), nonce,
+                recvWindowMs);
+    }
+
+    /** 쿼리 서명 요청의 Bearer. nonce 와 recvWindow 를 고른다. */
+    public static String bearerForQuery(String accessKey, String secret, String method, String path,
+                                        Map<String, String> params, String nonce, long recvWindowMs) {
+        return bearer(accessKey, secret, queryHash(method, path, params), System.currentTimeMillis(), nonce,
+                recvWindowMs);
     }
 
     static String wsQueryHash() {
@@ -49,9 +67,14 @@ final class TestSigner {
 
     private static String bearer(String accessKey, String secret, String queryHash,
                                  long timestamp, String nonce) {
+        return bearer(accessKey, secret, queryHash, timestamp, nonce, 5000);
+    }
+
+    private static String bearer(String accessKey, String secret, String queryHash,
+                                 long timestamp, String nonce, long recvWindowMs) {
         String header = b64url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
         String payload = b64url("{\"access_key\":\"" + accessKey + "\",\"nonce\":\"" + nonce
-                + "\",\"timestamp\":" + timestamp + ",\"recvWindow\":5000,\"query_hash\":\""
+                + "\",\"timestamp\":" + timestamp + ",\"recvWindow\":" + recvWindowMs + ",\"query_hash\":\""
                 + queryHash + "\",\"query_hash_alg\":\"SHA512\"}");
         String signature = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(hmac(secret, header + "." + payload));

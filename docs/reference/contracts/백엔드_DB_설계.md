@@ -1,4 +1,4 @@
-# DB 설계 (v2.56)
+# DB 설계 (v2.57)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -388,6 +388,7 @@ erDiagram
 | V51 | `V51__app_role_default_partition_select.sql` | `app_role` 에 DEFAULT 파티션 잎 다섯(`ledger_entries_default`, `event_journal_default`, `trades_default`, `outbox_default`, `command_journal_default`)의 SELECT 를 준다(§3.6). 불변식 검증기의 C15·C27 이 잎을 직접 세는데 잎은 부모 권한을 물려받지 않아, 앱 역할 로그인 검증기의 상시 run 이 C15 에서 멈추고 권위 run 이 실패했다(2026-09-24 S3 관문 X1). 읽기만 준다. 쓰기 권한은 늘지 않는다 | V1(잎과 `app_role` GRANT), V8·V12(잎 재부착), V0 |
 | V52 | `V52__lease_until_from_grant.sql` | 리스 획득이 `lease_until` 을 행 잠금을 얻은 뒤의 시각에서 센다(§3.7, §5.4-b). 내부 함수 `lease_acquire_core`(V48, 2인자 `try_acquire_leader` 경로)와 `lease_acquire_capped`(V50, 3·4인자 `try_acquire_lease` 경로)를 같은 서명·속성으로 바꾼다. 종전 판은 기다리기 전 시각에서 세어, 멈춘 옛 리더의 KEY SHARE 를 TTL 보다 오래 기다린 획득이 이미 만료된 리스를 돌려줬다(2026-09-24 S3 관문 X3). 판정·epoch 배정·잠금 순서는 그대로다 | V50, V48 |
 | V53 | `V53__failover_runs_resource.sql` | 하네스 페일오버 측정 이력 `harness.failover_runs`에 널 허용 열 `resource`를 더한다(§3.8, ADR 0034 S4). 그 사건이 옮긴 리스 자원(`matching-engine`·`matching-p0`·`matching-p1`)이고 CHECK가 세 이름만 받는다. 기본값이 없어 표를 다시 쓰지 않고, 이 열 이전의 행은 NULL이다. 리스 행 외래키는 두지 않는다. 파일은 S4 코드와 함께 만들었고 본문은 §3.8의 SQL 블록과 같다(2026-09-24, 작업 브랜치 커밋 `48629d5d`). S4 코드와 같은 이미지에 싣는다 | V4(`harness.failover_runs`) |
+| V54 | `V54__order_cancel_requests.sql` | 파티션 밖 취소 인계 표 `order_cancel_requests`(ADR 0034 S5, §3.9, §5.4-d). 일괄 취소와 회원 폐쇄가 이 노드가 접수 게이트를 열지 않은 파티션의 미체결 주문을 파티션마다 행으로(행당 주문 500개까지) 넣고, 그 파티션의 소유 노드가 리스가 자기 holder·epoch로 유효할 때만 점유해 보통의 취소 경로로 처리한 뒤 결과를 적는다. 가져가지 않은 채 5분이 지난 행과 점유한 뒤 5분 안에 끝나지 않은 행은 만료로 닫는다. 쓰기 권한 판정과 무관하다. `app_role`은 SELECT·INSERT·UPDATE(DELETE 없음), `harness_role`은 SELECT다. 이 판(2026-09-25, 설계 검토 대응 반영)은 계약이고 파일은 S5 코드와 함께 §3.9의 SQL 블록과 같게 만든다 | V0(`app_role`·`harness_role` GRANT), V1(`users` 외래키), V48(`leader_lease` 읽기, 외래키 없음) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1708,6 +1709,8 @@ select extname from pg_extension;
 **이 갈래는 행 삭제로 줄일 수 없다.** 라이브 `pg_trigger` 실측이 `ledger_transactions`에 `trg_ledger_txn_nodel`, `snapshots`에 `trg_snap_noupd`를 보인다. 둘 다 `BEFORE DELETE`를 포함한다. `orders`·`event_emission_registry`·`trade_seq_registry`에는 삭제 차단이 없으나 파티션이 없어 대량 삭제가 사표를 남기고 `VACUUM` 회수에 의존한다.
 
 **따라서 갈래 C 전량은 스키마 변경 없이 어떤 보존 정책도 적용할 수 없다.** 파티션화가 선행 조건이고, 그 비용이 이 갈래를 미루게 만든 원인으로 보인다. 미루는 동안 31%가 계속 자란다.
+
+(v2.57, ADR 0034 S5) V54의 `order_cancel_requests`(§3.9)도 이 갈래에 넣는다. 파티션이 없고 `app_role`에 DELETE가 없어 끝난 행(`DONE`·`ABANDONED`·`EXPIRED`)을 지우는 주체가 없다. 끝나지 않은 행은 작업자의 만료(§5.4-d 6)가 5분 뒤 닫으므로 부분 색인에 쌓이지 않는다. 행 크기는 넘긴 주문 수에 비례하고(주문 하나에 16바이트, 행당 최대 500개), 증가 속도는 일괄 취소의 계정 레이트리밋(API 설계 §2-5)이 묶는다. 파기 수단은 이 갈래의 다른 표와 함께 정한다.
 
 #### 3.2-a-6 끊어진 상호 참조
 
@@ -3039,6 +3042,88 @@ COMMENT ON COLUMN harness.failover_runs.resource IS
 
 검증. 폐기용 PostgreSQL 17.10에 저장소의 V0~V52를 올린 뒤 이 블록을 문서에서 그대로 뽑아 적용했다(`harness/evidence/pml-s4-probe-20260924/s4-pg-probe.log` G4). 열은 `text`·널 허용이고, `app_role` 로그인이 `resource`를 넣은 행과 넣지 않은 행(NULL)을 모두 적재했으며, 목록 밖 이름은 23514(`chk_failover_runs_resource`)로 거부됐다. `harness_role` 로그인은 새 열을 읽었다. 코드가 들어가면 `MigrationSmokeTest`가 열과 CHECK를, `FailoverRecorderResourceTest`가 앱 역할 적재를 고정한다.
 
+### 3.9 `V54__order_cancel_requests.sql`: 파티션 밖 취소 인계 (v2.57 신설, ADR 0034 S5)
+
+이 절은 S5 코드보다 먼저 적은 계약이다(2026-09-25). V54 파일은 S5 코드와 함께 이 절을 따라 만들고 본문은 아래 SQL 블록과 같게 한다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). 새 마이그레이션은 Testcontainers 일회용 DB(`MigrationSmokeTest`)와 폐기용 스택(프로젝트 `exchange-pml`)에만 적용한다. 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-4, 처리 규칙은 §5.4-d, 응답 계약은 API 설계 v2.57 §4-B-3·§6-E다.
+
+파티션 리더 모드(P3)에서는 한 노드가 모든 마켓의 취소를 저널에 넣을 수 없다. 저널 append는 그 마켓 파티션의 리스 기간으로만 통과하기 때문이다(§5.4-b). 마켓 없는 일괄 취소와 회원 폐쇄는 여러 파티션의 주문을 한 번에 다루므로, 요청을 받은 노드가 게이트를 열지 않은 파티션의 주문은 그 파티션의 소유 노드가 취소해야 한다. 마켓을 준 일괄 취소도 받은 노드가 그 마켓을 접수하지 않으면 같다(§5.4-d 1). P1·P2에서도 엔진을 끈 관리 평면(로컬 `chaos-admin`, 학교 bot-1)이 폐쇄를 처리하면 같은 문제가 있다. 그 노드는 어떤 마켓의 게이트도 열지 않아 폐쇄의 취소가 모두 저널 전에 거부됐다(S5 설계 2절). V54는 요청을 받은 노드가 넘길 주문 목록을 파티션마다 행으로 넣고 소유 노드가 가져가 처리하는 표다.
+
+```sql
+-- V54__order_cancel_requests.sql (ADR 0034 S5, DB 설계 §3.9·§5.4-d). 파티션 밖 취소를 그 파티션의 소유 노드에 넘기는 요청 표.
+-- 이 노드가 접수 게이트를 열지 않은 파티션의 미체결 주문(일괄 취소, 회원 폐쇄)을 요청자가 파티션마다 행으로 넣고 기다린다.
+-- 소유 노드의 작업자는 그 파티션 리스가 자기 holder·epoch 로 유효할 때만 행을 점유하고 끝내며, 보통의 취소 경로(저널 append 와
+-- DB fencing)로 취소한다. 표는 작업 지시일 뿐 쓰기 권한 판정에 쓰이지 않는다. 판정은 종전처럼 DB 가 기록할 행의 마켓에서 도출한다.
+-- 리스 행 외래키는 두지 않는다(V53 과 같은 이유. 외래키 검사가 리스 행에 KEY SHARE 를 잡아 획득과 줄을 서게 한다).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+
+CREATE TABLE order_cancel_requests (
+    id            BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- 한 요청(일괄 취소 한 번, 폐쇄 한 번)이 넣은 파티션 행들을 묶는다. 요청자가 이 값으로 자기 행을 모아 읽는다.
+    request_id    UUID        NOT NULL,
+    resource      TEXT        NOT NULL
+                  CONSTRAINT chk_ocr_resource CHECK (resource IN ('matching-engine', 'matching-p0', 'matching-p1')),
+    user_id       BIGINT      NOT NULL REFERENCES users(id),
+    -- 요청 시점에 열려 있던 그 파티션 마켓의 주문 external_id. 작업자는 이 목록만 취소하고 뒤에 들어온 주문은 건드리지 않는다.
+    order_ids     UUID[]      NOT NULL
+                  CONSTRAINT chk_ocr_order_ids CHECK (cardinality(order_ids) BETWEEN 1 AND 500
+                                                     AND array_position(order_ids, NULL) IS NULL),
+    origin        VARCHAR(16) NOT NULL
+                  CONSTRAINT chk_ocr_origin CHECK (origin IN ('cancel_all', 'member_close')),
+    -- PENDING -> CLAIMED -> DONE 이 보통 길이다. 가져가지 않은 행은 요청자의 포기나 만료로 ABANDONED, 점유한 뒤 5분 안에
+    -- 끝나지 않은 행은 만료로 EXPIRED 가 된다.
+    state         VARCHAR(16) NOT NULL DEFAULT 'PENDING'
+                  CONSTRAINT chk_ocr_state CHECK (state IN ('PENDING', 'CLAIMED', 'DONE', 'ABANDONED', 'EXPIRED')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- 점유한 노드의 holder 와 그 파티션 기간의 epoch. 더 큰 epoch 의 작업자만 끝나지 않은 점유를 다시 점유한다.
+    claimed_by    VARCHAR(64),
+    claimed_epoch BIGINT,
+    claimed_at    TIMESTAMPTZ,
+    finished_at   TIMESTAMPTZ,
+    -- 작업자의 처리 결과(취소한 id, 원소별 실패 사유, 사유별 수). DONE 에만 있다.
+    result        JSONB,
+    CONSTRAINT chk_ocr_claim CHECK ((state IN ('CLAIMED', 'DONE', 'EXPIRED'))
+        = (claimed_by IS NOT NULL AND claimed_epoch IS NOT NULL AND claimed_at IS NOT NULL)),
+    CONSTRAINT chk_ocr_finished CHECK ((state IN ('DONE', 'ABANDONED', 'EXPIRED')) = (finished_at IS NOT NULL)),
+    CONSTRAINT chk_ocr_result CHECK ((state = 'DONE') = (result IS NOT NULL))
+);
+
+-- 작업자의 점유와 만료 경로. 끝나지 않은 행만 파티션별로 오래된 순서로 집는다. 만료가 오래된 열린 행을 끝내므로 작게 유지된다.
+CREATE INDEX idx_ocr_open ON order_cancel_requests (resource, id) WHERE state IN ('PENDING', 'CLAIMED');
+-- 요청자가 자기 요청의 행을 모아 읽고 포기하는 경로.
+CREATE INDEX idx_ocr_request ON order_cancel_requests (request_id);
+
+COMMENT ON TABLE order_cancel_requests IS
+    '파티션 밖 취소 인계(ADR 0034 S5). 요청자가 넣고 그 파티션의 소유 노드가 점유해 처리한다. 쓰기 권한 판정과 무관하다';
+COMMENT ON COLUMN order_cancel_requests.claimed_epoch IS
+    '점유한 작업자 기간의 epoch. 끝나지 않은 점유는 더 큰 epoch 의 작업자만 다시 점유한다';
+
+-- app_role 은 SELECT·INSERT·UPDATE 만 갖는다. 행을 지우지 않는다(끝난 행은 DONE·ABANDONED·EXPIRED 로 남고 보존은 §3.2-a 갈래 C 다).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        GRANT SELECT, INSERT, UPDATE ON order_cancel_requests TO app_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'harness_role') THEN
+        GRANT SELECT ON order_cancel_requests TO harness_role;
+    END IF;
+END $$;
+```
+
+HTTP로 소유 노드에 다시 보내지 않고 DB 표로 넘기는 이유는 셋이다. 관리 평면에는 회원의 API 키가 없어 서명한 요청을 만들 수 없고, 사용자 요청을 다시 보내면 nonce와 허용창(§3-4)을 노드 사이에서 다시 따져야 한다. 두 노드가 모두 닿는 권위는 DB이고, 소유 노드가 바뀌는 동안에도 요청이 남아 새 소유자가 이어받을 수 있다. 큐 모양은 `chaos_commands`(V21)·`sim_commands`(V22)와 같은 `FOR UPDATE SKIP LOCKED` 점유다.
+
+열과 제약. `request_id`는 한 번의 일괄 취소나 폐쇄가 넣은 행들을 묶는다. `resource`는 V53과 같은 세 이름만 받는다. 리스 행 외래키를 두지 않는 이유도 V53과 같다(§3.8). `order_ids`는 요청 시점에 열려 있던 그 파티션 마켓 주문의 `external_id`이고 1개 이상 500개 이하, NULL 원소 없음이다. 작업자는 이 목록만 취소한다. 상태는 `PENDING`에서 `CLAIMED`를 거쳐 `DONE`으로 가는 것이 보통 길이다. 아무도 가져가지 않은 `PENDING` 행은 요청자의 포기나 넣은 지 5분 뒤의 만료로 `ABANDONED`가 되고, 점유했으나 점유한 지 5분 안에 끝나지 않은 `CLAIMED` 행은 만료로 `EXPIRED`가 된다(§5.4-d 2·6). `ABANDONED` 행의 주문에는 이 요청이 아무 명령도 넣지 않았고, `EXPIRED` 행의 주문은 일부가 취소됐을 수 있다. `CLAIMED` 행은 더 큰 epoch의 작업자가 다시 점유할 수 있다(§5.4-d 5). 점유 열 셋은 `CLAIMED`·`DONE`·`EXPIRED`에만, `finished_at`은 `DONE`·`ABANDONED`·`EXPIRED`에만, `result`는 `DONE`에만 있다. `users` 외래키는 행을 넣을 때 그 회원 행에 KEY SHARE를 잡는다. 폐쇄의 상태 전이 `UPDATE users SET status`는 키 열을 바꾸지 않아 FOR NO KEY UPDATE이므로 이 잠금을 기다리지 않는다(아래 검증 P5-8). 주문 외래키는 배열 원소에 걸 수 없어 두지 않는다. 작업자가 주문을 읽을 때 `user_id`로 걸러 다른 회원의 주문은 `order_not_found`로 끝나고, 엔진도 소유자가 다른 취소를 거부한다.
+
+색인. `idx_ocr_open`은 끝나지 않은 행만 담는 부분 색인이라 끝난 행이 쌓여도 점유 질의가 그 행들을 훑지 않는다. 끝나지 않은 채 남는 행(요청자가 포기하지 못하고 죽음, 포기가 DB 장애로 실패, 점유자가 끝내지 못하고 5분 안에 다시 점유되지 않음)은 작업자의 만료가 닫는다(§5.4-d 6). 만료가 없으면 그런 행이 이 색인에 쌓여 점유 질의가 순차 조회로 바뀐다(아래 검증 R9). `idx_ocr_request`는 요청자가 자기 요청의 행을 모아 읽고 포기하는 경로다.
+
+권한. `app_role`은 SELECT·INSERT·UPDATE만 갖고 DELETE가 없다. `harness_role`은 SELECT다. 끝난 행은 지우지 않는다. 행 크기는 넘긴 주문 수에 비례하고(주문 하나에 16바이트, 행당 최대 500개) 일괄 취소의 계정 레이트리밋이 증가 속도를 묶는다. 보존은 §3.2-a 갈래 C와 같이 파기 수단이 없는 상태로 둔다.
+
+적용과 되돌리기. 새 표라 기존 표를 다시 쓰지 않는다. `users` 외래키를 만드는 동안 `users`에 SHARE ROW EXCLUSIVE 잠금을 잠깐 쥐므로 migrate 단계에서 적용한다. V54는 S5 코드와 같은 이미지에 싣는다. S5 코드가 이 표에 넣으므로 V54 없이 S5 코드를 띄우면 인계가 모두 실패한다. 되돌리려면 S5 이전 코드로 돌린 뒤 이 표를 지우는 새 마이그레이션을 더한다. V53보다 뒤 번호이므로 V49~V53이 적용된 DB에만 올라간다(§3.5 적용과 되돌리기의 Flyway 순서 규칙).
+
+검증. 폐기용 PostgreSQL 17.10에 저장소의 V0~V53을 파일마다 한 트랜잭션으로 올린 뒤 이 블록의 첫 판(57줄, sha256 앞 16자 `01c3309957317817`, 상태 넷)을 문서에서 그대로 뽑아 적용했다(`harness/evidence/pml-s5-probe-20260925/s5-pg-probe.log`). P5의 점유 문장은 리스 확인이 없던 첫 판 문장이다. P5-0 열·색인·권한이 위와 같다. P5-1 `app_role` 로그인이 넣고 읽고 점유했으며 DELETE는 42501로 거부됐고, `harness_role` 로그인은 읽기만 됐다. P5-2 목록 밖 자원, 빈 목록, NULL 원소, 501개, 없는 회원, 결과 없는 `DONE`, 점유 없는 `CLAIMED`가 모두 제약(23514·23503)으로 거부됐다. P5-3 한 작업자가 트랜잭션 안에서 한 행을 점유한 채 멈춘 동안 다른 작업자는 기다리지 않고 나머지 행만 점유했다(약 5ms). P5-4 요청자의 포기(`state = 'PENDING'` 조건의 UPDATE)는 점유 트랜잭션이 커밋할 때까지 기다린 뒤 점유된 행을 건너뛰고 남은 `PENDING` 행만 포기로 바꿨다. P5-5 같은 epoch의 작업자는 끝나지 않은 점유를 다시 잡지 않았고 더 큰 epoch의 작업자는 잡았으며, 옛 점유자의 끝내기는 0행이었다. P5-6 넣은 지 6분 된 행은 점유되지 않았다. P5-7 끝난 행 2만 개를 더하고 ANALYZE한 뒤에도 점유 질의는 `idx_ocr_open` 색인 조회와 LockRows였다. P5-8 요청 행을 넣는 트랜잭션이 열린 동안 같은 회원의 상태 전이는 기다리지 않았다(약 4ms).
+
+검토 대응 판의 검증. 설계 검토 대응으로 고친 이 판(59줄, sha256 앞 16자 `52f13181748b31c9`)은 같은 방법으로 다시 확인했다(`harness/evidence/pml-s5-probe-20260925/s5r-pg-probe.log`, 2026-09-25 13:32 KST). R0 V0~V53과 이 블록이 올라갔고 CHECK 일곱, 색인 셋, 권한이 위와 같다. R1 `app_role` 로그인이 `leader_lease`를 읽었고 DELETE는 거부됐다. R2 점유 열 없는 `EXPIRED`, `finished_at` 없는 `EXPIRED`, 결과 있는 `EXPIRED`, 점유 열 있는 `ABANDONED`가 23514로 거부됐고 점유 열과 `finished_at`이 있는 `EXPIRED`는 들어갔다. R3 같은 holder·epoch의 두 스레드는 SKIP LOCKED로 겹치지 않았다. R4 같은 파티션에서 한 행이라도 점유된 요청의 포기는 0행이었고, 두 파티션에 걸친 요청은 시작하지 않은 파티션의 행만 포기됐으며, 점유 트랜잭션이 커밋되기 전에 시작한 포기는 1.3초 기다린 뒤 점유된 행을 건너뛰고 나머지 두 행을 포기했고 그 두 행은 뒤에 점유되지 않았다. R5 리스가 다른 holder·epoch로 넘어간 뒤 옛 점유자의 끝내기(점유자·epoch는 맞음)와 새 점유가 모두 0행이었고, 새 소유자는 옛 점유 두 행과 `PENDING` 한 행을 다시 점유해 끝냈다. 리스가 만료되면 같은 holder·epoch의 점유와 끝내기가 0행이었다. R6 넣은 지 6분 된 행은 유효한 리스로도 점유되지 않았다. R7 점유 트랜잭션과 끝내기 트랜잭션이 열린 동안 `renew_lease`(약 3ms)와 리스 행 `FOR UPDATE NOWAIT`(약 1ms)가 곧바로 됐다. 리스 확인은 리스 행을 잠그지 않는다. R8 만료가 넣은 지 6분 된 `PENDING`을 `ABANDONED`로, 6분 전 점유한 `CLAIMED`를 `EXPIRED`로 바꿨고, 새 행과 1분 전 다시 점유한 옛 행과 끝난 행은 그대로 뒀다. R9 하루 지난 `PENDING` 5만 행과 `CLAIMED` 5만 행이 있으면 점유 질의가 순차 조회로 약 10.6ms, 새 행 없는 파티션의 확인이 약 9.4ms였다. 만료가 101문장(약 3.2초, 가장 긴 문장 47ms)으로 10만 행을 닫은 뒤 두 질의는 `idx_ocr_open` 색인 조회로 약 3.9ms·2.0ms였고, 닫을 행이 없을 때 만료 문장은 약 1.7ms였다. R10 P5-8과 같이 외래키 잠금이 폐쇄의 상태 전이를 막지 않았다(약 4ms). 코드가 들어가면 `MigrationSmokeTest`가 열·제약·권한을, `OrderCancelHandoffRepositoryTest`가 점유·포기·재점유·끝내기·만료 술어를 고정한다.
+
 ## 4. 테이블별 컬럼 설명표 (핵심)
 
 ### 4.1 `accounts` / `balances` (재설계 핵심)
@@ -3511,6 +3596,8 @@ S4 코드(2026-09-24 작성, 2026-09-25 작업 브랜치에 커밋)는 이 절�
 
 8. 좀비 판정은 두 층이다. 노드 층은 §5.4 v2.19 그대로 인증 이전의 주문 쓰기 수요와 리더 기원 쓰기 커밋을 센다. 파티션 층은 그 파티션의 게이트가 열린 동안 그 파티션 마켓에 온 접수를 수요로(접수 락을 얻기 전에 센다), 그 파티션의 저널 append 커밋과 정산 커밋을 완료로 센다. 파티션 리스의 갱신은 두 판정을 모두 통과해야 한다. 파티션 층의 붕괴는 그 파티션만 STALL로 강등하고, 노드 층의 붕괴는 그 노드가 쥔 모든 파티션을 STALL로 강등한다. 임계(완료율 5%, 45초, 수요 하한 20건), 누적과 hold 규칙, 승격 경계 초기화는 두 층이 같다. 수용 거절(§5.4 v2.20)은 두 층 모두 수요로 세지 않는다. 마켓 접수 경합으로 끝난 요청(접수 락 대기 상한 초과와 append 트랜잭션의 55P03·57014·40P01·40001, 응답은 API 설계 §2-5-b의 `429`나 `409 order_in_progress`)도 두 층 모두 수요에서 뺀다. 이 요청들은 DB에 닿아 유계 시간 안에 확정적인 답을 받았고, 원인은 대개 DB 쪽 잠금(멈춘 트랜잭션이나 운영자 세션이 쥔 잔고 행)이라 페일오버로 풀리지 않는다. 수요로 세면 한 사용자의 잔고 행이 오래 잠긴 저트래픽 구간에서 그 사용자의 재시도만으로 STALL 강등이 나고, 새 리더도 같은 행에 막혀 다시 강등하며, 강등이 차단기(아래 10)에 세어져 두 노드가 모두 차단될 수 있다. 예외는 하나다. 접수 락 대기 상한 초과 가운데 그 순간 락을 쥔 요청이 대기 상한(`exchange.engine.accept-lock-wait`)보다 오래 쥐고 있던 것은 수요로 남긴다. append의 잠금 대기는 `exchange.engine.accept-lock-timeout`으로 끊기므로 그보다 한참 긴 보유는 DB 잠금이 아니라 끝나지 않는 보유자(응답 없는 연결, 앱 결함)이고, 빼면 대기자가 모두 저널 전 거절로 빠져나가 그 좀비를 놓친다. 노드 층은 요청 단위로 센 수요를 그 요청의 응답이 경합 응답일 때 되돌리고(배치 주문·일괄 취소는 되돌리지 않는다), 파티션 층은 submit 단위로 뺀다. 표본 경계에서 새 수요가 음수가 되지 않게 0으로 자른다. 이 규칙은 강등 시점을 정하는 가용성 규칙이고 쓰기 판정(fencing)과 무관하다.
 
+   (v2.57, ADR 0034 S5) 소유권 선검사(API 설계 §2-5-d)의 `503`은 인증 필터 앞에서 끝나므로 노드 층 수요로 세지 않는다. 그 파티션의 게이트가 닫혀 있으므로 파티션 층도 세지 않는다. 노드 층은 두 경우의 수요를 응답 코드와 무관하게 되돌린다. 하나는 힌트 없는 단건 취소가 게이트웨이의 `503`(`route=not_owner`)으로 끝난 경우다. 두 노드가 파티션을 하나씩 쥔 P3에서 다른 파티션 주문의 취소가 이 노드에 와도 이 노드가 할 일이 아니고, 세면 그런 요청만으로 이 노드의 모든 파티션이 STALL로 강등될 수 있다. 다른 하나는 일괄 취소가 이 노드에서 submit을 하나도 하지 않고 끝난 경우다(열린 주문이 없었거나 모두 인계 행으로 넘김). 이 요청은 이 노드의 쓰기 능력을 시험하지 않는다. 인계 행 넣기가 DB 오류로 끝났으면 되돌리지 않는다. 인계받은 취소(§5.4-d)는 소유 노드의 파티션 층에서 보통의 취소와 같이 submit 단위로 수요와 완료를 센다. 선검사와 submit 사이에 게이트가 닫혀(강등) submit이 거부된 요청은 종전처럼 수요로 남는다.
+
 9. 선호와 유예. P3에서 노드는 설정으로 선호 파티션(`exchange.leader.partition.preferred`)과 참여 파티션(`exchange.leader.partition.participate`, 기본 전부)을 받는다. 비선호 파티션은 기동 직후 2×TTL, 그 뒤에는 그 파티션 리스의 만료를 관측할 때마다 1×TTL을 기다린 뒤에만 획득을 시도한다(ADR 0034 결정 2). 선호 노드에 자동으로 되돌려 주지 않는다(결정 4). 재배치는 운영자가 비선호 노드의 참여를 끄고(계획 강등) 리스가 만료된 뒤 선호 노드가 획득하게 한다. P1·P2의 `matching-engine`에는 선호와 유예가 없다. 유예는 획득 시도를 늦출 뿐이고 승격 규칙은 그대로다. (v2.56, ADR 0034 S4b) 참여 여부는 승격 조율의 상태와 같은 락 안에서 바꾸고 읽는다. 참여를 끄면 같은 락 안에서 후보 표식을 내리고, 후보 표식을 다시 세우는 모든 경로(재구성 완료, 참여 켜기, 차단기 해제)는 같은 락 안에서 상태가 FOLLOWER이고 참여가 켜져 있을 때만 세운다. S4 코드는 참여 여부를 락 밖에서 읽어, 참여 끄기가 재구성 완료와 엇갈리면 끈 파티션의 후보 표식이 다시 섰다. 쓰기 판정은 DB가 하므로 오래된 리더 차단과는 무관하지만 운영자의 재배치(결정 4)가 무력해진다.
 
 10. 차단기. 한 파티션의 파티션 치명 강등이 10분 창 안에서 3회에 이르면 그 파티션은 이 노드에서 차단(BLOCKED)된다. 재구성은 하지만 리스를 다시 노리지 않는다. 운영자가 해제하거나 프로세스를 재기동하면 풀린다. 횟수와 창은 설정(`exchange.leader.partition.max-demotions`, `exchange.leader.partition.demotion-window`)이다(ADR 0034 결정 12). 계획·회복 가능·노드 치명 강등은 세지 않는다. 차단은 경보(`PartitionBreakerOpen`)로 알린다.
@@ -3522,6 +3609,89 @@ S4 코드(2026-09-24 작성, 2026-09-25 작업 브랜치에 커밋)는 이 절�
 13. 바이너리 능력은 2 그대로다. S4 바이너리도 획득과 게시에 최고 모드 2를 넘긴다(§5.4-b). 그래서 P3 DB에서 S4 바이너리는 어떤 파티션도 획득하지 못하고 팔로워로만 남는다. 파티션 리스의 실제 획득은 S7 바이너리가 최고 모드 3을 넘길 때 열린다. S4의 시험은 이 값을 주입해 P3을 흉내 낸다.
 
 14. readiness. 노드의 readiness는 파티션 가운데 하나라도 접수 중이면 ACCEPTING이고, 아니면 REFUSING이다. P1·P2에서는 종전과 같다. readiness의 소비자와 발행 정정 규칙(§5.4 v2.27)은 그대로다. 파티션 상태·강등 사유·차단은 지표와 관리 API로 내보낸다(`docs/reference/contracts/하네스_CICD_IaC.md` §5-2, API 설계 §6-C).
+
+#### 5.4-d 파티션 밖 취소를 소유 노드에 넘긴다 (v2.57, ADR 0034 S5)
+
+이 절은 S5 코드보다 먼저 적은 계약이다(2026-09-25, 같은 날 설계 검토 대응으로 1~8을 고쳤다). 표는 V54(§3.9), 응답은 API 설계 v2.57 §4-B-3·§6-E, 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-4와 11절이다. 인계는 취소를 누가 저널에 넣는지만 바꾼다. 저널 append, 기간 결속, 시장 도출 fencing(§5.4-b), 예약 환급(§5.3)은 보통의 취소와 같다.
+
+1. 대상. 일괄 취소(`DELETE /api/v1/orders`, `market` 유무와 무관)와 회원 폐쇄(`/admin/v1/members/{id}/close`)다. 요청을 받은 노드가 접수 게이트를 열지 않은 파티션의 주문을 넘긴다. 마켓을 준 일괄 취소는 보통 소유권 선검사와 인그레스가 그 마켓의 소유 노드로 보내므로(API 설계 §2-5-d) 넘길 주문이 없다. 선검사가 모르는 마켓(기동 뒤 생겨 이 노드의 메모리 카탈로그에 아직 없는 마켓)이면 선검사를 통과하므로 받은 노드가 그 주문을 넘긴다. 단건 취소는 넘기지 않는다. 소유하지 않는 노드는 `503`으로 돌려보낸다. P1·P2에서는 파티션이 `matching-engine` 하나이고, 리더 노드는 모두 직접 취소하며 팔로워와 엔진을 끈 노드는 모두 넘긴다.
+
+2. 요청자. 요청 시점의 미체결 주문(`OPEN`·`PARTIAL`)을 읽어 메모리의 파티션 대응(§5.4-c 1)으로 나눈다. 이 노드가 접수 게이트를 연 파티션의 주문은 종전처럼 하나씩 취소한다. 나머지 파티션의 주문은 파티션마다 `exchange.order.cancel-handoff.chunk`(기본 100, 최대 500)개씩 행을 만들고, 한 요청의 모든 행을 한 트랜잭션으로 넣는다. 넣기는 직접 취소보다 먼저 한다. 두 파티션의 취소가 함께 진행되게 하려는 것이다. 직접 취소를 마친 뒤 모든 행이 `DONE`이 되거나 넣은 뒤 `exchange.order.cancel-handoff.wait`(기본 5초)가 지날 때까지 `request_id`로 행을 읽는다(100ms 간격). 직접 취소가 그보다 오래 걸렸으면 한 번만 읽는다. 끝나면 가져가지 않은 행을 아래 문장으로 포기로 바꾸고 행을 다시 읽어 합친다.
+
+   ```sql
+   UPDATE order_cancel_requests r
+      SET state = 'ABANDONED', finished_at = now()
+    WHERE r.request_id = :request_id AND r.state = 'PENDING'
+      AND NOT EXISTS (SELECT 1 FROM order_cancel_requests s
+                       WHERE s.request_id = r.request_id AND s.resource = r.resource
+                         AND s.state IN ('CLAIMED', 'DONE'));
+   ```
+
+   같은 파티션에서 이 요청의 행을 소유 노드가 하나라도 가져갔으면(`CLAIMED`·`DONE`) 그 파티션의 남은 `PENDING` 행은 포기하지 않는다. 작업자는 행을 번호 순서대로 하나씩 처리하므로, 그런 행은 큰 인계의 뒷부분이 기다림 안에 차례를 받지 못한 것이고 이어서 처리된다. 합치는 규칙은 이렇다. `DONE` 행은 결과(원소별 사유와 사유별 수)를 그대로 싣는다. 포기한 행의 주문은 `partition_not_started`이고, `CLAIMED` 행과 포기하지 않고 남긴 `PENDING` 행의 주문은 `partition_pending`이다. 행 넣기가 DB 연결 장애로 끝나면 그 주문들은 `service_unavailable`이다. 커밋됐을 수 있으므로 행이 남아 처리될 수 있다. 기다림이나 포기가 DB 연결 장애로 끝나면 `DONE`이 아닌 행의 주문은 모두 `partition_pending`이다. 포기하지 못한 행은 유효 시간 안에 처리될 수 있기 때문이다.
+
+3. 작업자. 엔진을 켠 노드에서 파티션마다 `exchange.order.cancel-handoff.workers`(기본 1)개의 스레드가 돈다. 스레드는 그 파티션의 접수 게이트가 열린 기간을 보고, 열려 있으면 그 기간의 holder·epoch로 행 하나를 아래 문장으로 점유하고 바로 커밋한다. 비어 있거나 게이트가 닫혀 있으면 `exchange.order.cancel-handoff.poll`(기본 200ms) 뒤 다시 본다. 작업자는 요청 풀의 연결을 한 번에 하나만 쓰고 수용 제한 밖에서 돌므로 요청 풀의 예비분(API 설계 §2-5-a의 20%)을 쓴다. 기본값을 1로 두는 이유다.
+
+   ```sql
+   WITH picked AS (
+       SELECT r.id, r.state AS prior_state FROM order_cancel_requests r
+        WHERE r.resource = :resource
+          AND (r.state = 'PENDING' OR (r.state = 'CLAIMED' AND r.claimed_epoch < :epoch))
+          AND r.created_at > now() - interval '5 minutes'
+          AND EXISTS (SELECT 1 FROM leader_lease l
+                       WHERE l.resource = :resource AND l.holder = :holder AND l.epoch = :epoch
+                         AND l.lease_until > clock_timestamp())
+        ORDER BY r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED)
+   UPDATE order_cancel_requests r
+      SET state = 'CLAIMED', claimed_by = :holder, claimed_epoch = :epoch, claimed_at = now()
+     FROM picked WHERE r.id = picked.id
+   RETURNING r.id, r.resource, r.user_id, r.order_ids, picked.prior_state;
+   ```
+
+   점유 전 상태(`prior_state`)는 재점유 계수(8의 `reclaimed`)를 세려고 함께 돌려준다. 술어는 바뀌지 않는다(S5 코드 단계에서 더함, S5 설계 12절).
+
+   리스 확인(`EXISTS`)은 명령 저널 append의 판정(`append_command_journal_row`가 보는 holder·epoch·`lease_until > clock_timestamp()`)과 같은 술어다. 그래서 리스를 이미 잃었는데 아직 게이트를 연 노드는 새 행을 점유하지 못한다. 이 확인은 리스 행을 읽기만 하고 잠그지 않으므로 리스 갱신·획득과 줄을 서지 않는다(§3.9 검증 R7).
+
+   점유한 행의 주문은 하나씩 보통의 취소 경로로 처리한다. 주문을 `user_id`로 걸러 읽고, 이미 종결됐으면 현재 상태를 적고, 아니면 채번하고 CANCEL 명령을 그 파티션 게이트의 기간으로 append한 뒤 반영을 기다린다. 계정 레이트리밋은 쓰지 않는다. 주문마다 먼저 그 파티션의 게이트가 점유 때와 같은 기간으로 열려 있는지 보고, 아니면 멈춘다. 주문의 결말은 둘로 가른다.
+
+   - 결과에 적는 결말. 취소됨, 먼저 종결된 주문의 상태, `order_not_found`, `order_in_progress`(취소 저널 뒤 반영 대기), `market_suspended`, 마켓 접수 경합의 `too_many_requests`, append의 DB 연결 장애 `service_unavailable`을 로컬 일괄 취소(API 설계 §4-B-3)와 같은 이름으로 적는다. 대상 주문 재조회나 취소 전 조회(연결 끊김이면 한 번 더 읽은 뒤)가 DB에 닿지 못하면 그 주문과 남은 주문을 시도하지 않고 `service_unavailable`로 적는다. 그 밖의 예외(결함)는 그 주문을 `server_error`로 적고 ERROR 로그를 남긴 뒤 다음 주문으로 넘어간다.
+   - 결과에 적지 않는 결말. 리더 자격을 잃었다는 거부, 곧 리더 자격 거부(fencing 거부, 옛 epoch의 삽입 0행, 기간 종료), 라이터 정지, 승격 재생 중 거부는 적지 않고 그 행 처리를 멈춘다. 그때 게이트가 아직 같은 기간으로 열려 있으면(재확인이 참이었거나 재확인 왕복이 실패함) poll 뒤 그 주문부터 이어 한다. 같은 주문에서 이 일이 세 번 이어지면 로컬 일괄 취소가 같은 경우에 적는 사유(게이트를 연 노드의 리더 자격 거부는 `too_many_requests`, 라이터 정지와 승격 재생 중은 `service_unavailable`)로 적고 넘어간다. 게이트가 닫혔으면 행을 `CLAIMED`로 둔 채 멈추고 다음 기간을 기다린다. 그 행은 더 큰 epoch의 작업자가 다시 점유한다(5).
+
+   다 처리하면 게이트가 같은 기간으로 열려 있는지 한 번 더 보고 아래 문장으로 끝낸다.
+
+   ```sql
+   UPDATE order_cancel_requests o
+      SET state = 'DONE', finished_at = now(), result = CAST(:result AS jsonb)
+    WHERE o.id = :id AND o.state = 'CLAIMED' AND o.claimed_by = :holder AND o.claimed_epoch = :epoch
+      AND EXISTS (SELECT 1 FROM leader_lease l
+                   WHERE l.resource = o.resource AND l.holder = :holder AND l.epoch = :epoch
+                     AND l.lease_until > clock_timestamp());
+   ```
+
+   0행이면 더 큰 epoch가 다시 점유했거나 이 노드의 리스가 이미 유효하지 않은 것이라 결과를 버리고 행을 그대로 둔다. 끝내기가 DB 오류로 실패하면 게이트가 같은 기간으로 열려 있는 동안 poll 간격으로 다시 한다. 스레드는 VM 오류 밖의 모든 예외를 잡고 계속 돈다. 행 단위에서 새는 예외(결과 직렬화 실패 같은 결함)는 그 행을 `CLAIMED`로 두고 ERROR 로그와 계수를 남긴다. 그 행은 기간이 끝나 더 큰 epoch가 다시 점유하거나 만료로 닫힌다(6). `result`는 `{"canceled":[...],"failed":[{"id":...,"reason":...}],"counts":{"unsubmitted":n,"contended":n,"suspended":n,"errored":n}}`다. `unsubmitted`는 `service_unavailable`, `contended`는 `too_many_requests`, `suspended`는 `market_suspended`, `errored`는 `server_error`의 수이고, 원소별 사유는 일괄 취소(API 설계 §4-B-3)와 같다.
+
+4. 경합. 두 작업자는 같은 행을 함께 점유하지 않는다(SKIP LOCKED). 요청자의 포기와 작업자의 점유는 행 잠금으로 줄을 서고 한 행에서 둘 가운데 하나만 된다. 포기가 먼저면 그 행은 끝난 상태라 점유 조건에 들지 않고, 점유가 먼저면 포기의 UPDATE가 점유 커밋을 기다린 뒤 `state = 'PENDING'` 조건을 다시 보고 그 행을 건너뛴다(§3.9 검증 P5-4·R4c). 점유 트랜잭션이 커밋되기 전에 시작한 포기는 `NOT EXISTS`에서 그 점유를 보지 못하므로 같은 파티션의 다른 `PENDING` 행을 포기한다(R4c). 그 행들은 `partition_not_started`로 알리고 뒤에 점유되지 않으므로 규칙은 그대로다. 그래서 `partition_not_started`로 적은 주문에는 이 요청이 아무 명령도 넣지 않았다. 점유 트랜잭션은 점유만 하고 곧바로 커밋하므로 포기의 기다림은 짧다.
+
+5. 재점유. 끝나지 않은 `CLAIMED` 행은 그 파티션을 더 큰 epoch로 얻은 작업자만 다시 점유한다. 옛 소유자가 죽었거나 강등돼 행을 끝내지 못해도 새 소유자가 이어받는다. 같은 epoch의 작업자는 SQL로 다시 점유하지 않고, 같은 기간 안에서 멈춘 행은 그 행을 쥔 스레드가 이어 한다(3). 옛 점유자의 끝내기는 점유자·epoch 조건이나 리스 확인으로 0행이 된다(§3.9 검증 P5-5·R5). 이어받은 작업자는 목록을 처음부터 다시 취소한다. 이미 취소된 주문은 종결 상태라 다시 취소하지 않는다. 앞 점유자의 CANCEL이 저널에 들어갔으나 프로젝션에 아직 반영되지 않은 주문에는 CANCEL이 한 번 더 들어갈 수 있다. 엔진은 책에 없는 주문의 CANCEL을 `order_not_found`로 거부하고 원장에 아무것도 쓰지 않는다. 고객의 같은 주문 동시 취소와 같은 경우다.
+
+6. 유효 시간과 만료. 넣은 지 5분이 지난 행은 점유하지 않는다(DB 시계). 요청자가 포기하지 못하고 죽은 경우에 오래된 요청이 뒤늦게 실행되는 것을 막는 운영 규칙이고 안전 조건이 아니다. 끝나지 않은 채 남은 행은 작업자가 닫는다. 작업자 스레드는 게이트가 열린 동안 `exchange.order.cancel-handoff.expire-interval`(기본 60초)마다 아래 문장을 한 번에 1000행까지, 닫은 행이 1000보다 적을 때까지 되풀이한다. 모드 전환(S7) 뒤 작업자가 없어지는 `matching-engine` 행도 닫도록 자원과 무관하게 모든 행을 본다.
+
+   ```sql
+   WITH stale AS (
+       SELECT id FROM order_cancel_requests
+        WHERE state IN ('PENDING', 'CLAIMED')
+          AND ((state = 'PENDING' AND created_at <= now() - interval '5 minutes')
+            OR (state = 'CLAIMED' AND claimed_at <= now() - interval '5 minutes'))
+        ORDER BY id LIMIT 1000 FOR UPDATE SKIP LOCKED)
+   UPDATE order_cancel_requests r
+      SET state = CASE r.state WHEN 'PENDING' THEN 'ABANDONED' ELSE 'EXPIRED' END, finished_at = now()
+     FROM stale WHERE r.id = stale.id;
+   ```
+
+   `PENDING` 행은 넣은 지 5분, `CLAIMED` 행은 점유한 지 5분이 지나면 닫는다. 주문 500개까지인 한 행의 처리 시간(약 40건/초면 13초)을 한참 넘긴 점유다. 늦게 끝난 작업자의 끝내기는 `state = 'CLAIMED'` 조건으로 0행이 되어 결과를 버린다. 요청자는 넣은 지 몇 초 안의 자기 행만 포기하므로 만료와 겹치지 않는다. 만료가 없으면 이런 행이 부분 색인에 남아 점유 질의가 순차 조회로 바뀐다. 폐기용 PostgreSQL에서 하루 지난 열린 행 10만 개가 있을 때 점유 질의는 순차 조회로 약 10.6ms였고, 만료(101문장, 약 3.2초, 가장 긴 문장 47ms) 뒤에는 색인 조회로 약 2.0~3.9ms였다(§3.9 검증 R9).
+
+7. 권한과 안전. 이 표는 작업 지시일 뿐 쓰기 권한 판정에 쓰이지 않는다. 판정은 종전처럼 저널 append가 DB에서 그 마켓의 리스로 한다(§5.4-b). 점유와 끝내기의 리스 확인은 결과를 바르게 알리기 위한 장치다. 한 (holder, epoch)의 리스는 한 번 유효하지 않게 되면 다시 유효해지지 않는다. 갱신은 만료 전에만 되고 획득은 늘 새 epoch를 받기 때문이다. 그래서 끝내기가 성공한 행은 점유부터 끝내기까지 리스가 유효했던 작업자가 처리한 것이다. 점유한 뒤 리스를 잃은 노드의 append는 fencing으로 거부되고, 그 거부는 결과에 적히지 않으며, 끝내기는 리스 확인으로 0행이다. 행은 `CLAIMED`로 남아 더 큰 epoch가 다시 점유한다. 늦어질 뿐 옛 소유자의 실패가 결과로 굳지 않고 오래된 리더의 쓰기도 되지 않는다(§3.9 검증 R5). 작업자는 행의 `user_id`로 주문을 걸러 읽고 엔진도 소유자가 다른 취소를 거부하므로, 행이 다른 회원의 주문 id를 담아도 취소되지 않는다. 인계는 취소만 한다. 주문 생성과 배치는 넘기지 않는다.
+
+8. 수요와 관측. 인계받은 취소는 소유 노드의 파티션 층 좀비 판정에서 submit 단위로 센다. 요청자의 노드 층 수요 규칙은 §5.4-c 8 v2.57이다. 계수기는 요청자의 `exchange.order.cancel_handoff.requests{outcome}`(`done`·`pending`·`not_started`·`insert_failed`, 행 단위)와 작업자의 `exchange.order.cancel_handoff.worker{outcome}`(`claimed`·`reclaimed`·`completed`·`complete_lost`·`stopped`·`resumed`·`expired`·`error`)다(하네스 CI/CD §5-2).
 
 #### 5.5-a 기동 재생을 체크포인트로 상한한다 (v2.40, 2026-09-08 실측 구동)
 
@@ -5023,3 +5193,19 @@ ADR 0034 S4b(S4 관문 결함 보정)를 코드보다 먼저 정본에 반영한
 같은 날 구현 검토 지적을 반영해 §3 표의 V47 행에 `discard_key` 의 호출 조건을 적었다. 게이트웨이가 연결이 끊긴 판정을 같은 인자로 다시 불러, 첫 판정이 지운 키 자리에 같은 내용의 다른 요청이 새로 넣은 키를 지울 수 있었다. 함수와 스키마는 그대로이고 다시 부르는 판정은 키를 지우지 않는다(API 설계 v2.56 §2-4, S4b 설계 14절). 버전은 그대로 v2.56이다.
 
 같은 날 S4b 문서 단계에서 §3 표의 V53 행과 §3.8에 남아 있던 '커밋 전'을 V53이 들어간 작업 브랜치 커밋 `48629d5d`로 고쳤다. 버전은 그대로 v2.56이고 계약 내용은 바뀌지 않는다.
+
+## v2.57 패치 반영 사항
+
+ADR 0034 S5(REST 라우팅과 요청 경계)를 코드보다 먼저 정본에 반영한다. 설계와 nginx·PostgreSQL 동작 확인은 `docs/reference/architecture/마켓분할_리더_S5_설계.md`와 `harness/evidence/pml-s5-probe-20260925/`에 있다. 응답 계약은 API 설계 v2.57이다. 2026-09-25 갱신.
+
+§3 표에 V54 행을 더하고 §3.9를 신설한다. V54는 파티션 밖 취소 인계 표 `order_cancel_requests`를 만든다. 요청자가 파티션마다 행을 넣고, 그 파티션의 소유 노드가 epoch로 점유해 보통의 취소 경로로 처리한 뒤 결과를 적는다. 자원 이름 CHECK, 주문 목록 1~500개, 상태(설계 검토 대응 뒤 다섯)와 상태별 열 CHECK, `users` 외래키, 끝나지 않은 행의 부분 색인, `app_role` SELECT·INSERT·UPDATE와 `harness_role` SELECT를 둔다. 리스·판정·접수·정산 함수는 바꾸지 않는다. SQL 블록은 폐기용 PostgreSQL 17.10에서 확인했다(§3.9 검증). §3.2-a-5에 이 표를 갈래 C로 적었다.
+
+§5.4-d를 신설해 인계 규칙을 적는다. 요청자의 파티션 분할과 행 넣기, 5초 기다림과 포기, 작업자의 기간 한정 실행과 점유·끝내기 술어, 포기와 점유의 경합, 더 큰 epoch의 재점유, 5분 유효 시간, 권한과 안전(표는 작업 지시일 뿐이고 판정은 §5.4-b 그대로), 수요와 관측이다. 엔진을 끈 관리 평면에서 회원 폐쇄의 취소가 모두 저널 전에 거부되던 결함(P1·P2 포함)도 이 인계로 고친다.
+
+§5.4-c 8에 소유권 선검사와 인계의 좀비 판정 수요 규칙을 더한다. 선검사의 `503`은 인증 전에 끝나 수요가 아니다. 힌트 없는 단건 취소의 게이트웨이 `503`(`route=not_owner`)과 이 노드에서 submit을 하나도 하지 않은 일괄 취소는 노드 층 수요를 되돌린다.
+
+2026-09-25 작업을 맡은 AI가 정한 값과 선택은 이렇다(사용자 확인 대상). HTTP 전달 대신 DB 표로 넘기는 것, 기다림 5초, 유효 시간 5분, 행당 주문 기본 100개(최대 500), 파티션당 작업자 스레드 1개와 빈 표 확인 간격 200ms, 끝난 행을 지우지 않는 것, 두 가지 수요 되돌림이다. 문서 헤더 버전을 v2.57 로 순증.
+
+같은 날 설계 검토 지적을 반영해 이 판을 다시 고쳤다. 버전은 그대로 v2.57이다. 첫 판의 작업자는 리스를 잃고도 아직 게이트를 연 노드에서 새 행을 점유할 수 있었고, 리더 자격 거부로 끝난 주문을 실패로 적은 채 행을 `DONE`으로 끝낼 수 있었다. `DONE`은 다시 점유되지 않으므로 새 소유자가 그 행을 처리하지 않았고, 폐쇄는 경합(`too_many_requests`)처럼 잘못 알려졌다. §5.4-d 3의 점유와 끝내기 문장에 리스 확인(자기 holder·epoch의 리스가 유효할 때만)을 더하고, 리더 자격을 잃었다는 거부는 결과에 적지 않고 멈추게 했다. 같은 기간 안에서는 그 행을 쥔 스레드가 이어 하고, 작업자 스레드는 예외로 죽지 않으며 주문 단위 예외는 `service_unavailable`·`server_error`로 적는다. 요청자는 그 파티션 몫을 소유 노드가 이미 시작한 요청의 `PENDING` 행을 포기하지 않는다(§5.4-d 2). 첫 판은 큰 인계의 뒷부분과 다른 회원의 인계를 '가져가지 않음'으로 포기해, 소유 노드가 멀쩡한데도 응답 없음처럼 알렸다. 포기한 주문의 사유 이름은 원인과 무관한 `partition_not_started`로 바꿨다(API 설계 §4-B-3). §3.9의 V54에 상태 `EXPIRED`를 더하고 §5.4-d 6에 만료를 두었다. 첫 판에서는 끝나지 않은 채 남은 행이 부분 색인에 영원히 남았다. §5.4-d 1의 대상을 API 설계 §4-B-3과 맞췄다(마켓을 준 일괄 취소도 선검사가 모르는 마켓이면 넘긴다). 고친 블록과 문장은 폐기용 PostgreSQL 17.10에서 다시 확인했다(§3.9 검증 R0~R10). 만료 간격 60초와 한 문장 1000행, 같은 주문에서 이어 하기 세 번은 AI가 정한 값이고 사용자 확인 대상이다. 근거와 검토 대응은 S5 설계 11절이다.
+
+같은 날 S5 코드와 대조해 §5.4-d 3의 두 문장을 코드와 맞췄다. 버전은 그대로 v2.57이다. 점유 문장은 점유 전 상태와 자원을 함께 돌려준다. 작업자가 더 큰 epoch 로 끝나지 않은 점유를 다시 잡은 수(`reclaimed`)를 세려면 점유 전 상태가 필요하다. 끝내기 문장은 결과 인자의 형을 `CAST(:result AS jsonb)`로 밝혔다. JDBC가 결과를 문자열 인자로 넘기기 때문이다. 두 문장의 술어(점유 조건, 리스 확인, 점유자·epoch 조건)는 바뀌지 않았다. 근거는 S5 설계 12절이다.

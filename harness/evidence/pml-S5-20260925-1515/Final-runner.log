@@ -1,0 +1,5 @@
+2026-09-25T16:30:57+09:00 [Final/default] PHASE Final project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T16:30:57+09:00 [Final/default] volumes before unchanged
+2026-09-25T16:30:57+09:00 [Final/default] final down -v (exchange-pml) rc=0
+2026-09-25T16:30:58+09:00 [Final/default] :pml 은 S5 이미지 그대로다 sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T16:30:58+09:00 [Final/default] volumes after unchanged

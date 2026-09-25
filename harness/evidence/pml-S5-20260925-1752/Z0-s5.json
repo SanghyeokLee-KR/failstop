@@ -1,0 +1,195 @@
+{
+  "sub": "Z0",
+  "lbConf": "default",
+  "rc": 0,
+  "host": {
+    "before": {
+      "at": "2026-09-25T09:06:14.5628583Z",
+      "cpuTotalPct": [
+        32.9,
+        38.1,
+        23.8,
+        23.4,
+        22.9
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 3
+    },
+    "after": {
+      "at": "2026-09-25T09:09:04.7662912Z",
+      "cpuTotalPct": [
+        5.6,
+        4.8,
+        6.1,
+        7.3,
+        3.5
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 0
+    }
+  },
+  "experiments": [
+    {
+      "experiment": "E4",
+      "verdict": "PASS",
+      "runId": "E4-20260925-180721",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 383,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0,
+          "handoffLeaderRejection": 0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 209,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0,
+          "handoffLeaderRejection": 0
+        }
+      },
+      "lbFormat": {
+        "accessLines": 2967,
+        "partitionFormatLines": 0
+      },
+      "lbFaultWindow": {
+        "access": 2101,
+        "partitionFormat": 0,
+        "status500": 0,
+        "status502": 143,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 143,
+        "twoAttempts": 0,
+        "maxRt": 0.0,
+        "first5xx": "2026-09-25T09:08:01.0000000+00:00",
+        "last5xx": "2026-09-25T09:08:06.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 2967,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 28.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "stopped": [],
+        "window_s": 185,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 5,
+        "mismatch": 0
+      },
+      "nodeCounters": {
+        "chaos-api-1": {
+          "ok": true,
+          "exchange_db_read_retry_total{outcome=recovered,site=auth}": 0.0,
+          "exchange_db_read_retry_total{outcome=recovered,site=order}": 0.0,
+          "exchange_db_read_retry_total{outcome=unreachable,site=auth}": 0.0,
+          "exchange_db_read_retry_total{outcome=unreachable,site=order}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=done}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=insert_failed}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=not_started}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=pending}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=claimed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=complete_lost}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=completed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=error}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=expired}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=reclaimed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=resumed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=stopped}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_routing_cancel_not_owner_total{}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=batch_single_market}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=market_hint_duplicate}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=market_hint_mismatch}": 0.0,
+          "exchange_routing_precheck_total{result=accepted}": 0.0,
+          "exchange_routing_precheck_total{result=not_owner}": 0.0,
+          "exchange_routing_precheck_total{result=unresolved}": 0.0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "exchange_db_read_retry_total{outcome=recovered,site=auth}": 0.0,
+          "exchange_db_read_retry_total{outcome=recovered,site=order}": 0.0,
+          "exchange_db_read_retry_total{outcome=unreachable,site=auth}": 0.0,
+          "exchange_db_read_retry_total{outcome=unreachable,site=order}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=done}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=insert_failed}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=not_started}": 0.0,
+          "exchange_order_cancel_handoff_requests_total{outcome=pending}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=claimed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=complete_lost}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=completed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=error}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=expired}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=reclaimed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=resumed}": 0.0,
+          "exchange_order_cancel_handoff_worker_total{outcome=stopped}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_routing_cancel_not_owner_total{}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=batch_single_market}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=market_hint_duplicate}": 0.0,
+          "exchange_routing_hint_rejected_total{reason=market_hint_mismatch}": 0.0,
+          "exchange_routing_precheck_total{result=accepted}": 325.0,
+          "exchange_routing_precheck_total{result=not_owner}": 143.0,
+          "exchange_routing_precheck_total{result=unresolved}": 0.0
+        }
+      },
+      "rtoSeconds": 4.628,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    }
+  ]
+}

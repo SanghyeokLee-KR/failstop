@@ -207,7 +207,10 @@ services:
   chaos-lb:
     image: nginx:1.29
     container_name: chaos-lb
-    volumes: ["./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    # LB 설정 파일(하네스 CI/CD §3-3, ADR 0034 S5). 기본은 종전 nginx.conf 라 종전 실험의 조건이 그대로다. S5 관문 실행기만
+    # 셸 변수 CHAOS_LB_CONF=./nginx/nginx.partition.conf 를 준 프로세스에서 파티션 업스트림 파일을 고른다. 셸 변수가
+    # --env-file 보다 우선하므로 비밀 파일(.env.chaos)은 고치지 않는다.
+    volumes: ["${CHAOS_LB_CONF:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro"]
     ports: ["58080:8080"]
     depends_on:
       chaos-api-1: { condition: service_healthy }

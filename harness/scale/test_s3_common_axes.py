@@ -194,5 +194,30 @@ class S4bAxesTest(unittest.TestCase):
         self.assertEqual('재생이 판정 없이 끝났다', ax.LOG_PATTERNS['replayNoVerdict'])
 
 
+class S5CountersTest(unittest.TestCase):
+
+    def test_s5_counters_keep_every_label_but_the_application_tag(self):
+        text = '\n'.join([
+            '# HELP exchange_routing_precheck_total',
+            'exchange_routing_precheck_total{application="exchange",result="not_owner"} 3.0',
+            'exchange_routing_precheck_total{application="exchange",result="accepted"} 10.0',
+            'exchange_db_read_retry_total{application="exchange",outcome="recovered",site="auth"} 1.0',
+            'exchange_order_cancel_handoff_worker_total{application="exchange",outcome="claimed"} 2.0',
+            'exchange_order_intake_unavailable_total{application="exchange",cause="fencing",response="503"} 4.0',
+            'exchange_order_append_transient_total{application="exchange",sqlstate="40P01"} 1.0',
+            'exchange_admission_rejected_total{application="exchange",scope="order"} 7.0',
+            'jvm_threads_live_threads{application="exchange"} 50.0',
+        ])
+        self.assertEqual({
+            'exchange_routing_precheck_total{result=not_owner}': 3.0,
+            'exchange_routing_precheck_total{result=accepted}': 10.0,
+            'exchange_db_read_retry_total{outcome=recovered,site=auth}': 1.0,
+            'exchange_order_cancel_handoff_worker_total{outcome=claimed}': 2.0,
+            'exchange_order_intake_unavailable_total{fencing|503}': 4.0,
+            'exchange_order_append_transient_total{sqlstate=40P01}': 1.0,
+            'exchange_admission_rejected_total{scope=order}': 7.0,
+        }, ax.parse_counters(text))
+
+
 if __name__ == '__main__':
     unittest.main()

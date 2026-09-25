@@ -93,6 +93,9 @@ class ReadRoleIntegrationTest {
     @Test
     void readNodeDoesNotPollTablesItsLoginCannotRead() {
         assertFalse(context.containsBean("reservationBacklogMonitor"), "조회 노드에 정산 전 예약 감시가 떴다");
+        // 조회 역할 필터가 쓰기를 먼저 막으므로 소유권 선검사를 걸지 않는다. 인계 작업자는 엔진을 켠 노드의 일이다(S5 설계 4-10).
+        assertFalse(context.containsBean("marketRoutingFilter"), "조회 노드에 소유권 선검사가 걸렸다");
+        assertFalse(context.containsBean("cancelHandoffWorker"), "조회 노드에 인계 작업자가 떴다");
         assertNull(meters.find("exchange.reservation.backlog.query.failed").counter());
         assertNull(meters.find("exchange.reservation.unsettled.count").gauge());
         LeaderProtocolBoot boot = context.getBean(LeaderProtocolBoot.class);

@@ -1,0 +1,195 @@
+{
+  "started": "2026-09-25T18:19:32+09:00",
+  "windows": {
+    "outside": [
+      [
+        "2026-09-25T09:10:21.999713Z",
+        "2026-09-25T09:19:32.773886Z"
+      ]
+    ],
+    "inside": null
+  },
+  "contention": {
+    "outside": 0.0,
+    "appends_outside": 22587.017591708718,
+    "cap": 0.001,
+    "inside_by_cause_response": null,
+    "acquire_lock_timeouts": 0.0
+  },
+  "partition_alerts": {
+    "samples": 0,
+    "firing_outside": 0,
+    "error": null
+  },
+  "leader_node": "chaos-api-1",
+  "demotions": {
+    "chaos-api-1": {
+      "by": {
+        "matching-engine/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-engine/NODE_FATAL": 0.0,
+        "matching-engine/PLANNED": 0.0,
+        "matching-engine/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-engine/STALL": 0.0,
+        "matching-engine/WRITER_FATAL": 0.0
+      },
+      "total": 0.0
+    },
+    "chaos-api-2": {
+      "by": {
+        "matching-engine/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-engine/NODE_FATAL": 0.0,
+        "matching-engine/PLANNED": 0.0,
+        "matching-engine/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-engine/STALL": 0.0,
+        "matching-engine/WRITER_FATAL": 0.0
+      },
+      "total": 0.0
+    }
+  },
+  "partitions": {
+    "pre": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "post": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "leader_lease": {
+    "pre": [
+      {
+        "resource": "matching-engine",
+        "holder": "4c9ab731-0cc6-4d57-b418-345f4f2162c0",
+        "epoch": 5,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 2,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 3,
+        "alive": false
+      }
+    ],
+    "post": [
+      {
+        "resource": "matching-engine",
+        "holder": "4c9ab731-0cc6-4d57-b418-345f4f2162c0",
+        "epoch": 5,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 2,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 3,
+        "alive": false
+      }
+    ]
+  },
+  "lb": {
+    "outside": [
+      {
+        "ok": true,
+        "no_live_upstreams": 0,
+        "status_502": 0
+      }
+    ],
+    "inside": null
+  },
+  "axes": {
+    "contention_cap_outside_window": true,
+    "partition_alerts_outside_window_0": true,
+    "leader_node_demotions_0": true,
+    "lb_no_live_upstreams_and_502_0": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T18:19:33+09:00"
+}

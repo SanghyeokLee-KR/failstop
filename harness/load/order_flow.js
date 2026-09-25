@@ -28,6 +28,9 @@ const MARKET = __ENV.MARKET || 'KRW-BTC';
 // 라이터도 하나만 돌아 이득이 0으로 나오는데, 그것은 코드가 아니라 부하 형태의 결과다.
 // 그 둘을 갈라야 이번 변경을 실제로 잰 것이 된다.
 const MARKETS = (__ENV.MARKETS || MARKET).split(',').map((m) => m.trim()).filter((m) => m);
+// 주문 생성의 마켓 힌트 헤더(API 설계 §2-5-d, ADR 0034 S5). 서명 밖이라 canonical 을 바꾸지 않고 인그레스가 그 마켓을 접수하는
+// 노드로 보낸다. 기본 1(싣는다), 0 이면 힌트 없는 클라이언트를 흉내 낸다(S7 P3 관문의 힌트 없는 부하).
+const MARKET_HINT = String(__ENV.MARKET_HINT || '1') !== '0';
 
 // 마켓마다 호가 단위와 가격대가 다르다. 같은 가격과 수량을 전 마켓에 보내면 시장 규칙에
 // 걸려 400 이 된다(2026-09-10 실측: 다른 마켓 주문 20,826건이 전량 400). tick 배수와
@@ -332,8 +335,12 @@ export function placeOrder() {
   const path = '/api/v1/orders';
   const auth = signRequest('POST', path, body, c.access_key, c.secret);
   const ph = phase();
+  const headers = { 'Content-Type': 'application/json', Authorization: auth };
+  if (MARKET_HINT) {
+    headers['X-Exchange-Market'] = o.market;
+  }
   const res = http.post(BASE + path, body, {
-    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    headers,
     tags: { name: 'placeOrder', phase: ph },
   });
 

@@ -661,6 +661,80 @@ class MigrationSmokeTest {
         }
     }
 
+    /**
+     * V54(ADR 0034 S5, DB 설계 §3.9). 파티션 밖 취소 인계 표. 자원 이름, 주문 목록 1~500개와 NULL 원소 없음, 출처, 상태 다섯과
+     * 상태별 열 제약(점유 열은 CLAIMED·DONE·EXPIRED 에만, finished_at 은 DONE·ABANDONED·EXPIRED 에만, result 는 DONE 에만),
+     * 끝나지 않은 행의 부분 색인, app_role 의 SELECT·INSERT·UPDATE(DELETE 없음), harness_role 의 SELECT 다.
+     */
+    @Test
+    void v54OrderCancelRequests() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            assertTrue(tableExists(conn, "order_cancel_requests"), "order_cancel_requests 가 없다");
+            for (String column : new String[] {"request_id", "resource", "user_id", "order_ids", "origin", "state",
+                    "created_at", "claimed_by", "claimed_epoch", "claimed_at", "finished_at", "result"}) {
+                assertTrue(columnExists(conn, "public", "order_cancel_requests", column), column + " 열이 없다");
+            }
+            assertTrue(queryBool(conn, """
+                    SELECT pg_get_indexdef('idx_ocr_open'::regclass) LIKE '%WHERE%PENDING%CLAIMED%'
+                    """), "끝나지 않은 행의 부분 색인이 아니다");
+            for (String privilege : new String[] {"SELECT", "INSERT", "UPDATE"}) {
+                assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'order_cancel_requests', '"
+                        + privilege + "')"), "app_role 에 " + privilege + " 가 없다");
+            }
+            assertFalse(queryBool(conn,
+                    "SELECT has_table_privilege('app_role', 'order_cancel_requests', 'DELETE')"), "app_role 이 지울 수 있다");
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('harness_role', 'order_cancel_requests', 'SELECT')"));
+            assertFalse(queryBool(conn,
+                    "SELECT has_table_privilege('harness_role', 'order_cancel_requests', 'INSERT')"));
+
+            long user = queryLong(conn, "INSERT INTO users (email) VALUES ('v54@smoke.test') RETURNING id");
+            String ok = """
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin, state,
+                                                       claimed_by, claimed_epoch, claimed_at, finished_at, result)
+                    VALUES (gen_random_uuid(), '%s', %d, ARRAY[gen_random_uuid()], 'cancel_all', '%s',
+                            %s, %s, %s, %s, %s)
+                    """;
+            st.execute(ok.formatted("matching-engine", user, "PENDING", "NULL", "NULL", "NULL", "NULL", "NULL"));
+            st.execute(ok.formatted("matching-p0", user, "CLAIMED", "'h'", "1", "now()", "NULL", "NULL"));
+            st.execute(ok.formatted("matching-p1", user, "DONE", "'h'", "1", "now()", "now()", "'{}'"));
+            st.execute(ok.formatted("matching-p1", user, "ABANDONED", "NULL", "NULL", "NULL", "now()", "NULL"));
+            st.execute(ok.formatted("matching-p1", user, "EXPIRED", "'h'", "1", "now()", "now()", "NULL"));
+            String[][] rejected = {
+                    {"matching-p2", "PENDING", "NULL", "NULL", "NULL", "NULL", "NULL"},
+                    {"matching-p0", "CLAIMED", "NULL", "NULL", "NULL", "NULL", "NULL"},
+                    {"matching-p0", "DONE", "'h'", "1", "now()", "now()", "NULL"},
+                    {"matching-p0", "EXPIRED", "NULL", "NULL", "NULL", "now()", "NULL"},
+                    {"matching-p0", "EXPIRED", "'h'", "1", "now()", "NULL", "NULL"},
+                    {"matching-p0", "EXPIRED", "'h'", "1", "now()", "now()", "'{}'"},
+                    {"matching-p0", "ABANDONED", "'h'", "1", "now()", "now()", "NULL"},
+                    {"matching-p0", "LOST", "NULL", "NULL", "NULL", "NULL", "NULL"}};
+            for (String[] row : rejected) {
+                SQLException bad = assertThrows(SQLException.class, () -> st.execute(ok.formatted(row[0], user, row[1],
+                        row[2], row[3], row[4], row[5], row[6])), String.join(",", row));
+                assertEquals("23514", bad.getSQLState(), String.join(",", row) + ": " + bad.getMessage());
+            }
+            for (String orders : new String[] {"ARRAY[]::uuid[]", "ARRAY[NULL::uuid]",
+                    "(SELECT array_agg(gen_random_uuid()) FROM generate_series(1, 501))"}) {
+                SQLException bad = assertThrows(SQLException.class, () -> st.execute("""
+                        INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                        VALUES (gen_random_uuid(), 'matching-p0', %d, %s, 'member_close')
+                        """.formatted(user, orders)), orders);
+                assertEquals("23514", bad.getSQLState(), orders);
+            }
+            SQLException origin = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                    VALUES (gen_random_uuid(), 'matching-p0', %d, ARRAY[gen_random_uuid()], 'suspend')
+                    """.formatted(user)));
+            assertEquals("23514", origin.getSQLState());
+            SQLException missingUser = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                    VALUES (gen_random_uuid(), 'matching-p0', -1, ARRAY[gen_random_uuid()], 'cancel_all')
+                    """));
+            assertEquals("23503", missingUser.getSQLState());
+            assertEquals(5, queryInt(conn, "SELECT count(*) FROM order_cancel_requests WHERE user_id = " + user));
+        }
+    }
+
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

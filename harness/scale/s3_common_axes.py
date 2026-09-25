@@ -125,6 +125,13 @@ NODE_COUNTERS = ('exchange_settlement_insufficient_funds_total', 'exchange_settl
                  'exchange_settlement_transient_exhausted_total', 'exchange_order_reserve_rejected_total',
                  'exchange_order_intake_unavailable_total', 'exchange_order_intake_unresolved_total',
                  'exchange_order_intake_commit_recovered_total')
+# S5 계수기 여섯(ADR 0034 S5, 하네스 CI/CD §5-2)과 노드 수용 거절. 페일오버 실험(S5 설계 7-2 Z0·Z5)에서 두 노드의 값을 기록한다.
+# 판정에는 쓰지 않는다. 라벨(result, reason, site, outcome, scope)을 모두 키에 싣는다.
+S5_COUNTERS = ('exchange_routing_precheck_total', 'exchange_routing_cancel_not_owner_total',
+               'exchange_routing_hint_rejected_total', 'exchange_db_read_retry_total',
+               'exchange_order_cancel_handoff_requests_total', 'exchange_order_cancel_handoff_worker_total',
+               # 노드 수용 거절(scope 별). S5 설계 7-2 Z5 의 E2 기록 항목이다.
+               'exchange_admission_rejected_total')
 PROM_LINE = re.compile(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+(\S+)')
 
 
@@ -168,13 +175,23 @@ def scrape(port):
     except Exception as e:
         return {'ok': False, 'error': type(e).__name__}
     out = {'ok': True}
+    out.update(parse_counters(text))
+    return out
+
+
+def parse_counters(text):
+    """actuator/prometheus 본문에서 NODE_COUNTERS 와 S5_COUNTERS 의 {키: 값}. S5 계수기는 라벨을 모두 키에 싣는다."""
+    out = {}
     for line in text.splitlines():
         m = PROM_LINE.match(line)
-        if not m or m.group(1) not in NODE_COUNTERS:
+        if not m or (m.group(1) not in NODE_COUNTERS and m.group(1) not in S5_COUNTERS):
             continue
         labels = m.group(2) or ''
         tag = re.search(r'(sqlstate|source)="([^"]+)"', labels)
-        if m.group(1) == 'exchange_order_intake_unavailable_total':
+        if m.group(1) in S5_COUNTERS:
+            got = sorted((k, v) for k, v in re.findall(r'(\w+)="([^"]*)"', labels) if k != 'application')
+            key = m.group(1) + '{%s}' % ','.join('%s=%s' % kv for kv in got)
+        elif m.group(1) == 'exchange_order_intake_unavailable_total':
             got = dict(re.findall(r'(\w+)="([^"]*)"', labels))
             key = m.group(1) + '{%s|%s}' % (got.get('cause'), got.get('response'))
         else:

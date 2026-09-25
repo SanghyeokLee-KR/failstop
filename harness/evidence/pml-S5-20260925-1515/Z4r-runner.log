@@ -1,0 +1,21 @@
+2026-09-25T16:04:55+09:00 [Z4/partition] PHASE Z4 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.partition.conf
+2026-09-25T16:04:55+09:00 [Z4/partition] volumes before unchanged
+2026-09-25T16:05:01+09:00 [Z4/partition] down -v (exchange-pml) rc=0
+2026-09-25T16:05:40+09:00 [Z4/partition] up --profile obs --profile scale rc=0 (profiles=dev,chaos-monkey,prod-timeouts lb=nginx.partition.conf)
+2026-09-25T16:05:40+09:00 [Z4/partition] LB conf=nginx.partition.conf nginx-t rc=0 sameSha=True
+2026-09-25T16:05:40+09:00 [Z4/partition] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z4r\protocol.json
+2026-09-25T16:06:06+09:00 [Z4/partition] RC 0
+2026-09-25T16:06:16+09:00 [Z4/partition] RUN docker compose -p exchange-pml -f compose.yaml --env-file harness/.env.chaos --profile admin up -d --no-deps --wait chaos-admin
+2026-09-25T16:06:22+09:00 [Z4/partition] chaos-admin up rc=0
+2026-09-25T16:06:25+09:00 [Z4/partition] Z4 bots stopped rc=0 drained=True
+2026-09-25T16:06:26+09:00 [Z4/partition] RUN python harness/scale/s5_route_probe.py z4 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z4r\z4.json
+2026-09-25T16:06:53+09:00 [Z4/partition] RC 0
+2026-09-25T16:06:53+09:00 [Z4/partition] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T07:05:01.4539152+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z4r\orders500.json
+2026-09-25T16:06:53+09:00 [Z4/partition] RC 0
+2026-09-25T16:06:56+09:00 [Z4/partition] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z4r\state-after-drain.json
+2026-09-25T16:06:56+09:00 [Z4/partition] RC 0
+2026-09-25T16:07:12+09:00 [Z4/partition] AUTHORITATIVE Z4-post ok=True notOk=[] 
+2026-09-25T16:07:13+09:00 [Z4/partition] SUMMARY summary-Z4 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T16:07:20+09:00 [Z4/partition] Z4 verdict=PASS probe_rc=0 fails=[]
+2026-09-25T16:07:27+09:00 [Z4/partition] down -v (exchange-pml) rc=0 after Z4
+2026-09-25T16:07:27+09:00 [Z4/partition] volumes after unchanged

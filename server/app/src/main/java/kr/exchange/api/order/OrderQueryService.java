@@ -105,6 +105,29 @@ public class OrderQueryService {
         }
     }
 
+    /** 미체결 주문 하나의 식별자와 마켓. 일괄 취소가 파티션으로 나누는 단위다(DB 설계 §5.4-d 2). */
+    public record OpenOrder(UUID externalId, int marketId) {
+    }
+
+    /**
+     * 요청 시점의 미체결(OPEN·PARTIAL) 주문. 주문 번호 순서다. 일괄 취소와 회원 폐쇄가 이 목록을 그 마켓 파티션의 소유 노드별로
+     * 나눈다. 넘기는 것은 이 시점의 목록이라 그 뒤에 들어온 주문은 취소하지 않는다.
+     */
+    public List<OpenOrder> openOrders(long userId, String marketSymbol) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT o.external_id, o.market_id FROM orders o JOIN markets m ON m.id = o.market_id"
+                        + " WHERE o.user_id = ? AND o.status IN ('OPEN','PARTIAL')");
+        List<Object> params = new ArrayList<>(List.of(userId));
+        if (marketSymbol != null) {
+            sql.append(" AND m.symbol = ?");
+            params.add(marketSymbol);
+        }
+        sql.append(" ORDER BY o.id");
+        return jdbc.sql(sql.toString()).params(params)
+                .query((rs, rowNum) -> new OpenOrder(rs.getObject("external_id", UUID.class), rs.getInt("market_id")))
+                .list();
+    }
+
     public List<UUID> openOrderIds(long userId, String marketSymbol) {
         StringBuilder sql = new StringBuilder(
                 "SELECT o.external_id FROM orders o JOIN markets m ON m.id = o.market_id"

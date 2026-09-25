@@ -1,0 +1,7 @@
+2026-09-25T18:06:08+09:00 [Chaos/default] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T18:06:08+09:00 [Chaos/default] volumes before unchanged
+2026-09-25T18:06:14+09:00 [Chaos/default] down -v (exchange-pml) rc=0 before Z0
+2026-09-25T18:06:14+09:00 [Chaos/default] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4 -Protocol 2 -PartitionAxes -EvidenceDir Z0 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s5-logs\Z0 (CHAOS_LB_CONF=)
+2026-09-25T18:08:59+09:00 [Chaos/default] stage5 rc=0 (Z0)
+2026-09-25T18:09:05+09:00 [Chaos/default] CHAOS Z0 E4=PASS rto=4.628
+2026-09-25T18:09:05+09:00 [Chaos/default] volumes after unchanged

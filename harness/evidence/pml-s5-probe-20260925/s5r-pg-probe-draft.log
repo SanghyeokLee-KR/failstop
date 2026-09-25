@@ -1,0 +1,283 @@
+v54 source=draft(v54r-draft.sql)
+v54 lines=59 sha256=52f13181748b31c9
+repository max migration=V53
+container=pml-probe-s5r-280332032 image=postgres:17-alpine port=127.0.0.1:63763
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== R0 applied repository migrations: 54 files
+v54 exit=0
+user id=1
+chk_ocr_claim|CHECK ((((state)::text = ANY ((ARRAY['CLAIMED'::character varying, 'DONE'::character varying, 'EXPIRED'::character varying])::text[])) = ((claimed_by IS NOT NULL) AND (claimed_epoch IS NOT NULL) AND (claimed_at IS NOT NULL))))
+chk_ocr_finished|CHECK ((((state)::text = ANY ((ARRAY['DONE'::character varying, 'ABANDONED'::character varying, 'EXPIRED'::character varying])::text[])) = (finished_at IS NOT NULL)))
+chk_ocr_order_ids|CHECK ((((cardinality(order_ids) >= 1) AND (cardinality(order_ids) <= 500)) AND (array_position(order_ids, NULL::uuid) IS NULL)))
+chk_ocr_origin|CHECK (((origin)::text = ANY ((ARRAY['cancel_all'::character varying, 'member_close'::character varying])::text[])))
+chk_ocr_resource|CHECK ((resource = ANY (ARRAY['matching-engine'::text, 'matching-p0'::text, 'matching-p1'::text])))
+chk_ocr_result|CHECK ((((state)::text = 'DONE'::text) = (result IS NOT NULL)))
+chk_ocr_state|CHECK (((state)::text = ANY ((ARRAY['PENDING'::character varying, 'CLAIMED'::character varying, 'DONE'::character varying, 'ABANDONED'::character varying, 'EXPIRED'::character varying])::text[])))
+idx_ocr_open|CREATE INDEX idx_ocr_open ON public.order_cancel_requests USING btree (resource, id) WHERE ((state)::text = ANY ((ARRAY['PENDING'::character varying, 'CLAIMED'::character varying])::text[]))
+idx_ocr_request|CREATE INDEX idx_ocr_request ON public.order_cancel_requests USING btree (request_id)
+order_cancel_requests_pkey|CREATE UNIQUE INDEX order_cancel_requests_pkey ON public.order_cancel_requests USING btree (id)
+app_role|INSERT,SELECT,UPDATE
+harness_role|SELECT
+
+== R1 app 로그인은 넣고 리스 행을 읽는다. DELETE 와 조회 로그인의 쓰기는 거부
+app reads lease|3
+ERROR:  permission denied for table order_cancel_requests
+hr reads|1
+ERROR:  permission denied for table order_cancel_requests
+
+== R2 제약: 점유 열 없는 EXPIRED, finished_at 없는 EXPIRED, 결과 있는 EXPIRED, 점유 열 있는 ABANDONED 는 거부. 점유 열과 finished_at 이 있는 EXPIRED 는 받음
+ERROR:  23514: new row for relation "order_cancel_requests" violates check constraint "chk_ocr_claim"
+DETAIL:  Failing row contains (2, c06841a5-6901-45be-8623-b97c3f536532, matching-p0, 1, {46b5502a-2030-4fb8-aa37-d75da6b1871b}, cancel_all, EXPIRED, 2026-09-25 04:39:11.181506+00, null, null, null, 2026-09-25 04:39:11.181506+00, null).
+SCHEMA NAME:  public
+TABLE NAME:  order_cancel_requests
+CONSTRAINT NAME:  chk_ocr_claim
+LOCATION:  ExecConstraints, execMain.c:2074
+ERROR:  23514: new row for relation "order_cancel_requests" violates check constraint "chk_ocr_finished"
+DETAIL:  Failing row contains (3, 7fba0aaf-8f10-4b2c-b4ae-facbe19f6820, matching-p0, 1, {edf0fbc9-9de5-462d-b7f0-a5dfaf0880ce}, cancel_all, EXPIRED, 2026-09-25 04:39:11.183529+00, N1, 7, 2026-09-25 04:39:11.183529+00, null, null).
+SCHEMA NAME:  public
+TABLE NAME:  order_cancel_requests
+CONSTRAINT NAME:  chk_ocr_finished
+LOCATION:  ExecConstraints, execMain.c:2074
+ERROR:  23514: new row for relation "order_cancel_requests" violates check constraint "chk_ocr_result"
+DETAIL:  Failing row contains (4, 409f2576-d0ad-4684-9318-07b1555516ad, matching-p0, 1, {57989459-b0f4-46d8-9f11-a6ca268a941a}, cancel_all, EXPIRED, 2026-09-25 04:39:11.183792+00, N1, 7, 2026-09-25 04:39:11.183792+00, 2026-09-25 04:39:11.183792+00, {}).
+SCHEMA NAME:  public
+TABLE NAME:  order_cancel_requests
+CONSTRAINT NAME:  chk_ocr_result
+LOCATION:  ExecConstraints, execMain.c:2074
+ERROR:  23514: new row for relation "order_cancel_requests" violates check constraint "chk_ocr_claim"
+DETAIL:  Failing row contains (5, ce813305-80dd-4143-9f70-0465bc9b74e3, matching-p0, 1, {769110cb-c36b-4ec3-ad9c-d4f5c9b08426}, cancel_all, ABANDONED, 2026-09-25 04:39:11.184135+00, N1, 7, 2026-09-25 04:39:11.184135+00, 2026-09-25 04:39:11.184135+00, null).
+SCHEMA NAME:  public
+TABLE NAME:  order_cancel_requests
+CONSTRAINT NAME:  chk_ocr_claim
+LOCATION:  ExecConstraints, execMain.c:2074
+accepted|EXPIRED
+INSERT 0 1
+
+== R3 p1 리스를 N1·7 로 두고, N1·7 의 스레드 X 가 한 행을 쥔 채 멈춘 동안 같은 기간의 스레드 Y 가 나머지를 점유한다
+lease|matching-p1|N1|7|t
+Timing is on.
+8|N1|7
+9|N1|7
+UPDATE 2
+Time: 5.933 ms
+-- X
+BEGIN
+7|N1|7
+UPDATE 1
+
+COMMIT
+
+== R4a 요청 A(p1 세 행)의 첫 행을 N1·7 이 점유해 커밋한 뒤 포기하면 0행이다(그 파티션 몫이 시작됨)
+10|N1|7
+UPDATE 1
+UPDATE 0
+10|aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa|matching-p1|CLAIMED|N1|7
+11|aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa|matching-p1|PENDING||
+12|aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa|matching-p1|PENDING||
+
+== R4b 요청 B 가 p0 한 행, p1 두 행이다. p1 한 행만 점유된 뒤 포기하면 p0 행만 ABANDONED 다
+lease|matching-p0|N2|8|t
+14|N1|7
+UPDATE 1
+abandon|13|matching-p0|ABANDONED
+UPDATE 1
+13|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|matching-p0|ABANDONED||
+14|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|matching-p1|CLAIMED|N1|7
+15|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|matching-p1|PENDING||
+
+== R4c 경합: X 가 요청 C(p1 세 행)의 첫 행을 점유하고 아직 커밋하지 않은 동안 요청자가 포기한다
+Timing is on.
+abandon|17|matching-p1|ABANDONED
+abandon|18|matching-p1|ABANDONED
+UPDATE 2
+Time: 1308.422 ms (00:01.308)
+-- X
+BEGIN
+16|N1|7
+UPDATE 1
+
+COMMIT
+16|cccccccc-cccc-4ccc-8ccc-cccccccccccc|matching-p1|CLAIMED|N1|7
+17|cccccccc-cccc-4ccc-8ccc-cccccccccccc|matching-p1|ABANDONED||
+18|cccccccc-cccc-4ccc-8ccc-cccccccccccc|matching-p1|ABANDONED||
+-- 포기된 행은 뒤에 점유되지 않는다
+UPDATE 0
+
+== R4d 아무도 가져가지 않은 요청 D(p1 두 행)는 모두 포기된다
+abandon|19|matching-p1|ABANDONED
+abandon|20|matching-p1|ABANDONED
+UPDATE 2
+
+== R5 N1·7 이 p1 두 행을 점유한 뒤 리스가 N2·8 로 넘어간다(N1 은 아직 게이트를 연 좀비)
+21|N1|7
+22|N1|7
+UPDATE 2
+lease|matching-p1|N2|8|t
+-- 좀비 N1·7 의 끝내기(점유자·epoch 는 맞음)는 리스 확인으로 0행, 새 PENDING 점유도 0행
+UPDATE 0
+UPDATE 0
+-- 새 소유자 N2·8 은 N1 의 두 행과 PENDING 한 행을 점유하고 끝낸다
+21|N2|8
+22|N2|8
+23|N2|8
+UPDATE 3
+finish|21|DONE
+UPDATE 1
+-- 리스가 만료되면(같은 holder·epoch) 점유와 끝내기가 모두 0행이다
+UPDATE 0
+UPDATE 0
+21|eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee|matching-p1|DONE|N2|8
+22|eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee|matching-p1|CLAIMED|N2|8
+23|ffffffff-ffff-4fff-8fff-ffffffffffff|matching-p1|CLAIMED|N2|8
+24|12121212-1212-4121-8121-121212121212|matching-p1|PENDING||
+
+== R6 넣은 지 6분 된 PENDING 행은 유효한 리스로도 점유되지 않는다
+lease|matching-p0|N2|8|t
+25
+INSERT 0 1
+UPDATE 0
+
+== R7 N2·8 의 점유 트랜잭션이 열린 동안 리스 갱신(renew_lease)과 리스 행 FOR UPDATE NOWAIT 가 곧바로 된다
+lease|matching-p1|N2|8|t
+Timing is on.
+renew|t
+Time: 3.223 ms
+Timing is on.
+BEGIN
+Time: 0.096 ms
+lock|matching-p1
+Time: 1.361 ms
+ROLLBACK
+Time: 0.089 ms
+-- X
+BEGIN
+26|N2|8
+UPDATE 1
+
+COMMIT
+-- 끝내기 트랜잭션이 열린 동안에도 같다
+Timing is on.
+renew|t
+Time: 2.974 ms
+Timing is on.
+BEGIN
+Time: 0.102 ms
+lock|matching-p1
+Time: 1.055 ms
+ROLLBACK
+Time: 0.093 ms
+-- X
+BEGIN
+finish|26|DONE
+UPDATE 1
+
+COMMIT
+
+== R8 만료: 6분 된 PENDING -> ABANDONED, 6분 전 점유한 CLAIMED -> EXPIRED. 새 PENDING, 1분 전 다시 점유한 옛 행, 끝난 행은 그대로
+expire|28|ABANDONED
+expire|29|EXPIRED
+28|matching-p0|ABANDONED||t
+29|matching-p1|EXPIRED|N1|t
+30|matching-p0|PENDING||f
+31|matching-p1|CLAIMED|N2|f
+32|matching-engine|DONE|N0|t
+
+== R9 하루 지난 PENDING 5만 행과 CLAIMED 5만 행(두 파티션 반씩), 새 PENDING 한 행. 만료 전·후 점유 질의 계획과 시간
+lease|matching-p0|N2|8|t
+-- 만료 전: 새 행 하나가 있는 점유(ROLLBACK), 새 행이 없는 파티션의 poll
+BEGIN
+Update on order_cancel_requests r (actual rows=1 loops=1)
+  CTE picked
+    ->  Limit (actual rows=1 loops=1)
+          InitPlan 1
+            ->  Seq Scan on leader_lease l (actual rows=1 loops=1)
+                  Filter: ((resource = 'matching-p0'::text) AND (holder = 'N2'::text) AND (epoch = 8) AND (lease_until > clock_timestamp()))
+                  Rows Removed by Filter: 2
+          ->  LockRows (actual rows=1 loops=1)
+                ->  Sort (actual rows=1 loops=1)
+                      Sort Key: r_1.id
+                      Sort Method: quicksort  Memory: 25kB
+                      ->  Result (actual rows=1 loops=1)
+                            One-Time Filter: (InitPlan 1).col1
+                            ->  Seq Scan on order_cancel_requests r_1 (actual rows=1 loops=1)
+                                  Filter: ((resource = 'matching-p0'::text) AND (((state)::text = 'PENDING'::text) OR (((state)::text = 'CLAIMED'::text) AND (claimed_epoch < 8))) AND (created_at > (now() - '00:05:00'::interval)))
+                                  Rows Removed by Filter: 100000
+  ->  Nested Loop (actual rows=1 loops=1)
+        ->  CTE Scan on picked (actual rows=1 loops=1)
+        ->  Index Scan using order_cancel_requests_pkey on order_cancel_requests r (actual rows=1 loops=1)
+              Index Cond: (id = picked.id)
+Planning Time: 1.773 ms
+Execution Time: 10.855 ms
+ROLLBACK
+Limit (actual rows=0 loops=1)
+  ->  LockRows (actual rows=0 loops=1)
+        ->  Sort (actual rows=0 loops=1)
+              Sort Key: id
+              Sort Method: quicksort  Memory: 25kB
+              ->  Seq Scan on order_cancel_requests r (actual rows=0 loops=1)
+                    Filter: ((resource = 'matching-p1'::text) AND (((state)::text = 'PENDING'::text) OR (((state)::text = 'CLAIMED'::text) AND (claimed_epoch < 8))) AND (created_at > (now() - '00:05:00'::interval)))
+                    Rows Removed by Filter: 100001
+Planning Time: 0.057 ms
+Execution Time: 9.440 ms
+-- 만료: 한 문장 최대 1000행, 0행이 될 때까지(각 문장 따로 커밋)
+NOTICE:  expired rows=100000 statements=101 elapsed_ms=3441 slowest_statement_ms=50
+CALL
+ABANDONED|50000
+EXPIRED|50000
+PENDING|1
+-- 만료 뒤: 같은 두 질의
+BEGIN
+Update on order_cancel_requests r (actual rows=1 loops=1)
+  CTE picked
+    ->  Limit (actual rows=1 loops=1)
+          InitPlan 1
+            ->  Seq Scan on leader_lease l (actual rows=1 loops=1)
+                  Filter: ((resource = 'matching-p0'::text) AND (holder = 'N2'::text) AND (epoch = 8) AND (lease_until > clock_timestamp()))
+                  Rows Removed by Filter: 2
+          ->  LockRows (actual rows=1 loops=1)
+                ->  Result (actual rows=1 loops=1)
+                      One-Time Filter: (InitPlan 1).col1
+                      ->  Index Scan using idx_ocr_open on order_cancel_requests r_1 (actual rows=1 loops=1)
+                            Index Cond: (resource = 'matching-p0'::text)
+                            Filter: ((((state)::text = 'PENDING'::text) OR (((state)::text = 'CLAIMED'::text) AND (claimed_epoch < 8))) AND (created_at > (now() - '00:05:00'::interval)))
+  ->  Nested Loop (actual rows=1 loops=1)
+        ->  CTE Scan on picked (actual rows=1 loops=1)
+        ->  Index Scan using order_cancel_requests_pkey on order_cancel_requests r (actual rows=1 loops=1)
+              Index Cond: (id = picked.id)
+Planning Time: 1.815 ms
+Execution Time: 4.345 ms
+ROLLBACK
+Limit (actual rows=0 loops=1)
+  ->  LockRows (actual rows=0 loops=1)
+        ->  Index Scan using idx_ocr_open on order_cancel_requests r (actual rows=0 loops=1)
+              Index Cond: (resource = 'matching-p1'::text)
+              Filter: ((((state)::text = 'PENDING'::text) OR (((state)::text = 'CLAIMED'::text) AND (claimed_epoch < 8))) AND (created_at > (now() - '00:05:00'::interval)))
+Planning Time: 0.053 ms
+Execution Time: 2.247 ms
+-- 만료 뒤 열린 행이 없을 때 만료 문장 한 번
+Update on order_cancel_requests r (actual rows=0 loops=1)
+  CTE stale
+    ->  Limit (actual rows=0 loops=1)
+          ->  LockRows (actual rows=0 loops=1)
+                ->  Sort (actual rows=0 loops=1)
+                      Sort Key: order_cancel_requests.id
+                      Sort Method: quicksort  Memory: 25kB
+                      ->  Index Scan using idx_ocr_open on order_cancel_requests (actual rows=0 loops=1)
+                            Filter: (((state)::text = ANY ('{PENDING,CLAIMED}'::text[])) AND ((((state)::text = 'PENDING'::text) AND (created_at <= (now() - '00:05:00'::interval))) OR (((state)::text = 'CLAIMED'::text) AND (claimed_at <= (now() - '00:05:00'::interval)))))
+                            Rows Removed by Filter: 1
+  ->  Nested Loop (actual rows=0 loops=1)
+        ->  CTE Scan on stale (actual rows=0 loops=1)
+        ->  Index Scan using order_cancel_requests_pkey on order_cancel_requests r (never executed)
+              Index Cond: (id = stale.id)
+Planning Time: 1.408 ms
+Execution Time: 1.965 ms
+
+== R10 요청 행을 넣는 트랜잭션이 열린 동안 같은 회원의 상태 전이(폐쇄 UPDATE)는 기다리지 않는다
+Timing is on.
+CLOSED
+UPDATE 1
+Time: 3.621 ms
+BEGIN
+INSERT 0 1
+
+COMMIT

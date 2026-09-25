@@ -22,7 +22,7 @@ import java.io.IOException;
  * /api/v1 보호 경로 인증 필터. 공개 시장 데이터(§4-A)는 무인증, 그 외는 §3-4 검증을 통과해야
  * 컨트롤러에 도달한다. 바디는 여기서 전량 캐시해 서명 검증과 컨트롤러 파싱이 같은 바이트를 본다.
  *
- * 바디 크기 상한(64KB)은 앞단 RequestSizeLimitFilter(order 5)가 /api/v1/* 전 경로에 먼저 건다.
+ * 바디 크기 상한(64KB)은 앞단 RequestSizeLimitFilter(order 4)가 /api/v1/* 전 경로에 먼저 건다.
  * 이 필터가 제외하는 /auth/·/community/ 평면도 그 필터가 커버한다. 여기서의 readBounded는 서명 canonical용
  * 바이트 확보가 주목적이며 상한은 공유 상수(RequestBodyLimit)로 이중 방어한다.
  */
@@ -141,7 +141,16 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         }
         // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.
         chain.doFilter(effective, response);
-        if (needsTrade && Boolean.TRUE.equals(effective.getAttribute(ApiException.DEMAND_EXCLUDED_ATTRIBUTE))
+        if (!needsTrade) {
+            return;
+        }
+        if (Boolean.TRUE.equals(effective.getAttribute(ApiException.DEMAND_NOT_LOCAL_ATTRIBUTE))) {
+            // 이 노드가 할 일이 아닌 요청이다. 게이트웨이의 소유 아님 503 과, 이 노드에서 submit 을 하나도 하지 않은 일괄
+            // 취소(열린 주문이 없었거나 모두 인계로 넘김)다. 응답 코드와 무관하게 수요에서 뺀다(DB 설계 §5.4-c 8 v2.57). 세면
+            // P3 에서 다른 파티션 주문의 취소가 몰린 노드의 모든 파티션이 STALL 로 강등될 수 있다. DB 에 닿지 못하는 노드는
+            // 인증에서 실패해 여기 오지 않으므로 좀비 탐지는 약해지지 않는다.
+            writeProgress.recordExcluded();
+        } else if (Boolean.TRUE.equals(effective.getAttribute(ApiException.DEMAND_EXCLUDED_ATTRIBUTE))
                 && (response.getStatus() == 429 || response.getStatus() == 409)) {
             // 마켓 접수 경합으로 끝난 요청은 좀비 판정의 수요에서 뺀다(DB 설계 §5.4-c 8). DB 에 닿아 유계 시간 안에 확정
             // 답을 받았으므로 이 노드가 일을 못 한다는 증거가 아니다. 배치 주문·일괄 취소의 200 은 되돌리지 않는다.

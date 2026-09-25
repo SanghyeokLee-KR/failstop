@@ -1,0 +1,1 @@
+{"at": "2026-09-25T16:11:28+09:00", "leader_lease": [{"resource": "matching-engine", "holder": "582ee40e-5687-41dd-95bd-fe1367084e6c", "epoch": 5, "alive": true}, {"resource": "matching-p0", "holder": "", "epoch": 2, "alive": false}, {"resource": "matching-p1", "holder": "", "epoch": 3, "alive": false}]}

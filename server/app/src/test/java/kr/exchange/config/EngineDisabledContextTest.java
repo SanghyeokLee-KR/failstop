@@ -92,6 +92,12 @@ class EngineDisabledContextTest {
         assertNotNull(context.getBean(EngineBridge.class), "엔진이 꺼진 노드에서 접수 배선이 뜨지 않았다");
         assertEquals(0, context.getBeanNamesForType(FollowerCatchUp.class).length,
                 "엔진이 꺼졌는데 따라잡기 빈이 떴다. 재생할 엔진이 없으므로 있으면 안 된다");
+        // 인계 작업자는 게이트를 연 노드의 일이다(DB 설계 §5.4-d 3). 요청자와 소유권 선검사는 있다. 이 노드는 일괄 취소와
+        // 폐쇄의 주문을 모두 넘기고 주문 쓰기를 모두 선검사에서 돌려보낸다(S5 설계 4-10).
+        assertEquals(0, context.getBeanNamesForType(kr.exchange.api.order.CancelHandoffWorker.class).length,
+                "엔진이 꺼졌는데 인계 작업자가 떴다");
+        assertNotNull(context.getBean(kr.exchange.api.order.OrderCancelHandoff.class));
+        assertTrue(context.containsBean("marketRoutingFilter"), "엔진을 끈 노드에 소유권 선검사가 없다");
         PartitionPlan plan = context.getBean(PartitionPlan.class);
         PartitionLeases leases = context.getBean(PartitionLeases.class);
         assertEquals(List.of("matching-engine"), plan.partitions());

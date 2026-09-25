@@ -1,0 +1,180 @@
+{
+  "phase": "Z3",
+  "at": "2026-09-25T06:53:03.768+00:00",
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "states": {
+    "chaos-api-1": "ACCEPTING",
+    "chaos-api-2": "FOLLOWER"
+  },
+  "user_id": 725,
+  "rows": [
+    {
+      "case": "create_hint_other_market",
+      "coids": [
+        "z3-768459fb-0"
+      ],
+      "response": {
+        "status": 400,
+        "ms": 32.7,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": true,
+        "error": "invalid_parameter",
+        "constraint": "market_hint_mismatch",
+        "detail_route": null
+      },
+      "ok": true
+    },
+    {
+      "case": "create_lowercase_hint",
+      "coids": [
+        "z3-55b2b69a-1"
+      ],
+      "response": {
+        "status": 400,
+        "ms": 4.1,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": true,
+        "error": "invalid_parameter",
+        "constraint": "market_hint_mismatch",
+        "detail_route": null
+      },
+      "ok": true
+    },
+    {
+      "case": "create_two_hint_headers",
+      "coids": [
+        "z3-756f324e-2"
+      ],
+      "response": {
+        "status": 400,
+        "ms": 2.5,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": false,
+        "error": "invalid_parameter",
+        "constraint": "market_hint_duplicate",
+        "detail_route": null
+      },
+      "ok": true
+    },
+    {
+      "case": "create_comma_joined_hint",
+      "coids": [
+        "z3-187a8a66-3"
+      ],
+      "response": {
+        "status": 400,
+        "ms": 1.9,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": false,
+        "error": "invalid_parameter",
+        "constraint": "market_hint_duplicate",
+        "detail_route": null
+      },
+      "ok": true
+    },
+    {
+      "case": "batch_mixed_markets",
+      "coids": [
+        "z3-6e985c31-4",
+        "z3-87d308f2-5"
+      ],
+      "response": {
+        "status": 400,
+        "ms": 3.8,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": false,
+        "error": "invalid_parameter",
+        "constraint": "batch_single_market",
+        "detail_route": null
+      },
+      "ok": true
+    },
+    {
+      "case": "cancel_hint_other_market",
+      "coids": [],
+      "response": {
+        "status": 400,
+        "ms": 4.5,
+        "retry_after": null,
+        "route_header": null,
+        "ratelimit_account_header": true,
+        "error": "invalid_parameter",
+        "constraint": "market_hint_mismatch",
+        "detail_route": null
+      },
+      "ok": true
+    }
+  ],
+  "placed": {
+    "status": 201,
+    "ms": 15.8,
+    "retry_after": null,
+    "route_header": null,
+    "ratelimit_account_header": true,
+    "error": null,
+    "constraint": null,
+    "detail_route": null,
+    "body_id": "364c5b4d-d4a7-4dec-abc0-90f63d70d628",
+    "body_status": "OPEN",
+    "body_client_order_id": "z3-99ceae1e-6"
+  },
+  "order_status_after_mismatch": "OPEN",
+  "cleanup": {
+    "status": 200,
+    "ms": 29.0,
+    "retry_after": null,
+    "route_header": null,
+    "ratelimit_account_header": true,
+    "error": null,
+    "constraint": null,
+    "detail_route": null,
+    "body_id": "364c5b4d-d4a7-4dec-abc0-90f63d70d628",
+    "body_status": "CANCELED",
+    "body_client_order_id": "z3-99ceae1e-6"
+  },
+  "hint_rejected_delta": {
+    "market_hint_mismatch": 3.0,
+    "market_hint_duplicate": 2.0,
+    "batch_single_market": 1.0
+  },
+  "side_effects_rejected": {
+    "idempotency_keys": 0,
+    "journal_rows": 0,
+    "reservations": 1
+  },
+  "counters_delta": {
+    "exchange_routing_hint_rejected_total{reason=batch_single_market}": 1.0,
+    "exchange_routing_hint_rejected_total{reason=market_hint_duplicate}": 2.0,
+    "exchange_routing_hint_rejected_total{reason=market_hint_mismatch}": 3.0,
+    "exchange_routing_precheck_total{result=accepted}": 6.0
+  },
+  "lease": {
+    "before": {
+      "holder": "53148717-40d9-48f0-a084-9692df638b70",
+      "epoch": 5,
+      "alive": true
+    },
+    "after": {
+      "holder": "53148717-40d9-48f0-a084-9692df638b70",
+      "epoch": 5,
+      "alive": true
+    }
+  },
+  "axes": {
+    "each_case_expected_400": true,
+    "no_keys_no_new_for_rejected": true,
+    "placed_then_open_after_mismatch_cancel": true,
+    "cleanup_cancel_200": true,
+    "counter_mismatch_eq_3": true,
+    "counter_duplicate_eq_2": true,
+    "counter_batch_eq_1": true,
+    "lease_unchanged": true
+  },
+  "ok": true
+}

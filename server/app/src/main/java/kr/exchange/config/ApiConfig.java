@@ -58,6 +58,7 @@ import java.util.Map;
 
 /** REST/WS 게이트웨이 배선(M1-4). 도메인 계층은 스프링 어노테이션 없이 여기서만 결선한다. */
 @Configuration
+@org.springframework.boot.context.properties.EnableConfigurationProperties(CancelHandoffProperties.class)
 public class ApiConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ApiConfig.class);
@@ -73,9 +74,21 @@ public class ApiConfig {
         return new NonceStore();
     }
 
+    /** 트랜잭션 밖 읽기의 한 번 더 읽기와 그 계수(API 설계 §2-5-d 'DB가 흔들린 직후', 하네스 CI/CD §5-2). */
     @Bean
-    public ApiKeyDirectory apiKeyDirectory(JdbcClient jdbc) {
-        return new ApiKeyDirectory(jdbc);
+    public kr.exchange.journal.DbReadRetry dbReadRetry(MeterRegistry registry) {
+        return new kr.exchange.journal.DbReadRetry(registry);
+    }
+
+    /** 마켓 라우팅 계수(API 설계 §2-5-d 관측). 선검사 필터, 컨트롤러, 게이트웨이가 같은 계수를 쓴다. */
+    @Bean
+    public kr.exchange.api.common.RoutingCounters routingCounters(MeterRegistry registry) {
+        return new kr.exchange.api.common.RoutingCounters(registry);
+    }
+
+    @Bean
+    public ApiKeyDirectory apiKeyDirectory(JdbcClient jdbc, kr.exchange.journal.DbReadRetry readRetry) {
+        return new ApiKeyDirectory(jdbc, readRetry);
     }
 
     @Bean
@@ -207,7 +220,7 @@ public class ApiConfig {
     }
 
     /**
-     * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 5)보다 뒤다. 인증 뒤에서 막으면
+     * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 4)과 소유권 선검사(order 5)보다 뒤다. 인증 뒤에서 막으면
      * api_keys 조회로 이미 DB를 탄 뒤라 실효가 없고, 바디 상한 앞이면 64KB 초과 요청이 슬롯을
      * 소비한다. ApiAuthFilter와 별도 필터인 이유는 AdmissionFilter 클래스 주석 참조.
      */
@@ -230,6 +243,24 @@ public class ApiConfig {
             @Qualifier("wsAdmissionControl") AdmissionControl wsAdmission) {
         return new kr.exchange.api.common.AdmissionEndpoint(gate, orderAdmission, queryAdmission,
                 requeryAdmission, wsAdmission);
+    }
+
+    /**
+     * 소유권 선검사(API 설계 §2-5-d, S5 설계 4-1). 바디 상한(4) 뒤, 수용 제한(6)·IP 버킷(7)·인증(10) 앞이다. 소유하지 않는 노드에
+     * 온 주문 쓰기를 nonce·레이트리밋·멱등 키·예약·채번을 건드리기 전에 503 으로 돌려보내고 인그레스가 다른 노드로 넘긴다.
+     * 조회 역할 노드에는 걸지 않는다. 조회 역할 필터가 쓰기를 먼저 막는다. 엔진을 끈 노드에는 건다(모든 주문 쓰기를 돌려보냄).
+     */
+    @Bean
+    @org.springframework.context.annotation.Conditional(ReadRoleConfig.NotReadRoleCondition.class)
+    public FilterRegistrationBean<kr.exchange.api.common.MarketRoutingFilter> marketRoutingFilter(
+            ErrorRenderer errorRenderer, MarketDirectory markets, EngineBridge bridge, ObjectMapper objectMapper,
+            kr.exchange.api.common.RoutingCounters routingCounters) {
+        FilterRegistrationBean<kr.exchange.api.common.MarketRoutingFilter> registration = new FilterRegistrationBean<>(
+                new kr.exchange.api.common.MarketRoutingFilter(errorRenderer, markets, bridge, objectMapper,
+                        routingCounters));
+        registration.addUrlPatterns("/api/v1/*");
+        registration.setOrder(5);
+        return registration;
     }
 
     @Bean
@@ -433,6 +464,67 @@ public class ApiConfig {
                 .description("append 예외 뒤 저널 판정마저 실패해 키와 예약을 남긴 횟수")
                 .register(meterRegistry);
         return gateway;
+    }
+
+    /**
+     * 게이트웨이에 라우팅 계수, 한 번 더 읽기, 인계 요청자를 붙인다(S5 설계 4-2·4-4·4-6). 생성자를 늘리지 않고 부착한다. 게이트웨이
+     * 생성 배선(orderGateway)은 시험이 그대로 부르므로 시그니처를 바꾸지 않는다(projectionSignalWiring 과 같은 방식). 붙이지 않은
+     * 게이트웨이는 계수를 내보내지 않고 일괄 취소를 모두 직접 한다.
+     */
+    @Bean
+    public static org.springframework.beans.factory.config.BeanPostProcessor orderGatewayRoutingWiring(
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.api.common.RoutingCounters> counters,
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.journal.DbReadRetry> readRetry,
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.api.order.OrderCancelHandoff> handoff) {
+        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String name) {
+                if (bean instanceof OrderGateway gateway) {
+                    gateway.attachRouting(counters.getObject(), readRetry.getObject());
+                    gateway.attachCancelHandoff(handoff.getObject());
+                }
+                return bean;
+            }
+        };
+    }
+
+    @Bean
+    public kr.exchange.api.order.CancelHandoffCounters cancelHandoffCounters(MeterRegistry registry) {
+        return new kr.exchange.api.order.CancelHandoffCounters(registry);
+    }
+
+    @Bean
+    public kr.exchange.api.order.OrderCancelHandoffRepository orderCancelHandoffRepository(
+            JdbcClient jdbc, PlatformTransactionManager txManager) {
+        return new kr.exchange.api.order.OrderCancelHandoffRepository(jdbc, new TransactionTemplate(txManager));
+    }
+
+    /**
+     * 파티션 밖 취소의 요청자(DB 설계 §5.4-d 1·2). 엔진을 끈 노드(관리 평면, 조회 증설)도 둔다. 그 노드는 어떤 파티션의 게이트도
+     * 열지 않아 일괄 취소와 회원 폐쇄의 주문을 모두 소유 노드에 넘긴다.
+     */
+    @Bean
+    public kr.exchange.api.order.OrderCancelHandoff orderCancelHandoff(
+            kr.exchange.api.order.OrderCancelHandoffRepository repository,
+            kr.exchange.engine.PartitionPlan partitionPlan, kr.exchange.engine.PartitionLeases partitionLeases,
+            CancelHandoffProperties properties, kr.exchange.api.order.CancelHandoffCounters counters) {
+        return new kr.exchange.api.order.OrderCancelHandoff(repository, partitionPlan, partitionLeases,
+                properties.settings(), counters);
+    }
+
+    /**
+     * 파티션 밖 취소의 작업자(DB 설계 §5.4-d 3). 엔진을 켠 노드에만 둔다. 게이트가 열린 파티션의 인계 행만 점유하므로 팔로워로
+     * 떠 있는 동안에는 DB 를 보지 않는다.
+     */
+    @Bean(initMethod = "start", destroyMethod = "close")
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "exchange.engine", name = "enabled", matchIfMissing = true)
+    public kr.exchange.api.order.CancelHandoffWorker cancelHandoffWorker(
+            kr.exchange.api.order.OrderCancelHandoffRepository repository, OrderGateway gateway,
+            kr.exchange.engine.PartitionLeases partitionLeases, CancelHandoffProperties properties,
+            kr.exchange.api.order.CancelHandoffCounters counters) {
+        return new kr.exchange.api.order.CancelHandoffWorker(repository, gateway, partitionLeases,
+                properties.settings(), counters);
     }
 
     @Bean

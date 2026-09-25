@@ -188,6 +188,15 @@ public class EngineBridge {
     }
 
     /**
+     * 소유권 선검사 전용(API 설계 §2-5-d, S5 설계 4-1). 메모리만 보고 그 마켓 파티션의 게이트가 열렸는지 답하고, 파티션 대응을
+     * 메모리에 갖고 있지 않으면 null 이다. accepting 은 P3 에서 모르는 마켓의 대응을 DB 에서 다시 읽으므로 인증 전에 부르면
+     * 미인증 요청이 DB 조회를 일으킨다. 엔진을 끈 노드는 수명주기가 없어 늘 거짓이다.
+     */
+    public Boolean acceptingIfKnown(int marketId) {
+        return acceptGate.acceptingIfKnown(marketId);
+    }
+
+    /**
      * 저널에 커밋된 것이 확인됐지만 큐에 넣지 못한 명령을 그 마켓 라이터가 seq 까지 적용하게 한다.
      * 접수가 append 예외를 받은 뒤 그 명령의 커밋을 저널에서 확인한 경우에 쓴다(OrderGateway).
      */

@@ -99,6 +99,14 @@ public final class PartitionPlan {
         return marketPartition.get(marketId);
     }
 
+    /**
+     * 메모리 대응만 본 마켓의 파티션(API 설계 §2-5-d, S5 설계 4-1). P1·P2 는 matching-engine 이다. P3 에서 아직 읽지 않은 마켓이면
+     * null 이고 다시 읽지 않는다. 인증 전의 소유권 선검사가 쓴다. 미인증 요청이 대응 표 조회를 일으키지 않게 하려는 것이다.
+     */
+    public String knownPartitionOf(int marketId) {
+        return partitioned ? marketPartition.get(marketId) : partitions.get(0);
+    }
+
     /** 그 자원이 덮는 마켓인가를 답하는 판정. P1·P2 의 matching-engine 은 모든 마켓이다. */
     public IntPredicate scope(String resource) {
         if (!contains(resource)) {

@@ -1,0 +1,18 @@
+jovial_bose postgres:17-alpine Up 5 seconds 
+happy_hellman postgres:17-alpine Up 11 seconds 
+compassionate_swartz postgres:17-alpine Up 55 seconds 
+sleepy_clarke postgres:17-alpine Up About a minute 
+charming_bouman postgres:17-alpine Up About a minute 
+busy_germain postgres:17-alpine Up About a minute 
+objective_visvesvaraya postgres:17-alpine Up About a minute 
+angry_dubinsky postgres:17-alpine Up 2 minutes 
+reverent_sammet postgres:17-alpine Up 2 minutes 
+sharp_blackburn postgres:17-alpine Up 2 minutes 
+hardcore_dubinsky postgres:17-alpine Up 2 minutes 
+ecstatic_jennings postgres:17-alpine Up 2 minutes 
+vibrant_herschel postgres:17-alpine Up 2 minutes 
+nifty_knuth postgres:17-alpine Up 2 minutes 
+elated_shirley postgres:17-alpine Up 2 minutes 
+jolly_williamson postgres:17-alpine Up 3 minutes 
+beautiful_northcutt postgres:17-alpine Up 3 minutes 
+testcontainers-ryuk-914445c0-67ee-44ba-96f7-7460088f1f7e testcontainers/ryuk:0.12.0 Up 3 minutes 

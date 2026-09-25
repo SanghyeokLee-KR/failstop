@@ -45,6 +45,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<Object> apiException(ApiException e, HttpServletRequest request,
                                                HttpServletResponse response) {
         markDemandExcluded(e, request);
+        if (e.routeNotOwner()) {
+            // 소유 아님 503 은 이 노드가 할 일이 아닌 요청이라 좀비 판정의 노드 층 수요에서 뺀다(DB 설계 §5.4-c 8 v2.57).
+            request.setAttribute(ApiException.DEMAND_NOT_LOCAL_ATTRIBUTE, Boolean.TRUE);
+        }
         return render(e, response);
     }
 
@@ -191,6 +195,9 @@ public class ApiExceptionHandler {
                 .header("Content-Type", "application/json;charset=utf-8");
         if (e.retryAfter() != null) {
             builder.header("Retry-After", String.valueOf(e.retryAfter()));
+        }
+        if (e.routeNotOwner()) {
+            builder.header(ApiException.ROUTE_HEADER, ApiException.ROUTE_NOT_OWNER_VALUE);
         }
         return builder.body(renderer.body(e.name(), e.getMessage(), e.detail(),
                 e.retryAfter(), requestId));

@@ -81,7 +81,8 @@ class MemberCloseIncompleteTest {
                     .query(String.class).single();
             kr.exchange.api.order.OrderGateway gateway = new kr.exchange.api.order.OrderGateway(jdbc, null, null, null) {
                 @Override
-                public BulkCancelResult cancelAll(long userId, String market) {
+                public BulkCancelResult cancelAll(long userId, String market, String origin) {
+                    assertEquals(kr.exchange.api.order.OrderCancelHandoff.ORIGIN_MEMBER_CLOSE, origin);
                     return new BulkCancelResult(java.util.List.of("a"), java.util.List.of(), 1, 2);
                 }
             };
@@ -115,7 +116,7 @@ class MemberCloseIncompleteTest {
                     .query(String.class).single();
             kr.exchange.api.order.OrderGateway gateway = new kr.exchange.api.order.OrderGateway(jdbc, null, null, null) {
                 @Override
-                public BulkCancelResult cancelAll(long userId, String market) {
+                public BulkCancelResult cancelAll(long userId, String market, String origin) {
                     return new BulkCancelResult(java.util.List.of("a"), java.util.List.of(), 1, 2, 3);
                 }
             };
@@ -128,6 +129,41 @@ class MemberCloseIncompleteTest {
             assertEquals(6, t.pendingOrders(), "경합으로 남은 주문을 미완료로 세지 않았다");
             assertEquals(Map.of("service_unavailable", 1, "too_many_requests", 3, "market_suspended", 2),
                     t.pendingReasons());
+        }
+    }
+
+    /**
+     * 파티션 인계의 세 사유도 미완료다(API 설계 v2.57 §6-E, S5 설계 4-4). 소유 노드가 기다림 안에 시작하지 않은 몫
+     * (partition_not_started), 시작했으나 끝내지 않은 몫(partition_pending), 소유 노드의 예기치 않은 오류(server_error)가
+     * pending_reasons 에 그 이름으로 실리고 합이 미완료 수다.
+     */
+    @Test
+    void handoffReasonsCountAsPending() throws Exception {
+        kr.exchange.engine.lease.PartitionLeaseDb db = kr.exchange.engine.lease.PartitionLeaseDb.create("close_handoff");
+        try (com.zaxxer.hikari.HikariDataSource pool = db.ownerPool()) {
+            org.springframework.jdbc.core.simple.JdbcClient jdbc =
+                    org.springframework.jdbc.core.simple.JdbcClient.create(pool);
+            long id = new kr.exchange.ledger.AccountBootstrap(jdbc).user("handoff@member.test");
+            String external = jdbc.sql("SELECT external_id::text FROM users WHERE id = ?").param(id)
+                    .query(String.class).single();
+            kr.exchange.api.order.OrderGateway gateway = new kr.exchange.api.order.OrderGateway(jdbc, null, null, null) {
+                @Override
+                public BulkCancelResult cancelAll(long userId, String market, String origin) {
+                    return new BulkCancelResult(java.util.List.of("a"), java.util.List.of(), 0, 0, 0, 4, 2, 1, 0,
+                            false);
+                }
+            };
+            MemberAdminService service = new MemberAdminService(jdbc,
+                    new org.springframework.transaction.support.TransactionTemplate(
+                            new org.springframework.jdbc.support.JdbcTransactionManager(pool)), gateway);
+
+            MemberAdminService.Transition t = service.close(external);
+
+            assertEquals(7, t.pendingOrders(), "인계 사유를 미완료로 세지 않았다");
+            assertEquals(Map.of("partition_not_started", 4, "partition_pending", 2, "server_error", 1),
+                    t.pendingReasons());
+            assertEquals(java.util.List.of("partition_not_started", "partition_pending", "server_error"),
+                    java.util.List.copyOf(t.pendingReasons().keySet()), "사유 순서가 고정되지 않았다");
         }
     }
 

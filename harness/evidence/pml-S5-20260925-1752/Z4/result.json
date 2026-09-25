@@ -1,0 +1,401 @@
+{
+  "phase": "Z4",
+  "verdict": "PASS",
+  "axes": {
+    "lb_nginx_t_ok_and_sha_same": true,
+    "probe_ok": true,
+    "hint_rejected_0_both": true,
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "orders_500_0": true,
+    "drained_and_unsettled_0": true,
+    "recovery_runs_mismatch_0": true,
+    "api_logs_no_unhandled_or_auth_500": true,
+    "no_permission_function_errors": true
+  },
+  "leader": "chaos-api-1",
+  "lb": {
+    "lbConf": "partition",
+    "file": "harness/nginx/nginx.partition.conf",
+    "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+    "nginxTRc": 0,
+    "sha256Inside": "739ee58804b4c569a0d96f99a8c66bfc069a7c9f5bf345493eebd1c3d4316861",
+    "sha256Repo": "739ee58804b4c569a0d96f99a8c66bfc069a7c9f5bf345493eebd1c3d4316861",
+    "same": true,
+    "envChaosLbConf": "./nginx/nginx.partition.conf"
+  },
+  "adminRc": 0,
+  "probe": {
+    "rc": 0,
+    "file": "z4.json",
+    "ok": true,
+    "failedAxes": []
+  },
+  "lease": {
+    "before": {
+      "holder": "3a8e0727-c630-4da3-9aaf-fee55b5c438c",
+      "epoch": 5,
+      "alive": true
+    },
+    "after": {
+      "holder": "3a8e0727-c630-4da3-9aaf-fee55b5c438c",
+      "epoch": 6,
+      "alive": true
+    },
+    "same": false
+  },
+  "metricsWindow": {
+    "18080": {
+      "exchange_order_cancel_handoff_worker_total{outcome=claimed}": 4.0,
+      "exchange_order_cancel_handoff_worker_total{outcome=completed}": 4.0,
+      "exchange_partition_demotions_total{reason=PLANNED}": 1.0,
+      "exchange_partition_rebuild_seconds_count{outcome=success}": 1.0,
+      "exchange_routing_precheck_total{result=accepted}": 16.0,
+      "http_GET_503_/actuator/health/**": 2.0,
+      "orders_post_201": 16.0
+    },
+    "28080": {
+      "exchange_order_cancel_handoff_requests_total{outcome=done}": 1.0,
+      "exchange_routing_precheck_total{result=not_owner}": 2.0,
+      "exchange_routing_precheck_total{result=unresolved}": 1.0,
+      "http_POST_503_UNKNOWN": 2.0
+    },
+    "38080": {
+      "exchange_order_cancel_handoff_requests_total{outcome=done}": 1.0,
+      "exchange_routing_precheck_total{result=unresolved}": 1.0
+    }
+  },
+  "tail": {
+    "axes": {
+      "invariants_summary": true,
+      "invariants_authoritative": true,
+      "orders_500_0": true,
+      "drained_and_unsettled_0": true,
+      "recovery_runs_mismatch_0": true,
+      "api_logs_no_unhandled_or_auth_500": true,
+      "no_permission_function_errors": true
+    },
+    "orders500": {
+      "rc": 0,
+      "ok": true,
+      "readable": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "zero": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "file": "orders500.json"
+    },
+    "drained": true,
+    "state": {
+      "ok": true,
+      "error": null,
+      "ts": "2026-09-25T18:39:15+09:00",
+      "protocol": 2,
+      "changed_at": "2026-09-25T18:38:03.551942+09:00",
+      "history": [
+        {
+          "id": 1,
+          "protocol": 1,
+          "prev_protocol": null,
+          "epoch_floor": 0,
+          "changed_at": "2026-09-25T18:37:34.602499+09:00",
+          "changed_by": "exchange"
+        },
+        {
+          "id": 2,
+          "protocol": 2,
+          "prev_protocol": 1,
+          "epoch_floor": 1,
+          "changed_at": "2026-09-25T18:38:03.551942+09:00",
+          "changed_by": "exchange"
+        }
+      ],
+      "lease": [
+        {
+          "resource": "matching-engine",
+          "holder": "3a8e0727-c630-4da3-9aaf-fee55b5c438c",
+          "epoch": 6,
+          "alive": true
+        },
+        {
+          "resource": "matching-p0",
+          "holder": "",
+          "epoch": 2,
+          "alive": false
+        },
+        {
+          "resource": "matching-p1",
+          "holder": "",
+          "epoch": 3,
+          "alive": false
+        }
+      ],
+      "retired": [
+        {
+          "epoch": 2,
+          "resource": "matching-p0",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:38:03.55413+09:00"
+        },
+        {
+          "epoch": 3,
+          "resource": "matching-p1",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:38:03.554351+09:00"
+        },
+        {
+          "epoch": 4,
+          "resource": "matching-engine",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T18:38:03.554454+09:00"
+        }
+      ],
+      "acquisitions_by_protocol": {
+        "2": 5,
+        "1": 1
+      },
+      "reservations": 128,
+      "unsettled_new": 0,
+      "unsettled_reservations": 0,
+      "oldest_unsettled_reservation_s": null,
+      "db_now": "2026-09-25T18:39:15.164539+09:00",
+      "code": 0
+    },
+    "authoritative": {
+      "port": 18080,
+      "verdict": "PASS",
+      "checks": 31,
+      "notOk": [],
+      "ok": true
+    },
+    "summary": {
+      "rc": 0,
+      "rows": 32,
+      "gateRows": 29,
+      "notPass": [],
+      "ok": true
+    },
+    "logs": {
+      "chaos-api-1": {
+        "lines": 293,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 1,
+        "leadershipLost": 1,
+        "promotions": 3,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 2
+      },
+      "chaos-api-2": {
+        "lines": 207,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 2
+      },
+      "chaos-bots": {
+        "lines": 96,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      }
+    },
+    "recoveryRuns": {
+      "success": 5,
+      "mismatch": 0
+    },
+    "botsStopRc": 0
+  },
+  "partitions": {
+    "18080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 6,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [
+            {
+              "reason": "PLANNED",
+              "detail": "PLANNED",
+              "at": "2026-09-25T09:38:51.696060433Z"
+            }
+          ],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "28080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-api-3": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=false"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=false"
+    },
+    "chaos-admin": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,admin,admin-chaos",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=false"
+    }
+  },
+  "stack": "2026-09-25T09:37:20.5693385+00:00",
+  "containerLogs": {
+    "chaos-api-1": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-api-1.log",
+      "sha256": "8a09bda471765999da87c766d8193a65eb697f08c701f6480bd6c1d1b351c340",
+      "bytes": 72728
+    },
+    "chaos-api-2": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-api-2.log",
+      "sha256": "55a51a7072bf641ddd4712b24baff93356bf9fbd631230ae04f40060f198b601",
+      "bytes": 57156
+    },
+    "chaos-api-3": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-api-3.log",
+      "sha256": "9e866ca85ce76417332c9d882dcc4feda10af927e7af61a1dfff5cc68e43c820",
+      "bytes": 24658
+    },
+    "chaos-admin": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-admin.log",
+      "sha256": "a5501af6740e7e1970b3198a10d2b9e1bc44c162f75c09be29c30b4404a1dfad",
+      "bytes": 5982
+    },
+    "chaos-bots": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-bots.log",
+      "sha256": "9abd9456ee80d1252cde2a5f9a0023837e5b7a3aab0ec1dad6aac16d751753b6",
+      "bytes": 14484
+    },
+    "chaos-lb": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\Z4\\chaos-lb.log",
+      "sha256": "22711b93fd294a8a706f7b3b06ce39ac5b7c90fb60bb509b9eee31317c222c59",
+      "bytes": 101760
+    }
+  },
+  "host": {
+    "before": {
+      "at": "2026-09-25T09:37:20.5672196Z",
+      "cpuTotalPct": [
+        2.3,
+        2.9,
+        9.3,
+        9.6,
+        7.8
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 0
+    },
+    "after": {
+      "at": "2026-09-25T09:39:39.0521354Z",
+      "cpuTotalPct": [
+        5.6,
+        2.4,
+        7.3,
+        3.5,
+        6.0
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 0
+    }
+  }
+}

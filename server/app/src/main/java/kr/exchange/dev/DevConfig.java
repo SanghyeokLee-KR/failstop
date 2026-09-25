@@ -39,13 +39,15 @@ public class DevConfig {
         // X-Operator-Cn은 관리 평면 신원 헤더다(exchange.admin.mtls.forward-header). dev는
         // mTLS 종단 게이트웨이가 없어 브라우저가 직접 싣는다. 누락 시 프리플라이트가 거부돼
         // 관리 콘솔 세션 발급이 전부 실패한다.
+        // X-Exchange-Market 은 주문 쓰기의 마켓 힌트(API 설계 §2-5-d)다. prod 와 같은 계약이다.
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key",
-                "X-Operator-Cn"));
-        // 크로스오리진에서 기본 노출되지 않는 레이트리밋·상관추적 헤더를 web 폴백이 읽도록 노출한다.
+                "X-Operator-Cn", "X-Exchange-Market"));
+        // 크로스오리진에서 기본 노출되지 않는 레이트리밋·상관추적 헤더를 web 폴백이 읽도록 노출한다. X-Exchange-Route 는
+        // 소유 아님 503 의 표식이다(API 설계 §2-5-d).
         cfg.setExposedHeaders(List.of("Retry-After",
                 "X-RateLimit-Limit-account", "X-RateLimit-Limit-admin",
                 "X-RateLimit-Remaining-account", "X-RateLimit-Remaining-admin",
-                "X-RateLimit-Reset", "X-Request-Id"));
+                "X-RateLimit-Reset", "X-Request-Id", "X-Exchange-Route"));
         cfg.setAllowCredentials(true);
         // 프리플라이트 응답 캐시. 없으면 dev 브라우저가 변이 요청마다 OPTIONS를 반복한다.
         cfg.setMaxAge(1800L);

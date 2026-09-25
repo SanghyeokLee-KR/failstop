@@ -1,0 +1,154 @@
+{
+  "phase": "Z1d",
+  "at": "2026-09-25T09:32:53.622+00:00",
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "states": {
+    "chaos-api-1": "ACCEPTING",
+    "chaos-api-2": "FOLLOWER"
+  },
+  "ip_map": {
+    "172.18.0.11": "chaos-api-1",
+    "172.18.0.12": "chaos-api-2"
+  },
+  "user_id": 725,
+  "rows": [
+    {
+      "case": "hinted_eth_create",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "hint": "KRW-ETH",
+      "status": 201,
+      "error": null,
+      "constraint": null,
+      "lb_lines": 1,
+      "lb": {
+        "status": "201",
+        "ups": [
+          "chaos-api-2",
+          "chaos-api-1"
+        ],
+        "ust": "503, 201"
+      }
+    },
+    {
+      "case": "unhinted_eth_create",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "hint": "-",
+      "status": 201,
+      "error": null,
+      "constraint": null,
+      "lb_lines": 1,
+      "lb": {
+        "status": "201",
+        "ups": [
+          "chaos-api-1"
+        ],
+        "ust": "201"
+      }
+    },
+    {
+      "case": "unknown_hint_eth_create",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "hint": "KRW-FOO",
+      "status": 400,
+      "error": "invalid_parameter",
+      "constraint": "market_hint_mismatch",
+      "lb_lines": 1,
+      "lb": {
+        "status": "400",
+        "ups": [
+          "chaos-api-1"
+        ],
+        "ust": "400"
+      }
+    },
+    {
+      "case": "hinted_btc_create",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "hint": "KRW-BTC",
+      "status": 201,
+      "error": null,
+      "constraint": null,
+      "lb_lines": 1,
+      "lb": {
+        "status": "201",
+        "ups": [
+          "chaos-api-1"
+        ],
+        "ust": "201"
+      }
+    },
+    {
+      "case": "unhinted_cancel_all",
+      "method": "DELETE",
+      "path": "/api/v1/orders",
+      "hint": "-",
+      "status": 200,
+      "error": null,
+      "constraint": null,
+      "lb_lines": 1,
+      "lb": {
+        "status": "200",
+        "ups": [
+          "chaos-api-1"
+        ],
+        "ust": "200"
+      }
+    },
+    {
+      "case": "hinted_get_open",
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "hint": "KRW-ETH",
+      "status": 200,
+      "error": null,
+      "constraint": null,
+      "lb_lines": 1,
+      "lb": {
+        "status": "200",
+        "ups": [
+          "chaos-api-1"
+        ],
+        "ust": "200"
+      }
+    }
+  ],
+  "follower_not_owner_delta": 1.0,
+  "counters_delta": {
+    "chaos-api-1": {
+      "exchange_routing_hint_rejected_total{reason=market_hint_mismatch}": 1.0,
+      "exchange_routing_precheck_total{result=accepted}": 4.0,
+      "exchange_routing_precheck_total{result=unresolved}": 1.0
+    },
+    "chaos-api-2": {
+      "exchange_routing_precheck_total{result=not_owner}": 1.0
+    }
+  },
+  "lease": {
+    "before": {
+      "holder": "97395a13-bbdc-4954-9904-6230856eba4c",
+      "epoch": 5,
+      "alive": true
+    },
+    "after": {
+      "holder": "97395a13-bbdc-4954-9904-6230856eba4c",
+      "epoch": 5,
+      "alive": true
+    }
+  },
+  "axes": {
+    "each_request_has_one_lb_line": true,
+    "hinted_eth_first_follower_503_then_leader_201": true,
+    "unhinted_eth_default_upstream_leader_once": true,
+    "unknown_hint_default_upstream_then_400": true,
+    "hinted_btc_p0_leader_once": true,
+    "unhinted_cancel_all_default_upstream_leader": true,
+    "get_not_split_by_hint": true,
+    "follower_not_owner_plus_1": true
+  },
+  "ok": true
+}

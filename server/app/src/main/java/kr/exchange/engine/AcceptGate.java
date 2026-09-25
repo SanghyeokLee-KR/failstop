@@ -23,4 +23,13 @@ public interface AcceptGate {
     default LeaderTerm openTerm(int marketId) {
         return null;
     }
+
+    /**
+     * 메모리만 보고 그 마켓 파티션의 게이트가 열렸는지 답한다(API 설계 §2-5-d, S5 설계 4-1). 마켓의 파티션 대응을 메모리에 갖고
+     * 있지 않으면 null 이다. 인증 전의 소유권 선검사가 쓰므로 DB 를 보면 안 된다. 기간을 들지 않는 게이트는 노드 전체의 개방
+     * 여부다. 파티션 게이트(PartitionLeases)는 대응을 다시 읽지 않는 판으로 덮어 쓴다.
+     */
+    default Boolean acceptingIfKnown(int marketId) {
+        return termBound() ? Boolean.valueOf(openTerm(marketId) != null) : Boolean.valueOf(isAccepting());
+    }
 }

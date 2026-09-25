@@ -1,0 +1,81 @@
+{
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "ip_map": {
+    "172.18.0.11": "chaos-api-1",
+    "172.18.0.12": "chaos-api-2"
+  },
+  "partitions": {
+    "exchange_p0": {
+      "primary": "chaos-api-1",
+      "markets": [
+        "KRW-AVAX",
+        "KRW-BTC",
+        "KRW-DOGE",
+        "KRW-DOT",
+        "KRW-TRX",
+        "KRW-XRP"
+      ],
+      "lines": 15394,
+      "first_leader": 15394,
+      "first_follower": 0,
+      "first_follower_503": 0,
+      "first_follower_503_then_leader": 0,
+      "bad_shape": 0,
+      "two_attempts": 0,
+      "final": {
+        "201": 13874,
+        "200": 1520
+      },
+      "max_rt": 0.156,
+      "first_unknown": 0
+    },
+    "exchange_p1": {
+      "primary": "chaos-api-2",
+      "markets": [
+        "KRW-ADA",
+        "KRW-ATOM",
+        "KRW-ETH",
+        "KRW-LINK",
+        "KRW-MATIC",
+        "KRW-SOL"
+      ],
+      "lines": 6664,
+      "first_leader": 6501,
+      "first_follower": 163,
+      "first_follower_503": 163,
+      "first_follower_503_then_leader": 163,
+      "bad_shape": 0,
+      "two_attempts": 163,
+      "final": {
+        "201": 5460,
+        "200": 1204
+      },
+      "max_rt": 0.14,
+      "first_unknown": 0
+    }
+  },
+  "unhinted_or_unmapped": {
+    "lines": 0,
+    "first_follower": 0,
+    "first_follower_503": 0,
+    "final": {}
+  },
+  "total": {
+    "order_write_lines": 22058,
+    "order_write_first_follower_503": 163,
+    "status_502": 0,
+    "no_live_upstreams": 0,
+    "hint_values": {
+      "KRW-BTC": 8469,
+      "KRW-XRP": 6925,
+      "KRW-ETH": 6664
+    }
+  },
+  "phase": "lbsplit",
+  "window": {
+    "from": "2026-09-25T06:38:41.0000000+00:00",
+    "to": "2026-09-25T06:46:49.0000000+00:00"
+  },
+  "log_lines": 41333
+}

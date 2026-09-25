@@ -1,0 +1,18 @@
+nginx version: nginx/1.29.8
+A1 status=200 target=@named -> {"hop": "second", "method": "POST", "path": "/first/x", "body_len": 129} http=200
+A2 status=421 target=@named -> {"hop": "second", "method": "POST", "path": "/first/x", "body_len": 129} http=200
+A3 status=503 target=@named -> {"hop": "second", "method": "POST", "path": "/first/x", "body_len": 129} http=200
+A4 status=409 target=@named -> {"hop": "second", "method": "POST", "path": "/first/x", "body_len": 129} http=200
+A5 status=200 target=/internal/x -> {"hop": "second", "method": "GET", "path": "/internal/x", "body_len": 129} http=200
+A6 status=421 target=/internal/x -> {"hop": "second", "method": "GET", "path": "/internal/x", "body_len": 129} http=200
+A7 status=421 target=@named -> {"hop": "second", "method": "DELETE", "path": "/first/x", "body_len": 129} http=200
+
+== access log
+POST /first/x st=200 ust="200 : 200" ups="<ip>:8080 : <ip>:8080"
+POST /first/x st=200 ust="421 : 200" ups="<ip>:8080 : <ip>:8080"
+POST /first/x st=200 ust="503 : 200" ups="<ip>:8080 : <ip>:8080"
+POST /first/x st=200 ust="409 : 200" ups="<ip>:8080 : <ip>:8080"
+GET /internal/x st=200 ust="200 : 200" ups="<ip>:8080 : <ip>:8080"
+GET /internal/x st=200 ust="421 : 200" ups="<ip>:8080 : <ip>:8080"
+DELETE /first/x st=200 ust="421 : 200" ups="<ip>:8080 : <ip>:8080"
+== error log (선택)

@@ -364,6 +364,9 @@ export interface HttpDataSourceOptions {
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
+/** 주문 쓰기의 마켓 힌트 헤더(API 설계 §2-5-d). 서버 kr.exchange.api.order.MarketHint.HEADER 와 같다 */
+export const MARKET_HINT_HEADER = "X-Exchange-Market";
+
 /**
  * REST 요청 헤더. 호출부 헤더(입출금 Idempotency-Key 등)를 살리고 Content-Type과 Authorization은
  * 어댑터가 정한다. 호출부가 같은 이름을 넘기면 버린다. 대소문자만 다른 두 값이 함께 실리지 않게 한다.
@@ -611,17 +614,27 @@ export class HttpStompDataSource implements DataSource {
   }
 
   async placeOrder(req: OrderRequest): Promise<Order> {
-    return this.http<Order>("/api/v1/orders", { method: "POST", body: JSON.stringify(req) }, true);
+    // 마켓 힌트(API 설계 §2-5-d). 서명 밖 헤더라 권한을 주지 않고, 인그레스가 그 마켓을 접수하는 노드로 보내는 라우팅
+    // 입력이다. 서버는 바디의 market 과 대조해 다르면 400 으로 끝낸다. 늘 바디와 같은 값을 싣는다.
+    return this.http<Order>(
+      "/api/v1/orders",
+      { method: "POST", body: JSON.stringify(req), headers: { [MARKET_HINT_HEADER]: req.market } },
+      true,
+    );
   }
 
-  async cancelOrder(idOrClientId: string): Promise<Order> {
+  async cancelOrder(idOrClientId: string, market?: string): Promise<Order> {
     // 화면은 order.id(UUID)를 넘긴다(§7-1). UUID면 정규 라우트로 취소한다.
     // by-client(§4-B-2)는 client_order_id를 명시적으로 넘기는 호출 전용이며 M1-5 백엔드
     // 미구현이라 의존하지 않는다. 정규 UUID 경로가 취소의 유일한 실동작 경로다.
     const path = UUID_RE.test(idOrClientId)
       ? `/api/v1/orders/${idOrClientId}`
       : `/api/v1/orders/by-client/${encodeURIComponent(idOrClientId)}`;
-    return this.http<Order>(path, { method: "DELETE" }, true);
+    // 대상 주문의 마켓을 알면 힌트로 싣는다. 모르면 비운다. 서버가 대상 주문을 읽어 소유 노드를 판정한다(§2-5-d).
+    const init: RequestInit = market
+      ? { method: "DELETE", headers: { [MARKET_HINT_HEADER]: market } }
+      : { method: "DELETE" };
+    return this.http<Order>(path, init, true);
   }
 
   async getEffectConfig(): Promise<EffectConfig> {

@@ -260,12 +260,22 @@ class OrderGatewayOutageMappingTest {
         }
     }
 
-    /** 취소의 리더 자격 거부는 롤백이 확정이다. 게이트가 닫혔으면 페일오버 503, 열렸으면 확정 미접수 429 다. */
+    /**
+     * 취소의 리더 자격 거부는 롤백이 확정이다. 게이트가 닫혔으면 페일오버 503, 열렸으면 확정 미접수 429 다.
+     *
+     * 게이트는 거부의 재확인이 거짓일 때 강등이 같은 스레드에서 닫는다. 그래서 닫힘 장면은 submit 안에서 게이트를 닫는다. S5 부터
+     * 게이트웨이는 채번 전에 게이트를 보고 이미 닫혀 있으면 소유 아님 503 을 내므로(API 설계 §2-5-d) 요청 전에 닫으면 이 경로를
+     * 타지 않는다.
+     */
     @Test
     void cancelLeaderRejectionUsesTheGate() throws Exception {
         long user = user("cancel-fencing");
-        FakeBridge closed = throwing(DbFailures::fencing);
-        closed.gateOpen = false;
+        java.util.concurrent.atomic.AtomicReference<FakeBridge> closing = new java.util.concurrent.atomic.AtomicReference<>();
+        FakeBridge closed = new FakeBridge(intake -> {
+            closing.get().gateOpen = false;
+            throw DbFailures.fencing();
+        });
+        closing.set(closed);
         OrderGateway closedGateway = p2(closed);
         assertFailover(assertThrows(ApiException.class, () -> closedGateway.cancel(user, openOrder(user))), "닫힘");
         assertEquals(1, closedGateway.intakeUnavailable("fencing", "503"));

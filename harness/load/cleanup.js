@@ -15,6 +15,9 @@ const accountsDone = new Counter('cleanup_accounts_done');
 // 기본이 LB가 아닌 이유는 위 머리말과 같다. 회수는 게이트가 아니라 정리 작업이라
 // LB 경유 필요가 없다.
 const BASE = __ENV.CLEANUP_BASE || 'http://chaos-api-1:8080';
+// BASE 가 그 마켓을 접수하지 않는 노드면(페일오버 뒤 팔로워) 소유권 선검사가 아무것도 건드리지 않은 503 을
+// X-Exchange-Route: not-owner 로 돌려준다(API 설계 §2-5-d, ADR 0034 S5). 그때 새 nonce 로 다시 서명해 이 노드로 한 번 다시 보낸다.
+const BASE_ALT = __ENV.CLEANUP_BASE_ALT || 'http://chaos-api-2:8080';
 const MARKET = __ENV.MARKET || 'KRW-BTC';
 const KEYS = JSON.parse(open(__ENV.K6_KEYS || './secrets/k6_keys.json'));
 const KEYS_LEN = KEYS.length;
@@ -46,12 +49,17 @@ export const options = {
 // 쿼리 요청의 canonical은 METHOD + 경로 + 키 오름차순 정렬 쿼리다
 // (CanonicalRequests.forQuery). signRequest의 세 번째 인자가 그 자리이고, 경로에는
 // 쿼리를 붙이지 않는다. 둘을 섞으면 401 invalid_query_payload가 난다(실측).
-function signedQuery(method, path, params, c) {
+function signedQuery(method, path, params, c, base) {
   const query = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('&');
   return {
-    url: BASE + path + (query ? `?${query}` : ''),
+    url: (base || BASE) + path + (query ? `?${query}` : ''),
     auth: signRequest(method, path, query, c.access_key, c.secret),
   };
+}
+
+// 소유권 선검사의 거절인가. 아무것도 쓰지 않은 503 이라 다른 노드로 다시 보내도 한 번의 효과다.
+function notOwner(res) {
+  return res.status === 503 && String(res.headers['X-Exchange-Route'] || '').toLowerCase() === 'not-owner';
 }
 
 function openCount(c) {
@@ -81,10 +89,19 @@ export default function () {
     for (; round < MAX_ROUNDS; round++) {
       if (openCount(c) === 0) break;
       const q = signedQuery('DELETE', '/api/v1/orders', { market: MARKET }, c);
-      const res = http.del(q.url, null, {
+      let res = http.del(q.url, null, {
         headers: { Authorization: q.auth },
         timeout: REQ_TIMEOUT,
       });
+      if (notOwner(res)) {
+        // 새 nonce 로 다시 서명해 다른 노드로 한 번 보낸다. 같은 서명 요청을 다시 쓰지 않는다.
+        const alt = signedQuery('DELETE', '/api/v1/orders', { market: MARKET }, c, BASE_ALT);
+        console.log(`${tag} 라운드${round} ${BASE} 가 소유하지 않는 마켓이라 ${BASE_ALT} 로 다시 보낸다`);
+        res = http.del(alt.url, null, {
+          headers: { Authorization: alt.auth },
+          timeout: REQ_TIMEOUT,
+        });
+      }
       if (res.status !== 200) {
         console.error(`${tag} 라운드${round} 취소 실패 status=${res.status} ` +
           `body=${String(res.body).slice(0, 200)}`);

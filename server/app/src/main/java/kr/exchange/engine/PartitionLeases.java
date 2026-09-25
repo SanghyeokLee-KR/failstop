@@ -112,4 +112,23 @@ public final class PartitionLeases implements AcceptGate {
         PartitionRuntime runtime = resource == null ? null : runtimes.get(resource);
         return runtime == null ? null : runtime.coordinator().openTerm();
     }
+
+    /**
+     * 그 파티션 게이트가 연 기간(DB 설계 §5.4-d). 닫혀 있거나 수명주기가 없으면(엔진을 끈 노드) null 이다. 일괄 취소의 요청자가
+     * 파티션을 직접 취소할지 넘길지 가르고, 인계 작업자가 그 기간의 holder·epoch 로 행을 점유한다.
+     */
+    public LeaderTerm openTermOf(String resource) {
+        PartitionRuntime runtime = resource == null ? null : runtimes.get(resource);
+        return runtime == null ? null : runtime.coordinator().openTerm();
+    }
+
+    /** 메모리 대응만 본다. P3 에서 아직 읽지 않은 마켓이면 null 이고 대응 표를 다시 읽지 않는다(S5 설계 4-1). */
+    @Override
+    public Boolean acceptingIfKnown(int marketId) {
+        String resource = plan.knownPartitionOf(marketId);
+        if (resource == null) {
+            return null;
+        }
+        return openTermOf(resource) != null;
+    }
 }

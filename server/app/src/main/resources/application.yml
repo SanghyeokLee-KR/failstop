@@ -90,6 +90,18 @@ exchange:
       participate: []
       max-demotions: 3
       demotion-window: 10m
+  # 파티션 밖 취소 인계(DB 설계 §5.4-d, ADR 0034 S5). 마켓 없는 일괄 취소와 회원 폐쇄는 이 노드가 접수 게이트를 열지 않은
+  # 파티션의 주문을 V54 order_cancel_requests 로 그 소유 노드에 넘기고 wait 까지 기다린다. 작업자는 엔진을 켠 노드에서
+  # 파티션마다 workers 개가 poll 간격으로 행을 점유한다. 작업자는 수용 제한 밖이라 요청 풀의 예비분을 쓰므로 늘리기 전에
+  # 연결 예산을 본다. chunk 는 행 하나의 주문 수(1~500, V54 CHECK)다. expire-interval 마다 넣은 지 5분 지난 PENDING 과 점유한
+  # 지 5분 지난 CLAIMED 를 닫는다. 값은 2026-09-25 S5 설계를 맡은 AI 가 정했고 사용자 확인 대상이다.
+  order:
+    cancel-handoff:
+      wait: 5s
+      poll: 200ms
+      chunk: 100
+      workers: 1
+      expire-interval: 60s
 
 ---
 spring:

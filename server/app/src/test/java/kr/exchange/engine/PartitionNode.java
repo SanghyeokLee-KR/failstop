@@ -147,6 +147,8 @@ final class PartitionNode implements AutoCloseable {
     final java.util.concurrent.atomic.AtomicInteger loopKillsBeforeGate = new java.util.concurrent.atomic.AtomicInteger();
     // readiness 가 한 번이라도 ACCEPTING 이었는가.
     final java.util.concurrent.atomic.AtomicBoolean everAccepting = new java.util.concurrent.atomic.AtomicBoolean();
+    // 정지(HALTED) 로 볼 마켓. 접수가 저널 전에 MarketHaltedException 으로 끝난다(운영의 카탈로그 정지 판정 자리).
+    final Set<Integer> haltedMarkets = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
 
     PartitionNode(String name, ReservationFixture f, Options options) {
@@ -276,7 +278,7 @@ final class PartitionNode implements AutoCloseable {
                     participates, options.preferred.contains(resource), registry));
         }
         follower.onDiverged(resource -> leases.runtime(resource).ifPresent(PartitionRuntime::onDiverged));
-        this.bridge = new EngineBridge(appender, router, f.mapper, leases, EngineBridge.NEVER_HALTED);
+        this.bridge = new EngineBridge(appender, router, f.mapper, leases, haltedMarkets::contains);
     }
 
     /** 운영 기동 수명주기와 같은 순서로 띄운다. 모든 마켓을 대조만 한 엔진을 팔로워에 넣고 리스 틱을 시작한다. */

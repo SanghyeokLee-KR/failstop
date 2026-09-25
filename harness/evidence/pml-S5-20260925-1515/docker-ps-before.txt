@@ -1,0 +1,5 @@
+patroni-db-2 exchange-patroni-db:local Up 48 seconds (healthy) exchange-patroni
+patroni-db-1 exchange-patroni-db:local Up About a minute (healthy) exchange-patroni
+patroni-etcd-3 quay.io/coreos/etcd:v3.5.34 Up About a minute exchange-patroni
+patroni-etcd-2 quay.io/coreos/etcd:v3.5.34 Up About a minute exchange-patroni
+patroni-etcd-1 quay.io/coreos/etcd:v3.5.34 Up About a minute exchange-patroni

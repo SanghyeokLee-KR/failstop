@@ -5,6 +5,7 @@
  * 함수로 둔다(web/tests/memberAdmin.test.ts 가 고정한다).
  *
  * 정지 마켓 미체결을 미완료로 세는 것은 2026-09-24 작업을 맡은 AI 가 고른 방침이고 사용자 확인이 필요하다(ADR 0034 결정 15).
+ * 파티션 인계의 세 사유(partition_not_started, partition_pending, server_error)도 미완료다(ADR 0034 S5, 사용자 확인 대상).
  */
 
 export const CLOSE_INCOMPLETE = "orders_cancel_incomplete";
@@ -15,10 +16,24 @@ const REASON_LABEL: Record<string, string> = {
   // 마켓 접수 경합으로 저널 전에 끝난 취소(API 설계 §2-5-b). 곧바로 다시 요청하면 풀린다
   too_many_requests: "접수 혼잡",
   market_suspended: "정지 마켓",
+  // 파티션 인계(API 설계 v2.57 §4-B-3·§6-E). 소유 노드가 없을 때와 다른 인계를 처리하느라 바쁠 때 모두 나므로 원인을
+  // 단정하지 않는다. 이 요청은 그 주문에 아무것도 하지 않았다
+  partition_not_started: "소유 노드 미착수",
+  // 소유 노드가 시작했으나 기다림 안에 끝내지 않은 몫. 폐쇄 응답 뒤에 취소될 수 있다
+  partition_pending: "소유 노드 처리 중",
+  // 소유 노드의 예기치 않은 오류로 끝난 주문
+  server_error: "서버 오류",
 };
 
 /** 사유 표시 순서. 서버 detail 과 같은 순서로 둔다(MemberAdminService) */
-const REASON_ORDER = ["service_unavailable", "too_many_requests", "market_suspended"];
+const REASON_ORDER = [
+  "service_unavailable",
+  "too_many_requests",
+  "market_suspended",
+  "partition_not_started",
+  "partition_pending",
+  "server_error",
+];
 
 function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
@@ -39,7 +54,9 @@ export function pendingReasons(detail: Record<string, unknown> | null | undefine
 
 /**
  * 경고 문구. 예: "폐쇄 확정, 미완료 3건(일시 거부 1건, 정지 마켓 2건). 정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요".
- * 사유별 수가 없으면 합만 보인다. 정지 마켓 몫이 있으면 재개가 먼저라는 안내를, 없으면 곧바로 재요청하라는 안내를 붙인다.
+ * 사유별 수가 없으면 합만 보인다. 정지 마켓 몫이 있으면 재개가 먼저라는 안내를 붙인다. 소유 노드가 처리 중인 몫
+ * (partition_pending)이 있으면 곧 취소될 수 있으므로 잠시 뒤 재요청하라는 안내를, 둘 다 없으면 곧바로 재요청하라는 안내를
+ * 붙인다.
  */
 export function describeCloseIncomplete(detail: Record<string, unknown> | null | undefined): string {
   const reasons = pendingReasons(detail);
@@ -51,6 +68,8 @@ export function describeCloseIncomplete(detail: Record<string, unknown> | null |
   const head = `폐쇄 확정, 미완료 ${pending}건${parts.length > 0 ? `(${parts.join(", ")})` : ""}`;
   const next = reasons.market_suspended
     ? "정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요"
-    : "새 승인으로 폐쇄 재요청 필요";
+    : reasons.partition_pending
+      ? "잠시 뒤 새 승인으로 폐쇄 재요청 필요"
+      : "새 승인으로 폐쇄 재요청 필요";
   return `${head}. ${next}`;
 }
