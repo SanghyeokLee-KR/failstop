@@ -312,3 +312,18 @@ export function runbookForAlert(a: Pick<OpsAlert, "name" | "target" | "detail" |
   if (a.thresholdKey === "backup.delay_alert") return "BACKUP_RESTORE";
   return null;
 }
+
+/**
+ * 런북이 없는 사건에서 사람이 갈 콘솔 자리. 앱 계층 CPU와 응답 지연은 SSM 절차가 아니라 허용 목록 조치(app-3 켜기)로 다루므로
+ * 용량·부하 화면으로 안내하고, 복제 지연은 따라잡는지 데이터베이스 화면에서 본다. 사건 이름의 앞머리(경보 이름)로 고른다.
+ * 맞는 자리가 없으면 null이다
+ */
+export function consoleRouteFor(incidentTitle: string): { title: string; href: string; note: string } | null {
+  if (/^앱 계층 CPU|^응답 지연/.test(incidentTitle)) {
+    return { title: "용량·부하에서 app-3 켜기", href: "/admin/capacity", note: "런북 대신 허용 목록 조치입니다. AI 조치안의 '승인하고 실행'과 같은 일이고 켜기는 총괄 권한입니다" };
+  }
+  if (/^복제 지연/.test(incidentTitle)) {
+    return { title: "데이터베이스에서 복제 따라잡기 확인", href: "/admin/database", note: "지연이 풀리는지 지켜봅니다. Primary를 잃었을 때만 DB 수동 승격 런북을 씁니다" };
+  }
+  return null;
+}

@@ -78,7 +78,8 @@
   overflow: hidden;
   font-variant-numeric: tabular-nums lining-nums;
 }
-/* 말줄임은 요소 자식에만 걸린다. 익명 플렉스 아이템(맨 텍스트)은 위 overflow 가 잘라만 준다 */
+/* 말줄임은 요소 자식에만 걸린다. 맨 글자 값은 표가 요소로 감싸 같은 말줄임을 받는다(DataTable cellContent).
+   잘린 칸을 가리키면 원문 툴팁이 선다 */
 .cell > * {
   min-width: 0;
   overflow: hidden;

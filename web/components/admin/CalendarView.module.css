@@ -39,6 +39,11 @@
 .week + .week {
   border-top: 1px solid var(--border-subtle);
 }
+/* 항목이 없는 주는 날짜 줄만 둔다. 그 주에도 막대 세 줄 자리를 두면 달력 대부분이 빈 칸이다 */
+.week[data-empty] {
+  grid-template-rows: 30px minmax(0, 1fr);
+  min-height: 48px;
+}
 .cell {
   position: relative;
   grid-row: 1 / -1;
@@ -152,14 +157,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 칸이 좁으면(달력 620px 아래, 1280 창의 칸 약 76px) 막대 글을 거두고 형태만 둔다. 짧은 글(요청 id)도 그 폭에서는 잘렸다.
-   글은 툴팁과 고른 날의 목록이 싣는다 */
+/* 칸이 좁으면(달력 620px 아래, 1280 창의 칸 약 76px) 형태 기호를 거두고 요청 코드만 둔다. 상태는 막대의 윤곽(점선은 승인
+   대기, 악센트는 진행 중, 주의는 롤백)과 굵기가 싣고, 글 전체는 툴팁과 고른 날의 목록이 싣는다 */
 @container cal (max-width: 620px) {
-  .barLabel {
+  .barShape {
     display: none;
   }
   .bar {
-    justify-content: center;
+    margin: 1px 3px;
     padding: 0 4px;
   }
 }
@@ -244,12 +249,6 @@
 }
 .navToday {
   padding: 0 var(--space-3);
-}
-.navToday:disabled {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
-  color: var(--text-secondary);
-  cursor: default;
 }
 
 /* ===== 범례 ===== */

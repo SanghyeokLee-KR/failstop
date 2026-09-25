@@ -778,22 +778,22 @@
 }
 
 .status[data-state="running"] .shape,
-.shape[data-state="running"] {
+.shape[data-tone="running"] {
   color: var(--color-success);
 }
 
 .status[data-state="transition"],
-.shape[data-state="transition"] {
+.shape[data-tone="transition"] {
   color: var(--color-warning-text);
 }
 
 .status[data-state="failure"],
-.shape[data-state="failure"] {
+.shape[data-tone="failure"] {
   color: var(--color-danger);
 }
 
 .status[data-state="stopped"],
-.shape[data-state="stopped"],
+.shape[data-tone="stopped"],
 .status[data-state="absent"] {
   color: var(--text-secondary);
 }

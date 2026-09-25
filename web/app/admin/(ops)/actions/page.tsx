@@ -104,6 +104,12 @@ export default function ActionsPage() {
   const sim = !isAdminHttp();
   // 표는 sim의 다시 읽기 신호(판의 마지막 기록)만 구독한다. 판 전체를 구독하면 표가 매 박자 다시 그려진다
   const signal = useOpsPick((c) => (sim && c?.incidents.state === "READY" ? c.incidents.data.events[0]?.id ?? null : null));
+  // 사건 칸은 사건 이름을 적는다. 사건 목록은 사건이 열리고 닫힐 때만 새 참조다
+  const incidents = useOpsPick((c) => (c?.incidents.state === "READY" ? c.incidents.data.incidents : null));
+  const incidentTitle = useMemo(() => {
+    const byId = new Map((incidents ?? []).map((i) => [i.id, i.title]));
+    return (id: string) => byId.get(id) ?? null;
+  }, [incidents]);
   const feed = useActionFeed(signal);
   const now = useClock(30_000);
   const [filter, setFilter] = useState<ActionFilter>(DEFAULT_FILTER);
@@ -140,7 +146,7 @@ export default function ActionsPage() {
       <section className={styles.panel} aria-labelledby="act-table">
         <PanelHead
           id="act-table"
-          title="조치 기록"
+          title="모든 조치"
           meta={
             rows ? (
               <span className="num">
@@ -214,7 +220,7 @@ export default function ActionsPage() {
             )}
           </div>
         ) : (
-          <ActionTable rows={shown} now={now} onOpen={setOpen} />
+          <ActionTable rows={shown} now={now} onOpen={setOpen} incidentTitle={incidentTitle} />
         )}
         {feed.hasMore && (
           <div className={actStyles.moreRow}>

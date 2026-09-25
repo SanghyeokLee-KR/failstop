@@ -12,7 +12,7 @@
 import Link from "next/link";
 import { app3Cost, COST_PLAN, COST_SOURCE, costView, krw, md, PLAN_PARTS, usd } from "@/lib/admin/cost";
 import { useOpsCenter, useOpsPick } from "@/lib/admin/opsCenter";
-import { spanWord } from "@/lib/admin/timeText";
+import { hm, spanWord } from "@/lib/admin/timeText";
 import CostBar from "@/components/admin/CostBar";
 import StatusShape from "@/components/admin/StatusShape";
 import OpsHead from "@/components/admin/control/OpsHead";
@@ -47,7 +47,8 @@ function App3Panel() {
         <div className={styles.app3}>
           <span className={styles.app3Figure}>
             <span className={styles.figLabel}>오늘 가동</span>
-            <b className="num">{spanWord(tier.data.onSecondsToday * 1000)}</b>
+            {/* 켠 지 1분이 안 되면 '0분'이 끊긴 것처럼 읽힌다 */}
+            <b className="num">{tier.data.onSecondsToday > 0 && tier.data.onSecondsToday < 60 ? "1분 미만" : spanWord(tier.data.onSecondsToday * 1000)}</b>
           </span>
           <span className={styles.app3Figure} title={`가동 ${tier.data.onSecondsToday}초 × $${COST_PLAN.app3HourlyUsd}/시간`}>
             <span className={styles.figLabel}>오늘 app-3 계획 비용</span>
@@ -55,7 +56,13 @@ function App3Panel() {
           </span>
           <span className={styles.app3Figure}>
             <span className={styles.figLabel}>지금</span>
-            <b>{tier.data.nodes[0]?.state === "OFF" ? "꺼짐" : tier.data.nodes[0]?.state === "IN_SERVICE" ? "운영 중" : tier.data.nodes[0]?.state === "PENDING" ? "기동 중" : "드레이닝"}</b>
+            <b>
+              {tier.data.nodes[0]?.state === "OFF" ? "꺼짐" : tier.data.nodes[0]?.state === "IN_SERVICE" ? "운영 중" : tier.data.nodes[0]?.state === "PENDING" ? "기동 중" : "드레이닝"}
+              {/* 켜져 있으면 이번 인스턴스가 뜬 시각을 붙인다. 가동 시간이 막 켠 몫인지 오늘 내내인지 읽힌다 */}
+              {tier.data.nodes[0]?.state !== "OFF" && tier.data.nodes[0]?.asset?.bootedAt && (
+                <span className={styles.figSub}> · {hm(tier.data.nodes[0].asset.bootedAt)} 기동부터</span>
+              )}
+            </b>
           </span>
           <p className={styles.note}>
             단가 ${COST_PLAN.app3HourlyUsd}/시간(t3.small, gp3 20GiB, 공인 IPv4 한 개)에 가동 시간을 곱한 계획값입니다. 켜고 끈 기록은{" "}

@@ -226,14 +226,16 @@ export default function BotsPage() {
       ) : (
         // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
         <div className={styles.staleRegion} data-stale={res.stale ? "" : undefined}>
-          {/* 여섯 칸은 같은 카드를 늘어놓지 않고 한 헤어라인 상자다(§12-14 StatStrip) */}
-          <StatStrip label="플릿 요약" count={6}>
-          {/* 원천이 셋이라 수치의 출처를 함께 적는다. 미보고를 정지로 칠하면 도는 플릿을
-              멈춘 것으로 읽고, 조작 버튼을 누르게 된다 */}
+          {/* 세 칸 한 줄의 헤어라인 상자다(§12-14 StatStrip). 플릿이 도는가, 얼마나 내는가, 제대로 내는가를 한 칸씩 싣는다.
+              원천이 셋이라 수치의 출처를 함께 적는다. 미보고를 정지로 칠하면 도는 플릿을 멈춘 것으로 읽고 조작 버튼을 누르게 된다 */}
+          <StatStrip label="플릿 요약" count={3}>
           <StatTile
             label="플릿 상태"
             value={sim.running == null ? "알 수 없음" : sim.running ? (sim.paused ? "일시정지" : "가동 중") : "정지"}
-            sub={sourceNote(sim)}
+            sub={[
+              sim.activeBots == null || sim.botCount == null ? "활성 봇 미상" : `활성 봇 ${sim.activeBots} / ${sim.botCount}`,
+              sourceNote(sim),
+            ].filter(Boolean).join(" · ")}
             tone={sim.running == null || sim.stale ? "warning" : sim.running && sim.paused ? "warning" : undefined}
           />
           <StatTile
@@ -249,39 +251,17 @@ export default function BotsPage() {
                 : { value: sim.currentOps, max: OPS_MAX, marks: [{ at: sim.rate, label: "목표" }] }
             }
           />
-          {/* 정지 중에도 대수는 그대로 뜬다. active 는 파킹 풀의 설정 대수라 수명주기와 무관하다.
-              숫자만 두면 "14대가 돌고 있다"로 읽히므로 정지·일시정지일 때 사유를 병기한다 */}
+          {/* 서버 status가 내지 않는 축은 상수로 채우지 않고 미측정으로 둔다. 중복 체결만 멱등 위반이라 칸 면을 칠한다 */}
           <StatTile
-            label="활성 봇"
-            value={sim.activeBots == null || sim.botCount == null ? "미상" : `${sim.activeBots} / ${sim.botCount}`}
-            sub={
-              sim.running == null
-                ? "플릿 상태 미보고"
-                : sim.running
-                  ? sim.paused ? "일시정지 중 · 발행 없음" : undefined
-                  : "플릿 정지 중 · 발행 없음"
-            }
-            tone={sim.running && !sim.paused ? undefined : "warning"}
-          />
-          {/* 아래 셋은 서버 status가 내지 않는 축이다. 상수를 채우면 성공률 100%·지연 0ms·
-              중복체결 0건이 실측처럼 보인다. 원천이 생기기 전까지 미측정으로 둔다 */}
-          <StatTile
-            label="성공률"
+            label="주문 품질 · 성공률"
             value={sim.successRate == null ? "미측정" : (Number(sim.successRate) * 100).toFixed(1)}
             unit={sim.successRate == null ? undefined : "%"}
-            tone={sim.successRate == null ? undefined : successRateTone(Number(sim.successRate))}
-          />
-          <StatTile
-            label="평균 지연"
-            value={sim.avgLatencyMs == null ? "미측정" : sim.avgLatencyMs}
-            unit={sim.avgLatencyMs == null ? undefined : "ms"}
-          />
-          {/* 정의 캡션("0이어야 정상")은 걷는다. 정상은 침묵, 위반 시에만 행동 지시가 발화한다 */}
-          <StatTile
-            label="중복 체결"
-            value={sim.duplicateFillTotal == null ? "미측정" : sim.duplicateFillTotal}
-            sub={sim.duplicateFillTotal ? "멱등 위반 · 원장 대조 필요" : undefined}
-            tone={sim.duplicateFillTotal ? "danger" : undefined}
+            sub={[
+              `평균 지연 ${sim.avgLatencyMs == null ? "미측정" : `${sim.avgLatencyMs}ms`}`,
+              `중복 체결 ${sim.duplicateFillTotal == null ? "미측정" : `${sim.duplicateFillTotal}건`}`,
+              sim.duplicateFillTotal ? "멱등 위반 · 원장 대조 필요" : "",
+            ].filter(Boolean).join(" · ")}
+            tone={sim.duplicateFillTotal ? "danger" : sim.successRate == null ? undefined : successRateTone(Number(sim.successRate))}
             alarm={!!sim.duplicateFillTotal}
           />
           </StatStrip>

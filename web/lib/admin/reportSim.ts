@@ -51,7 +51,7 @@ function dailyNormal(t: number): OpsReport {
       { priority: "P4", owner: "운영 관측 담당", timing: "다음 정기 수집", task: "경보·지표·예약 백업 상태 관찰", doneWhen: "다음 수집에서 새 경보·누락 여부 확인" },
     ],
     metrics: [
-      { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
+      { label: "지표 수집 응답", value: "7/7개 응답", detail: "노드 5(node_exporter) · 앱 2(Spring 지표) · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "41.37건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
       { label: "응답 시간 p95", value: "186 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
@@ -60,7 +60,7 @@ function dailyNormal(t: number): OpsReport {
     ],
     analysis: {
       mode: "gemini",
-      note: "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
+      note: "보고 서비스의 Gemini 참고 분석 · AI 관제 판단(ai-1)과 별개 · 개입 등급은 수집 근거와 운영 기준으로 판정",
       summary:
         "지난 24시간 동안 지표 수집 응답과 업무 요청이 끊기지 않았고 5xx 응답은 관측되지 않았습니다. 응답 시간 p95는 186ms로 목표 안에 있고, 03:14 백업 성공과 복원 확인 기록이 있어 추가 개입 조건은 없습니다.",
       model: GEMINI,
@@ -109,7 +109,7 @@ function dailyBackupCheck(t: number): OpsReport {
       },
     ],
     metrics: [
-      { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
+      { label: "지표 수집 응답", value: "7/7개 응답", detail: "노드 5(node_exporter) · 앱 2(Spring 지표) · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "39.02건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
       { label: "응답 시간 p95", value: "201 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
@@ -172,7 +172,7 @@ function incidentAutoRevert(t: number): OpsReport {
       },
     ],
     metrics: [
-      { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
+      { label: "지표 수집 응답", value: "7/7개 응답", detail: "노드 5(node_exporter) · 앱 2(Spring 지표) · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "58.40건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
       { label: "응답 시간 p95", value: "214 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
@@ -180,7 +180,7 @@ function incidentAutoRevert(t: number): OpsReport {
     ],
     analysis: {
       mode: "gemini",
-      note: "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
+      note: "보고 서비스의 Gemini 참고 분석 · AI 관제 판단(ai-1)과 별개 · 개입 등급은 수집 근거와 운영 기준으로 판정",
       summary:
         "야간 축소로 app-3가 꺼져 앱이 2대가 된 뒤 조회 요청이 다시 늘어 응답 p95가 목표 400ms를 넘었습니다. AI 자동 모드가 관찰 창 안에서 축소를 되돌려 app-3를 다시 켜 3대로 복귀했고, 해제 뒤 p95는 214ms로 내려왔습니다.",
       model: GEMINI,

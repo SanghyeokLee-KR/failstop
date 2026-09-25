@@ -12,6 +12,7 @@ import { ASSET_SOURCE } from "@/lib/admin/assets";
 import { bytesWord, walGap } from "@/lib/admin/dbFacts";
 import { appTierHot, hostState, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
 import { nodeAlerts, nodeEvents, nodeList, nodeServices, type NodeRef } from "@/lib/admin/opsDetail";
+import { joinDots } from "@/lib/admin/text";
 import { mdhm, spanWord } from "@/lib/admin/timeText";
 import type { ControlCenter, HostAsset, ReadNode, ThresholdRegistry } from "@/lib/admin/types";
 import GrafanaLink, { grafanaConfigured } from "../GrafanaLink";
@@ -304,7 +305,7 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
                   <>
                     <dt>맡은 마켓</dt>
                     <dd>
-                      <b>{node.host.partition.id}</b> {node.host.partition.markets.join(" · ")}
+                      <b>{node.host.partition.id}</b> {joinDots(node.host.partition.markets.join(" · "))}
                     </dd>
                   </>
                 )}

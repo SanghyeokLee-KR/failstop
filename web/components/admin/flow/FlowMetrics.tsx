@@ -519,11 +519,16 @@ interface Tag extends Placed {
  * 20초 안에 사건 셋이 이어질 때 네 줄로도 모자란다. 끝내 자리가 없으면 가장 먼저 비는 줄에
  * 가운데로 겹쳐 둔다.
  */
+/** 표지에 적는 짧은 말. 사건 글의 첫 토막('경보 발생', '승인', '해제')이고 전체 글은 툴팁이 싣는다 */
+function tagWord(label: string): string {
+  return label.split(" · ")[0];
+}
+
 function packTags(marks: Placed[], plotW: number): Tag[] {
   const rowEnd = new Array<number>(LANE_ROWS).fill(-Infinity);
   const out: Tag[] = [];
   for (const m of marks) {
-    const w = tagWidth(`${HEALTH_ICON[m.event.health]} ${m.event.label}`);
+    const w = tagWidth(`${HEALTH_ICON[m.event.health]} ${tagWord(m.event.label)}`);
     // 그림 영역 밖으로 나가지 않게 민다. 표식이 영역보다 넓으면 왼쪽 끝에 붙인다
     const clamp = (l: number) => Math.min(Math.max(l, 0), Math.max(0, plotW - w));
     const candidates = [clamp(m.x - w / 2), clamp(m.x), clamp(m.x - w)];
@@ -831,22 +836,24 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
   // 매초 줄을 통째로 싣는다. 끊김 표시는 공백이 온 뒤에야 앞 점에 달 수 있어서, 끝 점만
   // 고치는 update 로는 이미 그린 점을 되돌릴 수 없다. 600점 세 줄은 초당 한 번 싣기에 가볍다
   useEffect(() => {
-    samplesRef.current = samples;
+    // 창 밖의 표본은 싣지 않는다. 첫 점이 창의 왼쪽 끝이어야 라이브러리가 끝 눈금 글자를 창 안으로 당겨 잘리지 않는다
+    const win = samples.length > WINDOW ? samples.slice(samples.length - WINDOW) : samples;
+    samplesRef.current = win;
     originRef.current = origin;
     const chart = chartRef.current;
     const series = seriesRef.current;
     if (!chart || series.length === 0) return;
-    const last = samples.length > 0 ? samples[samples.length - 1] : undefined;
+    const last = win.length > 0 ? win[win.length - 1] : undefined;
     series.forEach((line, i) => {
       const { pick, every = 1 } = spec.lines[i];
       // 간격을 둔 선은 남길 틱의 표본만으로 공백을 판정한다. 건너뛴 틱까지 넣으면 모든 점이 공백
       // 직전으로 잡혀 선 전체가 투명해진다
-      const kept = every > 1 ? samples.filter((s) => s.at % every === 0) : samples;
+      const kept = every > 1 ? win.filter((s) => s.at % every === 0) : win;
       const byTick = new Map(linePoints(kept, pick).map((p) => [p.at, p]));
       // 선 계열은 공백을 가로질러 직선을 긋는다. 한 구간의 색은 앞 점에서 오므로 공백 직전 점을
       // 투명하게 칠해 그 구간만 지운다. 건너뛴 틱도 빈 점으로 싣는다. 빼면 이 차트만 논리 색인이
       // 절반이 되어 창 폭과 사건선 자리가 다른 카드와 어긋난다
-      const data: Point[] = samples.map((s) => {
+      const data: Point[] = win.map((s) => {
         const time = (origin + s.at) as UTCTimestamp;
         const p = byTick.get(s.at);
         if (p === undefined || p.value === null) return { time };
@@ -876,7 +883,7 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       ref.line.applyOptions(refFace(refTokens, ref.tone, over));
     }
     // 창 폭을 고정한다. 표본이 150개가 안 되면 왼쪽이 비고 오른쪽 끝이 늘 지금이다
-    const n = samples.length;
+    const n = win.length;
     if (n > 0) chart.timeScale().setVisibleLogicalRange({ from: n - WINDOW, to: n + 1 });
     // 지금 값 표지가 움직였으니 그 밑의 눈금을 다시 고른다
     tickRefreshRef.current?.();
@@ -1026,11 +1033,12 @@ function TimelineCard({ samples, events, origin }: Props) {
               className={styles.eventTag}
               data-health={t.event.health}
               style={{ left: t.left, top: rowTop(t.row) }}
+              title={t.event.label}
             >
               <span className={styles.glyph} data-health={t.event.health}>
                 {HEALTH_ICON[t.event.health]}
               </span>
-              {t.event.label}
+              {tagWord(t.event.label)}
             </span>
           ))}
         </div>

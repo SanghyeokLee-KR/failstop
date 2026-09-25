@@ -1062,7 +1062,7 @@ export function judgmentBriefOf(d: WireDecision): AiJudgment {
   const summary = [outcome, d.model ? `모델 ${d.model}` : "", conf === null ? "" : `확신도 ${conf}%`, d.error ? reasonWord(d.error) : ""]
     .filter(Boolean)
     .join(" · ");
-  return { id: String(d.id ?? ""), at: d.decided_at ?? "", summary, outcome, trace: null, lazy: true };
+  return { id: String(d.id ?? ""), at: d.decided_at ?? "", summary, outcome, trace: null, lazy: true, confidencePct: conf };
 }
 
 /**

@@ -119,10 +119,10 @@ export function HostCard({ host, reg, alertRefs, board = true, tierHot = false }
       {host.partition && (
         <span className={styles.partition} title={`${host.partition.id} · ${host.partition.markets.join(" · ")}`}>
           <b>{host.partition.id}</b>
-          {host.partition.markets.join(" · ")}
+          {joinDots(host.partition.markets.join(" · "))}
         </span>
       )}
-      {host.role === "BOT_OBS" && <span className={styles.partition}>{BOT_SERVICES}</span>}
+      {host.role === "BOT_OBS" && <span className={styles.partition}>{joinDots(BOT_SERVICES)}</span>}
       <Gauges host={host} reg={reg} />
       <div className={styles.hostFoot}>
         <span title={`${host.instanceType} · ${host.az}`}>

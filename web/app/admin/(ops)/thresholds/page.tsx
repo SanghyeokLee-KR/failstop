@@ -16,11 +16,7 @@ export default function ThresholdsPage() {
   const { data, loading, refresh } = useOpsCenter();
   return (
     <div className={adminStyles.page}>
-      <OpsHead
-        title="임계값 관리"
-        desc="값을 바꾸면 게이지 눈금과 경보 판정이 함께 움직입니다. 변경은 1인 승인을 거치고 이력에서 되돌립니다"
-        center={data}
-      />
+      <OpsHead title="임계값 관리" center={data} />
       {data === null ? (
         loading ? <Skeleton variant="card" width="100%" height={520} /> : <AdminErrorState onRetry={() => void refresh()} />
       ) : (

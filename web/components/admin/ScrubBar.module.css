@@ -68,19 +68,6 @@
   margin-left: -0.5px;
   background: var(--border-strong);
 }
-/* 단계 번호는 트랙에 직접 선다. 16px 안에 붙은 번호는 '2·3'으로 모이고 손잡이 시각 글자가 덮는 번호는 비운다 */
-.tickNo {
-  position: absolute;
-  bottom: 9px;
-  translate: -50% 0;
-  font-size: var(--font-dense-size);
-  line-height: var(--font-dense-line);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-.tickNo[data-passed] {
-  color: var(--text-default);
-}
 /* 기록 표지(8px). 사건 기록 레일의 문법이다. 시스템은 무채 빈 원, AI는 AI 강조색, 운영자는 잉크, 경보 발생은 주의 색 마름모,
    해제는 초록 원이다 */
 .mark {

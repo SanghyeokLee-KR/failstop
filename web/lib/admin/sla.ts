@@ -102,7 +102,7 @@ const SEED_CHANGES: [string, "DONE" | "ROLLED_BACK", string][] = [
   ["Grafana 대시보드 갱신", "DONE", "완료 · 새 패널로 경보와 추세를 확인했습니다"],
   ["node_exporter 수집 목록 조정", "DONE", "완료 · 수집 대상과 경보를 확인했습니다"],
   ["로그 보관 기간 조정", "DONE", "완료 · 보관 기간과 압축 주기를 적용했습니다"],
-  ["봇 발행률 조정 시험", "ROLLED_BACK", "되돌림 · bot-1 CPU가 봇 용량 보호 기준을 넘었습니다"],
+  ["봇 발행률 조정 시험", "ROLLED_BACK", "롤백 · bot-1 CPU가 봇 용량 보호 기준을 넘었습니다"],
   ["Nginx 설정 정리", "DONE", "완료 · 설정 검사와 reload 뒤 응답을 확인했습니다"],
   ["경보 규칙 임계 조정", "DONE", "완료 · 새 기준으로 경보 발생과 해제를 확인했습니다"],
 ];
@@ -232,7 +232,7 @@ export function recommendationsOf(m: Pick<SlaMonth, "budget" | "incidentRows" | 
   const paged = m.incidentRows.filter((i) => i.pagedLevel >= 2).length;
   if (paged >= 1) add("PAGED", `확인 없이 2차 호출까지 간 사건 ${paged}건`, "당번 호출 경로와 야간 대응 시간을 점검합니다");
   const rolled = m.changeRows.filter((c) => c.state === "ROLLED_BACK");
-  if (rolled.length >= 1) add("ROLLED_BACK", `되돌린 변경 요청 ${rolled.length}건(${rolled.map((c) => c.id).join(", ")})`, "되돌린 작업의 사전 점검 항목을 변경 요청 양식에 더합니다");
+  if (rolled.length >= 1) add("ROLLED_BACK", `롤백한 변경 요청 ${rolled.length}건(${rolled.map((c) => c.id).join(", ")})`, "롤백한 작업의 사전 점검 항목을 변경 요청 양식에 더합니다");
   return out;
 }
 

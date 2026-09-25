@@ -14,7 +14,7 @@
 import { memo, useState } from "react";
 import Link from "next/link";
 import { getAdminApi, AdminError } from "@/lib/admin/api";
-import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, AUTO_HOURS, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
+import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, AUTO_HOURS, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
 import { openWindows, windowRemainWord, windowTargetWord } from "@/lib/admin/changes";
 import { useOpsDetail } from "@/lib/admin/detailStore";
 import { useOpsPick } from "@/lib/admin/opsCenter";
@@ -26,6 +26,7 @@ import adminStyles from "../admin.module.css";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
 import { AdminIcon } from "../icons";
 import StatusShape from "../StatusShape";
+import { AllowedList, ConditionList, ForbiddenList } from "./AiRules";
 import { AiMark, hms, mmss, remainWord, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -36,38 +37,17 @@ export function RulesDisclosure({ label = "허용·금지 목록", up = false, l
       <summary>{label}</summary>
       <div className={styles.rulesPanel} data-up={up ? "" : undefined}>
         <span className={styles.rulesTitle}>허용 목록(되돌릴 수 있고 데이터와 무관한 조치)</span>
-        <ul className={styles.rulesList}>
-          {allowedRules(limits).map((r) => (
-            <li key={r.kind}>
-              <span aria-hidden="true"><StatusShape kind="circle" /></span>
-              <span>
-                <b>{AI_ACTION_LABEL[r.kind]}</b> · {r.rule}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <AllowedList limits={limits} />
         <span className={styles.rulesTitle}>금지 목록(어느 모드에서도 AI가 하지 않음)</span>
-        <ul className={styles.rulesList}>
-          {AI_FORBIDDEN.map((r) => (
-            <li key={r}>
-              <span aria-hidden="true"><StatusShape kind="square" /></span>
-              <span>{r}</span>
-            </li>
-          ))}
-        </ul>
+        <ForbiddenList />
         <span className={styles.rulesTitle}>자동 실행 조건</span>
-        <ul className={styles.rulesList}>
-          {autoPreconditions(limits).map((r) => (
-            <li key={r}>
-              <span aria-hidden="true"><StatusShape kind="triangle" /></span>
-              <span>{r}</span>
-            </li>
-          ))}
-        </ul>
+        <ConditionList limits={limits} />
       </div>
     </details>
   );
 }
+
+const AI_ACTION_KINDS = allowedRules().length;
 
 function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: () => void; onDone: () => void }) {
   const [hours, setHours] = useState<number>(2);
@@ -131,38 +111,52 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
           placeholder="예: 야간 조회 급증 대응"
           onChange={(e) => setReason(e.target.value)}
         />
-        <div className={styles.autoRules}>
-          <div>
-            <span className={styles.rulesTitle}>자동으로 하는 것</span>
-            <ul className={styles.rulesList}>
-              {allowedRules(limits).map((r) => (
-                <li key={r.kind}>
-                  <span aria-hidden="true"><StatusShape kind="circle" /></span>
-                  <span>
-                    <b>{AI_ACTION_LABEL[r.kind]}</b> · {r.rule}
-                  </span>
-                </li>
-              ))}
-            </ul>
+        {/* 두 목록은 접어 둔다. 펼쳐 두면 1280x800 창에서 대화상자가 창보다 길어진다. 대상 줄이 '허용 목록 5종'을 적는다 */}
+        <details className={styles.autoRulesFold}>
+          <summary>
+            {/* 요약 줄은 한 덩이 글이다. 줄이 플렉스라 숫자를 따로 감싸면 '5 종'처럼 칸이 벌어진다 */}
+            <span>{`자동으로 하는 것 ${AI_ACTION_KINDS}종과 하지 않는 것 ${AI_FORBIDDEN.length}종`}</span>
+          </summary>
+          <div className={styles.autoRules}>
+            <div>
+              <span className={styles.rulesTitle}>자동으로 하는 것</span>
+              <AllowedList limits={limits} />
+            </div>
+            <div>
+              <span className={styles.rulesTitle}>어느 모드에서도 하지 않는 것</span>
+              <ForbiddenList />
+            </div>
           </div>
-          <div>
-            <span className={styles.rulesTitle}>어느 모드에서도 하지 않는 것</span>
-            <ul className={styles.rulesList}>
-              {AI_FORBIDDEN.map((r) => (
-                <li key={r}>
-                  <span aria-hidden="true"><StatusShape kind="square" /></span>
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        </details>
         <p className={styles.autoNote}>
           자동 조치 수는 켤 때마다 0부터 셉니다. 쿨다운과 관찰 창은 그대로 남습니다. 악화하면 자동으로 되돌리고
           수동으로 바뀝니다. AI 즉시 정지는 승인 없이 언제든 누를 수 있습니다.
         </p>
       </div>
     </ConfirmDialog>
+  );
+}
+
+/** 모드 줄의 id. 승인한 조치의 결과(알림 줄)가 서는 자리라 승인 뒤 포커스가 이리 온다 */
+const MODE_BAR_ID = "ai-mode-bar";
+/** 본문 스크롤 상자 맨 위에 붙어 있는 운영자 바의 높이(레이아웃 §7) */
+const OPERATOR_BAR_H = 56;
+
+/**
+ * 승인한 조치의 결과가 서는 모드 줄을 첫 화면에 올리고 포커스를 옮긴다(관리자 설계 4-4 v1.20). 모드 줄이 운영자 바 아래에 보이면
+ * 스크롤하지 않는다. 대화상자가 연 단추로 돌려준 포커스는 카드가 처리된 조치로 옮겨 가면 사라지므로 두 프레임 뒤에 옮긴다
+ */
+export function revealModeBar(): void {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const bar = document.getElementById(MODE_BAR_ID);
+      const main = document.getElementById("admin-main");
+      if (!bar || !main) return;
+      if (bar.getBoundingClientRect().top < main.getBoundingClientRect().top + OPERATOR_BAR_H) {
+        main.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      }
+      bar.focus({ preventScroll: true });
+    }),
   );
 }
 
@@ -321,7 +315,7 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
   };
 
   return (
-    <section className={styles.modeBar} data-mode={stopped ? "STOPPED" : auto ? "AUTO" : "MANUAL"} aria-label="AI 운영 모드">
+    <section id={MODE_BAR_ID} tabIndex={-1} className={styles.modeBar} data-mode={stopped ? "STOPPED" : auto ? "AUTO" : "MANUAL"} aria-label="AI 운영 모드">
       <span className={styles.modeLabel}>
         <AiMark />
         <span className={styles.modeLabelText}>AI 운영 모드</span>

@@ -20,7 +20,8 @@ import { useOpsCenter } from "@/lib/admin/opsCenter";
 import { ESCALATION_LEVEL_WORD, type StageMark } from "@/lib/admin/opsDetail";
 import { OPS_PERMISSIONS, ROLE_DESC, ROLE_LABEL, roleAllows, type OpsPermission } from "@/lib/admin/roles";
 import { useAdminSession, useCan } from "@/lib/admin/store";
-import { hm, kst, mdw } from "@/lib/admin/timeText";
+import { joinDots } from "@/lib/admin/text";
+import { hm, mdhm, mdw } from "@/lib/admin/timeText";
 import type { AdminOperator, AdminRole, OnCallDesk, OpsSection } from "@/lib/admin/types";
 import Skeleton from "@/components/Skeleton";
 import { toast } from "@/components/Toast";
@@ -106,7 +107,7 @@ function IntegrationTable({ rows }: { rows: IntegrationRow[] }) {
             <td>
               <span className={styles.name}>
                 <b>{r.name}</b>
-                <span>{r.role}</span>
+                <span>{joinDots(r.role)}</span>
               </span>
             </td>
             <td>
@@ -493,7 +494,7 @@ export default function SettingsPage() {
                           {t.error && ` · ${t.error}`}
                         </span>
                         <time className="num" dateTime={t.at}>
-                          {kst(t.at)}
+                          {mdhm(t.at)}
                         </time>
                       </li>
                     ))}
@@ -553,7 +554,7 @@ export default function SettingsPage() {
           description="운영 자료를 싣지 않는 모의 메시지 한 건을 보냅니다. 받는 채널의 사람들이 알림을 받을 수 있습니다."
           target="보고 서비스 Teams 웹훅"
           blastRadius="채널 메시지 1건 · 감사 로그에 남음"
-          tone="warning"
+          tone="approve"
           confirmLabel="보내기"
           busy={busy}
           onConfirm={() => void sendTest()}

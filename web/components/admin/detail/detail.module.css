@@ -46,7 +46,7 @@
   gap: var(--space-2);
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -846,20 +846,26 @@ label.pmPickRow::after {
   position: relative;
   top: 1px;
 }
-.cell[data-state="PASS"] > svg {
+/* 검사표 칸(§12-13의 3 v1.21). 통과는 무채 체크, 막음은 장애 네모와 굵은 글, 자동이면 막힘과 승인 대기는 흐린 빈 원이다 */
+.cell[data-view="pass"] > svg {
   color: var(--text-secondary);
 }
-.cell[data-state="BLOCK"] > svg {
+.cell[data-view="block"] > svg {
   color: var(--color-danger);
 }
-.cell[data-state="BLOCK"] {
+.cell[data-view="block"] {
   color: var(--text-strong);
   font-weight: var(--fw-semibold);
 }
-.cell[data-state="HOLD"] > svg {
-  color: var(--color-warning-text);
+.cell[data-view="autoOnly"],
+.cell[data-view="hold"],
+.cell[data-view="na"] {
+  color: var(--text-secondary);
 }
-.cell[data-state="NA"] {
+.checkFoot {
+  margin-top: var(--space-2);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
   color: var(--text-secondary);
 }
 .raw {
@@ -970,4 +976,9 @@ label.pmPickRow::after {
 /* 사건을 연 날과 다른 날의 줄이 있으면 시각 칸이 날짜까지 싣는다(9.24 18:03) */
 .rows[data-days] .row {
   grid-template-columns: 80px minmax(0, 1fr) auto;
+}
+
+/* 담당 줄의 '바꾸기'. 이름과 한 줄의 오른쪽 끝이다 */
+.ownerEdit {
+  margin-left: auto;
 }

@@ -360,3 +360,11 @@
   line-height: var(--font-caption-line);
   color: var(--text-default);
 }
+
+/* '무엇을 늘릴 수 있나' 표의 캡션. 판단 순서를 한 줄로 적는다 */
+.orderNote {
+  margin-top: var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}

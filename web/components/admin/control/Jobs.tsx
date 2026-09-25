@@ -100,7 +100,7 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
       target={`exchange DB · 오늘 즉시 실행 ${b.manualRunsToday === null ? "수 원천 연결 전" : `${b.manualRunsToday}회`}`}
       blastRadius="감사 로그(ops.backup.run)와 사건 밖 운영 기록에 남습니다"
       confirmLabel="지금 백업"
-      tone="warning"
+      tone="approve"
       busy={busy}
       onConfirm={() => void run()}
       onClose={() => setAsking(false)}

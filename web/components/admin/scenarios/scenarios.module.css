@@ -889,16 +889,20 @@
 .checkCell > span:first-child {
   margin-top: 3px;
 }
-.checks td[data-state="PASS"] .checkCell > svg {
-  color: var(--text-strong);
+/* 검사표 칸(§12-13의 3 v1.21). AI 판단 상세와 같은 형태다 */
+.checks td[data-view="pass"] .checkCell > svg {
+  color: var(--text-secondary);
 }
-.checks td[data-state="BLOCK"] .checkCell > svg {
+.checks td[data-view="block"] .checkCell > svg {
   color: var(--color-danger);
 }
-.checks td[data-state="HOLD"] .checkCell > svg {
-  color: var(--color-warning-text);
+.checks td[data-view="block"] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
 }
-.checks td[data-state="NA"] {
+.checks td[data-view="autoOnly"],
+.checks td[data-view="hold"],
+.checks td[data-view="na"] {
   color: var(--text-secondary);
 }
 /* 새 판단이 나면 행이 120ms 간격으로 차례로 켜진다(§12-4 판단 과정 점등과 같은 길이) */

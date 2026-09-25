@@ -311,7 +311,8 @@ export default function ChangesPage() {
         id: it.id,
         start: it.start,
         end: it.end,
-        label: it.title,
+        // 칩은 코드만 적는다(CHG-104, W-43). 제목은 툴팁과 고른 날의 목록이 싣는다
+        label: it.id,
         state: it.state,
         title: `${it.kind === "change" ? it.id : `창 ${it.id}`} · ${it.title} · ${itemWord(it)}`,
       })),
@@ -401,7 +402,7 @@ export default function ChangesPage() {
           <>
             <div className={styles.split} data-ratio="wide">
               <section className={styles.panel} aria-labelledby="chg-cal">
-                <PanelHead id="chg-cal" title="계획 달력" actions={<MonthNav month={month} today={today} onMonth={setMonth} />} />
+                <PanelHead id="chg-cal" title="계획 달력" actions={<MonthNav month={month} today={today} onMonth={setMonth} onToday={() => setDay(today)} />} />
                 <CalendarView
                   month={month}
                   today={today}

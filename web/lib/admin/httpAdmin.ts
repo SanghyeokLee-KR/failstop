@@ -103,6 +103,7 @@ import type {
   MaintenanceWindow,
   WindowInput,
   SlaMonth,
+  OpsFlowTapeEntry,
 } from "./types";
 
 /** 마켓 심볼 -> 한글명. 서버 config/markets는 한글명을 싣지 않아 표시용으로만 조인한다 */
@@ -1050,6 +1051,11 @@ export class HttpAdminApi implements AdminApi {
 
   readonly opsScenarios = false;
   private readonly ops = new OpsFeed(<T,>(path: string) => this.http<T>(path));
+
+  /** 지표 관제의 박자별 기록은 관제 시뮬레이터에만 있다. 실측 추이는 Grafana가 소유한다 */
+  getFlowTape(): Promise<OpsFlowTapeEntry[] | null> {
+    return Promise.resolve(null);
+  }
 
   async getControlCenter(): Promise<ControlCenter> {
     let w: WireOverview;

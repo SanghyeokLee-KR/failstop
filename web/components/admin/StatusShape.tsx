@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import styles from "./admin.module.css";
 
-export type StatusShapeKind = "circle" | "triangle" | "square" | "ring" | "dashed" | "diamond" | "play" | "half";
+export type StatusShapeKind = "circle" | "triangle" | "square" | "ring" | "dashed" | "diamond" | "play" | "half" | "check" | "cross";
 
 /** 글자 기호를 부품 모양으로 옮긴다. 문장 안의 기호(사건 기록 문장)는 글자로 둔다 */
 export const GLYPH_SHAPE: Record<string, StatusShapeKind> = {
@@ -37,6 +37,10 @@ const SHAPES: Record<StatusShapeKind, ReactNode> = {
       <path d="M5 1.6 A3.4 3.4 0 0 1 5 8.4 Z" fill="currentColor" />
     </>
   ),
+  // 정책 검사표의 통과. 상태가 아니라 규칙을 채웠다는 뜻이라 무채 잉크로 쓴다
+  check: <path d="M1.6 5.3 L4 7.6 L8.4 2.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />,
+  // 금지 목록의 머리 기호. 장애(■)와 헷갈리지 않게 가는 가위표다
+  cross: <path d="M2.6 2.6 L7.4 7.4 M7.4 2.6 L2.6 7.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />,
 };
 
 export default function StatusShape({ kind, size = 10, tone, className }: {

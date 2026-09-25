@@ -10,6 +10,7 @@
  */
 
 import { INTERVENTION_SHAPE, JOB_WORD, KIND_WORD, cardTone, teamsCard } from "@/lib/admin/reports";
+import { joinDots } from "@/lib/admin/text";
 import { kst } from "@/lib/admin/timeText";
 import type { OpsReport } from "@/lib/admin/types";
 import adminStyles from "../admin.module.css";
@@ -160,7 +161,7 @@ export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolea
                   {m.status === "unknown" && <StatusShape kind="dashed" />}
                   {m.value}
                 </span>
-                <span className={styles.metricDetail}>{m.detail}</span>
+                <span className={styles.metricDetail}>{joinDots(m.detail)}</span>
               </div>
             ))}
           </div>
@@ -174,7 +175,7 @@ export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolea
                 <span className={styles.aiMark} aria-hidden="true">
                   <AdminIcon name="ai" size={14} />
                 </span>
-                <span className={styles.modelTag}>AI 요약 · {r.analysis.model ?? "모델 미확인"}</span>
+                <span className={styles.modelTag}>보고 서비스 요약 · {r.analysis.model ?? "모델 미확인"}</span>
               </>
             )}
           </h3>

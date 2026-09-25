@@ -770,11 +770,10 @@
 .certOption:hover:not(:disabled) {
   background: var(--surface-hover);
 }
-/* 비활성 버튼 규칙(§12-6)을 따른다. opacity 대신 빈 면과 점선 테두리 */
+/* 비활성 버튼 규칙(§12-6 v1.21)과 같다. opacity 대신 옅은 면과 실선 테두리 */
 .certOption:disabled {
-  background: transparent;
-  border-style: dashed;
-  border-color: var(--text-tertiary);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
   cursor: not-allowed;
 }
@@ -1158,12 +1157,13 @@
 .controlBtn,
 .neutralBtn,
 .approveBtn,
-.dangerBtn {
+.dangerBtn,
+.dangerFillBtn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 관리 평면 버튼은 한 규격이다(§12-5). 테두리 자리를 늘 잡아 두어 비활성의 점선 테두리가
+  /* 관리 평면 버튼은 한 규격이다(§12-5). 테두리 자리를 늘 잡아 두어 비활성의 테두리가
      상자 크기를 흔들지 않게 한다 */
   min-height: 36px;
   padding: 0 var(--space-4);
@@ -1181,6 +1181,7 @@
 .neutralBtn::after,
 .approveBtn::after,
 .dangerBtn::after,
+.dangerFillBtn::after,
 .logout::after {
   content: "";
   position: absolute;
@@ -1225,16 +1226,27 @@
 .dangerBtn:hover:not(:disabled) {
   background: var(--color-danger-bg);
 }
-/* 비활성은 opacity로 흐리지 않는다(§12-6). 곱해진 투명도가 라벨 대비를 무너뜨리고 버튼 모양도
-   지운다. 면을 비우고 점선 테두리로 모양을 남긴다(흰 면 3.59:1), 라벨은 secondary 4.75:1 */
+/* 대화상자의 되돌릴 수 없는 확정(§12-5 v1.21). 확정은 늘 채운 단추 하나다. 라이트는 흰 글자, 다크는 밝은 장애 면에
+   어두운 글자라 두 테마 모두 4.5:1을 넘는다 */
+.dangerFillBtn {
+  background: var(--color-danger);
+  color: var(--text-inverse);
+}
+.dangerFillBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 88%, var(--text-strong));
+}
+/* 비활성은 opacity로 흐리지 않는다(§12-6). 곱해진 투명도가 라벨 대비를 무너뜨리고 버튼 모양도 지운다. 옅은 면과
+   실선 테두리로 모양을 남긴다. 점선은 원천 연결 전·가정 표식의 모양이라 비활성에 쓰지 않는다(v1.21) */
 .primaryBtn:disabled,
 .controlBtn:disabled,
 .neutralBtn:disabled,
 .approveBtn:disabled,
-.dangerBtn:disabled {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
+.dangerBtn:disabled,
+.dangerFillBtn:disabled {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -1270,10 +1282,9 @@
   width: 100%;
 }
 
-/* ===== 계기 슬라이더(§6.2) =====
-   방향 없는 스칼라(대수·OPS·강도·bias)라 트랙은 무채, 값은 옆 숫자·부호가 전달한다.
-   브라우저 기본 accent(파랑·green)를 제거해 채도 예산·색 규약을 지키고,
-   biasTrack과 동일한 rule-tick 눈금으로 캘리퍼처럼 읽게 한다. 히트 44px. */
+/* ===== 계기 슬라이더(§6.2, §12-14 v1.21) =====
+   방향 없는 스칼라(대수·OPS·강도·bias)라 트랙은 무채, 값은 옆 숫자·부호가 전달한다. 트랙은 4px 곧은 막대이고 손잡이는
+   시나리오 스크럽 바와 같은 14px 원 윤곽이다. 눈금 무늬를 깐 트랙은 계기가 아니라 장식으로 읽혔다. 히트 44px */
 .field input[type="range"],
 .scaleRow input[type="range"],
 .throttle input[type="range"] {
@@ -1283,49 +1294,52 @@
   border: 0;
   padding: 0;
   background: transparent;
-  accent-color: var(--text-strong);
   cursor: pointer;
 }
 .field input[type="range"]::-webkit-slider-runnable-track,
 .scaleRow input[type="range"]::-webkit-slider-runnable-track,
 .throttle input[type="range"]::-webkit-slider-runnable-track {
-  height: 6px;
+  height: 4px;
   border-radius: 1px;
-  background:
-    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
-    var(--surface-sunken);
+  background: var(--border-default);
 }
 .field input[type="range"]::-moz-range-track,
 .scaleRow input[type="range"]::-moz-range-track,
 .throttle input[type="range"]::-moz-range-track {
-  height: 6px;
+  height: 4px;
   border-radius: 1px;
-  background:
-    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
-    var(--surface-sunken);
+  background: var(--border-default);
 }
 .field input[type="range"]::-webkit-slider-thumb,
 .scaleRow input[type="range"]::-webkit-slider-thumb,
 .throttle input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   margin-top: -5px;
   border-radius: var(--radius-full);
-  background: var(--text-strong);
-  border: 2px solid var(--surface-default);
-  box-shadow: var(--shadow-1);
+  background: var(--surface-elevated);
+  border: 2px solid var(--text-strong);
 }
 .field input[type="range"]::-moz-range-thumb,
 .scaleRow input[type="range"]::-moz-range-thumb,
 .throttle input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: var(--radius-full);
-  background: var(--text-strong);
-  border: 2px solid var(--surface-default);
-  box-shadow: var(--shadow-1);
+  background: var(--surface-elevated);
+  border: 2px solid var(--text-strong);
+}
+.field input[type="range"]:disabled,
+.scaleRow input[type="range"]:disabled,
+.throttle input[type="range"]:disabled {
+  cursor: not-allowed;
+}
+.field input[type="range"]:disabled::-webkit-slider-thumb,
+.scaleRow input[type="range"]:disabled::-webkit-slider-thumb,
+.throttle input[type="range"]:disabled::-webkit-slider-thumb {
+  border-color: var(--text-secondary);
 }
 
 /* ===== 시장 생동감 =====
@@ -1833,9 +1847,9 @@
   color: var(--text-default);
   font-weight: var(--fw-medium);
 }
-/* 부재 플레이스홀더는 비정보 장식이라 tertiary 허용 */
+/* 부재 플레이스홀더. 보이는 글자라 본문 대비(4.5:1)를 지킨다. tertiary는 흰 면에서 3.59:1이라 쓰지 않는다 */
 .auditNil {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 /* 주해 병기 시 원문 코드는 micro·secondary로 강등한다. tertiary 금지(DB 대조 스캔 보존, §4-2) */
 .auditCode {
@@ -2103,10 +2117,10 @@
   border-left: 1px solid var(--border-subtle);
 }
 
-/* 비활성 버튼 규칙(§12-6)과 같다. opacity 대신 빈 면과 점선 테두리 */
+/* 비활성 버튼 규칙(§12-6 v1.21)과 같다. opacity 대신 옅은 면과 실선 테두리 */
 .presetBtn:disabled {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
   cursor: not-allowed;
 }
@@ -2392,11 +2406,23 @@
   line-height: var(--font-body-sm-line);
   color: var(--text-default);
 }
-/* 레일 폭 소유자. 계기는 칼럼 폭을 다 쓴다. 폭이 값마다 달라지면 레일 끝이
+/* 레일 폭 소유자. 계기는 수치 칸을 뺀 칼럼 폭을 다 쓴다. 폭이 값마다 달라지면 레일 끝이
    들쭉날쭉해져 위치 비교라는 레일의 유일한 역할이 사라진다 */
 .nodeStripRail {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+/* 사용률 칸은 막대와 수치가 한 줄이다. 수치 칸 폭을 고정해 행마다 막대 끝이 같은 자리에 선다 */
+.nodeStripUtil {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+.nodeStripUtilNum {
+  flex: none;
+  min-width: 40px;
+  text-align: right;
 }
 /* 응답 없는 서버의 관측 칸 넷을 한 칸으로 합친다. 실패는 넷이 아니라 하나다 */
 .nodeStripNote {
@@ -2545,7 +2571,7 @@
 .stamp {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .stampText {
   display: inline-flex;
@@ -2564,9 +2590,16 @@
 .stampText[data-kind="stale"] .stampShape {
   color: var(--color-warning-text);
 }
-/* 단추는 머리의 다른 조작(neutralBtn)과 같은 규격이고 아이콘과 낱말 사이만 준다 */
+/* 새로고침은 36px 아이콘 단추다. 낱말은 접근 이름과 툴팁이 싣는다. 판독 글과 단추가 한 덩이로 읽힌다 */
 .stampBtn {
-  gap: 6px;
+  width: 36px;
+  padding: 0;
+}
+.stampBtn::after {
+  left: 50%;
+  right: auto;
+  width: 44px;
+  transform: translate(-50%, -50%);
 }
 
 /* ===== 관측 딥링크·원천 표기 =====
@@ -2617,40 +2650,6 @@
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
-}
-
-/* ===== 판단 순서 푸터 =====
-   Grafana 관제 화면이 바닥에 박아 둔 것과 같은 형식이다. 무엇을 먼저 보고 다음에
-   어디로 가는지를 화면이 스스로 말한다. 신참 운영자의 첫 이동을 줄이는 자리라
-   계기가 아니라 안내이고, 그래서 sunken 면에 무채로 눕힌다 */
-.decisionFooter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--panel-radius);
-  background: var(--surface-sunken);
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  /* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1) */
-  color: var(--text-default);
-}
-.decisionStep {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  white-space: nowrap;
-}
-/* 화살표는 마크업이 아니라 단계 사이에만 CSS가 그린다. 단계 요소가 아무것도 그리지 않으면
-   (Grafana 주소가 없어 링크가 null) 빈 칸이 되는데, 빈 칸을 지우고 화살표도 비지 않은 단계
-   사이에만 두어 화살표가 겹치지 않게 한다. 순서를 뜻하는 글자라 잉크는 default다 */
-.decisionStep:empty {
-  display: none;
-}
-.decisionStep:not(:empty) ~ .decisionStep:not(:empty)::before {
-  content: "→";
-  color: var(--text-default);
 }
 
 /* ===== 전역 OPS 조절기 =====
@@ -2759,6 +2758,71 @@
 /* 원장의 받은 범위를 적는 자리. 계기가 아니라 고지라 무채로 눕힌다 */
 .approvalCapNote {
   margin: var(--space-2) 0 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 처리 대기 미리보기(백오피스 /admin/back) =====
+   큐마다 가장 오래 기다린 셋이다. 세 칸이 한 줄이고 칸 폭이 좁으면 제목만 말줄임한다 */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.previewList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.previewList li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.previewRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title age" "meta meta";
+  gap: 2px var(--space-3);
+  padding: var(--space-2) 0;
+  color: inherit;
+  text-decoration: none;
+}
+.previewRow:hover .previewTitle {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.previewTitle {
+  grid-area: title;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.previewMeta {
+  grid-area: meta;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.previewAge {
+  grid-area: age;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.previewEmpty {
+  padding: var(--space-3) 0;
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);

@@ -198,3 +198,29 @@
     animation: none;
   }
 }
+
+/* ===== 층 안 알림 줄(LayerAlert) =====
+   층이 열린 동안 난 오류다. 불러오기 실패 면(§12-8)과 같은 장애 테두리와 면, ■ 형태다 */
+.alert {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-xs);
+  background: var(--color-danger-bg);
+  color: var(--text-strong);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.alertShape {
+  flex: none;
+  margin-top: calc((var(--font-caption-line) - 10px) / 2);
+  color: var(--color-danger);
+}
+/* 모달·드로어에서는 머리 아래 전폭 줄이다. 본문이 스크롤해도 제자리에 남는다 */
+.panel > .alert {
+  margin: var(--space-3) var(--space-5) 0;
+}

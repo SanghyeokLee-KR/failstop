@@ -559,6 +559,48 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* 허용·금지·자동 실행 조건 목록(AiRules). 머리 기호는 상태 모양이 아니라 무채 네모 점, 가는 가위표, 번호다 */
+.ruleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.ruleList li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.ruleList[data-numbered] li {
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+.ruleList b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 첫 줄 가운데(18px 줄의 9px)에 선다 */
+.ruleDot {
+  width: 4px;
+  height: 4px;
+  margin: 7px 0 0 3px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+}
+.ruleCross {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+.ruleNo {
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: right;
+}
 
 /* 자동 모드 켜기 대화상자의 입력 */
 .autoForm {
@@ -598,6 +640,51 @@
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
+}
+/* 자동 모드 켜기 대화상자의 접힌 목록. 요약 줄은 텍스트 단추 문법이고 펼치면 두 목록이 선다 */
+.autoRulesFold {
+  width: 100%;
+}
+.autoRulesFold summary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  list-style: none;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+  cursor: pointer;
+}
+.autoRulesFold summary::-webkit-details-marker {
+  display: none;
+}
+.autoRulesFold summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: var(--space-1);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.autoRulesFold[open] summary::before {
+  transform: rotate(45deg);
+}
+.autoRulesFold summary::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.autoRulesFold summary:hover {
+  text-decoration: underline;
 }
 .autoRules > div {
   display: flex;
@@ -880,6 +967,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
   gap: var(--space-4);
   min-height: 0;
+  /* 좁은 창에서는 기둥마다 제 내용 높이로 선다. 가장 긴 인프라 기둥에 맞춰 늘이면 AI 관제와 조치와 기록 기둥 안이 빈 판이 된다 */
+  align-items: start;
 }
 /* 1920x1080 같은 넓은 창에서만 세 기둥을 화면 높이에 묶어 스크롤 없이 보인다. 좁은 창에서는 기둥이 내용 높이로
    서고 본문이 스크롤해 대기 조치안이 기둥 안쪽 스크롤에 묻히지 않는다(레이아웃 §7 v1.6) */
@@ -887,6 +976,7 @@
   .columns {
     /* 운영자 바 56, 위 여백 24, 머리 57, 모드 줄 52, 요약 112, 간격 16 셋과 바닥 여유 16 */
     height: max(560px, calc(100vh - 365px));
+    align-items: stretch;
   }
 }
 .column {
@@ -963,6 +1053,11 @@
 }
 .subHead > span:first-child {
   white-space: nowrap;
+}
+/* 소제목 줄 끝의 이동 링크(판단 기록의 '하루치 보기') */
+.subHead > a:last-child {
+  margin-left: auto;
+  font-weight: var(--fw-regular);
 }
 .subHead .count {
   font-weight: var(--fw-bold);
@@ -2181,12 +2276,13 @@
 .decided[data-tone="warning"] {
   color: var(--color-warning-text);
 }
+/* 값 없음(§12-8)은 무채 계기 마크가 싣는다. 상자는 옅은 실선이다. 점선은 원천 연결 전·가정의 모양이라 쓰지 않는다(§12-6 v1.21) */
 .empty {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  border: 1px dashed var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -2289,7 +2385,7 @@
   gap: 6px;
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -2480,8 +2576,8 @@
   background: var(--surface-control-hover);
 }
 .smallBtn:disabled {
-  background: transparent;
-  border: 1px dashed var(--text-tertiary);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
   cursor: not-allowed;
 }
@@ -2901,8 +2997,49 @@
   border: 1px solid var(--border-default);
   border-radius: var(--control-radius);
 }
+/* 비어 있는 검토 상자는 옅은 실선이다. 점선은 원천 연결 전·가정 표식의 모양이다(§12-6 v1.21) */
 .review[data-empty] {
-  border-style: dashed;
+  border-color: var(--border-subtle);
+}
+/* 임계값 관리 화면의 AI 변경 폭 표 */
+.aiSteps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.stepTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.stepTable th,
+.stepTable td {
+  padding: 6px var(--space-2) 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  font-weight: var(--fw-regular);
+  color: var(--text-default);
+}
+.stepTable thead th {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.stepTable [data-num] {
+  text-align: right;
+}
+.stepTable td[data-num] {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.stepTable tbody tr:last-child th,
+.stepTable tbody tr:last-child td {
+  border-bottom: 0;
 }
 .reviewDiff {
   display: flex;
@@ -3223,15 +3360,6 @@
   border-bottom: 0;
 }
 
-/* AI 판단 화면은 패널이 내용 높이만큼 선다. 관제센터처럼 기둥 높이에 묶지 않는다 */
-.aiTall {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.aiTall > section {
-  flex: 1;
-}
 .hostTable {
   width: 100%;
   border-collapse: collapse;
@@ -3777,9 +3905,15 @@
 .card[data-fresh] {
   animation: rowIn var(--dur-dialog) var(--ease-decelerate) both;
 }
+/* 새 기록 줄의 플래시는 기록의 성질을 따른다(§12-4 v1.21). 경보 발생과 자동 되돌림은 주의, 해제는 성공이고, 운영자·AI·시스템의
+   평상 기록은 무채 면이다. 승인이나 판단 줄에 주의 면을 켜면 정상 흐름이 경고처럼 읽힌다. AI 줄도 AI 면을 칠하지 않는다(§12-9) */
 .event[data-fresh] {
-  background: var(--color-health-flash-warning);
+  background: var(--surface-hover);
   border-radius: var(--radius-xs);
+}
+.event[data-fresh][data-dot="opened"],
+.event[data-fresh][data-dot="reverted"] {
+  background: var(--color-health-flash-warning);
 }
 .event[data-fresh][data-dot="resolved"] {
   background: var(--color-health-flash-success);
@@ -3836,4 +3970,44 @@
     animation: none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pulse-color) 45%, transparent);
   }
+}
+
+/* ===== 오늘 AI 활동(AI 관제 평시) =====
+   세 칸 판독 묶음이다(§12-14 StatStrip과 같은 문법). 칸은 이름(dense 12)과 값(title-3 18/600)이다 */
+.aiToday {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.aiToday > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+}
+.aiToday > div + div {
+  border-left: 1px solid var(--border-subtle);
+}
+.aiToday dt {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.aiToday dd {
+  margin: 0;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.aiToday dd small {
+  margin-left: 2px;
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-regular);
+  color: var(--text-default);
 }

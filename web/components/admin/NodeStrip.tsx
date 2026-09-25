@@ -124,12 +124,10 @@ export default function NodeStrip({
             </span>
             {n.reachable ? (
               <>
-                <span className={`${styles.nodeStripValue} num`}>
-                  <Reading text={pct(n.cpuRatio)} />
+                {/* 막대와 수치를 한 줄에 둔다. 수치가 막대 위에 뜨면 행의 다른 수치와 기준선이 어긋난다.
+                    증설 임계는 조회를 받는 앱 노드의 평균에 거는 선이라 조회를 받는 노드에만 긋는다 */}
+                <span className={`${styles.nodeStripValue} ${styles.nodeStripUtil} num`}>
                   {n.cpuRatio !== null && (
-                    // 세로 flex의 flex-end 안에서 레일은 고유 폭이 없어 0으로 무너진다.
-                    // 폭을 소유하는 래퍼를 둬 칼럼 폭을 그대로 물려준다
-                    // 증설 임계는 조회를 받는 앱 노드의 평균에 거는 선이라 조회를 받는 노드에만 긋는다
                     <span className={styles.nodeStripRail}>
                       <MeterRail
                         value={n.cpuRatio}
@@ -139,6 +137,9 @@ export default function NodeStrip({
                       />
                     </span>
                   )}
+                  <span className={styles.nodeStripUtilNum}>
+                    <Reading text={pct(n.cpuRatio)} />
+                  </span>
                 </span>
                 <span className={`${styles.nodeStripValue} num`}>
                   <Reading text={pct(heap)} />

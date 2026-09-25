@@ -163,3 +163,10 @@
   color: var(--text-secondary);
   text-wrap: pretty;
 }
+
+/* 지금 칸의 보조 글(기동 시각). 값보다 한 단 낮춘다 */
+.figSub {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-regular);
+  color: var(--text-default);
+}

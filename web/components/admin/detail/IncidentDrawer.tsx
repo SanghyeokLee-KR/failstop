@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { escalationOf, incidentSections, incidentTimes, judgmentAt, todayMeans } from "@/lib/admin/opsDetail";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
-import { runbookById, runbookHref } from "@/lib/admin/runbooks";
+import { consoleRouteFor, runbookById, runbookHref } from "@/lib/admin/runbooks";
 import { useCan } from "@/lib/admin/store";
 import { kstDay, mdhm } from "@/lib/admin/timeText";
 import { directionParticle } from "@/lib/admin/text";
@@ -61,6 +61,8 @@ function OwnerSection({ inc, operators, onChanged }: {
   const canAssign = useCan("BOT_OPS");
   const owner = inc.owner;
   const [pick, setPick] = useState<string>("");
+  // 고르기는 '바꾸기'를 누를 때 편다. 처음부터 다른 운영자를 골라 두면 지금 담당과 다른 이름이 담당처럼 읽힌다
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   if (owner === undefined) {
     return (
@@ -76,7 +78,7 @@ function OwnerSection({ inc, operators, onChanged }: {
     );
   }
   const active = (operators ?? []).filter((o) => o.status === "ACTIVE");
-  const choice = pick || active.find((o) => o.operatorId !== owner?.operatorId)?.operatorId || "";
+  const choice = pick || owner?.operatorId || active[0]?.operatorId || "";
   const same = choice === owner?.operatorId;
   const block = !canAssign ? "봇 운영 이상 권한 필요" : operators === null ? "운영자 목록을 읽는 중" : active.length === 0 ? "지정할 운영자 없음" : same ? "지금 담당과 같음" : null;
   const assign = async () => {
@@ -86,6 +88,7 @@ function OwnerSection({ inc, operators, onChanged }: {
       const name = active.find((o) => o.operatorId === choice)?.displayName ?? choice;
       toast(`담당을 ${name}${directionParticle(name)} 지정했습니다`, "success");
       setPick("");
+      setEditing(false);
       onChanged();
     } catch (e) {
       toast(e instanceof AdminError ? e.message : "담당 지정 실패", "error");
@@ -103,23 +106,47 @@ function OwnerSection({ inc, operators, onChanged }: {
             <span className="num">{mdhm(owner.assignedAt)}</span>
           </span>
         )}
+        {!editing && (
+          <button
+            type="button"
+            className={`${adminStyles.neutralBtn} ${styles.ownerEdit}`}
+            disabled={!canAssign}
+            title={canAssign ? undefined : "봇 운영 이상 권한 필요"}
+            onClick={() => setEditing(true)}
+          >
+            바꾸기
+          </button>
+        )}
       </div>
-      <div className={styles.formRow}>
-        <label className={`${adminStyles.field} ${styles.grow}`}>
-          <span className="sr-only">새 담당</span>
-          <select value={choice} onChange={(e) => setPick(e.target.value)} disabled={!canAssign || active.length === 0}>
-            {active.map((o) => (
-              <option key={o.operatorId} value={o.operatorId}>
-                {o.displayName} · {o.operatorId}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className={adminStyles.neutralBtn} disabled={block !== null || busy} onClick={() => void assign()}>
-          담당 지정
-        </button>
-      </div>
-      {block && block !== "지금 담당과 같음" && <p className={styles.note}>{block}</p>}
+      {editing && (
+        <div className={styles.formRow}>
+          <label className={`${adminStyles.field} ${styles.grow}`}>
+            <span className="sr-only">새 담당</span>
+            <select value={choice} onChange={(e) => setPick(e.target.value)} disabled={!canAssign || active.length === 0}>
+              {active.map((o) => (
+                <option key={o.operatorId} value={o.operatorId}>
+                  {o.displayName} · {o.operatorId}
+                  {o.operatorId === owner?.operatorId ? " · 지금 담당" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className={adminStyles.approveBtn} disabled={block !== null || busy} onClick={() => void assign()}>
+            담당 지정
+          </button>
+          <button
+            type="button"
+            className={adminStyles.neutralBtn}
+            onClick={() => {
+              setPick("");
+              setEditing(false);
+            }}
+          >
+            취소
+          </button>
+        </div>
+      )}
+      {editing && block && block !== "지금 담당과 같음" && <p className={styles.note}>{block}</p>}
       <p className={styles.note}>담당은 이 사건을 맡은 사람입니다. 보고서가 권하는 담당 역할과 다르고, 지정은 사건 기록과 감사에 남습니다.</p>
     </>
   );
@@ -173,6 +200,7 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
   const policy = center.oncall.state === "READY" ? center.oncall.data.policy : null;
   const esc = escalationOf(inc, policy, allEvents);
   const runbook = inc.runbookId ? runbookById(inc.runbookId) : null;
+  const consoleRoute = runbook === null ? consoleRouteFor(inc.title) : null;
   const operators = ops.data ?? null;
   const onChanged = () => void refresh(true);
   // 오늘이 아닌 시각은 날짜를 붙인다. 생애 막대의 시각은 이 머리의 날짜를 따른다
@@ -231,11 +259,12 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
               {t.autoOnly && t.ttaMs === null ? "자동 조치로 다뤘습니다" : `오늘 평균 ${mean.mttaMs === null ? "기록 없음" : durationWord(mean.mttaMs)}`}
             </span>
           </div>
+          {/* 해제 전에는 MTTR이 없다. 진행 중 경과를 MTTR 자리에 적으면 경과가 복구 시간처럼 읽힌다 */}
           <div className={styles.time}>
-            <span className={styles.timeKey}>해제까지 · MTTR</span>
+            <span className={styles.timeKey}>{t.ttrMs === null ? "경과 · 해제 전" : "해제까지 · MTTR"}</span>
             <span className={`${styles.timeValue} num`}>{t.ttrMs !== null ? durationWord(t.ttrMs) : <OpenElapsed from={inc.openedAt} />}</span>
             <span className={`${styles.timeSub} num`}>
-              {t.ttrMs === null ? "진행 중 · 경과" : `오늘 평균 ${mean.mttrMs === null ? "기록 없음" : durationWord(mean.mttrMs)}`}
+              {t.ttrMs === null ? "MTTR은 해제한 뒤에 셉니다" : `오늘 평균 ${mean.mttrMs === null ? "기록 없음" : durationWord(mean.mttrMs)}`}
             </span>
           </div>
         </div>
@@ -274,8 +303,15 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
               {runbook.steps.length}단계 · 운영자가 SSM 세션에서 실행합니다 · 이 콘솔에는 실행 단추가 없습니다
             </span>
           </div>
+        ) : consoleRoute ? (
+          <div className={styles.runbook}>
+            <Link href={consoleRoute.href} className={styles.runbookLink} onClick={onClose}>
+              {consoleRoute.title}
+            </Link>
+            <span className={styles.note}>{consoleRoute.note}</span>
+          </div>
         ) : (
-          <div className={styles.empty}>이 사건의 경보에 맞는 런북이 없습니다</div>
+          <div className={styles.empty}>이 사건의 경보에는 사람이 따로 할 절차가 없습니다. 경보가 풀리는지 지켜봅니다</div>
         )}
       </section>
 

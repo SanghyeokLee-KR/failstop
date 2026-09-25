@@ -29,6 +29,13 @@
 .toolbar > a {
   min-height: 44px;
 }
+/* 값의 세계를 적는 한 줄. 링크를 오른쪽 끝에 두고 글은 왼쪽에서 시작한다 */
+.toolbarNote {
+  margin-right: auto;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
 
 /* ===== 지표 묶음 ===== */
 

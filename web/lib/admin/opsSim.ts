@@ -20,6 +20,7 @@ import { ESCALATION_POLICY, LEVEL_WORD, ONCALL_ROSTER, oncallDesk, onDutyAt, OND
 import { isOperatorTouch } from "./opsDetail";
 import { TrendBook } from "./opsTrends";
 import { runbookForAlert } from "./runbooks";
+import { alertPhrase } from "./text";
 import { THRESHOLD_META } from "./thresholdMeta";
 import { hms, kstDay, lagWord, nextKst } from "./timeText";
 import type {
@@ -56,6 +57,7 @@ import type {
   OpsActor,
   OpsAlert,
   OpsBackup,
+  OpsFlowTapeEntry,
   OpsHost,
   OpsHostRole,
   OpsLeader,
@@ -207,6 +209,26 @@ const REVERT_SUPPRESS_MS = 10 * 60_000;
 const REVERT_NOTE_MS = 2 * JUDGE_EVERY * 1000;
 /** 모드 줄 알림을 싣는 시간(디자인 시스템 §12-9 알림 줄) */
 const NOTICE_MS = 30_000;
+/** 판단 기록을 남겨 두는 기간과 수. AI 판단 화면의 판단 기록 표가 지난 24시간을 거른다(관리자 설계 4-10-2) */
+const JUDGMENT_KEEP_MS = 24 * 3_600_000;
+/** 지표 관제 기록(flowTape)의 박자 수. 차트 창은 150초이고 넉넉히 10분을 둔다 */
+const TAPE_MAX = 600;
+const JUDGMENT_KEEP_MAX = 400;
+/** 조치안을 처리한 말. 판단 기록 표의 처리 결과 칸이다 */
+const HANDLED_WORD: Record<AiProposalStatus, string> = {
+  PROPOSED: "대기 중", APPROVED: "승인", AUTO_EXECUTED: "자동 실행", REJECTED: "거절", DEFERRED: "나중에", REVERTED: "되돌림",
+  AUTO_REVERTED: "자동 되돌림", EXPIRED: "AI 정지로 만료", WITHDRAWN: "조건이 풀려 거둠",
+  EXECUTING: "실행 중", FAILED: "실행 실패", UNKNOWN: "결과 확인 필요", DENIED: "정책이 막음",
+};
+
+/** 판단 기록은 남긴 뒤 바꾸지 않는다. 판이 같은 참조를 넘겨 매초 판단 과정을 복사하지 않아도 화면이 기록을 바꿀 수 없다 */
+function freezeDeep<T>(o: T): T {
+  if (o !== null && typeof o === "object" && !Object.isFrozen(o)) {
+    Object.freeze(o);
+    for (const v of Object.values(o as Record<string, unknown>)) freezeDeep(v);
+  }
+  return o;
+}
 /** 자동 실행 후보가 여럿이면 서비스에 가까운 조치부터 본다 */
 const KIND_PRIORITY: Record<AiActionKind, number> = { READ_NODES: 0, BOT_LOAD: 1, BACKUP_NOW: 2, SILENCE: 3, THRESHOLD: 4 };
 
@@ -510,6 +532,10 @@ export class OpsSim {
   private proposals: ProposalRec[] = [];
   private suppressed = new Map<string, number>();
   private judgments: AiJudgment[] = [];
+  private tape: OpsFlowTapeEntry[] = [];
+  /** 조치안마다 마지막으로 본 상태와 그 기록. 판단 기록의 처리 결과를 적는다(syncHandled) */
+  private handledSig = new Map<string, string>();
+  private handledRec = new Map<string, ProposalRec>();
   private judgedAt: number | null = null;
   private situation = "";
   private hypothesis: string | null = null;
@@ -601,6 +627,83 @@ export class OpsSim {
    * localIds면 id를 이 시뮬레이터 안의 번호로 매긴다. 시나리오 재생 세계는 되감을 때 새 시뮬레이터로 처음부터 다시 밟으므로, 같은
    * 시각의 판이 같은 id를 가져야 목록이 새 줄로 오인하지 않는다. 재생 세계는 감사에 쓰지 않아 관제 판의 id와 섞이지 않는다
    */
+  /**
+   * 판단 기록 한 줄을 남긴다. 지난 24시간(최대 400줄)만 두고, 확신도와 처리 결과를 함께 싣는다(AI 판단 화면의 판단 기록 표).
+   * 기록은 얼려 둔다. 처리 결과가 바뀌면 그 줄만 새 객체로 바꾼다(syncHandled)
+   */
+  private recordJudgment(at: number, summary: string, outcome: string, trace: AiJudgmentTrace | null, confidencePct: number | null, handled: string | null = null): void {
+    const j: AiJudgment = { id: this.uid("jdg"), at: isoNow(at), summary, outcome, trace, confidencePct, handled };
+    this.judgments.unshift(freezeDeep(j));
+    const cutoff = at - JUDGMENT_KEEP_MS;
+    let n = Math.min(this.judgments.length, JUDGMENT_KEEP_MAX);
+    while (n > 1 && Date.parse(this.judgments[n - 1].at) < cutoff) n -= 1;
+    this.judgments.length = n;
+  }
+
+  /** 지표 관제 기록 한 박자. 판(snapshot)의 호스트·앱 계층·복제 칸과 같은 값을 남긴다 */
+  private recordTape(now: number): void {
+    const app3 = this.nodes.find((n) => n.id === "app-3");
+    const app3Cpu = !app3 ? null : app3.state === "IN_SERVICE" ? this.hostCpu.get("app-3") ?? null : app3.state === "PENDING" ? 4 : app3.state === "DRAINING" ? 12 : null;
+    const ops = this.botOpsNow();
+    this.tape.push({
+      t: now,
+      tradesPerSec: round1(tradesPerSec(ops)),
+      botOps: ops,
+      cpu: { "app-1": this.hostCpu.get("app-1") ?? null, "app-2": this.hostCpu.get("app-2") ?? null, "app-3": app3Cpu },
+      avgCpuPct: this.readAvg === null ? null : Math.round(this.readAvg),
+      desired: this.desired,
+      serving: this.servingApps(),
+      lagBytes: this.replStream === "STREAMING" ? this.lagBytes : null,
+    });
+    if (this.tape.length > TAPE_MAX) this.tape.splice(0, this.tape.length - TAPE_MAX);
+  }
+
+  /** 지표 관제 기록. 판에 싣지 않고 지표 관제 화면이 들어올 때 한 번 읽는다(관리 어댑터 getFlowTape) */
+  flowTape(now: number): OpsFlowTapeEntry[] {
+    this.advance(now);
+    return this.tape.slice();
+  }
+
+  /** 조치안 하나를 처리한 말. 한 후보면 누가 언제까지 적는다 */
+  private handledWord(p: ProposalRec, full: boolean): string {
+    const word = HANDLED_WORD[p.status];
+    if (!full || p.decidedAt === null) return word;
+    const at = hms(isoNow(p.decidedAt)).slice(0, 5);
+    if (p.status === "APPROVED" || p.status === "REJECTED" || p.status === "REVERTED") return `${word} · ${p.decidedBy ?? ""} ${at}`;
+    if (p.status === "AUTO_EXECUTED" || p.status === "AUTO_REVERTED") return `${word} ${at}`;
+    return word;
+  }
+
+  /**
+   * 조치안의 상태가 바뀌었으면 그 조치안을 후보로 낸 판단 기록의 처리 결과를 고친다. 후보가 여럿이면 처리별 수를 적는다
+   * ('승인 1 · 대기 중 1'). 조치안은 판에서 15분 뒤 빠지지만 마지막 처리 말은 남겨 두어 오래된 판단도 결과를 잃지 않는다
+   */
+  private syncHandled(): void {
+    const changed = new Set<string>();
+    for (const p of this.proposals) {
+      const w = `${p.status}|${p.decidedAt ?? ""}`;
+      if (this.handledSig.get(p.id) === w) continue;
+      this.handledSig.set(p.id, w);
+      this.handledRec.set(p.id, p);
+      changed.add(p.id);
+    }
+    if (changed.size === 0) return;
+    this.judgments = this.judgments.map((j) => {
+      const ids = j.trace?.candidates.map((c) => c.id) ?? [];
+      if (!ids.some((id) => changed.has(id))) return j;
+      const recs = ids.map((id) => this.handledRec.get(id)).filter((r): r is ProposalRec => r !== undefined);
+      if (recs.length === 0) return j;
+      let handled: string;
+      if (recs.length === 1) handled = this.handledWord(recs[0], true);
+      else {
+        const count = new Map<string, number>();
+        for (const r of recs) count.set(this.handledWord(r, false), (count.get(this.handledWord(r, false)) ?? 0) + 1);
+        handled = [...count].map(([w, n]) => `${w} ${n}`).join(" · ");
+      }
+      return handled === j.handled ? j : freezeDeep({ ...j, handled });
+    });
+  }
+
   constructor(now: number, audit: OpsAudit = () => {}, opts: { localIds?: boolean } = {}) {
     this.localIds = opts.localIds === true;
     this.audit = audit;
@@ -624,6 +727,7 @@ export class OpsSim {
     const report = lastKst(now, 9, 0);
     this.reportSent = report + 4_000;
     this.seedHistory(now);
+    this.seedJudgments(now);
     this.seedChanges(now);
     this.seededAudit.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     this.measure();
@@ -746,6 +850,89 @@ export class OpsSim {
   }
 
   /**
+   * 지난 24시간 안에 연 시드 사건(복제 지연 190분 전, 봇 용량 보호 72분 전)의 판단 기록. 사건 기록의 'AI 판단' 줄과 같은 시각,
+   * 같은 결과이고 해제 뒤의 '이상 없음'을 더한다. AI 판단 화면의 판단 기록 표가 오늘 조치안을 낸 판단(확신도 88%)을 찾을 수 있다.
+   * 봇 용량 보호의 조치안은 수동 모드에서 운영자가 승인했으므로 검사표의 자동 실행 조건(같은 판단 연속 2회)은 자동이면 막힘이다
+   */
+  private seedJudgments(now: number): void {
+    const min = 60_000;
+    const quiet = (agoMin: number, cpu: number, p95: number, lag: number): void => {
+      const at = now - agoMin * min;
+      const evidence: AiEvidence[] = [
+        { id: "ev-read", label: "앱 평균 CPU", value: `${cpu}% · 2대`, severity: null, ref: { kind: "READ_TIER" } },
+        { id: "ev-p95", label: "응답 p95", value: `${p95}ms`, severity: null, ref: { kind: "SLO", metric: "p95" } },
+        { id: "ev-lag", label: "복제 지연", value: lagWord(lag), severity: null, ref: { kind: "REPLICATION" } },
+      ];
+      this.recordJudgment(at, `모든 지표가 임계 안입니다. 앱 평균 CPU ${cpu}%, 응답 p95 ${p95}ms, 복제 지연 ${lagWord(lag)}입니다.`, "이상 없음",
+        { mode: "MANUAL", evidence, evidenceAt: isoNow(at - 1000), hypothesis: null, candidates: [], checks: [], result: "이상 없음" }, null);
+    };
+    // 복제 지연(190분 전, 0.4분 뒤 판단). 복제·DB 조치는 금지 목록이라 조치안이 없다
+    const lagAt = now - (190 - 0.4) * min;
+    this.recordJudgment(
+      lagAt,
+      "활성 경보가 1건(복제 지연 · db-standby) 있습니다. 허용 목록에 맞는 조치가 없어 운영자 확인이 필요합니다.",
+      "운영자 확인 필요",
+      {
+        mode: "MANUAL",
+        evidence: [
+          { id: "ev-seed-lag", label: "복제 지연", value: "지연 41.0초 ≥ 30초", severity: "warning", ref: null },
+          { id: "ev-db", label: "db-primary CPU", value: "46%", severity: null, ref: { kind: "HOST", id: "db-primary" } },
+          { id: "ev-app", label: "app-1 CPU", value: "33%", severity: null, ref: { kind: "HOST", id: "app-1" } },
+        ],
+        evidenceAt: isoNow(lagAt - 1000),
+        hypothesis: "Primary 쓰기가 몰린 뒤 Standby가 따라잡는 중입니다. 복제·DB 조치는 금지 목록이라 AI가 다루지 않습니다.",
+        candidates: [],
+        checks: [],
+        result: "허용 목록 조치 없음 · 운영자 확인 필요",
+      },
+      null,
+    );
+    quiet(184, 31, 171, 0.3);
+    // 봇 용량 보호(72분 전, 0.3분 뒤 판단). 봇 발행률 상향 시험(CHG-104) 뒤 bot-1 CPU가 기준을 넘었고 운영자가 1.1분에 승인했다
+    const botAt = now - (72 - 0.3) * min;
+    const approvedAt = now - (72 - 1.1) * min;
+    const pass = (note: string) => ({ state: "PASS" as const, note });
+    const na = { state: "NA" as const, note: "" };
+    this.recordJudgment(
+      botAt,
+      "활성 경보가 1건(봇 용량 보호 · bot-1) 있습니다. 허용 목록 안의 조치안 1건을 냈습니다.",
+      "조치안 1건",
+      {
+        mode: "MANUAL",
+        evidence: [
+          { id: "ev-seed-guard", label: "봇 용량 보호", value: "CPU 78% ≥ 70%", severity: "warning", ref: null },
+          { id: "ev-seed-bot", label: "봇 발행률", value: "60 OPS", severity: null, ref: null },
+          { id: "ev-db", label: "db-primary CPU", value: "41%", severity: null, ref: { kind: "HOST", id: "db-primary" } },
+          { id: "ev-app", label: "app-1 CPU", value: "36%", severity: null, ref: { kind: "HOST", id: "app-1" } },
+        ],
+        evidenceAt: isoNow(botAt - 1000),
+        hypothesis: "봇 발행률을 60 OPS로 올린 시험(CHG-104) 뒤 bot-1 CPU가 봇 용량 보호 기준 70%를 넘었습니다. 봇 부하를 절반으로 줄이면 기준 아래로 내려갑니다.",
+        candidates: [{ id: "seed-bot-load", kind: "BOT_LOAD", title: "시장 봇 부하 줄임 (60 → 30 OPS)", confidencePct: 88, risk: "LOW" }],
+        checks: [
+          { rule: "ALLOWED", label: "허용 목록", results: [pass(AI_ACTION_LABEL.BOT_LOAD)] },
+          { rule: "OBSERVE", label: "한 번에 한 조치", results: [pass("관찰 중인 조치 없음")] },
+          { rule: "CAP", label: "이번 자동 모드 상한", results: [pass(`0/${AI_LIMITS_DEFAULT.autoCap}회`)] },
+          { rule: "COOLDOWN", label: "쿨다운", results: [pass("쿨다운 없음")] },
+          { rule: "FRESH", label: "근거 60초 이내", results: [pass("근거 1초 전")] },
+          { rule: "CONFIDENCE", label: `확신도 ${AI_LIMITS_DEFAULT.confidencePct}% 이상`, results: [pass("88%")] },
+          { rule: "STREAK", label: `같은 판단 연속 ${AI_RULES.sameJudgmentStreak}회`, results: [{ state: "BLOCK", note: `같은 판단 1/${AI_RULES.sameJudgmentStreak}회` }] },
+          { rule: "STEP", label: "임계값 1회 변경폭", results: [na] },
+          { rule: "PER_ITEM", label: "임계값 항목당 횟수", results: [na] },
+          { rule: "DIRECTION", label: "임계값 방향", results: [na] },
+          { rule: "BOT_GUARD", label: "봇 용량 보호 기준", results: [pass("bot-1 CPU 78% ≥ 70%")] },
+          { rule: "BACKUP_TODAY", label: "오늘 즉시 백업", results: [na] },
+          { rule: "WINDOW", label: "계획 작업 창", results: [na] },
+          { rule: "MODE", label: "모드", results: [{ state: "HOLD", note: "수동 · 실행은 운영자 승인" }] },
+        ],
+        result: "조치안 1건 · 운영자 승인 대기",
+      },
+      88,
+      `승인 · 김수퍼 ${hms(isoNow(approvedAt)).slice(0, 5)}`,
+    );
+    quiet(68, 34, 176, 0.2);
+  }
+
+  /**
    * 변경 요청과 계획 작업 창의 예시(관리자 설계 4-10-4). 지난 기록은 사건 기록과 맞물린다. 어제의 조회 증설 시험 창 안에서
    * 응답 지연 사건이 났고, 오늘의 봇 발행률 상향 시험은 봇 용량 보호 사건으로 되돌렸다. 예정 한 건과 승인 대기 한 건,
    * 취소 한 건, 창만 따로 등록한 한 건을 더한다. 시각은 시뮬레이터를 연 시각에서 거꾸로 센다
@@ -790,7 +977,7 @@ export class OpsSim {
       }
       if (o.closedAt !== undefined && o.closedBy) {
         const verb = o.state === "CANCELED" ? "msp.change.cancel" : "msp.change.finish";
-        audit(o.closedAt, o.closedBy, verb, `${id} · ${o.state === "ROLLED_BACK" ? "되돌림" : o.state === "DONE" ? "완료" : "취소"}`, `change:${id}`);
+        audit(o.closedAt, o.closedBy, verb, `${id} · ${o.state === "ROLLED_BACK" ? "롤백" : o.state === "DONE" ? "완료" : "취소"}`, `change:${id}`);
         const w = this.windows.find((x) => x.id === c.windowId);
         if (w && w.endedBy !== null) audit(o.closedAt, o.closedBy, "msp.window.end", `${w.id} · 조기 종료`, `window:${w.id}`);
         if (w) this.log(null, "WINDOW", "OPERATOR", o.closedBy.name, `계획 작업 창 닫힘 · ${w.id} · ${id} ${CHANGE_STATE_WORD[o.state]}`, o.closedAt);
@@ -832,7 +1019,7 @@ export class OpsSim {
       start: now - 95 * m, end: now - 35 * m, labels: { node: "bot-1" }, by: op, requestedAt: now - 5 * h,
       approvedAt: now - 3 * h, approvedBy: su, startedAt: now - 95 * m, startedBy: op,
       closedAt: now - 66 * m, closedBy: op, state: "ROLLED_BACK",
-      result: "되돌림 · bot-1 CPU가 봇 용량 보호 기준 70%를 넘어 AI 조치안(60 → 30 OPS)을 승인했습니다",
+      result: "롤백 · bot-1 CPU가 봇 용량 보호 기준 70%를 넘어 AI 조치안(60 → 30 OPS)을 승인했습니다",
     });
     // 시험을 시작하며 운영자가 발행률을 올린 일. 오늘의 봇 용량 보호 사건이 이 뒤에 섰다
     this.log(null, "ACTED", "OPERATOR", op.name, `봇 발행 30 → 60 OPS · ${bot.id}`, now - 94 * m);
@@ -900,6 +1087,7 @@ export class OpsSim {
     this.expireAuto(now);
     this.watchObservation(now);
     this.trends.record(now, this.p95, this.availability, this.errors, this.alerts.length, this.firedNow);
+    this.recordTape(now);
     // 정지 중에는 판단하지 않는다. 관찰 창은 위에서 끝까지 보고, 창이 닫히거나 되돌리면 정지 문장도 따라간다
     if (this.mode === "STOPPED") {
       this.thinking = false;
@@ -1298,7 +1486,7 @@ export class OpsSim {
     this.firedNow += 1;
     const runbook = runbookForAlert({ name: b.name, target: b.target, detail: b.detail, thresholdKey: b.thresholdKey });
     if (this.openIncident === null) {
-      const inc = this.newIncident(`${b.name} · ${b.target}`, b.severity, now, runbook);
+      const inc = this.newIncident(alertPhrase(b), b.severity, now, runbook);
       this.incidents.unshift(inc);
       this.openIncident = inc.id;
     } else {
@@ -1316,7 +1504,7 @@ export class OpsSim {
     // Alertmanager가 Teams 운영 채널로 보내는 경보 카드다(학교 설정의 msteamsv2 수신처). 호출 단계의 '첫 알림'이 이 줄이다.
     // 같은 사건에서 같은 경보가 묶음 간격 안에 다시 서면(값이 임계 근처를 오갈 때) 새 카드를 남기지 않는다. 해제 카드는
     // 기록하지 않는다(시뮬레이터의 단순화, 관리자 설계 4-10-2)
-    const card = `Teams 경보 알림 · ${b.name} · ${b.target}`;
+    const card = `Teams 경보 알림 · ${alertPhrase(b)}`;
     const incidentId = this.openIncident;
     const sent = this.events.some((e) => e.incidentId === incidentId && e.kind === "NOTIFIED" && e.text === card && now - Date.parse(e.at) < ALERT_GROUP_INTERVAL_MS);
     if (!sent) this.log(incidentId, "NOTIFIED", "SYSTEM", "Teams", card);
@@ -1390,7 +1578,7 @@ export class OpsSim {
         a.silencedUntil = null;
         this.log(a.incidentId, "SILENCED", "SYSTEM", "시스템", `보류 만료 · ${a.name}`);
         // 서버처럼 시스템이 한 일도 감사에 남긴다(msp.silence.expire). 조치 기록이 이 줄을 읽는다
-        this.audit(SYSTEM_ACTOR, "msp.silence.expire", `${a.name} · ${a.target}`, null, { incidentId: a.incidentId });
+        this.audit(SYSTEM_ACTOR, "msp.silence.expire", alertPhrase(a), null, { incidentId: a.incidentId });
       }
     }
   }
@@ -1779,7 +1967,7 @@ export class OpsSim {
       this.hypothesis = "야간 조회가 줄었습니다. app-3를 꺼도 두 대로 여유가 남습니다.";
       outcome = `조치안 ${open.length}건`;
     } else if (firing.length > 0) {
-      const names = firing.map((a) => `${a.target} ${a.name}`).join(", ");
+      const names = firing.map(alertPhrase).join(", ");
       const allowed = open.length > 0;
       this.situation = `활성 경보가 ${firing.length}건(${names}) 있습니다. ${allowed ? `허용 목록 안의 조치안 ${open.length}건을 냈습니다.` : "허용 목록에 맞는 조치가 없어 운영자 확인이 필요합니다."}`;
       this.hypothesis = allowed ? "경보 원인에 맞는 허용 조치가 있습니다." : "DB·디스크·재시작 같은 조치는 금지 목록이라 AI가 다루지 않습니다.";
@@ -1805,8 +1993,7 @@ export class OpsSim {
         ? `${outcome} · ${this.mode === "AUTO" ? "자동 실행 조건 검사" : "운영자 승인 대기"}`
         : outcome;
       // ai-1이 응답하지 않으면 판단이 없어 판단 과정도 없다
-      this.judgments.unshift({ id: this.uid("jdg"), at: isoNow(now), summary: this.situation, outcome, trace: this.aiDown ? null : this.buildTrace(now, open, result) });
-      this.judgments = this.judgments.slice(0, 30);
+      this.recordJudgment(now, this.situation, outcome, this.aiDown ? null : this.buildTrace(now, open, result), open.length > 0 ? this.confidence : null);
       this.lastOutcome = outcome;
     }
     // 경보는 3틱을 채워야 서므로 판단이 사건보다 먼저 날 수 있다. 사건이 열린 뒤 그 사건에 판단 기록이
@@ -1970,12 +2157,11 @@ export class OpsSim {
     chosen.autoHold = null;
     // 실행 직전의 검사표를 판단 기록으로 남긴다. 실행 뒤의 '조치 효과 관찰' 기록이 그 위에 쌓여 판단, 결과 순서로 읽힌다
     const outcome = `자동 실행 · ${chosen.title}`;
-    this.judgments.unshift({
-      id: this.uid("jdg"), at: isoNow(now),
-      summary: `자동 실행 조건을 모두 통과해 ${chosen.title}을 자동으로 실행합니다. 확신도 ${chosen.confidencePct}%, 같은 판단 ${chosen.streak}회입니다.`,
-      outcome, trace: this.buildTrace(now, open, outcome),
-    });
-    this.judgments = this.judgments.slice(0, 30);
+    this.recordJudgment(
+      now,
+      `자동 실행 조건을 모두 통과해 ${chosen.title}을 자동으로 실행합니다. 확신도 ${chosen.confidencePct}%, 같은 판단 ${chosen.streak}회입니다.`,
+      outcome, this.buildTrace(now, open, outcome), chosen.confidencePct,
+    );
     this.lastOutcome = outcome;
     this.execute(chosen, AI_ACTOR, "AUTO", this.auto.approvalId, now);
     // 한 번에 한 조치다. 나머지 제안은 관찰 창 뒤로 미룬 이유를 다시 적는다
@@ -2046,6 +2232,8 @@ export class OpsSim {
       this.audit(AI_ACTOR, `ai.auto:${q.kind}`, p.title, approvalId, { incidentId: this.openIncident, judgmentId: this.judgments[0]?.id ?? null, ref: `proposal:${p.id}` });
     } else {
       p.status = "APPROVED";
+      // 승인한 조치의 결과를 모드 줄이 30초 동안 적는다. 카드를 누르려 판을 내려 본 뒤에도 결과가 첫 화면에 선다
+      this.notice = { kind: "EXECUTED", at: now, tone: "neutral", incidentId: this.openIncident, text: `승인 실행 · ${did} · ${actor.name}` };
       this.log(this.openIncident, "APPROVED", "OPERATOR", actor.name, `승인 · ${p.title}`);
       this.log(this.openIncident, "ACTED", "SYSTEM", "시스템", `조치 · ${did}`);
       this.audit(actor, `ai.approve:${q.kind}`, p.title, approvalId, { incidentId: this.openIncident, judgmentId: this.judgments[0]?.id ?? null, ref: `proposal:${p.id}` });
@@ -2434,7 +2622,7 @@ export class OpsSim {
     if (expired > 0) parts.push(`대기 조치안 ${expired}건 만료`);
     if (this.observation) parts.push("관찰 창은 끝까지 봄");
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, parts.join(" · "));
-    this.judgments.unshift({ id: this.uid("jdg"), at: isoNow(at), summary: `운영자(${actor.name})가 AI를 정지했습니다. 새 판단과 조치안을 내지 않습니다.`, outcome: "AI 정지", trace: null });
+    this.recordJudgment(at, `운영자(${actor.name})가 AI를 정지했습니다. 새 판단과 조치안을 내지 않습니다.`, "AI 정지", null, null);
     this.notice = { kind: "STOPPED", at, tone: "warning", incidentId: this.openIncident, text: ["AI 즉시 정지", actor.name, ...parts.slice(1)].join(" · ") };
     this.lastOutcome = "AI 정지";
     this.describe(now, []);
@@ -2647,7 +2835,7 @@ export class OpsSim {
     const text = note.trim();
     if (text.length > 500) throw new AdminError("invalid_parameter", "결과는 500자 이내");
     c.state = outcome;
-    c.result = `${outcome === "DONE" ? "완료" : "되돌림"}${text ? ` · ${text}` : ""}`;
+    c.result = `${outcome === "DONE" ? "완료" : "롤백"}${text ? ` · ${text}` : ""}`;
     c.closedAt = isoNow(this.t);
     c.closedBy = actor.name;
     const w = this.windows.find((x) => x.id === c.windowId);
@@ -2920,7 +3108,7 @@ export class OpsSim {
         this.aiDown = true;
         this.thinking = false;
         world();
-        this.judgments.unshift({ id: this.uid("jdg"), at: isoNow(now), summary: "ai-1이 응답하지 않아 판단 요청이 시간 초과로 끝났습니다.", outcome: "AI 서버 응답 없음", trace: null });
+        this.recordJudgment(now, "ai-1이 응답하지 않아 판단 요청이 시간 초과로 끝났습니다.", "AI 서버 응답 없음", null, null);
         this.lastOutcome = "AI 서버 응답 없음";
         break;
       case "INJECTED_ALERT":
@@ -2988,6 +3176,7 @@ export class OpsSim {
 
   snapshot(now: number): ControlCenter {
     this.advance(now);
+    this.syncHandled();
     const at = isoNow(this.t);
     // 재생에서 수집이 끊긴 노드는 끊긴 시각까지의 값만 있어 값 칸이 비고, 수동 승격 뒤에는 DB 역할이 바뀐다
     const roleOf = (h: HostDef): OpsHostRole => (h.id === this.dbPrimary ? "DB_PRIMARY" : h.id === this.dbStandby ? "DB_STANDBY" : h.role);
@@ -3088,8 +3277,8 @@ export class OpsSim {
       confidencePct: this.confidence,
       evidence: this.evidence.map((e) => ({ ...e })),
       proposals,
-      // 판단 과정은 판마다 새 객체로 옮긴다. 화면이 받은 판을 건드려도 시뮬레이터의 기록이 바뀌지 않는다
-      history: this.judgments.slice(0, 12).map((j) => ({ ...j, trace: j.trace === null ? null : (JSON.parse(JSON.stringify(j.trace)) as AiJudgmentTrace) })),
+      // 판단 기록은 얼린 객체라 참조를 그대로 넘긴다. 화면이 건드릴 수 없고, 판마다 판단 과정을 복사하지 않는다
+      history: this.judgments.slice(),
       autoUsed: this.autoRuns,
       autoCap: this.limits.autoCap,
       stopped: this.stopped === null ? null : { at: isoNow(this.stopped.at), by: this.stopped.by },

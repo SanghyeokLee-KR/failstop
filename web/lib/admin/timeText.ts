@@ -56,6 +56,14 @@ export function hms(iso: string): string {
   return `${p2(k.h)}:${p2(k.m)}:${p2(k.s)}`;
 }
 
+/**
+ * 기록의 시각 한 형식(디자인 시스템 §12-12). KST 오늘이면 hh:mm:ss, 다른 날이면 'M.D hh:mm'이다. 여러 날의 기록이 섞인 목록(검색 결과,
+ * 조치 기록, 판단 기록)이 이 형식을 쓴다. 시각만 적으면 어제 기록이 오늘 기록처럼 읽힌다
+ */
+export function stamp(iso: string, now: number): string {
+  return kstDay(Date.parse(iso)) === kstDay(now) ? hms(iso) : mdhm(iso);
+}
+
 /** 날짜가 필요한 시각('9.25 03:10') */
 export function mdhm(iso: string): string {
   const k = kstParts(Date.parse(iso));

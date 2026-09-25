@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { INTERVENTION_SHAPE, JOB_WORD, KIND_WORD } from "@/lib/admin/reports";
-import { kst } from "@/lib/admin/timeText";
+import { mdhm } from "@/lib/admin/timeText";
 import type { OpsReport, ReportDesk, ReportKind } from "@/lib/admin/types";
 import Skeleton from "@/components/Skeleton";
 import { useAdminResource } from "@/components/admin/useAdminResource";
@@ -45,15 +45,13 @@ function DeliverySummary({ desk }: { desk: ReportDesk }) {
       <div className={styles.cell}>
         <dt className={styles.cellKey}>마지막 일일 보고</dt>
         <dd className={`${styles.cellValue} num`}>
-          {d.lastDailySentAt ? kst(d.lastDailySentAt).slice(5, 16) : "없음"}
+          {d.lastDailySentAt ? mdhm(d.lastDailySentAt) : "없음"}
           {d.lastDailySentAt && <small>KST</small>}
         </dd>
         <dd className={styles.cellSub}>
           {lastWord ? (
             <>
-              <span className={styles.shape} data-tone={lastWord.tone} aria-hidden="true">
-                {lastWord.shape}{" "}
-              </span>
+              <StatusShape kind={GLYPH_SHAPE[lastWord.shape]} tone={lastWord.tone} className={styles.shape} />
               {lastWord.word} · {lastDaily?.intervention.priority} {lastDaily?.intervention.label}
             </>
           ) : (
@@ -83,7 +81,7 @@ function DeliverySummary({ desk }: { desk: ReportDesk }) {
       <div className={styles.cell}>
         <dt className={styles.cellKey}>다음 일일 보고</dt>
         <dd className={`${styles.cellValue} num`}>
-          {d.nextDailyAt ? kst(d.nextDailyAt).slice(5, 16) : "예약 없음"}
+          {d.nextDailyAt ? mdhm(d.nextDailyAt) : "예약 없음"}
           {d.nextDailyAt && <small>KST</small>}
         </dd>
         <dd className={styles.cellSub}>{d.nextDailyAt ? "지난 24시간 구간 · timer 예약" : "timer 확인 필요"}</dd>
@@ -104,7 +102,7 @@ function ReportRow({ r, selected, onPick }: { r: OpsReport; selected: boolean; o
       <span className={`${styles.rowPriority} num`}>{r.intervention.priority}</span>
       <span className={styles.rowMeta}>
         <span>{KIND_WORD[r.kind]}</span>
-        <span className="num">{kst(r.createdAt).slice(5)}</span>
+        <span className="num">{mdhm(r.createdAt)}</span>
         <span>
           <StatusShape kind={GLYPH_SHAPE[job.shape]} tone={job.tone} className={styles.shape} />
           {job.word}

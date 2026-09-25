@@ -33,7 +33,7 @@
  */
 
 import { tradesPerSec } from "./opsSim";
-import type { ControlCenter, IncidentEvent, OpsHost } from "./types";
+import type { ControlCenter, IncidentEvent, OpsFlowTapeEntry, OpsHost } from "./types";
 
 export type Health = "success" | "warning" | "danger";
 /** 매칭 노드(app-1·2). 쓰기와 리더 리스를 다룬다 */
@@ -738,6 +738,24 @@ export function liveEventLabel(text: string): string {
 function hostCpuOf(hosts: OpsHost[], role: OpsHost["role"]): number | null {
   const h = hosts.find((x) => x.role === role);
   return h && h.collect !== "MISSING" ? h.cpuPct : null;
+}
+
+/**
+ * 관제 시뮬레이터의 지표 관제 기록 한 박자를 표본으로 옮긴다. flowFromCenter가 판에서 만드는 표본과 같은 값이다. 리스는 관제 판이
+ * 재지 않아 틱에서 정한다
+ */
+export function sampleFromTape(e: OpsFlowTapeEntry, tick: number): FlowSample {
+  return {
+    at: tick,
+    trades: e.tradesPerSec,
+    botOps: e.botOps,
+    lease: LEASE_TTL - (tick % LEASE_TICK),
+    cpu: { api1: e.cpu["app-1"], api2: e.cpu["app-2"], app3: e.cpu["app-3"] },
+    util: e.avgCpuPct === null ? 0 : e.avgCpuPct / 100,
+    desired: e.desired >= 3 ? 3 : 2,
+    registered: e.serving,
+    replLagKb: e.lagBytes === null ? null : e.lagBytes / 1024,
+  };
 }
 
 /**

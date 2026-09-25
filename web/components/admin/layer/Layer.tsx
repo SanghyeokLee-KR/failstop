@@ -9,6 +9,7 @@ import { useId, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
+import LayerAlert from "./LayerAlert";
 import { useLayer } from "./useLayer";
 import styles from "./layer.module.css";
 
@@ -44,7 +45,7 @@ interface LayerProps {
 function LayerFrame({ kind, width, height, props }: { kind: "modal" | "drawer"; width: number; height?: number; props: LayerProps }) {
   const { title, sub, lead, badge, tools, bar, footer, children, onClose, initialFocus, closeOnBackdrop = true, role = "dialog", describedBy, name, busy = false } = props;
   const titleId = useId();
-  const { overlayRef, panelRef, closing, requestClose } = useLayer({ onClose, initialFocus, closeOnEscape: !busy });
+  const { overlayRef, panelRef, closing, requestClose, depth } = useLayer({ onClose, initialFocus, closeOnEscape: !busy });
   const size: CSSProperties = kind === "modal"
     ? { width: `min(${width}px, calc(100vw - 48px))`, height: height ? `min(${height}px, calc(100vh - 48px))` : undefined }
     : { width: `min(${width}px, calc(100vw - 48px))` };
@@ -88,6 +89,7 @@ function LayerFrame({ kind, width, height, props }: { kind: "modal" | "drawer"; 
           </div>
         </header>
         {bar != null && <div className={styles.bar}>{bar}</div>}
+        <LayerAlert depth={depth} />
         <div className={styles.body}>{children}</div>
         {footer != null && <footer className={styles.foot}>{typeof footer === "function" ? footer(requestClose) : footer}</footer>}
       </div>

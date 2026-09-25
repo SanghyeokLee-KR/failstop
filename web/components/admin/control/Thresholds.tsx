@@ -8,7 +8,8 @@
 
 import { memo, useState } from "react";
 import Link from "next/link";
-import { useOpsCenter } from "@/lib/admin/opsCenter";
+import { limitsOf, STRICTER } from "@/lib/admin/aiPolicy";
+import { useOpsCenter, useOpsPick } from "@/lib/admin/opsCenter";
 import { stepKey } from "@/lib/admin/thresholdKeys";
 import type { ApprovalPayload, ControlCenter, OpsSection, OpsThreshold, ThresholdChange, ThresholdRegistry, ThresholdVia } from "@/lib/admin/types";
 import ApprovalList from "../ApprovalList";
@@ -27,6 +28,46 @@ const VIA_WORD: Record<ThresholdVia, string> = {
   SEED: "초기값",
   CONFIG: "환경 기본값",
 };
+
+/**
+ * AI가 항목마다 바꿀 수 있는 폭과 자동으로 옮기는 방향(ADR 0035). 운영자 변경에는 걸리지 않는다. 임계값 관리 화면의 오른쪽 칸이
+ * 변경 검토·승인·이력이 비어 있는 평시에도 이 표로 AI 권한의 범위를 보인다
+ */
+function AiStepTable({ items }: { items: OpsThreshold[] }) {
+  // 항목당 횟수는 운영자가 AI 한도에서 바꾸는 값이라 판의 한도를 읽는다. 한도 칸은 값이 바뀔 때만 새 참조다
+  const perItem = useOpsPick((c) => limitsOf(c?.ai.state === "READY" ? c.ai.data.limits : undefined).thresholdPerItem);
+  return (
+    <div className={styles.aiSteps}>
+      <div className={styles.subHead}>AI가 바꿀 수 있는 폭</div>
+      <table className={styles.stepTable}>
+        <thead>
+          <tr>
+            <th scope="col">항목</th>
+            <th scope="col" data-num="">
+              1회 변경폭
+            </th>
+            <th scope="col">자동 실행 방향</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((t) => (
+            <tr key={t.key}>
+              <th scope="row">{t.label}</th>
+              <td data-num="" className="num">
+                {t.aiMaxStep}
+                {t.unit === "%" ? "%p" : t.unit}
+              </td>
+              <td>{STRICTER[t.key] < 0 ? "낮추기만" : "올리기만"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className={styles.reviewText}>
+        자동 모드는 더 민감한 쪽으로만 바꾸고, 한 번 켤 때 항목마다 {perItem}회까지입니다. 완화 방향과 운영자 변경은 승인으로 합니다.
+      </p>
+    </div>
+  );
+}
 
 /** 값 글자. 서버 레지스트리의 미설정 항목은 판정하지 않는다 */
 function valueWord(v: number | null, unit: string): string {
@@ -166,7 +207,7 @@ function HistoryTable({ history, items, limit }: { history: ThresholdChange[]; i
                       description: "되돌리기도 같은 1인 승인을 거칩니다. 발급하고 실행하면 적용됩니다.",
                       target: `${h.label} ${valueWord(h.to, h.unit)} → ${valueWord(from, h.unit)}`,
                       blastRadius: "승인 목록에서 발급·실행",
-                      tone: "warning",
+                      tone: "approve",
                       confirmLabel: "되돌리기 요청",
                     }}
                   />
@@ -202,7 +243,7 @@ function ImpactRequest({ t, to, onDone }: { t: OpsThreshold; to: number; onDone:
         description: data ? impactOf(t, to, data) : undefined,
         target: `${t.label} ${valueWord(t.value, t.unit)} → ${to}${t.unit}`,
         blastRadius: "승인 목록에서 발급·실행 뒤 적용",
-        tone: "warning",
+        tone: "approve",
         confirmLabel: "변경 요청",
       }}
     />
@@ -226,7 +267,7 @@ function ThresholdPanel({ section, onChanged, full = false }: {
     <section className={styles.panel} aria-labelledby="th-title">
       <PanelHead
         id="th-title"
-        title="임계값 관리"
+        title={full && reg ? `기준 항목 ${reg.items.length}` : "임계값 관리"}
         meta="게이지 눈금과 경보 판정이 이 값을 그대로 씁니다"
         actions={
           <>
@@ -371,7 +412,7 @@ function ThresholdPanel({ section, onChanged, full = false }: {
               <div className={styles.review} data-empty="">
                 <div className={styles.subHead}>변경 검토</div>
                 <p className={styles.reviewText}>
-                  왼쪽에서 값을 바꾸면 변경 전후와 영향이 여기에 나타납니다. AI 제안값에는 AI 표식이 붙습니다.
+                  왼쪽에서 값을 바꾸면 변경 전후와 영향이 여기에 나타납니다. 변경은 1인 승인을 거치고 이력에서 되돌립니다. AI 제안값에는 AI 표식이 붙습니다.
                 </p>
               </div>
             )}
@@ -384,6 +425,7 @@ function ThresholdPanel({ section, onChanged, full = false }: {
             />
             <div className={styles.subHead}>변경 이력</div>
             <HistoryTable history={reg.history} items={reg.items} limit={full ? undefined : 4} />
+            {full && <AiStepTable items={reg.items} />}
           </div>
         </div>
       )}

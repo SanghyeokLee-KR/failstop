@@ -87,12 +87,18 @@ import type {
   MaintenanceWindow,
   WindowInput,
   SlaMonth,
+  OpsFlowTapeEntry,
 } from "./types";
 import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
 const DEMO_CA = "demo-ca (Exchange Admin Demo Root)";
+/**
+ * 관제 시뮬레이터를 콘솔을 연 시각보다 150초 앞에서 세운다. 첫 판을 읽을 때 그만큼 밟아 지표 관제의 150초 창이 첫 화면부터 찬다
+ * (flowTape). 앞선 150초는 평시 기준선이라 사건 기록과 판단 기록이 늘지 않는다
+ */
+const OPS_PREROLL_MS = 150_000;
 /* JVM 힙 상한. t3.small(2GiB)에 앱 하나를 올린 로컬 실측 규모를 따른다 */
 const SIM_HEAP_MAX = 742_000_000;
 
@@ -352,6 +358,9 @@ export class SimAdminApi implements AdminApi {
 
   // 발급형 원장. token·payload는 내부 보관하고 listApprovals 프로젝션에서 제외한다(§6-B)
   private approvals: IssuedApproval[] = [];
+  /** 승인 티켓 번호. 서버 원장처럼 숫자로 매긴다(API 설계 §3-6의 approval_id). 시드 티켓은 초기화 뒤에도 변경 요청에 다시 잇는다 */
+  private approvalSeq = 8800;
+  private seededApprovals = new Set<string>();
   private notices: Notice[] = [
     {
       id: uid("not"),
@@ -444,7 +453,7 @@ export class SimAdminApi implements AdminApi {
   /** 관제센터 시뮬레이션(관리자 설계 4-4). AI가 한 일도 감사 로그에 AI 운영 계정으로 남긴다 */
   private readonly opsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null, meta?: OpsAuditMeta) =>
     this.log({ operatorId: actor.id, displayName: actor.name }, action, target, approvalId, meta?.result ?? "OK", meta);
-  private ops = new OpsSim(Date.now(), this.opsAudit);
+  private ops = new OpsSim(Date.now() - OPS_PREROLL_MS, this.opsAudit);
 
   constructor() {
     this.seedAudit();
@@ -474,13 +483,12 @@ export class SimAdminApi implements AdminApi {
       { at: isoNow(now - 3 * 3_600_000 - 90_000), actor: su, action: "session.establish", target: "mTLS CN=op-01" },
       { at: isoNow(now - 100 * 60_000), actor: op, action: "session.establish", target: "mTLS CN=op-02" },
     );
-    let n = 0;
     for (const e of rows) {
       if (e.action !== "execute:ops.change.approve") continue;
-      n += 1;
       const consumed = Date.parse(e.at);
       const issued = consumed - 40_000;
-      const id = `apr-seed-${n}`;
+      const id = this.nextApprovalId();
+      this.seededApprovals.add(id);
       e.approvalId = id;
       this.approvals.push({
         id, action: "ops.change.approve", targetKey: `ops.change.approve:${e.target}`, targetLabel: e.target,
@@ -739,7 +747,7 @@ export class SimAdminApi implements AdminApi {
     const { key, label } = approvalConsoleTarget(payload);
     const now = Date.now();
     const issued: IssuedApproval = {
-      id: uid("apr"),
+      id: this.nextApprovalId(),
       action,
       targetKey: key,
       targetLabel: label,
@@ -757,6 +765,11 @@ export class SimAdminApi implements AdminApi {
     this.approvals.unshift(issued);
     this.log(approver, `approval.issue:${action}`, label, issued.id, "OK");
     return Promise.resolve(issued);
+  }
+
+  private nextApprovalId(): string {
+    this.approvalSeq += 1;
+    return String(this.approvalSeq);
   }
 
   private sweep(): void {
@@ -957,6 +970,11 @@ export class SimAdminApi implements AdminApi {
 
   readonly opsScenarios = true;
 
+  getFlowTape(): Promise<OpsFlowTapeEntry[] | null> {
+    this.auth("VIEW");
+    return Promise.resolve(this.ops.flowTape(Date.now()));
+  }
+
   getControlCenter(): Promise<ControlCenter> {
     this.auth("VIEW");
     const now = Date.now();
@@ -1122,9 +1140,9 @@ export class SimAdminApi implements AdminApi {
   resetOps(): Promise<void> {
     const s = this.auth("VIEW");
     // 관제 세계 전체를 처음으로 돌린다. 봇 발행률도 기준값으로 돌아가고 봇 목록은 그대로다
-    this.ops = new OpsSim(Date.now(), this.opsAudit);
+    this.ops = new OpsSim(Date.now() - OPS_PREROLL_MS, this.opsAudit);
     // 새 판의 시드 변경 요청에 원장의 시드 티켓을 다시 잇는다. 감사와 원장은 초기화하지 않는다
-    this.ops.seedApprovalIds(this.approvals.filter((a) => a.id.startsWith("apr-seed-") && a.payload.action === "ops.change.approve")
+    this.ops.seedApprovalIds(this.approvals.filter((a) => this.seededApprovals.has(a.id) && a.payload.action === "ops.change.approve")
       .map((a) => ({ changeId: a.payload.action === "ops.change.approve" ? a.payload.id : "", approvalId: a.id })));
     this.syncFleet();
     this.log(s, "ops.scenario.reset", "관제 시뮬레이션", null, "OK");

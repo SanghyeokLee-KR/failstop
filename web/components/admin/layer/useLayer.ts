@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { exitDelay } from "@/lib/admin/motion";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
+import { holdToasts } from "@/components/Toast";
 import { isolate, isTopLayer, pushLayer, returnTarget, wrapFocus } from "./focusTrap";
 
 /* 입력을 빼면 children으로 받은 사유 입력이 Tab 순환에서 사라진다. 층 안의 누를 것은 모두 잡는다 */
@@ -35,6 +36,8 @@ export function useLayer({
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
+  // 이 층의 깊이. 맨 위 층만 층 안 알림 줄에 오류를 적는다(holdToasts)
+  const [depth, setDepth] = useState(0);
   // 최신 onClose를 ref로 잡는다. 호출부가 인라인 화살표를 넘겨 폴링 리렌더마다 참조가 바뀌어도 격리·포커스 이펙트가
   // 다시 돌아 초기 포커스로 포커스를 되돌리는 강탈을 막는다
   const onCloseRef = useRef(onClose);
@@ -65,6 +68,9 @@ export function useLayer({
     const panel = panelRef.current;
     const token = {};
     const pop = pushLayer(token);
+    // 층이 열린 동안 토스트를 붙잡는다. 덮개 아래 오른쪽 아래의 토스트가 층의 가장자리와 겹쳐 읽히지 않게 한다
+    const hold = holdToasts();
+    setDepth(hold.depth);
     // 토스트 리전은 격리하지 않는다. inert에 걸리면 열린 동안 토스트 낭독과 닫기가 죽는다
     const restore = isolate(Array.from(document.body.children), (el) => el === overlay || (el as Element).hasAttribute("data-toast-region"));
     const onKey = (e: KeyboardEvent) => {
@@ -96,6 +102,7 @@ export function useLayer({
     return () => {
       document.removeEventListener("keydown", onKey);
       pop();
+      hold.release();
       restore();
       // inert를 푼 뒤에 돌아간다. 연 단추가 판에서 사라졌으면 그 판의 제목으로 간다
       const back = returnTarget(opener, document.querySelector<HTMLElement>("#admin-main h1"));
@@ -106,5 +113,5 @@ export function useLayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { overlayRef, panelRef, closing, requestClose };
+  return { overlayRef, panelRef, closing, requestClose, depth };
 }

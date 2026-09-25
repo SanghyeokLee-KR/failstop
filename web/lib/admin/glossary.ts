@@ -4,7 +4,7 @@
  */
 
 export const ACTION_GLOSS: Record<string, string> = {
-  "session.establish": "콘솔 접속",
+  "session.establish": "관리 세션 발급",
   "session.revoke": "콘솔 종료",
   // 콘솔에 장애 주입 화면은 없지만 서버 API(ChaosAdminController)는 이 코드로 감사에 적재한다.
   // 감사 로그는 append-only라 그 행도 남으므로 서버가 실제로 쓰는 코드로 풀이를 둔다

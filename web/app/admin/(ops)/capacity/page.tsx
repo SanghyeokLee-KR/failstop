@@ -25,7 +25,6 @@ import type { CapacityAdvice, CapacityNode, CapacityState, SimStatus } from "@/l
 import PanelCard from "@/components/PanelCard";
 import NodeStrip from "@/components/admin/NodeStrip";
 import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
-import DecisionFooter from "@/components/admin/DecisionFooter";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import SourceMark, { sourceWord } from "@/components/admin/SourceMark";
 import Skeleton from "@/components/Skeleton";
@@ -265,16 +264,17 @@ export default function CapacityPage() {
             </tr>
           </tbody>
         </table>
+        {/* 판단 순서는 이 표의 캡션이다. 제목 없는 띠로 따로 두면 무엇의 순서인지 읽히지 않는다 */}
+        <p className={capStyles.orderNote}>
+          판단 순서 · 앱 평균 사용률을 확인하고 위 권고에 따라 app-3를 켜거나 끕니다
+          {grafanaConfigured() && (
+            <>
+              {" · "}
+              <GrafanaLink board="msp-service" label="앱 CPU 추이" />
+            </>
+          )}
+        </p>
       </PanelCard>
-
-      {/* 관측 주소가 없으면 링크가 null을 그린다. 빈 단계를 배열에 넣지 않아 화살표가 겹치지 않는다 */}
-      <DecisionFooter
-        steps={[
-          "평균 사용률 확인",
-          ...(grafanaConfigured() ? [<GrafanaLink key="svc" board="msp-service" label="앱 CPU 추이" />] : []),
-          "권고에 따라 증설·축소",
-        ]}
-      />
 
       {/* 3라운드 확장(관리자 설계 4-10-3). 관제 판의 칸을 골라 읽어 지금 판의 수동 갱신과 따로 움직인다 */}
       <div className={controlStyles.split}>
@@ -294,7 +294,7 @@ export default function CapacityPage() {
           }
           target={`앱 계층 ${d.plan.desired}대 → ${d.plan.desired + (pending === "SCALE_OUT" ? 1 : -1)}대`}
           confirmLabel={pending === "SCALE_OUT" ? "켜기" : "끄기"}
-          tone={pending === "SCALE_OUT" ? "warning" : "danger"}
+          tone="approve"
           busy={busy}
           onConfirm={() => run(pending)}
           onClose={() => setPending(null)}

@@ -6,8 +6,26 @@
  * 헤더 sticky 기준 top 56px: 페이지 스크롤 컨테이너에서 HeaderNav 아래 고정.
  */
 
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import styles from "./DataTable.module.css";
+
+/** 맨 글자 값은 요소로 감싼다. 칸이 좁으면 말줄임표로 자르고, 잘린 칸을 가리키면 원문을 툴팁으로 보인다 */
+function cellContent(v: ReactNode): ReactNode {
+  return typeof v === "string" || typeof v === "number" ? <span>{v}</span> : v;
+}
+
+/** 칸을 가리킬 때 글이 잘려 있으면 원문을 툴팁으로 단다. 이미 제 툴팁을 가진 요소는 건드리지 않는다 */
+function fitTitle(e: MouseEvent<HTMLElement>): void {
+  const el = e.currentTarget.firstElementChild as HTMLElement | null;
+  if (!el || (el.hasAttribute("title") && !el.hasAttribute("data-fit-title"))) return;
+  if (el.scrollWidth > el.clientWidth + 1) {
+    el.title = el.textContent ?? "";
+    el.setAttribute("data-fit-title", "");
+  } else if (el.hasAttribute("data-fit-title")) {
+    el.removeAttribute("title");
+    el.removeAttribute("data-fit-title");
+  }
+}
 
 export interface DataColumn<T> {
   key: string;
@@ -147,8 +165,9 @@ export default function DataTable<T>({
                   role="cell"
                   className={styles.cell}
                   data-align={c.align ?? defaultAlign}
+                  onMouseEnter={fitTitle}
                 >
-                  {c.render(row)}
+                  {cellContent(c.render(row))}
                 </span>
               ))}
             </div>

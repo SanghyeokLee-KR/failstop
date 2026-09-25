@@ -31,7 +31,7 @@ export const CHANGE_STATE_WORD: Record<ChangeState, string> = {
   APPROVED: "예정",
   IN_PROGRESS: "진행 중",
   DONE: "완료",
-  ROLLED_BACK: "되돌림",
+  ROLLED_BACK: "롤백",
   CANCELED: "취소",
 };
 
@@ -236,7 +236,7 @@ export function actionsIn(records: ActionRecord[], span: { start: string; end: s
 
 /**
  * 변경 요청의 단계 막대(디자인 시스템 §12-15). 등록, 승인, 진행, 종료, 검토다. 취소한 요청은 그 뒤 단계를 '취소'로 건너고,
- * 되돌린 요청의 종료는 실패 모양이 아니라 건너뛴 모양 없이 '되돌림'을 적는다(되돌림은 계획된 되돌리기 계획의 실행이다).
+ * 롤백한 요청의 종료는 실패 모양이 아니라 건너뛴 모양 없이 '롤백'을 적는다(롤백은 계획된 되돌리기 계획의 실행이다).
  * 검토는 종료 뒤 그 창 안의 조치 수다
  */
 export function changeStages(c: ChangeRequest, actionCount: number | null): StageMark[] {
@@ -256,7 +256,7 @@ export function changeStages(c: ChangeRequest, actionCount: number | null): Stag
         ? mark("start", "진행", { state: "skipped", note: "취소" })
         : mark("start", "진행", c.approvedAt ? { state: "current", note: "시작 전" } : {}),
     closed
-      ? mark("finish", "종료", { state: "done", at: c.closedAt, note: c.state === "ROLLED_BACK" ? "되돌림" : null })
+      ? mark("finish", "종료", { state: "done", at: c.closedAt, note: c.state === "ROLLED_BACK" ? "롤백" : null })
       : canceled
         ? mark("finish", "종료", { state: "skipped", note: "취소" })
         : mark("finish", "종료", c.startedAt ? { state: "current", note: "진행 중" } : {}),
@@ -277,7 +277,7 @@ export function nextStep(c: ChangeRequest): string {
     case "APPROVED":
       return "시각이 되면 진행을 눌러 같은 대상의 계획 작업 창을 엽니다";
     case "IN_PROGRESS":
-      return "작업을 마치면 결과(완료·되돌림)를 적어 종료합니다. 창도 함께 닫힙니다";
+      return "작업을 마치면 결과(완료·롤백)를 적어 종료합니다. 창도 함께 닫힙니다";
     default:
       return "";
   }

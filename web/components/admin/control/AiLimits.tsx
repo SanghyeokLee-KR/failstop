@@ -85,7 +85,7 @@ function History({ rows, items, mode }: { rows: AiLimitChange[]; items: AiLimit[
                       description: "되돌리기도 같은 1인 승인을 거칩니다. 발급하고 실행하면 적용 규칙에 따라 적용됩니다.",
                       target: `${h.label} ${h.to}${h.unit} → ${h.from}${h.unit}`,
                       blastRadius: applyWord(l, h.from, mode),
-                      tone: "warning",
+                      tone: "approve",
                       confirmLabel: "되돌리기 요청",
                     }}
                   />
@@ -224,7 +224,7 @@ export default function AiLimitsPanel({ ai, onChanged }: { ai: AiDesk | null; on
                       description: applyWord(editing, draft.value, ai.mode),
                       target: `${editing.label} ${effective(editing)}${editing.unit} → ${draft.value}${editing.unit}`,
                       blastRadius: "승인 목록에서 발급·실행 뒤 적용",
-                      tone: "warning",
+                      tone: "approve",
                       confirmLabel: "변경 요청",
                     }}
                   />

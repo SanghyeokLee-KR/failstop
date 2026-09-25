@@ -9,6 +9,23 @@ export function joinDots(text: string): string {
   return text.replace(/ ·/g, "\u00a0·").replace(/%(?=[가-힣])/g, "%\u2060");
 }
 
+// 가운뎃점 묶음을 먼저 본다. 하이픈 이름이 먼저 맞으면 'app-1·app-2'가 'app-1'과 '·app-2'로 갈린다
+const NAME = /([^\s·,()]+(?:·[^\s·,()]+)+|[A-Za-z][A-Za-z0-9.]*(?:-[A-Za-z0-9.]+)+)/g;
+
+/** 글을 줄바꿈 없이 둘 이름 토막과 나머지로 나눈다. 홀수 번째 조각이 이름이다(KeepNames) */
+export function splitNames(text: string): string[] {
+  return text.split(NAME);
+}
+
+/**
+ * 경보를 글 안에서 부르는 말. 이름이 대상으로 시작하면('앱 계층 CPU 높음'과 대상 '앱 계층') 이름만 쓰고, 아니면
+ * '이름 · 대상'이다. 대상을 이름 앞에 붙이면 '앱 계층 앱 계층 CPU 높음', '외부 응답 응답 지연 증가'처럼 같은 말이
+ * 겹친다. 판단 문장, 사건 이름, Teams 경보 알림 줄, 보류 만료 감사가 같은 말을 쓴다
+ */
+export function alertPhrase(a: { name: string; target: string }): string {
+  return a.name.startsWith(a.target) ? a.name : `${a.name} · ${a.target}`;
+}
+
 /**
  * 받침에 맞춘 조사. 조치 확인 제목('증설 CPU 임계를 60%에서 55%로 낮춥니다')처럼 값과 단위가 바뀌는 문장에서
  * '20시간로', '임계값를' 같은 어긋남을 막는다. 마지막 글자가 한글이 아니면 읽는 소리로 본다(%는 '퍼센트', 숫자는

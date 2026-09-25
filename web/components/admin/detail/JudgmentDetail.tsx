@@ -10,12 +10,14 @@
 
 import { useEffect, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
+import { CHECK_VIEW_WORD, checkView, visibleChecks } from "@/lib/admin/aiPolicy";
 import { stepDelays } from "@/lib/admin/motion";
 import { joinDots } from "@/lib/admin/text";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
-import type { AiCheckState, AiJudgment, ControlCenter } from "@/lib/admin/types";
+import type { AiJudgment, ControlCenter } from "@/lib/admin/types";
 import { Modal } from "../layer/Layer";
 import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
+import CheckMark from "./CheckMark";
 import { SimMark, StateChip } from "../ui";
 import { AiMark, hms, SEVERITY_SHAPE } from "../control/parts";
 import controlStyles from "../control/control.module.css";
@@ -25,8 +27,6 @@ import styles from "./detail.module.css";
 const seen = new Set<string>();
 
 const RISK_WORD = { LOW: "낮음", MEDIUM: "중간" } as const;
-const CELL_SHAPE: Record<AiCheckState, "circle" | "square" | "triangle" | null> = { PASS: "circle", BLOCK: "square", HOLD: "triangle", NA: null };
-const CELL_WORD: Record<AiCheckState, string> = { PASS: "통과", BLOCK: "막음", HOLD: "승인 대기", NA: "해당 없음" };
 
 function resultTone(outcome: string): "warning" | "neutral" | "success" {
   if (outcome.startsWith("자동 되돌림") || outcome.startsWith("AI 정지")) return "warning";
@@ -64,6 +64,8 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
     );
   }
   const tr = j.trace;
+  const vc = tr ? visibleChecks(tr.checks) : { rows: [], hidden: [] };
+  const autoOnly = tr !== null && tr.checks.some((r) => r.results.some((c) => checkView(r.rule, c.state, tr.mode) === "autoOnly"));
   const delays = stepDelays(5, first, prefersReducedMotion());
   const step = (i: number) => ({ style: { animationDelay: `${delays[i]}ms` }, "data-still": first ? undefined : "" });
 
@@ -177,39 +179,48 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
                   {tr.checks.length === 0 ? (
                     <span className={styles.stepText}>검사할 후보가 없습니다</span>
                   ) : (
-                    <table className={`${styles.table} ${styles.checkTable}`}>
-                      <thead>
-                        <tr>
-                          <th scope="col">규칙</th>
-                          {tr.candidates.map((c, i) => (
-                            <th key={c.id} scope="col" title={c.title}>
-                              후보 {i + 1}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tr.checks.map((r) => (
-                          <tr key={r.rule}>
-                            <th scope="row">{r.label}</th>
-                            {r.results.map((cell, i) => {
-                              const shape = CELL_SHAPE[cell.state];
-                              return (
-                                <td key={i}>
-                                  <span className={styles.cell} data-state={cell.state}>
-                                    {shape ? <StatusShape kind={shape} /> : <span aria-hidden="true">·</span>}
-                                    <span>
-                                      <span className="sr-only">{CELL_WORD[cell.state]} · </span>
-                                      {cell.note || CELL_WORD[cell.state]}
-                                    </span>
-                                  </span>
-                                </td>
-                              );
-                            })}
+                    <>
+                      <table className={`${styles.table} ${styles.checkTable}`}>
+                        <thead>
+                          <tr>
+                            <th scope="col">규칙</th>
+                            {tr.candidates.map((c, i) => (
+                              <th key={c.id} scope="col" title={c.title}>
+                                후보 {i + 1}
+                              </th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {vc.rows.map((r) => (
+                            <tr key={r.rule}>
+                              <th scope="row">{r.label}</th>
+                              {r.results.map((cell, i) => {
+                                const view = checkView(r.rule, cell.state, tr.mode);
+                                const word = CHECK_VIEW_WORD[view];
+                                return (
+                                  <td key={i}>
+                                    <span className={styles.cell} data-view={view}>
+                                      <CheckMark view={view} />
+                                      <span>
+                                        <span className="sr-only">{word} · </span>
+                                        {view === "autoOnly" ? `${word} · ${cell.note}` : cell.note || word}
+                                      </span>
+                                    </span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {vc.hidden.length > 0 && (
+                        <p className={styles.checkFoot}>
+                          해당 없는 규칙 <span className="num">{vc.hidden.length}</span>개 · {vc.hidden.join(", ")}
+                        </p>
+                      )}
+                      {autoOnly && <p className={styles.checkFoot}>수동 모드라 자동 실행 조건은 실행을 막지 않습니다. 자동 모드였다면 '자동이면 막힘' 행에서 멈춥니다.</p>}
+                    </>
                   )}
                 </div>
               </li>

@@ -239,3 +239,69 @@
   font-weight: var(--fw-semibold);
   color: var(--color-warning-text);
 }
+
+/* ===== 당번·호출 =====
+   지금 당번 한 줄과 호출 단계 셋이다. 단계는 시각(분), 단계와 역할, 경로를 한 줄로 적는다 */
+.oncall {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.oncallNow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.oncallKey {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.oncallName {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.oncallMeta {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.oncallSteps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+.oncallSteps li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.oncallAfter {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-align: right;
+}
+.oncallRole {
+  min-width: 0;
+  color: var(--text-default);
+}
+.oncallChannel {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.oncallNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}

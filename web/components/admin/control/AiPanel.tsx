@@ -23,7 +23,9 @@ import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { AI_ACTION_CAP, CAP_NEED } from "@/lib/admin/roles";
 import { useCan } from "@/lib/admin/store";
 import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
+import { judgmentGroup } from "@/lib/admin/judgmentLog";
 import { joinDots } from "@/lib/admin/text";
+import { kstDay } from "@/lib/admin/timeText";
 import { toast } from "@/components/Toast";
 import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
@@ -31,7 +33,7 @@ import StatusShape from "../StatusShape";
 import { useFlip } from "../useFlip";
 import { useFreshKeys } from "../useFreshKeys";
 import ActionConfirm from "./ActionConfirm";
-import { RulesDisclosure } from "./ModeBar";
+import { revealModeBar, RulesDisclosure } from "./ModeBar";
 import { Ago, AiMark, FlashNum, hms, mmss, sectionSource, SEVERITY_SHAPE, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -362,7 +364,7 @@ function CardSummary({ p, ai, limits }: { p: AiProposal; ai: AiDesk; limits: AiL
   );
 }
 
-function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
+export function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
   p: AiProposal;
   index: number;
   ai: AiDesk;
@@ -384,6 +386,7 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
       toast(decision === "APPROVE" ? "승인 · 조치 실행" : decision === "REJECT" ? "조치안 거절" : "나중에 다시 판단", "info");
       setConfirm(false);
       onChanged();
+      if (decision === "APPROVE") revealModeBar();
     } catch (e) {
       toast(e instanceof AdminError ? e.message : "처리 실패", "error");
     } finally {
@@ -464,15 +467,49 @@ function AiOff({ source }: { source: string }) {
 }
 
 /**
+ * 오늘 AI가 한 일 한 줄 묶음(레이아웃 §7 v1.15). 오늘(KST) 남긴 판단 기록 수, 그 가운데 조치안을 낸 판단 수, 지난 24시간에 실행하고
+ * 되돌린 AI 조치 수다. 판단 기록과 감사 기록에서 세고 새 값을 짓지 않는다. 평시 AI 기둥이 빈 판으로 늘어나지 않게 한다
+ */
+function AiToday({ ai }: { ai: AiDesk }) {
+  const now = useClock(60_000);
+  const today = kstDay(now);
+  const todays = ai.history.filter((h) => kstDay(Date.parse(h.at)) === today);
+  const proposals = todays.filter((h) => judgmentGroup(h.outcome) === "PROPOSAL").length;
+  return (
+    <dl className={styles.aiToday} aria-label="오늘 AI 활동">
+      <div>
+        <dt>오늘 판단 기록</dt>
+        <dd className="num">
+          {todays.length}
+          <small>건</small>
+        </dd>
+      </div>
+      <div>
+        <dt>조치안 낸 판단</dt>
+        <dd className="num">
+          {proposals}
+          <small>건</small>
+        </dd>
+      </div>
+      <div>
+        <dt>지난 24시간 실행</dt>
+        <dd className="num">
+          {ai.recent.runs}
+          <small>회 · 되돌림 {ai.recent.reverts}회</small>
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+/**
  * AI 칸(판의 ai)만 받는다. 판은 매초 새로 오지만 이 칸은 판단이 바뀔 때만 새 참조라(opsCenter의
  * shareEqual) 패널이 매초 다시 그려지지 않는다
  */
-function AiPanel({ section, onChanged, full = false }: {
+function AiPanel({ section, onChanged }: {
   /** 판을 받기 전이면 null이다 */
   section: OpsSection<AiDesk> | null;
   onChanged: () => void;
-  /** AI 판단 화면은 결정된 조치안과 판단 기록을 모두 싣는다 */
-  full?: boolean;
 }) {
   const point = useOpsFocus((s) => s.point);
   const evidenceRef = useRef<HTMLDivElement>(null);
@@ -483,11 +520,12 @@ function AiPanel({ section, onChanged, full = false }: {
   // 대기 조치안이 없으면 가장 최근에 처리한 조치를 '마지막 조치 결과'로 올린다. 판은 15분 안에 처리한 조치만 싣는다
   const last = open.length === 0 ? others.find((p) => LAST_RESULT.has(p.status)) ?? null : null;
   const remaining = last ? others.filter((p) => p.id !== last.id) : others;
-  const done = full ? remaining : remaining.slice(0, Math.max(last ? 0 : 1, 3 - open.length - (last ? 1 : 0)));
+  const done = remaining.slice(0, Math.max(last ? 0 : 1, 3 - open.length - (last ? 1 : 0)));
   const fresh = useFreshKeys(ai ? ai.proposals.map((p) => `${p.id}:${p.status}`) : []);
   const isFresh = (p: AiProposal) => fresh.has(`${p.id}:${p.status}`);
   useFlip(bodyRef);
-  const history = ai ? (full ? ai.history : ai.history.slice(0, 4)) : [];
+  // 하루치 판단 기록 표는 AI 판단 화면에 있다. 관제센터는 최근 다섯 줄만 싣는다
+  const history = ai ? ai.history.slice(0, 5) : [];
   const limits = limitsOf(ai?.limits);
   const stopped = ai?.mode === "STOPPED";
   const [lead, rest] = ai ? splitLead(ai.situation) : ["", ""];
@@ -535,7 +573,7 @@ function AiPanel({ section, onChanged, full = false }: {
             </>
           )}
         </span>
-        {!full && ai && (
+        {ai && (
           <Link href="/admin/ai" className={styles.stripLink}>
             판단 기록
           </Link>
@@ -647,8 +685,14 @@ function AiPanel({ section, onChanged, full = false }: {
                 </div>
               </div>
             )}
+            <AiToday ai={ai} />
             <div className={styles.aiSection}>
-              <div className={styles.subHead}>판단 기록</div>
+              <div className={styles.subHead}>
+                <span>판단 기록</span>
+                <Link href="/admin/ai" className={styles.stripLink}>
+                  하루치 보기
+                </Link>
+              </div>
               <ol className={styles.historyList}>
                 {history.map((h) => (
                   <li key={h.id}>

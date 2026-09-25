@@ -125,8 +125,8 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
     <section className={styles.player} aria-labelledby="sc-title" onKeyDown={onKey}>
       <div className={styles.console}>
       <header className={styles.playerHead}>
+        {/* '재생 · 관제 값과 별개' 표식은 화면 제목 옆에 한 번 둔다. 이 화면 전체가 재생 세계라 판 머리에 되풀이하지 않는다 */}
         <div className={styles.playerTitleRow}>
-          <SimMark kind="scenario" />
           <h2 id="sc-title" className={styles.playerTitle}>
             {spec.title}
           </h2>
@@ -271,7 +271,7 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
           description={`${spec.title} 시나리오를 관제 판에 겁니다. 관제센터와 모든 운영 관제 화면의 값이 시나리오대로 움직입니다. 초기화는 관제센터 머리의 시나리오 조작에서 합니다.`}
           target="관제 판(sim)"
           blastRadius="모든 운영 관제 화면의 sim 값 · 감사 로그에 남음"
-          tone="warning"
+          tone="approve"
           confirmLabel="걸기"
           busy={busy}
           onConfirm={() => void startLive()}

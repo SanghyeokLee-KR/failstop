@@ -10,8 +10,9 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
-import { incidentsIn, openIncidents, todayMeans } from "@/lib/admin/opsDetail";
+import { ESCALATION_LEVEL_WORD, incidentsIn, openIncidents, todayMeans } from "@/lib/admin/opsDetail";
 import GrafanaLink from "@/components/admin/GrafanaLink";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import AlertList from "@/components/admin/control/Alerts";
@@ -25,7 +26,7 @@ import PageSkeleton from "@/components/admin/control/PageSkeleton";
 import StatusShape from "@/components/admin/StatusShape";
 import { Segmented } from "@/components/admin/ui";
 import { flashTone } from "@/lib/admin/motion";
-import { kstDay } from "@/lib/admin/timeText";
+import { kstDay, mdhm } from "@/lib/admin/timeText";
 import type { ControlCenter, IncidentLog } from "@/lib/admin/types";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
@@ -201,6 +202,10 @@ export default function IncidentsPage() {
                   }
                 </SectionBody>
               </section>
+              {/* 누가 맡고 언제 누구를 부르는지. 사건 목록의 담당·호출 칩이 이 명부와 정책에서 나온다 */}
+              <OnCallPanel section={data.oncall} now={now} />
+              {/* 사건에 속하지 않는 운영 기록은 왼쪽 칸 아래에 둔다. 오른쪽의 사건 상세와 두 칸 높이가 맞는다 */}
+              {log && <LooseEvents log={log} now={now} />}
             </div>
             <div className={styles.stack}>
               {log && current ? (
@@ -218,12 +223,56 @@ export default function IncidentsPage() {
                   </SectionBody>
                 </section>
               )}
-              {log && <LooseEvents log={log} now={now} />}
             </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * 당번과 호출 정책(관리자 설계 4-10-2·4-10-7). 지금 당번과 교대 시각, 확인이 없을 때 부르는 단계(5·15·30분)다. 설정 화면의 호출 단계와
+ * 같은 칸(oncall)을 읽는다. 명부를 바꾸는 곳은 이 화면이 아니다
+ */
+function OnCallPanel({ section, now }: { section: ControlCenter["oncall"]; now: number }) {
+  return (
+    <section className={controlStyles.panel} aria-labelledby="inc-oncall">
+      <PanelHead
+        id="inc-oncall"
+        title="당번·호출"
+        actions={
+          <Link href="/admin/settings" className={controlStyles.stripLink}>
+            호출 정책
+          </Link>
+        }
+      />
+      <SectionBody section={section} what="당번 명부" compact>
+        {(d) => (
+          <div className={styles.oncall}>
+            <div className={styles.oncallNow}>
+              <span className={styles.oncallKey}>지금 당번</span>
+              <span className={styles.oncallName}>{d.onDuty ? d.onDuty.person : "교대 없음"}</span>
+              {d.onDuty && (
+                <span className={`${styles.oncallMeta} num`}>
+                  {d.onDuty.role} · {kstDay(Date.parse(d.onDuty.until)) === kstDay(now) ? hm(d.onDuty.until) : mdhm(d.onDuty.until)}까지
+                </span>
+              )}
+            </div>
+            <ol className={styles.oncallSteps} aria-label="확인이 없을 때의 호출 단계">
+              {d.policy.map((st) => (
+                <li key={st.level}>
+                  <span className={`${styles.oncallAfter} num`}>{st.afterMin}분</span>
+                  <span className={styles.oncallRole}>{ESCALATION_LEVEL_WORD[st.level]} · {st.role}</span>
+                  <span className={styles.oncallChannel}>{st.channel}</span>
+                </li>
+              ))}
+            </ol>
+            <p className={styles.oncallNote}>누구든 확인하거나 결정하면 다음 호출을 멈춥니다. 해제되면 멈춥니다.</p>
+          </div>
+        )}
+      </SectionBody>
+    </section>
   );
 }
 

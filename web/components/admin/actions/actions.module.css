@@ -108,7 +108,7 @@
 }
 /* 1280 창(표 폭 약 968px)에서 대상 칸이 약 190px을 받게 나눈다 */
 .cActor {
-  width: 11%;
+  width: 10%;
 }
 .cCat {
   width: 9%;
@@ -117,10 +117,11 @@
   width: 88px;
 }
 .cTicket {
-  width: 10%;
-}
-.cIncident {
   width: 72px;
+}
+/* 사건 칸은 원시 id가 아니라 사건 이름을 한 줄 말줄임으로 적는다 */
+.cIncident {
+  width: 12%;
 }
 .table thead th {
   height: 36px;
@@ -275,10 +276,14 @@
 }
 .incident {
   position: relative;
-  font-family: var(--font-mono);
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--font-dense-size);
   line-height: var(--font-dense-line);
   color: var(--chrome-accent);
+  text-align: left;
   white-space: nowrap;
 }
 .incident::after {

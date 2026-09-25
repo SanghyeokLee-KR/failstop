@@ -17,13 +17,17 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
+import { getAdminApi } from "./api";
 import { onBeat } from "./ticker";
 import { opsCenterStore } from "./opsCenter";
 import {
+  LEASE_TICK,
+  LEASE_TTL,
   LIVE_EVENT_HEALTH,
   createFlow,
   flowFromCenter,
   liveEventLabel,
+  sampleFromTape,
   startScenario,
   stepFlow,
   type EngineId,
@@ -91,8 +95,42 @@ function bootLive(key: number): Pick<FlowRun, "key" | "mode" | "origin" | "state
   seen = new Set();
   liveSince = Date.now();
   lastCollected = null;
+  void loadTape(key);
   // 첫 판이 오기 전의 자리. 화면은 waiting 동안 이 값을 그리지 않는다
   return { key, mode: "live", origin: Math.floor(Date.now() / 1000), state: createFlow(), samples: [], waiting: true };
+}
+
+/**
+ * 관제 시뮬레이터의 지표 관제 기록(최근 10분)으로 주행을 앞으로 채운다. 화면에 들어온 뒤부터만 쌓으면 150초 창의 대부분이 빈
+ * 격자로 시작한다. 원점을 기록의 첫 박자로 옮기고 이미 쌓은 표본과 사건 표지의 틱을 그만큼 민다. 그 구간의 관제 기록도 사건 띠에
+ * 올리도록 liveSince를 기록의 처음으로 당긴다. http 원천에는 기록이 없다(null)
+ */
+async function loadTape(key: number): Promise<void> {
+  let tape: Awaited<ReturnType<ReturnType<typeof getAdminApi>["getFlowTape"]>> = null;
+  try {
+    tape = await getAdminApi().getFlowTape();
+  } catch {
+    return;
+  }
+  const r = useFlowRun.getState();
+  if (tape === null || tape.length === 0 || r.key !== key || r.mode !== "live") return;
+  const first = Math.floor(tape[0].t / 1000);
+  const shift = r.origin - first;
+  if (shift <= 0) return;
+  // 이미 쌓은 표본과 같은 초는 기록에서 빼고, 그 앞의 박자만 싣는다
+  const liveFrom = r.samples.length > 0 ? r.origin + r.samples[0].at : Math.floor(Date.now() / 1000) + 1;
+  const past = tape.filter((e) => Math.floor(e.t / 1000) < liveFrom).map((e) => sampleFromTape(e, Math.floor(e.t / 1000) - first));
+  const moved = r.samples.map((x) => ({ ...x, at: x.at + shift, lease: LEASE_TTL - ((x.at + shift) % LEASE_TICK) }));
+  const events = r.state.events.map((e) => ({ ...e, at: e.at + shift }));
+  const all = [...past, ...moved];
+  liveSince = tape[0].t;
+  useFlowRun.setState({
+    origin: first,
+    samples: all.length > MAX_SAMPLES ? all.slice(all.length - MAX_SAMPLES) : all,
+    state: { ...r.state, tick: r.state.tick + shift, events },
+    waiting: all.length === 0,
+  });
+  onCenter(opsCenterStore.getState().data, true);
 }
 
 /** 관제 판이 흐름으로 옮길 수 있는 판인가. sim 원천이고 필요한 칸이 모두 있어야 한다 */
@@ -150,9 +188,9 @@ export const useFlowRun = create<FlowRun>((set, get) => ({
  * 이 모듈을 한 번 불러온 뒤에는 흐름·지표 관제 화면 밖에서도 최근 10분이 쌓여 차트가 빈 채로 시작하지 않는다.
  * 틱은 벽시계 초라 탭이 숨어 판이 끊긴 동안은 표본 사이가 비고 차트는 그 구간을 공백으로 둔다
  */
-function onCenter(c: ControlCenter | null): void {
+function onCenter(c: ControlCenter | null, again = false): void {
   const r = useFlowRun.getState();
-  if (r.mode !== "live" || r.paused || c === null || c.collectedAt === lastCollected) return;
+  if (r.mode !== "live" || r.paused || c === null || (!again && c.collectedAt === lastCollected)) return;
   const tick = Math.max(0, Math.floor(Date.now() / 1000) - r.origin);
   const events: FlowEvent[] = r.state.events.slice();
   if (c.incidents.state === "READY") {
@@ -160,8 +198,10 @@ function onCenter(c: ControlCenter | null): void {
       const health = LIVE_EVENT_HEALTH[e.kind];
       if (!health || seen.has(e.id) || Date.parse(e.at) < liveSince) continue;
       seen.add(e.id);
-      events.push({ at: tick, health, label: liveEventLabel(e.text) });
+      // 표지는 기록이 난 초에 둔다. 화면에 들어오기 전의 기록을 지금 초에 모으면 표지가 창 오른쪽 끝에 겹쳐 쌓인다
+      events.push({ at: Math.min(tick, Math.max(0, Math.floor(Date.parse(e.at) / 1000) - r.origin)), health, label: liveEventLabel(e.text) });
     }
+    events.sort((a, b) => a.at - b.at);
   }
   const next = flowFromCenter(c, tick, events.length > MAX_EVENTS ? events.slice(events.length - MAX_EVENTS) : events);
   if (next === null) return;

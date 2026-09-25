@@ -163,7 +163,6 @@ export default function AdminTransfersPage() {
     <div className={styles.page}>
       <PageHeader
         title="출금 승인"
-        desc="회원 원화 출금 요청입니다. 승인하면 잠긴 금액을 출금하고 되돌릴 수 없습니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -172,7 +171,7 @@ export default function AdminTransfersPage() {
         <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
       </div>
 
-      <PanelCard title="요청 목록">
+      <PanelCard title="요청 목록" actions={<span className={styles.panelMeta}>승인하면 잠긴 금액을 출금하고 되돌릴 수 없습니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="transfers-panel" aria-labelledby={segmentedTabId("transfers-panel", status)} tabIndex={0}>
           {res.error ? (
@@ -204,17 +203,14 @@ export default function AdminTransfersPage() {
           title={pending.action === "approve" ? "출금 승인" : "출금 거절"}
           description={
             pending.action === "approve"
-              ? "잠긴 금액 즉시 출금. 되돌릴 수 없음"
-              : "잠금 해제. 요청자 가용 잔고로 환원"
+              ? "잠긴 금액을 곧바로 출금합니다. 되돌릴 수 없습니다"
+              : "잠금을 풀어 요청자의 가용 잔고로 돌려놓습니다"
           }
           target={`${pending.row.userEmail} · ${formatKRW(pending.row.amount)}원`}
           blastRadius="요청자 1명"
           confirmLabel={pending.action === "approve" ? "승인 확정" : "거절 확정"}
-          tone={
-            pending.action === "approve" && Number(pending.row.amount) >= Number(HIGH_AMOUNT)
-              ? "danger"
-              : "warning"
-          }
+          // 확정은 채운 단추 하나다(§12-5). 거절과 고액 출금 승인은 되돌릴 수 없는 쪽이라 danger다
+          tone={pending.action === "reject" || Number(pending.row.amount) >= Number(HIGH_AMOUNT) ? "danger" : "approve"}
           busy={busy}
           onConfirm={confirm}
           onClose={close}

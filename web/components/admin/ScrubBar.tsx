@@ -2,8 +2,8 @@
 
 /**
  * 타임라인 스크럽 바(디자인 시스템 §12-15 ScrubBar). 시나리오 재생의 가상 시계를 옮긴다. 판 전폭이고 누르는 자리는 44px, 트랙은
- * 4px이다. 단계 경계는 1px x 10px 눈금과 단계 번호, 기록 표지는 사건 기록 레일의 문법(경보 발생 마름모, AI 점, 운영자 점, 시스템 빈
- * 원, 해제 원)이다. 재생 위치는 14px 원 손잡이와 그 위의 mm:ss다.
+ * 4px이다. 단계 경계는 1px x 10px 눈금이고 번호는 적지 않는다(바로 아래 단계 막대가 단계 이름과 시각을 싣는다). 기록 표지는 사건
+ * 기록 레일의 문법(경보 발생 마름모, AI 점, 운영자 점, 시스템 빈 원, 해제 원)이다. 재생 위치는 14px 원 손잡이와 그 위의 mm:ss다.
  *
  * 슬라이더 의미(role=slider)다. ←·→ 1초, Shift+←·→ 10초, PageUp·PageDown 단계, Home·End 처음과 끝, Space 재생·일시정지다. 끄는
  * 동안에는 한 프레임에 한 번만 옮긴다. 재생 중 손잡이와 지나온 몫은 박자마다 transform으로 옮기고(배속에 맞춘 1초 선형), 끌거나
@@ -142,19 +142,6 @@ export default function ScrubBar({
   const hoverQuiet = hover === null || near !== null ? null : quiet.find((q) => q.from < hover.sec && hover.sec < q.to) ?? null;
   // 손잡이 위 시각 글자가 트랙 밖으로 나가지 않게 양끝에서는 안쪽으로 붙인다
   const edge = p < 0.04 ? "start" : p > 0.96 ? "end" : "mid";
-  // 단계 번호. 트랙에서 16px 안에 붙은 번호는 앞 자리에 모아 둘이면 '2·3', 셋 이상이면 '2~4'로 적고, 손잡이 시각 글자가 덮는
-  // 자리의 번호는 비운다(지금 단계는 아래 단계 막대가 적는다)
-  const hx = p * width;
-  const [cover0, cover1] = edge === "start" ? [hx - 14, hx + 50] : edge === "end" ? [hx - 50, hx + 14] : [hx - 30, hx + 30];
-  const numbers: { x: number; from: number; to: number; passed: boolean }[] = [];
-  stages.forEach((s, i) => {
-    if (s.sec === null) return;
-    const x = (s.sec / Math.max(1, duration)) * width;
-    const last = numbers[numbers.length - 1];
-    if (last && x - last.x < 16) last.to = i + 1;
-    else numbers.push({ x, from: i + 1, to: i + 1, passed: s.sec <= value });
-  });
-
   return (
     <div className={styles.wrap} data-lane={lane ? "" : undefined}>
       {lane && <span className={styles.lane}>{lane}</span>}
@@ -190,14 +177,6 @@ export default function ScrubBar({
               <span key={`${i}-${s.title}`} className={styles.tick} style={{ left: `${(s.sec / Math.max(1, duration)) * 100}%` }} aria-hidden="true" />
             ),
           )}
-          {width > 0 &&
-            numbers.map((n) =>
-              n.x >= cover0 && n.x <= cover1 ? null : (
-                <span key={n.from} className={`${styles.tickNo} num`} style={{ left: `${n.x}px` }} data-passed={n.passed ? "" : undefined} aria-hidden="true">
-                  {n.from === n.to ? n.from : n.to - n.from === 1 ? `${n.from}·${n.to}` : `${n.from}~${n.to}`}
-                </span>
-              ),
-            )}
           {markers.map((m) => (
             <span key={`${m.sec}-${m.kind}`} className={styles.mark} data-kind={m.kind} style={{ left: `${(m.sec / Math.max(1, duration)) * 100}%` }} aria-hidden="true" />
           ))}

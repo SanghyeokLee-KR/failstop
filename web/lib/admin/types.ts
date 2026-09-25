@@ -1261,6 +1261,25 @@ export interface AiJudgmentTrace {
   rejected?: { alert: string; fields: string[] }[];
 }
 
+/**
+ * 관제 시뮬레이터가 박자마다 남기는 지표 관제 값(관리자 설계 4-2 지표 관제). 지표 관제 화면에 들어오면 이 기록으로 최근 150초 창을
+ * 채운다. 화면에 들어온 뒤부터만 그리면 첫 화면 대부분이 빈 격자가 된다. sim만 있고 http 원천에는 없다
+ */
+export interface OpsFlowTapeEntry {
+  /** 박자의 시각(ms) */
+  t: number;
+  tradesPerSec: number;
+  botOps: number;
+  /** 노드 CPU. app-3가 꺼져 있으면 null이다 */
+  cpu: { "app-1": number | null; "app-2": number | null; "app-3": number | null };
+  /** 앱 계층 평균 CPU(%) */
+  avgCpuPct: number | null;
+  desired: number;
+  serving: number;
+  /** 복제가 끊겼으면 null이다 */
+  lagBytes: number | null;
+}
+
 export interface AiJudgment {
   id: string;
   at: string;
@@ -1272,6 +1291,13 @@ export interface AiJudgment {
    * 판단 과정을 판에 싣지 않았는가. http 판은 판단 목록만 싣고, 상세를 열 때 getAiJudgment로 읽는다. sim은 늘 싣는다
    */
   lazy?: boolean;
+  /** 그 판단의 확신도(후보 가운데 가장 높은 값). 후보가 없으면 null이다. http는 판단 목록의 confidence다 */
+  confidencePct?: number | null;
+  /**
+   * 그 판단이 낸 조치안을 어떻게 처리했는가('승인 · 김수퍼 20:35', '자동 실행 20:35', '대기 중'). 조치안이 없으면 null이다.
+   * sim은 조치안의 상태가 바뀔 때 적고, http는 판단 목록이 싣지 않아 없다(AI 판단 화면의 판단 기록 표, 관리자 설계 4-10-2)
+   */
+  handled?: string | null;
 }
 
 /**
@@ -1279,7 +1305,8 @@ export interface AiJudgment {
  * 모드 줄이 그 사건을 한 줄로 적는다. until이 지나면 관제 판이 싣지 않는다
  */
 export interface AiNotice {
-  kind: "AUTO_REVERTED" | "STOPPED" | "RESUMED" | "AUTO_CAP" | "AUTO_EXPIRED";
+  /** EXECUTED는 운영자가 승인해 실행한 조치다. 결과(앱 계층 2 → 3대 · app-3 기동)를 첫 화면의 모드 줄에 30초 동안 적는다 */
+  kind: "AUTO_REVERTED" | "STOPPED" | "RESUMED" | "AUTO_CAP" | "AUTO_EXPIRED" | "EXECUTED";
   at: string;
   until: string;
   text: string;

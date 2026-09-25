@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { SimAdminApi } from "../lib/admin/simAdmin";
 import { AdminError } from "../lib/admin/api";
 import { QUEUE_COUNT_CAP } from "../lib/admin/paging";
-import { loadQueueCounts } from "../lib/admin/queueCounts";
+import { loadQueueCounts, PREVIEW_COUNT } from "../lib/admin/queueCounts";
 import type { AdminPage } from "../lib/admin/types";
 
 const EMPTY: AdminPage<never> = { data: [], nextCursor: null, hasMore: false };
@@ -106,5 +106,18 @@ test("권한 거절이 섞인 전부 실패는 올리지 않고 큐별 사유로
     transfers: { kind: "failed" },
     inquiries: { kind: "forbidden" },
     reports: { kind: "forbidden" },
+    preview: { transfers: [], inquiries: [], reports: [] },
   });
+});
+
+test("처리 대기 미리보기는 큐마다 가장 오래 기다린 셋이다(sim op-01)", async () => {
+  const api = new SimAdminApi();
+  await api.establishSession("op-01");
+  const counts = await loadQueueCounts(api);
+  for (const [queue, rows] of Object.entries(counts.preview)) {
+    assert.ok(rows.length <= PREVIEW_COUNT, `${queue}는 셋까지`);
+    for (let i = 1; i < rows.length; i += 1) assert.ok(rows[i - 1].at <= rows[i].at, `${queue}는 오래 기다린 것부터`);
+  }
+  const transfers = await api.getTransfers("REQUESTED", { limit: QUEUE_COUNT_CAP });
+  assert.equal(counts.preview.transfers.length, Math.min(PREVIEW_COUNT, transfers.data.length));
 });

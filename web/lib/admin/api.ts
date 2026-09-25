@@ -66,6 +66,7 @@ import type {
   MaintenanceWindow,
   SlaMonth,
   WindowInput,
+  OpsFlowTapeEntry,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -212,6 +213,11 @@ export interface AdminApi {
    * sim은 브라우저 시뮬레이터, http는 관리 API의 관제센터 서버(API 설계 §6-F, /admin/v1/msp/**)다. http는 한 판
    * 조회에 세부 조회 몇 건을 붙여 판을 만들고(httpOps.ts), 서버에 없는 칸은 원천 연결 전으로 둔다 */
   getControlCenter(): Promise<ControlCenter>;
+  /**
+   * 지표 관제의 박자별 기록(최근 10분). 지표 관제 화면이 들어올 때 한 번 읽어 150초 창을 채운다. 관제 시뮬레이터의 기록이라 sim만
+   * 있고 http는 null이다(실제 추이는 Grafana가 소유한다)
+   */
+  getFlowTape(): Promise<OpsFlowTapeEntry[] | null>;
   /**
    * 판단 한 건의 과정(근거 스냅숏, 후보, 정책 엔진 검사). 판이 판단 목록만 싣는 원천(http)에서 상세를 열 때 읽는다.
    * sim은 판에 과정을 늘 싣으므로 판의 기록을 돌려준다. 없으면 null이다

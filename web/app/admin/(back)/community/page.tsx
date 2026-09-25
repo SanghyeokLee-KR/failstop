@@ -145,7 +145,6 @@ export default function AdminCommunityPage() {
     <div className={styles.page}>
       <PageHeader
         title="커뮤니티 신고"
-        desc="회원 신고 큐입니다. 대상 처리와 신고 종결을 함께 기록합니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -155,7 +154,7 @@ export default function AdminCommunityPage() {
         <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
       </div>
 
-      <PanelCard title="신고 목록">
+      <PanelCard title="신고 목록" actions={<span className={styles.panelMeta}>대상 처리와 신고 종결을 함께 기록합니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="reports-panel" aria-labelledby={segmentedTabId("reports-panel", status)} tabIndex={0}>
           {res.error ? (
@@ -241,7 +240,7 @@ export default function AdminCommunityPage() {
       {pendingDelete && (
         <ConfirmDialog
           title="게시물 삭제 처리"
-          description="삭제는 종료 상태. 숨김 복구로 되돌아오지 않음"
+          description="삭제하면 되돌릴 수 없습니다. 숨김과 달리 복구로 돌아오지 않습니다"
           target={pendingDelete.targetExcerpt ?? `신고 ${pendingDelete.reportId}`}
           blastRadius={`${TYPE_LABEL[pendingDelete.targetType]} 1건 영구 비공개`}
           confirmLabel="삭제 처리"

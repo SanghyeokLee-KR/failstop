@@ -83,7 +83,6 @@ export default function MonitorPage() {
       <PageHeader
         title="지표 관제"
         mark={mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
-        desc={mode === "replay" ? "서비스 흐름과 같은 재생 주행 · 실제 추이는 Grafana" : "관제센터와 같은 관제 판 값 · 실제 추이는 Grafana"}
         actions={<FlowRunControls />}
       />
 
@@ -91,6 +90,8 @@ export default function MonitorPage() {
         {/* 제목 없는 도구 줄. Grafana 링크는 주소가 빌드에 없으면 그려지지 않으므로 조건으로 뺀다.
             서비스 흐름 링크는 늘 있어 줄이 비는 일이 없다 */}
         <div className={styles.toolbar}>
+          {/* 운영 관제 화면은 머리에 설명 줄을 두지 않는다(레이아웃 §7). 값의 세계는 도구 줄 첫머리에 한 번 적는다 */}
+          <span className={styles.toolbarNote}>{mode === "replay" ? "서비스 흐름과 같은 재생 주행" : "관제센터와 같은 관제 판 값"} · 실제 추이는 Grafana</span>
           {grafanaConfigured() && <GrafanaLink board="msp-service" label="Grafana 실제 추이" />}
           <Link href="/admin/flow" className={adminStyles.boardLink}>
             서비스 흐름 보기

@@ -144,14 +144,15 @@ export default function ConfigPage() {
     }
   };
 
+  /* 열마다 최소 폭과 몫을 준다. 1280 창의 표 폭(약 950px)에 최소 폭의 합이 들고, 넓은 창의 남는 폭은 한 열이
+     아니라 모든 열에 나뉘어 행 한가운데 큰 공백이 생기지 않는다. 고정 폭의 합이 표보다 넓으면 제어 열이 창 밖으로 잘린다 */
   const marketCols: DataColumn<ConfigMarket>[] = [
-    { key: "symbol", label: "마켓", width: "120px", render: (m) => m.symbol },
-    // 이름 열을 1fr로 두면 슬랙을 전량 흡수해 행 한가운데 공백이 생긴다. 슬랙은 우측 제어 열로
-    { key: "name", label: "이름", width: "200px", render: (m) => m.koreanName },
+    { key: "symbol", label: "마켓", width: "minmax(96px, 1fr)", render: (m) => m.symbol },
+    { key: "name", label: "이름", width: "minmax(88px, 1.2fr)", render: (m) => m.koreanName },
     {
       key: "state",
       label: "상태",
-      width: "110px",
+      width: "minmax(88px, 1fr)",
       align: "center",
       // 정상(거래 중)은 잉크, 이탈 상태만 발화한다
       render: (m) =>
@@ -167,20 +168,18 @@ export default function ConfigPage() {
        표시는 비율이 아니라 퍼센트다. 계약값 0.00050000을 그대로 적으면 0이 여덟 자리라 열두 행이
        같은 모양이 되고 값이 달라져도 눈에 안 든다. 거래 화면도 같은 파생을 쓴다(0.0005 -> 0.05%).
        mulDecimal은 후행 0을 떼고 돌려주므로 별도 손질이 없다. float 왕복도 없다 */
-    { key: "maker", label: "메이커", width: "96px", align: "right", render: (m) => `${mulDecimal(m.makerFee, "100")}%` },
-    { key: "taker", label: "테이커", width: "96px", align: "right", render: (m) => `${mulDecimal(m.takerFee, "100")}%` },
+    { key: "maker", label: "메이커", width: "minmax(72px, 0.8fr)", align: "right", render: (m) => `${mulDecimal(m.makerFee, "100")}%` },
+    { key: "taker", label: "테이커", width: "minmax(72px, 0.8fr)", align: "right", render: (m) => `${mulDecimal(m.takerFee, "100")}%` },
     /* 주문 규칙 2열(§2 v2.35). 정지·수수료 판단에서 같이 읽히는 값인데 종전에는 고객 평면
        GET /markets 에만 있어 운영자가 다른 평면을 열어야 했다.
        NUMERIC 문자열을 그대로 받아 표시만 자릿수를 정리한다. float 왕복은 없다 */
-    { key: "tick", label: "호가 단위", width: "110px", align: "right", render: (m) => `${formatKRW(m.tickSize)}원` },
-    { key: "minNotional", label: "최소 주문", width: "116px", align: "right", render: (m) => `${formatKRW(m.minNotional)}원` },
+    { key: "tick", label: "호가 단위", width: "minmax(88px, 1fr)", align: "right", render: (m) => `${formatKRW(m.tickSize)}원` },
+    { key: "minNotional", label: "최소 주문", width: "minmax(96px, 1fr)", align: "right", render: (m) => `${formatKRW(m.minNotional)}원` },
     {
       key: "action",
       label: "제어",
       align: "right",
-      // 가변 열이 이것 하나라 1fr 로 남는 폭을 모두 받는다. fr 합이 1보다 작으면 그리드가 남는 폭의
-      // 그만큼만 나눠 주어 버튼이 표 오른쪽 끝에 닿지 않는다
-      width: "minmax(120px, 1fr)",
+      width: "minmax(112px, 1fr)",
       render: (m) =>
         m.state === "ACTIVE" ? (
           <RequestButton
@@ -190,7 +189,7 @@ export default function ConfigPage() {
             onRequested={load}
             confirm={{
               title: "마켓 거래 중지 요청",
-              description: "발급·실행 시 이 마켓의 신규 주문 차단",
+              description: "승인 티켓을 발급·실행하면 이 마켓의 새 주문을 막습니다",
               target: `${m.koreanName} (${m.symbol})`,
               blastRadius: "단일 마켓 · 미체결 주문 유지",
               tone: "danger",
@@ -205,7 +204,7 @@ export default function ConfigPage() {
             onRequested={load}
             confirm={{
               title: "마켓 거래 재개 요청",
-              description: "발급·실행 시 이 마켓의 신규 주문 재허용",
+              description: "승인 티켓을 발급·실행하면 이 마켓의 새 주문을 다시 받습니다",
               target: `${m.koreanName} (${m.symbol})`,
               blastRadius: "단일 마켓",
               confirmLabel: "재개 요청",
@@ -222,11 +221,10 @@ export default function ConfigPage() {
     <div className={styles.page}>
       <PageHeader
         title="마켓·공지"
-        desc="마켓 중지·재개와 수수료 변경은 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
-      <PanelCard title="마켓 상태·수수료">
+      <PanelCard title="마켓 상태·수수료" actions={<span className={styles.panelMeta}>중지·재개와 수수료 변경은 1인 승인을 거칩니다</span>}>
         {!canSuper && <PermissionNote>마켓 제어 권한(SUPER) 없음. 조회만 가능</PermissionNote>}
         {res.error ? (
           <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
@@ -283,7 +281,7 @@ export default function ConfigPage() {
               onRequested={load}
               confirm={{
                 title: "수수료 변경 요청",
-                description: "발급·실행 시 이 마켓의 maker·taker 수수료율 갱신",
+                description: "승인 티켓을 발급·실행하면 이 마켓의 메이커·테이커 수수료율을 바꿉니다",
                 target: feeSymbol,
                 blastRadius: `maker ${makerFee} · taker ${takerFee}`,
                 confirmLabel: "변경 요청",

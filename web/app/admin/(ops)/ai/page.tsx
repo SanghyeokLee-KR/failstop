@@ -2,21 +2,19 @@
 
 /**
  * AI 판단(/admin/ai, 관리자 설계 4-10-2). AI가 무엇을 왜 판단했고, 어디까지 할 수 있으며, 얼마나 믿을 만한가에 답한다.
- * 규칙은 ADR 0035다. 왼쪽 칸은 무엇을 왜 판단했고 얼마나 믿을 만한가다. AI 관제 전체판(판단 한 줄, 권장 조치, 근거,
- * 처리된 조치, 판단 기록), 모드·정지 이력, ai-1 상태, 모델 평가 순서다. 오른쪽 칸은 어디까지 할 수 있는가다. 자동 조치
- * 수와 쿨다운(표 하나), AI 한도, 허용·금지 목록이다(레이아웃 §7 3라운드).
- * 감사 기록 칸은 조치 기록 화면으로 옮겼고 이 화면은 모드·정지 이력만 감사에서 읽는다. 판단 기록 행은 AI 판단 상세를 연다.
+ * 규칙은 ADR 0035다. 왼쪽 칸은 무엇을 왜 판단했고 얼마나 믿을 만한가다. 판단 기록(지금 판단 한 줄, 대기 조치안, 지난 24시간
+ * 판단 표), 모드·정지 이력, ai-1 상태, 모델 평가 순서다. 오른쪽 칸은 어디까지 할 수 있는가다. 자동 조치 수와 쿨다운(표 하나),
+ * AI 한도, 허용·금지 목록이다(레이아웃 §7 3라운드). 판단 기록의 줄은 AI 판단 상세를 연다.
  */
 
 import { useCallback } from "react";
 import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
-import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, cooldownSec, limitsOf } from "@/lib/admin/aiPolicy";
+import { AI_ACTION_LABEL, cooldownSec, limitsOf } from "@/lib/admin/aiPolicy";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import type { AiActionKind } from "@/lib/admin/types";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import AiLimitsPanel from "@/components/admin/control/AiLimits";
-import AiPanel from "@/components/admin/control/AiPanel";
 import ModeBar from "@/components/admin/control/ModeBar";
 import OpsHead from "@/components/admin/control/OpsHead";
 import PageSkeleton from "@/components/admin/control/PageSkeleton";
@@ -24,11 +22,11 @@ import { hms, mmss, PanelHead, useClock } from "@/components/admin/control/parts
 import AiServerPanel from "@/components/admin/ai/AiServerPanel";
 import ModeHistory from "@/components/admin/ai/ModeHistory";
 import ModelEvalPanel from "@/components/admin/ai/ModelEvalPanel";
+import JudgmentLog from "@/components/admin/ai/JudgmentLog";
+import { AllowedList, ConditionList, ForbiddenList } from "@/components/admin/control/AiRules";
 import { StatStrip, StatTile } from "@/components/admin/ui";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
-import KeepNames from "@/components/admin/KeepNames";
-import StatusShape from "@/components/admin/StatusShape";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 const KINDS: AiActionKind[] = ["READ_NODES", "THRESHOLD", "SILENCE", "BOT_LOAD", "BACKUP_NOW"];
@@ -61,9 +59,7 @@ export default function AiPage() {
           <ModeBar section={data.ai} onChanged={onChanged} />
           <div className={styles.split} data-ratio="wide">
             <div className={styles.stack}>
-              <div className={styles.aiTall}>
-                <AiPanel section={data.ai} onChanged={onChanged} full />
-              </div>
+              <JudgmentLog section={data.ai} onChanged={onChanged} />
               <ModeHistory audit={audit} live={isAdminHttp()} />
               <AiServerPanel section={data.aiServer} />
               <ModelEvalPanel />
@@ -125,51 +121,15 @@ export default function AiPage() {
                 <div className={styles.autoRules} style={{ marginTop: 0 }}>
                   <div>
                     <span className={styles.rulesTitle}>허용 목록</span>
-                    <ul className={styles.rulesList}>
-                      {allowedRules(limits).map((r) => (
-                        <li key={r.kind}>
-                          <span aria-hidden="true">
-                            <StatusShape kind="circle" />
-                          </span>
-                          <span>
-                            <b>
-                              <KeepNames text={AI_ACTION_LABEL[r.kind]} />
-                            </b>{" "}
-                            · <KeepNames text={r.rule} />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <AllowedList limits={limits} />
                   </div>
                   <div>
                     <span className={styles.rulesTitle}>금지 목록</span>
-                    <ul className={styles.rulesList}>
-                      {AI_FORBIDDEN.map((r) => (
-                        <li key={r}>
-                          <span aria-hidden="true">
-                            <StatusShape kind="square" />
-                          </span>
-                          <span>
-                            <KeepNames text={r} />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <ForbiddenList />
                   </div>
                 </div>
                 <span className={styles.rulesTitle}>자동 실행 조건</span>
-                <ul className={styles.rulesList}>
-                  {autoPreconditions(limits).map((r) => (
-                    <li key={r}>
-                      <span aria-hidden="true">
-                        <StatusShape kind="triangle" />
-                      </span>
-                      <span>
-                        <KeepNames text={r} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <ConditionList limits={limits} />
               </section>
             </div>
           </div>

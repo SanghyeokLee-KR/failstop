@@ -220,7 +220,7 @@ function IncidentTable({ rows, day, onClear }: { rows: SlaIncident[]; day: strin
 function Changes({ s }: { s: SlaMonth }) {
   return (
     <section className={controlStyles.panel} aria-labelledby="sla-chg">
-      <PanelHead id="sla-chg" title="주요 변경" meta={<span className="num">완료 {s.changes.done} · 되돌림 {s.changes.rolledBack}</span>} />
+      <PanelHead id="sla-chg" title="주요 변경" meta={<span className="num">완료 {s.changes.done} · 롤백 {s.changes.rolledBack}</span>} />
       {s.changeRows.length === 0 ? (
         <div className={controlStyles.empty}>
           <span className={controlStyles.emptyMark} aria-hidden="true" />이 달 끝난 변경 없음
@@ -248,7 +248,7 @@ function Changes({ s }: { s: SlaMonth }) {
                 )}
               </span>
               <span className={styles.changeState}>
-                {c.state === "ROLLED_BACK" ? <StateChip tone="warning" label="되돌림" /> : <StateChip tone="success" label="완료" />}
+                {c.state === "ROLLED_BACK" ? <StateChip tone="warning" label="롤백" /> : <StateChip tone="success" label="완료" />}
                 <span className="num">{mdhm(c.closedAt)}</span>
               </span>
             </li>
@@ -285,7 +285,7 @@ function Recommendations({ s }: { s: SlaMonth }) {
           ))}
         </ol>
       )}
-      <p className={styles.note}>규칙은 오류 예산 80% 이상, 같은 경보로 세 번 이상 연 사건, AI 자동 되돌림, 확인 없이 2차 이상까지 간 호출, 되돌린 변경 요청입니다.</p>
+      <p className={styles.note}>규칙은 오류 예산 80% 이상, 같은 경보로 세 번 이상 연 사건, AI 자동 되돌림, 확인 없이 2차 이상까지 간 호출, 롤백한 변경 요청입니다.</p>
     </section>
   );
 }

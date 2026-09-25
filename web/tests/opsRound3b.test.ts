@@ -140,13 +140,13 @@ test("변경 요청은 등록, 승인, 진행(창 열림), 종료(창 닫힘) �
   req = ready(desk.changes).find((x) => x.id === c.id);
   assert.ok(req);
   assert.equal(req.state, "ROLLED_BACK");
-  assert.equal(req.result, "되돌림 · 경보가 서지 않아 되돌림");
+  assert.equal(req.result, "롤백 · 경보가 서지 않아 되돌림");
   assert.deepEqual(openWindows(desk.windows, at(301)), [], "종료하면 요청의 창도 닫힌다");
   const closed = desk.windows.find((x) => x.id === w.id);
   assert.equal(closed?.endedBy, OP.name);
   assert.deepEqual(changeSpan(req, desk.windows), { start: iso(at(40)), end: iso(at(300)) }, "변경이 차지한 시간은 창을 연 때부터 닫은 때까지");
   assert.deepEqual(changeStages(req, 2).map((m) => [m.state, m.note]), [
-    ["done", null], ["done", null], ["done", null], ["done", "되돌림"], ["done", "조치 2건"],
+    ["done", null], ["done", null], ["done", null], ["done", "롤백"], ["done", "조치 2건"],
   ]);
 
   const d = sim.createChange({ ...INPUT, title: "두 번째 요청" }, OP, at(400));

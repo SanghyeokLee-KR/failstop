@@ -26,7 +26,7 @@ export const SCENARIOS: ScenarioSpec[] = [
       { key: "calm", title: "평시", expect: "앱 두 대, 평균 CPU 30%대", on: START },
       { key: "alert", title: "급증 경보", expect: "조회 수요가 평소의 3.5배로 늘어 앱 평균 CPU가 증설 임계를 넘습니다", on: { kind: "EVENT", events: ["OPENED"] } },
       { key: "judge", title: "AI 판단", expect: "app-3 켜기와 증설 임계 60 → 55% 낮추기를 냅니다", on: { kind: "EVENT", events: ["AI_JUDGED"] } },
-      { key: "act", title: "조치", expect: "수동은 운영자 승인, 자동은 같은 판단 두 번 뒤 app-3 켜기만 자동 실행", on: { kind: "EVENT", events: ["APPROVED", "AUTO_ACTED"] } },
+      { key: "act", title: "조치", expect: "수동은 운영자 승인, 자동은 같은 판단 두 번 뒤 app-3 켜기만 자동 실행하고 임계값 제안(60 → 55%)은 관찰 창이 끝날 때까지 카드로 남습니다", on: { kind: "EVENT", events: ["APPROVED", "AUTO_ACTED"] } },
       { key: "resolve", title: "해제", expect: "app-3가 조회를 나눠 받아 응답 p95가 목표 안으로 돌아옵니다", on: { kind: "EVENT", events: ["RESOLVED"], prefix: "해제 ·" } },
     ],
     cues: [{ atSec: 30, mode: "MANUAL", kind: "APPROVE_FIRST", note: "승인 · app-3 켜기" }],
@@ -35,7 +35,8 @@ export const SCENARIOS: ScenarioSpec[] = [
     tags: ["LIVE"],
     forbidden: [],
     notice: { priority: "P3", basis: "자동 실행 통지(관찰 창과 되돌리기 링크)" },
-    caveats: ["임계값 제안(60 → 55%)은 자동 모드에서도 관찰 창이 끝날 때까지 카드로 남습니다"],
+    // 결론(임계값 제안이 카드로 남는 것)은 조치 단계의 설명이 그 단계에 닿을 때 싣는다. 재생 전부터 적으면 결말이 먼저 보인다
+    caveats: [],
   },
   {
     id: "NIGHT_SCALE_IN",

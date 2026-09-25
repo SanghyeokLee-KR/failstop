@@ -205,7 +205,7 @@ export default function CalendarView({
         {weeks.map((week) => {
           const { segs, hidden } = weekSegments(week, items);
           return (
-            <div key={week[0]} role="row" className={styles.week}>
+            <div key={week[0]} role="row" className={styles.week} data-empty={!renderDay && segs.length === 0 && hidden.every((h) => h === 0) ? "" : undefined}>
               {week.map((day, i) => {
                 const other = day.slice(0, 7) !== month;
                 const n = countOf(day);
@@ -272,8 +272,8 @@ export default function CalendarView({
   );
 }
 
-/** 달 머리의 이동 단추. 이전 달, 오늘, 다음 달이다 */
-export function MonthNav({ month, today, onMonth }: { month: string; today: string; onMonth: (m: string) => void }) {
+/** 달 머리의 이동 단추. 이전 달, 오늘, 다음 달이다. '오늘'은 이번 달을 보고 있어도 누를 수 있고 오늘을 고른다 */
+export function MonthNav({ month, today, onMonth, onToday }: { month: string; today: string; onMonth: (m: string) => void; onToday?: () => void }) {
   const [y, m] = month.split("-").map(Number);
   return (
     <div className={styles.nav}>
@@ -286,7 +286,15 @@ export function MonthNav({ month, today, onMonth }: { month: string; today: stri
             <path d="M9.75 3.5 L5.25 8 L9.75 12.5" />
           </svg>
         </button>
-        <button type="button" className={styles.navToday} disabled={today.slice(0, 7) === month} onClick={() => onMonth(today.slice(0, 7))}>
+        <button
+          type="button"
+          className={styles.navToday}
+          aria-current={today.slice(0, 7) === month ? "date" : undefined}
+          onClick={() => {
+            onMonth(today.slice(0, 7));
+            onToday?.();
+          }}
+        >
           오늘
         </button>
         <button type="button" className={styles.navBtn} onClick={() => onMonth(shiftMonth(month, 1))} aria-label="다음 달">
@@ -336,7 +344,7 @@ export const CALENDAR_LEGEND: { state: CalendarState; word: string }[] = [
   { state: "APPROVED", word: "예정" },
   { state: "IN_PROGRESS", word: "진행 중" },
   { state: "DONE", word: "완료" },
-  { state: "ROLLED_BACK", word: "되돌림" },
+  { state: "ROLLED_BACK", word: "롤백" },
   { state: "CANCELED", word: "취소" },
 ];
 

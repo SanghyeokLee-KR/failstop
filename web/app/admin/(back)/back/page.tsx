@@ -26,15 +26,15 @@ import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { AdminIcon, type AdminIconName } from "@/components/admin/icons";
 import { countLabel } from "@/lib/admin/paging";
-import { isSessionError, loadQueueCounts, type QueueCount, type QueueCounts } from "@/lib/admin/queueCounts";
+import { isSessionError, loadQueueCounts, type QueueCount, type QueueCounts, type QueuePreview } from "@/lib/admin/queueCounts";
 import { sourceWord } from "@/components/admin/SourceMark";
 import styles from "@/components/admin/admin.module.css";
 
 /** 타일 값. 권한 거절과 읽기 실패를 0건과 다른 말로 적는다 */
 function queueTile(q: QueueCount, sub: string): { value: string; unit?: string; sub: string; tone?: "warning" } {
   if (q.kind === "ok") return { value: countLabel(q.loaded, q.hasMore), unit: "건", sub };
-  if (q.kind === "forbidden") return { value: "권한 없음", sub: "이 운영자 역할로는 조회 불가" };
-  return { value: sourceWord("MISSING"), sub: "새로고침으로 다시 읽기", tone: "warning" };
+  if (q.kind === "forbidden") return { value: "권한 없음", sub: "이 운영자 역할로는 볼 수 없습니다" };
+  return { value: sourceWord("MISSING"), sub: "새로고침으로 다시 읽습니다", tone: "warning" };
 }
 
 /**
@@ -46,8 +46,52 @@ const DESKS: { href: string; label: string; desc: string; icon: AdminIconName }[
   { href: "/admin/members", label: "회원 운영", desc: "정지·복구·폐쇄", icon: "members" },
   { href: "/admin/config", label: "마켓·공지", desc: "거래 중지·재개, 수수료, 공지", icon: "config" },
   { href: "/admin/operators", label: "운영자·역할", desc: "신원·역할", icon: "operators" },
-  { href: "/admin/audit", label: "감사 로그", desc: "수정·삭제 불가 기록", icon: "audit" },
+  { href: "/admin/audit", label: "감사 로그", desc: "고치거나 지울 수 없는 기록", icon: "audit" },
 ];
+
+/** 큐마다 가장 오래 기다린 셋의 미리보기. 건수만 두면 무엇이 기다리는지 보려고 큐마다 들어가 봐야 한다 */
+function QueuePanel({ title, href, count, rows, now }: { title: string; href: string; count: QueueCount; rows: QueuePreview[]; now: number }) {
+  return (
+    <PanelCard
+      title={title}
+      actions={
+        <Link href={href} className={styles.boardLink}>
+          모두 보기
+        </Link>
+      }
+    >
+      {count.kind === "forbidden" ? (
+        <p className={styles.previewEmpty}>이 운영자 역할로는 이 큐를 볼 수 없습니다</p>
+      ) : count.kind === "failed" ? (
+        <p className={styles.previewEmpty}>큐를 읽지 못했습니다. 새로고침으로 다시 읽습니다</p>
+      ) : rows.length === 0 ? (
+        <p className={styles.previewEmpty}>기다리는 항목이 없습니다</p>
+      ) : (
+        <ol className={styles.previewList}>
+          {rows.map((r) => (
+            <li key={r.id}>
+              <Link href={href} className={styles.previewRow}>
+                <span className={styles.previewTitle} title={r.title}>
+                  {r.title}
+                </span>
+                <span className={styles.previewMeta}>{r.meta}</span>
+                <span className={`${styles.previewAge} num`}>{waitWord(now - r.at)}</span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+    </PanelCard>
+  );
+}
+
+/** 기다린 시간. 가장 오래 기다린 항목이 먼저 서므로 그 경과가 적체를 말한다 */
+function waitWord(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000));
+  if (m < 60) return `${m}분째`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}시간째` : `${Math.floor(h / 24)}일째`;
+}
 
 export default function BackOfficeHome() {
   /* 서버에 개수 API가 없어 첫 쪽 길이로 센다. 상한을 채우면 그 이상이라고 적는다.
@@ -62,11 +106,7 @@ export default function BackOfficeHome() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="처리 대기"
-        desc="고객 응대 큐에서 처리를 기다리는 건수입니다"
-        actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
-      />
+      <PageHeader title="처리 대기" actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />} />
 
       {loading ? (
         <div className={styles.pageStack}>
@@ -80,18 +120,24 @@ export default function BackOfficeHome() {
           {/* 판독 묶음 한 상자(§12-14). 칸마다 그 큐의 화면으로 간다 */}
           <StatStrip label="처리 대기 큐" count={3}>
             <Link href="/admin/transfers" className={styles.statLink}>
-              <StatTile label="출금 승인" {...queueTile(data.transfers, "승인 시 잠긴 금액 출금")} />
+              <StatTile label="출금 승인" {...queueTile(data.transfers, "승인하면 잠긴 금액을 출금합니다")} />
             </Link>
             <Link href="/admin/support" className={styles.statLink}>
-              <StatTile label="문의 답변" {...queueTile(data.inquiries, "답변은 회원 화면에 그대로 표시")} />
+              <StatTile label="문의 답변" {...queueTile(data.inquiries, "답변은 회원 화면에 그대로 보입니다")} />
             </Link>
             <Link href="/admin/community" className={styles.statLink}>
-              <StatTile label="커뮤니티 신고" {...queueTile(data.reports, "대상 처리와 신고 종결")} />
+              <StatTile label="커뮤니티 신고" {...queueTile(data.reports, "대상 처리와 신고 종결을 함께 기록합니다")} />
             </Link>
           </StatStrip>
 
-          {/* 큐가 없는 자리를 모은다. 내비의 두 묶음에 걸쳐 있어 그중 한 묶음의 이름을 쓰지 않는다 */}
-          <PanelCard title="큐 없는 자리">
+          <div className={styles.previewGrid}>
+            <QueuePanel title="출금 승인 대기" href="/admin/transfers" count={data.transfers} rows={data.preview.transfers} now={lastUpdatedAt ?? Date.now()} />
+            <QueuePanel title="문의 답변 대기" href="/admin/support" count={data.inquiries} rows={data.preview.inquiries} now={lastUpdatedAt ?? Date.now()} />
+            <QueuePanel title="신고 처리 대기" href="/admin/community" count={data.reports} rows={data.preview.reports} now={lastUpdatedAt ?? Date.now()} />
+          </div>
+
+          {/* 대기가 쌓이지 않는 조회·설정 화면을 모은다. 내비의 두 묶음에 걸쳐 있어 그중 한 묶음의 이름을 쓰지 않는다 */}
+          <PanelCard title="조회·설정 화면">
             <div className={styles.deskList}>
               {DESKS.map((d) => (
                 <Link key={d.href} href={d.href} className={styles.deskRow}>

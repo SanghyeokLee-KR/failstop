@@ -63,6 +63,7 @@ import {
 } from "react";
 import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import adminStyles from "@/components/admin/admin.module.css";
+import StatusShape, { type StatusShapeKind } from "@/components/admin/StatusShape";
 import { SimMark } from "@/components/admin/ui";
 import {
   APP_CONTAINER,
@@ -145,12 +146,13 @@ type PopKey = NodeId | "asg" | "ai";
 /* ===== 노드 상태의 모양과 말 =====
    색 하나로 알리지 않는다. 상태마다 상태 줄 앞의 형태와 카드 테두리 모양을 함께 바꾼다 */
 
-const STATE_SHAPE: Record<NodeState, string> = {
-  running: "●",
-  transition: "▲",
-  failure: "■",
-  stopped: "○",
-  absent: "",
+// 형태는 콘솔 공용 SVG 부품으로 그린다(§12-3). 글꼴 글자가 아니라 그래픽이라 대비는 3:1을 받는다
+const STATE_SHAPE: Record<NodeState, StatusShapeKind | null> = {
+  running: "circle",
+  transition: "triangle",
+  failure: "square",
+  stopped: "ring",
+  absent: null,
 };
 const STATE_WORD: Record<NodeState, string> = {
   running: "실행",
@@ -740,20 +742,21 @@ function withFigure(text: string, re: RegExp, flash?: "success" | "warning"): Re
   );
 }
 
+/** 노드 상태의 형태. 미구축은 형태 없이 낱말만 적는다. 색은 data-tone(상태)으로 고른다 */
+function StateShape({ state }: { state: NodeState }) {
+  const kind = STATE_SHAPE[state];
+  return kind ? <StatusShape kind={kind} tone={state} className={styles.shape} /> : null;
+}
+
 /**
  * 상태 한 줄. 앞의 형태가 색 없이도 상태를 가르고, 형태와 글자가 상태색을 받는다.
  * 미구축은 형태가 없고 낱말만 적는다. 실행 중일 때만 핵심 수치를 키운다. 장애·전환 중 줄은 사건 문구라
  * 수치가 주인공이 아니다
  */
 function Status({ state, text }: { state: NodeState; text: string }) {
-  const shape = STATE_SHAPE[state];
   return (
     <span className={styles.status} data-state={state}>
-      {shape && (
-        <span className={styles.shape} aria-hidden="true">
-          {shape}
-        </span>
-      )}
+      <StateShape state={state} />
       {/* 카드 폭(116px)에 긴 상태 줄('쓰기 → app-1·app-2')이 다 들지 않으면 말줄임이고 원문은 툴팁이 싣는다(§12-12) */}
       <span className={styles.statusText} title={text}>
         {state === "running" ? withFigure(text, FIGURE_RE) : text}
@@ -1413,9 +1416,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
               <span className={styles.legendTitle}>노드</span>
               {LEGEND_STATES.map((st) => (
                 <span key={st} className={styles.legendItem}>
-                  <span className={styles.shape} data-state={st}>
-                    {STATE_SHAPE[st]}
-                  </span>
+                  <StateShape state={st} />
                   {STATE_WORD[st]}
                 </span>
               ))}
@@ -1429,11 +1430,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
               {LINE_LEGEND.map((l) => (
                 <span key={l.label} className={styles.legendItem}>
                   {l.ramp ? <TierSwatch /> : <LineSwatch kind={l.kind} tier={l.tier} minor={l.minor} />}
-                  {l.mark && (
-                    <span className={styles.shape} data-state={l.mark}>
-                      {STATE_SHAPE[l.mark]}
-                    </span>
-                  )}
+                  {l.mark && <StateShape state={l.mark} />}
                   {l.label}
                 </span>
               ))}
@@ -1519,9 +1516,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
               사용률은 매초 바뀌므로 접근 이름에는 싣지 않고 팝오버에 권고 임계와 함께 적는다 */}
           <span className={styles.asgStateRow}>
             <span className={styles.status} data-state={asg.state}>
-              <span className={styles.shape} aria-hidden="true">
-                {STATE_SHAPE[asg.state]}
-              </span>
+              <StateShape state={asg.state} />
               <span className={styles.statusText}>{withFigure(asg.status, ASG_FIGURE_RE, countTone)}</span>
             </span>
             <span className={styles.asgUtil}>
@@ -1580,9 +1575,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           </span>
           {ai.state === "running" && ai.server && !ai.server.busy && ai.server.lastMs !== null ? (
             <span className={styles.status} data-state="running">
-              <span className={styles.shape} aria-hidden="true">
-                ●
-              </span>
+              <StateShape state="running" />
               <span className={styles.statusText}>
                 응답{" "}
                 <span key={ai.server.served} className={`${styles.latency} num`} data-pop={popAi ? "true" : undefined}>

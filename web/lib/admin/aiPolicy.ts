@@ -4,7 +4,7 @@
  * 2단계에서는 서버 정책 엔진이 같은 규칙을 다시 검사한다. 이 파일은 그 엔진이 아니다.
  */
 
-import type { AiActionKind, AiLimit, AiLimitKey, ThresholdKey } from "./types";
+import type { AiActionKind, AiCheckRule, AiCheckState, AiLimit, AiLimitKey, AiMode, AiTraceCheck, ThresholdKey } from "./types";
 
 /** 운영자도 화면에서 바꾸지 못하는 규칙 */
 export const AI_RULES = {
@@ -157,4 +157,32 @@ export function autoPreconditions(limits: AiLimits = AI_LIMITS_DEFAULT): string[
     "임계값은 더 민감하게 하는 방향만 자동. 완화 방향은 자동 모드에서도 승인으로만",
     "봇 부하 줄임은 bot-1 CPU가 봇 용량 보호 기준 이상일 때만 자동",
   ];
+}
+
+/**
+ * 자동 실행에만 걸리는 규칙(ADR 0035의 자동 실행 조건). 수동 모드에서 이 규칙을 채우지 못해도 운영자는 승인해 실행할 수 있다.
+ * 허용 목록, 임계값 1회 변경폭, 오늘 즉시 백업, 계획 작업 창은 모드와 무관하게 실행을 막는다
+ */
+export const AUTO_ONLY_RULES: ReadonlySet<AiCheckRule> = new Set<AiCheckRule>(["OBSERVE", "CAP", "COOLDOWN", "FRESH", "CONFIDENCE", "STREAK", "PER_ITEM", "DIRECTION", "BOT_GUARD"]);
+
+/**
+ * 정책 검사표 한 칸의 보기(디자인 시스템 §12-13의 3 v1.21). 통과, 막음(이 모드에서 실행을 막음), 자동이면 막힘(수동 모드에서 자동
+ * 실행 조건만 못 채움), 승인 대기(수동 모드 행), 해당 없음이다. 수동 판단의 자동 실행 조건 미달을 장애 모양으로 그리면 판단 전체가
+ * 실패한 것처럼 읽힌다
+ */
+export type CheckView = "pass" | "block" | "autoOnly" | "hold" | "na";
+
+export function checkView(rule: AiCheckRule, state: AiCheckState, mode: AiMode | null): CheckView {
+  if (state === "PASS") return "pass";
+  if (state === "NA") return "na";
+  if (state === "HOLD") return "hold";
+  return mode !== "AUTO" && AUTO_ONLY_RULES.has(rule) ? "autoOnly" : "block";
+}
+
+export const CHECK_VIEW_WORD: Record<CheckView, string> = { pass: "통과", block: "막음", autoOnly: "자동이면 막힘", hold: "승인 대기", na: "해당 없음" };
+
+/** 검사표에 둘 행과 모든 후보에 해당 없는 규칙의 이름. 해당 없는 행은 표 아래 한 줄로 접는다 */
+export function visibleChecks(checks: AiTraceCheck[]): { rows: AiTraceCheck[]; hidden: string[] } {
+  const rows = checks.filter((r) => r.results.some((c) => c.state !== "NA"));
+  return { rows, hidden: checks.filter((r) => !rows.includes(r)).map((r) => r.label) };
 }

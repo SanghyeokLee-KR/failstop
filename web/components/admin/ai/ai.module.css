@@ -262,3 +262,131 @@
   color: var(--text-default);
   word-break: break-all;
 }
+
+/* ===== 판단 기록(JudgmentLog) =====
+   왼쪽 칸 맨 위 판. 지금 판단 한 줄, 대기 조치안, 거르기, 표다. 표는 10줄 높이에서 안쪽으로 스크롤한다 */
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+.logTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.logGlyph {
+  display: inline-flex;
+  color: var(--ai-accent);
+}
+.now {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.nowKey {
+  flex: none;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.nowAt {
+  flex: none;
+  color: var(--text-default);
+}
+.now .outcome {
+  flex: none;
+}
+.nowText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+/* 표 머리는 이 상자 안에서 위에 붙는다. 본문 스크롤의 운영자 바 높이를 빌리지 않는다 */
+.tableBox {
+  --table-sticky-top: 0px;
+  max-height: 484px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-top: 1px solid var(--border-subtle);
+}
+.outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-default);
+}
+.outcome > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.outcome[data-tone="ai"] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.outcome[data-tone="ai"] svg {
+  flex: none;
+  color: var(--ai-accent);
+}
+.outcomeShape {
+  flex: none;
+}
+.outcome[data-tone="success"] .outcomeShape {
+  color: var(--color-success);
+}
+.outcome[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.outcome[data-tone="warning"] .outcomeShape {
+  color: var(--color-warning);
+}
+.outcome[data-tone="danger"] .outcomeShape {
+  color: var(--color-danger);
+}
+.outcome[data-tone="off"] .outcomeShape {
+  color: var(--text-secondary);
+}
+.verdict[data-blocked] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.none {
+  color: var(--text-secondary);
+}
+.logEmpty {
+  padding: var(--space-4) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.logFoot {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}

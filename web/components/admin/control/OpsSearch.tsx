@@ -13,7 +13,7 @@ import { useOpsPick } from "@/lib/admin/opsCenter";
 import type { ControlCenter, IncidentEventKind } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
 import { HOST_KIND } from "./Infra";
-import { hm, hms } from "./parts";
+import { stamp } from "@/lib/admin/timeText";
 import styles from "./control.module.css";
 
 type Group = "서버" | "경보" | "사건" | "조치 기록";
@@ -35,6 +35,9 @@ const ACTION_KINDS = new Set<IncidentEventKind>(["APPROVED", "REJECTED", "ACTED"
 
 function indexOf(c: ControlCenter): Hit[] {
   const out: Hit[] = [];
+  // 오늘 기록은 시각만, 다른 날 기록은 날짜를 붙인다(§12-12). 기준은 판의 시각이다
+  const boardAt = Date.parse(c.generatedAt);
+  const stampOf = (iso: string) => stamp(iso, Number.isFinite(boardAt) ? boardAt : Date.now());
   if (c.hosts.state === "READY") {
     for (const h of c.hosts.data) {
       out.push({ id: `h-${h.id}`, group: "서버", title: h.id, meta: `${HOST_KIND[h.role]}${h.partition ? ` · ${h.partition.id}` : ""}`, href: "/admin/hosts", open: { kind: "node", id: h.id } });
@@ -51,12 +54,12 @@ function indexOf(c: ControlCenter): Hit[] {
   }
   if (c.incidents.state === "READY") {
     for (const i of c.incidents.data.incidents) {
-      out.push({ id: `i-${i.id}`, group: "사건", title: i.title, meta: `${hm(i.openedAt)} 발생 · ${i.resolvedAt === null ? "진행 중" : "해제"}`, href: "/admin/incidents", open: { kind: "incident", id: i.id } });
+      out.push({ id: `i-${i.id}`, group: "사건", title: i.title, meta: `${stampOf(i.openedAt)} 발생 · ${i.resolvedAt === null ? "진행 중" : "해제"}`, href: "/admin/incidents", open: { kind: "incident", id: i.id } });
     }
     for (const e of c.incidents.data.events) {
       if (!ACTION_KINDS.has(e.kind)) continue;
       out.push({
-        id: `e-${e.id}`, group: "조치 기록", title: e.text, meta: `${hms(e.at)} · ${e.actorName}`, href: e.actor === "AI" ? "/admin/ai" : "/admin/incidents",
+        id: `e-${e.id}`, group: "조치 기록", title: e.text, meta: `${stampOf(e.at)} · ${e.actorName}`, href: e.actor === "AI" ? "/admin/ai" : "/admin/incidents",
         open: e.incidentId ? { kind: "incident", id: e.incidentId } : undefined,
       });
     }

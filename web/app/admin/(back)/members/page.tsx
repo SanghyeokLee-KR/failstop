@@ -220,7 +220,6 @@ export default function AdminMembersPage() {
     <div className={styles.page}>
       <PageHeader
         title="회원 운영"
-        desc="정지·복구는 곧바로 반영합니다. 폐쇄는 되돌릴 수 없어 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -230,7 +229,7 @@ export default function AdminMembersPage() {
         <Segmented items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
       </div>
 
-      <PanelCard title="회원 목록">
+      <PanelCard title="회원 목록" actions={<span className={styles.panelMeta}>정지·복구는 곧바로 반영하고 폐쇄는 1인 승인을 거칩니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="members-panel" aria-labelledby={segmentedTabId("members-panel", filter)} tabIndex={0}>
           {res.error ? (
@@ -307,7 +306,7 @@ export default function AdminMembersPage() {
                     label="폐쇄 요청"
                     confirm={{
                       title: "회원 폐쇄 요청",
-                      description: "승인·실행 뒤 되돌릴 수 없음. 미체결 주문 전량 취소",
+                      description: "승인·실행하면 되돌릴 수 없습니다. 미체결 주문을 모두 취소합니다",
                       target: detail.email,
                       blastRadius: `미체결 ${detail.openOrderCount}건 취소 · 세션 전량 폐기`,
                       tone: "danger",

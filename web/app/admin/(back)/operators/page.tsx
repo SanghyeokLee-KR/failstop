@@ -56,11 +56,10 @@ export default function OperatorsPage() {
     <div className={styles.page}>
       <PageHeader
         title="운영자·역할"
-        desc="운영자 생성과 상태·역할 변경은 1인 승인을 거칩니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
-      <PanelCard title="운영자">
+      <PanelCard title="운영자" actions={<span className={styles.panelMeta}>생성과 상태·역할 변경은 1인 승인을 거칩니다</span>}>
         {res.error ? (
           <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
         ) : !ops ? (
@@ -125,7 +124,7 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 비활성화 요청",
-                    description: "발급·실행 시 이 운영자의 세션 확립 차단",
+                    description: "승인 티켓을 발급·실행하면 이 운영자의 새 세션을 막습니다",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자 · 기존 세션 만료 시 재확립 불가",
                     confirmLabel: "비활성화 요청",
@@ -139,10 +138,10 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 활성화 요청",
-                    description: "발급·실행 시 이 운영자의 세션 확립 재허용",
+                    description: "승인 티켓을 발급·실행하면 이 운영자의 새 세션을 다시 받습니다",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자",
-                    tone: "warning",
+                    tone: "approve",
                     confirmLabel: "활성화 요청",
                   }}
                 />
@@ -167,10 +166,10 @@ export default function OperatorsPage() {
                       onRequested={load}
                       confirm={{
                         title: held ? "역할 회수 요청" : "역할 부여 요청",
-                        description: "발급·실행 시 대상 운영자의 역할 집합 갱신",
+                        description: "승인 티켓을 발급·실행하면 대상 운영자의 역할을 바꿉니다",
                         target: `${selected.displayName} (${selected.operatorId})`,
                         blastRadius: `${ROLE_LABEL[r]} ${held ? "회수" : "부여"}`,
-                        tone: held ? "danger" : "warning",
+                        tone: held ? "danger" : "approve",
                         confirmLabel: held ? "회수 요청" : "부여 요청",
                       }}
                     />
@@ -224,7 +223,7 @@ export default function OperatorsPage() {
               }}
               confirm={{
                 title: "운영자 생성 요청",
-                description: "발급·실행 시 이 운영자를 레지스트리에 추가",
+                description: "승인 티켓을 발급·실행하면 이 운영자를 명부에 더합니다",
                 target: `${newName.trim()} (${newId.trim()})`,
                 blastRadius: "신원만 등록 · 역할은 별도 승인으로 부여",
                 confirmLabel: "생성 요청",

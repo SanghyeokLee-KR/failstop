@@ -75,7 +75,7 @@ export default function ActionDetail({ id, rows, approvals, sim, partial, onClos
     <Modal
       name="action"
       width={720}
-      lead={<ActorMark actor={r.actor} />}
+      lead={r.actor === "AI" ? <ActorMark actor={r.actor} /> : undefined}
       title={c.gloss}
       badge={<ResultMark result={r.result} chip />}
       sub={
@@ -121,21 +121,13 @@ export default function ActionDetail({ id, rows, approvals, sim, partial, onClos
           </dd>
           <dt>결과</dt>
           <dd>{RESULT_WORD[r.result]}</dd>
-          {r.requestId && (
-            <>
-              <dt>요청 id</dt>
-              <dd>
-                <code className={styles.kvCode}>{r.requestId}</code>
-              </dd>
-            </>
-          )}
         </dl>
       </section>
 
       <section className={detailStyles.section} aria-label="승인 티켓">
         <div className={detailStyles.sectionHead}>
           <h3 className={detailStyles.sectionTitle}>승인 티켓</h3>
-          {r.approvalId && <code className={styles.kvCode}>{r.approvalId}</code>}
+          {r.approvalId && <span className={`${styles.kvCode} num`}>#{r.approvalId}</span>}
         </div>
         {r.approvalId === null ? (
           <div className={detailStyles.empty}>승인 티켓 없이 한 조치입니다</div>

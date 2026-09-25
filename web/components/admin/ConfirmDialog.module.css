@@ -11,13 +11,16 @@
   background: var(--overlay-dim);
   animation: fadeIn var(--dur-dialog) var(--ease-decelerate) both;
 }
-/* 대화상자는 셸 밖(body 포털)에 뜨므로 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
+/* 대화상자는 셸 밖(body 포털)에 뜨므로 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12).
+   머리와 단추 줄은 제자리이고 가운데 본문만 스크롤한다. 높이는 창 높이에서 48px을 뺀 값이 상한이다 */
 .dialog {
   word-break: keep-all;
   overflow-wrap: anywhere;
   text-wrap: pretty;
   width: 100%;
   max-width: 440px;
+  max-height: calc(100vh - var(--space-9));
+  max-height: calc(100dvh - var(--space-9));
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -33,9 +36,31 @@
 }
 .dialog[data-wide] {
   max-width: 560px;
-  max-height: calc(100vh - var(--space-9));
+}
+.head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* 본문은 대화상자 가장자리까지 넓혀 스크롤 막대가 오른쪽 끝에 선다. 안쪽 여백은 그대로다 */
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0 calc(var(--space-6) * -1);
+  padding: 0 var(--space-6);
   overflow-y: auto;
   scrollbar-width: thin;
+}
+/* 본문이 넘칠 때만 머리 아래와 단추 줄 위를 헤어라인으로 가른다. 스크롤할 글이 더 있다는 표시다 */
+.dialog[data-scrolls] .body {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .overlay[data-closing] {
   animation: fadeOut var(--dur-fast) var(--ease-accelerate) both;
@@ -113,6 +138,7 @@
 }
 /* 단추 줄은 오른쪽 끝에 모은다. '취소'가 왼쪽, 확정이 오른쪽 끝이다(§12-5) */
 .actions {
+  flex: none;
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
@@ -120,40 +146,4 @@
 }
 .cancel {
   min-width: 72px;
-}
-/* 비파괴 주의 조작의 확정. danger와 같은 투명 면에 주의 색 윤곽이다 */
-.warnBtn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--color-warning-text);
-  border-radius: var(--panel-radius);
-  background: transparent;
-  color: var(--color-warning-text);
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  white-space: nowrap;
-  transition: background-color var(--dur-fast) var(--ease-standard);
-}
-.warnBtn::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 44px;
-  transform: translateY(-50%);
-}
-.warnBtn:hover:not(:disabled) {
-  background: var(--color-warning-bg);
-}
-/* 비활성은 opacity로 흐리지 않는다(§12-6). 면을 비우고 점선 테두리로 모양을 남긴다 */
-.warnBtn:disabled {
-  border-style: dashed;
-  border-color: var(--text-tertiary);
-  color: var(--text-secondary);
-  cursor: not-allowed;
 }

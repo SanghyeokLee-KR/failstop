@@ -12,14 +12,14 @@
 
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { AI_FORBIDDEN } from "@/lib/admin/aiPolicy";
+import { AI_FORBIDDEN, CHECK_VIEW_WORD, checkView, visibleChecks } from "@/lib/admin/aiPolicy";
 import { certDaysLeft } from "@/lib/admin/certs";
 import { INJECTED_ALERT } from "@/lib/admin/opsSim";
 import { writeStateOf } from "@/lib/admin/opsHealth";
 import { RUNBOOKS } from "@/lib/admin/runbooks";
 import { priorityOf, teamsNoticeOf, type ReplayTimeline } from "@/lib/admin/scenarioWorld";
 import { mmss } from "@/lib/admin/timeText";
-import type { AiCheckState, AiJudgmentTrace, AiProposal, ControlCenter, IncidentEvent, OpsAlert, ReadNodeState, ScenarioSpec } from "@/lib/admin/types";
+import type { AiJudgmentTrace, AiProposal, ControlCenter, IncidentEvent, OpsAlert, ReadNodeState, ScenarioSpec } from "@/lib/admin/types";
 import KeepNames from "../KeepNames";
 import StatusShape, { type StatusShapeKind } from "../StatusShape";
 import { StateChip } from "../ui";
@@ -27,13 +27,12 @@ import { useChangeFlags } from "../useChangeFlags";
 import { useFlip } from "../useFlip";
 import { useFreshKeys } from "../useFreshKeys";
 import { AiMark } from "../control/parts";
+import CheckMark from "../detail/CheckMark";
 import styles from "./scenarios.module.css";
 
 const SEV_SHAPE: Record<OpsAlert["severity"], StatusShapeKind> = { critical: "square", warning: "triangle", info: "circle" };
 const SEV_TONE = { critical: "danger", warning: "warning", info: "info" } as const;
 const NODE_WORD: Record<ReadNodeState, string> = { IN_SERVICE: "운영 중", PENDING: "기동 중", DRAINING: "드레이닝", OFF: "꺼짐" };
-const CELL_SHAPE: Record<AiCheckState, StatusShapeKind | null> = { PASS: "circle", BLOCK: "square", HOLD: "triangle", NA: null };
-const CELL_WORD: Record<AiCheckState, string> = { PASS: "통과", BLOCK: "막음", HOLD: "승인 대기", NA: "해당 없음" };
 
 /** 재생의 가상 시각(mm:ss). 재생 시작부터 센다 */
 const vt = (iso: string, t0: number) => mmss(Math.max(0, Date.parse(iso) - t0));
@@ -373,10 +372,11 @@ function Structured() {
 
 /* ===== 정책 엔진 판정 ===== */
 
-function CheckTable({ trace, stagger, caption }: { trace: Pick<AiJudgmentTrace, "candidates" | "checks">; stagger: boolean; caption: string }) {
-  // 모든 후보에 해당 없는 규칙은 거둔다. 좁은 칸에서 읽을 행만 남기고 거둔 수를 적는다
-  const rows = trace.checks.filter((r) => r.results.some((c) => c.state !== "NA"));
-  const hidden = trace.checks.length - rows.length;
+function CheckTable({ trace, stagger, caption }: { trace: Pick<AiJudgmentTrace, "candidates" | "checks"> & { mode?: AiJudgmentTrace["mode"] }; stagger: boolean; caption: string }) {
+  // 모든 후보에 해당 없는 규칙은 거둔다. 좁은 칸에서 읽을 행만 남기고 거둔 규칙 수를 적는다. 모드가 없는 표(주입 문장을 따른 가정
+  // 조치안)는 자동 실행 경로를 보이는 표라 자동 모드로 읽는다
+  const { rows, hidden } = visibleChecks(trace.checks);
+  const mode = trace.mode ?? "AUTO";
   return (
     <>
       <table className={styles.checks}>
@@ -396,14 +396,15 @@ function CheckTable({ trace, stagger, caption }: { trace: Pick<AiJudgmentTrace, 
             <tr key={r.rule} data-in={stagger ? "" : undefined} style={stagger ? ({ "--row-i": i } as CSSProperties) : undefined}>
               <th scope="row">{r.label}</th>
               {r.results.map((cell, j) => {
-                const shape = CELL_SHAPE[cell.state];
+                const view = checkView(r.rule, cell.state, mode);
+                const word = CHECK_VIEW_WORD[view];
                 return (
-                  <td key={j} data-state={cell.state}>
+                  <td key={j} data-view={view}>
                     <span className={styles.checkCell}>
-                      {shape ? <StatusShape kind={shape} className={styles.shape} /> : <span aria-hidden="true">-</span>}
+                      <CheckMark view={view} className={styles.shape} />
                       <span>
-                        <span className="sr-only">{CELL_WORD[cell.state]} · </span>
-                        {cell.note || CELL_WORD[cell.state]}
+                        <span className="sr-only">{word} · </span>
+                        {view === "autoOnly" ? `${word} · ${cell.note}` : cell.note || word}
                       </span>
                     </span>
                   </td>
@@ -413,7 +414,7 @@ function CheckTable({ trace, stagger, caption }: { trace: Pick<AiJudgmentTrace, 
           ))}
         </tbody>
       </table>
-      {hidden > 0 && <p className={styles.foot}>해당 없는 규칙 {hidden}개는 거뒀습니다</p>}
+      {hidden.length > 0 && <p className={styles.foot}>해당 없는 규칙 {hidden.length}개 · {hidden.join(", ")}</p>}
     </>
   );
 }
