@@ -1,0 +1,3 @@
+== R3b auto-delete:true durable:false N=200 03:13:10Z
+queues with tag b left: 0
+queues total: 1001

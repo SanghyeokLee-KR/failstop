@@ -360,6 +360,57 @@ groups:
           dashboard: "인프라 상세 (msp-infra)"
           runbook: "하네스 CICD·IaC §3-3. 거절은 노드를 지키는 정상 동작이고 대응은 증설이다"
 
+      # ADR 0034 S6 WebSocket 중계 경보 셋(하네스 CI/CD §5-6, S6 설계 4-17). 중계 지표는 broker 모드 노드만 등록하므로 simple 모드
+      # 스택에서는 시계열이 없어 뜨지 않는다. 브로커가 멈춰도 REST 는 그대로라 critical 로 두지 않는다. exchange_ws_gate_open 에는
+      # 경보를 걸지 않는다. simple 모드 두 노드 배치의 팔로워는 늘 0 이 정상이다.
+      - alert: WsRelayDisconnected
+        expr: min by (instance) (exchange_ws_relay_connected) == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: ws
+        annotations:
+          summary: "WS 중계 연결 끊김: {{ $labels.instance }}"
+          metric: "ws_relay_connected(pub·sub 최솟값)"
+          value: "{{ $value }}"
+          threshold: "== 0"
+          duration: "1m"
+          dashboard: "인프라 상세 (msp-infra)"
+          runbook: "S6 설계 4-11·9절. 브로커 생존과 계정을 본다. 모든 마켓을 쥐지 않은 노드는 5초 뒤부터 WS 를 거절한다"
+
+      # 중계 불능이라 그 노드가 WS 세션을 닫고 핸드셰이크를 503 으로 거절하는 중이다. link_down 은 구독 연결 끊김,
+      # owner_silent 는 유효한 리스를 쥔 소유 노드의 하트비트 부재(발행 막힘, 메모리 경보)다.
+      - alert: WsRelayDegraded
+        expr: max by (instance) (exchange_ws_relay_degraded) == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: ws
+        annotations:
+          summary: "WS 중계 불능으로 WS 수용 중단: {{ $labels.instance }}"
+          metric: "ws_relay_degraded(link_down·owner_silent 최댓값)"
+          value: "{{ $value }}"
+          threshold: "== 1"
+          duration: "1m"
+          dashboard: "인프라 상세 (msp-infra)"
+          runbook: "API 설계 §5-6 · S6 설계 4-11. cause 태그로 구독 연결과 소유 노드 발행을 가른다"
+
+      # 중계 봉투를 버린다. 받는 노드의 클라이언트는 결번으로 REST 재동기화한다(API 설계 §5-2).
+      - alert: WsRelayDropping
+        expr: increase(exchange_ws_relay_dropped_total[5m]) > 100
+        for: 0s
+        labels:
+          severity: warning
+          component: ws
+        annotations:
+          summary: "WS 중계 봉투 버림: {{ $labels.instance }} {{ $labels.reason }}"
+          metric: "ws_relay_dropped 5m"
+          value: "{{ $value }}"
+          threshold: "> 100"
+          duration: "0s"
+          dashboard: "인프라 상세 (msp-infra)"
+          runbook: "S6 설계 4-4·9절. queue_full·write_timeout 은 브로커 쪽 막힘, stale 은 발행 지연, malformed 는 위조나 판 불일치다"
+
       # 진입 계층 생존. 앱이 멀쩡해도 사용자가 못 들어오는 상태를 잡는다.
       #
       # 봇 지표로는 이 구간이 안 보인다. 봇은 앱 안에서 돌아 내부 경로만 왕복한다.

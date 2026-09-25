@@ -1,5 +1,15 @@
 package kr.exchange.config;
 
+import kr.exchange.api.WsProbe;
+import kr.exchange.api.ws.CandleFanout;
+import kr.exchange.api.ws.LeaseWatch;
+import kr.exchange.api.ws.MarketMirror;
+import kr.exchange.api.ws.WsGate;
+import kr.exchange.api.ws.relay.BrokerLink;
+import kr.exchange.api.ws.relay.OwnerBeats;
+import kr.exchange.api.ws.relay.RelayHeartbeat;
+import kr.exchange.api.ws.relay.RelayPublisher;
+import kr.exchange.api.ws.relay.RelaySubscriber;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.FollowerCatchUp;
 import kr.exchange.engine.LeaderLeaseService;
@@ -16,6 +26,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -41,6 +52,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * 파티션 배선(DB 설계 §5.4-c 2)에서 엔진을 끈 노드도 파티션 계획과 파티션별 리스 서비스를 만든다. epoch·하네스·관리 API 가
  * 쓰기 때문이다. 리스 틱은 시작하지 않는다. 틱 스레드가 없고 리스 행을 바꾸지 않는다.
+ *
+ * WS 중계(ADR 0034 S6)에서 엔진을 끈 노드는 게시가 없으므로 중계 빈과 리스 조회기를 만들지 않는다. 봇 프로파일 판은 중계 모드를
+ * broker 로 주어도 그렇다. WS 게이트는 늘 닫혀 있어 /ws/v1 핸드셰이크를 업그레이드 전에 503(relay_required)으로 거절한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class EngineDisabledContextTest {
@@ -77,6 +91,7 @@ class EngineDisabledContextTest {
      */
     @Nested
     @ActiveProfiles("bots")
+    @TestPropertySource(properties = "exchange.ws.relay.mode=broker")
     class BotsProfile {
 
         @Autowired ApplicationContext botsContext;
@@ -113,6 +128,20 @@ class EngineDisabledContextTest {
         // 틱 스레드 이름(leader-lease-*)으로는 보지 않는다. 같은 JVM 에 캐시된 다른 시험 컨텍스트의 틱 스레드가 섞인다.
         assertTrue(leases.all().stream().noneMatch(LeaderLeaseService::started),
                 "엔진이 꺼진 노드의 파티션 리스가 틱을 시작했다");
+
+        for (Class<?> relay : List.of(RelayPublisher.class, BrokerLink.class, RelaySubscriber.class,
+                RelayHeartbeat.class, OwnerBeats.class, MarketMirror.class, CandleFanout.class, LeaseWatch.class)) {
+            assertEquals(0, context.getBeanNamesForType(relay).length,
+                    "엔진이 꺼진 노드에 " + relay.getSimpleName() + " 이(가) 떴다");
+        }
+        WsGate gate = context.getBean(WsGate.class);
+        assertEquals(new WsGate.Decision(false, WsGate.Reason.RELAY_REQUIRED), gate.current());
+        long refusedBefore = gate.handshakeRefused(WsGate.Reason.RELAY_REQUIRED);
+        int port = context.getEnvironment().getRequiredProperty("local.server.port", Integer.class);
+        WsProbe.Handshake handshake = WsProbe.handshake(port, null);
+        assertEquals(503, handshake.status(), "엔진이 꺼진 노드가 WS 핸드셰이크를 받았다");
+        assertEquals("5", handshake.header("Retry-After"));
+        assertEquals(refusedBefore + 1, gate.handshakeRefused(WsGate.Reason.RELAY_REQUIRED));
     }
 
     private static Map<String, Object> lease(JdbcClient jdbc) {

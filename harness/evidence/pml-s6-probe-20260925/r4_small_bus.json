@@ -1,0 +1,3 @@
+{"mode": "bus", "count_per_publisher": 20000, "publish_seconds": 0.283, "subscribers": [{"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": []}, {"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": []}]}
+right-after pml-probe-rabbit 122.5MiB / 320MiB
+settled pml-probe-rabbit 98.82MiB / 320MiB

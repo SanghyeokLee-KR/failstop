@@ -16,6 +16,7 @@ import { Trend, Counter, Rate } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { signRequest, orderCanonicalBody } from './lib/sign.js';
 import { WebSocket, connectFrame, subscribeFrame, parseFrames, topicOrderbook, topicTrade } from './lib/stomp.js';
+import { newBaseline, judgeSeq } from './lib/seq_baseline.js';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:58080';
 const WS_URL = __ENV.WS_URL || BASE.replace(/^http/, 'ws') + '/ws/v1';
@@ -402,9 +403,11 @@ export function readMarket() {
 
 // STOMP 공개 채널 구독 후 seq 결번·epoch 변화를 계측한다. 카오스 창 gap은 재동기화로
 // 흡수(ws_epoch_resync_fail==0으로 판정), steady 창 결번은 orderbook 채널만 0이어야 한다(§2-2, API§5-2 seq 도메인 두 실현).
+// 기준점 판정은 lib/seq_baseline.js 가 한다(API§5-2 v2.58, S6 설계 6-4). 이 시나리오는 마켓 하나만 구독하므로 마켓별 epoch
+// 비교가 종전의 전역 비교와 같다. 달라진 것은 둘이다. seq 0 스냅샷(소유하지 않은 노드의 DB 집계)은 기준점을 비우고 양성
+// 계수에 넣지 않는다. 같은 마켓의 작은 epoch(옛 리더가 늦게 보낸 메시지)는 기준점을 건드리지 않고 폐기로 센다.
 export function wsSubscribe() {
-  const seen = {};
-  let lastEpoch = null;
+  const baseline = newBaseline();
   const ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
@@ -423,46 +426,32 @@ export function wsSubscribe() {
       try { msg = JSON.parse(f.body); } catch (err) { continue; }
       const dest = f.headers.destination || 'unknown';
       const ph = phase();
-
-      // epoch 변화(리더 교대) 감지 → 재동기화 기대. 실패 카운트는 전역 0이어야 한다.
-      if (msg.epoch !== undefined) {
-        if (lastEpoch !== null && msg.epoch !== lastEpoch) {
-          // 재동기화 규약(API§5-2): epoch 변화 시 seq 기준선을 리셋한다. 리셋 실패(음수 점프
-          // 지속)만 fail로 계상. 여기서는 기준선 재설정으로 정상 흡수한다.
-          for (const k in seen) { delete seen[k]; }
-        }
-        lastEpoch = msg.epoch;
+      // 구독 즉시 계약(API§5-2). 기준점은 마지막으로 채택한 seq이고 epoch 가 오르면 비운다.
+      // 스냅샷과 realtime의 순서 역전은 계약상 정상이라 낮은 seq는 채택하지 않는다.
+      // 채택하면 표시 상태가 되돌아가고 이어지는 realtime이 전부 결번으로 보인다.
+      const kind = destKind(dest);
+      const r = judgeSeq(baseline, dest, MARKET, msg.epoch, msg.seq);
+      if (r.verdict === 'no_seq' || r.verdict === 'snapshot_reset') {
+        continue;
       }
-
-      if (msg.seq !== undefined) {
-        const prev = seen[dest];
-        // 구독 즉시 계약(API§5-2). 기준점은 마지막으로 채택한 seq이고 epoch 변화 시 비운다.
-        // 스냅샷과 realtime의 순서 역전은 계약상 정상이라 낮은 seq는 채택하지 않는다.
-        // 채택하면 표시 상태가 되돌아가고 이어지는 realtime이 전부 결번으로 보인다.
-        const kind = destKind(dest);
-        if (prev !== undefined && msg.seq <= prev) {
-          // 계약이 두 채널 모두에 폐기를 지시한다(API§5-2). 기준점을 전진시키지 않는 것도
-          // 계약이다. 뒤처진 값을 기준으로 삼으면 이후 메시지가 전부 결번으로 보인다.
-          // 실패로 계상하면 정상 거동이 실패가 되고 재정렬 이후가 통째로 실패로 번진다.
-          wsStaleDiscarded.add(1, { phase: ph, stream: msg.stream || 'unknown', dest: kind });
-          continue;
-        }
-        if (prev !== undefined && msg.seq > prev + 1) {
-          if (ph === 'chaos') {
-            // 카오스 창 gap은 무계상이다. 기준선만 전진시킨다. 그 창의 WS 판정 축은
-            // 없다(검증설계 §2-4 미해소 항). ws_epoch_resync_fail은 재동기화를 재지 않는다.
-          } else {
-            // destination 태그가 있어야 채널별 판정이 선다. orderbook seq는 채널별 연속이라
-            // 결번이 곧 유실이지만, trade seq는 전역 체결 번호라 다른 마켓 체결이 번호를
-            // 소비한다. 단일 마켓 구독자에게 그 결번은 정상이고 한 축으로 세면 상시 실패한다.
-            wsSeqGap.add(1, { phase: ph, dest: kind });
-          }
-        }
-        seen[dest] = msg.seq;
-        // stream 태그가 있어야 양성 증거를 realtime 한정으로 셀 수 있다. 스냅샷까지 세면
-        // realtime 발행이 죽어도 구독 수만큼 하한이 채워진다.
-        wsSeqObserved.add(1, { phase: ph, dest: kind, stream: msg.stream || 'realtime' });
+      if (r.verdict === 'stale' || r.verdict === 'old_epoch') {
+        // 계약이 두 채널 모두에 폐기를 지시한다(API§5-2). 기준점을 전진시키지 않는 것도
+        // 계약이다. 뒤처진 값을 기준으로 삼으면 이후 메시지가 전부 결번으로 보인다.
+        // 실패로 계상하면 정상 거동이 실패가 되고 재정렬 이후가 통째로 실패로 번진다.
+        wsStaleDiscarded.add(1, { phase: ph, stream: msg.stream || 'unknown', dest: kind });
+        continue;
       }
+      if (r.verdict === 'gap' && ph !== 'chaos') {
+        // 카오스 창 gap은 무계상이다. 기준선만 전진시킨다. 그 창의 WS 판정 축은
+        // 없다(검증설계 §2-4 미해소 항). ws_epoch_resync_fail은 재동기화를 재지 않는다.
+        // destination 태그가 있어야 채널별 판정이 선다. orderbook seq는 채널별 연속이라
+        // 결번이 곧 유실이지만, trade seq는 전역 체결 번호라 다른 마켓 체결이 번호를
+        // 소비한다. 단일 마켓 구독자에게 그 결번은 정상이고 한 축으로 세면 상시 실패한다.
+        wsSeqGap.add(1, { phase: ph, dest: kind });
+      }
+      // stream 태그가 있어야 양성 증거를 realtime 한정으로 셀 수 있다. 스냅샷까지 세면
+      // realtime 발행이 죽어도 구독 수만큼 하한이 채워진다.
+      wsSeqObserved.add(1, { phase: ph, dest: kind, stream: msg.stream || 'realtime' });
     }
   };
 

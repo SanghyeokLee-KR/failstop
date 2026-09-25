@@ -1,9 +1,6 @@
 package kr.exchange.api.ws;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.exchange.api.common.ApiFormats;
-import kr.exchange.api.common.EpochSource;
-import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,8 +12,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -24,7 +19,7 @@ import java.util.function.Supplier;
  * 구독 즉시 스냅샷 계약(§5-2 v2.4, orderbook 채널 한정). SUBSCRIBE 성공 직후 해당 세션의
  * 해당 subscription으로만 stream:"snapshot" 1건을 보낸다. 브로커 브로드캐스트가 아니라
  * clientOutboundChannel 직송인 이유: 다른 구독자에게 중복 스냅샷이 가면 안 된다.
- * snapshot의 seq가 이후 realtime 연속성 기준점이다.
+ * snapshot의 seq가 이후 realtime 연속성 기준점이고, seq 가 0 이면 기준점이 아니다(§4-A-2, MarketViews).
  */
 public class OrderbookSnapshotOnSubscribe implements ApplicationListener<SessionSubscribeEvent> {
 
@@ -32,20 +27,14 @@ public class OrderbookSnapshotOnSubscribe implements ApplicationListener<Session
     private static final String PREFIX = "/topic/orderbook.";
 
     private final MarketDirectory markets;
-    private final MarketDataService marketData;
-    private final ChannelSequences sequences;
-    private final EpochSource epochSource;
+    private final MarketViews views;
     private final ObjectMapper objectMapper;
     private final Supplier<MessageChannel> clientOutboundChannel;
 
-    public OrderbookSnapshotOnSubscribe(MarketDirectory markets, MarketDataService marketData,
-                                        ChannelSequences sequences, EpochSource epochSource,
-                                        ObjectMapper objectMapper,
+    public OrderbookSnapshotOnSubscribe(MarketDirectory markets, MarketViews views, ObjectMapper objectMapper,
                                         Supplier<MessageChannel> clientOutboundChannel) {
         this.markets = markets;
-        this.marketData = marketData;
-        this.sequences = sequences;
-        this.epochSource = epochSource;
+        this.views = views;
         this.objectMapper = objectMapper;
         this.clientOutboundChannel = clientOutboundChannel;
     }
@@ -58,14 +47,8 @@ public class OrderbookSnapshotOnSubscribe implements ApplicationListener<Session
             return;
         }
         try {
-            String symbol = destination.substring(PREFIX.length());
-            MarketDirectory.Market market = markets.bySymbol(symbol);
-            // seq를 depth보다 먼저 읽어 라벨이 데이터의 하한이 되게 한다. 역순이면 depth에 없는
-            // realtime 갱신까지 seq에 반영돼 클라이언트가 그 갱신을 건너뛴다(§5-2 연속성 기준점).
-            long seq = sequences.current("orderbook." + market.symbol());
-            MarketDataService.Depth depth = marketData.depth(market.id());
-            Map<String, Object> body = marketData.orderbookBody(market.symbol(), depth,
-                    epochSource.epoch(market.id()), seq, ApiFormats.time(Instant.now()));
+            MarketDirectory.Market market = markets.bySymbol(destination.substring(PREFIX.length()));
+            Map<String, Object> body = views.orderbook(market);
             body.put("type", "orderbook");
             body.put("stream", "snapshot");
 

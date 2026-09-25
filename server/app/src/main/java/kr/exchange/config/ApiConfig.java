@@ -48,7 +48,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -554,16 +553,20 @@ public class ApiConfig {
     }
 
     @Bean
-    public MarketDataPublisher marketDataPublisher(SimpMessagingTemplate messaging,
-                                                   JdbcClient jdbc, MarketDirectory markets,
+    public MarketDataPublisher marketDataPublisher(JdbcClient jdbc, MarketDirectory markets,
                                                    MarketDataService marketData,
                                                    OrderQueryService orders,
                                                    ChannelSequences sequences,
-                                                   EpochSource epochSource,
                                                    CandleSubscriptions candleSubscriptions,
+                                                   kr.exchange.api.ws.WsFanout wsFanout,
+                                                   org.springframework.beans.factory.ObjectProvider<
+                                                           kr.exchange.api.ws.CandleFanout> candleFanout,
+                                                   org.springframework.beans.factory.ObjectProvider<
+                                                           kr.exchange.api.ws.MarketMirror> marketMirror,
                                                    MeterRegistry meterRegistry) {
-        return new MarketDataPublisher(messaging, jdbc, markets, marketData, orders,
-                sequences, epochSource, candleSubscriptions, meterRegistry);
+        // 중계 모드면 캔들 팬아웃과 미러가 있다. 각 노드가 캔들을 계산하고 자기 게시로 미러를 갱신한다(WsRelayConfig, S6 설계 4-6·4-10).
+        return new MarketDataPublisher(jdbc, markets, marketData, orders, sequences, candleSubscriptions,
+                wsFanout, candleFanout.getIfAvailable(), marketMirror.getIfAvailable(), meterRegistry);
     }
 
     @Bean
@@ -576,9 +579,9 @@ public class ApiConfig {
 
     @Bean
     public OrderbookSnapshotOnSubscribe orderbookSnapshotOnSubscribe(
-            MarketDirectory markets, MarketDataService marketData, ChannelSequences sequences,
-            EpochSource epochSource, ObjectMapper objectMapper, ApplicationContext context) {
-        return new OrderbookSnapshotOnSubscribe(markets, marketData, sequences, epochSource,
-                objectMapper, () -> context.getBean("clientOutboundChannel", MessageChannel.class));
+            MarketDirectory markets, kr.exchange.api.ws.MarketViews marketViews, ObjectMapper objectMapper,
+            ApplicationContext context) {
+        return new OrderbookSnapshotOnSubscribe(markets, marketViews, objectMapper,
+                () -> context.getBean("clientOutboundChannel", MessageChannel.class));
     }
 }

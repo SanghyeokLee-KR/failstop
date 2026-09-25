@@ -3,15 +3,13 @@ package kr.exchange.api.market;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
-import kr.exchange.api.common.EpochSource;
-import kr.exchange.api.ws.ChannelSequences;
+import kr.exchange.api.ws.MarketViews;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -30,15 +28,12 @@ public class MarketController {
 
     private final MarketDirectory markets;
     private final MarketDataService data;
-    private final EpochSource epochSource;
-    private final ChannelSequences sequences;
+    private final MarketViews views;
 
-    public MarketController(MarketDirectory markets, MarketDataService data,
-                            EpochSource epochSource, ChannelSequences sequences) {
+    public MarketController(MarketDirectory markets, MarketDataService data, MarketViews views) {
         this.markets = markets;
         this.data = data;
-        this.epochSource = epochSource;
-        this.sequences = sequences;
+        this.views = views;
     }
 
     @GetMapping("/markets")
@@ -63,17 +58,11 @@ public class MarketController {
         return envelope(rows, null);
     }
 
+    /** seq·epoch 를 내는 노드의 규칙은 §4-A-2 다(MarketViews). */
     @GetMapping("/orderbook")
     public Map<String, Object> orderbook(@RequestParam("market") String market,
                                          @RequestParam(value = "level", required = false) String level) {
-        MarketDirectory.Market m = markets.bySymbol(market);
-        // seq를 depth 이전에 캡처한다. 반대 순서면 depth 조회 사이에 도착한 갱신이 seq를 올려
-        // 스냅샷이 실제보다 낮은 seq로 표기되고, 클라이언트가 seq 이하 realtime을 폐기해 갱신을
-        // 잃는다(§5-2 W6). depth가 seq 이후 상태를 담는 방향은 안전하다(중복 폐기로 수렴).
-        long seq = sequences.current("orderbook." + m.symbol());
-        MarketDataService.Depth depth = data.depth(m.id());
-        return data.orderbookBody(m.symbol(), depth, epochSource.epoch(m.id()), seq,
-                ApiFormats.time(Instant.now()));
+        return views.orderbook(markets.bySymbol(market));
     }
 
     @GetMapping("/trades")
@@ -123,7 +112,7 @@ public class MarketController {
             throw new ApiException(400, "invalid_parameter",
                     "markets는 최대 " + MAX_TICKER_MARKETS + "개입니다.");
         }
-        List<Map<String, Object>> rows = new ArrayList<>();
+        List<MarketDirectory.Market> wanted = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         for (String raw : requested) {
             String symbol = raw.trim();
@@ -131,11 +120,9 @@ public class MarketController {
             if (symbol.isEmpty() || !seen.add(symbol)) {
                 continue;
             }
-            MarketDirectory.Market m = markets.bySymbol(symbol);
-            rows.add(data.ticker(m, epochSource.epoch(m.id()),
-                    sequences.current("ticker." + m.symbol())));
+            wanted.add(markets.bySymbol(symbol));
         }
-        return envelope(rows, null);
+        return envelope(views.tickers(wanted), null);
     }
 
     private static int clampCount(Integer count) {

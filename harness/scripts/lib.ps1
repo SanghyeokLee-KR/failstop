@@ -36,7 +36,33 @@ $Global:CHAOS = @{
 # 인자 3개만 남겨 볼륨이 지워지지 않았고, down.ps1이 전체 파기를 약속한 채 원장을 존치시켜
 # 이후 실험이 이전 상태를 물려받았다. 자동 변수 $args를 쓰는 단순 함수는 바인딩을 하지 않는다.
 function Invoke-Compose {
-    & docker compose -p $Global:CHAOS.Project -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @args
+    $overlay = @()
+    foreach ($f in @(Get-ComposeOverlayFiles)) { $overlay += @('-f', $f) }
+    & docker compose -p $Global:CHAOS.Project -f $Global:CHAOS.ComposeFile @overlay --env-file $Global:CHAOS.EnvFile @args
+}
+
+# 기본 compose 파일 뒤에 겹칠 오버레이 목록(ADR 0034 S6, 마켓분할_리더_S6_설계 4-19). 환경 변수 CHAOS_COMPOSE_OVERLAYS 에
+# 저장소 루트 기준 harness/ 아래 경로를 세미콜론으로 나열한다(예: harness/docker-compose.relay.yml). 스택을 다시 세우는 모든
+# 호출(실험 실행기의 down -v·up, Set-BotOps 의 봇 재생성)이 Invoke-Compose·Invoke-ComposeQuiet 를 거치므로 오버레이가 빠지지
+# 않는다. 빠지면 중계 브로커가 고아로 지워지고 앱 노드가 simple 모드로, LB 가 nginx.conf 로 뜬다.
+# 목록의 파일이 없거나 harness/ 밖이면 멈춘다. 호출할 때마다 읽으므로 실행기가 dot-source 뒤에 변수를 채워도 반영된다.
+function Get-ComposeOverlayFiles {
+    $raw = $env:CHAOS_COMPOSE_OVERLAYS
+    if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
+    $harness = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+    $root = [System.IO.Path]::GetFullPath($Global:CHAOS.RepoRoot)
+    $files = @()
+    foreach ($item in $raw.Split(';')) {
+        $p = $item.Trim()
+        if (-not $p) { continue }
+        $full = $(if ([System.IO.Path]::IsPathRooted($p)) { [System.IO.Path]::GetFullPath($p) } else { [System.IO.Path]::GetFullPath((Join-Path $root $p)) })
+        if (-not $full.StartsWith($harness + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "CHAOS_COMPOSE_OVERLAYS 의 파일이 harness/ 밖이다: $p"
+        }
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { throw "CHAOS_COMPOSE_OVERLAYS 의 파일이 없다: $p" }
+        $files += $full
+    }
+    return $files
 }
 
 # 네이티브 호출 공용 래퍼. cmd /c로 감싸 스트림을 nul에 버린다. PowerShell에서 compose를 직접
@@ -45,7 +71,8 @@ function Invoke-Compose {
 # 반환은 종료코드다. 호출부는 반드시 변수에 받는다. 미포획이면 상위 함수의 반환값에 섞여 배열이 된다.
 function Invoke-ComposeQuiet {
     param([string] $ComposeArgs)
-    $cmd = "docker compose -p $($Global:CHAOS.Project) -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" $ComposeArgs"
+    $overlay = (@(Get-ComposeOverlayFiles) | ForEach-Object { "-f `"$_`"" }) -join ' '
+    $cmd = "docker compose -p $($Global:CHAOS.Project) -f `"$($Global:CHAOS.ComposeFile)`" $overlay --env-file `"$($Global:CHAOS.EnvFile)`" $ComposeArgs"
     & cmd /c "$cmd >nul 2>nul"
     return $LASTEXITCODE
 }
@@ -108,6 +135,86 @@ function Restore-BotLoad {
     } catch {
         Write-Host "경고: chaos-bots 재개 실패($($_.Exception.Message)). 다음 실험 전 수동 확인" -ForegroundColor Yellow
     }
+}
+
+# WebSocket 중계 오버레이(ADR 0034 S6, 마켓분할_리더_S6_설계 4-19). up.ps1 -Relay, adr0022-stage5-chaos.ps1 -Relay,
+# s6-relay-outage.ps1 이 쓴다.
+$Global:CHAOS_RELAY_OVERLAY = 'harness/docker-compose.relay.yml'
+
+# 오버레이 목록을 중계 오버레이로 채운다. 다른 값이 이미 있으면 멈춘다(무엇이 겹칠지 모르는 채 스택을 세우지 않는다).
+# 브로커 비밀 값(CHAOS_RELAY_PASSCODE)이 env 파일에 있는지는 compose 의 필수 변수 검사(config --quiet)로 본다.
+# 이 함수는 env 파일을 읽지 않고, 값이 풀린 설정을 출력하지 않는다.
+function Set-RelayOverlay {
+    $cur = $env:CHAOS_COMPOSE_OVERLAYS
+    if (-not [string]::IsNullOrWhiteSpace($cur) -and $cur.Trim() -ne $Global:CHAOS_RELAY_OVERLAY) {
+        throw "CHAOS_COMPOSE_OVERLAYS 가 이미 다른 값이다($cur). 중계 오버레이만 겹친다"
+    }
+    $env:CHAOS_COMPOSE_OVERLAYS = $Global:CHAOS_RELAY_OVERLAY
+    $code = Invoke-ComposeQuiet 'config --quiet'
+    if ($code -ne 0) {
+        throw "중계 오버레이 compose 해석 실패(종료코드 $code). harness/.env.chaos 에 CHAOS_RELAY_PASSCODE 가 있는지 본다"
+    }
+}
+
+# 오버레이 목록에 중계 오버레이가 들어 있는가. 기본 모드 실험(W0)이 남은 목록으로 중계 스택을 세우지 않게 막는 데 쓴다.
+function Test-RelayOverlayListed {
+    return @(Get-ComposeOverlayFiles | Where-Object { $_ -like '*docker-compose.relay.yml' }).Count -gt 0
+}
+
+# 스택을 세운 뒤 오버레이가 실제로 걸렸는지 본다(설계 4-19). 셋 가운데 하나라도 아니면 그 실험은 BLOCKED 다.
+#   1) chaos-broker 가 떠 있고 헬스체크가 healthy
+#   2) chaos-api-1·chaos-api-2 의 환경에 EXCHANGE_WS_RELAY_MODE=broker
+#   3) chaos-lb 가 nginx.relay.conf 를 /etc/nginx/nginx.conf 로 마운트
+# 환경은 모드 한 줄만 고르는 템플릿으로 읽는다. 비밀 값 줄은 이 프로세스로 오지 않는다.
+function Test-RelayOverlay {
+    param([int] $TimeoutSec = 120)
+    $res = [ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o') }
+    $healthy = Wait-For { (& docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' chaos-broker 2>$null | Out-String).Trim() -eq 'healthy' } -TimeoutSec $TimeoutSec -PollSec 2
+    $res['brokerHealthy'] = [bool]$healthy
+    $modeTemplate = '{{range .Config.Env}}{{if eq (index (split . `=`) 0) `EXCHANGE_WS_RELAY_MODE`}}{{println .}}{{end}}{{end}}'
+    $modes = [ordered]@{}
+    foreach ($c in 'chaos-api-1', 'chaos-api-2') {
+        $lines = @(& docker inspect -f $modeTemplate $c 2>$null | Where-Object { $_ })
+        $modes[$c] = $(if ($lines.Count -eq 1) { "$($lines[0])".Substring('EXCHANGE_WS_RELAY_MODE='.Length).Trim() } else { $null })
+    }
+    $res['appModes'] = $modes
+    $mounts = @(& docker inspect -f '{{range .Mounts}}{{.Source}}|{{.Destination}}{{println}}{{end}}' chaos-lb 2>$null |
+        Where-Object { $_ -like '*|/etc/nginx/nginx.conf' })
+    $res['lbConfSource'] = $(if ($mounts.Count -eq 1) { "$($mounts[0])".Split('|')[0] } else { $null })
+    $res['lbRelayConf'] = $mounts.Count -eq 1 -and "$($mounts[0])" -match 'nginx\.relay\.conf\|'
+    $res['ok'] = $res['brokerHealthy'] -and @($modes.Values | Where-Object { $_ -ne 'broker' }).Count -eq 0 -and $res['lbRelayConf']
+    return $res
+}
+
+# k6 관찰자(harness/load/ws_relay_watch.js) 컨테이너. 실험 네트워크(<프로젝트>_chaos-net)에 붙어 노드 주소로 직접 붙는다.
+# 이름은 pml-s6-watch-<실험>이라 chaos- 접두가 아니다(실행기의 시작 전 검사와 겹치지 않는다). 관찰자는 다음 down -v 전에 반드시
+# 멈춘다. 네트워크에 붙어 있으면 down 이 그 네트워크를 지우지 못한다. 상태 줄은 --log-format json 콘솔 로그로 나온다.
+function Start-RelayWatch {
+    param([string] $Name, [string] $OutDir, [int] $DurationSec,
+          [string] $Urls = 'ws://chaos-api-1:8080/ws/v1,ws://chaos-api-2:8080/ws/v1,ws://chaos-lb:8080/ws/v1',
+          [string] $Markets = 'KRW-BTC,KRW-ETH,KRW-XRP')
+    $load = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\load'))
+    $out = [System.IO.Path]::GetFullPath($OutDir)
+    & docker rm -f $Name *> $null
+    $dockerArgs = @('run', '-d', '--name', $Name, '--network', $Global:CHAOS.Network,
+        '-v', "${load}:/scripts:ro", '-v', "${out}:/out", 'grafana/k6:1.4.0', 'run', '--log-format', 'json', '--quiet',
+        '-e', "WS_URLS=$Urls", '-e', "MARKETS=$Markets", '-e', "DURATION=${DurationSec}s", '-e', 'OUT=/out/watch-summary.json',
+        '/scripts/ws_relay_watch.js')
+    $id = (& docker @dockerArgs 2>&1 | Out-String).Trim()
+    return [ordered]@{ name = $Name; rc = $LASTEXITCODE; id = $id; startedAt = (Get-Date).ToUniversalTime().ToString('o') }
+}
+
+# 관찰자를 SIGINT 로 멈춰 마지막 상태 줄과 끝 요약을 쓰게 한 뒤 로그를 저장하고 지운다. 기다려도 안 끝나면 지운다.
+function Stop-RelayWatch {
+    param([string] $Name, [string] $LogPath, [int] $GraceSec = 30)
+    & docker kill --signal INT $Name *> $null
+    $deadline = (Get-Date).AddSeconds($GraceSec)
+    while ((Get-Date) -lt $deadline) {
+        if ((& docker inspect -f '{{.State.Running}}' $Name 2>$null | Out-String).Trim() -ne 'true') { break }
+        Start-Sleep -Seconds 1
+    }
+    & cmd /c "docker logs $Name > `"$LogPath`" 2>&1"
+    & docker rm -f $Name *> $null
 }
 
 # 드레인 대상 술어(C13A_ORDER_MATERIALIZED와 동일 anti-join). 물질화되지 않은 NEW 명령 수.

@@ -1,0 +1,2 @@
+{"mode": "bus", "count_per_publisher": 20000, "rate_per_publisher": 0.0, "publish_seconds": 0.973, "subscribers": [{"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 3.599}, {"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 3.598}]}
+right-after pml-probe-artemis 253.2MiB / 512MiB

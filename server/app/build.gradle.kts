@@ -18,6 +18,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
+    // WebSocket 노드 단위 중계의 STOMP TCP 연결(ADR 0034 S6). spring-messaging 의 ReactorNettyTcpClient 가 쓴다.
+    // HTTP 모듈(reactor-netty-http)은 받지 않는다. 받으면 RestClient 요청 팩토리 자동 선택이 바뀐다. 버전은 SB BOM 이 정한다.
+    implementation("io.projectreactor.netty:reactor-netty-core")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
@@ -89,6 +92,9 @@ tasks.withType<Test> {
     systemProperty("harness.sql.dir", harnessSql.absolutePath)
     inputs.file(rootProject.file("../deploy/provision-runtime-roles.sql"))
         .withPropertyName("runtimeRoleProvisioning").withPathSensitivity(PathSensitivity.RELATIVE)
+    // 중계 시험(RelayBroker)이 일회용 RabbitMQ 에 복사하는 하네스 중계 설정(ADR 0034 S6). 설정이 바뀌면 캐시된 결과를 쓰지 않는다.
+    inputs.dir(rootProject.file("../harness/relay")).withPropertyName("harnessRelay")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // VM 실습망이 읽는 summary.sql 사본. 원본과 같은지 HarnessSqlCopyTest 가 본다.
     val vmLabSummarySql = rootProject.file("../deploy/vm-lab/build/build-files/db/summary.sql")
     inputs.file(vmLabSummarySql).withPropertyName("vmLabSummarySql").withPathSensitivity(PathSensitivity.RELATIVE)

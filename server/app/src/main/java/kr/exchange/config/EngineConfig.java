@@ -446,8 +446,9 @@ public class EngineConfig {
                                 settlementService.appendAndSettle(term, events);
                         // 정산 커밋 뒤, 게시 전에 호가 스냅샷을 갱신한다. 여기가 단일 라이터 스레드이므로 책을 안전하게 읽을
                         // 수 있는 유일한 자리다. 게시와 이어지는 모든 조회가 이 스냅샷을 보고, DB 집계는 스냅샷이 없을 때만 돈다.
-                        publishEngineDepth(engine, marketDataService, settled);
-                        marketDataPublisher.publishSettled(settled);
+                        // 스냅샷과 게시는 이 루프의 기간 epoch 를 싣는다(S6 설계 4-4, 4-6).
+                        publishEngineDepth(engine, marketDataService, term.epoch(), settled);
+                        marketDataPublisher.publishSettled(term, settled);
                     },
                     new JournalCatchUpSource(commandJournalReader, commandPayloadMapper, marketId),
                     // 정산이 제한 재시도로 흡수하지 못한 실패는 그 파티션을 강등해 접수 경로를 닫는다(LoopFatalHandler).
@@ -515,7 +516,7 @@ public class EngineConfig {
      * 여기서 예외를 올리면 정산이 끝난 배치가 sink 실패로 계상되어 리더십까지 내려놓는다.
      */
     private static void publishEngineDepth(MatchingEngineImpl engine,
-                                           kr.exchange.api.market.MarketDataService marketDataService,
+                                           kr.exchange.api.market.MarketDataService marketDataService, long epoch,
                                            java.util.List<kr.exchange.engine.core.EngineEvent> settled) {
         try {
             java.util.Set<Integer> touched = new java.util.LinkedHashSet<>();
@@ -527,7 +528,7 @@ public class EngineConfig {
                 if (book == null) {
                     continue;
                 }
-                marketDataService.publishEngineDepth(marketId,
+                marketDataService.publishEngineDepth(marketId, epoch,
                         kr.exchange.api.market.MarketDataService.fromEngine(
                                 book.askDepth(15), book.bidDepth(15)));
             }

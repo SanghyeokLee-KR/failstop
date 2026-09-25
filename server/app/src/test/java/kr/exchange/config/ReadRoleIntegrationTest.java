@@ -1,6 +1,15 @@
 package kr.exchange.config;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import kr.exchange.api.WsProbe;
+import kr.exchange.api.ws.CandleFanout;
+import kr.exchange.api.ws.LeaseWatch;
+import kr.exchange.api.ws.MarketMirror;
+import kr.exchange.api.ws.relay.BrokerLink;
+import kr.exchange.api.ws.relay.OwnerBeats;
+import kr.exchange.api.ws.relay.RelayHeartbeat;
+import kr.exchange.api.ws.relay.RelayPublisher;
+import kr.exchange.api.ws.relay.RelaySubscriber;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.PartitionLeases;
 import kr.exchange.engine.PartitionPlan;
@@ -34,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles({"prod", "read"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"management.server.port=0", "exchange.cors.allowed-origins=https://exchange.example",
-                "app.ws.allowed-origins=https://exchange.example"})
+                "app.ws.allowed-origins=https://exchange.example", "exchange.ws.relay.mode=broker"})
 class ReadRoleIntegrationTest {
 
     private static final String SECRET = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -143,6 +152,23 @@ class ReadRoleIntegrationTest {
             assertEquals(404, rest.getForEntity(path, String.class).getStatusCode().value(), path);
             assertEquals(404, rest.postForEntity(path, "{}", String.class).getStatusCode().value(), path);
         }
+    }
+
+    /**
+     * 조회 노드는 WS 게시가 없으므로 중계 모드를 broker 로 주어도 중계 빈과 리스 조회기를 만들지 않는다(S6 설계 4-12). 리스 조회기가
+     * 돌면 조회 로그인이 읽지 못하는 leader_lease 를 1초마다 읽는다. /ws/v1 은 WS 업그레이드 요청이어도 계속 404 다.
+     */
+    @Test
+    void readNodeBuildsNoRelayAndKeepsWebSocketNotFound() throws Exception {
+        for (Class<?> relay : java.util.List.of(RelayPublisher.class, BrokerLink.class, RelaySubscriber.class,
+                RelayHeartbeat.class, OwnerBeats.class, MarketMirror.class, CandleFanout.class, LeaseWatch.class)) {
+            assertEquals(0, context.getBeanNamesForType(relay).length,
+                    "조회 노드에 " + relay.getSimpleName() + " 이(가) 떴다");
+        }
+        int port = context.getEnvironment().getRequiredProperty("local.server.port", Integer.class);
+        assertEquals(404, WsProbe.handshake(port, "https://exchange.example").status(),
+                "조회 노드가 /ws/v1 업그레이드 요청에 404 가 아니다");
+        assertEquals(404, WsProbe.handshake(port, null).status());
     }
 
     @Test

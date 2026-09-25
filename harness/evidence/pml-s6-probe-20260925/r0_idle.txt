@@ -1,0 +1,35 @@
+== R0 idle 03:10:37Z
+pml-probe-rabbit 120.3MiB / 15.18GiB 0.12%
+reserved_unallocated: 43.5569 mb (36.83%)
+other_system: 26.568 mb (22.47%)
+code: 19.1734 mb (16.21%)
+other_proc: 15.1113 mb (12.78%)
+allocated_unused: 9.7305 mb (8.23%)
+metrics: 1.9729 mb (1.67%)
+atom: 0.9915 mb (0.84%)
+other_ets: 0.4961 mb (0.42%)
+msg_index: 0.3586 mb (0.3%)
+metadata_store: 0.1435 mb (0.12%)
+binary: 0.0503 mb (0.04%)
+metadata_store_ets: 0.0425 mb (0.04%)
+plugins: 0.0391 mb (0.03%)
+quorum_ets: 0.006 mb (0.01%)
+connection_other: 0.0028 mb (0.0%)
+quorum_queue_procs: 0.0028 mb (0.0%)
+quorum_queue_dlx_procs: 0.0028 mb (0.0%)
+stream_queue_procs: 0.0013 mb (0.0%)
+stream_queue_replica_reader_procs: 0.0013 mb (0.0%)
+connection_readers: 0.0 mb (0.0%)
+connection_writers: 0.0 mb (0.0%)
+connection_channels: 0.0 mb (0.0%)
+stream_queue_coordinator_procs: 0.0 mb (0.0%)
+queue_procs: 0.0 mb (0.0%)
+mgmt_db: 0.0 mb (0.0%)
+mnesia: 0.0 mb (0.0%)
+
+RabbitMQ version: 4.3.6
+Erlang configuration: Erlang/OTP 27 [erts-15.2.7.13] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:1] [jit:ns]
+Erlang processes: 334 used, 1048576 limit
+Memory
+Total memory used: 0.1198 gb
+Memory high watermark setting: 0.6 of available memory, computed to: 9.7795 gb

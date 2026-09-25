@@ -56,6 +56,10 @@ management:
         # 재기동 판단용이고 여기 섞으면 조회 가능 여부와 재기동 필요 여부가 한 신호가 된다.
         read:
           include: db, ping
+        # WS 수용 판정(/actuator/health/ws, API 설계 §5-6). 이 노드가 모든 마켓의 게시를 세션에 줄 수 있으면 UP, 아니면
+        # OUT_OF_SERVICE 와 503 이다. 503 을 다른 대상으로 다시 보내지 않는 인그레스(ALB)가 WS 대상 헬스 경로로 쓸 수 있다.
+        ws:
+          include: ws
 
 # 리더 리스 보관소(2026-09-08). 거래 데이터는 PostgreSQL 에 그대로 있고 리스 한 항목만 갈린다.
 #
@@ -102,6 +106,20 @@ exchange:
       chunk: 100
       workers: 1
       expire-interval: 60s
+  # WebSocket 노드 사이 중계(API 설계 §5-1, S6 설계 4-12). simple 은 노드 내장 브로커만 쓰는 종전 게시다. broker 는 게시를
+  # 외부 STOMP 브로커(RabbitMQ 4.3)의 토픽 하나로 나눈다. broker 로 켜면 broker.host 와 비밀 값
+  # EXCHANGE_WS_RELAY_BROKER_PASSCODE 가 필요하다. 나머지 키(구독 상한, 발행 대기 상한, 하트비트, 중계 불능 유예, 재연결
+  # 간격)의 기본값은 WsRelayProperties 에 있다. owner-silent-after 를 비우면 리스 TTL + 3초다.
+  ws:
+    relay:
+      mode: simple
+      broker:
+        port: 61613
+        virtual-host: exchange
+        login: exch-relay
+    # WS 게이트가 리스 행을 읽는 간격. 두 모드에 쓴다(S6 설계 4-11).
+    gate:
+      lease-watch: 1s
 
 ---
 spring:

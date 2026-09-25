@@ -1,0 +1,2 @@
+{"mode": "silent", "heartbeat": "2000,2000", "broker_closed_after_seconds": 6.0}
+{"mode": "silent", "heartbeat": "10000,10000", "broker_closed_after_seconds": 30.0}

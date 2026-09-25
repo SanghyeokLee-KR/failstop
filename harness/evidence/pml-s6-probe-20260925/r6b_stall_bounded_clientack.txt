@@ -1,0 +1,8 @@
+== R6b stalled subscriber ack=client-individual prefetch=100 x-max-length=2000 x-message-ttl=10000 03:24:43Z
+{"mode": "stall", "published": 30000, "x-max-length": 2000, "x-message-ttl": 10000, "heartbeat": "0,0", "ack": "client-individual", "prefetch": 100}
+name	messages	messages_ready	messages_unacknowledged
+stomp-subscription-08K87Ctxfo3Qf4iYOUOZ7Q	2100	2000	100
+pml-probe-rabbit 124.4MiB / 320MiB
+-- 13초 뒤(TTL 10초 경과)
+name	messages	messages_ready	messages_unacknowledged
+stomp-subscription-08K87Ctxfo3Qf4iYOUOZ7Q	100	0	100

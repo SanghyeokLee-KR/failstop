@@ -1,0 +1,9 @@
+== R3a after close (auto-delete 없음) 03:12:50Z
+Error response from daemon: No such container: pml-probe-client
+stomp connections: 0
+queues total: 1001
+name	durable	auto_delete	exclusive	consumers
+myOrder-usera311	true	false	false	0
+myAsset-usera340	true	false	false	0
+myOrder-usera491	true	false	false	0
+pml-probe-rabbit 410.6MiB / 15.18GiB

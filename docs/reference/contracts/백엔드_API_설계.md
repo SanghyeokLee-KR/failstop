@@ -1,4 +1,4 @@
-# API 설계 (v2.57)
+# API 설계 (v2.58)
 
 2026-09-20 학교 배포 예외: 관리 UI의 단일 운영자는 HTTPS 비밀번호 게이트웨이로 로그인하며 내부 관리 API는 기존 mTLS·단기 세션 검사를 유지한다. 3-6절의 PC별 인증서 전제와 달리 앱 Nginx가 신뢰 경계에 포함된다. 운영자 한 명과 `VIEWER`·`BOT_OPS`에 한정한 [ADR 0031](../adr/0031-school-admin-password-gateway.md)을 함께 읽는다. 거래 API·서명·승인 검증 규칙은 바꾸지 않는다.
 
@@ -71,8 +71,9 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
                        [PostgreSQL 프로젝션 (JPA/jOOQ)]   ← (4)의 같은 트랜잭션이 그대로 쓴다
                        [outbox 적재]  발행기가 없어 나가는 경로가 없다. 읽는 곳은 InvariantCheck·SettlementService 둘뿐(§1 메시징/이벤트 행, §7-1)
                                        ▼ (5) 커밋 이후 단일 라이터 스레드가 게시(MarketDataPublisher)
-                       [STOMP 게시: 단일 노드 SimpleBroker(/topic·/queue)]  WebSocketConfig.enableSimpleBroker
-                       크로스노드 팬아웃(/topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이)은 §5-1 규정이고 미배선이다. 다중 노드 승격 시점의 몫이다(MarketDataPublisher 클래스 주석)
+                       [STOMP 게시: 노드마다 내장 SimpleBroker(/topic·/queue)가 자기 WS 세션을 맡는다]  WebSocketConfig.enableSimpleBroker
+                       (v2.58, ADR 0034 S6) 노드 사이 전달은 §5-1의 노드 단위 중계다. exchange.ws.relay.mode=broker 이면 게시를 외부 STOMP 브로커(RabbitMQ)의
+                       토픽 하나로 나누고, 기본값 simple 은 종전처럼 단일 노드 게시다. 세션 단위 중계(enableStompBrokerRelay)와 Redis 릴레이는 채택하지 않았다
                                                      ▼  실시간 호가/체결/잔고 푸시
 [DB HA: PostgreSQL 직접 운영. primary 1대 + standby 1대, 비동기 스트리밍 복제(ADR 0024). synchronous_standby_names는 비운다. DB 자동 페일오버 없음(수동 절차 docs/reference/operations/DB_수동_페일오버.md). failover 포함 RPO 0은 주장하지 않는다. 범위는 §1 DB 자체 HA 행]
 [복구: snapshot + journal replay | 정산배치: @Scheduled + ShedLock + fencing]
@@ -96,7 +97,7 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 |---|---|---|---|
 | **런타임 기반** | **Spring Boot 3.5.16 + Java 21** | SB 3.5.16 | 전 스택 GA 검증. Resilience4j·Chaos Monkey 등 회복탄력성/카오스 도구가 정식 지원되는 유일한 안정 경로. |
 | **REST 계층** | Spring MVC + **플랫폼 스레드**(`spring.threads.virtual.enabled=false`) | SB BOM | 정정(2026-09-21): 가상 스레드를 껐다. 학교 app-1에서 HikariCP `ConcurrentBag`의 연결 인계가 가상 스레드 대기자에게 성립하지 않아 반납·추가·예약해제가 `Thread.yield` 루프에 갇히는 라이브락이 발생했다(ADR 0033, §7-5). 이 뒤는 종전 선정 사유이며 현 설정이 아니다. ~~DB-heavy 워크로드에서 가상 스레드가 tail latency 우세.~~ JPA/JDBC 그대로 사용 → 완성도·유지보수 유리. |
-| **실시간 푸시** | **WebSocket + STOMP** (`spring-boot-starter-websocket`) | SB BOM | 호가/체결/잔고 다채널 구독. 공개 `/topic/**`=Redis Pub/Sub 릴레이, 비공개 `/user/queue/**`=**외부 STOMP 브로커 릴레이(RabbitMQ/ActiveMQ)로 크로스노드 user-destination 라우팅**(§5-1). |
+| **실시간 푸시** | **WebSocket + STOMP** (`spring-boot-starter-websocket`) | SB BOM | 호가/체결/잔고 다채널 구독. 공개 `/topic/**`=Redis Pub/Sub 릴레이, 비공개 `/user/queue/**`=**외부 STOMP 브로커 릴레이(RabbitMQ/ActiveMQ)로 크로스노드 user-destination 라우팅**(§5-1). 정정(v2.58, ADR 0034 S6): 채택한 배선은 노드 단위 중계다. 각 노드의 내장 SimpleBroker가 자기 세션을 맡고, 노드 사이는 RabbitMQ 4.3 STOMP 플러그인의 토픽 하나로 게시를 나눈다. 중계 클라이언트는 spring-messaging의 TCP STOMP 클라이언트이고 `io.projectreactor.netty:reactor-netty-core`(SB BOM)가 필요하다. 앞 문장의 Redis 릴레이와 세션 단위 브로커 릴레이는 채택하지 않았다(§5-1). |
 | **영속성(도메인)** | ~~Spring Data JPA / Hibernate 6.6.x~~ **미채택** | 없음 | 정정(2026-09-10): 의존과 사용처가 저장소에 0건이다. 실제 배선은 `spring-boot-starter-jdbc` 의 `JdbcClient` 하나다(`server/app/build.gradle.kts:19`). 낙관적 락은 `@Version` 이 아니라 SQL 로 건다. |
 | **영속성(핫패스 조회)** | **미채택**. 정정(2026-09-10): jOOQ 의존이 저장소에 0건이고 핫패스 조회도 `JdbcClient` 로 쓴다. 이 뒤는 종전 선정 사유이며 현 배선이 아니다. ~~jOOQ~~ (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
 | **DB 마이그레이션** | **Flyway** | **SB BOM 위임(3.5.x 관리 라인=11.x)** | SQL-first·저마찰. Liquibase 5.0 FSL 라이선스 이슈 회피. 정정(v2.2): 개별 핀 `12.9.0` 제거. Flyway는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 메이저 오버라이드(SB 3.5 자동구성이 검증한 11.x와 상이)였다. |
@@ -651,6 +652,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
     {"ask_price":"50010000","ask_size":"0.5","bid_price":"50000000","bid_size":"0.7"},
     {"ask_price":"50020000","ask_size":"1.2","bid_price":"49990000","bid_size":"0.4"} ] }
 ```
+> **seq·epoch를 내는 노드(v2.58, ADR 0034 S6)**: `seq`와 `epoch`는 그 마켓을 쥔 리더의 도메인이다. 그 마켓 파티션의 접수 게이트를 연 노드는 자기 채널 카운터와 그 기간의 epoch를 내고, 호가는 그 기간에 만든 엔진 호가 사본(없으면 DB 집계)이다. 쥐지 않은 노드는 자기 카운터를 내지 않는다. 중계 모드(§5-1)에서 다음 셋을 모두 채우면 미러(소유 노드가 마지막으로 게시한 호가와 그 `seq`·`epoch`)를 낸다. 중계 구독이 붙어 있다. 그 마켓 파티션 소유 노드의 하트비트(§5-1)를 지금 구독에서 최근 5초 동안 3개 이상 받았다. 미러 epoch가 그 마켓 리스의 현재 epoch와 같고, 미러 `seq`가 마지막 하트비트가 알린 그 마켓의 마지막 게시 `seq` 이상이다. 그 밖에는 DB 집계와 `seq: 0`, 리스의 현재 epoch를 낸다. 소유 노드의 발행이 막히거나(브로커 메모리 경보 등) 게시가 빠져 미러가 뒤처지면 구독 연결이 멀쩡해도 미러를 쓰지 않는다. `seq: 0`은 이 스냅샷이 seq 도메인의 기준점이 아니라는 표시다(카운터는 1부터 센다). 클라이언트는 상태만 반영하고 다음 realtime을 기준점으로 삼는다(§5-2). 종전에는 쥐지 않은 노드가 자기 카운터와, 강등된 노드면 옛 기간의 엔진 호가를 냈다. 구독 즉시 스냅샷(§5-2)도 같은 선택을 쓴다.
 
 #### 4-A-3. `GET /api/v1/trades?market=KRW-BTC&count=50` (opaque 커서)
 ```json
@@ -669,10 +671,11 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
     "change_rate":"0.0123","change_price":"605000",
     "high_24h":"51000000","low_24h":"49000000",
     "acc_trade_volume_24h":"1234.56","acc_trade_price_24h":"61728395000",
-    "best_bid":"50000000","best_ask":"50010000","seq":33120,
+    "best_bid":"50000000","best_ask":"50010000","seq":33120,"epoch":42,
     "timestamp":"2026-07-21T09:00:01.000Z" } ],
   "pagination":{"next_cursor":null,"has_more":false} }
 ```
+> **epoch(v2.58, ADR 0034 S6)**: 원소마다 `epoch`가 있다. 서버는 이전부터 냈고 이 문서가 빠뜨렸다. `seq`·`epoch`를 내는 노드의 규칙은 §4-A-2와 같다. 그 마켓을 쥐지 않은 노드는 `seq`·`epoch`만 소유 노드의 마지막 ticker 게시 번호(§4-A-2의 조건을 채운 미러)에서 가져오고, 나머지 값(마지막 체결가, 등락, 24시간 고가·저가·누적)은 쥔 노드와 같은 방식으로 요청 때 DB에서 계산한다. 24시간 값과 등락은 체결 없이도 시간이 지나면 바뀌므로 게시 본문을 그대로 내지 않는다. `best_bid`·`best_ask`는 조건을 채운 호가 미러에서, 없으면 DB 집계에서 가져온다. 미러를 쓸 수 없으면 `seq: 0`이다. 클라이언트는 이 epoch로 늦은 스냅샷을 거른다(§5-2).
 > **부호·크기 분리(v2.8)**: `change`(RISE/FALL/EVEN)가 부호 권위이고 `change_rate`·`change_price`는 **절대값**이다(색 단독 표현 금지 규칙의 데이터 근거). `change_price`는 24h 전 종가 대비 절대 금액을 quote scale로 HALF_UP, `change_rate`는 그 비율(절대)이다. `acc_trade_price_24h`는 24h 거래대금(Σ 체결가×수량)을 quote scale로 HALF_UP, `acc_trade_volume_24h`는 24h 체결 수량 합이다. 기준가(24h 전 종가)는 `executed_at ≤ now-24h`의 최근 체결가이며, 없으면 최초 체결가로 폴백한다. 24h 윈도에 체결이 없으면 집계값은 `null`/`"0"`이고 `change`는 `EVEN`이다.
 > **null 경계(v2.14)**: 체결 이력이 전혀 없는 마켓은 `trade_price`가 `null`이다. `high_24h`·`low_24h`는 24h 윈도 무체결 시, `best_bid`·`best_ask`는 해당 사이드 호가 공백 시 `null`. `change`·`change_rate`·`change_price`·`acc_trade_*`는 이때도 `EVEN`·`"0"`으로 non-null 유지. WS ticker(§5-4)도 동일 경계다.
 
@@ -870,13 +873,15 @@ POST /api/v1/orders
   "data":[
   { "currency":"KRW","balance":"1000000","locked":"50000",
     "avg_buy_price":"0","unit_currency":"KRW",
-    "cost_basis_qty":"0","cost_basis_amount":"0" },
+    "cost_basis_qty":"0","cost_basis_amount":"0","version":57 },
   { "currency":"BTC","balance":"0.49","locked":"0.01",
     "avg_buy_price":"49500000","unit_currency":"KRW",
-    "cost_basis_qty":"0.4","cost_basis_amount":"19800000" } ],
+    "cost_basis_qty":"0.4","cost_basis_amount":"19800000","version":12 } ],
   "pagination":{"next_cursor":null,"has_more":false} }
 ```
 불변식: `balance(=available) + locked = total`, 항상 `available ≥ 0`이고 `locked ≥ 0`(둘 다 DB CHECK).
+
+**잔고 판 `version`(v2.58 신설, ADR 0034 S6)**. 그 사용자·자산의 USER 계정 가운데 AVAILABLE·LOCKED 두 잔고 행의 `balances.version` 합이고, `balance`·`locked`와 같은 SQL 문장에서 읽는다(DB 설계 §4.1). JSON 숫자다. 성질은 셋이다. DB 타임라인 안에서 줄지 않는다. 값이 같으면 `balance`·`locked`도 같다. 수동 DB 승격으로 커밋이 사라졌거나 백업에서 복원하면 줄 수 있고, 그때는 같은 값이 다른 잔고를 가리킬 수도 있다. myAsset(§5-5) 항목의 같은 필드와 같은 값이라 둘을 비교할 수 있다. 클라이언트의 비교 규칙은 §5-2다. additive이며 읽지 않는 클라이언트는 종전과 같다.
 
 **원가 산출 규약(v2.21 신설)**. 서버는 평단가를 저장하지 않는다. 원가는 원장 순델타 파생 프로젝션(DB 설계 §6.4 ⑱⑲, `position_cost`)에 **누산기 쌍**으로만 적재되고, 평단가는 조회 시점에 그 쌍에서 산출한다. 평단가를 저장하면 취득마다 나눗셈 반올림이 누적되고 부분 처분이 그 오차를 확대하기 때문이다.
 
@@ -1130,6 +1135,11 @@ POST /api/v1/orders
     - **(A) 외부 STOMP 브로커 릴레이(권장, 채택안)**: `enableStompBrokerRelay(...)`로 **RabbitMQ(STOMP 플러그인) 또는 ActiveMQ**에 user-destination을 위임한다. 외부 브로커가 노드 간 user queue 라우팅을 담당하므로, 어느 노드에서 체결이 나든 세션이 붙은 노드로 정확히 전달된다. (SimpleBroker 대신 브로커 릴레이 사용.)
     - **(B) Spring 내장 + Redis 릴레이 조합**: `setUserRegistryBroadcast(...)`(노드 간 `UserRegistry` 공유)와 `setUserDestinationBroadcast(...)` + `brokerChannel`을 **Redis로 릴레이**하도록 구성한다. 노드가 해당 사용자의 세션을 로컬에 갖지 않으면 브로드캐스트 채널로 재전달 → 세션 보유 노드가 최종 전달.
   - **크로스노드 전달 보장**: 위 (A) 또는 (B) 구성 하에서, **사용자 세션 노드와 체결 발생 노드가 달라도 `/user/queue/**` 이벤트는 정확한 세션 노드로 전달됨을 보장**한다. 페일오버로 세션이 새 노드로 재연결되면, 클라이언트는 재연결 후 REST 스냅샷(주문/잔고 재조회)으로 재동기화한다(§5-2, §7-6).
+  - **채택한 배선(v2.58, ADR 0034 S6): 노드 단위 중계.** 위 (A)·(B) 어느 쪽도 쓰지 않는다. 각 앱 노드의 내장 SimpleBroker가 종전처럼 자기 WS 세션의 구독과 전달을 맡는다. 마켓을 쥔 노드는 게시를 자기 내장 브로커로 보낸 뒤 같은 JSON 본문을 봉투에 담아 외부 STOMP 브로커의 토픽 `/topic/exch.bus.v1`로 보낸다. 모든 노드는 그 토픽을 구독하고, 자기가 보낸 봉투를 빼고 자기 내장 브로커로 다시 보낸다. 사용자 봉투는 `convertAndSendToUser`로 보내므로 그 사용자의 세션이 있는 노드에서만 전달된다. 봉투 머리글은 `x-v`(1), `x-origin`(보낸 노드), `x-kind`(`topic`·`user`·`hb`), `x-dest`(클라이언트 목적지), `x-user`, `x-market`, `x-partition`(`hb`), `x-epoch`, `x-seq`, `x-sent-at`이다. 받는 노드는 `x-dest`가 §5-3의 목적지 모양(사용자는 `/queue/myOrder`·`/queue/myAsset`)이 아니거나 `x-user`가 숫자가 아니거나, 하트비트의 `x-partition`이 파티션 계획에 없으면 버린다. 브라우저는 브로커에 붙지 않는다. 세션 단위 중계를 쓰지 않은 이유는 브로커 메모리가 세션 수에 비례하고(RabbitMQ 세션당 약 0.65MiB), 브로커가 없을 때 앱 게시가 예외가 되며 모든 WS 세션이 `ERROR`로 끊기기 때문이다(`harness/evidence/pml-s6-probe-20260925/`).
+  - **소유 노드 하트비트.** 중계 모드에서 파티션의 접수 게이트를 연 노드는 그 파티션마다 1초 간격으로 하트비트 봉투(`x-kind:hb`, `x-partition`, `x-epoch`는 그 기간의 epoch)를 게시와 같은 발행 큐로 보낸다. 본문은 그 파티션 마켓마다 이 노드가 마지막으로 게시한 호가·티커의 `[epoch, seq]`다. 다른 노드는 이것으로 소유 노드의 게시가 자기에게 이어지는지(최근 5초에 3개 이상 받으면 닿는다), 자기 미러가 마지막 게시를 따라잡았는지를 본다(§4-A-2). 하트비트는 클라이언트에 전달하지 않는다.
+  - **브로커와 연결.** RabbitMQ 4.3 STOMP 플러그인, 가상 호스트 `exchange`, 계정 하나. 노드마다 발행 연결과 구독 연결을 따로 둔다(메모리 경보가 발행 연결을 막아도 구독은 계속된다). 하트비트 `5000,5000`. 구독은 `ack:client`(누적 확인), `prefetch-count:1000`, `x-max-length:5000`, `x-max-length-bytes:4194304`, `x-message-ttl:10000`이다. 발행은 쓰기 완료를 1초까지 기다리고, 넘거나 연결이 끊기면 발행 큐를 비우고 발행 연결을 SO_LINGER 0으로 끊은 뒤 다시 붙는다. 넣은 지 2초 넘은 봉투는 보내지 않는다. 전달은 최대 한 번이고 브로커는 이력을 다시 보내지 않는다. 빠진 메시지는 클라이언트가 §5-2의 결번·epoch 규칙으로 알아채고 REST로 맞춘다. 모드는 `exchange.ws.relay.mode`이고 기본값 `simple`은 중계 없이 단일 노드 게시다.
+  - **브로커 장애.** REST는 중계를 기다리지 않으므로 그대로 동작한다. 게시는 커밋 뒤이고 봉투는 기다리지 않는 큐에 넣으며 넘치면 버린다. 자기 노드의 게시는 자기 세션에 계속 간다. 달라지는 것은 쥐지 않은 노드의 호가·티커가 미러 대신 DB 집계와 `seq: 0`을 내는 것이다(§4-A-2). 모든 마켓을 쥐지 않은 노드는 중계 불능이면 WS 세션을 닫고 새 핸드셰이크를 거절한다(§5-6). 중계 불능은 구독 연결이 5초 넘게 끊겼거나, 그 노드가 쥐지 않은 파티션의 리스를 다른 노드가 유효하게 쥐었는데 그 소유 노드가 리스 TTL + 3초 넘게 닿지 않는 것이다. 뒤의 조건이 메모리 경보처럼 구독 연결은 멀쩡하고 발행만 막힌 경우를 잡는다. 리스가 유효하다는 조건 때문에 소유 노드가 죽은 경우(리스가 TTL 안에 만료된다)는 중계 불능으로 보지 않는다. 모든 마켓을 쥔 노드(P1·P2 리더)는 닫지 않는다.
+  - **조회 노드.** 조회 전용 노드(`prod,read`)는 `/ws/v1`을 받지 않는다(404). 인그레스는 `/ws/*`를 매칭 노드(app-1·app-2)로만 보낸다.
 - 공개 채널: 인증 불필요. 비공개(`/user/**`): `CONNECT` 시 JWT 필요.
 - **heart-beat(신규)**: `10000,10000`(10s). 슬로우 컨슈머는 송신 버퍼 상한 초과 시 해당 subscription **드롭 후 절단**(백프레셔). 연결당 **최대 구독 채널 50개** 상한. 상한 초과 SUBSCRIBE는 **§5-6 구독 거절 규약을 준용**한다(v2.5: RECEIPT 미발급 + 해당 subscription으로 `subscription_rejected` 통지 MESSAGE 1건 후 서버측 해제, 연결·기존 구독은 유지).
 
@@ -1138,9 +1148,13 @@ POST /api/v1/orders
 - **`seq`는 채널 단위 단조 증가**로 정의. **일반 규칙(v2.3): seq 도메인 = 구독 destination 단위**다. 공개 채널의 채널 단위 = market × type이며, **unit 차원이 있는 candle은 `market × type × unit` 단위 독립 단조 증가**다(`/topic/candle.1m.KRW-BTC`와 `/topic/candle.5m.KRW-BTC`는 독립 seq 도메인. 1m만 구독한 클라이언트가 5m/1d 증가분으로 false-gap을 감지하는 일 없음). 예: `orderbook.KRW-BTC`와 `trade.KRW-BTC`는 각자 독립 seq 도메인. 특정 채널(destination)만 구독해도 false-gap 없음.
 - **seq 도메인의 두 실현(v2.11 확정)**: 채널 seq는 종류에 따라 두 방식으로 실현하되 둘 다 채널 단위 단조 증가라는 상위 규칙을 지킨다. (1) 팬아웃 대상이 점 상태인 `orderbook`·`ticker`와 비공개 `myOrder`·`myAsset`은 노드 인메모리 조밀 카운터로 실현한다(destination당 +1 단조, 공개 채널의 REST 스냅샷은 현재 카운터값 §4-A-2·§4-A-4, 연속성 판정 = 다음 seq가 직전 +1). 비공개 두 채널은 REST 스냅샷에 seq 도메인이 없어 기준점을 다음 realtime으로 잡는다(아래 구독 즉시 계약). (2) 팬아웃 대상이 영속 이벤트 리스트인 `trade`·`candle`은 `event_seq`로 실현한다(`trade` seq = event_seq, `candle` seq = 버킷 최대 event_seq, REST 리스트 스냅샷 §4-A-3·§4-A-5와 **동일 값·동일 도메인**). (2)는 리스트 스냅샷의 과거 행이 저마다 seq를 지녀야 하는데 인메모리 카운터로는 과거 행 값을 재구성할 수 없어 영속 축(event_seq)을 쓴다. `event_seq`는 전역 유일한 마켓 대역 파생 값이고(`market_id * band_span + market_seq`. `band_span`은 `journal_band_spec('event_seq')`이고 V36~V45는 10^7, V46부터 10^12다. 결번 없는 축은 마켓 안 `market_seq`) 채널은 그 마켓 이벤트의 일부만 실어 채널 내에서는 sparse 단조 증가이므로 **연속성 판정은 strictly-increasing**(`seq ≤ 기준`은 중복·역행 폐기, `seq > 기준`은 순서대로 수용)이며 조밀 +1을 요구하지 않는다. V46 확대 경계에서 한 마켓의 값이 10^7 대역에서 10^12 대역으로 뛰어도 계속 커지므로 판정이 같고, 최댓값 64 x 10^12는 JavaScript 안전 정수 2^53 안이다. 어느 실현이든 REST 스냅샷 seq가 곧 WS 라이브 seq 기준점이라, 재연결·gap·epoch 교체 후 재동기화에서 라이브가 도메인 불일치로 폐기되는 영구 정지가 없다.
 - **비공개 채널의 seq 도메인(v2.2 확정)**: `myOrder`/`myAsset`은 market 차원이 없으므로 **`user × type` 단위 독립 단조 증가**로 정의한다(사용자별·채널별 별도 카운터, 두 채널 간 번호 공유 없음). gap 감지·재동기화도 이 도메인 기준으로 수행한다(불연속 감지 시 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 재동기화).
+- **비공개 채널 seq 도메인의 중계 모드 판(v2.58, ADR 0034 S6)**: 중계 모드(`exchange.ws.relay.mode=broker`, §5-1)에서는 `myOrder`·`myAsset`의 seq 도메인이 `user × market`이고 두 메시지에 `"seq_domain":"user_market"`을 싣는다. 한 마켓은 한 순간 그 파티션의 리더 하나만 게시하므로 이 도메인은 노드 하나의 카운터로 조밀하다. 클라이언트는 채널 안에서 마켓마다 기준점을 따로 두고, 한 마켓의 결번이면 그 채널을 REST로 재동기화한다. 재동기화 중 쌓인 메시지도 마켓마다 조밀 검사를 한다. `seq_domain`이 없으면 종전 `user × type` 도메인이다(`simple` 모드와 이전 서버).
 - **전역 순서가 필요하면 `global_seq` 병기**(선택). gap 감지는 채널 seq로만 수행.
-- **`epoch`(리더 세대)**: 모든 WS·orderbook REST 페이로드에 포함. 페일오버로 새 리더가 seq 도메인을 재설정하면 epoch 증가. **클라이언트는 epoch 변화 감지 시 무조건 REST 스냅샷 재동기화**(backward/중복 seq 오인 방지). (v2.55, ADR 0034 S4) 서버는 이 값을 그 마켓 파티션 리스의 epoch로 낸다. P1·P2에서는 파티션이 `matching-engine` 하나라 종전과 같은 값이다. 파티션 리더 모드(P3)의 마켓별 재동기화 계약은 S6에서 정한다.
-- **구독 즉시 계약(v2.4 적용 범위 확정, orderbook 채널 한정)**: **orderbook 채널에 한해** SUBSCRIBE 성공 → 서버가 `stream:"snapshot"` 1건 전송(현재 호가 전체 상태 + 경계 `seq`) → 이후 `stream:"realtime"`. snapshot의 seq가 이후 realtime 연속성의 기준점. **스냅샷·realtime 순서 역전(v2.7)**: 스냅샷 전송과 realtime 게시는 경합할 수 있어 구독 직후 realtime이 스냅샷보다 먼저 도착하거나 `seq <= snapshot.seq`인 realtime이 스냅샷 이후 도착할 수 있다. 클라이언트는 `seq <= snapshot.seq`인 realtime을 **폐기**하고, `seq > snapshot.seq`부터 연속성 검사를 시작한다. 서버가 스냅샷 산출과 게시를 직렬화하더라도 이 클라이언트 계약은 유지된다(전달 계층 재정렬 방어). **기준점 전진 규칙(v2.20, 동일 epoch 내 한정)**: 스냅샷 수신 전에 realtime이 먼저 도착했으면 그 realtime의 seq가 임시 기준점이고, 뒤이어 도착한 스냅샷은 `snapshot.seq > 기준점`일 때만 채택한다. 낮은 seq 스냅샷을 채택하면 이미 표시한 호가가 과거 상태로 되돌고(전체 상태 메시지라 화면이 즉시 역행한다) 이어지는 realtime이 결번 판정을 받아 불필요한 재동기화를 부른다. 같은 epoch 안에서는 REST 재동기화 스냅샷을 포함해 어느 경로에서도 기준점이 내려가지 않는다. **epoch 교체는 이 규칙의 예외이며 상위 규칙이 아래 epoch 규칙이다(인메모리 카운터 실현 채널 한정)**: `orderbook`·`ticker`·`myOrder`·`myAsset`의 seq는 노드 인메모리 카운터라 리더가 바뀌면 낮은 값에서 다시 시작하므로, epoch 변화를 감지하면 클라이언트는 이 채널들의 기준점을 **비우고**(전진 비교를 하지 않고) 재동기화 스냅샷을 새 기준점으로 채택한다. 이 예외가 없으면 신 리더 메시지가 구 리더 기준점에 막혀 채널이 영구 정지한다. 반대로 `trade`·`candle`은 전역 영속 `event_seq` 실현이라 교체로 리셋되지 않으므로 **기준점을 유지**한다. 여기서 기준점을 비우면 재동기화가 기수신 체결을 재전달해 캔들 합성이 이중계상한다. **`stream` 필드는 orderbook 채널 메시지에만 존재**한다. §5-4 trade/ticker/candle 및 §5-5 myOrder/myAsset 스키마에 `stream` 필드가 없는 것이 계약이며, 클라이언트 파서는 해당 채널에서 이 필드를 기대하지 않는다. **여타 채널(trade/ticker/candle/myOrder/myAsset)은 snapshot 메시지를 전송하지 않으며**, 연속성 기준 seq는 **구독 후 첫 realtime 메시지의 seq**다(그 이후의 불연속만 gap으로 판정). 상태 초기값이 필요한 비공개 채널은 구독 직후 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 초기 상태를 확보한다(아래 비공개 도메인 재동기화 규칙과 동일 소스).
+- **`epoch`(리더 세대)**: 모든 WS·orderbook REST 페이로드에 포함. 페일오버로 새 리더가 seq 도메인을 재설정하면 epoch 증가. **클라이언트는 epoch 변화 감지 시 무조건 REST 스냅샷 재동기화**(backward/중복 seq 오인 방지). (v2.55, ADR 0034 S4) 서버는 이 값을 그 마켓 파티션 리스의 epoch로 낸다. P1·P2에서는 파티션이 `matching-engine` 하나라 종전과 같은 값이다. 파티션 리더 모드(P3)의 마켓별 재동기화 계약은 S6에서 정한다. (v2.58, ADR 0034 S6) WS 메시지의 epoch는 그 메시지를 만든 라이터 기간의 epoch이고, REST 호가·티커는 §4-A-2의 선택이 정한 epoch다. epoch는 DB 타임라인 하나 안에서 파티션 사이에 유일하고 배정 순서대로 커지므로(ADR 0034 결정 3) 같은 마켓에서는 큰 값이 뒤의 리더 기간이다. 다른 마켓끼리는 파티션이 다를 수 있어 비교하지 않는다.
+- **마켓별 epoch 비교(v2.58, ADR 0034 S6)**: 클라이언트는 epoch를 마켓마다 따로 기억한다. 메시지의 마켓은 공개 채널이면 목적지나 `market`, 비공개 채널이면 `market`이다(`market`이 없는 이전 서버의 myAsset은 epoch를 보지 않는다). 처음 본 마켓은 기록한다. 기억보다 작은 epoch의 메시지는 버린다. 큰 epoch를 받으면 기억을 올리고 **그 마켓만** 재동기화한다. 그 마켓의 인메모리 카운터 채널(orderbook·ticker)은 기준점을 비우고 REST 스냅샷을 새 기준점으로 받고, trade·candle은 기준점을 둔 채 REST로 메우며, 비공개 두 채널은 한 번 REST로 맞춘다. 여러 마켓의 epoch가 잇달아 오르면(P2 페일오버) 비공개 재동기화는 300ms 창으로 모아 한 번 한다. 다른 마켓의 채널은 건드리지 않는다. 작은 epoch의 메시지만 10초 넘게 이어지고 그 사이 그 마켓의 메시지를 하나도 받지 않았으면 그 마켓의 기억을 지우고 재동기화한다. 수동 DB 승격이나 복원으로 epoch가 되돌아간 경우 채널이 영구히 멈추지 않게 하려는 것이다. REST 스냅샷의 epoch가 기억보다 작으면 그 스냅샷을 버리고, 크면 기억을 올린다. 재연결은 종전처럼 모든 채널을 재동기화하되 기억은 지우지 않는다. P1·P2에서는 모든 마켓이 같은 epoch라 종전의 전역 비교와 결과가 같다.
+- **`seq: 0` 스냅샷(v2.58, ADR 0034 S6)**: REST 호가·티커나 구독 즉시 스냅샷의 `seq`가 0이면 그 스냅샷은 기준점이 아니다(§4-A-2). 클라이언트는 상태만 반영하고 그 채널의 기준점을 비운다. 다음 realtime이 기준점이다.
+- **myAsset 버전 판정(v2.58, ADR 0034 S6)**: 클라이언트는 myAsset 자산 항목과 계좌 조회 원소의 `version`(§4-C-1)으로 통화마다 새 값을 가린다. 게시 노드가 둘이면 같은 자산의 두 메시지가 순서가 뒤집혀 올 수 있고, seq는 노드마다 달라 순서를 말하지 못한다. 실시간 항목은 이렇게 다룬다. 둘 다 version이 있으면 큰 값과 같은 값은 적용하고, 작으면 적용하지 않고 계좌를 다시 조회한다. 같은 값을 적용하는 이유는 원가 필드(`avg_buy_price`, `cost_basis_qty`, `cost_basis_amount`)가 version에 들지 않기 때문이다. 원가 재구축은 잔고를 바꾸지 않고 원가만 고치므로(DB 설계 §4.1) 같은 version의 항목이 새 원가를 싣고 올 수 있다. 같은 version이면 `balance`·`locked`는 같은 값이다. 항목에만 있으면 적용하고 한 번 다시 조회한다. 기억한 값에만 있으면 비교할 수 없으므로 적용하지 않고 다시 조회한다. 둘 다 없으면 종전처럼 덮어쓴다. 계좌 조회 응답은 권위이지만 늦게 올 수 있다. 그래서 요청을 보낼 때의 통화별 version을 기억하고, 응답 version이 지금 값 이상이면 적용하며, 지금 값보다 작지만 요청 때 값 이상이면 그 통화는 지금 값을 둔다(요청 뒤에 더 새 실시간이 왔다). 요청 때 값보다도 작으면 DB가 되돌아간 것이므로 적용한다. version 때문에 부르는 재조회는 2초에 한 번으로 묶는다.
+- **구독 즉시 계약(v2.4 적용 범위 확정, orderbook 채널 한정)**: **orderbook 채널에 한해** SUBSCRIBE 성공 → 서버가 `stream:"snapshot"` 1건 전송(현재 호가 전체 상태 + 경계 `seq`) → 이후 `stream:"realtime"`. snapshot의 seq가 이후 realtime 연속성의 기준점. **스냅샷·realtime 순서 역전(v2.7)**: 스냅샷 전송과 realtime 게시는 경합할 수 있어 구독 직후 realtime이 스냅샷보다 먼저 도착하거나 `seq <= snapshot.seq`인 realtime이 스냅샷 이후 도착할 수 있다. 클라이언트는 `seq <= snapshot.seq`인 realtime을 **폐기**하고, `seq > snapshot.seq`부터 연속성 검사를 시작한다. 서버가 스냅샷 산출과 게시를 직렬화하더라도 이 클라이언트 계약은 유지된다(전달 계층 재정렬 방어). **기준점 전진 규칙(v2.20, 동일 epoch 내 한정)**: 스냅샷 수신 전에 realtime이 먼저 도착했으면 그 realtime의 seq가 임시 기준점이고, 뒤이어 도착한 스냅샷은 `snapshot.seq > 기준점`일 때만 채택한다. 낮은 seq 스냅샷을 채택하면 이미 표시한 호가가 과거 상태로 되돌고(전체 상태 메시지라 화면이 즉시 역행한다) 이어지는 realtime이 결번 판정을 받아 불필요한 재동기화를 부른다. 같은 epoch 안에서는 REST 재동기화 스냅샷을 포함해 어느 경로에서도 기준점이 내려가지 않는다. **epoch 교체는 이 규칙의 예외이며 상위 규칙이 아래 epoch 규칙이다(인메모리 카운터 실현 채널 한정)**: `orderbook`·`ticker`·`myOrder`·`myAsset`의 seq는 노드 인메모리 카운터라 리더가 바뀌면 낮은 값에서 다시 시작하므로, epoch 변화(v2.58부터 그 채널 마켓의 epoch 상승)를 감지하면 클라이언트는 이 채널들의 기준점을 **비우고**(전진 비교를 하지 않고) 재동기화 스냅샷을 새 기준점으로 채택한다. 이 예외가 없으면 신 리더 메시지가 구 리더 기준점에 막혀 채널이 영구 정지한다. 반대로 `trade`·`candle`은 전역 영속 `event_seq` 실현이라 교체로 리셋되지 않으므로 **기준점을 유지**한다. 여기서 기준점을 비우면 재동기화가 기수신 체결을 재전달해 캔들 합성이 이중계상한다. **`stream` 필드는 orderbook 채널 메시지에만 존재**한다. §5-4 trade/ticker/candle 및 §5-5 myOrder/myAsset 스키마에 `stream` 필드가 없는 것이 계약이며, 클라이언트 파서는 해당 채널에서 이 필드를 기대하지 않는다. **여타 채널(trade/ticker/candle/myOrder/myAsset)은 snapshot 메시지를 전송하지 않으며**, 연속성 기준 seq는 **구독 후 첫 realtime 메시지의 seq**다(그 이후의 불연속만 gap으로 판정). 상태 초기값이 필요한 비공개 채널은 구독 직후 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 초기 상태를 확보한다(아래 비공개 도메인 재동기화 규칙과 동일 소스).
 - **gap 감지 → 재동기화 규칙**: 클라이언트가 `seq` 불연속 감지 시 REST 스냅샷(`GET /orderbook`, epoch 포함)으로 재동기화 후, 스냅샷 `seq` 이후 realtime 재개.
 
 ### 5-3. STOMP 구독 경로
@@ -1200,19 +1214,21 @@ POST /api/v1/orders
   "timestamp":"2026-07-21T09:00:01.060Z" }
 ```
 > myOrder의 `trade.trade_id`·`timestamp` 역시 §4-A-3 규약을 따른다(event_seq 파생·engine_ts 파생, 재구축 시 동일. v2.6).
+> **중계 모드 필드(v2.58, ADR 0034 S6)**: 중계 모드에서는 `"seq_domain":"user_market"`을 싣고 seq 도메인이 user × market이다(§5-2). `epoch`는 그 주문 마켓의 라이터 기간 epoch다. `simple` 모드는 이 필드가 없고 도메인이 종전과 같다.
 
 **myAsset** (`/user/queue/myAsset`)
 ```json
-{ "schema_version":"1.0","type":"myAsset","epoch":42,"seq":7203,
+{ "schema_version":"1.0","type":"myAsset","market":"KRW-BTC","epoch":42,"seq":7203,
   "assets":[
     {"currency":"KRW","balance":"500000","locked":"300000",
      "avg_buy_price":"0","unit_currency":"KRW",
-     "cost_basis_qty":"0","cost_basis_amount":"0"},
+     "cost_basis_qty":"0","cost_basis_amount":"0","version":58},
     {"currency":"BTC","balance":"0.493998","locked":"0.01",
      "avg_buy_price":"50025013","unit_currency":"KRW",
-     "cost_basis_qty":"0.003998","cost_basis_amount":"200000"}],
+     "cost_basis_qty":"0.003998","cost_basis_amount":"200000","version":13}],
   "timestamp":"2026-07-21T09:00:01.061Z" }
 ```
+> **마켓과 잔고 판(v2.58, ADR 0034 S6)**: `market`은 이 게시를 만든 명령의 마켓이고 `epoch`는 그 마켓의 라이터 기간 epoch다. 한 게시는 명령 하나의 방출이라 마켓이 하나다. 자산 항목의 `version`은 §4-C-1의 잔고 판이다. 두 필드는 두 모드에 모두 싣고, 중계 모드에서는 `"seq_domain":"user_market"`도 싣는다. 클라이언트는 자산 사이의 새 값을 seq가 아니라 `version`으로 가린다(§5-2). 이전 서버의 메시지에는 두 필드가 없다.
 > **원가 필드(v2.21 신설)**: 항목 스키마가 §4-C-1과 같은 필드 집합을 쓴다. 산출 규약·원가 미상 유도식·`"0"`의 의미는 전부 §4-C-1 정본을 따르며 여기서 다시 정의하지 않는다. **델타에 이 필드를 싣는 것이 계약이다**: 평단가는 매수 체결마다 바뀌는데 델타에 없으면 클라이언트가 직전 값을 보존할 수밖에 없고, 그 보존이 매수마다 낡은 평단가를 화면에 남긴다(`GET /accounts` 재적재 전까지 틀린 값). 위 예시는 초기 BTC 0.49가 전량 원가 미상(시드 취득)이고 이번 bid 체결로 0.003998만 원가를 확보한 상태다. `200000 / 0.003998 = 50025012.506…`을 KRW scale 0으로 HALF_UP 반올림해 `50025013`이며, 원가 미상 수량은 `0.493998 + 0.01 - 0.003998 = 0.5`로 유도된다. 반올림값과 원본 금액이 함께 실리므로 클라이언트는 총매수를 `cost_basis_amount`로 계산한다.
 > v2.7: 위 myOrder(bid) 체결과 **동일 시나리오를 DB 설계 §5.2 모델(수취 자산 수수료, 예약 무수수료)로 재계산한 정합 예시**다. 초기 KRW 1,000,000·BTC 0.49 가정. bid 0.01@50,000,000 접수 시 KRW **500,000 락**(대금만. 수수료는 예약하지 않는다) → balance 500,000. 0.004 체결로 락에서 **200,000 차감**(체결대금) → locked 300,000. **매수 체결 수취는 BTC**이며 taker 수수료 0.000002 BTC(0.004×0.0005)를 차감한 **순액 +0.003998**이 balance에 게시 → 0.493998(bid는 KRW를 락, BTC locked 무변화). BTC locked 0.01은 이 주문과 무관한 기존 매도 주문 락(§4-C-1 기준과 동일). `seq:7203`은 myOrder(51001)와 **독립 도메인**(user × type, §5-2)임을 보이는 예시 번호다. 이 예시는 반올림 잔차가 0인 수치이며, 잔차가 발생하는 부분체결 조합에서는 §4-B-5 규약대로 자산별 마지막 FEE leg가 잔차를 흡수하고 최종 체결이 실제 잔여 락을 소비하므로 FILLED 시 이 주문 기여분의 locked는 정확히 0이 된다.
 
@@ -1240,6 +1256,8 @@ POST /api/v1/orders
    # 연결은 유지, 정상 구독(sub-0)은 계속 수신
 ```
 CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `ERROR` 프레임 후 절단). 개별 SUBSCRIBE 실패는 **ERROR 프레임 없이**(RECEIPT 미발급 + `subscription_rejected` 통지 MESSAGE) 해당 subscription만 거절. 표준 STOMP 1.2 클라이언트와의 상호운용을 위해 ERROR는 연결 종료 상황에만 사용한다(v2.2).
+
+**WS 수용 조건과 거절(v2.58, ADR 0034 S6)**. 노드는 모든 마켓의 게시를 세션에 줄 수 있을 때만 `/ws/v1`을 받는다. 조건은 두 모드가 같다. 모든 파티션의 접수 게이트를 연 노드(P1·P2 리더)는 늘 받는다. `simple` 모드에서 쥐지 않은 파티션의 리스를 다른 노드가 유효하게 쥐었으면 받지 않는다(`relay_required`). 두 노드 배치의 팔로워와 P3의 한쪽 노드가 여기에 든다. 리스가 만료됐거나 자기 것이면 받는다(앱 노드가 하나인 배치의 기동 직후). 엔진을 끈 노드는 파티션을 쥐지 못하므로 두 모드 모두 늘 받지 않는다(`relay_required`). 중계 모드에서는 중계 불능(§5-1 브로커 장애)이면 받지 않는다(`relay_unavailable`). 받지 않는 노드는 핸드셰이크를 업그레이드 전에 `503`과 `Retry-After: 5`로 거절한다. 업그레이드 뒤에 닫으면 인그레스에는 성공으로 보여 다른 노드로 넘기지 않으므로 업그레이드 전에 거절한다(nginx `proxy_next_upstream http_503`, `harness/evidence/pml-s6-probe-20260925/` N1). 이미 열린 세션은 받지 않게 되는 순간 WebSocket 종료 코드 1013(이유 `relay_required` 또는 `relay_unavailable`)으로 닫는다. STOMP `ERROR` 프레임을 쓰지 않아 CONNECT 인증 실패와 구분된다. 클라이언트는 종전 재연결 규칙(지수 백오프)대로 다시 붙고, 붙으면 모든 채널을 REST로 맞춘다. 같은 판정을 헬스 그룹 `ws`(`/actuator/health/ws`, 받지 않으면 503)로도 낸다. 거절 수는 `exchange.ws.relay.handshake_refused{reason}`(`relay_unavailable`, `relay_required`)로 센다.
 
 ---
 
@@ -2347,3 +2365,19 @@ ADR 0034 S5(REST 라우팅과 요청 경계)의 응답 계약을 코드보다 �
 같은 날 S5 문서 단계에서 표지 하나를 고쳤다. 버전은 그대로 v2.57이다. 응답 규칙은 바꾸지 않았다.
 
 - **§2-5-c의 DB 연결 장애 `503` 규칙은 사용자 확정(2026-09-25)이다.** v2.56이 AI 선택으로 적은 규칙(`500` 대신 `503` + `Retry-After` + '재조회 후 판단 필요', 멱등 키와 예약은 V47 규칙대로 남김)을 사용자가 확정해 §2-5-c 머리 문단과 '인그레스 영향' 항목의 표지를 바꿨다. 인그레스 비용을 줄이는 방법은 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-6과 12-7에 있다.
+
+## v2.58 패치 반영 사항
+
+ADR 0034 S6(WebSocket 외부 브로커 중계)의 계약을 코드보다 먼저 고친다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md`, DB 쪽 계약은 `docs/reference/contracts/백엔드_DB_설계.md` v2.58 §4.1이다. 브로커·nginx 동작 확인과 Spring 바이트코드 확인은 `harness/evidence/pml-s6-probe-20260925/`에 있다. 새 마이그레이션은 없다. 2026-09-25 갱신.
+
+- **§5-1에 채택한 배선을 적는다.** 노드 단위 중계다. 각 노드의 내장 SimpleBroker가 자기 세션을 맡고 노드 사이는 외부 STOMP 브로커(RabbitMQ 4.3)의 토픽 하나로 게시를 나눈다. 종전 (A)안(세션 단위 `enableStompBrokerRelay`)과 (B)안(Redis 릴레이)은 채택하지 않았다. 폐기용 컨테이너 확인에서 세션 단위 중계는 브로커 메모리가 세션당 약 0.65MiB로 늘었고 t3.small 흉내 설정에서 200 세션에 메모리 경보가 났으며, Spring 6.2.19는 브로커가 없을 때 앱 게시에 예외를 던지고 모든 클라이언트 세션에 `ERROR`를 보낸다. 노드 단위는 연결이 노드 수의 두 배로 고정되고 브로커가 80~125MiB에 머물렀다. 브로커 장애 때 REST는 그대로이고, 모든 마켓을 쥐지 않은 노드는 중계가 5초 넘게 끊기면 WS를 닫고 거절한다(§5-6). §0-2 그림과 §1 실시간 푸시 행도 맞췄다.
+- **§5-2에 마켓별 epoch 비교를 적는다.** 파티션마다 epoch가 다르므로 클라이언트는 마켓마다 기억하고, 작은 epoch는 버리고, 큰 epoch는 그 마켓만 재동기화한다. 작은 epoch만 10초 이어지면 그 마켓의 기억을 지운다(DB 타임라인 변경 대비). 비공개 채널의 seq 도메인은 중계 모드에서만 user × market이고 `seq_domain` 필드로 가른다. myAsset은 `version`으로 새 값을 가리고 비교할 수 없으면 계좌를 다시 조회한다. `seq: 0` 스냅샷은 기준점이 아니다.
+- **§4-A-2·§4-A-4에 호가·티커의 seq·epoch를 내는 노드를 적는다.** 그 마켓을 쥔 노드는 자기 카운터, 쥐지 않은 노드는 중계 미러나 DB 집계와 `seq: 0`이다. 종전에는 쥐지 않은 노드가 자기 카운터와, 강등된 노드면 옛 엔진 호가를 냈다. 티커 원소의 `epoch`는 서버가 이미 내던 값을 문서에 올린 것이다.
+- **§4-C-1·§5-5에 잔고 판 `version`과 myAsset `market`을 더한다.** 두 잔고 행 `balances.version`의 합이다. additive다.
+- **§5-6에 핸드셰이크 거절을 적는다.** 중계 불능 노드와 P3의 `simple` 모드 노드는 업그레이드 전에 `503`으로 거절하고, 열린 세션은 1013으로 닫는다.
+
+중계 모양, 브로커 제품, 비공개 도메인의 모드 한정, 비소유 노드의 `seq: 0`, 중계 불능 거절 규칙, 10초 감시는 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다(S6 설계 10절). 문서 헤더 버전을 v2.58 으로 순증.
+
+같은 날 설계 검토 지적 14건을 반영해 이 판을 고쳤다. 버전은 그대로 v2.58이다. 첫 판은 비소유 노드의 미러 사용과 중계 불능을 그 노드의 구독 연결로만 판정했다. 브로커 메모리 경보는 발행 연결만 막고 구독 연결은 살려 두므로(`harness/evidence/pml-s6-probe-20260925/` R11a), 그 판은 멈춘 미러를 `seq`≠0 기준점으로 계속 냈고 WS 세션을 조용히 멈춘 채 두었다. 다시 붙은 뒤에는 끊긴 동안 잃은 게시를 모른 채 끊기기 전 미러를 곧바로 썼다. 그래서 소유 노드의 1초 하트비트와 그것으로 판정하는 미러 조건(§4-A-2)과 중계 불능 조건(§5-1)을 더했다. `simple` 모드의 두 노드 배치에서 팔로워 세션이 실시간을 받지 못하는 것도 막지 않았으므로 WS 수용 조건을 두 모드에 같게 두었다(§5-6). 비소유 노드의 티커는 게시 본문을 그대로 내면 24시간 값이 옛 값이 되므로 번호만 미러에서 가져온다(§4-A-4). myAsset의 같은 version을 무시하면 원가 재구축 뒤 원가 갱신을 잃으므로 같은 version도 적용한다(§5-2). 구독 상한은 폐기용 확인(R9·R10) 뒤 건수 5,000과 바이트 4MiB로 좁혔고, 발행 연결은 쓰기 시간 초과 때 SO_LINGER 0으로 끊는다(R11a·R11b, §5-1). 대응 근거는 S6 설계 11절이다. 하트비트 판정 문턱(5초에 3개, 리스 TTL + 3초), `simple` 모드의 거절 조건, 구독 상한 값은 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다.
+
+같은 날 S6 브랜치(`claude/pml-s6`)를 S5 위에 병합하며 이 판의 번호를 v2.57에서 v2.58로 옮겼다. 두 브랜치가 같은 v2.56을 기준으로 v2.57을 매겼고, 먼저 들어간 S5가 v2.57을 쓴다. 내용은 바꾸지 않았다. S5가 고친 절(§2-3·§2-5·§2-5-c 표지·§2-5-d·§3-3·§3-4·§4-B-1·§4-B-2·§4-B-3·§4-B-6·§6-E)과 이 판이 고친 절은 겹치지 않는다. §2-5-d의 소유권 선검사는 주문 쓰기(`POST /api/v1/orders`, `POST /api/v1/orders/batch`, `DELETE /api/v1/orders`와 그 아래 경로)에만 걸리고, §4-A-2·§4-A-4의 호가·티커 조회와 §5의 `/ws/v1`에는 걸리지 않는다(`MarketRoutingFilter.target`, 필터 등록은 `/api/v1/*`). 그래서 마켓을 쥐지 않은 노드도 선검사 `503` 없이 §4-A-2의 규칙대로 미러나 DB 집계로 호가·티커에 답하고, WS 수용은 §5-6의 게이트만 가른다.
