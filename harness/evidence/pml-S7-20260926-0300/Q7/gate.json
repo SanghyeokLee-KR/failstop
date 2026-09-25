@@ -1,0 +1,19 @@
+{
+  "experiment": "Q7",
+  "started": "2026-09-25T18:54:33.2668152Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "result": {
+    "runner": "adr0022-stage5-chaos.ps1",
+    "experiment": "E6",
+    "runnerRc": 0,
+    "runnerVerdict": "PASS",
+    "p1RtoSec": 11.373,
+    "axes": {},
+    "failed": [],
+    "verdict": "PASS"
+  },
+  "finished": "2026-09-25T18:57:59.0375337Z",
+  "verdict": "PASS"
+}

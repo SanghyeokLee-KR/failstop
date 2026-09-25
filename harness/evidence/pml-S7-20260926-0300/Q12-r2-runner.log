@@ -1,0 +1,11 @@
+2026-09-26T05:21:44+09:00 START Q12
+2026-09-26T05:21:44+09:00 RUN python harness/scale/roundtrip_probe.py --label P2a --rate 600 --protocol-before-traffic 2 --warmup 240 --duration 90 --out harness\evidence\pml-S7-20260926-0300\Q12-r2\P2a.json
+2026-09-26T05:27:22+09:00 RC 0
+2026-09-26T05:27:22+09:00 RUN python harness/scale/roundtrip_probe.py --label P3a --rate 600 --protocol-before-traffic 3 --warmup 240 --duration 90 --out harness\evidence\pml-S7-20260926-0300\Q12-r2\P3a.json
+2026-09-26T05:33:05+09:00 RC 0
+2026-09-26T05:33:05+09:00 RUN python harness/scale/roundtrip_probe.py --label P2b --rate 600 --protocol-before-traffic 2 --warmup 240 --duration 90 --out harness\evidence\pml-S7-20260926-0300\Q12-r2\P2b.json
+2026-09-26T05:39:02+09:00 RC 0
+2026-09-26T05:39:02+09:00 RUN python harness/scale/roundtrip_probe.py --label P3b --rate 600 --protocol-before-traffic 3 --warmup 240 --duration 90 --out harness\evidence\pml-S7-20260926-0300\Q12-r2\P3b.json
+2026-09-26T05:44:44+09:00 RC 0
+2026-09-26T05:44:51+09:00 DOWN rc=0
+2026-09-26T05:44:51+09:00 END Q12 verdict=RECORD

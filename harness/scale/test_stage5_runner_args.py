@@ -23,7 +23,8 @@ SCRIPTS = os.path.normpath(os.path.join(HERE, '..', 'scripts'))
 RUNNER = os.path.join(SCRIPTS, 'adr0022-stage5-chaos.ps1')
 LIB = os.path.join(SCRIPTS, 'lib.ps1')
 PARSED = ('adr0022-stage5-chaos.ps1', 'lib.ps1', 'e2-db-cut.ps1', 'e4-leader-kill.ps1', 'e6-spike-failover.ps1', 'up.ps1',
-          's7-p3-gate.ps1', 's7-p3-demo.ps1', os.path.join('..', 'evidence', 'pml-S7-gate-draft', 'run-gate.ps1'))
+          's7-p3-gate.ps1', 's7-p3-demo.ps1', os.path.join('..', 'evidence', 'pml-S7-20260926-0300', 'run-s7-gate.ps1'),
+          os.path.join('..', 'evidence', 'pml-S7-20260926-0300', 'run-seq.ps1'))
 PWSH = shutil.which('pwsh')
 
 # 파일마다 구문 오류와 param 블록(이름, ValidateSet 값)을 JSON 으로 낸다.

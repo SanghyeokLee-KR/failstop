@@ -1,0 +1,42 @@
+{
+  "experiment": "Q10",
+  "started": "2026-09-25T19:50:10.0726187Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "stack": {
+    "ok": true,
+    "upRc": 0,
+    "transitionRc": 0,
+    "preflight": {
+      "ok": true,
+      "failed": [],
+      "relocated": false
+    }
+  },
+  "result": {
+    "survivorLoad": {
+      "name": "pml-s7-k6-Q10",
+      "rc": 0,
+      "markets": "KRW-BTC,KRW-XRP,KRW-DOGE,KRW-TRX,KRW-DOT,KRW-AVAX",
+      "ops": 20,
+      "hint": 1,
+      "durationSec": 600,
+      "startedAt": "2026-09-25T19:51:04.1826891Z",
+      "ok": true
+    },
+    "rc": 0,
+    "judge": "PASS",
+    "post": {
+      "botsStopped": true,
+      "drained": true,
+      "integrity": true,
+      "summaryOk": true,
+      "segment": "PASS",
+      "ok": true
+    },
+    "verdict": "PASS"
+  },
+  "finished": "2026-09-25T19:54:13.3088360Z",
+  "verdict": "PASS"
+}

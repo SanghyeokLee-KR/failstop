@@ -1,0 +1,256 @@
+{
+  "at": "2026-09-26T03:27:37+09:00",
+  "nodes": {
+    "chaos-api-1": {
+      "partitions": {
+        "plan": [
+          "matching-p0",
+          "matching-p1"
+        ],
+        "partitioned": true,
+        "partitions": [
+          {
+            "resource": "matching-p0",
+            "state": "ACCEPTING",
+            "epoch": 9,
+            "participate": true,
+            "preferred": true,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              1,
+              4,
+              5,
+              7,
+              9,
+              11
+            ]
+          },
+          {
+            "resource": "matching-p1",
+            "state": "ACCEPTING",
+            "epoch": 10,
+            "participate": true,
+            "preferred": false,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              2
+            ]
+          }
+        ]
+      },
+      "metrics": {
+        "exchange_journal_append_seconds_count": 2924.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-p0\"}": 1.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-p1\"}": 1.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-p0\"}": 57.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-p1\"}": 28.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_node_serviceable": 1.0,
+        "exchange_node_write_completion_ratio": 2.1739130434782608,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"429\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_serviceable{partition=\"matching-p0\"}": 1.0,
+        "exchange_partition_serviceable{partition=\"matching-p1\"}": 1.0,
+        "exchange_partition_state{partition=\"matching-p0\"}": 2.0,
+        "exchange_partition_state{partition=\"matching-p1\"}": 2.0,
+        "exchange_partition_write_completion_ratio{partition=\"matching-p0\"}": 2.0338983050847457,
+        "exchange_partition_write_completion_ratio{partition=\"matching-p1\"}": 1.967741935483871
+      }
+    },
+    "chaos-api-2": {
+      "partitions": {
+        "plan": [
+          "matching-p0",
+          "matching-p1"
+        ],
+        "partitioned": true,
+        "partitions": [
+          {
+            "resource": "matching-p0",
+            "state": "FOLLOWER",
+            "epoch": null,
+            "participate": true,
+            "preferred": false,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              1,
+              4,
+              5,
+              7,
+              9,
+              11
+            ]
+          },
+          {
+            "resource": "matching-p1",
+            "state": "FOLLOWER",
+            "epoch": null,
+            "participate": true,
+            "preferred": true,
+            "armed": true,
+            "breaker": {
+              "open": false,
+              "demotions_in_window": 0
+            },
+            "demotions": [],
+            "markets": [
+              2
+            ]
+          }
+        ]
+      },
+      "metrics": {
+        "exchange_journal_append_seconds_count": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"denied\",partition=\"matching-p1\"}": 18.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_acquire_total{outcome=\"granted\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_acquire_lock_timeouts_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"error\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"ok\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_lease_renew_total{outcome=\"rejected\",partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_recoverable_standdown_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-p0\"}": 0.0,
+        "exchange_leader_standdown_total{partition=\"matching-p1\"}": 0.0,
+        "exchange_node_serviceable": 1.0,
+        "exchange_node_write_completion_ratio": 1.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40001\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"40P01\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"55P03\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"57014\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait\",response=\"429\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"409\"}": 0.0,
+        "exchange_order_intake_contention_total{cause=\"lock_wait_stuck\",response=\"429\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_breaker_open{partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_count{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_sum{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"failure\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_rebuild_seconds_max{outcome=\"success\",partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_serviceable{partition=\"matching-p0\"}": 1.0,
+        "exchange_partition_serviceable{partition=\"matching-p1\"}": 1.0,
+        "exchange_partition_state{partition=\"matching-p0\"}": 0.0,
+        "exchange_partition_state{partition=\"matching-p1\"}": 0.0,
+        "exchange_partition_write_completion_ratio{partition=\"matching-p0\"}": 1.0,
+        "exchange_partition_write_completion_ratio{partition=\"matching-p1\"}": 1.0
+      }
+    }
+  },
+  "leader_lease": [
+    {
+      "resource": "matching-engine",
+      "holder": "",
+      "epoch": 7,
+      "alive": false
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "c811b253-9afa-4a3c-999e-14a1166734a5",
+      "epoch": 9,
+      "alive": true
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "c811b253-9afa-4a3c-999e-14a1166734a5",
+      "epoch": 10,
+      "alive": true
+    }
+  ],
+  "lb": {
+    "ok": true,
+    "no_live_upstreams": 52,
+    "status_502": 53
+  }
+}

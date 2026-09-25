@@ -1,0 +1,1 @@
+{"nodes": ["ws://chaos-api-1:8080/ws/v1", "ws://chaos-api-2:8080/ws/v1", "ws://chaos-lb:8080/ws/v1"], "final": {"ws://chaos-api-1:8080/ws/v1": false, "ws://chaos-lb:8080/ws/v1": false, "ws://chaos-api-2:8080/ws/v1": false}}

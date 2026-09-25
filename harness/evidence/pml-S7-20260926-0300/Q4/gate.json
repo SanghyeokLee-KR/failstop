@@ -1,0 +1,65 @@
+{
+  "experiment": "Q4",
+  "started": "2026-09-25T18:34:45.3267212Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "stack": {
+    "ok": true,
+    "upRc": 0,
+    "transitionRc": 0,
+    "preflight": {
+      "ok": true,
+      "failed": [],
+      "relocated": false
+    }
+  },
+  "result": {
+    "downRc": 0,
+    "fee": {
+      "afterRollback": {
+        "s0": 55363.0,
+        "s1": 17444.0
+      },
+      "afterP2Load": {
+        "s0": 124070.0,
+        "s1": 17444.0
+      }
+    },
+    "postAfterRollback": {
+      "botsStopped": true,
+      "drained": true,
+      "integrity": true,
+      "summaryOk": true,
+      "segment": "PASS",
+      "ok": true
+    },
+    "postAfterReentry": {
+      "botsStopped": true,
+      "drained": true,
+      "integrity": true,
+      "summaryOk": true,
+      "segment": "PASS",
+      "ok": true
+    },
+    "axes": {
+      "rollback_ok": true,
+      "history_last_is_p2": true,
+      "api1_engine_leader": true,
+      "api2_follower": true,
+      "protocol_boot_2_chaos-api-1": true,
+      "protocol_boot_2_chaos-api-2": true,
+      "shard1_unchanged_after_rollback": true,
+      "new_fees_on_shard0": true,
+      "post_rollback_integrity_and_segment": true,
+      "c22_c30_zero": true,
+      "reentry_ok": true,
+      "reentry_assignment_ok": true,
+      "post_reentry_integrity_and_segment": true
+    },
+    "failed": [],
+    "verdict": "PASS"
+  },
+  "finished": "2026-09-25T18:47:01.8410904Z",
+  "verdict": "PASS"
+}

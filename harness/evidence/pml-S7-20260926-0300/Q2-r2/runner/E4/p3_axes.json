@@ -1,0 +1,13 @@
+{
+  "fail": [
+    "ackInterval"
+  ],
+  "notRun": [],
+  "files": {
+    "segment": "PASS",
+    "victimWrites": "PASS",
+    "ackInterval": null
+  },
+  "injectAt": "2026-09-25T18:19:35.4685351Z",
+  "ok": false
+}

@@ -1,0 +1,41 @@
+{
+  "experiment": "Q15",
+  "started": "2026-09-25T19:32:48.7183791Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "stack": {
+    "ok": true,
+    "upRc": 0,
+    "transitionRc": 0,
+    "preflight": {
+      "ok": true,
+      "failed": [],
+      "relocated": false
+    }
+  },
+  "result": {
+    "keys": 4,
+    "k6": {
+      "name": "pml-s7-k6-q15",
+      "rc": 0,
+      "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM",
+      "ops": 40,
+      "hint": 0,
+      "durationSec": 180,
+      "startedAt": "2026-09-25T19:33:43.2763982Z"
+    },
+    "verdict": "RECORD",
+    "judge": "RECORD",
+    "post": {
+      "botsStopped": true,
+      "drained": true,
+      "integrity": true,
+      "summaryOk": true,
+      "segment": "PASS",
+      "ok": true
+    }
+  },
+  "finished": "2026-09-25T19:37:04.8278553Z",
+  "verdict": "RECORD"
+}

@@ -1,0 +1,156 @@
+{
+  "phase": "Q16",
+  "at": "2026-09-25T20:00:39.101+00:00",
+  "holders": {
+    "chaos-api-1": "4f5b776a",
+    "chaos-api-2": "df731670"
+  },
+  "users": {
+    "A": 726,
+    "C": 727
+  },
+  "live": {
+    "placed": [
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      }
+    ],
+    "response": {
+      "status": 200,
+      "ms": 282.4,
+      "retry_after": null,
+      "route_header": null,
+      "ratelimit_account_header": true,
+      "error": null,
+      "constraint": null,
+      "detail_route": null,
+      "body_canceled_count": 4,
+      "body_failed": []
+    },
+    "elapsed_ms": 282.4,
+    "order_states": {
+      "564c8af9-2702-422f-8bd1-f0483f4d60fa": "CANCELED",
+      "a15eec96-112a-47ea-953d-dd27b3bce50f": "CANCELED",
+      "10618d0f-b923-4fa6-9d2e-2a2f8571166d": "CANCELED",
+      "b19f4353-15e5-4e82-a841-5c283cab5774": "CANCELED"
+    },
+    "handoff_rows": [
+      {
+        "resource": "matching-p1",
+        "state": "DONE",
+        "origin": "cancel_all",
+        "orders": 2
+      }
+    ]
+  },
+  "api1_p1_participate_off": "200",
+  "paused_placed": [
+    {
+      "market": "KRW-BTC",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-BTC",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-ETH",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-ETH",
+      "status": 201,
+      "error": null
+    }
+  ],
+  "pause_rc": 0,
+  "unpause_rc": 0,
+  "paused_requests": [
+    {
+      "kind": "cancel_all",
+      "at": "2026-09-25T20:00:47.100+00:00",
+      "p1_lease": {
+        "holder": "df731670-8de6-4796-8f24-62ef978004b0",
+        "epoch": 8,
+        "alive": true,
+        "lease_until": "2026-09-25T20:00:47.273764+00:00",
+        "db_now": "2026-09-25T20:00:42.07689+00:00"
+      },
+      "p1_holder_node": "chaos-api-2",
+      "status": 200,
+      "canceled_count": 2,
+      "failed": [
+        {
+          "id": "b9eb6511-bb7c-433b-be5a-a79ae2e2fffc",
+          "reason": "partition_not_started"
+        },
+        {
+          "id": "efbf24a9-05ad-4abf-8213-adea7fbdaaf2",
+          "reason": "partition_not_started"
+        }
+      ]
+    },
+    {
+      "kind": "member_close",
+      "at": "2026-09-25T20:00:52.521+00:00",
+      "p1_lease": {
+        "holder": "df731670-8de6-4796-8f24-62ef978004b0",
+        "epoch": 8,
+        "alive": true,
+        "lease_until": "2026-09-25T20:00:47.273764+00:00",
+        "db_now": "2026-09-25T20:00:47.186561+00:00"
+      },
+      "p1_holder_node": "chaos-api-2",
+      "status": 409,
+      "error": "orders_cancel_incomplete",
+      "pending_reasons": {
+        "partition_not_started": 2
+      }
+    }
+  ],
+  "after_resume": {
+    "handoff_rows": [
+      {
+        "resource": "matching-p1",
+        "state": "ABANDONED",
+        "origin": "cancel_all",
+        "orders": 2
+      },
+      {
+        "resource": "matching-p1",
+        "state": "ABANDONED",
+        "origin": "member_close",
+        "orders": 2
+      }
+    ],
+    "order_states": {
+      "81acd09d-76fd-40a6-89fe-bb8a1b176c56": "CANCELED",
+      "4bfca0e4-f534-43da-8669-c6f981ba208a": "CANCELED",
+      "b9eb6511-bb7c-433b-be5a-a79ae2e2fffc": "OPEN",
+      "efbf24a9-05ad-4abf-8213-adea7fbdaaf2": "OPEN"
+    },
+    "open_rows": 0
+  },
+  "api1_p1_participate_on": "200",
+  "ok": true
+}

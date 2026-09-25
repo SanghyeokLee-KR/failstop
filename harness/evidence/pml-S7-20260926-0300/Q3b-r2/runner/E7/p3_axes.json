@@ -1,0 +1,12 @@
+{
+  "fail": [],
+  "notRun": [],
+  "files": {
+    "segment": "PASS",
+    "victimWrites": "PASS",
+    "rto_matching-p0": "PASS"
+  },
+  "injectAt": "2026-09-25T19:57:49.4145735Z",
+  "ackInterval": "생존 파티션 없음(희생 노드가 두 파티션을 쥐었다). 판정하지 않고 적기만 한다",
+  "ok": true
+}

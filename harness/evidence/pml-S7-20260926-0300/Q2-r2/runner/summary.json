@@ -1,0 +1,241 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+  "imageRevision": null,
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "latchBeforeTraffic": false,
+  "protocol": 3,
+  "partitionAxes": true,
+  "relay": true,
+  "wsGateAxes": true,
+  "p3": true,
+  "resource": "matching-p1",
+  "webObserveUrl": "http://localhost:3000/exchange/KRW-BTC",
+  "survivorLoadOps": 20,
+  "consolidateOn": "",
+  "composeOverlays": "harness/docker-compose.relay.yml;harness/docker-compose.p3.yml",
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s7-chaos-20260926",
+  "experiments": [
+    {
+      "experiment": "E4",
+      "script": "harness/scripts/e4-leader-kill.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "containerImages": {
+        "chaos-api-1": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+        "chaos-api-2": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+        "chaos-bots": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "p3Preflight": {
+        "ok": true,
+        "failed": [],
+        "relocated": false,
+        "file": "p3-preflight.json"
+      },
+      "relayWatch": {
+        "name": "pml-s6-watch-E4",
+        "rc": 0,
+        "id": "42f53767d10e4e13f94afa6341a93505795a111a73f0d94d3e31716c2358b9bf",
+        "startedAt": "2026-09-25T18:18:52.8578913Z"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 51,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 120,
+        "PgEpochMs": 1790360333418,
+        "HostEpochMs": 1790360333367
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "survivorLoad": {
+        "name": "pml-s7-k6-E4",
+        "rc": 0,
+        "markets": "KRW-BTC,KRW-XRP,KRW-DOGE,KRW-TRX,KRW-DOT,KRW-AVAX",
+        "ops": 20,
+        "hint": 1,
+        "durationSec": 1200,
+        "startedAt": "2026-09-25T18:18:54.6576816Z"
+      },
+      "webObserve": {
+        "url": "http://localhost:3000/exchange/KRW-BTC",
+        "durationSec": 300,
+        "startedAt": "2026-09-25T18:18:54.6759773Z",
+        "exitCode": 0,
+        "file": true
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-25T18:18:54.6831258+00:00",
+        "to": "2026-09-25T18:19:55.3290144+00:00"
+      },
+      "runId": "E4-20260926-031855",
+      "rejoin": {
+        "ok": true,
+        "node": "chaos-api-2",
+        "startRc": 0,
+        "joinedAt": "2026-09-25T18:20:12.2536325Z",
+        "followerStates": [
+          1.0,
+          1.0
+        ],
+        "joinSeconds": 13.2,
+        "promotionLines": 0,
+        "followerBootLines": 1,
+        "leaseBefore": "[{\"resource\" : \"matching-engine\", \"holder\" : \"\", \"epoch\" : 7}, {\"resource\" : \"matching-p0\", \"holder\" : \"68e0c8fb-e364-4d7a-a550-bfcabcca5a16\", \"epoch\" : 9}, {\"resource\" : \"matching-p1\", \"holder\" : \"68e0c8fb-e364-4d7a-a550-bfcabcca5a16\", \"epoch\" : 10}]",
+        "leaseAfter": "[{\"resource\" : \"matching-engine\", \"holder\" : \"\", \"epoch\" : 7}, {\"resource\" : \"matching-p0\", \"holder\" : \"68e0c8fb-e364-4d7a-a550-bfcabcca5a16\", \"epoch\" : 9}, {\"resource\" : \"matching-p1\", \"holder\" : \"68e0c8fb-e364-4d7a-a550-bfcabcca5a16\", \"epoch\" : 10}]",
+        "demotions": 0.0
+      },
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 2970,
+        "reservedSettledByLaterEpoch": 0,
+        "file": "s3_common.json"
+      },
+      "p3Axes": {
+        "fail": [
+          "ackInterval"
+        ],
+        "notRun": [],
+        "files": {
+          "segment": "PASS",
+          "victimWrites": "PASS",
+          "ackInterval": null
+        },
+        "injectAt": "2026-09-25T18:19:35.4685351Z",
+        "ok": false
+      },
+      "wsGate": {
+        "rc": 0,
+        "mode": "broker",
+        "ok": true,
+        "failed": null,
+        "file": "ws_gate.json"
+      },
+      "relayAxes": {
+        "rc": 0,
+        "ok": true,
+        "experiment": "W6",
+        "verdict": "PASS",
+        "failed": null,
+        "file": "relay_axes.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 42,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 101,
+        "PgEpochMs": 1790360638694,
+        "HostEpochMs": 1790360638652
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "FAIL(P3 공통 판정)",
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "kill",
+            "die"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-25T18:19:35.0000000+00:00",
+              "type": "container",
+              "action": "kill",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-25T18:19:35.0000000+00:00",
+              "type": "network",
+              "action": "disconnect",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-25T18:19:35.0000000+00:00",
+              "type": "container",
+              "action": "die",
+              "container": "chaos-api-2"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 8,
+          "newEpoch": 10,
+          "oldLeader": "a718af21-584b-4597-845c-ee659f891882",
+          "newLeader": "68e0c8fb-e364-4d7a-a550-bfcabcca5a16",
+          "metrics": {
+            "killed": "chaos-api-2",
+            "p3Epoch": {
+              "resource": "matching-p1",
+              "oldEpoch": 8,
+              "until": "2026-09-25T18:19:46.242Z",
+              "acquires": [
+                {
+                  "epoch": 10,
+                  "holder": "68e0c8fb-e364-4d7a-a550-bfcabcca5a16",
+                  "protocol": 3,
+                  "acquired_at": "2026-09-26T03:19:46.106914+09:00"
+                }
+              ],
+              "survivorEpoch": 10,
+              "ok": true,
+              "exactlyOne": true,
+              "acquiredInP3": true,
+              "holderChanged": true,
+              "holderIsSurvivor": true
+            },
+            "c17RecoveryRunsRows": 4.0,
+            "epochOk": true,
+            "resource": "matching-p1",
+            "c16LoadtestAcksRows": 0.0
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 10.773,
+          "downtimeSeconds": 12.48,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0,
+            "boundaryArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 3220,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "firstTradeTs": "2026-09-25T18:19:46.242Z",
+          "주": "docker kill 은 재기동 정책을 건너뛰어 구 리더가 돌아오지 않는다. 자력 복구는 스탠바이 체결 재개로 본다"
+        }
+      }
+    }
+  ]
+}

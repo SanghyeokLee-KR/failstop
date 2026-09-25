@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "error": null,
+  "at": "2026-09-26T05:00:57+09:00",
+  "rows": [
+    {
+      "id": 2,
+      "protocol": 2,
+      "epoch_floor": 1,
+      "old_rows": 246
+    },
+    {
+      "id": 3,
+      "protocol": 3,
+      "epoch_floor": 4,
+      "old_rows": 246
+    }
+  ]
+}

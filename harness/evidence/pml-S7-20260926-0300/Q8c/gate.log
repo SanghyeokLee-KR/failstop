@@ -1,0 +1,13 @@
+2026-09-26T05:07:47+09:00 START Q8c
+2026-09-26T05:08:21+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q8c\protocol.json
+2026-09-26T05:08:40+09:00 RC 0
+2026-09-26T05:08:41+09:00 RUN python harness/scale/s7_fee_coupling.py --pause-s 3 --latency-ms 100 --out harness\evidence\pml-S7-20260926-0300\Q8c\fee.json --control
+2026-09-26T05:09:59+09:00 RC 0
+2026-09-26T05:10:02+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T05:10:03+09:00 RC 0
+2026-09-26T05:10:03+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q8c\segment_post.json
+2026-09-26T05:10:03+09:00 RC 0
+2026-09-26T05:10:03+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q8c\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q8c\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q8c\segment.json
+2026-09-26T05:10:03+09:00 RC 0
+2026-09-26T05:10:08+09:00 DOWN rc=0
+2026-09-26T05:10:08+09:00 END Q8c verdict=RECORD

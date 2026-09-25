@@ -1,0 +1,236 @@
+2026-09-26T03:00:27+09:00 [Prep] VOLUMES start exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:00:32+09:00 [Prep] IMAGE before sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196
+2026-09-26T03:00:32+09:00 [Prep] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\up.ps1 -P3 -Obs
+2026-09-26T03:01:17+09:00 [Prep] RC 0
+2026-09-26T03:01:17+09:00 [Prep] IMAGE after sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf (up rc=0)
+2026-09-26T03:01:23+09:00 [Prep] DOWN rc=0
+2026-09-26T03:01:23+09:00 [Prep] PREP done app=sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf
+2026-09-26T03:01:23+09:00 [Prep] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:01:44+09:00 [Q1] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:01:50+09:00 [Q1] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q1 -Image exchange-chaos-app:pml
+2026-09-26T03:04:32+09:00 [Q1] RC 3
+2026-09-26T03:04:37+09:00 [Q1] HOST before cpuAvg=2.2 others=0 after cpuAvg=3.1 others=0
+2026-09-26T03:04:37+09:00 [Q1] LEFT chaos- containers: 0
+2026-09-26T03:04:37+09:00 [Q1] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:04:37+09:00 [Q1] DONE rc=3 verdict=NOT RUN
+2026-09-26T03:06:19+09:00 [Q1-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:06:25+09:00 [Q1-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q1-r2 -Image exchange-chaos-app:pml
+2026-09-26T03:08:47+09:00 [Q1-r2] RC 0
+2026-09-26T03:08:52+09:00 [Q1-r2] HOST before cpuAvg=1.5 others=0 after cpuAvg=2.9 others=0
+2026-09-26T03:08:52+09:00 [Q1-r2] LEFT chaos- containers: 0
+2026-09-26T03:08:52+09:00 [Q1-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:08:52+09:00 [Q1-r2] DONE rc=0 verdict=PASS
+2026-09-26T03:09:01+09:00 [Q2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:09:06+09:00 [Q2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q2 -Image exchange-chaos-app:pml
+2026-09-26T03:15:27+09:00 [Q2] RC 0
+2026-09-26T03:15:32+09:00 [Q2] HOST before cpuAvg=1.3 others=0 after cpuAvg=3.3 others=0
+2026-09-26T03:15:32+09:00 [Q2] LEFT chaos- containers: 0
+2026-09-26T03:15:33+09:00 [Q2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:15:33+09:00 [Q2] DONE rc=0 verdict=PASS
+2026-09-26T03:17:39+09:00 [Q2-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:17:44+09:00 [Q2-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q2-r2 -Image exchange-chaos-app:pml
+2026-09-26T03:24:04+09:00 [Q2-r2] RC 1
+2026-09-26T03:24:09+09:00 [Q2-r2] HOST before cpuAvg=3 others=0 after cpuAvg=4.1 others=0
+2026-09-26T03:24:09+09:00 [Q2-r2] LEFT chaos- containers: 0
+2026-09-26T03:24:09+09:00 [Q2-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:24:09+09:00 [Q2-r2] DONE rc=1 verdict=FAIL(P3 공통 판정)
+2026-09-26T03:24:28+09:00 [Q2-r3] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:24:34+09:00 [Q2-r3] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q2-r3 -Image exchange-chaos-app:pml
+2026-09-26T03:30:56+09:00 [Q2-r3] RC 0
+2026-09-26T03:31:01+09:00 [Q2-r3] HOST before cpuAvg=3.2 others=0 after cpuAvg=3 others=0
+2026-09-26T03:31:01+09:00 [Q2-r3] LEFT chaos- containers: 0
+2026-09-26T03:31:01+09:00 [Q2-r3] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:31:01+09:00 [Q2-r3] DONE rc=0 verdict=PASS
+2026-09-26T03:31:10+09:00 [Q3a] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:31:15+09:00 [Q3a] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q3a -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3a -Image exchange-chaos-app:pml
+2026-09-26T03:34:33+09:00 [Q3a] RC 0
+2026-09-26T03:34:38+09:00 [Q3a] HOST before cpuAvg=2.7 others=0 after cpuAvg=5 others=0
+2026-09-26T03:34:38+09:00 [Q3a] LEFT chaos- containers: 0
+2026-09-26T03:34:38+09:00 [Q3a] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:34:38+09:00 [Q3a] DONE rc=0 verdict=PASS
+2026-09-26T03:34:39+09:00 [Q4] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:34:44+09:00 [Q4] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q4 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q4 -Image exchange-chaos-app:pml
+2026-09-26T03:47:01+09:00 [Q4] RC 0
+2026-09-26T03:47:06+09:00 [Q4] HOST before cpuAvg=2.7 others=0 after cpuAvg=5.3 others=0
+2026-09-26T03:47:06+09:00 [Q4] LEFT chaos- containers: 0
+2026-09-26T03:47:07+09:00 [Q4] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:47:07+09:00 [Q4] DONE rc=0 verdict=PASS
+2026-09-26T03:47:07+09:00 [Q5] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:47:13+09:00 [Q5] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q5 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q5 -Image exchange-chaos-app:pml
+2026-09-26T03:50:57+09:00 [Q5] RC 0
+2026-09-26T03:51:02+09:00 [Q5] HOST before cpuAvg=6.5 others=0 after cpuAvg=2.4 others=0
+2026-09-26T03:51:02+09:00 [Q5] LEFT chaos- containers: 0
+2026-09-26T03:51:03+09:00 [Q5] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:51:03+09:00 [Q5] DONE rc=0 verdict=PASS
+2026-09-26T03:51:03+09:00 [Q6] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:51:09+09:00 [Q6] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q6 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q6 -Image exchange-chaos-app:pml
+2026-09-26T03:54:21+09:00 [Q6] RC 0
+2026-09-26T03:54:26+09:00 [Q6] HOST before cpuAvg=2.2 others=0 after cpuAvg=2.9 others=0
+2026-09-26T03:54:26+09:00 [Q6] LEFT chaos- containers: 0
+2026-09-26T03:54:26+09:00 [Q6] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:54:26+09:00 [Q6] DONE rc=0 verdict=PASS
+2026-09-26T03:54:27+09:00 [Q7] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:54:32+09:00 [Q7] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q7 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q7 -Image exchange-chaos-app:pml
+2026-09-26T03:57:59+09:00 [Q7] RC 0
+2026-09-26T03:58:04+09:00 [Q7] HOST before cpuAvg=2 others=0 after cpuAvg=1.2 others=0
+2026-09-26T03:58:04+09:00 [Q7] LEFT chaos- containers: 0
+2026-09-26T03:58:04+09:00 [Q7] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:58:04+09:00 [Q7] DONE rc=0 verdict=PASS
+2026-09-26T03:58:09+09:00 [Q8] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T03:58:15+09:00 [Q8] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q8 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q8 -Image exchange-chaos-app:pml
+2026-09-26T04:05:28+09:00 [Q8] RC 3
+2026-09-26T04:05:33+09:00 [Q8] HOST before cpuAvg=2.1 others=0 after cpuAvg=1.9 others=0
+2026-09-26T04:05:33+09:00 [Q8] LEFT chaos- containers: 0
+2026-09-26T04:05:33+09:00 [Q8] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:05:33+09:00 [Q8] DONE rc=3 verdict=NOT RUN
+2026-09-26T04:05:34+09:00 [Q9] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:05:39+09:00 [Q9] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q9 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q9 -Image exchange-chaos-app:pml
+2026-09-26T04:10:15+09:00 [Q9] RC 3
+2026-09-26T04:10:20+09:00 [Q9] HOST before cpuAvg=2.8 others=0 after cpuAvg=2.6 others=0
+2026-09-26T04:10:20+09:00 [Q9] LEFT chaos- containers: 0
+2026-09-26T04:10:20+09:00 [Q9] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:10:20+09:00 [Q9] DONE rc=3 verdict=NOT RUN
+2026-09-26T04:10:21+09:00 [Q10] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:10:26+09:00 [Q10] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q10 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q10 -Image exchange-chaos-app:pml
+2026-09-26T04:14:30+09:00 [Q10] RC 1
+2026-09-26T04:14:35+09:00 [Q10] HOST before cpuAvg=2.2 others=0 after cpuAvg=3.2 others=0
+2026-09-26T04:14:35+09:00 [Q10] LEFT chaos- containers: 0
+2026-09-26T04:14:35+09:00 [Q10] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:14:35+09:00 [Q10] DONE rc=1 verdict=FAIL(FAIL)
+2026-09-26T04:14:36+09:00 [Q11] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:14:41+09:00 [Q11] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q11 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q11 -Image exchange-chaos-app:pml
+2026-09-26T04:16:01+09:00 [Q11] RC 1
+2026-09-26T04:16:06+09:00 [Q11] HOST before cpuAvg=3.1 others=0 after cpuAvg=3 others=0
+2026-09-26T04:16:06+09:00 [Q11] LEFT chaos- containers: 0
+2026-09-26T04:16:06+09:00 [Q11] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:16:06+09:00 [Q11] DONE rc=1 verdict=FAIL(FAIL)
+2026-09-26T04:16:07+09:00 [Q13] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:16:12+09:00 [Q13] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q13 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q13 -Image exchange-chaos-app:pml
+2026-09-26T04:27:39+09:00 [Q13] RC 1
+2026-09-26T04:27:44+09:00 [Q13] HOST before cpuAvg=1.8 others=0 after cpuAvg=2.4 others=0
+2026-09-26T04:27:44+09:00 [Q13] LEFT chaos- containers: 0
+2026-09-26T04:27:44+09:00 [Q13] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:27:44+09:00 [Q13] DONE rc=1 verdict=FAIL(FAIL)
+2026-09-26T04:27:44+09:00 [Q3b] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:27:50+09:00 [Q3b] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q3b -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3b -Image exchange-chaos-app:pml
+2026-09-26T04:31:18+09:00 [Q3b] RC 1
+2026-09-26T04:31:23+09:00 [Q3b] HOST before cpuAvg=2.8 others=0 after cpuAvg=3.7 others=0
+2026-09-26T04:31:23+09:00 [Q3b] LEFT chaos- containers: 0
+2026-09-26T04:31:23+09:00 [Q3b] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:31:23+09:00 [Q3b] DONE rc=1 verdict=FAIL(공통 판정)
+2026-09-26T04:31:24+09:00 [Q16] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:31:29+09:00 [Q16] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q16 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q16 -Image exchange-chaos-app:pml
+2026-09-26T04:32:36+09:00 [Q16] RC 3
+2026-09-26T04:32:41+09:00 [Q16] HOST before cpuAvg=1.7 others=0 after cpuAvg=2.9 others=0
+2026-09-26T04:32:41+09:00 [Q16] LEFT chaos- containers: 0
+2026-09-26T04:32:41+09:00 [Q16] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:32:42+09:00 [Q16] DONE rc=3 verdict=NOT RUN
+2026-09-26T04:32:42+09:00 [Q15] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:32:48+09:00 [Q15] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q15 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q15 -Image exchange-chaos-app:pml
+2026-09-26T04:37:04+09:00 [Q15] RC 0
+2026-09-26T04:37:09+09:00 [Q15] HOST before cpuAvg=2.4 others=0 after cpuAvg=2.8 others=0
+2026-09-26T04:37:09+09:00 [Q15] LEFT chaos- containers: 0
+2026-09-26T04:37:10+09:00 [Q15] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:37:10+09:00 [Q15] DONE rc=0 verdict=RECORD
+2026-09-26T04:37:10+09:00 [Q14] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:37:16+09:00 [Q14] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q14 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q14 -Image exchange-chaos-app:pml
+2026-09-26T04:37:36+09:00 [Q14] RC 0
+2026-09-26T04:37:41+09:00 [Q14] HOST before cpuAvg=1.8 others=0 after cpuAvg=1.2 others=0
+2026-09-26T04:37:41+09:00 [Q14] LEFT chaos- containers: 0
+2026-09-26T04:37:41+09:00 [Q14] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:37:41+09:00 [Q14] DONE rc=0 verdict=PASS
+2026-09-26T04:37:52+09:00 [Q8-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:37:58+09:00 [Q8-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q8 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q8-r2 -Image exchange-chaos-app:pml
+2026-09-26T04:45:11+09:00 [Q8-r2] RC 3
+2026-09-26T04:45:16+09:00 [Q8-r2] HOST before cpuAvg=2.1 others=0 after cpuAvg=2.4 others=0
+2026-09-26T04:45:16+09:00 [Q8-r2] LEFT chaos- containers: 0
+2026-09-26T04:45:16+09:00 [Q8-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:45:16+09:00 [Q8-r2] DONE rc=3 verdict=NOT RUN
+2026-09-26T04:45:17+09:00 [Q9-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:45:23+09:00 [Q9-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q9 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q9-r2 -Image exchange-chaos-app:pml
+2026-09-26T04:49:58+09:00 [Q9-r2] RC 0
+2026-09-26T04:50:03+09:00 [Q9-r2] HOST before cpuAvg=2.7 others=0 after cpuAvg=3 others=0
+2026-09-26T04:50:03+09:00 [Q9-r2] LEFT chaos- containers: 0
+2026-09-26T04:50:03+09:00 [Q9-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:50:03+09:00 [Q9-r2] DONE rc=0 verdict=PASS
+2026-09-26T04:50:03+09:00 [Q10-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:50:09+09:00 [Q10-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q10 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q10-r2 -Image exchange-chaos-app:pml
+2026-09-26T04:54:13+09:00 [Q10-r2] RC 0
+2026-09-26T04:54:18+09:00 [Q10-r2] HOST before cpuAvg=1.7 others=0 after cpuAvg=2.4 others=0
+2026-09-26T04:54:18+09:00 [Q10-r2] LEFT chaos- containers: 0
+2026-09-26T04:54:18+09:00 [Q10-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:54:18+09:00 [Q10-r2] DONE rc=0 verdict=PASS
+2026-09-26T04:54:19+09:00 [Q11-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:54:24+09:00 [Q11-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q11 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q11-r2 -Image exchange-chaos-app:pml
+2026-09-26T04:55:47+09:00 [Q11-r2] RC 0
+2026-09-26T04:55:52+09:00 [Q11-r2] HOST before cpuAvg=1.4 others=0 after cpuAvg=3.4 others=0
+2026-09-26T04:55:52+09:00 [Q11-r2] LEFT chaos- containers: 0
+2026-09-26T04:55:52+09:00 [Q11-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:55:52+09:00 [Q11-r2] DONE rc=0 verdict=PASS
+2026-09-26T04:55:53+09:00 [Q3b-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:55:59+09:00 [Q3b-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q3b -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3b-r2 -Image exchange-chaos-app:pml
+2026-09-26T04:59:27+09:00 [Q3b-r2] RC 1
+2026-09-26T04:59:32+09:00 [Q3b-r2] HOST before cpuAvg=1.6 others=0 after cpuAvg=3 others=0
+2026-09-26T04:59:32+09:00 [Q3b-r2] LEFT chaos- containers: 0
+2026-09-26T04:59:32+09:00 [Q3b-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:59:32+09:00 [Q3b-r2] DONE rc=1 verdict=FAIL(파티션 축)
+2026-09-26T04:59:32+09:00 [Q16-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T04:59:38+09:00 [Q16-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q16 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q16-r2 -Image exchange-chaos-app:pml
+2026-09-26T05:01:03+09:00 [Q16-r2] RC 0
+2026-09-26T05:01:08+09:00 [Q16-r2] HOST before cpuAvg=1.7 others=0 after cpuAvg=2.8 others=0
+2026-09-26T05:01:08+09:00 [Q16-r2] LEFT chaos- containers: 0
+2026-09-26T05:01:08+09:00 [Q16-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:01:08+09:00 [Q16-r2] DONE rc=0 verdict=PASS
+2026-09-26T05:01:14+09:00 [Q8-r3] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:01:20+09:00 [Q8-r3] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q8 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q8-r3 -Image exchange-chaos-app:pml
+2026-09-26T05:03:47+09:00 [Q8-r3] RC 0
+2026-09-26T05:03:52+09:00 [Q8-r3] HOST before cpuAvg=2.8 others=0 after cpuAvg=3.3 others=0
+2026-09-26T05:03:52+09:00 [Q8-r3] LEFT chaos- containers: 0
+2026-09-26T05:03:52+09:00 [Q8-r3] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:03:52+09:00 [Q8-r3] DONE rc=0 verdict=PASS
+2026-09-26T05:04:01+09:00 [Q3b-r3] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:04:07+09:00 [Q3b-r3] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q3b -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3b-r3 -Image exchange-chaos-app:pml
+2026-09-26T05:07:35+09:00 [Q3b-r3] RC 0
+2026-09-26T05:07:40+09:00 [Q3b-r3] HOST before cpuAvg=2 others=0 after cpuAvg=2.8 others=0
+2026-09-26T05:07:40+09:00 [Q3b-r3] LEFT chaos- containers: 0
+2026-09-26T05:07:41+09:00 [Q3b-r3] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:07:41+09:00 [Q3b-r3] DONE rc=0 verdict=PASS
+2026-09-26T05:07:41+09:00 [Q8c] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:07:47+09:00 [Q8c] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q8c -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q8c -Image exchange-chaos-app:pml
+2026-09-26T05:10:08+09:00 [Q8c] RC 0
+2026-09-26T05:10:13+09:00 [Q8c] HOST before cpuAvg=1.5 others=0 after cpuAvg=2.8 others=0
+2026-09-26T05:10:13+09:00 [Q8c] LEFT chaos- containers: 0
+2026-09-26T05:10:13+09:00 [Q8c] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:10:13+09:00 [Q8c] DONE rc=0 verdict=RECORD
+2026-09-26T05:10:14+09:00 [Q12] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:10:19+09:00 [Q12] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q12 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q12 -Image exchange-chaos-app:pml -Q12WarmupSec 60 -Q12DurationSec 90
+2026-09-26T05:15:56+09:00 [Q12] RC 3
+2026-09-26T05:16:01+09:00 [Q12] HOST before cpuAvg=3.9 others=0 after cpuAvg=2.4 others=0
+2026-09-26T05:16:01+09:00 [Q12] LEFT chaos- containers: 0
+2026-09-26T05:16:01+09:00 [Q12] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:16:01+09:00 [Q12] DONE rc=3 verdict=NOT RUN
+2026-09-26T05:16:02+09:00 [Demo] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:16:07+09:00 [Demo] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-demo.ps1 -NoBuild -Down -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Demo
+2026-09-26T05:18:46+09:00 [Demo] RC 0
+2026-09-26T05:18:51+09:00 [Demo] HOST before cpuAvg=3.3 others=0 after cpuAvg=2.7 others=0
+2026-09-26T05:18:51+09:00 [Demo] LEFT chaos- containers: 0
+2026-09-26T05:18:51+09:00 [Demo] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:18:51+09:00 [Demo] DONE rc=0
+2026-09-26T05:18:59+09:00 [Q8-r4] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:19:04+09:00 [Q8-r4] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q8 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q8-r4 -Image exchange-chaos-app:pml
+2026-09-26T05:21:32+09:00 [Q8-r4] RC 0
+2026-09-26T05:21:37+09:00 [Q8-r4] HOST before cpuAvg=1.3 others=0 after cpuAvg=3.1 others=0
+2026-09-26T05:21:37+09:00 [Q8-r4] LEFT chaos- containers: 0
+2026-09-26T05:21:37+09:00 [Q8-r4] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:21:37+09:00 [Q8-r4] DONE rc=0 verdict=PASS
+2026-09-26T05:21:38+09:00 [Q12-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:21:43+09:00 [Q12-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s7-p3-gate.ps1 -Experiment Q12 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q12-r2 -Image exchange-chaos-app:pml -Q12DurationSec 90
+2026-09-26T05:44:51+09:00 [Q12-r2] RC 0
+2026-09-26T05:44:56+09:00 [Q12-r2] HOST before cpuAvg=2 others=0 after cpuAvg=5.3 others=0
+2026-09-26T05:44:56+09:00 [Q12-r2] LEFT chaos- containers: 0
+2026-09-26T05:44:56+09:00 [Q12-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-26T05:44:56+09:00 [Q12-r2] DONE rc=0 verdict=RECORD
+2026-09-26T05:47:18+09:00 [Final] DOWN rc=0
+2026-09-26T05:47:19+09:00 [Final] FINAL chaos-=0 pml-*=0 exchange-pml volumes=0 networks=0
+2026-09-26T05:47:19+09:00 [Final] TAGS pml=sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf s7ref=sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf s6ref=sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196 local=sha256:611169b8bf40413b858d7052b602942a8eed0917fe2da4f18cbdb91ba3f96a91
+2026-09-26T05:47:19+09:00 [Final] VOLUMES end exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z

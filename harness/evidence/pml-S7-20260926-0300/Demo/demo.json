@@ -1,0 +1,29 @@
+{
+  "started": "2026-09-25T20:16:08.2257460Z",
+  "project": "exchange-pml",
+  "image": "exchange-chaos-app:pml",
+  "preflight": {
+    "ok": true,
+    "failed": []
+  },
+  "load": {
+    "name": "pml-s7-k6-demo",
+    "rc": 0,
+    "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM",
+    "ops": 20,
+    "hint": 1,
+    "durationSec": 360,
+    "startedAt": "2026-09-25T20:17:01.8831958Z"
+  },
+  "p1EpochBefore": 8,
+  "killAt": "2026-09-25T20:18:02.1104810Z",
+  "p1MovedAt": "2026-09-25T20:18:20.7246732Z",
+  "p1Rto": 10.982,
+  "p0Ack": "PASS",
+  "postRun": {
+    "verdict": "PASS",
+    "gatedClean": true,
+    "gatedViolations": 0
+  },
+  "finished": "2026-09-25T20:18:41.1841551Z"
+}

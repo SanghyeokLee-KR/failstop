@@ -1,0 +1,103 @@
+{
+  "ok": true,
+  "error": null,
+  "ts": "2026-09-26T03:54:13+09:00",
+  "protocol": 3,
+  "changed_at": "2026-09-25T18:51:51.217852+00:00",
+  "history": [
+    {
+      "id": 1,
+      "protocol": 1,
+      "prev_protocol": null,
+      "epoch_floor": 0,
+      "changed_at": "2026-09-25T18:51:24.635703+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 2,
+      "protocol": 2,
+      "prev_protocol": 1,
+      "epoch_floor": 1,
+      "changed_at": "2026-09-25T18:51:50.881018+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 3,
+      "protocol": 3,
+      "prev_protocol": 2,
+      "epoch_floor": 4,
+      "changed_at": "2026-09-25T18:51:51.217852+00:00",
+      "changed_by": "exchange"
+    }
+  ],
+  "lease": [
+    {
+      "resource": "matching-engine",
+      "holder": "",
+      "epoch": 7,
+      "alive": false
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "4a46dcb7-c491-4768-a248-5d8b9c5def21",
+      "epoch": 8,
+      "alive": true
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "4a46dcb7-c491-4768-a248-5d8b9c5def21",
+      "epoch": 10,
+      "alive": true
+    }
+  ],
+  "retired": [
+    {
+      "epoch": 2,
+      "resource": "matching-p0",
+      "protocol": 2,
+      "acquired_at": "2026-09-25T18:51:50.882988+00:00"
+    },
+    {
+      "epoch": 3,
+      "resource": "matching-p1",
+      "protocol": 2,
+      "acquired_at": "2026-09-25T18:51:50.883205+00:00"
+    },
+    {
+      "epoch": 4,
+      "resource": "matching-engine",
+      "protocol": 2,
+      "acquired_at": "2026-09-25T18:51:50.883319+00:00"
+    },
+    {
+      "epoch": 5,
+      "resource": "matching-p0",
+      "protocol": 3,
+      "acquired_at": "2026-09-25T18:51:51.219714+00:00"
+    },
+    {
+      "epoch": 6,
+      "resource": "matching-p1",
+      "protocol": 3,
+      "acquired_at": "2026-09-25T18:51:51.219906+00:00"
+    },
+    {
+      "epoch": 7,
+      "resource": "matching-engine",
+      "protocol": 3,
+      "acquired_at": "2026-09-25T18:51:51.21998+00:00"
+    }
+  ],
+  "acquisitions_by_protocol": {
+    "3": 6,
+    "2": 3,
+    "1": 1
+  },
+  "reservations": 3768,
+  "unsettled_new": 0,
+  "unsettled_reservations": 0,
+  "oldest_unsettled_reservation_s": null,
+  "latched": true,
+  "db_now": "2026-09-25T18:54:13.962481+00:00",
+  "code": 0
+}

@@ -1,0 +1,33 @@
+
+== P3 스택 ==
+
+== P3 전환(--target 3 --latch-band) ==
+Q0 준비: ok=True 
+
+== 부하(봇 + k6 12마켓 힌트) ==
+
+== 두 노드의 파티션 표(kill 전) ==
+chaos-api-1  matching-p0  ACCEPTING  epoch=9
+chaos-api-1  matching-p1  FOLLOWER   epoch=
+chaos-api-2  matching-p0  FOLLOWER   epoch=
+chaos-api-2  matching-p1  ACCEPTING  epoch=8
+kill 까지 60 초
+kill 까지 50 초
+kill 까지 40 초
+kill 까지 30 초
+kill 까지 20 초
+kill 까지 10 초
+
+== api-2(p1 소유 노드) docker kill ==
+T0=2026-09-25T20:18:02.1104810Z killed=chaos-api-2
+
+== 두 노드의 파티션 표(kill 뒤) ==
+chaos-api-1  matching-p0  ACCEPTING  epoch=9
+chaos-api-1  matching-p1  ACCEPTING  epoch=10
+chaos-api-2  (응답 없음)
+
+== p1 RTO, p0 ACK 간격, 권위 run ==
+p1 RTO          : 10.982 s
+p0 ACK 간격     : PASS
+권위 run        : PASS (게이팅 위반 0)
+스택을 내렸다(docker compose -p exchange-pml ... down -v, rc=0)

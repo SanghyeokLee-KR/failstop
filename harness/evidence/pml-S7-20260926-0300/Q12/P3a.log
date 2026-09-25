@@ -1,0 +1,2 @@
+[P3a] 부하 600/s
+  모드 전환 실패(code=4): BLOCKED: chaos-api-2 의 exchange_leader_protocol_max 가 3 이 아니다(None). S7 바이너리가 아니다

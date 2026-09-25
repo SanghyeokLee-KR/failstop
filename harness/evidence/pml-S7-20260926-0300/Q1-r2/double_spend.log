@@ -1,0 +1,21 @@
+{"round": 0, "successes": 1, "restored": true}
+{"round": 50, "successes": 1, "restored": true}
+{"round": 100, "successes": 1, "restored": true}
+{"round": 150, "successes": 1, "restored": true}
+{"round": 200, "successes": 1, "restored": true}
+{"round": 250, "successes": 1, "restored": true}
+{"round": 300, "successes": 1, "restored": true}
+{"round": 350, "successes": 1, "restored": true}
+{"round": 400, "successes": 1, "restored": true}
+{"round": 450, "successes": 1, "restored": true}
+{"round": 500, "successes": 1, "restored": true}
+{"round": 550, "successes": 1, "restored": true}
+{"round": 600, "successes": 1, "restored": true}
+{"round": 650, "successes": 1, "restored": true}
+{"round": 700, "successes": 1, "restored": true}
+{"round": 750, "successes": 1, "restored": true}
+{"round": 800, "successes": 1, "restored": true}
+{"round": 850, "successes": 1, "restored": true}
+{"round": 900, "successes": 1, "restored": true}
+{"round": 950, "successes": 1, "restored": true}
+{"requested_rounds": 1000, "order_insufficient": 866, "withdraw_insufficient": 134, "server_errors": 0, "restore_failures": 0, "error": null}

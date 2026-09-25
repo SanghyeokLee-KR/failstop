@@ -1,0 +1,185 @@
+{
+  "started": "2026-09-26T04:13:51+09:00",
+  "market": "KRW-ETH",
+  "error": null,
+  "injected_failures": 1,
+  "resource": "matching-p1",
+  "survivor_resource": "matching-p0",
+  "owner_before": "chaos-api-2",
+  "epoch_before": 8,
+  "install": {
+    "rc": 0,
+    "stderr": ""
+  },
+  "remove": {
+    "rc": 0,
+    "stderr": ""
+  },
+  "fired_at": "2026-09-25T19:13:53.435849+00:00",
+  "p1_reacquired_s": 5.78,
+  "owner_after": "chaos-api-2",
+  "demotions_before": {
+    "chaos-api-1": {
+      "matching-p0|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p0|NODE_FATAL": 0.0,
+      "matching-p0|PLANNED": 0.0,
+      "matching-p0|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p0|STALL": 0.0,
+      "matching-p0|WRITER_FATAL": 0.0,
+      "matching-p1|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p1|NODE_FATAL": 0.0,
+      "matching-p1|PLANNED": 0.0,
+      "matching-p1|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p1|STALL": 0.0,
+      "matching-p1|WRITER_FATAL": 0.0
+    },
+    "chaos-api-2": {
+      "matching-p0|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p0|NODE_FATAL": 0.0,
+      "matching-p0|PLANNED": 0.0,
+      "matching-p0|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p0|STALL": 0.0,
+      "matching-p0|WRITER_FATAL": 0.0,
+      "matching-p1|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p1|NODE_FATAL": 0.0,
+      "matching-p1|PLANNED": 0.0,
+      "matching-p1|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p1|STALL": 0.0,
+      "matching-p1|WRITER_FATAL": 0.0
+    }
+  },
+  "demotions_after": {
+    "chaos-api-1": {
+      "matching-p0|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p0|NODE_FATAL": 0.0,
+      "matching-p0|PLANNED": 0.0,
+      "matching-p0|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p0|STALL": 0.0,
+      "matching-p0|WRITER_FATAL": 0.0,
+      "matching-p1|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p1|NODE_FATAL": 0.0,
+      "matching-p1|PLANNED": 0.0,
+      "matching-p1|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p1|STALL": 0.0,
+      "matching-p1|WRITER_FATAL": 0.0
+    },
+    "chaos-api-2": {
+      "matching-p0|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p0|NODE_FATAL": 0.0,
+      "matching-p0|PLANNED": 0.0,
+      "matching-p0|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p0|STALL": 0.0,
+      "matching-p0|WRITER_FATAL": 0.0,
+      "matching-p1|LEASE_LOST_WHILE_ACCEPTING": 0.0,
+      "matching-p1|NODE_FATAL": 0.0,
+      "matching-p1|PLANNED": 0.0,
+      "matching-p1|PROMOTION_LOOP_DOWN": 0.0,
+      "matching-p1|STALL": 0.0,
+      "matching-p1|WRITER_FATAL": 1.0
+    }
+  },
+  "demotions": {
+    "matching-p1": {
+      "WRITER_FATAL": 1
+    }
+  },
+  "partition_view": {
+    "chaos-api-1": {
+      "state": "FOLLOWER",
+      "epoch": null,
+      "breaker": {
+        "open": false,
+        "demotions_in_window": 0
+      }
+    },
+    "chaos-api-2": {
+      "state": "ACCEPTING",
+      "epoch": 10,
+      "breaker": {
+        "open": false,
+        "demotions_in_window": 1
+      }
+    }
+  },
+  "breaker_open": false,
+  "p0_ack": {
+    "facts": {
+      "KRW-AVAX": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 0,
+        "window_rows": 0,
+        "baseline_max_gap_s": null,
+        "window_max_gap_s": null
+      },
+      "KRW-BTC": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 394,
+        "window_rows": 53,
+        "baseline_max_gap_s": 1.7015600204467773,
+        "window_max_gap_s": 1.6027228832244873
+      },
+      "KRW-DOGE": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 0,
+        "window_rows": 0,
+        "baseline_max_gap_s": null,
+        "window_max_gap_s": null
+      },
+      "KRW-DOT": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 0,
+        "window_rows": 0,
+        "baseline_max_gap_s": null,
+        "window_max_gap_s": null
+      },
+      "KRW-TRX": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 0,
+        "window_rows": 0,
+        "baseline_max_gap_s": null,
+        "window_max_gap_s": null
+      },
+      "KRW-XRP": {
+        "baseline_from_s": 1790363513.4358492,
+        "baseline_rows": 301,
+        "window_rows": 36,
+        "baseline_max_gap_s": 2.001044988632202,
+        "window_max_gap_s": 1.3998830318450928
+      }
+    },
+    "axes": {
+      "KRW-AVAX_window_new_ge_10": false,
+      "KRW-AVAX_baseline_measured": false,
+      "KRW-AVAX_ack_gap_le_baseline_plus_1s": false,
+      "KRW-BTC_window_new_ge_10": true,
+      "KRW-BTC_baseline_measured": true,
+      "KRW-BTC_ack_gap_le_baseline_plus_1s": true,
+      "KRW-DOGE_window_new_ge_10": false,
+      "KRW-DOGE_baseline_measured": false,
+      "KRW-DOGE_ack_gap_le_baseline_plus_1s": false,
+      "KRW-DOT_window_new_ge_10": false,
+      "KRW-DOT_baseline_measured": false,
+      "KRW-DOT_ack_gap_le_baseline_plus_1s": false,
+      "KRW-TRX_window_new_ge_10": false,
+      "KRW-TRX_baseline_measured": false,
+      "KRW-TRX_ack_gap_le_baseline_plus_1s": false,
+      "KRW-XRP_window_new_ge_10": true,
+      "KRW-XRP_baseline_measured": true,
+      "KRW-XRP_ack_gap_le_baseline_plus_1s": true
+    },
+    "verdict": "NOT RUN"
+  },
+  "p0_ack_ok": false,
+  "post": {
+    "bots_stop_rc": 0,
+    "drained": true,
+    "run_status": 200,
+    "checks": {
+      "C01": 0,
+      "C14": 0,
+      "C31": 0
+    }
+  },
+  "post_invariants_pass": true,
+  "finished": "2026-09-26T04:14:15+09:00"
+}

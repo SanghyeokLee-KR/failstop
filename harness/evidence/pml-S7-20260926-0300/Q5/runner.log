@@ -1,0 +1,36 @@
+2026-09-26T03:47:14+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=E5 LatchBeforeTraffic=False SnapshotEvidence=False Protocol=3 PartitionAxes=True Relay=True WsGateAxes=False P3=True Resource=matching-p1 SurvivorLoadOps=20 WebObserve=False ConsolidateOn= Project=exchange-pml
+2026-09-26T03:47:14+09:00 OVERLAYS harness/docker-compose.relay.yml;harness/docker-compose.p3.yml
+2026-09-26T03:47:14+09:00 START E5
+2026-09-26T03:47:53+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\protocol.json
+2026-09-26T03:48:12+09:00 RC 0
+2026-09-26T03:48:13+09:00 WATCH start pml-s6-watch-E5 rc=0
+2026-09-26T03:48:13+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\budget.json
+2026-09-26T03:48:14+09:00 RC 0
+2026-09-26T03:48:14+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\partition_pre.json
+2026-09-26T03:48:14+09:00 RC 0
+2026-09-26T03:48:15+09:00 K6 start pml-s7-k6-E5 rc=0 markets=KRW-BTC,KRW-XRP,KRW-DOGE,KRW-TRX,KRW-DOT,KRW-AVAX ops=20
+2026-09-26T03:48:15+09:00 EXPERIMENT E5 pwsh -NoProfile -File harness/scripts/e5-net-partition.ps1
+2026-09-26T03:50:11+09:00 EXPERIMENT E5 rc=0
+2026-09-26T03:50:12+09:00 K6 stop pml-s7-k6-E5
+2026-09-26T03:50:14+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T18:47:15.0318145+00:00 --fault-from 2026-09-25T18:48:15.5282153+00:00 --fault-to 2026-09-25T18:50:11.0797608+00:00 --samples harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\balance_samples.jsonl --protocol 3 --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\s3_common.json --resource matching-p1 --expect-demotion
+2026-09-26T03:50:45+09:00 RC 0
+2026-09-26T03:50:45+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\segment_post.json
+2026-09-26T03:50:45+09:00 RC 0
+2026-09-26T03:50:45+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\segment.json
+2026-09-26T03:50:45+09:00 RC 0
+2026-09-26T03:50:45+09:00 RUN python harness/scale/s7_axes.py victim-writes --samples harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\epoch_samples.jsonl --inject-at 2026-09-25T18:48:55.8182622Z --resource matching-p1 --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\victim_writes.json
+2026-09-26T03:50:45+09:00 RC 0
+2026-09-26T03:50:45+09:00 RUN python harness/scale/s7_axes.py ack-interval --survivor-markets KRW-BTC,KRW-XRP,KRW-DOGE,KRW-TRX,KRW-DOT,KRW-AVAX --affected-markets KRW-ETH,KRW-SOL,KRW-ADA,KRW-LINK,KRW-MATIC,KRW-ATOM --inject-at 2026-09-25T18:48:55.8182622Z --baseline-from 2026-09-25T18:48:12.2610553Z --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\ack_interval.json
+2026-09-26T03:50:46+09:00 RC 0
+2026-09-26T03:50:46+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\partition_post.json
+2026-09-26T03:50:46+09:00 RC 0
+2026-09-26T03:50:46+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T18:47:15.0318145+00:00 --fault-from 2026-09-25T18:48:15.5282153+00:00 --fault-to 2026-09-25T18:50:11.0797608+00:00 --pre harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\partition_pre.json --post harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\partition_post.json --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\partition_axes.json
+2026-09-26T03:50:46+09:00 RC 0
+2026-09-26T03:50:48+09:00 RUN python harness/scale/s6_relay_axes.py watch --log harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\watch.log --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\watch.json
+2026-09-26T03:50:48+09:00 RC 0
+2026-09-26T03:50:48+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\protocol_state.json
+2026-09-26T03:50:49+09:00 RC 0
+2026-09-26T03:50:51+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\conn_samples.jsonl --out harness\evidence\pml-S7-20260926-0300\Q5\runner\E5\connections.json
+2026-09-26T03:50:51+09:00 RC 0
+2026-09-26T03:50:57+09:00 END E5 down rc=0
+2026-09-26T03:50:57+09:00 DONE E5=PASS

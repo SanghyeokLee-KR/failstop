@@ -1,0 +1,101 @@
+{
+  "phase": "Q16",
+  "at": "2026-09-25T19:32:23.782+00:00",
+  "holders": {
+    "chaos-api-1": "4ff7d55f",
+    "chaos-api-2": "b71f1016"
+  },
+  "users": {
+    "A": 365,
+    "C": 366
+  },
+  "live": {
+    "placed": [
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      }
+    ],
+    "response": {
+      "status": 200,
+      "ms": 301.3,
+      "retry_after": null,
+      "route_header": null,
+      "ratelimit_account_header": true,
+      "error": null,
+      "constraint": null,
+      "detail_route": null,
+      "body_canceled_count": 4,
+      "body_failed": []
+    },
+    "elapsed_ms": 301.3,
+    "order_states": {
+      "53384a57-2873-43c0-b50e-d0adcedd776a": "CANCELED",
+      "171cd193-3b02-4f2d-85f9-30664a87183d": "CANCELED",
+      "dd6406e8-1098-4ac1-af3e-76c47dcc19fd": "CANCELED",
+      "8ee30987-14b7-4b27-acf0-4df0452f94d0": "CANCELED"
+    },
+    "handoff_rows": [
+      {
+        "resource": "matching-p1",
+        "state": "DONE",
+        "origin": "cancel_all",
+        "orders": 2
+      }
+    ]
+  },
+  "api1_p1_participate_off": "200",
+  "paused_placed": [
+    {
+      "market": "KRW-BTC",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-BTC",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-ETH",
+      "status": 201,
+      "error": null
+    },
+    {
+      "market": "KRW-ETH",
+      "status": 201,
+      "error": null
+    }
+  ],
+  "paused_error": "관리 세션 발급 실패(rc=1)",
+  "unpause_rc": 1,
+  "paused_requests": [],
+  "after_resume": {
+    "handoff_rows": [],
+    "order_states": {
+      "67386a78-4f34-45f5-9869-b54e1fda63c4": "OPEN",
+      "a6fdee50-0c87-40c4-9030-0a3407689092": "OPEN",
+      "81302338-1e62-4a53-9aba-f695d9e40a49": "OPEN",
+      "6f7a0ba9-082b-4e83-9155-6d8a88d8d020": "OPEN"
+    },
+    "open_rows": 0
+  },
+  "api1_p1_participate_on": "200",
+  "ok": true
+}

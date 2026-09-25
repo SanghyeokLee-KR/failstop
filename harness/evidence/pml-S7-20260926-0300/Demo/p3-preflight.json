@@ -1,0 +1,156 @@
+{
+  "at": "2026-09-25T20:17:00.1026450Z",
+  "transitionFile": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-S7-20260926-0300\\Demo\\protocol.json",
+  "assignmentAtTransition": {
+    "first": {
+      "state": "ok",
+      "moves": [],
+      "waited_s": 10.0
+    },
+    "relocations": [],
+    "final": "ok"
+  },
+  "relocated": false,
+  "partitions": {
+    "chaos-api-1": {
+      "plan": [
+        "matching-p0",
+        "matching-p1"
+      ],
+      "partitioned": true,
+      "partitions": [
+        {
+          "resource": "matching-p0",
+          "state": "ACCEPTING",
+          "epoch": 9,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    },
+    "chaos-api-2": {
+      "plan": [
+        "matching-p0",
+        "matching-p1"
+      ],
+      "partitioned": true,
+      "partitions": [
+        {
+          "resource": "matching-p0",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "ACCEPTING",
+          "epoch": 8,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    }
+  },
+  "overlay": {
+    "at": "2026-09-25T20:17:00.3807965Z",
+    "brokerHealthy": true,
+    "appModes": {
+      "chaos-api-1": "broker",
+      "chaos-api-2": "broker"
+    },
+    "lbConfSource": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf",
+    "lbPartitionRelayConf": true,
+    "preferred": {
+      "chaos-api-1": "matching-p0",
+      "chaos-api-2": "matching-p1"
+    },
+    "preferredOk": true,
+    "jdbcUrls": {
+      "chaos-api-1": "jdbc:postgresql://chaos-toxiproxy:15432/exchange?ApplicationName=chaos-api-1",
+      "chaos-api-2": "jdbc:postgresql://chaos-toxiproxy:25432/exchange?ApplicationName=chaos-api-2"
+    },
+    "jdbcOk": {
+      "chaos-api-1": true,
+      "chaos-api-2": true
+    },
+    "ok": true
+  },
+  "feeIncomeAccounts": {
+    "shard0": 13,
+    "shard1": 13
+  },
+  "protocolMax": {
+    "chaos-api-1": "3.0",
+    "chaos-api-2": "3.0"
+  },
+  "preRun": {
+    "runId": "DEMO-20260926-051700",
+    "verdict": "PASS",
+    "gatedViolations": 0,
+    "clean": true
+  },
+  "axes": {
+    "transition_ok": true,
+    "segment_sampled_after_cutover": true,
+    "leader_protocol_3": true,
+    "api1_holds_p0": true,
+    "api2_holds_p1": true,
+    "broker_healthy": true,
+    "apps_broker_mode": true,
+    "lb_partition_relay_conf": true,
+    "preferred_settings": true,
+    "jdbc_toxiproxy_and_application_name": true,
+    "fee_income_shard1_equals_shard0": true,
+    "protocol_max_3_chaos-api-1": true,
+    "protocol_max_3_chaos-api-2": true,
+    "pre_authoritative_run_clean": true
+  },
+  "failed": [],
+  "ok": true
+}

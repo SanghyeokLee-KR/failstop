@@ -1,0 +1,390 @@
+{
+  "url": "http://localhost:3000/exchange/KRW-BTC",
+  "browser": "chrome",
+  "startedAt": "2026-09-25T18:10:18.291Z",
+  "durationSec": 300,
+  "settleSec": 15,
+  "mark": "2026-09-25T18:10:58.7044716Z",
+  "restAfterSettle": 23,
+  "tickerRequestsAfterSettle": [
+    {
+      "at": 1790359871337,
+      "markets": [
+        "KRW-ETH"
+      ]
+    }
+  ],
+  "accountsAfterSettle": 1,
+  "openOrdersAfterSettle": 1,
+  "closedOrdersAfterSettle": 1,
+  "orderbookAfterSettle": [],
+  "ws": {
+    "frames": 2946,
+    "markets": {
+      "KRW-BTC|orderbook": {
+        "count": 989,
+        "epochs": {
+          "9": 1790359819077
+        },
+        "gaps": 0,
+        "lastSeq": 989,
+        "lastEpoch": 9
+      },
+      "KRW-BTC|trade": {
+        "count": 626,
+        "epochs": {
+          "9": 1790359820681
+        },
+        "gaps": 0,
+        "lastSeq": null,
+        "lastEpoch": null
+      },
+      "KRW-BTC|ticker": {
+        "count": 617,
+        "epochs": {
+          "9": 1790359820691
+        },
+        "gaps": 0,
+        "lastSeq": 617,
+        "lastEpoch": 9
+      },
+      "KRW-ETH|ticker": {
+        "count": 227,
+        "epochs": {
+          "8": 1790359826092,
+          "10": 1790359871337
+        },
+        "gaps": 0,
+        "lastSeq": 75,
+        "lastEpoch": 10
+      },
+      "KRW-XRP|ticker": {
+        "count": 461,
+        "epochs": {
+          "9": 1790359826138
+        },
+        "gaps": 0,
+        "lastSeq": 461,
+        "lastEpoch": 9
+      }
+    }
+  },
+  "requests": [
+    {
+      "at": 1790359818904,
+      "method": "GET",
+      "path": "/api/v1/notices",
+      "query": {
+        "limit": "50"
+      }
+    },
+    {
+      "at": 1790359818905,
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "query": {}
+    },
+    {
+      "at": 1790359818906,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790359818906,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790359818906,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359818906,
+      "method": "GET",
+      "path": "/api/v1/markets",
+      "query": {}
+    },
+    {
+      "at": 1790359818906,
+      "method": "POST",
+      "path": "/api/v1/demo/session",
+      "query": {}
+    },
+    {
+      "at": 1790359818907,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790359819027,
+      "method": "GET",
+      "path": "/api/v1/candles/15m",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "200"
+      }
+    },
+    {
+      "at": 1790359819062,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790359819062,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790359819062,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790359819173,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790359819174,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790359819272,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790359819272,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790359819275,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790359819275,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790359819275,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790359819275,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790359833901,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359848890,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359863893,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359871337,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-ETH"
+      }
+    },
+    {
+      "at": 1790359871652,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790359871652,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790359871652,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790359878902,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359893896,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359908898,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359923904,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359938899,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359953903,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359968893,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359983899,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790359998903,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360013896,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360028898,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360043901,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360058904,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360073893,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360088897,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790360103895,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    }
+  ]
+}

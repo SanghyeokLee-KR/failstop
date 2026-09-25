@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "C:\dev\exchange-pml\harness\scale\s7_axes.py", line 885, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\dev\exchange-pml\harness\scale\s7_axes.py", line 881, in main
+    return handlers[a.cmd](a)
+           ~~~~~~~~~~~~~~~^^^
+  File "C:\dev\exchange-pml\harness\scale\s7_axes.py", line 668, in cmd_ack_interval
+    baseline_from=ts(a.baseline_from) if a.baseline_from else None)
+                  ~~^^^^^^^^^^^^^^^^^
+  File "C:\dev\exchange-pml\harness\scale\s7_axes.py", line 90, in ts
+    return parse_iso(s).timestamp()
+           ~~~~~~~~~^^^
+  File "C:\dev\exchange-pml\harness\scale\s7_axes.py", line 86, in parse_iso
+    return dt.datetime.fromisoformat(s.replace('Z', '+00:00')).astimezone(dt.timezone.utc)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid isoformat string: '09/25/2026 18:18:51'

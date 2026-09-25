@@ -1,0 +1,31 @@
+{
+  "judge": "segment-judge",
+  "at": "2026-09-26T05:10:03+09:00",
+  "facts": {
+    "2": {
+      "pre": 246,
+      "post": 246
+    },
+    "3": {
+      "pre": 246,
+      "post": 246
+    }
+  },
+  "axes": {
+    "pre_has_rows": true,
+    "history_2_old_rows_unchanged": true,
+    "history_3_old_rows_unchanged": true,
+    "pre_samples_read": true,
+    "pre_samples_consistent": true
+  },
+  "positive": [
+    "pre_has_rows",
+    "pre_samples_read"
+  ],
+  "verdict": "PASS",
+  "failed": [],
+  "pre": [
+    "harness\\evidence\\pml-S7-20260926-0300\\Q8c\\protocol.json"
+  ],
+  "post": "harness\\evidence\\pml-S7-20260926-0300\\Q8c\\segment_post.json"
+}

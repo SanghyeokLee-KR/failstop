@@ -1,0 +1,38 @@
+
+== E2 시작 runId=E2-20260926-035206 ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+리더 감지: chaos-api-2 -> 차단 프록시 pg-api2
+
+== ⓐ 사전 권위 run ==
+사전 verdict=FAIL old_epoch=9
+회복 가능 반납 기저(승격 예정 노드): 0.0
+시계가드 통과: 스큐 48ms, 임계 2000ms, 왕복 112ms.
+
+== ⓑ 주입: timeout blackhole on pg-api2 ==
+T0=2026-09-25T18:52:45.9620192Z trades_at_inject=809
+
+== ⓒ 관찰(개입 금지) ==
+
+== ⓓ 드레인 + 사후 권위 run ==
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+봇 OPS=40 적용(chaos-bots 재기동, settle 0s)
+
+── E2 증거 ─────────────────────
+verdict          : PASS
+RTO(체결 재개)   : 13.472 s (목표 < 30)
+epoch            : 9 -> 10
+자산합(C01)      : 0
+중복 접수/체결   : 0 / 0
+저널 gap C05/C06 : 0 / 0
+주문 유실(C13a)  : 0 (드레인 성립=True)
+failover_run_id  : 1
+────────────────────────────────────────
+1|E2|9|10|13.472|0|PASS
+
+== ⓔ 승격 안정성 관측 ==
+승격 안정성: 리스 사망 표본 0 / epoch 역행 0 / 최종 epoch 10 -> PASS
+회복 가능 반납 델타(이번 페일오버): 0 (기저 0, 사후 0.0, 정상 상한 1)
+
+== 종료 훅: 토식 해제 ==
+판정 파일: C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\chaos-runs\E2-20260926-035206.json (불변식 행 64)
+E2 PASS.

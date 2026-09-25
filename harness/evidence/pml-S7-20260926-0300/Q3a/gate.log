@@ -1,0 +1,3 @@
+2026-09-26T03:31:16+09:00 START Q3a
+2026-09-26T03:31:16+09:00 RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E7 -Protocol 3 -P3 -Resource matching-p1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3a\runner -SurvivorLoadOps 20 -PartitionAxes
+2026-09-26T03:34:33+09:00 END Q3a verdict=PASS

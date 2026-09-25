@@ -1,0 +1,42 @@
+{
+  "judge": "victim-writes",
+  "at": "2026-09-26T03:34:20+09:00",
+  "facts": {
+    "samples": 76,
+    "victim_resources": [
+      "matching-p1"
+    ],
+    "deltas": {
+      "9": 0
+    },
+    "victim_holder": "2aee360d-936d-41ae-8e46-b5f0564aeeb2",
+    "victim_epochs": [
+      9
+    ],
+    "victim_map": {
+      "9": "matching-p1"
+    },
+    "takeover_after_inject_s": {
+      "matching-p1": 14.297
+    },
+    "base_t": 1790361173.69314,
+    "post_t": 1790361226.0055017,
+    "inject_at": "2026-09-25T18:32:53.0923322Z"
+  },
+  "axes": {
+    "pre_sample_before_inject": true,
+    "victim_holder_known": true,
+    "base_sample_after_inject": true,
+    "post_after_base": true,
+    "victim_epoch_9_writes_0": true
+  },
+  "positive": [
+    "pre_sample_before_inject",
+    "victim_holder_known",
+    "base_sample_after_inject",
+    "post_after_base"
+  ],
+  "verdict": "PASS",
+  "failed": [],
+  "samples_file": "harness\\evidence\\pml-S7-20260926-0300\\Q3a\\runner\\E7\\epoch_samples.jsonl"
+}

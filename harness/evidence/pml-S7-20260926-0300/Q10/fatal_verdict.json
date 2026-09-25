@@ -1,0 +1,24 @@
+{
+  "judge": "market-fatal",
+  "at": "2026-09-26T04:14:15+09:00",
+  "facts": {
+    "reacquired_s": 5.78
+  },
+  "axes": {
+    "injected_once": true,
+    "p1_writer_fatal_once": true,
+    "p0_no_demotion": true,
+    "breaker_not_open": true,
+    "p1_leader_again_within_30s": true,
+    "p0_ack_interval_ok": false,
+    "post_invariants_pass": true
+  },
+  "positive": [
+    "injected_once"
+  ],
+  "verdict": "FAIL",
+  "failed": [
+    "p0_ack_interval_ok"
+  ],
+  "input": "harness\\evidence\\pml-S7-20260926-0300\\Q10\\fatal.json"
+}

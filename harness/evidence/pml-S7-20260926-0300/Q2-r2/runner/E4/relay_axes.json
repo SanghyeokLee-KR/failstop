@@ -1,0 +1,60 @@
+{
+  "experiment": "W6",
+  "started": "2026-09-26T03:23:55+09:00",
+  "window_from": "2026-09-25T18:18:52.8578913Z",
+  "fault_from": null,
+  "fault_to": null,
+  "verdict": "PASS",
+  "facts": {
+    "survivor_opens": 1,
+    "KRW-BTC_rises_after_kill": 0,
+    "KRW-XRP_rises_after_kill": 0,
+    "KRW-ETH_first_new_epoch_at_ms": 1790360386262,
+    "victim": "chaos-api-2",
+    "survivor": "chaos-api-1",
+    "affected": [
+      "KRW-ETH"
+    ],
+    "unaffected": [
+      "KRW-BTC",
+      "KRW-XRP"
+    ],
+    "survivor_degraded_max": 0.0,
+    "freshness_from": "2026-09-25T18:20:12.253632Z",
+    "freshness_after_rejoin": {
+      "pairs": 34,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 1.0,
+      "follower_all_seq0": false
+    },
+    "web_file": "harness\\evidence\\pml-S7-20260926-0300\\Q2-r2\\runner\\E4\\web_resync.json"
+  },
+  "axes": {
+    "survivor_watch_reconnect_0": true,
+    "KRW-BTC_unaffected_epoch_rise_0": true,
+    "KRW-BTC_unaffected_dense_gaps_0": true,
+    "KRW-XRP_unaffected_epoch_rise_0": true,
+    "KRW-XRP_unaffected_dense_gaps_0": true,
+    "KRW-ETH_affected_epoch_rise_once_within_rto_plus_5s": true,
+    "KRW-ETH_affected_dense_gaps_after_rise_0": true,
+    "markets_given": true,
+    "victim_survivor_differ": true,
+    "survivor_never_degraded": true,
+    "rejoined_victim_gate_open": true,
+    "freshness_after_rejoin_all_ok": true,
+    "web_observed": true,
+    "web_ticker_resync_requested": true,
+    "web_ticker_resync_only_affected": true,
+    "web_accounts_rest_once": true,
+    "web_open_orders_rest_once": true,
+    "web_unaffected_orderbook_rest_0": true,
+    "web_KRW-BTC_epoch_kept": true,
+    "web_KRW-BTC_gaps_0": true,
+    "web_KRW-XRP_epoch_kept": true,
+    "web_KRW-XRP_gaps_0": true
+  },
+  "ok": true,
+  "finished": "2026-09-26T03:23:55+09:00"
+}

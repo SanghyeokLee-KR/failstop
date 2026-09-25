@@ -1,0 +1,38 @@
+{
+  "experiment": "Q2",
+  "started": "2026-09-25T18:09:07.5191378Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "result": {
+    "runner": "adr0022-stage5-chaos.ps1",
+    "experiment": "E4",
+    "web": {
+      "ok": true,
+      "port": 3000,
+      "env": {
+        "NEXT_PUBLIC_DATASOURCE": "http",
+        "NEXT_PUBLIC_API_BASE": "http://localhost:18080",
+        "NEXT_PUBLIC_WS_BASE": "ws://localhost:18080"
+      },
+      "buildRc": 0,
+      "pid": 33816
+    },
+    "runnerRc": 0,
+    "runnerVerdict": "PASS",
+    "p1RtoSec": 12.605,
+    "p0Epoch": {
+      "before": 9,
+      "after": 9
+    },
+    "axes": {
+      "p1_rto_le_p2_max_plus_ttl": true,
+      "p0_epoch_unchanged": true,
+      "p3_epoch_rule": true
+    },
+    "failed": [],
+    "verdict": "PASS"
+  },
+  "finished": "2026-09-25T18:15:27.7718703Z",
+  "verdict": "PASS"
+}

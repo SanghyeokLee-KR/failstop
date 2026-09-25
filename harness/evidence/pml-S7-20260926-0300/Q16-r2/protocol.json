@@ -1,0 +1,394 @@
+{
+  "ok": true,
+  "already": false,
+  "target": 3,
+  "allow_downgrade": false,
+  "latch_band": true,
+  "code": 0,
+  "error": null,
+  "started": "2026-09-26T05:00:13+09:00",
+  "order": [
+    "stop:chaos-bots",
+    "drain",
+    "stop:chaos-api-2",
+    "stop:chaos-api-1",
+    "call:2",
+    "latch",
+    "call:3",
+    "segment",
+    "start:chaos-api-1",
+    "start:chaos-api-2",
+    "start:chaos-bots"
+  ],
+  "guard": {
+    "ok": true,
+    "problems": [],
+    "labels": {
+      "chaos-pg": "exchange-pml",
+      "chaos-api-1": "exchange-pml",
+      "chaos-api-2": "exchange-pml",
+      "chaos-bots": "exchange-pml"
+    },
+    "image_ids": {
+      "chaos-api-1": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-api-2": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-bots": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+    },
+    "pml_image_id": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+  },
+  "before": {
+    "ok": true,
+    "error": null,
+    "ts": "2026-09-26T05:00:13+09:00",
+    "protocol": 1,
+    "changed_at": "2026-09-25T19:59:52.86051+00:00",
+    "history": [
+      {
+        "id": 1,
+        "protocol": 1,
+        "prev_protocol": null,
+        "epoch_floor": 0,
+        "changed_at": "2026-09-25T19:59:52.86051+00:00",
+        "changed_by": "exchange"
+      }
+    ],
+    "lease": [
+      {
+        "resource": "matching-engine",
+        "holder": "8ca27012-2d55-4271-8aa5-899b80d239a6",
+        "epoch": 1,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 0,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 0,
+        "alive": false
+      }
+    ],
+    "retired": [],
+    "acquisitions_by_protocol": {
+      "1": 1
+    },
+    "reservations": 0,
+    "unsettled_new": 0,
+    "unsettled_reservations": 0,
+    "oldest_unsettled_reservation_s": null,
+    "latched": false,
+    "db_now": "2026-09-25T20:00:13.548506+00:00"
+  },
+  "steps": [
+    2,
+    3
+  ],
+  "precheck": {
+    "gauges": {
+      "chaos-api-1": {
+        "ok": true,
+        "values": {
+          "exchange_leader_protocol_boot": 1.0,
+          "exchange_leader_protocol_max": 3.0,
+          "exchange_order_inflight_enabled": 1.0
+        }
+      },
+      "chaos-api-2": {
+        "ok": true,
+        "values": {
+          "exchange_leader_protocol_boot": 1.0,
+          "exchange_leader_protocol_max": 3.0,
+          "exchange_order_inflight_enabled": 1.0
+        }
+      }
+    },
+    "preferred_env": {
+      "chaos-api-1": "matching-p0",
+      "chaos-api-2": "matching-p1"
+    },
+    "blockers": [
+      {
+        "blocker": "band_latch_missing",
+        "detail": "journal_cutover 에 command_seq 행이 없다(ADR 0022 6-b)"
+      }
+    ]
+  },
+  "latch_decision": "latch",
+  "bots": {
+    "running_before": true,
+    "stop_rc": 0,
+    "start_rc": 0
+  },
+  "drain": {
+    "ok": true,
+    "seconds": 2.3,
+    "samples": [
+      {
+        "t_s": 0.1,
+        "unsettled_new": 0
+      },
+      {
+        "t_s": 2.3,
+        "unsettled_new": 0
+      }
+    ]
+  },
+  "stop": {
+    "chaos-api-2": 0,
+    "chaos-api-1": 0
+  },
+  "latch": {
+    "ok": true,
+    "rc": 0,
+    "latched_at": "2026-09-25 20:00:19.633257+00",
+    "stderr": ""
+  },
+  "calls": [
+    {
+      "rc": 0,
+      "sql": "SELECT * FROM set_leader_protocol(2::smallint)",
+      "rows": [
+        {
+          "resource": "matching-p0",
+          "retired_epoch": 2,
+          "protocol": 2
+        },
+        {
+          "resource": "matching-p1",
+          "retired_epoch": 3,
+          "protocol": 2
+        },
+        {
+          "resource": "matching-engine",
+          "retired_epoch": 4,
+          "protocol": 2
+        }
+      ],
+      "t0": "2026-09-25 20:00:19.418934+00",
+      "t1": "2026-09-25 20:00:19.437374+00",
+      "duration_ms": 18.4,
+      "stderr": "",
+      "target": 2
+    },
+    {
+      "rc": 0,
+      "sql": "SELECT * FROM set_leader_protocol(3::smallint)",
+      "rows": [
+        {
+          "resource": "matching-p0",
+          "retired_epoch": 5,
+          "protocol": 3
+        },
+        {
+          "resource": "matching-p1",
+          "retired_epoch": 6,
+          "protocol": 3
+        },
+        {
+          "resource": "matching-engine",
+          "retired_epoch": 7,
+          "protocol": 3
+        }
+      ],
+      "t0": "2026-09-25 20:00:19.754269+00",
+      "t1": "2026-09-25 20:00:19.778764+00",
+      "duration_ms": 24.5,
+      "stderr": "",
+      "target": 3
+    }
+  ],
+  "last_retired_epoch": 7,
+  "segment_after_cutover": {
+    "ok": true,
+    "error": null,
+    "at": "2026-09-26T05:00:20+09:00",
+    "rows": [
+      {
+        "id": 2,
+        "protocol": 2,
+        "epoch_floor": 1,
+        "old_rows": 246
+      },
+      {
+        "id": 3,
+        "protocol": 3,
+        "epoch_floor": 4,
+        "old_rows": 246
+      }
+    ]
+  },
+  "start": {
+    "chaos-api-1": 0,
+    "chaos-api-2": 0
+  },
+  "assignment_first": {
+    "state": "ok",
+    "moves": [],
+    "waited_s": 10.0
+  },
+  "relocations": [],
+  "assignment": "ok",
+  "nodes": {
+    "chaos-api-1": {
+      "ok": true,
+      "values": {
+        "exchange_leader_protocol_boot": 3.0,
+        "exchange_leader_protocol_max": 3.0,
+        "exchange_order_inflight_enabled": 0.0
+      }
+    },
+    "chaos-api-2": {
+      "ok": true,
+      "values": {
+        "exchange_leader_protocol_boot": 3.0,
+        "exchange_leader_protocol_max": 3.0,
+        "exchange_order_inflight_enabled": 0.0
+      }
+    }
+  },
+  "after": {
+    "ok": true,
+    "error": null,
+    "ts": "2026-09-26T05:00:31+09:00",
+    "protocol": 3,
+    "changed_at": "2026-09-25T20:00:19.775867+00:00",
+    "history": [
+      {
+        "id": 1,
+        "protocol": 1,
+        "prev_protocol": null,
+        "epoch_floor": 0,
+        "changed_at": "2026-09-25T19:59:52.86051+00:00",
+        "changed_by": "exchange"
+      },
+      {
+        "id": 2,
+        "protocol": 2,
+        "prev_protocol": 1,
+        "epoch_floor": 1,
+        "changed_at": "2026-09-25T20:00:19.434297+00:00",
+        "changed_by": "exchange"
+      },
+      {
+        "id": 3,
+        "protocol": 3,
+        "prev_protocol": 2,
+        "epoch_floor": 4,
+        "changed_at": "2026-09-25T20:00:19.775867+00:00",
+        "changed_by": "exchange"
+      }
+    ],
+    "lease": [
+      {
+        "resource": "matching-engine",
+        "holder": "",
+        "epoch": 7,
+        "alive": false
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "4f5b776a-0ff7-48df-8a14-c44f6dbbba18",
+        "epoch": 9,
+        "alive": true
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "df731670-8de6-4796-8f24-62ef978004b0",
+        "epoch": 8,
+        "alive": true
+      }
+    ],
+    "retired": [
+      {
+        "epoch": 2,
+        "resource": "matching-p0",
+        "protocol": 2,
+        "acquired_at": "2026-09-25T20:00:19.436229+00:00"
+      },
+      {
+        "epoch": 3,
+        "resource": "matching-p1",
+        "protocol": 2,
+        "acquired_at": "2026-09-25T20:00:19.436449+00:00"
+      },
+      {
+        "epoch": 4,
+        "resource": "matching-engine",
+        "protocol": 2,
+        "acquired_at": "2026-09-25T20:00:19.436565+00:00"
+      },
+      {
+        "epoch": 5,
+        "resource": "matching-p0",
+        "protocol": 3,
+        "acquired_at": "2026-09-25T20:00:19.777641+00:00"
+      },
+      {
+        "epoch": 6,
+        "resource": "matching-p1",
+        "protocol": 3,
+        "acquired_at": "2026-09-25T20:00:19.77783+00:00"
+      },
+      {
+        "epoch": 7,
+        "resource": "matching-engine",
+        "protocol": 3,
+        "acquired_at": "2026-09-25T20:00:19.777911+00:00"
+      }
+    ],
+    "acquisitions_by_protocol": {
+      "3": 5,
+      "2": 3,
+      "1": 1
+    },
+    "reservations": 0,
+    "unsettled_new": 0,
+    "unsettled_reservations": 0,
+    "oldest_unsettled_reservation_s": null,
+    "latched": true,
+    "db_now": "2026-09-25T20:00:31.025324+00:00"
+  },
+  "history": [
+    {
+      "id": 1,
+      "protocol": 1,
+      "prev_protocol": null,
+      "epoch_floor": 0,
+      "changed_at": "2026-09-25T19:59:52.86051+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 2,
+      "protocol": 2,
+      "prev_protocol": 1,
+      "epoch_floor": 1,
+      "changed_at": "2026-09-25T20:00:19.434297+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 3,
+      "protocol": 3,
+      "prev_protocol": 2,
+      "epoch_floor": 4,
+      "changed_at": "2026-09-25T20:00:19.775867+00:00",
+      "changed_by": "exchange"
+    }
+  ],
+  "checks": {
+    "gauges_boot": true,
+    "gauges_inflight_0": true,
+    "mode_after": true,
+    "history_last": true,
+    "retire_order": true,
+    "segment_sampled_before_start": true,
+    "preferred_assignment": true,
+    "c29_0": true,
+    "partition_epochs_after_last_retired": true,
+    "gauges_max_3": true
+  },
+  "finished": "2026-09-26T05:00:31+09:00"
+}

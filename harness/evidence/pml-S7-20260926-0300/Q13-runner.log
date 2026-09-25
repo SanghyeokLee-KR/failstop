@@ -1,0 +1,17 @@
+2026-09-26T04:16:13+09:00 START Q13
+2026-09-26T04:16:47+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q13\protocol.json
+2026-09-26T04:17:05+09:00 RC 0
+2026-09-26T04:17:20+09:00 Q13 봇 부하 600 초
+2026-09-26T04:27:22+09:00 RUN python harness/scale/s6_relay_axes.py watch --log harness\evidence\pml-S7-20260926-0300\Q13\watch.log --out harness\evidence\pml-S7-20260926-0300\Q13\watch.json
+2026-09-26T04:27:22+09:00 RC 0
+2026-09-26T04:27:22+09:00 RUN python harness/scale/s6_relay_axes.py judge --experiment W7 --evidence harness\evidence\pml-S7-20260926-0300\Q13 --node chaos-api-1 --window-from 2026-09-25T19:17:50.4023508Z --window-to 2026-09-25T19:27:20.4361142Z --p0-markets KRW-BTC,KRW-XRP --p1-markets KRW-ETH --out harness\evidence\pml-S7-20260926-0300\Q13\w7.json
+2026-09-26T04:27:22+09:00 RC 1
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+2026-09-26T04:27:25+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T04:27:32+09:00 RC 0
+2026-09-26T04:27:32+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q13\segment_post.json
+2026-09-26T04:27:32+09:00 RC 0
+2026-09-26T04:27:32+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q13\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q13\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q13\segment.json
+2026-09-26T04:27:32+09:00 RC 0
+2026-09-26T04:27:39+09:00 DOWN rc=0
+2026-09-26T04:27:39+09:00 END Q13 verdict=FAIL(FAIL)

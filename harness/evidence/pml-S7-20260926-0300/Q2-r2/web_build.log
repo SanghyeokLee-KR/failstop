@@ -1,0 +1,81 @@
+
+> exchange-web@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.20
+   - Environments: .env.production
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 1980ms
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/80) ...
+   Generating static pages (20/80) 
+   Generating static pages (40/80) 
+   Generating static pages (60/80) 
+ ✓ Generating static pages (80/80)
+   Finalizing page optimization ...
+   Collecting build traces ...
+   Exporting (0/2) ...
+ ✓ Exporting (2/2)
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                      544 B         126 kB
+├ ○ /_not-found                            127 B         103 kB
+├ ○ /admin                               2.89 kB         169 kB
+├ ○ /admin/audit                         4.58 kB         166 kB
+├ ○ /admin/back                          2.86 kB         165 kB
+├ ○ /admin/bots                          8.98 kB         176 kB
+├ ○ /admin/capacity                      6.76 kB         169 kB
+├ ○ /admin/community                     5.47 kB         167 kB
+├ ○ /admin/config                        4.91 kB         171 kB
+├ ○ /admin/drill                         11.1 kB         173 kB
+├ ○ /admin/flow                          15.6 kB         134 kB
+├ ○ /admin/members                       5.08 kB         172 kB
+├ ○ /admin/monitor                       5.95 kB         128 kB
+├ ○ /admin/operators                     3.12 kB         170 kB
+├ ○ /admin/support                       3.78 kB         166 kB
+├ ○ /admin/transfers                     5.84 kB         168 kB
+├ ○ /assets                              7.16 kB         140 kB
+├ ○ /auth/login                           3.7 kB         137 kB
+├ ○ /auth/signup                            4 kB         137 kB
+├ ● /coin/[market]                         941 B         104 kB
+├   ├ /coin/KRW-BTC
+├   ├ /coin/KRW-ETH
+├   ├ /coin/KRW-SOL
+├   └ [+9 more paths]
+├ ● /community/[market]                  13.7 kB         147 kB
+├   ├ /community/KRW-BTC
+├   ├ /community/KRW-ETH
+├   ├ /community/KRW-SOL
+├   └ [+9 more paths]
+├ ○ /exchange                              668 B         112 kB
+├ ● /exchange/[market]                   18.5 kB         155 kB
+├   ├ /exchange/KRW-BTC
+├   ├ /exchange/KRW-ETH
+├   ├ /exchange/KRW-SOL
+├   └ [+9 more paths]
+├ ○ /history                             7.01 kB         140 kB
+├ ○ /home                                60.5 kB         197 kB
+├ ○ /icon.svg                                0 B            0 B
+├ ○ /market                                907 B         104 kB
+├ ○ /mypage                              3.34 kB         136 kB
+├ ○ /notices                             3.41 kB         136 kB
+├ ● /order/[market]                      1.05 kB         104 kB
+├   ├ /order/KRW-BTC
+├   ├ /order/KRW-ETH
+├   ├ /order/KRW-SOL
+├   └ [+9 more paths]
+├ ○ /support                             7.01 kB         140 kB
+├ ○ /system                                253 B         106 kB
+├ ○ /transfers                           6.69 kB         140 kB
+└ ○ /welcome                               326 B         106 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/3242-266763bf2a7f8872.js      45.6 kB
+  ├ chunks/5e61333f-bbce5d22f6f190fc.js  54.2 kB
+  └ other shared chunks (total)          2.73 kB
+
+
+○  (Static)  prerendered as static content
+●  (SSG)     prerendered as static HTML (uses generateStaticParams)
+

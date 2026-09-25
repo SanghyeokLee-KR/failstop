@@ -1,0 +1,31 @@
+{
+  "judge": "double-spend",
+  "at": "2026-09-26T03:04:16+09:00",
+  "facts": {
+    "requested": 1000,
+    "ran": 1000
+  },
+  "axes": {
+    "all_rounds_ran": true,
+    "exactly_one_success_every_round": true,
+    "insufficient_rejections_gt_0": false,
+    "order_insufficient_gt_0": false,
+    "settlement_23514_delta_0": true,
+    "fatal_demotions_0": true,
+    "server_errors_0": true,
+    "balance_restore_failures_0": true,
+    "post_C01_0": true,
+    "post_C14_0": true,
+    "post_C31_0": true
+  },
+  "positive": [
+    "all_rounds_ran",
+    "order_insufficient_gt_0"
+  ],
+  "verdict": "NOT RUN",
+  "failed": [
+    "insufficient_rejections_gt_0",
+    "order_insufficient_gt_0"
+  ],
+  "input": "harness\\evidence\\pml-S7-20260926-0300\\Q1\\double_spend.json"
+}
