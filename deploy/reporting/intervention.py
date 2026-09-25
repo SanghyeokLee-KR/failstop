@@ -13,7 +13,8 @@ REQUIRED_METRICS = {"target_up", "disk_available", "inode_free", "services_faile
                     "db_replication_lag", "request_rate", "server_errors", "latency_p95", "backup_success"}
 LABELS = {"immediate": "즉시 대응 필요", "scheduled": "담당자 조치 필요", "verify": "담당자 확인 필요", "monitor": "관찰 유지"}
 RANK = {"immediate": 1, "scheduled": 2, "verify": 3, "monitor": 4}
-POLICY_NOTE = "수집 시점의 권고 기준 · 담당 역할·착수 시점은 SLA나 작업 배정이 아님 · 자동 조치 없음"
+# 이 권고는 보고 서비스가 실행하지 않는다는 뜻이다. 관제센터의 자동 조치 수는 보고마다 따로 센다(presentation.automation_label).
+POLICY_NOTE = "수집 시점의 권고 기준 · 담당 역할·착수 시점은 SLA나 작업 배정이 아님 · 보고 서비스는 조치를 실행하지 않음"
 
 
 def database_role(labels):

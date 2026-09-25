@@ -130,7 +130,8 @@ class InterventionTest(unittest.TestCase):
         result = assess(report)
         self.assertEqual(report, before)
         self.assertIn("SLA", result["policy_note"])
-        self.assertIn("자동 조치 없음", result["policy_note"])
+        self.assertIn("보고 서비스는 조치를 실행하지 않음", result["policy_note"])
+        self.assertNotIn("자동 조치 없음", result["policy_note"], "관제센터 자동 조치 수는 보고마다 센다")
         self.assertTrue(all(set(row) == {"priority", "owner", "timing", "task", "done_when", "evidence"} for row in result["actions"]))
 
     def test_http_errors_require_verification_even_without_a_firing_alert(self):

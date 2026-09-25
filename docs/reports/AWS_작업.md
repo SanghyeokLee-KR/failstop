@@ -595,6 +595,8 @@ Teams 보고는 [공통 보고 모듈](../../deploy/reporting/README.md)을 사�
 
 기존 `exchange-report-daily.timer`·`exchange-report-incident.timer`는 중복 발송을 막기 위해 껐다. 새 `failstop-reporting-daily.timer`는 한국 시간 오전 9시에 동작하며 경보 보고는 Alertmanager 이벤트로 발생·해제를 구분한다. AI는 설명만 작성하고 서버 제어나 DB 승격을 실행하지 않는다. 수집되지 않은 근거는 미확인으로 남긴다. 예약 백업은 아직 없으므로 보고서에서도 완료로 표시하지 않는다.
 
+승인 뒤 적용(2026-09-25 저장소 수정, 학교 미적용): 카드 기록 줄(`기록 y:2026-09-24` → `일일 보고 2026-09-24`)·자동 조치 수·영향 줄 보정은 `claude/msp-control` 판 `deploy/reporting`의 모듈을 bot-1 `/opt/failstop/deploy/reporting/`에 root 0644로 바꿔 넣고 `sudo systemctl restart failstop-reporting.service` 뒤 다음 09:00 카드 끝줄로 확인한다. `install.py`를 다시 돌린다면 `--enable-delivery`를 빼면 전송이 꺼지고, 학교 설정은 `gemini`라 `preview`가 AI를 한 번 부른다.
+
 실제 AWS 지표를 담은 `school-live-check-20260920` 보고의 웹훅 접수, PDF 111,333바이트·HTML 16,445바이트의 HTTPS 200과 저장 내용 일치를 확인했다. 사용자가 Teams 카드와 두 보고서가 모두 열린다고 확인했다. 장애 시험·DB 승격의 진행 상태는 로드맵과 [실행 증거](../../증거본/2026-09-20_백업_복구_보고/README.md)를 따른다.
 
 

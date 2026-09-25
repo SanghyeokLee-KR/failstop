@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import sqlite3
@@ -25,6 +26,7 @@ from transport import RequestFailure, json_request, redact, request, restricted_
 KST = dt.timezone(dt.timedelta(hours=9), "Asia/Seoul")
 MAX_BODY = 65536
 LEASE_SECONDS = 300
+AUTOMATION_KINDS = {"AUTO_EXECUTED": "executed", "AUTO_REVERTED": "reverted", "EXECUTION_UNKNOWN": "unknown"}
 
 
 def delivery_enabled():
@@ -170,6 +172,25 @@ class Store:
                        "ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated=excluded.updated",
                        (report_id, status, time.time()))
 
+    def automation(self, start, end, scope=None):
+        """[start, end) 에 발생한 관제센터 사건 가운데 자동 실행·자동 되돌림·결과 모름 수.
+
+        이 서비스가 받은 사건(`msp:` 작업, 전송 상태와 무관)만 센다. 관리 JVM 이 아직 넘기지 못한 사건은 빠진다.
+        발생 시각은 JVM 시각이고 받은 시각은 뒤에 오므로, 시계 차이 1시간을 두고 받은 시각으로 먼저 거른다.
+        저장된 사건 하나라도 해석하지 못하면 예외를 그대로 올려 호출자가 '확인 불가'로 적게 한다.
+        """
+        counts = dict.fromkeys(AUTOMATION_KINDS.values(), 0)
+        with self.connect() as db:
+            rows = db.execute("SELECT payload FROM jobs WHERE kind='msp' AND created>=?", (start - 3600,)).fetchall()
+        for row in rows:
+            event = json.loads(row["payload"])["event"]
+            if scope and any(event["scope"][field] != value for field, value in scope.items()):
+                continue
+            field = AUTOMATION_KINDS.get(event["kind"])
+            if field and start <= dt.datetime.fromisoformat(event["occurred_at"].replace("Z", "+00:00")).timestamp() < end:
+                counts[field] += 1
+        return {"state": "ok", **counts}
+
     def reserve_ai(self, key, config):
         now = time.time()
         local = dt.datetime.fromtimestamp(now, KST)
@@ -260,6 +281,19 @@ class Store:
                 "artifacts": artifacts}
 
 
+def automation_summary(store, facts):
+    """보고 구간의 관제센터 자동 조치 수. 셀 수 없으면 0건으로 채우지 않고 확인 불가로 남긴다."""
+    end, seconds = facts.get("window_end"), facts.get("window_seconds")
+    # NaN 창은 모든 비교가 거짓이라 0건(없음)으로 보이므로 유한한 수만 받는다.
+    if store is None or any(type(value) not in (int, float) or not math.isfinite(value) for value in (end, seconds)):
+        return {"state": "unavailable"}
+    scope = facts.get("scope") if isinstance(facts.get("scope"), dict) else None
+    try:
+        return store.automation(end - seconds, end, scope or None)
+    except (sqlite3.Error, ValueError, KeyError, TypeError, AttributeError, OverflowError):
+        return {"state": "unavailable"}
+
+
 def retry_delay(header, attempts):
     delay = min(900, 5 * 2 ** min(attempts, 8))
     if header:
@@ -289,7 +323,8 @@ def drain_one(store, config, sender, key=None):
             payload = json.loads(job["payload"])
             facts = collect(config, payload.get("window_end", time.time()), payload.get("incident"))
             report = {"id": job["id"], "kind": job["kind"], "evidence": facts,
-                      "analysis": analyze(facts, config, store, job["id"])}
+                      "analysis": analyze(facts, config, store, job["id"]),
+                      "automation": automation_summary(store, facts)}
             if not store.save_report(job, report):
                 return True
         if report.get("kind") == "msp":
@@ -516,6 +551,11 @@ def main():
         report_id = "preview:" + uuid.uuid4().hex
         store = Store(args.state) if config.get("analyzer") == "gemini" else None
         report = {"id": report_id, "kind": "preview", "evidence": facts, "analysis": analyze(facts, config, store, report_id)}
+        if store is None and Path(args.state).is_file():
+            # 미리보기는 보관함을 새로 만들지 않는다. 있는 보관함을 열지 못하면 자동 조치 수는 확인 불가로 둔다.
+            with contextlib.suppress(sqlite3.Error, OSError):
+                store = Store(args.state)
+        report["automation"] = automation_summary(store, facts)
         output = {"report": report, "card": card(report)}
         if args.output:
             Path(args.output).write_text(render_html(report) if args.format == "html" else encode(output), encoding="utf-8")

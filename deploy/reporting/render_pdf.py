@@ -13,7 +13,7 @@ def build_bindings(report):
     brief = build_brief(report)
     decision = brief.get("intervention", {})
     return {"template": {"id": "MSP-OPS-02", "version": 2, "pages": 2},
-            "document": {"id": brief["report_id"], "title": brief["title"], "type": "사건" if report.get("kind") == "incident" else "정기",
+            "document": {"id": brief["report_id"], "record_line": brief["record_line"], "title": brief["title"], "type": "사건" if report.get("kind") == "incident" else "정기",
                          "service": "페일스톱", "customer": brief["customer"], "environment": brief["environment"],
                          "targets": list(dict.fromkeys(event["target"] for event in brief["events"])),
                          "collected_at": brief["collected_at"], "window": brief["window_label"]},
@@ -24,7 +24,7 @@ def build_bindings(report):
                          "remaining": brief["current_state"], "cause": "확정 원인 미제공", "hypotheses": brief.get("ai_notes", [])},
             "timeline": brief["timeline"], "actions": decision.get("actions", []), "events": brief["events"],
             "handover": {"owner": "역할별 담당자 지정 필요", "reviewer": "미입력", "processing": "처리 결과 확인 전",
-                         "approval": "변경 승인 기록 미제공", "executed_actions": "실행 내역 미제공"},
+                         "approval": "변경 승인 기록 미제공", "executed_actions": brief["automation"]},
             "metrics": brief["metrics"], "charts": build_charts(report), "gaps": brief["gaps"],
             "closure_conditions": decision.get("closure_conditions", []), "limitations": decision.get("limitations", []),
             "evidence_ids": brief["evidence_ids"], "method": brief["analysis_note"]}
@@ -125,7 +125,7 @@ def render_pdf(report, output, font, font_bold=None, bindings_output=None):
         canvas.setStrokeColor(line)
         canvas.setLineWidth(0.5)
         canvas.line(margin, 24, width - margin, 24)
-        text(fields["document"]["id"], margin, 19, inner - 55, 10, "small")
+        text(fields["document"]["record_line"] + " · 보고 ID " + fields["document"]["id"], margin, 19, inner - 55, 10, "small")
         text(f"{page} / 2", width - margin - 35, 19, 35, 10, "small")
 
     document = fields["document"]
@@ -164,7 +164,7 @@ def render_pdf(report, output, font, font_bold=None, bindings_output=None):
     handover = fields["handover"]
     y = table(y, [66, inner / 2 - 66, 58, inner / 2 - 58], [
         ["확인 담당", fields["actions"][0]["owner"] if fields["actions"] else "운영 담당", "처리 기록", "담당자 확인 후 등록"],
-        ["운영 조치", "자동 실행 없음", "변경 승인", "조치 실행 전 승인 검토"],
+        ["자동 조치", handover["executed_actions"], "변경 승인", "조치 실행 전 승인 검토"],
         ["종결 기준", "접속·복제·요청 결과 재확인" if any(event["alertname"].startswith("Database") for event in fields["events"]) else "경보·영향·필수 근거 확인", "판단 근거", "2쪽 지표·수집 범위 참조"]], 22, field="handover")
     if y < 33:
         raise ValueError("page_one_form_overflow")

@@ -71,17 +71,18 @@ class MspEventTests(unittest.TestCase):
         self.assertEqual(texts[0], "페일스톱 운영 관제 · exchange / AWS")
         self.assertIn("AI 자동 조치 실행 · 조회 노드 1대 증설", texts[1])
         self.assertEqual(texts[2], "P3 · 담당자 확인 필요")
-        self.assertEqual(body[3]["facts"], [{"title": "대상", "value": "조회 계층"},
-                                            {"title": "발생", "value": "2026-09-25 09:00 KST"}])
-        self.assertEqual(texts[4], "영향  \\|  조회 노드 1대 증설\\(2→3\\) · 관찰 창 09:05 KST까지 · 악화하면 되돌리거나 수동 전환")
-        self.assertIn("담당자 조치", texts)
+        self.assertEqual(body[3]["facts"], [
+            {"title": "대상", "value": "조회 계층"}, {"title": "발생", "value": "2026-09-25 09:00 KST"},
+            {"title": "영향", "value": "조회 노드 1대 증설\\(2→3\\) · 관찰 창 09:05 KST까지 · 악화하면 되돌리거나 수동 전환"}])
+        self.assertFalse(any("|" in text for text in texts), "영향은 세로줄 구분자 없이 이름-값 줄로 싣는다")
+        self.assertEqual(texts[4], "담당자 조치")
         self.assertIn("후속 관측 · 2026-09-25 09:00 KST", texts)
         self.assertIn({"title": "조회 평균 CPU", "value": "82.0% \\(임계 60.0%\\)"},
                       [fact for block in body if block["type"] == "FactSet" for fact in block["facts"]])
         self.assertIn("참고 분석 · AI", texts)
         self.assertIn("AI 판단 · 모델 gpt-oss:20b · 확신도 86%", texts)
         self.assertTrue(any(text.startswith("미확인 자료 1항목") for text in texts))
-        self.assertTrue(texts[-1].endswith("· 자동 조치 있음"), texts[-1])
+        self.assertEqual(texts[-1], "관제 사건 6f1c2a9e · 자동 실행 1건")
         self.assertNotIn("actions", card["attachments"][0]["content"], "관제센터 주소를 설정하지 않았다")
         self.assertLess(len(encoded.encode()), 26000)
 
@@ -91,6 +92,7 @@ class MspEventTests(unittest.TestCase):
         self.assertEqual((brief["title"], brief["priority"]), ("AI 정지", "P3"))
         self.assertIn("대기 조치안 2건 만료", brief["impact"])
         self.assertFalse(brief["automatic"])
+        self.assertEqual(brief["automation"], "자동 조치 없음")
         unknown = auto_executed(kind="EXECUTION_UNKNOWN")
         unknown["action"]["status"] = "UNKNOWN"
         self.assertEqual(msp_events.brief(msp_events.report(*msp_events.event_payload(unknown)))["priority"], "P1")

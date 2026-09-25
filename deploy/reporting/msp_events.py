@@ -5,7 +5,7 @@ import urllib.parse
 import uuid
 
 from intervention import LABELS, RANK
-from presentation import _kst, _markdown
+from presentation import _kst, _markdown, report_label
 from transport import redact
 
 KINDS = {"AUTO_EXECUTED", "AUTO_REVERTED", "MODE_CHANGED", "CAP_REACHED", "OBSERVE_FAILED", "EXECUTION_UNKNOWN",
@@ -37,6 +37,9 @@ MODEL = re.compile(r"[\w.:/-]{1,128}")
 DECIMAL = re.compile(r"-?\d{1,15}(\.\d{1,15})?")
 TIME = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})")
 AUTOMATIC = {"AUTO_EXECUTED", "AUTO_REVERTED"}
+# 이 사건 자체가 한 자동 조치. 관찰 실패는 새 조치 없이 수동으로 바꾼 사건이지만 앞선 자동 조치의 상태를 모른다.
+AUTOMATION = {"AUTO_EXECUTED": "자동 실행 1건", "AUTO_REVERTED": "자동 되돌림 1건",
+              "EXECUTION_UNKNOWN": "조치 결과 확인 필요", "OBSERVE_FAILED": "새 자동 조치 없음 · 앞선 조치 상태 확인 필요"}
 
 
 def _check(condition, code):
@@ -214,7 +217,8 @@ def brief(saved):
             "target": _target(action) if action else "AI 모드", "occurred_at": _kst(event["occurred_at"]),
             "impact": impact, "action": {"owner": "관제 담당", "timing": task[0], "task": task[1], "done_when": task[2]},
             "metrics": metrics, "ai_note": ai_note, "unconfirmed": event["unconfirmed"],
-            "automatic": kind in AUTOMATIC, "report_id": saved["id"],
+            "automatic": kind in AUTOMATIC, "automation": AUTOMATION.get(kind, "자동 조치 없음"),
+            "report_id": saved["id"], "report_label": report_label(saved["id"]),
             "customer": event["scope"]["customer"],
             "environment": {"local-lab": "로컬 실습", "aws": "AWS"}.get(event["scope"]["environment"],
                                                                      event["scope"]["environment"])}
@@ -246,8 +250,8 @@ def card(saved, config):
             text(icon + " " + b["title"], size="Large", weight="Bolder", color=color),
             text(b["priority"] + " · " + b["label"], weight="Bolder"),
             {"type": "FactSet", "facts": [{"title": "대상", "value": _markdown(b["target"])},
-                                          {"title": "발생", "value": _markdown(b["occurred_at"])}]},
-            text("영향  |  " + b["impact"], size="Small"),
+                                          {"title": "발생", "value": _markdown(b["occurred_at"])},
+                                          {"title": "영향", "value": _markdown(b["impact"])}]},
             text("담당자 조치", weight="Bolder", separator=True),
             text(f"{b['priority']} · {action['owner']} · {action['timing']}", weight="Bolder", size="Small"),
             text(action["task"], size="Small"),
@@ -263,8 +267,7 @@ def card(saved, config):
                          size="Small", isSubtle=True))
     body += [text("서버 정책 엔진이 허용 목록·한도를 다시 검사한 기록 · AI 문장은 싣지 않음", size="Small",
                   isSubtle=True, separator=True),
-             text("기록 " + b["report_id"][-12:] + " · 자동 조치 " + ("있음" if b["automatic"] else "없음"),
-                  size="Small", isSubtle=True)]
+             text(b["report_label"] + " · " + b["automation"], size="Small", isSubtle=True)]
     content = {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "type": "AdaptiveCard",
                "version": "1.2", "body": body}
     url = console_url(config)
