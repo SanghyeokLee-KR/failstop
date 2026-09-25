@@ -318,10 +318,16 @@ public final class BrokerLink implements RelayPublisher.Transport, AutoCloseable
             linkClosed();
         }
 
+        /**
+         * 연결이 닫혔다. 끊김을 알리는 것은 CONNECTED 까지 받은 연결(connection)이 닫혔을 때뿐이다. TCP 만 붙고 CONNECTED 전에 닫힌
+         * 시도(pending)는 알리지 않는다. 알리면 구독 쪽이 끊긴 시각을 시도마다 새로 적어, 브로커 앞에서 TCP 를 받아 주는 장치(Docker
+         * 포트 전달, TCP 로드밸런서)나 기동 중인 브로커를 두고 재연결 간격이 5초보다 짧을 때 link_down 이 끝내 켜지지 않는다(2026-09-25
+         * S6 관문 주행 뒤 재연결 상한을 3초로 줄이자 RelayDegradedGateTest 가 드러냈다).
+         */
         private void linkClosed() {
             boolean wasConnected;
             synchronized (this) {
-                wasConnected = connection != null || pending != null;
+                wasConnected = connection != null;
                 connection = null;
                 pending = null;
                 channel = null;

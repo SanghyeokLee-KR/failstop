@@ -83,7 +83,7 @@ public final class RelayBroker implements AutoCloseable {
         return new WsRelayProperties(WsRelayProperties.Mode.BROKER,
                 new WsRelayProperties.Broker(host(), port(), "exchange", LOGIN, PASSCODE, Duration.ofSeconds(5)),
                 null, null, 0, null, null, null, null, null,
-                new WsRelayProperties.Reconnect(Duration.ofMillis(300), Duration.ofSeconds(2)));
+                new WsRelayProperties.Reconnect(Duration.ofMillis(300), Duration.ofSeconds(2)), null);
     }
 
     public String ctl(String... args) {

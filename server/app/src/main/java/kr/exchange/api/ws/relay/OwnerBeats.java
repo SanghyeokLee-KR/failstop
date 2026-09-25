@@ -14,6 +14,10 @@ import java.util.function.LongSupplier;
  *
  * 닿음은 최근 5초에 하트비트 3개 이상이다. 메모리 경보 중에는 발행 연결이 다시 붙을 때마다 첫 프레임 하나가 통과해 하트비트가
  * 드문드문 온다(증거 pml-s6-probe-20260925 R11a). 하나로 판정하면 중계 불능이 켜졌다 꺼지기를 되풀이한다.
+ *
+ * 닿음만으로는 미러가 지금의 게시를 담는지 알 수 없다. 소유 노드의 발행이 조용히 멈추면(브로커 멈춤, 메모리 경보) 닿음은 셋째
+ * 하트비트가 창을 벗어날 때까지 약 3초 더 참이고, 그동안 미러는 멈춘 값이다. 그래서 호가·티커 선택은 가장 최근 하트비트의 나이가
+ * mirror-max-silence 안이어야 미러를 쓴다(heardWithin, 2026-09-25 S6 관문 W3·W4).
  */
 public final class OwnerBeats implements WsGate.Relay {
 
@@ -101,6 +105,27 @@ public final class OwnerBeats implements WsGate.Relay {
         b.recent[1] = b.recent[0];
         b.recent[0] = now;
         b.last = hb;
+    }
+
+    /**
+     * 살아 있는 소유 노드의 미러가 늘 새것으로 판정되는 하트비트 간격인지 본다. 가장 최근 하트비트의 나이는 간격만큼 오르고, 한
+     * 하트비트가 간격만큼 늦게 와도 버티도록 두 간격이 mirror-max-silence 안이어야 한다.
+     */
+    public static void requireFreshInterval(Duration heartbeat, Duration mirrorMaxSilence) {
+        if (heartbeat.isZero() || heartbeat.isNegative() || mirrorMaxSilence.isZero() || mirrorMaxSilence.isNegative()
+                || heartbeat.toMillis() * 2 > mirrorMaxSilence.toMillis()) {
+            throw new IllegalArgumentException("exchange.ws.relay.owner-heartbeat(" + heartbeat + ") x 2 가 mirror-max-silence("
+                    + mirrorMaxSilence + ")를 넘는다. 살아 있는 소유 노드의 미러도 쓰지 못하는 때가 잦아진다");
+        }
+    }
+
+    /**
+     * 이 구독 세대에서 (파티션, epoch)의 가장 최근 하트비트를 maxSilenceMs 안에 받았는가. 발행이 조용히 멈춘 소유 노드의 미러를
+     * 닿음 판정(5초에 셋)보다 먼저 거른다.
+     */
+    public synchronized boolean heardWithin(String partition, long epoch, long maxSilenceMs) {
+        Beats b = beats.get(new Key(partition, epoch));
+        return b != null && b.recent[0] != Long.MIN_VALUE && b.recent[0] > clockMillis.getAsLong() - maxSilenceMs;
     }
 
     /** 이 구독 세대에서 최근 5초 동안 (파티션, epoch)의 하트비트를 3개 이상 받았는가. */

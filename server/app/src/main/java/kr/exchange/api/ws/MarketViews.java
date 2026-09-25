@@ -46,8 +46,12 @@ public final class MarketViews {
         }
     }
 
-    /** 중계 모드의 미러 입력. simple 모드면 없다. */
-    public record Relay(MarketMirror mirror, OwnerBeats beats) {
+    /**
+     * 중계 모드의 미러 입력. simple 모드면 없다.
+     *
+     * @param maxSilenceMillis 가장 최근 소유 노드 하트비트의 최대 나이(exchange.ws.relay.mirror-max-silence). 넘으면 미러를 쓰지 않는다
+     */
+    public record Relay(MarketMirror mirror, OwnerBeats beats, long maxSilenceMillis) {
     }
 
     private record Parsed(long epoch, long seq, Map<String, Object> body) {
@@ -167,16 +171,19 @@ public final class MarketViews {
     }
 
     /**
-     * 미러 사용 조건 셋(S6 설계 4-6의 2). 구독 연결이 붙어 있고, 그 마켓 파티션 소유 노드가 닿으며(최근 5초 하트비트 셋), 미러가
-     * 리스 epoch 이고 하트비트가 알린 마지막 게시 이상이어야 한다. 소유 노드의 발행이 막히면 구독 연결이 멀쩡해도 아무것도 오지
-     * 않고, 끊긴 동안 잃은 게시는 epoch 비교로 알 수 없다. 하트비트가 둘을 가른다.
+     * 미러 사용 조건 셋(S6 설계 4-6의 2). 구독 연결이 붙어 있고, 그 마켓 파티션 소유 노드가 닿으며(최근 5초 하트비트 셋, 그리고
+     * 가장 최근 하트비트가 mirror-max-silence 안), 미러가 리스 epoch 이고 하트비트가 알린 마지막 게시 이상이어야 한다. 소유 노드의
+     * 발행이 막히면 구독 연결이 멀쩡해도 아무것도 오지 않고, 끊긴 동안 잃은 게시는 epoch 비교로 알 수 없다. 하트비트가 둘을 가른다.
+     * 가장 최근 하트비트의 나이를 함께 보는 것은 발행이 조용히 멈춘 뒤 닿음이 아직 참인 약 3초 동안 멈춘 미러를 기준점(seq≠0)으로
+     * 내지 않으려는 것이다(2026-09-25 S6 관문 W3·W4에서 팔로워가 멈춘 지 1~2초 뒤 리더보다 뒤처진 seq 를 냈다).
      */
     private Selection<MarketMirror.Entry> usableEntry(MarketMirror.Channel channel, MarketDirectory.Market m, long epoch) {
         if (!relay.beats().subscribed()) {
             return Selection.no(Fallback.RELAY_DOWN);
         }
         String partition = plan.partitionOf(m.id());
-        if (partition == null || !relay.beats().reachable(partition, epoch)) {
+        if (partition == null || !relay.beats().reachable(partition, epoch)
+                || !relay.beats().heardWithin(partition, epoch, relay.maxSilenceMillis())) {
             return Selection.no(Fallback.OWNER_SILENT);
         }
         MarketMirror.Entry e = relay.mirror().get(channel, m.symbol());

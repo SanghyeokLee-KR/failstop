@@ -183,6 +183,7 @@ public class WsRelayConfig {
                                          MarketDataPublisher marketDataPublisher, RelayPublisher relayPublisher,
                                          ObjectMapper objectMapper, WsRelayProperties props) {
         OwnerBeats.requireReachableInterval(props.ownerHeartbeat(), props.publishMaxAge());
+        OwnerBeats.requireFreshInterval(props.ownerHeartbeat(), props.mirrorMaxSilence());
         return new RelayHeartbeat(partitionLeases.holder(), partitionLeases, markets,
                 marketDataPublisher::lastPublished, relayPublisher, objectMapper, props.ownerHeartbeat());
     }
@@ -223,10 +224,11 @@ public class WsRelayConfig {
     public MarketViews marketViews(MarketDataService marketData, ChannelSequences sequences, EpochSource epochSource,
                                    PartitionLeases partitionLeases, ObjectProvider<MarketMirror> marketMirror,
                                    ObjectProvider<OwnerBeats> ownerBeats, ObjectMapper objectMapper,
-                                   MeterRegistry registry) {
+                                   WsRelayProperties relayProps, MeterRegistry registry) {
         MarketMirror mirror = marketMirror.getIfAvailable();
         MarketViews views = new MarketViews(marketData, sequences, epochSource, partitionLeases.plan(),
-                partitionLeases::openTerm, mirror == null ? null : new MarketViews.Relay(mirror, ownerBeats.getObject()),
+                partitionLeases::openTerm, mirror == null ? null
+                        : new MarketViews.Relay(mirror, ownerBeats.getObject(), relayProps.mirrorMaxSilence().toMillis()),
                 objectMapper);
         if (mirror != null) {
             for (MarketMirror.Channel channel : MarketMirror.Channel.values()) {

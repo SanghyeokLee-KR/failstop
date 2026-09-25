@@ -155,7 +155,7 @@ class BrokerRelayIntegrationTest {
             var beating = beats.scheduleAtFixedRate(() -> remote.send(RelayEnvelope.heartbeat(REMOTE, PARTITION,
                     REMOTE_EPOCH, hbSeq.incrementAndGet(), new RelayEnvelope.Heartbeat(announced.get() < 0 ? Map.of()
                             : Map.of("KRW-BTC", new long[] {REMOTE_EPOCH, announced.get()}), Map.of()).encode(json))),
-                    0, 1, TimeUnit.SECONDS);
+                    0, 200, TimeUnit.MILLISECONDS);
 
             // 원격 소유 노드의 하트비트가 셋 오기 전에는 소유 노드가 닿지 않는 상태가 이어져 게이트가 닫혀 있을 수 있다.
             Awaitility.await().atMost(Duration.ofSeconds(20)).until(() -> gauge("exchange.ws.gate.open", null, null) == 1);
@@ -210,7 +210,7 @@ class BrokerRelayIntegrationTest {
 
     @Test
     @Order(2)
-    void leaderPublishesTermEpochEnvelopesAndOneSecondHeartbeats() throws Exception {
+    void leaderPublishesTermEpochEnvelopesAndHeartbeatsAtTheDefaultInterval() throws Exception {
         try (BusClient bus = BusClient.observer(BROKER)) {
             owner().sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' WHERE resource = ?")
                     .param(PARTITION).update();
@@ -255,7 +255,8 @@ class BrokerRelayIntegrationTest {
             }
             gaps.sort(Long::compare);
             long median = gaps.get(gaps.size() / 2);
-            assertTrue(median >= 700 && median <= 1_500, "하트비트 간격이 1초가 아니다: " + gaps);
+            // 기본 간격은 200ms 다(2026-09-25 S6 관문 W3·W4 뒤 1초에서 줄였다). 수신 시각 간격이라 지연 흔들림을 넉넉히 둔다.
+            assertTrue(median >= 100 && median <= 400, "하트비트 간격이 200ms 가 아니다: " + gaps);
             BusClient.Received lastHb = hbs.get(hbs.size() - 1);
             RelayEnvelope.Heartbeat body = RelayEnvelope.Heartbeat.decode(json, lastHb.body());
             long lastObSeq = obEnvelopes.stream().mapToLong(r -> Long.parseLong(r.h("x-seq"))).max().orElseThrow();

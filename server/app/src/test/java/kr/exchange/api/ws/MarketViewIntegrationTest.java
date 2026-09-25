@@ -47,6 +47,9 @@ class MarketViewIntegrationTest {
 
     private static final OrderCommand.Side BUY = OrderCommand.Side.BUY;
     private static final OrderCommand.Side SELL = OrderCommand.Side.SELL;
+    // 이 시험은 미러 사용 조건 가운데 하트비트 나이를 보지 않는다(MarketMirrorTest 가 본다). 실시간 시계로 DB 조회를 사이에 두므로
+    // 넉넉히 둔다.
+    private static final long MAX_SILENCE_MS = 5_000;
 
     @Test
     void leaderFollowerDemotedAndRepromotedNodesPickTheirSource() throws Exception {
@@ -100,7 +103,7 @@ class MarketViewIntegrationTest {
             MarketMirror mirror = new MarketMirror(() -> System.nanoTime() / 1_000_000);
             OwnerBeats beats = new OwnerBeats(() -> System.nanoTime() / 1_000_000);
             MarketViews nonOwner = new MarketViews(rig.data, new ChannelSequences(), leaseEpoch(rig), PartitionPlan.single(),
-                    id -> null, new MarketViews.Relay(mirror, beats), rig.json);
+                    id -> null, new MarketViews.Relay(mirror, beats, MAX_SILENCE_MS), rig.json);
             beats.onSubscribed();
             mirror.update(MarketMirror.Channel.ORDERBOOK, "KRW-BTC", e, seq, body);
 
@@ -130,7 +133,7 @@ class MarketViewIntegrationTest {
             MarketMirror oldTimeline = new MarketMirror(() -> System.nanoTime() / 1_000_000);
             oldTimeline.update(MarketMirror.Channel.ORDERBOOK, "KRW-BTC", e - 1, seq + 100, body);
             MarketViews mismatched = new MarketViews(rig.data, new ChannelSequences(), leaseEpoch(rig),
-                    PartitionPlan.single(), id -> null, new MarketViews.Relay(oldTimeline, beats), rig.json);
+                    PartitionPlan.single(), id -> null, new MarketViews.Relay(oldTimeline, beats, MAX_SILENCE_MS), rig.json);
             Map<String, Object> db = mismatched.orderbook(btc);
             assertEquals(0L, num(db, "seq"));
             assertEquals(e, num(db, "epoch"), "DB 집계 응답의 epoch 가 리스 epoch 가 아니다");
@@ -166,7 +169,7 @@ class MarketViewIntegrationTest {
             beats.onSubscribed();
             MarketViews owner = views(rig, id -> rig.term);
             MarketViews nonOwner = new MarketViews(rig.data, new ChannelSequences(), leaseEpoch(rig),
-                    PartitionPlan.single(), id -> null, new MarketViews.Relay(mirror, beats), rig.json);
+                    PartitionPlan.single(), id -> null, new MarketViews.Relay(mirror, beats, MAX_SILENCE_MS), rig.json);
 
             Awaitility.await().atMost(Duration.ofSeconds(20)).pollInterval(Duration.ofMillis(500)).until(() ->
                     "700".equals(owner.tickers(List.of(xrp)).get(0).get("high_24h")));
