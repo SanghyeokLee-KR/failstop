@@ -24,6 +24,7 @@ import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "./types
 import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
 import { ApiError } from "./api/httpDatasource";
+import { judgeAssetUpdate, mergeAccounts } from "./api/assetVersions";
 
 /**
  * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사. 느린 REST 스냅샷·재전달이
@@ -306,6 +307,25 @@ function withQueryTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<
 // loadMarkets 동시 호출 병합. 여러 화면이 같은 프레임에 마운트해도 GET /markets는 1회다
 let marketsInFlight: Promise<void> | null = null;
 
+/* 잔고 판 때문에 부르는 계좌 재조회의 간격(API 설계 §5-5 v2.57). 작은 판이 몰려 와도 왕복은 이 창마다 하나다.
+   창 안에서 더 온 요청은 버리지 않고 창 끝에 한 번 더 부른다. 마지막 신호가 가리키는 불일치를 남기지 않기 위함이다 */
+export const VERSION_REFETCH_INTERVAL_MS = 2_000;
+let versionRefetchAt = Number.NEGATIVE_INFINITY;
+let versionRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function requestVersionRefetch(run: () => Promise<void>): void {
+  if (versionRefetchTimer !== null) return;
+  const fire = (): void => {
+    versionRefetchTimer = null;
+    versionRefetchAt = Date.now();
+    // 실패는 신선도 상태가 들고 있다(loadAccounts). 여기서 더 올리지 않는다
+    void run().catch(() => {});
+  };
+  const wait = versionRefetchAt + VERSION_REFETCH_INTERVAL_MS - Date.now();
+  if (wait <= 0) fire();
+  else versionRefetchTimer = setTimeout(fire, wait);
+}
+
 /**
  * 전역이 드는 공지 수. 배너는 이 안에서 최신 경보 한 건을 고른다.
  * 활성 경보보다 새 공지가 이 수를 넘게 쌓이면 배너가 그 경보를 놓치는데, 그 상황은 공지 운영이 먼저 깨진 상태다.
@@ -366,37 +386,47 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
           return { trades: { ...s.trades, [msg.market]: next.slice(0, TRADE_TAPE_LIMIT) } };
         });
         break;
-      case "myAsset":
-        set((s) => {
-          // publishMyAsset은 접촉 마켓의 base·quote만 보내는 델타(§5-2/§5-5). msg.assets로 전체
-          // 교체하면 미접촉 보유코인이 소실돼 자산 화면 행·총평가·가용잔고가 어긋난다. currency
-          // 기준 upsert 병합으로 미접촉분을 보존한다.
-          const next = s.assets.slice();
-          for (const a of msg.assets) {
-            const i = next.findIndex((p) => p.currency === a.currency);
-            // 원가는 델타가 권위다(v2.21 K5). 직전 값을 보존하면 매수 체결마다 낡은 평단가가
-            // GET /accounts 재적재 전까지 남는다. 미노출 서버는 결측을 원가 미상으로 읽는다
-            const merged: Asset = {
-              currency: a.currency,
-              balance: a.balance,
-              locked: a.locked,
-              avg_buy_price: a.avg_buy_price ?? "0",
-              unit_currency: "KRW",
-              cost_basis_qty: a.cost_basis_qty ?? "0",
-              cost_basis_amount: a.cost_basis_amount ?? "0",
-            };
-            if (i >= 0) next[i] = merged;
-            else next.push(merged);
-          }
-          /* 잔고 델타가 도착했으면 값이 살아난 것이다. 신선도도 함께 회복시킨다.
-             이 한 줄이 없어서 종전에는 데이터는 최신인데 화면만 실패로 남았다.
-             lastUpdatedAt 도 갱신한다. 값의 나이가 조회 시각이 아니라 이 시각이기 때문이다 */
-          return {
-            assets: next,
-            accountsHealth: { state: "ok" as const, lastUpdatedAt: Date.now(), retryAfterSec: null },
+      case "myAsset": {
+        // publishMyAsset은 접촉 마켓의 base·quote만 보내는 델타(§5-2/§5-5). msg.assets로 전체
+        // 교체하면 미접촉 보유코인이 소실돼 자산 화면 행·총평가·가용잔고가 어긋난다. currency
+        // 기준 upsert 병합으로 미접촉분을 보존한다.
+        //
+        // 항목마다 잔고 판(version)으로 순서를 판정한다(§5-5 v2.57, lib/api/assetVersions). 게시 노드가 둘이면 두 노드가
+        // 각자 읽은 같은 통화의 잔고가 뒤집혀 올 수 있고 seq 로는 순서를 알 수 없다. 작은 판은 적용하지 않고 계좌를 다시
+        // 읽는다. 판이 없는 종전 서버에서는 종전처럼 덮어쓴다
+        const next = get().assets.slice();
+        let refetch = false;
+        for (const a of msg.assets) {
+          const i = next.findIndex((p) => p.currency === a.currency);
+          const verdict = judgeAssetUpdate(a.version, i >= 0 ? next[i] : undefined);
+          if (verdict.refetch) refetch = true;
+          if (!verdict.apply) continue;
+          // 원가는 델타가 권위다(v2.21 K5). 직전 값을 보존하면 매수 체결마다 낡은 평단가가
+          // GET /accounts 재적재 전까지 남는다. 미노출 서버는 결측을 원가 미상으로 읽는다.
+          // 같은 판도 적용하는 이유가 이것이다. 원가 재구축은 잔고 판을 올리지 않는다
+          const merged: Asset = {
+            currency: a.currency,
+            balance: a.balance,
+            locked: a.locked,
+            avg_buy_price: a.avg_buy_price ?? "0",
+            unit_currency: "KRW",
+            cost_basis_qty: a.cost_basis_qty ?? "0",
+            cost_basis_amount: a.cost_basis_amount ?? "0",
+            ...(a.version === undefined ? {} : { version: a.version }),
           };
+          if (i >= 0) next[i] = merged;
+          else next.push(merged);
+        }
+        /* 잔고 델타가 도착했으면 값이 살아난 것이다. 신선도도 함께 회복시킨다.
+           이 한 줄이 없어서 종전에는 데이터는 최신인데 화면만 실패로 남았다.
+           lastUpdatedAt 도 갱신한다. 값의 나이가 조회 시각이 아니라 이 시각이기 때문이다 */
+        set({
+          assets: next,
+          accountsHealth: { state: "ok" as const, lastUpdatedAt: Date.now(), retryAfterSec: null },
         });
+        if (refetch) requestVersionRefetch(() => get().loadAccounts());
         break;
+      }
       case "myOrder": {
         // 미체결↔체결 목록 전이 (§8 화면6 실시간 규약)
         const { openOrders, closedOrders } = get();
@@ -542,10 +572,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     set({ accountsInFlight: true, accountsInFlightId: fired });
     /* 발사 시점 신원과 현재 신원이 다르면 이 응답은 남의 것이다. 채택하지 않는다 */
     const stillMine = () => (get().session?.user.external_id ?? null) === fired;
+    /* 응답은 권위가 있지만 늦게 도착할 수 있다. 요청 때의 통화별 잔고 판을 기억해 두었다가, 왕복 중 더 새 실시간이
+       적용된 통화는 늦은 응답으로 되돌리지 않는다(§5-5 v2.57, lib/api/assetVersions.mergeAccounts) */
+    const requested = new Map(get().assets.map((a) => [a.currency, a.version] as const));
     try {
-      const assets = await withQueryTimeout((signal) => getDataSource().getAccounts(signal));
+      const fetched = await withQueryTimeout((signal) => getDataSource().getAccounts(signal));
       if (!stillMine()) return;
-      set({ assets, accountsHealth: { state: "ok", lastUpdatedAt: Date.now(), retryAfterSec: null } });
+      set((s) => ({
+        assets: mergeAccounts(s.assets, fetched, requested),
+        accountsHealth: { state: "ok", lastUpdatedAt: Date.now(), retryAfterSec: null },
+      }));
     } catch (e) {
       if (!stillMine()) return;
       /* 값이 있으면 stale, 없으면 failed다. 이 구분이 이 상태 모델의 요점이다.

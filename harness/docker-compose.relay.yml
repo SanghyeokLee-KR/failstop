@@ -1,0 +1,57 @@
+# WebSocket 노드 단위 중계 오버레이(ADR 0034 S6, 마켓분할_리더_S6_설계 4-19). 기본 파일 뒤에 겹친다.
+#   docker compose -p exchange-pml -f harness/docker-compose.chaos.yml -f harness/docker-compose.relay.yml --env-file harness/.env.chaos ...
+# 실험 실행기는 직접 부르지 않고 lib.ps1 의 CHAOS_COMPOSE_OVERLAYS 목록으로 겹친다(up.ps1 -Relay, adr0022-stage5-chaos.ps1 -Relay,
+# s6-relay-outage.ps1). 실험마다 스택을 다시 세우는 호출이 이 파일을 빠뜨리면 브로커가 고아로 지워지고 두 앱 노드가 simple 모드로,
+# LB 가 nginx.conf 로 뜬다. 그래서 실행기는 스택을 세운 뒤 세 가지(브로커 헬스, 앱 모드, LB 설정 마운트)를 확인한다.
+#
+# 이 파일이 없는 기본 스택은 simple 모드이고 E1~E9 의 조건이 그대로다.
+#
+# 브로커 비밀 값은 harness/.env.chaos 의 CHAOS_RELAY_PASSCODE 로만 들어온다. 비어 있으면 compose 가 멈춘다. 계정은 하나(exch-relay)이고
+# 관리 화면을 열지 않으며 호스트 포트를 게시하지 않는다. 앱 노드만 chaos-net 안에서 61613 으로 붙는다(설계 4-16).
+
+services:
+  chaos-broker:
+    image: rabbitmq:4.3.6-alpine
+    container_name: chaos-broker
+    environment:
+      RABBITMQ_DEFAULT_USER: exch-relay
+      RABBITMQ_DEFAULT_PASS: ${CHAOS_RELAY_PASSCODE:?harness/.env.chaos 에 CHAOS_RELAY_PASSCODE 가 필요하다}
+      # Erlang 스케줄러를 CPU 한도에 맞춘다. AWS bot-1 동거 설정과 같은 값이다(설계 4-18)
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2"
+    # 서버 시험(RelayBroker)이 같은 두 파일로 검증했다. 가상 호스트 exchange, STOMP 61613, AMQP 닫음, 경보 수위 192MiB
+    volumes:
+      - ./relay/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./relay/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_listener 61613"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    restart: unless-stopped
+    # AWS bot-1 의 MemoryMax=320M 와 같은 한도다. 경보 수위(192MiB)가 한도 안에 있어 경보가 OOM 보다 먼저 난다
+    deploy: { resources: { limits: { memory: 320m, cpus: "1.0" } } }
+    networks: [chaos-net]
+
+  # 두 앱 노드만 broker 모드다. 봇 노드(chaos-bots)와 조회 노드(chaos-api-3)는 엔진을 꺼 중계를 만들지 않는다(설계 4-12).
+  chaos-api-1:
+    environment: &relay-env
+      EXCHANGE_WS_RELAY_MODE: broker
+      EXCHANGE_WS_RELAY_BROKER_HOST: chaos-broker
+      EXCHANGE_WS_RELAY_BROKER_PORT: "61613"
+      EXCHANGE_WS_RELAY_BROKER_VIRTUAL_HOST: exchange
+      EXCHANGE_WS_RELAY_BROKER_LOGIN: exch-relay
+      EXCHANGE_WS_RELAY_BROKER_PASSCODE: ${CHAOS_RELAY_PASSCODE:?harness/.env.chaos 에 CHAOS_RELAY_PASSCODE 가 필요하다}
+    # 브로커가 늦게 떠도 앱은 뜬다(REST 는 중계를 기다리지 않는다, API§5-1). 실행기의 확인이 브로커 헬스를 따로 본다
+    depends_on:
+      chaos-broker: { condition: service_started }
+
+  chaos-api-2:
+    environment: *relay-env
+    depends_on:
+      chaos-broker: { condition: service_started }
+
+  # /ws/ 와 호가·티커 REST 를 두 앱 노드로 나누는 설정(nginx.relay.conf, 설계 4-14). compose 는 volumes 를 컨테이너 쪽 경로로
+  # 합치므로 같은 대상(/etc/nginx/nginx.conf)의 기본 마운트를 이 줄이 대신한다
+  chaos-lb:
+    volumes: ["./nginx/nginx.relay.conf:/etc/nginx/nginx.conf:ro"]

@@ -222,3 +222,84 @@ tests:
               duration: "0s"
               dashboard: "② 자동 복구 증명 (proof-recovery)"
               runbook: "DB 설계 §5.4-c 5 fresh 재구성 · S4 설계 4-6"
+
+  # ADR 0034 S6 WebSocket 중계 경보 셋(하네스 CI/CD §5-6, S6 설계 4-17). 끊긴 인스턴스·불능 인스턴스·버림이 100 을 넘은
+  # 인스턴스·사유로만 발화하고, 정상 인스턴스와 창 안 증가가 100 이하인 계열은 조용한지 본다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-1:8080", link="pub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-1:8080", link="sub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-2:8080", link="pub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-2:8080", link="sub"}'
+        values: "1 1 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-2:8080", cause="link_down"}'
+        values: "0 0 0 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-2:8080", cause="owner_silent"}'
+        values: "0 0 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-1:8080", cause="link_down"}'
+        values: "0 0 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_dropped_total{instance="chaos-api-1:8080", reason="queue_full"}'
+        values: "0 0 50 150 250 250"
+      - series: 'exchange_ws_relay_dropped_total{instance="chaos-api-1:8080", reason="stale"}'
+        values: "0 10 20 30 40 50"
+    alert_rule_test:
+      # 첫 0 표본(20s) 뒤 1분이 차기 전에는 대기 상태다.
+      - eval_time: 70s
+        alertname: WsRelayDisconnected
+        exp_alerts: []
+      - eval_time: 80s
+        alertname: WsRelayDisconnected
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-2:8080"
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 연결 끊김: chaos-api-2:8080"
+              metric: "ws_relay_connected(pub·sub 최솟값)"
+              value: "0"
+              threshold: "== 0"
+              duration: "1m"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "S6 설계 4-11·9절. 브로커 생존과 계정을 본다. 모든 마켓을 쥐지 않은 노드는 5초 뒤부터 WS 를 거절한다"
+      - eval_time: 80s
+        alertname: WsRelayDegraded
+        exp_alerts: []
+      - eval_time: 90s
+        alertname: WsRelayDegraded
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-2:8080"
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 불능으로 WS 수용 중단: chaos-api-2:8080"
+              metric: "ws_relay_degraded(link_down·owner_silent 최댓값)"
+              value: "1"
+              threshold: "== 1"
+              duration: "1m"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "API 설계 §5-6 · S6 설계 4-11. cause 태그로 구독 연결과 소유 노드 발행을 가른다"
+      # 5분 창 안의 증가가 100 이하이면 뜨지 않는다(stale 계열은 끝까지 50).
+      - eval_time: 20s
+        alertname: WsRelayDropping
+        exp_alerts: []
+      - eval_time: 40s
+        alertname: WsRelayDropping
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              reason: queue_full
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 봉투 버림: chaos-api-1:8080 queue_full"
+              metric: "ws_relay_dropped 5m"
+              value: "250"
+              threshold: "> 100"
+              duration: "0s"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "S6 설계 4-4·9절. queue_full·write_timeout 은 브로커 쪽 막힘, stale 은 발행 지연, malformed 는 위조나 판 불일치다"

@@ -19,7 +19,18 @@
 # E5·E7 은 공통 판정에 옛 리더 강등 문구의 양성 대조(--expect-demotion)를 더한다. E4 는 판정 뒤 합류 단계를 둔다. docker kill 한
 # 옛 리더를 docker start 로 되살려 180초 안에 팔로워로 합류하는지(부팅 획득 없음, 리스 행 불변, 강등 계수 0) 보고 rejoin.json 에
 # 남긴다. 합류가 거짓이면 분리 판정은 FAIL(합류)다. -PartitionAxes 는 -Protocol 2 와 함께만 돈다.
-# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2]
+# -Relay 이면 ADR 0034 S6 WebSocket 중계 주행이다(마켓분할_리더_S6_설계 4-19, 7-2 W5). CHAOS_COMPOSE_OVERLAYS 를 중계 오버레이로
+# 채워 스택마다 브로커와 broker 모드 앱 노드, nginx.relay.conf 를 겹친다. 스택을 세우고 P2 로 전환한 뒤 오버레이가 실제로 걸렸는지
+# (chaos-broker healthy, 두 앱 컨테이너의 EXCHANGE_WS_RELAY_MODE=broker, chaos-lb 의 nginx.relay.conf 마운트) 확인해
+# relay-preflight.json 에 남기고, 하나라도 아니면 그 실험은 BLOCKED 다. 확인을 통과해야 k6 관찰자(pml-s6-watch-<실험>)와 미러 신선도
+# 표본기를 띄우고, 다음 down -v 전에 멈춘다. E4 는 harness/scale/s6_relay_axes.py judge --experiment W5 로 중계 축을 relay_axes.json 에
+# 남기고, 거짓이면 분리 판정은 FAIL(중계 축)이다.
+# -WsGateAxes 이면 실험 스크립트와 공통 판정 뒤, 분리 판정 전에 s6_relay_axes.py gate 로 WS 수용 판정의 스택 표본을 ws_gate.json 에
+# 남긴다(설계 7-2 W0·W5). -Relay 가 없으면 simple 모드 판정(팔로워 seq 0·리스 epoch·503, 리더와 LB 101)이고, 있으면 broker 모드 판정
+# (두 노드 gate.open 1·101)이다. 거짓이면 분리 판정은 FAIL(WS 게이트 축)이다. 공통 판정이 봇을 멈춘 뒤라 LB 핸드셰이크가 봇 쓰기에
+# 밀려 빠진 1차 노드를 건너뛰지 않는다. -Relay·-WsGateAxes 는 -Protocol 2 와 함께만 돈다. -Relay 가 없는데 오버레이 목록에 중계
+# 오버레이가 남아 있으면 시작하지 않는다(W0 는 기본 스택이다).
+# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2] [-PartitionAxes] [-Relay] [-WsGateAxes]
 # 실험마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정 또는 exchange-chaos)에서는 시작하지 않는다(하네스 검증설계 §2-4 보존
 # 스택 가드). 환경 변수가 빠지면 프로젝트가 exchange-chaos 가 되어 보존 볼륨을 지우기 때문이다. 이미지 태그는 절차가 정한다
 # (7단계 절차는 -Ref 로 구운 태그를 넘긴다). -Protocol 2 는 CHAOS_PROJECT=exchange-pml 과 -Image exchange-chaos-app:pml 에서만 돈다(S3 설계 7-0).
@@ -36,7 +47,10 @@ param(
     [int] $SnapshotWaitSec = 180,
     [ValidateSet(1, 2)][int] $Protocol = 1,
     [switch] $PartitionAxes,
-    [int] $RejoinTimeoutSec = 180
+    [int] $RejoinTimeoutSec = 180,
+    [switch] $Relay,
+    [switch] $WsGateAxes,
+    [int] $WatchSec = 1200
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,7 +60,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($PartitionAxes) { 'pml-s4-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
+$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($Relay -or $WsGateAxes) { 'pml-s6-chaos' } elseif ($PartitionAxes) { 'pml-s4-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
 $runDir = "$runName-$date"
 if ($SnapshotEvidence) { $runDir = Join-Path $runDir $(if ($LatchBeforeTraffic) { 'band' } else { 'global' }) }
 if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runDir" }
@@ -189,8 +203,11 @@ function Invoke-Experiment {
     $sampler = $null
     $eventsProc = $null
     $balanceSampler = $null
+    $freshness = $null
+    $watch = $null
     $stop = Join-Path $dir 'stop-conn'
     $stopBalance = Join-Path $dir 'stop-balance'
+    $stopFresh = Join-Path $dir 'stop-freshness'
     try {
         Write-RunLog "START $Exp"
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
@@ -210,6 +227,22 @@ function Invoke-Experiment {
                 (Get-RelPath (Join-Path $dir 'protocol.json'))) (Join-Path $dir 'protocol.log')
             $row['protocolTransition'] = [ordered]@{ rc = $protocolRc; file = 'protocol.json' }
             if ($protocolRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "P2 전환 실패(rc=$protocolRc). protocol.json 을 본다"; return $row }
+        }
+        if ($Relay) {
+            # 오버레이가 실제로 걸렸는지 본다(S6 설계 4-19). 전환 도구가 앱 노드를 다시 띄운 뒤라 그 컨테이너의 환경을 본다.
+            $preflight = Test-RelayOverlay
+            Save-Text (Join-Path $dir 'relay-preflight.json') ($preflight | ConvertTo-Json -Depth 6)
+            $row['relayPreflight'] = $preflight
+            if (-not $preflight['ok']) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '중계 오버레이 확인 실패. relay-preflight.json 을 본다'; return $row }
+            $watch = Start-RelayWatch -Name "pml-s6-watch-$Exp" -OutDir $dir -DurationSec $WatchSec
+            $row['relayWatch'] = $watch
+            Write-RunLog "WATCH start $($watch.name) rc=$($watch.rc)"
+            if ($watch.rc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "관찰자 기동 실패(rc=$($watch.rc))"; return $row }
+            Remove-Item $stopFresh -Force -ErrorAction SilentlyContinue
+            $freshness = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru `
+                -ArgumentList @('harness/scale/s6_relay_axes.py', 'freshness', '--out', (Get-RelPath (Join-Path $dir 'freshness.jsonl')),
+                    '--stop-file', (Get-RelPath $stopFresh)) `
+                -RedirectStandardOutput (Join-Path $dir 'freshness.out') -RedirectStandardError (Join-Path $dir 'freshness.err')
         }
         if ($LatchBeforeTraffic) {
             # 실험 스크립트가 봇 부하를 정하기 전에 건다. 봇은 compose 기동과 함께 돌므로 호출 전 저널 행 수가 latch.json 에 남는다.
@@ -332,6 +365,46 @@ function Invoke-Experiment {
             $row['partitionAxes']['failed'] = $(if ($axes -and $axes['axes']) { @($axes['axes'].Keys | Where-Object { -not $axes['axes'][$_] }) } else { @('판정 파일 없음') })
             $row['partitionAxes']['file'] = 'partition_axes.json'
         }
+        if ($WsGateAxes) {
+            # WS 수용 판정의 스택 표본(S6 설계 7-2 W0·W5). 공통 판정이 봇을 멈춘 뒤라 LB 의 1차 노드가 봇 쓰기 503 으로 빠져 있지 않다.
+            $gateMode = $(if ($Relay) { 'broker' } else { 'simple' })
+            $gateArgs = @('harness/scale/s6_relay_axes.py', 'gate', '--mode', $gateMode, '--lb-since', [DateTimeOffset]::UtcNow.ToString('o'),
+                '--out', (Get-RelPath (Join-Path $dir 'ws_gate.json')))
+            if (-not $Relay -and @('E4', 'E7') -contains $Exp) { $gateArgs += @('--expect-follower', 'chaos-api-1') }
+            $gateRc = Invoke-Logged 'python' $gateArgs (Join-Path $dir 'ws_gate.log')
+            $gate = $null
+            $gatePath = Join-Path $dir 'ws_gate.json'
+            if (Test-Path $gatePath) { $gate = Get-Content $gatePath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
+            $row['wsGate'] = [ordered]@{ rc = $gateRc; mode = $gateMode; ok = $(if ($gate) { $gate['ok'] } else { $false })
+                failed = $(if ($gate -and $gate['axes']) { @($gate['axes'].Keys | Where-Object { -not $gate['axes'][$_] }) } else { @('판정 파일 없음') })
+                file = 'ws_gate.json' }
+        }
+        if ($Relay) {
+            # 관찰자와 표본기를 멈춰 마지막 상태를 받은 뒤 중계 축을 판정한다(S6 설계 7-2 W5).
+            New-Item -ItemType File -Force -Path $stopFresh | Out-Null
+            if ($freshness -and -not $freshness.WaitForExit(30000)) { Stop-Process -Id $freshness.Id -Force }
+            if ($watch) {
+                Stop-RelayWatch -Name $watch.name -LogPath (Join-Path $dir 'watch.log')
+                $watch = $null
+            }
+            Invoke-Logged 'python' @('harness/scale/s6_relay_axes.py', 'watch', '--log', (Get-RelPath (Join-Path $dir 'watch.log')),
+                '--out', (Get-RelPath (Join-Path $dir 'watch.json'))) (Join-Path $dir 'watch_merge.log') | Out-Null
+            if ($Exp -eq 'E4') {
+                $killHit = Select-String -Path $console -Pattern 'T0=(\S+) killed=' | Select-Object -First 1
+                $killAt = $(if ($killHit) { $killHit.Matches[0].Groups[1].Value } else { $t0.ToString('o') })
+                $relayArgs = @('harness/scale/s6_relay_axes.py', 'judge', '--experiment', 'W5', '--evidence', (Get-RelPath $dir),
+                    '--window-from', $stackFrom.ToString('o'), '--kill-at', $killAt, '--follower', 'chaos-api-2', '--leader', 'chaos-api-1',
+                    '--out', (Get-RelPath (Join-Path $dir 'relay_axes.json')))
+                if ($verdict -and $verdict.failover -and $verdict.failover.rtoSeconds) { $relayArgs += @('--rto-sec', "$($verdict.failover.rtoSeconds)") }
+                $relayRc = Invoke-Logged 'python' $relayArgs (Join-Path $dir 'relay_axes.log')
+                $relayAxes = $null
+                $relayPath = Join-Path $dir 'relay_axes.json'
+                if (Test-Path $relayPath) { $relayAxes = Get-Content $relayPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
+                $row['relayAxes'] = [ordered]@{ rc = $relayRc; ok = $(if ($relayAxes) { $relayAxes['ok'] } else { $false })
+                    failed = $(if ($relayAxes -and $relayAxes['axes']) { @($relayAxes['axes'].Keys | Where-Object { -not $relayAxes['axes'][$_] }) } else { @('판정 파일 없음') })
+                    file = 'relay_axes.json' }
+            }
+        }
         if ($SnapshotEvidence) {
             # 판정은 재생 적용 줄의 구간 안 행 수로 세므로 실험 뒤에 쌓인 새 명령이 이 증거를 흐리지 않는다.
             $row['snapshotEvidence']['post'] = Invoke-Logged 'python' @('harness/scale/snapshot_evidence.py', 'post',
@@ -379,8 +452,9 @@ function Invoke-Experiment {
         $logs = @()
         $logContainers = @('chaos-api-1', 'chaos-api-2', 'chaos-bots', 'chaos-pg', 'chaos-toxiproxy')
         # S4 관문은 LB 로그의 no live upstreams·502 를 창 안팎으로 기록하므로 그 원문도 남긴다(S4 설계 7-2).
-        if ($PartitionAxes) { $logContainers += 'chaos-lb' }
-        foreach ($c in $logContainers) {
+        if ($PartitionAxes -or $WsGateAxes -or $Relay) { $logContainers += 'chaos-lb' }
+        if ($Relay) { $logContainers += 'chaos-broker' }
+        foreach ($c in @($logContainers | Select-Object -Unique)) {
             $path = Join-Path $LocalLogDir "$Exp-$c.log"
             & cmd /c "docker logs $c > `"$path`" 2>&1"
             if (Test-Path $path) {
@@ -446,6 +520,8 @@ function Invoke-Experiment {
         if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS' -and -not $row['s3Common'].ok) { $row['분리 판정'] = 'FAIL(공통 판정)' }
         if ($PartitionAxes -and $row['분리 판정'] -eq 'PASS' -and -not $row['partitionAxes'].ok) { $row['분리 판정'] = 'FAIL(파티션 축)' }
         if ($PartitionAxes -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['rejoin'].ok) { $row['분리 판정'] = 'FAIL(합류)' }
+        if ($WsGateAxes -and $row['분리 판정'] -eq 'PASS' -and -not $row['wsGate'].ok) { $row['분리 판정'] = 'FAIL(WS 게이트 축)' }
+        if ($Relay -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['relayAxes'].ok) { $row['분리 판정'] = 'FAIL(중계 축)' }
         # 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)을 분리 판정에 건다. 실험 스크립트의 판정은 C13A 를 게이팅에서
         # 빼고(lib.ps1 CHAOS_GATING_EXEMPT_CHECKS) E7 은 부하를 멈추지 않은 채 사후 run 을 뜬다. 이 축이 없으면 rpo_records 가 1 인
         # 주행이 PASS 로 남는다(S3 구현 검토, 관문 X3 반복 r1·r2). 물질화 전 NEW 를 센 것인지는 판정을 바꾸지 않고 증거에 적는다.
@@ -518,6 +594,12 @@ function Invoke-Experiment {
             if (-not $balanceSampler.WaitForExit(30000)) { Stop-Process -Id $balanceSampler.Id -Force }
         }
         if ($eventsProc -and -not $eventsProc.HasExited) { Stop-Process -Id $eventsProc.Id -Force }
+        if ($freshness -and -not $freshness.HasExited) {
+            New-Item -ItemType File -Force -Path $stopFresh | Out-Null
+            if (-not $freshness.WaitForExit(30000)) { Stop-Process -Id $freshness.Id -Force }
+        }
+        # 관찰자가 실험 네트워크에 붙어 있으면 down 이 네트워크를 지우지 못한다. 판정 전에 예외로 나왔어도 여기서 멈춘다.
+        if ($watch) { Stop-RelayWatch -Name $watch.name -LogPath (Join-Path $dir 'watch.log') }
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
         Write-RunLog "END $Exp down rc=$code"
     }
@@ -532,17 +614,23 @@ if ($Protocol -eq 2 -and ($Global:CHAOS.Project -ne 'exchange-pml' -or $Image -n
     Write-Host "S3 경로(-Protocol 2)는 CHAOS_PROJECT=exchange-pml, -Image exchange-chaos-app:pml 에서만 돈다(지금 $($Global:CHAOS.Project), $Image)."; exit 5
 }
 if ($PartitionAxes -and $Protocol -ne 2) { Write-Host '-PartitionAxes 는 -Protocol 2 와 함께만 돈다(S4 설계 7-1).'; exit 5 }
+if (($Relay -or $WsGateAxes) -and $Protocol -ne 2) { Write-Host '-Relay·-WsGateAxes 는 -Protocol 2 와 함께만 돈다(S6 설계 7-2).'; exit 5 }
+if (-not $Relay -and (Test-RelayOverlayListed)) { Write-Host 'CHAOS_COMPOSE_OVERLAYS 에 중계 오버레이가 있다. -Relay 를 주거나 목록을 비운다(W0 는 기본 스택이다).'; exit 5 }
 $wanted = @($Experiments.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
 if (Test-Path (Join-Path $EvidenceDir 'summary.json')) { Write-Host '이미 summary.json 이 있다. 증거를 덮지 않는다.'; exit 5 }
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
-Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence Protocol=$Protocol Project=$($Global:CHAOS.Project)"
+Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence Protocol=$Protocol PartitionAxes=$PartitionAxes Relay=$Relay WsGateAxes=$WsGateAxes Project=$($Global:CHAOS.Project)"
 if (-not (Test-Path $Global:CHAOS.EnvFile)) { Write-RunLog 'BLOCKED harness/.env.chaos 가 없다'; exit 5 }
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { Write-RunLog 'BLOCKED 도커 데몬 미응답'; exit 5 }
 $imageId = (& docker image inspect $Image --format '{{.Id}}' 2>$null | Out-String).Trim()
 if (-not $imageId) { Write-RunLog "BLOCKED 이미지가 없다: $Image"; exit 5 }
+if ($Relay) {
+    try { Set-RelayOverlay } catch { Write-RunLog "BLOCKED $($_.Exception.Message)"; exit 5 }
+    Write-RunLog "OVERLAYS $env:CHAOS_COMPOSE_OVERLAYS"
+}
 # 실험마다 down -v 를 한다. 남의 카오스 스택을 파기하지 않도록 시작 전에 비어 있어야 한다.
 $existing = @(& docker ps -a --filter 'name=^chaos-' --format '{{.Names}}')
 if ($existing.Count -gt 0) { Write-RunLog ('BLOCKED chaos- 컨테이너가 이미 있다({0})' -f ($existing -join ', ')); exit 5 }
@@ -556,6 +644,9 @@ $summary = [ordered]@{
     latchBeforeTraffic = [bool]$LatchBeforeTraffic
     protocol = $Protocol
     partitionAxes = [bool]$PartitionAxes
+    relay = [bool]$Relay
+    wsGateAxes = [bool]$WsGateAxes
+    composeOverlays = $env:CHAOS_COMPOSE_OVERLAYS
     project = $Global:CHAOS.Project
     springProfiles = $env:CHAOS_SPRING_PROFILES
     snapshotEvidence = [bool]$SnapshotEvidence

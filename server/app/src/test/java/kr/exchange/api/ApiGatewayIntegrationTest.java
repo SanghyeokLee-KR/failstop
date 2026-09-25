@@ -366,6 +366,19 @@ class ApiGatewayIntegrationTest {
         assertEquals("0", accountField(accountsData, "KRW", "cost_basis_qty"));
         assertEquals("0", accountField(accountsData, "KRW", "cost_basis_amount"));
 
+        // 잔고 판(§4-C-1·§5-5 v2.57). 마지막 myAsset 과 그 뒤 계좌 조회가 같은 판이고, myAsset 은 명령의 마켓을 싣는다.
+        // simple 모드라 비공개 채널 seq 도메인은 종전 user × type 이고 seq_domain 이 없다(§5-2).
+        assertEquals("KRW-BTC", myAsset.path("market").asText());
+        for (String currency : List.of("KRW", "BTC")) {
+            assertTrue(Long.parseLong(accountField(accountsData, currency, "version")) > 0, currency + " 계좌 조회에 version 이 없다");
+            assertEquals(accountField(accountsData, currency, "version"), assetField(myAsset, currency, "version"),
+                    currency + " myAsset 과 계좌 조회의 판이 다르다");
+        }
+        assertTrue(myAssetMessages.stream().noneMatch(m -> m.has("seq_domain")), "simple 모드 myAsset 에 seq_domain 이 있다");
+        assertTrue(myOrderMessages.stream().noneMatch(m -> m.has("seq_domain")), "simple 모드 myOrder 에 seq_domain 이 있다");
+        assertEquals(1.0, context.getBean(io.micrometer.core.instrument.MeterRegistry.class)
+                .get("exchange.ws.gate.open").gauge().value(), "리스를 쥔 단일 노드의 WS 게이트가 닫혀 있다");
+
         // (d) 채널 seq 단조 검증: orderbook 채널 수신 순서대로 strictly increasing
         List<Long> seqs = new ArrayList<>();
         orderbookMessages.forEach(m -> seqs.add(m.path("seq").asLong()));

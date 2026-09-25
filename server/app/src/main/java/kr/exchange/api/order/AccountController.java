@@ -47,7 +47,8 @@ public class AccountController {
                     // 상수라, 다중 quote 확장 시 qa.symbol을 행별로 실어야 둘이 갈리지 않는다.
                     "KRW",
                     ApiFormats.amount(row.costBasisQty()),
-                    ApiFormats.amount(row.costBasisAmount())));
+                    ApiFormats.amount(row.costBasisAmount()),
+                    row.version()));
         }
         // 커서 페이징 미구현 자리표시자. 키를 생략하면 프론트 파서가 깨진다.
         return new PageResponse<>(ApiFormats.SCHEMA_VERSION, data,

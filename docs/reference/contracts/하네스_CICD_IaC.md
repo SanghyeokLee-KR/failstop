@@ -222,6 +222,8 @@ digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열
 
 `container_name` 16개가 전부 고정이라 같은 호스트에서 두 스택을 동시에 띄울 수 없다.
 
+(2026-09-25, ADR 0034 S6) WebSocket 중계 실험용 오버레이 `harness/docker-compose.relay.yml`을 코드 단계에서 더한다. `chaos-broker`(`rabbitmq:4.3.6-alpine`, STOMP 61613, 호스트 포트 없음, `deploy.resources` 320MiB·CPU 1, Erlang `+S 2:2`, 헬스체크 `rabbitmq-diagnostics -q check_port_listener 61613`, 설정 `harness/relay/enabled_plugins`·`harness/relay/rabbitmq.conf`)를 더하고, api-1·api-2를 `EXCHANGE_WS_RELAY_MODE=broker`로 띄우며, chaos-lb에 `harness/nginx/nginx.relay.conf`를 마운트한다. `harness/scripts/up.ps1 -Relay`가 겹친다. 기본 기동과 위 표의 서비스 수는 바뀌지 않는다. 실험 실행기가 실험마다 스택을 다시 세울 때도 오버레이가 빠지지 않도록 `harness/scripts/lib.ps1`의 `Invoke-Compose`·`Invoke-ComposeQuiet`이 환경 변수 `CHAOS_COMPOSE_OVERLAYS`(`harness/` 아래 파일 경로, 세미콜론 구분)를 읽어 기본 파일 뒤에 `-f`로 겹친다. 목록의 파일이 없거나 `harness/` 밖이면 멈춘다. `up.ps1 -Relay`와 `adr0022-stage5-chaos.ps1 -Relay`가 이 변수를 채우고, 뒤의 것은 스택을 세운 뒤 오버레이가 실제로 걸렸는지(`chaos-broker` 헬스, 두 앱 컨테이너의 모드, LB 설정 마운트) 확인해 아니면 그 실험을 BLOCKED로 끝낸다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-19다.
+
 ### 3-2. Toxiproxy 배선
 
 `harness/toxiproxy/populate.json`이 프록시 2개를 정의한다. `pg-api1`과 `pg-api2`다. 노드별로 DB 경로를 따로 끊을 수 있어야 리더만 겨냥한 실험이 성립한다.
@@ -322,6 +324,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 2026-09-25 ADR 0034 S4b(S4 관문 결함 보정)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S4b_설계.md` 4-3, 응답 계약은 API 설계 §2-5-c다. 새 지표는 하나다. `exchange.order.intake.unavailable{cause,response}`(FunctionCounter)는 주문 생성·취소가 DB 연결 장애나 fencing 거부로 끝나 낸 응답 수다. `cause`는 `connection`(DB 연결 장애)·`fencing`(리더 자격 거부: fencing 거부와 기간 종료), `response`는 `503`·`429`·`409`이고, 여섯 조합을 모두 `ApiConfig`가 경합 계수기 옆에 미리 등록한다. `fencing`의 `503`은 그 마켓의 게이트를 닫은 노드의 응답이고 `429`·`409`는 게이트를 연 노드의 응답이다. 연결 장애의 `429`·`409`는 저널 확인(V47)이나 취소 재조회가 DB에 닿은 경우이고 응답 모양이 마켓 접수 경합과 같지만 `exchange.order.intake.contention`에는 세지 않는다. 미리 등록해야 프로메테우스 `increase()`가 첫 증가를 센다. 규칙과 대시보드는 이 이름을 보지 않으므로 위 참조 수는 그대로이고, 코드가 들어가면 고유 이름 수를 다시 센다. 하네스의 S4b 실행기가 노출 이름 `exchange_order_intake_unavailable_total`을 X1·E2·E1의 기록 축으로 읽는다(하네스 검증설계의 2026-09-25 패치 노트). 기존 `exchange.order.intake.unresolved`와 `exchange.order.intake.commit_recovered`의 뜻은 그대로다. 인증 필터와 컨트롤러의 DB 연결 장애 `503`은 이 계수기가 아니라 `http_server_requests_seconds_count`의 `status="503"`으로 센다. 파티션 강등 계수(`exchange.partition.demotions{partition,reason}`)의 태그는 바꾸지 않는다. 라이터 치명의 SQLSTATE는 강등 기록의 `detail`(`/actuator/partitions`, API 설계 §6-C)과 로그에만 싣는다. 태그로 넣으면 시계열 수가 오류 종류만큼 늘어난다.
 
+2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17, 동작 계약은 API 설계 §5-1·§5-6(v2.57)이다. 새 지표는 아홉이다. `exchange.ws.gate.open`(Gauge, 이 노드가 WS를 받으면 1)과 `exchange.ws.relay.handshake_refused{reason}`(FunctionCounter, `relay_unavailable`·`relay_required`)은 WS 게이트가 있는 모든 노드에서 두 모드 모두 등록한다(엔진을 끈 노드는 `gate.open`이 늘 0). `simple` 모드에서도 다른 노드가 유효한 리스를 쥔 노드는 WS를 거절하기 때문이다(API §5-6). 나머지 일곱은 중계 모드(`exchange.ws.relay.mode=broker`)인 노드만 등록한다. `exchange.ws.relay.connected{link}`(Gauge, `pub`·`sub` 연결이 붙었으면 1), `exchange.ws.relay.messages{direction,kind}`(FunctionCounter, `out`·`in`과 `topic`·`user`·`hb`), `exchange.ws.relay.dropped{reason}`(FunctionCounter, `queue_full`·`disconnected`·`write_timeout`·`stale`·`malformed`·`candle_overflow`), `exchange.ws.relay.queue.size`(Gauge), `exchange.ws.relay.degraded{cause}`(Gauge, 그 원인 `link_down`·`owner_silent`으로 중계 불능이면 1), `exchange.ws.relay.lag`(Timer, 봉투의 `x-sent-at`부터 받은 시각까지), `exchange.ws.mirror.fallback{kind,reason}`(FunctionCounter, 호가·티커 REST나 구독 스냅샷이 미러 대신 DB 집계로 간 수, `relay_down`·`owner_silent`·`behind`·`absent`·`epoch_mismatch`)다. 태그 조합은 기동 때 모두 미리 등록해 0부터 보이게 한다. 같은 날 설계 검토 지적을 반영해 게이트 지표와 `hb`·`stale`·`cause`·`owner_silent`·`behind`를 더했다(S6 설계 11절). 코드가 들어갈 때 위 개수와 참조 수를 다시 센다.
+
 ### 5-3. Prometheus
 
 `harness/prometheus/prometheus.yml`은 scrape job 8개다(`grep -c 'job_name:'`). exporter는 `chaos-blackbox`, `chaos-pg-exporter`, `chaos-cstats` 셋이고 전부 `obs` 프로파일이다. node_exporter는 없다.
@@ -370,9 +374,9 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 29개
+### 5-6. 알람 32개
 
-severity는 critical 10, warning 18, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
+severity는 critical 10, warning 21, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
@@ -405,10 +409,15 @@ severity는 critical 10, warning 18, 템플릿 1이다. 템플릿 1은 `Invarian
 | ProbeL7Failed | warning |
 | ReplicationNotStreaming | warning |
 | ReplicationSyncStateUnexpected | warning |
+| WsRelayDisconnected | warning |
+| WsRelayDegraded | warning |
+| WsRelayDropping | warning |
 
-`for` 분포는 0s 8개, 15s 2개, 30s 6개, 1m 6개, 2m 7개다. `component` 라벨은 leader 3, settlement 3, snapshot 3, bots 2, ws 2, edge 2, db 2, intake 1, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다. `SettlementInsufficientFunds`·`ReservationUnsettledStale`·`OrderIntakeDeadlock`은 S3가 규칙 파일에 더한 경보인데 이 표에 빠져 있어 S4 코드 단계에서 함께 적었다.
+`for` 분포는 0s 9개, 15s 2개, 30s 6개, 1m 8개, 2m 7개다. `component` 라벨은 leader 3, settlement 3, snapshot 3, bots 2, ws 5, edge 2, db 2, intake 1, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다. `SettlementInsufficientFunds`·`ReservationUnsettledStale`·`OrderIntakeDeadlock`은 S3가 규칙 파일에 더한 경보인데 이 표에 빠져 있어 S4 코드 단계에서 함께 적었다.
 
 2026-09-24 ADR 0034 S4 코드에서 셋을 규칙 파일에 넣고 위 표와 개수를 고쳤다. `PartitionBreakerOpen`(critical, `max by (instance, partition) (exchange_partition_breaker_open) == 1`, for 0s)은 한 노드에서 파티션이 차단돼 그 노드가 그 파티션의 후보에서 빠졌다는 뜻이다. 차단 게이지에는 `node` 태그가 없으므로 스크레이프 대상 라벨 `instance`로 노드를 가른다(첫 판의 `by (node, partition)`은 노드를 가르지 못했다). 운영자가 원인을 본 뒤 `/actuator/partitions`로 풀거나 재기동한다. `PartitionLeaderAbsent`(critical, `max by (partition) (exchange_leader_is_leader) == 0`, for 15s)는 모든 노드가 그 파티션을 쥐지 않은 상태다. 노드가 모두 죽어 시계열이 없는 경우는 기존 `LeaderAbsent`가 잡는다. `PartitionRebuildFailing`(warning, `increase(exchange_partition_rebuild_seconds_count{outcome="failure"}[5m]) > 3`, for 0s)은 재구성이 되풀이해 실패하는 상태다. P2에서는 파티션이 하나라 `PartitionLeaderAbsent`가 `LeaderAbsent`와 함께 뜬다. 규칙 시험 `harness/prometheus/tests/exchange-alerts.test.yml`에 세 경보의 발화·미발화 사례를 더한다. `PartitionBreakerOpen`은 두 인스턴스 가운데 하나만 차단된 시계열에서 그 인스턴스로만 발화하는지 본다. `promtool check config`·`check rules`·`test rules`(`.github/workflows/ci-backend.yml`의 observability 잡과 같은 이미지 `prom/prometheus:v3.13.0`)는 코드 단계에서 통과했다.
+
+2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 경보 셋을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17이다. `WsRelayDisconnected`(warning, 중계 모드 노드의 `min by (instance) (exchange_ws_relay_connected)`가 1분 동안 0), `WsRelayDegraded`(warning, `max by (instance) (exchange_ws_relay_degraded)`가 1분 동안 1, 그 노드가 WS를 닫고 거절하는 중), `WsRelayDropping`(warning, `increase(exchange_ws_relay_dropped_total[5m]) > 100`)이다. 셋 다 `component="ws"`다. 브로커가 멈춰도 REST는 그대로라 critical로 두지 않는다. `exchange_ws_gate_open`에는 경보를 걸지 않는다. `simple` 모드 두 노드 배치의 팔로워는 늘 0이 정상이기 때문이다. 같은 날 코드 단계에서 규칙 파일에 넣고 위 표와 개수를 고쳤다(`WsRelayDropping`은 for 0s, 나머지 둘은 1m). 중계 지표는 broker 모드 노드만 등록하므로 기본 스택에서는 시계열이 없어 뜨지 않는다. 규칙 시험 `harness/prometheus/tests/exchange-alerts.test.yml`에 끊긴 인스턴스·불능 인스턴스·버림이 100을 넘은 인스턴스와 사유로만 발화하고 정상 인스턴스와 증가가 100 이하인 계열은 조용한 사례를 더했다. `promtool check rules`(32개)와 `test rules`는 `prom/prometheus:v3.13.0`으로 통과했다. 스택에서 발화를 본 적은 아직 없다(W2~W4 NOT RUN).
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
@@ -501,6 +510,8 @@ enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SC
 | 데모 PKI | `server/config/admin-demo/*.p12` | 예. 데모 전용 |
 
 `harness/.env.chaos`에 유효 키가 7개다. 컴포즈가 참조하는 `CHAOS_LEASE_PROVIDER` 등은 기본값으로 해소된다.
+
+(2026-09-25, ADR 0034 S6) WebSocket 중계 오버레이(§3-1)는 같은 파일의 `CHAOS_RELAY_PASSCODE`로 브로커 비밀 값을 받는다. `.env.chaos.example`에는 키만 더하고 값은 적지 않는다. 앱은 이 값을 `EXCHANGE_WS_RELAY_BROKER_PASSCODE` 환경 변수로만 받고, 배포 평면에서도 문서·로그·커밋에 넣지 않는다. 오버레이와 키는 코드 단계에서 만든다.
 
 **데모 PKI는 개인키를 포함한 PKCS12이고 저장소에 커밋돼 있다.** storepass가 `changeit`이다. 데모 전용이고 상시면 인증서와 별개다. 상시면에 그대로 쓰면 안 된다.
 

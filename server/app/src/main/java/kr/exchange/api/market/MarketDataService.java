@@ -41,7 +41,7 @@ public class MarketDataService {
     }
 
     /**
-     * 리더가 배치마다 넣어 두는 호가 스냅샷. 마켓 id 로 찾는다.
+     * 리더가 배치마다 넣어 두는 호가 스냅샷. 마켓 id 로 찾고, 그 스냅샷을 만든 라이터 기간의 epoch 를 함께 든다.
      *
      * 엔진은 호가창을 이미 메모리에 들고 있다(OrderBookImpl 의 TreeMap). 종전에는 같은 사실을
      * DB 집계로 다시 만들었고, 2026-09-07 실측에서 그 두 쿼리가 DB 실행 시간 166445ms 로 같은
@@ -50,10 +50,13 @@ public class MarketDataService {
      * 스냅샷은 단일 라이터 스레드가 만들어 불변 객체로 넣는다. 읽는 쪽은 잠금 없이 그 참조만
      * 가져가므로 라이터와 경합하지 않는다. 책을 직접 읽게 하면 TreeMap 동시 수정에 걸린다.
      *
-     * 비어 있을 수 있다. 엔진이 없는 조회 전용 노드가 그렇고, 리더도 첫 배치 전에는 그렇다.
-     * 그때는 종전대로 DB 집계로 내려간다.
+     * 지금 기간의 스냅샷만 쓴다(S6 설계 4-6). 강등된 노드는 기간이 없어 쓰지 않고, 다시 승격한 노드는 새 기간의 첫 배치 전까지
+     * DB 집계를 쓴다. 스냅샷을 지우는 곳이 없으므로 기간을 보지 않으면 강등된 노드가 마지막으로 이끌던 때의 호가를 계속 낸다.
      */
-    private final ConcurrentHashMap<Integer, Depth> engineDepth = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, EngineDepth> engineDepth = new ConcurrentHashMap<>();
+
+    private record EngineDepth(long epoch, Depth depth) {
+    }
 
     /**
      * 엔진 호가창에서 뜬 결과를 조회 응답 모양으로 옮긴다.
@@ -98,10 +101,10 @@ public class MarketDataService {
                 .single();
     }
 
-    /** 단일 라이터 스레드에서만 부른다. 배치가 건드린 마켓의 스냅샷을 갈아 끼운다. */
-    public void publishEngineDepth(int marketId, Depth depth) {
+    /** 단일 라이터 스레드에서만 부른다. 배치가 건드린 마켓의 스냅샷을 그 라이터 기간의 epoch 와 함께 갈아 끼운다. */
+    public void publishEngineDepth(int marketId, long epoch, Depth depth) {
         if (depth != null) {
-            engineDepth.put(marketId, depth);
+            engineDepth.put(marketId, new EngineDepth(epoch, depth));
         }
     }
 
@@ -110,11 +113,17 @@ public class MarketDataService {
         return engineDepth.size();
     }
 
-    public Depth depth(int marketId) {
-        Depth fromEngine = engineDepth.get(marketId);
-        if (fromEngine != null) {
-            return fromEngine;
+    /** 그 마켓을 쥔 기간의 호가. 그 기간에 만든 엔진 스냅샷이 있으면 그것, 없으면 DB 집계다. */
+    public Depth depthForTerm(int marketId, long epoch) {
+        EngineDepth fromEngine = engineDepth.get(marketId);
+        if (fromEngine != null && fromEngine.epoch() == epoch) {
+            return fromEngine.depth();
         }
+        return dbDepth(marketId);
+    }
+
+    /** 미체결 주문 프로젝션 집계. 엔진보다 최대 캐시 TTL 만큼 늦다. */
+    public Depth dbDepth(int marketId) {
         List<Level> asks = levels(marketId, "SELL", "ASC");
         List<Level> bids = levels(marketId, "BUY", "DESC");
         return new Depth(asks, bids, total(marketId, "SELL"), total(marketId, "BUY"));
@@ -321,17 +330,23 @@ public class MarketDataService {
         }
     }
 
-    public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq) {
-        // REST 단건 경로. depth를 한 번 산출해 4-인자 경로에 위임한다.
-        return ticker(market, epoch, seq, depth(market.id()));
-    }
-
     /**
      * depth를 인자로 받는 경로. WS 게시(§5)는 같은 배치에서 orderbook·ticker가 같은 호가를
      * 쓰므로 depth를 한 번 산출해 두 경로에 공유한다(라이터 스레드 depth 이중 집계 제거).
      */
     public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq,
                                       Depth depth) {
+        return ticker(market, epoch, seq,
+                depth.bids().isEmpty() ? null : ApiFormats.amount(depth.bids().get(0).price()),
+                depth.asks().isEmpty() ? null : ApiFormats.amount(depth.asks().get(0).price()));
+    }
+
+    /**
+     * 최우선 호가를 문자열로 받는 경로. 그 마켓을 쥐지 않은 노드가 호가 미러의 최우선 호가를 싣는다(§4-A-4). 나머지 값은 쥔 노드와
+     * 같은 DB 경로로 계산한다.
+     */
+    public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq,
+                                      String bestBid, String bestAsk) {
         // created_at 축(파티션 키·인덱스). executed_at과 값 동일이나 프루닝을 위해 이 축을 쓴다.
         Map<String, Object> last = jdbc.sql("""
                         SELECT price, created_at FROM trades
@@ -398,10 +413,8 @@ public class MarketDataService {
         body.put("acc_trade_volume_24h", ApiFormats.amount((BigDecimal) agg.get("vol")));
         body.put("acc_trade_price_24h", ApiFormats.amount(((BigDecimal) agg.get("turnover"))
                 .setScale(market.quoteScale(), RoundingMode.HALF_UP)));
-        body.put("best_bid", depth.bids().isEmpty() ? null
-                : ApiFormats.amount(depth.bids().get(0).price()));
-        body.put("best_ask", depth.asks().isEmpty() ? null
-                : ApiFormats.amount(depth.asks().get(0).price()));
+        body.put("best_bid", bestBid);
+        body.put("best_ask", bestAsk);
         body.put("seq", seq);
         body.put("epoch", epoch);
         body.put("timestamp", last == null

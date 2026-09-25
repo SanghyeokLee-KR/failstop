@@ -1,0 +1,6 @@
+{
+  "name": "exchange-harness-load",
+  "private": true,
+  "description": "k6 load scripts. node only runs the tests of the shared judgement modules in lib/ (node --test harness/load/tests/). type module lets node read lib/*.js as ES modules; k6 ignores this file.",
+  "type": "module"
+}

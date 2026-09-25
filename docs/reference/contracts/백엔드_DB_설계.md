@@ -1,4 +1,4 @@
-# DB 설계 (v2.56)
+# DB 설계 (v2.57)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -3049,7 +3049,7 @@ COMMENT ON COLUMN harness.failover_runs.resource IS
 | `balances.account_id` | BIGINT PK | 잔고 키를 account_id로 통일. 시스템·LOCKED·소스계정 포함 전 계정이 balances에 존재(계정 생성 시 `trg_account_balance`가 1:1 자동 생성, high#3) |
 | `balances.balance` | NUMERIC(40,18) | `CHECK(balance>=0 OR allow_negative)`. 일반계정은 AVAILABLE(이중지출)·LOCKED(과다락) 최종 방어선, 소스계정만 음수 허용(critical#1) |
 | `balances.allow_negative` | BOOLEAN | `accounts.allow_negative`(=purpose IN GENESIS/GATEWAY) 복제. 자산 총합=0 불변식상 소스계정의 음수 보유를 CHECK가 허용하도록 하는 근거 |
-| `balances.version` | BIGINT | 낙관적 락. 사용자 개시 경로에서 `WHERE version=:v` 일관 적용. 체결 경로는 FOR UPDATE 비관 락이되, balances를 갱신하는 **모든 정본 경로**(§5.1 (d)·§5.2 (5)·§5.3)가 `version=version+1`로 증가시켜 version 검사가 실효한다(v2.4) |
+| `balances.version` | BIGINT | 낙관적 락. 사용자 개시 경로에서 `WHERE version=:v` 일관 적용. 체결 경로는 FOR UPDATE 비관 락이되, balances를 갱신하는 **모든 정본 경로**(§5.1 (d)·§5.2 (5)·§5.3)가 `version=version+1`로 증가시켜 version 검사가 실효한다(v2.4). (v2.57, ADR 0034 S6) 두 번째 소비처는 잔고 판이다. 계좌 조회와 myAsset 게시가 사용자·자산의 USER 계정 가운데 AVAILABLE·LOCKED 두 행의 version 합을 잔고와 같은 SQL 문장에서 읽어 `version`으로 낸다(API §4-C-1·§5-5). 클라이언트는 이 값으로 두 노드가 보낸 같은 자산의 메시지 가운데 새 값을 가린다. 그래서 잔고를 바꾸는 새 경로도 반드시 `version=version+1`을 하고, version을 줄이거나 되돌리는 갱신을 두지 않는다. 수동 승격으로 커밋이 사라졌거나 백업에서 복원하면 값이 줄 수 있으며 클라이언트는 계좌 재조회로 맞춘다(API §5-2). 원가 필드(`position_cost` 파생 `avg_buy_price`·`cost_basis_*`)는 이 판에 들지 않는다. 원가 재구축 `rebuild_position_cost`(§6.4 C24·C25 조치)는 `position_cost`만 고치고 `balances`를 건드리지 않으므로 같은 판에서 원가만 달라질 수 있고, API §5-2는 그래서 같은 판의 항목도 적용한다 |
 
 ### 4.2 `orders`
 | 컬럼 | 설명 |
@@ -5023,3 +5023,11 @@ ADR 0034 S4b(S4 관문 결함 보정)를 코드보다 먼저 정본에 반영한
 같은 날 구현 검토 지적을 반영해 §3 표의 V47 행에 `discard_key` 의 호출 조건을 적었다. 게이트웨이가 연결이 끊긴 판정을 같은 인자로 다시 불러, 첫 판정이 지운 키 자리에 같은 내용의 다른 요청이 새로 넣은 키를 지울 수 있었다. 함수와 스키마는 그대로이고 다시 부르는 판정은 키를 지우지 않는다(API 설계 v2.56 §2-4, S4b 설계 14절). 버전은 그대로 v2.56이다.
 
 같은 날 S4b 문서 단계에서 §3 표의 V53 행과 §3.8에 남아 있던 '커밋 전'을 V53이 들어간 작업 브랜치 커밋 `48629d5d`로 고쳤다. 버전은 그대로 v2.56이고 계약 내용은 바뀌지 않는다.
+
+## v2.57 패치 반영 사항
+
+ADR 0034 S6(WebSocket 외부 브로커 중계)가 기대는 DB 쪽 성질을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md`, 응답 계약은 API 설계 v2.57 §4-C-1·§5-2·§5-5다. DDL과 SQL 함수는 바꾸지 않고 새 마이그레이션도 없다. 2026-09-25 갱신.
+
+§4.1의 `balances.version` 행에 두 번째 소비처를 적었다. 계좌 조회와 myAsset 게시가 사용자·자산의 AVAILABLE·LOCKED 두 행의 version 합을 잔고 판으로 낸다. 두 행은 잔고를 바꾸는 모든 정본 경로가 1씩 올리고(`V38__ledger_balance_update_index_scan.sql` 등, 2026-09-25 저장소 전역 확인) 한 문장은 커밋된 한 시점을 보므로, 합은 한 DB 타임라인 안에서 줄지 않고 같은 값이면 잔고와 잠금도 같다. 이 성질이 클라이언트 비교의 전제라 잔고를 바꾸는 새 경로도 version을 올려야 하고 줄이는 갱신을 두지 않는다. 합을 판으로 쓰는 선택은 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다. 문서 헤더 버전을 v2.57 으로 순증.
+
+같은 날 설계 검토 지적을 반영해 §4.1 `balances.version` 행에 원가 필드가 잔고 판에 들지 않는다는 한계를 적었다. 원가 재구축 `rebuild_position_cost`(`V13__position_cost.sql`, §6.4 C24·C25 조치)는 `position_cost`만 고치고 `balances`를 건드리지 않으므로, 같은 판의 myAsset 항목이 새 원가를 싣고 올 수 있다. API 설계 §5-2가 같은 판의 항목도 적용하도록 고친 근거다. 함수와 스키마는 그대로이고 버전도 그대로 v2.57이다(S6 설계 11절 지적 7).

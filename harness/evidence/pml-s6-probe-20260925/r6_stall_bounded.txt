@@ -1,0 +1,7 @@
+== R6 stalled subscriber with x-max-length=2000 x-message-ttl=10000 03:23:40Z
+{"mode": "stall", "published": 30000, "x-max-length": 2000, "x-message-ttl": 10000, "heartbeat": "0,0"}
+name	messages	arguments
+stomp-subscription-w40fLadACSFnxxg7fZy4gw	0	[{"x-max-length",2000},{"x-message-ttl",10000},{"x-queue-type","classic"}]
+pml-probe-rabbit 125.4MiB / 320MiB
+-- 12초 뒤(TTL 10초 경과)
+== R6 (auto-ack) 해석: 위 파일. 큐 인자는 붙었으나 auto-ack 은 연결로 밀어내 큐 길이 0

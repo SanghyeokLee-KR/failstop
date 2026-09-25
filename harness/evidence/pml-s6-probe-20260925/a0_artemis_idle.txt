@@ -1,0 +1,6 @@
+== A0 artemis idle (Xmx128M, SerialGC) 03:16:49Z
+155:         <acceptor name="stomp">tcp://0.0.0.0:61613?anycastPrefix=/queue/;multicastPrefix=/topic/;tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=STOMP;useEpoll=true</acceptor>
+2026-09-25 03:16:17,048 INFO  [org.apache.activemq.artemis.core.server] AMQ221020: Started EPOLL Acceptor at 0.0.0.0:61616 for protocols [CORE,MQTT,AMQP,STOMP,HORNETQ,OPENWIRE]
+2026-09-25 03:16:17,049 INFO  [org.apache.activemq.artemis.core.server] AMQ221020: Started EPOLL Acceptor at 0.0.0.0:61613 for protocols [STOMP]
+2026-09-25 03:16:17,050 INFO  [org.apache.activemq.artemis.core.server] AMQ221007: Server is now active
+pml-probe-artemis 129.3MiB / 512MiB

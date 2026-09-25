@@ -138,6 +138,8 @@ final class PartitionNode implements AutoCloseable {
     private final ExecutorService promotionWorker;
     private final ReplayService replayService;
     volatile SinkFault sinkFault = (marketId, term, events) -> { };
+    // 정산이 끝난 배치를 받는다. 운영 sink 의 게시 자리다(S6 중계 시험이 게시기를 붙인다).
+    volatile java.util.function.BiConsumer<LeaderTerm, List<EngineEvent>> afterSettle = (term, settled) -> { };
     volatile AppendFault appendFault = (term, draft) -> { };
     volatile AppendAfterFault appendAfterFault = (term, draft, result) -> { };
     volatile ReplayFault replayFault = () -> { };
@@ -223,7 +225,7 @@ final class PartitionNode implements AutoCloseable {
             PartitionRuntime runtime = leases.runtime(term.resource()).orElseThrow();
             SingleWriterLoop loop = new SingleWriterLoop(1024, engine, events -> {
                 sinkFault.before(marketId, term, events);
-                settlement.appendAndSettle(term, events);
+                afterSettle.accept(term, settlement.appendAndSettle(term, events));
             }, new JournalCatchUpSource(commandReader, f.mapper, marketId), new LoopFatalHandler(runtime, term));
             // 치명 오류를 워커 기본 처리기로 흘리지 않는다. 시험 출력만 어지럽힌다.
             loop.setWriterUncaughtExceptionHandler((t, e) -> { });

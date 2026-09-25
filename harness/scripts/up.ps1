@@ -2,8 +2,10 @@
 #   1) 호스트에서 :app:bootJar 빌드(프로젝트는 ASCII 경로에 있어야 한다)
 #   2) app.jar를 빌드 컨텍스트로 복사 → 이미지 빌드
 #   3) compose up --wait
-# 사용: pwsh -File scripts/up.ps1 [-Obs]
-param([switch] $Obs)
+# 사용: pwsh -File scripts/up.ps1 [-Obs] [-Relay]
+#   -Relay  WebSocket 중계 오버레이(harness/docker-compose.relay.yml)를 겹친다(ADR 0034 S6, 마켓분할_리더_S6_설계 4-19).
+#           CHAOS_COMPOSE_OVERLAYS 를 그 파일로 채우고 이미 다른 값이면 멈춘다. 브로커 비밀 값은 .env.chaos 의 CHAOS_RELAY_PASSCODE 다.
+param([switch] $Obs, [switch] $Relay)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -26,6 +28,11 @@ $harness = Resolve-Path (Join-Path $PSScriptRoot '..')
 # 빌드 전에 먼저 잡아 example 복사를 안내한다.
 if (-not (Test-Path $Global:CHAOS.EnvFile)) {
     throw ".env.chaos 부재. harness/.env.chaos.example를 harness/.env.chaos로 복사하고 CHAOS_MASTER_KEY_BASE64 등 값을 채운 뒤 다시 실행한다."
+}
+# 오버레이 확인은 빌드 전에 한다. 비밀 값이 없으면 compose 해석에서 멈추므로 이미지를 굽기 전에 알린다.
+if ($Relay) {
+    Set-RelayOverlay
+    Write-Host "중계 오버레이: $env:CHAOS_COMPOSE_OVERLAYS"
 }
 
 Write-Section '1/3 bootJar 빌드'

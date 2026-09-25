@@ -1,6 +1,6 @@
 /**
  * Spring 실서버 어댑터(REST fetch + STOMP). 금액·수량은 문자열 그대로 통과한다(parseFloat 금지).
- * 채널별 seq 단조 검사에서 gap이면 REST 재동기화, epoch 변경이면 전 채널 강제 재동기화다(§5-2).
+ * 채널별 seq 단조 검사에서 gap이면 REST 재동기화, 그 마켓의 epoch가 오르면 그 마켓 채널만 재동기화한다(§5-2 v2.57).
  * 데모 세션 단기 JWT는 메모리에만 두고 만료·401 시 재발급 후 1회 재시도한다(§3-7).
  */
 
@@ -38,6 +38,7 @@ import type {
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "../types";
 import { decimalsOf, fromScaledInt, scaledIntTrunc } from "../decimal";
 import type { DataSource } from "./datasource";
+import { MarketEpochs } from "./marketEpochs";
 
 /** 효과 강도 공개 조회 경로(§4-A-6). 무인증 화이트리스트 조회 */
 const EFFECT_CONFIG_PATH = "/api/v1/exchange-config";
@@ -299,6 +300,32 @@ function parseDest(destination: string): ParsedDest {
  */
 const DENSE_KINDS = new Set(["orderbook", "ticker", "myOrder", "myAsset"]);
 
+/**
+ * epoch를 비교할 마켓(§5-2 v2.57). 다른 마켓끼리는 파티션이 달라 epoch를 비교하지 않는다.
+ * 공개 채널은 목적지의 마켓, myOrder는 메시지의 market이다. myAsset은 market이 있을 때만 본다(없으면 종전 서버)
+ */
+function epochMarket(parsed: ParsedDest, msg: WsMessage): string | null {
+  if (parsed === null) return null;
+  if (parsed.kind === "myOrder" || parsed.kind === "myAsset") {
+    const market = (msg as { market?: unknown }).market;
+    return typeof market === "string" ? market : null;
+  }
+  return parsed.market;
+}
+
+/**
+ * 비공개 메시지의 seq 도메인이 user×type×market이면 그 마켓을 낸다(중계 모드, §5-2 v2.57).
+ * 한 마켓은 한 순간 한 파티션 리더만 게시하므로 이 도메인은 마켓마다 조밀하다. 필드가 없으면 종전 user×type 규칙이다
+ */
+function userMarketDomain(parsed: ParsedDest, msg: WsMessage): string | null {
+  if (parsed === null || (parsed.kind !== "myOrder" && parsed.kind !== "myAsset")) return null;
+  const m = msg as { seq_domain?: unknown; market?: unknown };
+  return m.seq_domain === "user_market" && typeof m.market === "string" ? m.market : null;
+}
+
+/** 여러 마켓의 epoch가 잇달아 오를 때(P2 페일오버) 비공개 두 채널의 재동기화를 한 번으로 모으는 창 */
+const PRIVATE_RESYNC_COALESCE_MS = 300;
+
 // 외부 주문 id는 UUID(§7-1, §4-B-1 v2.7 정정. 이전 판 ULID 표기는 오기). 정규 라우트 판정용
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -341,6 +368,8 @@ interface ChannelState {
   stompUnsub: (() => void) | null;
   /** 연속성 기준 seq. null이면 다음 realtime이 기준점(§5-2 비 orderbook 규약) */
   lastSeq: number | null;
+  /** seq_domain이 user_market인 비공개 메시지의 마켓별 기준 seq. 없는 마켓은 다음 realtime이 기준점이다 */
+  marketSeqs: Map<string, number>;
   resyncing: boolean;
   /** 재동기화 중 도착분. 완료 후 seq 오름차순 flush */
   buffer: WsMessage[];
@@ -417,8 +446,10 @@ export class HttpStompDataSource implements DataSource {
   /** getMarkets가 캐시하는 백엔드 실제 마켓 집합. 티커 요청을 이 집합으로 좁혀 미등록 마켓 400 소음을 없앤다 */
   private knownMarkets: Set<string> | null = null;
   private connListeners = new Set<(connected: boolean) => void>();
-  /** 리더 세대(§5-2). 변경 감지 시 전 채널 강제 재동기화 */
-  private lastEpoch: number | null = null;
+  /** 마켓별 리더 기간(§5-2 v2.57). 그 마켓의 epoch가 오르면 그 마켓 채널만 재동기화한다. 재연결해도 지우지 않는다 */
+  private readonly epochs = new MarketEpochs();
+  /** 비공개 두 채널의 모은 재동기화 타이머. 창이 열려 있는 동안 두 채널은 받은 메시지를 쌓아 둔다 */
+  private privateResyncTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: HttpDataSourceOptions) {
     this.apiBase = options.apiBase.replace(/\/+$/, "");
@@ -642,6 +673,7 @@ export class HttpStompDataSource implements DataSource {
         subscribers: new Map(),
         stompUnsub: null,
         lastSeq: null,
+        marketSeqs: new Map(),
         resyncing: false,
         buffer: [],
         resyncGen: 0,
@@ -1026,10 +1058,16 @@ export class HttpStompDataSource implements DataSource {
 
   /** 전 채널 재구독 + REST 재동기화(웹_화면명세서 §6.1-3). 연결 단절 구간의 유실을 메운다 */
   private restoreChannels(): void {
+    // 전 채널을 지금 다시 맞추므로 모아 둔 비공개 재동기화는 필요 없다
+    if (this.privateResyncTimer !== null) {
+      clearTimeout(this.privateResyncTimer);
+      this.privateResyncTimer = null;
+    }
     for (const [destination, ch] of this.channels) {
       ch.stompUnsub?.();
       this.attachStomp(destination, ch);
       ch.lastSeq = null;
+      ch.marketSeqs.clear();
       this.startResync(destination, ch);
     }
   }
@@ -1083,19 +1121,19 @@ export class HttpStompDataSource implements DataSource {
     // 와이어 경계 정규화. 버퍼링·flush 경로도 이 지점을 지나 한 번만 수행된다
     if (msg.type === "orderbook") ensureOrderbookTotals(msg);
 
-    if (typeof msg.epoch === "number") {
-      if (this.lastEpoch === null) {
-        this.lastEpoch = msg.epoch;
-      } else if (msg.epoch !== this.lastEpoch) {
-        // 리더 세대 교체 → 전 채널 seq 도메인 재설정 가능 → 무조건 재동기화
-        this.lastEpoch = msg.epoch;
-        this.resyncAll();
-      }
-    }
-
     // seq 도메인이 없는 채널(§5-3 미분류, 예: config류)은 단조 seq·gap 검사를 우회하고 그대로 전달한다.
     // 이런 채널은 REST 재동기화 대상도 아니라 seq 규약을 적용하면 정상 메시지가 드롭될 수 있다.
     const parsed = parseDest(destination);
+
+    // 마켓별 epoch(§5-2 v2.57). 같은 마켓에서 작으면 옛 리더가 늦게 보낸 것이라 버리고, 크면 그 마켓만 다시 맞춘다.
+    // 다시 맞추는 동안 이 메시지는 아래에서 버퍼에 들어가 스냅샷 뒤에 흐른다
+    const market = epochMarket(parsed, msg);
+    if (market !== null && typeof msg.epoch === "number") {
+      const verdict = this.epochs.observe(market, msg.epoch);
+      if (verdict === "stale") return;
+      if (verdict === "rise" || verdict === "reset") this.resyncMarket(market);
+    }
+
     if (parsed === null) {
       this.deliver(ch, msg);
       return;
@@ -1107,11 +1145,35 @@ export class HttpStompDataSource implements DataSource {
     }
 
     if (msg.type === "orderbook" && msg.stream === "snapshot") {
+      // 소유하지 않은 노드의 구독 즉시 스냅샷은 DB 집계이고 seq 0 이다(§5-2 v2.57). 카운터 도메인 밖이므로 상태만
+      // 전달하고 기준점을 비운다. 다음 실시간이 기준점이다. 버리면 실시간 첫 메시지가 결번 재동기화를 부른다
+      if (msg.seq === 0) {
+        ch.lastSeq = null;
+        this.deliver(ch, msg);
+        return;
+      }
       // 구독 즉시 snapshot이 연속성 기준점(§5-2, orderbook 한정).
       // 다만 기준점은 전진만 한다. 늦게 도착한 스냅샷이 기준점을 내리면 이미 반영한 실시간이
       // 낮은 seq로 되돌아 화면 호가가 과거 상태로 역행한다
       if (ch.lastSeq !== null && msg.seq <= ch.lastSeq) return;
       ch.lastSeq = msg.seq;
+      this.deliver(ch, msg);
+      return;
+    }
+
+    // 중계 모드의 비공개 채널은 마켓마다 따로 센다. 두 마켓의 메시지가 번갈아 오는 것은 결번이 아니다
+    const userMarket = userMarketDomain(parsed, msg);
+    if (userMarket !== null) {
+      const last = ch.marketSeqs.get(userMarket);
+      if (last !== undefined) {
+        if (msg.seq <= last) return; // 중복·역행 드롭
+        if (msg.seq !== last + 1) {
+          // 그 마켓의 결번 → 채널 REST 재동기화. 현재 메시지는 스냅샷 뒤에 흐른다
+          this.startResync(destination, ch, msg);
+          return;
+        }
+      }
+      ch.marketSeqs.set(userMarket, msg.seq);
       this.deliver(ch, msg);
       return;
     }
@@ -1147,15 +1209,43 @@ export class HttpStompDataSource implements DataSource {
     for (const cb of ch.subscribers.keys()) cb(msg);
   }
 
-  private resyncAll(): void {
+  /**
+   * 한 마켓의 리더 기간이 바뀌었다(§5-2 v2.57). 그 마켓의 공개 채널만 다시 맞추고, 비공개 두 채널은 모아서 한 번 맞춘다.
+   * 다른 마켓의 채널은 건드리지 않는다. 그 마켓들의 게시는 다른 파티션의 라이터가 계속 한다
+   */
+  private resyncMarket(market: string): void {
     for (const [destination, ch] of this.channels) {
-      const kind = parseDest(destination)?.kind;
+      const parsed = parseDest(destination);
+      if (parsed === null || parsed.kind === "myOrder" || parsed.kind === "myAsset" || parsed.market !== market) continue;
       // 리더 교체가 리셋하는 것은 인메모리 카운터 실현뿐이라 그 채널만 기준점을 비운다
       // (전진 가드는 동일 epoch 한정). trade·candle은 비우면 재동기화가 기수신 체결을 이중계상한다
-      if (kind !== undefined && DENSE_KINDS.has(kind)) ch.lastSeq = null;
+      if (DENSE_KINDS.has(parsed.kind)) ch.lastSeq = null;
       // 진행 중 재동기화도 다시 건다. 구 리더 응답이 새 도메인의 기준점이 되면 안 된다
       this.startResync(destination, ch);
     }
+    this.holdPrivateResync();
+  }
+
+  /**
+   * 비공개 두 채널은 마켓 하나의 기간이 바뀌어도 그 사용자 전체를 REST로 맞춘다. P2 페일오버처럼 여러 마켓의 epoch가
+   * 잇달아 오르면 마켓마다 REST를 부르지 않도록 창 하나로 모은다. 창이 열린 동안 받은 메시지는 쌓았다가 스냅샷 뒤에 흘린다
+   */
+  private holdPrivateResync(): void {
+    for (const [destination, ch] of this.channels) {
+      const kind = parseDest(destination)?.kind;
+      if ((kind === "myOrder" || kind === "myAsset") && !ch.resyncing) {
+        ch.resyncing = true;
+        ch.buffer = [];
+      }
+    }
+    if (this.privateResyncTimer !== null) return;
+    this.privateResyncTimer = setTimeout(() => {
+      this.privateResyncTimer = null;
+      for (const [destination, ch] of this.channels) {
+        const kind = parseDest(destination)?.kind;
+        if (kind === "myOrder" || kind === "myAsset") this.startResync(destination, ch, ch.buffer);
+      }
+    }, PRIVATE_RESYNC_COALESCE_MS);
   }
 
   private startResync(destination: string, ch: ChannelState, pending?: WsMessage | WsMessage[]): void {
@@ -1185,12 +1275,39 @@ export class HttpStompDataSource implements DataSource {
         ch.resyncing = false;
         // flush도 실시간 분기와 같은 기준점 규약을 따른다. 조밀 채널에서 결번을 무검사로
         // 수용하면 재동기화가 메우려던 유실 구간이 그대로 화면에 반영된다
-        const kind = parseDest(destination)?.kind;
+        const parsed = parseDest(destination);
+        const kind = parsed?.kind;
         const dense = kind !== undefined && DENSE_KINDS.has(kind);
         for (let i = 0; i < buffered.length; i++) {
           const m = buffered[i];
+          // 쌓인 뒤 그 마켓의 기간이 올랐으면 옛 기간 메시지다. 스냅샷 뒤에 흘리면 새 기간 상태를 되돌린다
+          const market = epochMarket(parsed, m);
+          const current = market === null ? undefined : this.epochs.current(market);
+          if (current !== undefined && typeof m.epoch === "number" && m.epoch < current) continue;
           // 스냅샷은 연속성 검사 대상이 아니라 기준점 자체다(§5-2). 조밀 검사에서 제외한다
           const snapshot = m.type === "orderbook" && m.stream === "snapshot";
+          if (snapshot && m.seq === 0) {
+            // 소유하지 않은 노드의 DB 집계 스냅샷. 상태만 전달하고 기준점을 비운다(§5-2 v2.57)
+            ch.lastSeq = null;
+            this.deliver(ch, m);
+            continue;
+          }
+          const userMarket = userMarketDomain(parsed, m);
+          if (userMarket !== null) {
+            // 마켓이 섞여 쌓여도 조밀 검사는 마켓마다 한다
+            const last = ch.marketSeqs.get(userMarket);
+            if (last !== undefined) {
+              if (m.seq <= last) continue;
+              if (m.seq !== last + 1 && ch.gapRearms < MAX_GAP_REARMS) {
+                ch.gapRearms += 1;
+                this.startResync(destination, ch, buffered.slice(i));
+                return;
+              }
+            }
+            ch.marketSeqs.set(userMarket, m.seq);
+            this.deliver(ch, m);
+            continue;
+          }
           if (ch.lastSeq !== null) {
             if (m.seq <= ch.lastSeq) continue; // 중복·역행 드롭
             if (!snapshot && dense && m.seq !== ch.lastSeq + 1 && ch.gapRearms < MAX_GAP_REARMS) {
@@ -1225,8 +1342,20 @@ export class HttpStompDataSource implements DataSource {
         const snap = await this.getOrderbook(parsed.market, signal);
         if (!this.resyncFresh(ch, gen)) return;
         // 교체 직후 뒤처진 노드의 구 세대 스냅샷이 기준점이 되면 신 리더 실시간이 전부 드롭된다.
-        // orderbook REST는 epoch를 싣는다(§4-A-2). ticker는 REST 계약(§4-A-4)에 epoch가 없어 같은 방어를 못 한다
-        if (this.lastEpoch !== null && snap.epoch !== this.lastEpoch) return;
+        // 그 마켓의 기준보다 작은 epoch는 버린다. 크면 기준을 올리고 그 마켓을 다시 맞춘다. 같은 마켓의 다른 조밀
+        // 채널이 옛 기간 기준점에 남아 새 리더의 낮은 seq를 버리지 않게 하려는 것이다(이 채널도 새 세대로 다시 건다)
+        const verdict = this.epochs.snapshot(parsed.market, snap.epoch);
+        if (verdict === "stale") return;
+        if (verdict === "rise") {
+          this.resyncMarket(parsed.market);
+          return;
+        }
+        // 소유하지 않은 노드의 DB 집계(seq 0)는 상태만 전달하고 기준점을 비운다(§5-2 v2.57)
+        if (snap.seq === 0) {
+          ch.lastSeq = null;
+          this.deliver(ch, snap);
+          return;
+        }
         // 기준점은 전진만 한다. REST가 WS보다 뒤처진 노드를 읽으면 기준점이 내려가
         // 이미 보여준 호가가 과거로 되돌고, 이어지는 실시간이 결번으로 재동기화를 부른다
         if (ch.lastSeq !== null && snap.seq <= ch.lastSeq) return;
@@ -1235,9 +1364,23 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "ticker": {
-        // 재동기화는 전 채널에 한꺼번에 걸린다. 같은 합류를 써 왕복 하나로 묶는다
+        // 재동기화는 여러 채널에 한꺼번에 걸린다. 같은 합류를 써 왕복 하나로 묶는다
         const t = await this.fetchTickerCoalesced(parsed.market, signal);
         if (!t || !this.resyncFresh(ch, gen)) return;
+        // 티커 REST도 epoch를 싣는다(§4-A-4 v2.57). 호가와 같은 규칙이다. 없으면(종전 서버) 보지 않는다
+        if (typeof t.epoch === "number") {
+          const verdict = this.epochs.snapshot(parsed.market, t.epoch);
+          if (verdict === "stale") return;
+          if (verdict === "rise") {
+            this.resyncMarket(parsed.market);
+            return;
+          }
+        }
+        if (t.seq === 0) {
+          ch.lastSeq = null;
+          this.deliver(ch, this.tickerToMessage(t, "snapshot"));
+          return;
+        }
         if (ch.lastSeq !== null && t.seq <= ch.lastSeq) return; // 기준점 전진만
         ch.lastSeq = t.seq;
         this.deliver(ch, this.tickerToMessage(t, "snapshot"));
@@ -1278,6 +1421,7 @@ export class HttpStompDataSource implements DataSource {
         ]);
         if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = null;
+        ch.marketSeqs.clear();
         for (const o of open) this.deliver(ch, this.orderToMyOrderMessage(o));
         for (const o of closed.data) this.deliver(ch, this.orderToMyOrderMessage(o));
         return;
@@ -1286,6 +1430,7 @@ export class HttpStompDataSource implements DataSource {
         const assets = await this.getAccounts(signal);
         if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = null;
+        ch.marketSeqs.clear();
         this.deliver(ch, this.assetsToMessage(assets));
         return;
       }
@@ -1300,19 +1445,21 @@ export class HttpStompDataSource implements DataSource {
     try {
       if (parsed.kind === "ticker") {
         const t = await this.fetchTickerCoalesced(parsed.market, signal);
-        if (t && alive()) cb(this.tickerToMessage(t, "snapshot"));
+        if (!t || !alive() || !this.initialSnapshotEpochOk(parsed.market, t.epoch)) return;
+        cb(this.tickerToMessage(t, "snapshot"));
       } else if (parsed.kind === "orderbook") {
         // 연결 상태면 STOMP 구독 즉시 서버 snapshot 1건이 연속성 기준점으로 도착한다(§5-2).
         // 그때 REST 스냅샷까지 보내면 느린 REST 응답이 이미 반영된 최신 실시간을 stale로 되돌린다.
         // REST 스냅샷은 미연결 시 초기 표시를 채우는 용도로만 쓴다.
         if (this.stompConnected) return;
         const snap = await this.getOrderbook(parsed.market, signal);
-        if (alive()) cb(snap);
+        if (alive() && this.initialSnapshotEpochOk(parsed.market, snap.epoch)) cb(snap);
       } else if (parsed.kind === "myAsset") {
         const assets = await this.getAccounts(signal);
-        // REST 왕복 중 realtime myAsset이 먼저 도착했으면(lastSeq 확립) 늦은 스냅샷이 체결 후
-        // 잔액을 체결 전으로 되돌린다. store myAsset은 신선도 가드가 없어 여기서 폐기한다
-        if (this.channels.get(destination)?.lastSeq != null) return;
+        // REST 왕복 중 realtime myAsset이 먼저 도착했으면(기준점 확립) 늦은 스냅샷이 체결 후
+        // 잔액을 체결 전으로 되돌린다. 판이 없는 종전 서버에서는 스토어가 순서를 모르므로 여기서 폐기한다
+        const ch = this.channels.get(destination);
+        if (ch && (ch.lastSeq !== null || ch.marketSeqs.size > 0)) return;
         if (alive()) cb(this.assetsToMessage(assets));
       }
       // trade·candle·myOrder는 스냅샷 없음. 화면이 REST로 초기화(§5-2)
@@ -1320,6 +1467,21 @@ export class HttpStompDataSource implements DataSource {
     } catch {
       // 초기 스냅샷 실패는 realtime 수신으로 수렴
     }
+  }
+
+  /**
+   * 초기 스냅샷의 epoch 판정(§5-2 v2.57). 그 마켓의 기준보다 작으면 뒤처진 노드의 응답이라 전달하지 않는다.
+   * 크면 기준을 올리고 그 마켓을 다시 맞춘다. 이 구독자도 그 재동기화 스냅샷을 받으므로 여기서는 전달하지 않는다
+   */
+  private initialSnapshotEpochOk(market: string, epoch: number | undefined): boolean {
+    if (typeof epoch !== "number") return true;
+    const verdict = this.epochs.snapshot(market, epoch);
+    if (verdict === "stale") return false;
+    if (verdict === "rise") {
+      this.resyncMarket(market);
+      return false;
+    }
+    return true;
   }
 
   /* ticker 조회 합류. 조회 하나당 왕복 하나를 쓰면 마켓 수만큼 요청이 된다.
@@ -1383,25 +1545,27 @@ export class HttpStompDataSource implements DataSource {
     }
   }
 
+  /** REST 티커는 자기 epoch를 싣는다(§4-A-4 v2.57). 없으면(종전 서버) 그 마켓의 기준 epoch를 쓴다 */
   private tickerToMessage(t: Ticker, stream: "snapshot" | "realtime"): TickerMessage {
-    const { seq, timestamp, ...rest } = t;
+    const { seq, timestamp, epoch, ...rest } = t;
     return {
       schema_version: SCHEMA_VERSION,
       type: "ticker",
       stream,
-      epoch: this.lastEpoch ?? 0,
+      epoch: epoch ?? this.epochs.current(t.market) ?? 0,
       seq,
       timestamp,
       ...rest,
     };
   }
 
+  /** REST에서 만든 체결·캔들 메시지는 그 마켓의 기준 epoch를 쓴다(다른 마켓의 기간을 붙이지 않는다) */
   private tradeToMessage(t: Trade): TradeMessage {
     return {
       schema_version: SCHEMA_VERSION,
       type: "trade",
       market: t.market,
-      epoch: this.lastEpoch ?? 0,
+      epoch: this.epochs.current(t.market) ?? 0,
       seq: t.seq,
       timestamp: t.timestamp,
       trade_id: t.trade_id,
@@ -1417,7 +1581,7 @@ export class HttpStompDataSource implements DataSource {
       type: "candle",
       unit,
       market: c.market,
-      epoch: this.lastEpoch ?? 0,
+      epoch: this.epochs.current(c.market) ?? 0,
       seq: c.seq,
       timestamp: c.candle_time,
       candle_time: c.candle_time,
@@ -1449,11 +1613,15 @@ export class HttpStompDataSource implements DataSource {
     };
   }
 
+  /**
+   * 계좌 조회로 만든 myAsset. 여러 마켓에 걸친 값이라 market을 싣지 않고 epoch는 0이다. 순서는 잔고 판(version)이
+   * 판정한다(스토어, lib/api/assetVersions)
+   */
   private assetsToMessage(assets: Asset[]): MyAssetMessage {
     return {
       schema_version: SCHEMA_VERSION,
       type: "myAsset",
-      epoch: this.lastEpoch ?? 0,
+      epoch: 0,
       seq: 0,
       timestamp: new Date().toISOString(), // UTC ISO 밀리초 3자리(§2-1)와 동일 형태
       assets: assets.map((a) => ({
@@ -1463,6 +1631,7 @@ export class HttpStompDataSource implements DataSource {
         avg_buy_price: a.avg_buy_price,
         cost_basis_qty: a.cost_basis_qty,
         cost_basis_amount: a.cost_basis_amount,
+        ...(a.version === undefined ? {} : { version: a.version }),
       })),
     };
   }
