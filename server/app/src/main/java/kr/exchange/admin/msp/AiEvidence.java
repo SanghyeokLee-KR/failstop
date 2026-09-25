@@ -7,14 +7,19 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * AI 판단 근거 한 벌(설계 7-2). 모델에 보내는 JSON 과 정책 엔진의 입력이 같은 값에서 나온다. 미수집은 null 로 두고
- * 0 이나 정상으로 바꾸지 않는다. 비밀 값, 개인정보, 사설 주소와 포트는 담지 않는다.
+ * 0 이나 정상으로 바꾸지 않는다. 비밀 값, 개인정보, 사설 주소와 포트, 외부나 사람이 쓴 자유 문장은 담지 않는다.
  */
 public record AiEvidence(
         Instant collectedAt,
@@ -50,6 +55,33 @@ public record AiEvidence(
     // 조회 평균 CPU 가 축소 임계 아래이고 희망 대수가 최소보다 크다. 축소 후보다.
     static final String SCALE_IN_CROSSING = "read.scale_in";
 
+    // 형식을 지나도 조치 이름(끝의 ONE 을 뗀 꼴 포함)·임계값 키·지시 낱말이 든 값은 버린다. 한 낱말짜리 값이 조치나
+    // 임계를 가리키지 못하게 한다.
+    private static final List<String> ACTION_WORDS = Arrays.stream(AiAction.Verb.values())
+            .flatMap(v -> Stream.of(v.name(), v.name().replaceFirst("_ONE$", ""))).map(AiEvidence::fold).distinct()
+            .toList();
+    private static final List<String> INSTRUCTION_WORDS = List.of("ignore", "override", "instruction", "confidence",
+            "approv");
+    // 영문 낱말 하나. 대문자로 시작하는 낱말과 대문자만 이어진 낱말을 따로 센다(DiskSpaceLow 셋, READ_NODE 둘).
+    private static final Pattern WORD = Pattern.compile("\\p{Upper}?\\p{Lower}+|\\p{Upper}+(?!\\p{Lower})");
+
+    /**
+     * 모델에 보내는 경보명과 라벨 값의 형식(설계 7-2 신뢰 경계). 공백·한글과 허용하지 않은 기호가 든 값, 64자를 넘는 값,
+     * 영문 낱말이 상한보다 많은 값은 버린다. 낱말 상한은 저장소 규칙의 경보명(5낱말 이하)과 라벨 값(3낱말 이하)에 맞췄다.
+     */
+    enum Field {
+        ALERTNAME("^[A-Za-z_:][A-Za-z0-9_:]{0,63}$", 5),
+        LABEL("^[A-Za-z0-9/][A-Za-z0-9._/-]{0,63}$", 3);
+
+        private final Pattern format;
+        private final int maxWords;
+
+        Field(String format, int maxWords) {
+            this.format = Pattern.compile(format);
+            this.maxWords = maxWords;
+        }
+    }
+
     /** 조회 계층. CAPACITY_PLAN 이 아니면 null 이다. avgCpu 는 호출 시점에 잰 값이다. */
     public record ReadTier(int min, int desired, int max, int observed, Double avgCpu, Instant sampledAt,
                            Instant lowSince) {
@@ -59,12 +91,21 @@ public record AiEvidence(
                             BigDecimal step, boolean inUse) {
     }
 
-    /** 활성 경보 하나. labels 는 응답에 내도 되는 라벨만 담는다(instance 없음). */
+    /**
+     * 활성 경보 하나(설계 7-2 신뢰 경계). alertname 과 labels 는 형식과 낱말 검사를 지난 값만 담고(instance 없음), 버린
+     * 필드의 이름은 rejected 에 있다. 주석(요약 등)은 담지 않는다. fingerprint 는 원천 값이고 형식 밖이면 rejected 에 든다.
+     * thresholdKey 는 규칙 주석의 threshold_key 가 레지스트리 키와 같을 때만 있다.
+     */
     public record Alert(String fingerprint, String alertname, String severity, Map<String, String> labels,
-                        Instant startsAt, boolean silenced, String summary, String thresholdKey) {
+                        Instant startsAt, boolean silenced, String thresholdKey, List<String> rejected) {
 
         public String component() {
             return labels.get("component");
+        }
+
+        /** 거부 사유·통지 문구와 상담 근거의 항목 이름에 쓰는 이름. 경보명을 버렸으면 서버가 정한 문구다. */
+        public String displayName() {
+            return alertname != null ? alertname : "(형식 밖 이름)";
         }
     }
 
@@ -145,6 +186,28 @@ public record AiEvidence(
     }
 
     /**
+     * 경보명이나 라벨 값 하나를 모델에 보내도 되면 그 값, 아니면 null 이다(설계 7-2 신뢰 경계). 형식이나 낱말 수를 넘거나
+     * 조치 이름, 임계값 키, 지시 낱말이 들어 있으면 버리고 고쳐 쓰지 않는다. 낱말 검사는 대소문자와 구분자를 바꿔 피하지
+     * 못하게 영숫자만 본다.
+     */
+    static String screen(String value, Field field, Collection<String> thresholdKeys) {
+        if (value == null || !field.format.matcher(value).matches()
+                || WORD.matcher(value).results().count() > field.maxWords) {
+            return null;
+        }
+        String folded = fold(value);
+        if (ACTION_WORDS.stream().anyMatch(folded::contains) || INSTRUCTION_WORDS.stream().anyMatch(folded::contains)
+                || thresholdKeys.stream().map(AiEvidence::fold).anyMatch(folded::contains)) {
+            return null;
+        }
+        return value;
+    }
+
+    private static String fold(String text) {
+        return text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    /**
      * 그 조치에 필요한 근거의 가장 오래된 수집 시각(정책 A5). 필요한 근거가 하나라도 없으면 null 이다.
      */
     public Instant oldestRequired(AiAction action) {
@@ -213,10 +276,13 @@ public record AiEvidence(
         return all.stream().noneMatch(at -> at != null && !at.isBefore(collectedAt.minus(MAX_AGE)));
     }
 
-    /** 모델에 보내는 JSON 의 원본. 키 순서를 고정해 같은 근거가 같은 바이트가 되게 한다. */
+    /**
+     * 모델에 보내는 JSON 의 원본. 키 순서를 고정해 같은 근거가 같은 바이트가 되게 한다. 경보는 구조화 필드만 싣는다
+     * (설계 7-2 신뢰 경계).
+     */
     public Map<String, Object> toJson() {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("schema", "msp-evidence/1");
+        out.put("schema", "msp-evidence/2");
         out.put("environment", environment.name());
         out.put("collected_at", ApiFormats.time(collectedAt));
         out.put("mode", mode);
@@ -245,14 +311,16 @@ public record AiEvidence(
         List<Map<String, Object>> al = new ArrayList<>();
         for (Alert a : alerts) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("fingerprint", a.fingerprint());
+            m.put("fingerprint", a.rejected().contains("fingerprint") ? null : a.fingerprint());
             m.put("alertname", a.alertname());
             m.put("severity", a.severity());
             a.labels().forEach(m::put);
+            if (!a.rejected().isEmpty()) {
+                m.put("rejected", a.rejected());
+            }
             m.put("starts_at", ApiFormats.time(a.startsAt()));
             m.put("silenced", a.silenced());
-            m.put("summary", a.summary());
-            m.put("threshold_key", a.thresholdKey());
+            m.put("threshold", alertThreshold(a.thresholdKey()));
             m.put("planned_window", windows.stream().anyMatch(w -> w.matches(a.alertname(), a.labels())));
             al.add(m);
         }
@@ -272,6 +340,27 @@ public record AiEvidence(
         out.put("bot_rate", b);
         out.putAll(context);
         return out;
+    }
+
+    /** 경보에 이은 임계값. 레지스트리 값과 서버가 그 임계로 판정하는 근거 지표를 싣는다. 잇지 못하면 null 이다. */
+    private Map<String, Object> alertThreshold(String key) {
+        Threshold t = key == null ? null : thresholds.get(key);
+        if (t == null) {
+            return null;
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("key", key);
+        m.put("value", t.value() == null ? null : ApiFormats.amount(t.value()));
+        if (key.startsWith("read.")) {
+            m.put("metric", "read_tier.avg_cpu");
+            m.put("observed", read == null ? null : measure(read.avgCpu(), read.sampledAt(), 4));
+            return m;
+        }
+        String name = metricOf(key);
+        m.put("metric", name);
+        m.put("observed", name == null ? null
+                : measure(metric(name).value(), metric(name).sampledAt(), name.endsWith("_seconds") ? 3 : 4));
+        return m;
     }
 
     private Map<String, Object> measure(Double value, Instant sampledAt, int scale) {

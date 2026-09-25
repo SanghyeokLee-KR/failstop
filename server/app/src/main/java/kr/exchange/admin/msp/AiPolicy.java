@@ -37,6 +37,27 @@ final class AiPolicy {
     // 쿨다운이 없는 종류(보류, 백업)도 사람이 거절한 같은 조치를 곧바로 자동 실행하지 않는다(제안값, 정책 A9).
     static final Duration REJECT_HOLD_MIN = Duration.ofMinutes(15);
 
+    /** 임계값을 더 조심하는 쪽(경보를 일찍 울리거나, 증설을 일찍·축소를 늦게 하는 쪽)으로 옮기는 방향. */
+    enum Sensitive { UP, DOWN, NONE }
+
+    // 레지스트리 항목(V70)마다 더 민감한 방향이다. 자동 실행은 이 방향의 변경만 한다(정책 T6, 사용자 결정 2026-09-25).
+    // 표에 없거나 NONE 인 항목은 자동으로 바꾸지 않는다.
+    static final Map<String, Sensitive> SENSITIVE = Map.ofEntries(
+            // 조회 평균 CPU 가 이 값 이상이면 증설 권고. 내릴수록 일찍 늘린다.
+            Map.entry(OpsThresholdService.SCALE_OUT, Sensitive.DOWN),
+            // 이 값 미만이 지속되면 축소 권고. 내릴수록 늦게 줄여 용량을 오래 둔다.
+            Map.entry(OpsThresholdService.SCALE_IN, Sensitive.DOWN),
+            // 호스트 CPU·메모리 사용률, 복제 지연, 백업 경과는 이 값 이상이면 경보. 내릴수록 일찍 울린다.
+            Map.entry("host.cpu_alert", Sensitive.DOWN),
+            Map.entry("host.mem_alert", Sensitive.DOWN),
+            Map.entry("db.replication_lag_alert", Sensitive.DOWN),
+            Map.entry("backup.delay_alert", Sensitive.DOWN),
+            // 루트 디스크 여유와 CPU 크레딧 잔량은 이 값 이하이면 경보. 올릴수록 일찍 울린다.
+            Map.entry("host.disk_free_alert", Sensitive.UP),
+            Map.entry("host.cpu_credit_alert", Sensitive.UP),
+            // 봇 부하 줄이기의 전제(D4) 자체다. 어느 쪽으로 옮겨도 AI 자신의 조치 조건이 바뀐다.
+            Map.entry(BOT_GUARD, Sensitive.NONE));
+
     // 관측 경로 경보. AI 근거 자체의 신뢰를 알리므로 AI 가 누르지 못한다(정책 S5).
     static final Set<String> OBSERVABILITY_COMPONENTS = Set.of("monitoring", "watchdog");
     // 복제·DB·백업·디스크 계열. 계획 작업 창이 있어도 AI 가 누르지 못한다(정책 S7, 설계 7-13).
@@ -121,11 +142,12 @@ final class AiPolicy {
             case AiAction.Threshold t -> {
                 AiEvidence.Threshold item = ev.thresholds().get(t.key());
                 yield first(t5InUse(t, item), t1Set(t, item), t2Range(t, item), t3Gap(t, ev.thresholds()),
-                        auto ? t4PerItem(h.thresholdUsedForKey(), f.limits().thresholdPerItem()) : null);
+                        auto ? t4PerItem(h.thresholdUsedForKey(), f.limits().thresholdPerItem()) : null,
+                        auto ? t6Sensitive(t, item) : null);
             }
             case AiAction.Silence s -> {
                 AiEvidence.Alert alert = ev.alert(s.fingerprint());
-                yield first(s1Warning(alert), s2Minutes(s.minutes()), s4NotSilenced(alert),
+                yield first(s1Warning(alert), s8WellFormed(alert), s2Minutes(s.minutes()), s4NotSilenced(alert),
                         s5NotObservability(alert), s7NotForbiddenFamily(alert),
                         s6PlannedWindow(s, alert, ev.windows(), f.now()),
                         auto ? s3NotConsecutive(h.lastSilenceByAi()) : null);
@@ -375,6 +397,25 @@ final class AiPolicy {
                 : new Denial("T4", "per_item_cap", "이번 자동 모드에서 이 항목을 이미 " + used + "번 바꿨습니다.");
     }
 
+    /**
+     * T6. 자동 실행은 그 항목의 민감한 방향으로 옮기는 변경만 한다. 둔하게 하는 변경과 방향을 정하지 않은 항목은 요청으로
+     * 남겨 사람의 승인으로만 실행한다(사용자 결정 2026-09-25). 자동 실행에만 건다.
+     */
+    static Denial t6Sensitive(AiAction.Threshold t, AiEvidence.Threshold item) {
+        if (item == null || item.value() == null) {
+            return null;
+        }
+        Sensitive sensitive = SENSITIVE.getOrDefault(t.key(), Sensitive.NONE);
+        if (sensitive == Sensitive.NONE) {
+            return new Denial("T6", "direction_undefined", "민감한 방향을 정하지 않은 항목이라 AI가 자동으로 바꾸지 않습니다: "
+                    + t.key());
+        }
+        int dir = t.value().compareTo(item.value());
+        boolean toward = sensitive == Sensitive.UP ? dir > 0 : dir < 0;
+        return toward ? null : new Denial("T6", "loosening", "둔하게 바꾸는 임계값 변경은 자동으로 실행하지 않습니다. 운영자가 "
+                + "승인해야 합니다: " + t.key());
+    }
+
     /** T5. 이 환경에서 쓰는 항목만 바꾼다. 조회 임계는 로컬 조정기(CAPACITY_PLAN)에서만 쓰인다. */
     static Denial t5InUse(AiAction.Threshold t, AiEvidence.Threshold item) {
         return item != null && !item.inUse()
@@ -443,6 +484,15 @@ final class AiPolicy {
     static Denial s7NotForbiddenFamily(AiEvidence.Alert alert) {
         return alert != null && forbiddenFamily(alert)
                 ? new Denial("S7", "forbidden_alert_family", "복제·DB·백업·디스크 계열 경보는 AI가 보류하지 않습니다.") : null;
+    }
+
+    /**
+     * S8. 검사를 지나지 못해 근거에서 버린 값(지문, 경보명, 허용한 라벨)이 있는 경보는 창이 있어도 AI 가 보류하지 않는다.
+     * 거른 값으로는 S5·S7 과 창의 라벨 일치를 온전히 볼 수 없다(설계 7-2 신뢰 경계).
+     */
+    static Denial s8WellFormed(AiEvidence.Alert alert) {
+        return alert != null && !alert.rejected().isEmpty() ? new Denial("S8", "malformed_alert",
+                "검사를 지나지 못해 근거에서 뺀 값(경보명, 라벨, 지문)이 있는 경보는 AI가 보류하지 않습니다.") : null;
     }
 
     static boolean observabilityPath(AiEvidence.Alert alert) {
@@ -549,7 +599,7 @@ final class AiPolicy {
         }
         for (AiEvidence.Alert a : ev.alerts()) {
             if (t.key().equals(a.thresholdKey()) && !a.silenced()) {
-                return new Denial("D3", "direction_conflict", "방향 모순: 경보 " + a.alertname()
+                return new Denial("D3", "direction_conflict", "방향 모순: 경보 " + a.displayName()
                         + "가 울리는 중에 그 임계를 둔하게 바꾸지 않습니다.");
             }
         }

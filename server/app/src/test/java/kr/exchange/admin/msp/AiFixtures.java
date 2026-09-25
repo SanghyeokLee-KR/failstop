@@ -41,7 +41,7 @@ final class AiFixtures {
             labels.put("component", component);
         }
         return new AiEvidence.Alert(fingerprint, name, severity, labels, NOW.minus(Duration.ofMinutes(5)), false,
-                name + " 요약", null);
+                null, List.of());
     }
 
     static MaintenanceWindows.Window window(String alertname, Map<String, String> labels, Instant start, Instant end) {

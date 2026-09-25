@@ -47,7 +47,6 @@ public class AiChat {
     private static final int MAX_OUTPUT_BYTES = 16 * 1024;
     private static final int OPEN_INCIDENTS = 10;
     private static final int RECENT_ACTIONS = 5;
-    private static final int MAX_LABEL = 200;
     private static final Set<String> ROLES = Set.of("user", "assistant");
     private static final Set<String> OUTPUT_FIELDS = Set.of("answer_ko", "cited_ids");
 
@@ -326,21 +325,32 @@ public class AiChat {
             measured(item, r.avgCpu() == null ? null : r.sampledAt(), now);
             items.put("read_tier", item);
         }
+        // 경보와 사건은 판단 근거와 같은 구조화 필드만 싣는다. 요약 같은 주석은 싣지 않는다(설계 7-2 신뢰 경계).
+        int unknown = 0;
         for (AiEvidence.Alert a : ev.alerts()) {
-            Map<String, Object> item = item("alert." + a.fingerprint(), "경보 " + data(a.alertname()));
-            item.put("alertname", data(a.alertname()));
+            String id = a.rejected().contains("fingerprint") ? "alert.unknown-" + (++unknown)
+                    : "alert." + a.fingerprint();
+            Map<String, Object> item = item(id, "경보 " + a.displayName());
+            item.put("alertname", a.alertname());
             item.put("severity", a.severity());
-            a.labels().forEach((k, v) -> item.put(k, data(v)));
+            a.labels().forEach(item::put);
+            if (!a.rejected().isEmpty()) {
+                item.put("rejected", a.rejected());
+            }
             item.put("starts_at", ApiFormats.time(a.startsAt()));
             item.put("silenced", a.silenced());
-            item.put("summary", data(a.summary()));
+            item.put("threshold_key", a.thresholdKey());
             measured(item, ev.alertsPolledAt(), now);
-            items.put((String) item.get("id"), item);
+            items.put(id, item);
         }
         for (CursorPages.Row<IncidentStore.Incident> row : incidents.list("OPEN", null, OPEN_INCIDENTS)) {
             IncidentStore.Incident inc = row.view();
-            Map<String, Object> item = item("incident." + inc.id(), "사건 " + data(inc.alertname()));
-            item.put("alertname", data(inc.alertname()));
+            String name = AiEvidence.screen(inc.alertname(), AiEvidence.Field.ALERTNAME, ev.thresholds().keySet());
+            Map<String, Object> item = item("incident." + inc.id(), "사건 " + (name != null ? name : "#" + inc.id()));
+            item.put("alertname", name);
+            if (name == null) {
+                item.put("rejected", List.of("alertname"));
+            }
             item.put("severity", inc.severity());
             item.put("status", inc.status());
             item.put("started_at", ApiFormats.time(inc.startedAt()));
@@ -406,7 +416,7 @@ public class AiChat {
         freshness.put("not_connected", notConnected);
         freshness.put("failed", failed);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema", "msp-chat-evidence/1");
+        body.put("schema", "msp-chat-evidence/2");
         body.put("environment", ev.environment().name());
         body.put("collected_at", ApiFormats.time(now));
         body.put("freshness", freshness);
@@ -474,11 +484,6 @@ public class AiChat {
         c.put("age_seconds", item.get("age_seconds"));
         c.put("collect", item.get("collect"));
         return c;
-    }
-
-    /** 경보 라벨·요약은 근거 블록을 닫는 표기를 만들지 못하게 꺾쇠를 빼고 자른다. */
-    private static String data(String text) {
-        return text == null ? null : AiStore.clip(text.replace("<", "").replace(">", ""), MAX_LABEL);
     }
 
     private static String metricLabel(String name) {

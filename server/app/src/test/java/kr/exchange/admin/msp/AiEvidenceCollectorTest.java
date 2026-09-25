@@ -79,7 +79,7 @@ class AiEvidenceCollectorTest {
 
         AiFixtures.Ev disk = new AiFixtures.Ev().metric(AiEvidence.HOST_ROOT_FREE_MIN, 0.12, NOW);
         disk.alerts.add(new AiEvidence.Alert(FP, "LinuxDiskSpaceLow", "warning", Map.of("component", "storage"),
-                NOW.minus(Duration.ofMinutes(5)), false, "디스크 여유 부족", "host.disk_free_alert"));
+                NOW.minus(Duration.ofMinutes(5)), false, "host.disk_free_alert", List.of()));
         assertFalse(targets(disk.build(), AiAction.Verb.THRESHOLD_LOWER).contains("host.disk_free_alert"),
                 "울리는 디스크 경보의 임계를 낮춰 가리지 않는다");
         assertTrue(targets(disk.build(), AiAction.Verb.THRESHOLD_RAISE).contains("host.disk_free_alert"),
@@ -101,6 +101,17 @@ class AiEvidenceCollectorTest {
 
         ev.polledAt = null;
         assertEquals("MISSING", ev.build().toJson().get("alerts_collect"));
+    }
+
+    @Test
+    void 형식_밖이라_값을_버린_경보는_창이_있어도_보류_대상에_없다() {
+        AiFixtures.Ev ev = new AiFixtures.Ev();
+        ev.alerts.add(new AiEvidence.Alert(FP, "OrderRejectSpike", "warning", Map.of("component", "order-gateway"),
+                NOW.minus(Duration.ofMinutes(5)), false, null, List.of("role")));
+        ev.windows.add(AiFixtures.window("OrderRejectSpike", Map.of(), NOW.minus(Duration.ofMinutes(10)),
+                NOW.plus(Duration.ofMinutes(40))));
+        assertEquals(List.of(), targets(ev.build(), AiAction.Verb.ALERT_SILENCE), "S8 이 막을 대상은 보이지 않는다");
+        assertFalse(actions(ev.build()).contains("ALERT_SILENCE"));
     }
 
     @Test

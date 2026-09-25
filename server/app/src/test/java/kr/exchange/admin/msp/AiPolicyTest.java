@@ -249,6 +249,64 @@ class AiPolicyTest {
                 usedTwice)));
     }
 
+    @Test
+    void T6_자동_실행은_민감한_방향만_하고_둔하게_하는_변경은_사람_승인으로_넘긴다() {
+        AiEvidence ev = new AiFixtures.Ev().cpu(0.30, null).metric(AiEvidence.HOST_ROOT_FREE_MIN, 0.5, NOW).build();
+        assertNull(AiPolicy.t6Sensitive(threshold("read.scale_out_cpu", "0.55", "0.60"), item(ev, "read.scale_out_cpu")),
+                "증설 임계를 내리면 일찍 늘린다");
+        assertNull(AiPolicy.t6Sensitive(threshold("read.scale_in_cpu", "0.25", "0.30"), item(ev, "read.scale_in_cpu")),
+                "축소 임계를 내리면 늦게 줄인다");
+        assertNull(AiPolicy.t6Sensitive(threshold("host.disk_free_alert", "0.20", "0.15"),
+                item(ev, "host.disk_free_alert")), "디스크 여유 임계를 올리면 일찍 울린다");
+        AiPolicy.Denial raiseOut = AiPolicy.t6Sensitive(threshold("read.scale_out_cpu", "0.65", "0.60"),
+                item(ev, "read.scale_out_cpu"));
+        denied("T6", raiseOut);
+        assertEquals("loosening", raiseOut.code());
+        denied("T6", AiPolicy.t6Sensitive(threshold("read.scale_in_cpu", "0.35", "0.30"), item(ev, "read.scale_in_cpu")));
+        denied("T6", AiPolicy.t6Sensitive(threshold("host.disk_free_alert", "0.10", "0.15"),
+                item(ev, "host.disk_free_alert")));
+
+        AiAction loosen = threshold("read.scale_out_cpu", "0.65", "0.60");
+        denied("T6", AiPolicy.auto(loosen, AiFixtures.facts(ev, AiFixtures.auto(), AiFixtures.request(2, "0.9"),
+                AiPolicy.History.NONE)), "자동 실행은 막는다");
+        assertNull(AiPolicy.proposal(loosen, AiFixtures.facts(ev, AiFixtures.auto(), null, AiPolicy.History.NONE)),
+                "요청으로는 남는다");
+        assertNull(AiPolicy.approval(loosen, AiFixtures.facts(ev, AiFixtures.manual(), AiFixtures.request(1, "0.9"),
+                AiPolicy.History.NONE)), "사람의 승인으로는 실행한다");
+        assertNull(AiPolicy.auto(threshold("read.scale_out_cpu", "0.55", "0.60"), AiFixtures.facts(ev,
+                AiFixtures.auto(), AiFixtures.request(2, "0.9"), AiPolicy.History.NONE)), "민감한 방향은 자동 실행한다");
+    }
+
+    @Test
+    void T6_방향을_정하지_않은_항목은_자동으로_바꾸지_않는다() {
+        AiEvidence ev = new AiFixtures.Ev().threshold(AiPolicy.BOT_GUARD, "0.85", "0.50", "0.90", "0.05", true)
+                .threshold("host.other_alert", "0.5", "0.1", "0.9", "0.1", true).build();
+        for (String to : List.of("0.80", "0.90")) {
+            AiPolicy.Denial d = AiPolicy.t6Sensitive(threshold(AiPolicy.BOT_GUARD, to, "0.85"),
+                    item(ev, AiPolicy.BOT_GUARD));
+            denied("T6", d, to);
+            assertEquals("direction_undefined", d.code());
+        }
+        denied("T6", AiPolicy.t6Sensitive(threshold("host.other_alert", "0.4", "0.5"), item(ev, "host.other_alert")),
+                "표에 없는 항목");
+    }
+
+    @Test
+    void T6_표는_레지스트리_아홉_항목을_모두_정하고_민감한_방향은_D3가_보는_둔한_방향의_반대다() {
+        assertEquals(Set.of("read.scale_out_cpu", "read.scale_in_cpu", "host.cpu_alert", "host.mem_alert",
+                "host.disk_free_alert", "db.replication_lag_alert", "backup.delay_alert", "bot.capacity_guard",
+                "host.cpu_credit_alert"), AiPolicy.SENSITIVE.keySet());
+        BigDecimal from = BigDecimal.ONE;
+        for (Map.Entry<String, AiPolicy.Sensitive> e : AiPolicy.SENSITIVE.entrySet()) {
+            if (e.getValue() == AiPolicy.Sensitive.NONE) {
+                continue;
+            }
+            BigDecimal to = e.getValue() == AiPolicy.Sensitive.UP ? from.add(BigDecimal.ONE) : from.subtract(BigDecimal.ONE);
+            assertFalse(AiPolicy.loosens(e.getKey(), from, to), e.getKey());
+            assertTrue(AiPolicy.loosens(e.getKey(), to, from), e.getKey());
+        }
+    }
+
     /* ===== 경보 보류 ===== */
 
     @Test
@@ -278,7 +336,7 @@ class AiPolicyTest {
         AiEvidence.Alert a = alert(FP, "BotOrderLatencyHigh", "warning", "bot");
         assertNull(AiPolicy.s4NotSilenced(a));
         denied("S4", AiPolicy.s4NotSilenced(new AiEvidence.Alert(FP, a.alertname(), a.severity(), a.labels(),
-                a.startsAt(), true, a.summary(), null)));
+                a.startsAt(), true, null, List.of())));
     }
 
     @Test
@@ -322,6 +380,33 @@ class AiPolicyTest {
         denied("S7", AiPolicy.s7NotForbiddenFamily(alert(FP, "LinuxDiskSpaceLow", "warning", "storage")));
         denied("S7", AiPolicy.s7NotForbiddenFamily(alert(FP, "ReplicaLagSomething", "warning", "linux")),
                 "이름으로도 가른다");
+    }
+
+    @Test
+    void S8_형식_밖이라_버린_값이_있는_경보는_창이_있어도_보류하지_않는다() {
+        assertNull(AiPolicy.s8WellFormed(alert(FP, "BotOrderLatencyHigh", "warning", "bot")));
+        AiEvidence.Alert odd = new AiEvidence.Alert(FP, "BotOrderLatencyHigh", "warning", Map.of("component", "bot"),
+                NOW.minus(Duration.ofMinutes(5)), false, null, List.of("role"));
+        AiPolicy.Denial d = AiPolicy.s8WellFormed(odd);
+        denied("S8", d);
+        assertEquals("malformed_alert", d.code());
+
+        // 창이 경보명만 걸어 버린 라벨과 무관하게 겹쳐도, 제안·승인·자동 실행 모두 S8 로 막는다.
+        AiFixtures.Ev ev = new AiFixtures.Ev();
+        ev.alerts.add(odd);
+        ev.windows.add(window("BotOrderLatencyHigh", Map.of(), NOW.minusSeconds(60), NOW.plus(Duration.ofHours(1))));
+        AiAction.Silence silence = new AiAction.Silence(FP, 20);
+        denied("S8", AiPolicy.proposal(silence, AiFixtures.facts(ev.build(), AiFixtures.manual(), null,
+                AiPolicy.History.NONE)));
+        denied("S8", AiPolicy.approval(silence, AiFixtures.facts(ev.build(), AiFixtures.manual(),
+                AiFixtures.request(1, "0.9"), AiPolicy.History.NONE)));
+        denied("S8", AiPolicy.auto(silence, AiFixtures.facts(ev.build(), AiFixtures.auto(), AiFixtures.request(2, "0.9"),
+                AiPolicy.History.NONE)));
+
+        ev.alerts.set(0, new AiEvidence.Alert(FP, null, "warning", Map.of("component", "bot"),
+                NOW.minus(Duration.ofMinutes(5)), false, null, List.of("alertname")));
+        denied("S8", AiPolicy.proposal(silence, AiFixtures.facts(ev.build(), AiFixtures.manual(), null,
+                AiPolicy.History.NONE)), "경보명을 버린 경보");
     }
 
     /* ===== 봇 부하 ===== */
@@ -420,7 +505,7 @@ class AiPolicyTest {
 
         AiFixtures.Ev firing = new AiFixtures.Ev().metric(AiEvidence.HOST_ROOT_FREE_MIN, 0.5, NOW);
         firing.alerts.add(new AiEvidence.Alert(FP, "LinuxDiskSpaceLow", "warning", Map.of("component", "storage"),
-                NOW, false, "요약", "host.disk_free_alert"));
+                NOW, false, "host.disk_free_alert", List.of()));
         AiPolicy.Denial storm = AiPolicy.d3Threshold(dull, firing.build());
         denied("D3", storm);
         assertEquals("direction_conflict", storm.code());

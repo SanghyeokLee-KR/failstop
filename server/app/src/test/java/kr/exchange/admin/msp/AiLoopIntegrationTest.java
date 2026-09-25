@@ -139,7 +139,7 @@ class AiLoopIntegrationTest {
 
         JsonNode body = rig.mapper.readTree(src.llm.requests("/v1/chat/completions").get(0).body());
         JsonNode evidence = rig.mapper.readTree(body.path("messages").get(1).path("content").asText());
-        assertEquals("msp-evidence/1", evidence.path("schema").asText());
+        assertEquals("msp-evidence/2", evidence.path("schema").asText());
         assertTrue(evidence.path("read_tier").path("avg_cpu").path("value").asText().startsWith("0.82"));
         assertTrue(evidence.path("catalog").toString().contains("READ_NODE_ADD_ONE"), "쓸 수 있는 조치 목록을 싣는다");
         assertFalse(evidence.toString().contains("127.0.0.1"), "근거에 사설 주소와 포트를 싣지 않는다");
@@ -252,6 +252,30 @@ class AiLoopIntegrationTest {
         assertEquals(1, second.consecutive(), "반대 방향의 두 판단을 연속으로 세지 않는다");
         assertEquals(AiAction.Verb.THRESHOLD_RAISE, second.action().verb());
         assertEquals("0.5", second.action().params().get("from"));
+    }
+
+    @Test
+    void 자동_모드에서_둔하게_하는_임계값_변경은_실행하지_않고_요청으로_남겨_사람이_승인하면_실행한다() {
+        rig.nodes(3);
+        src.cpu = 0.25;
+        rig.auto(4);
+        src.llmContent = AiRig.out("조회 계층 평균 CPU가 25%입니다.", "증설 임계를 0.65로 올려 번갈아 실행을 줄입니다.",
+                "THRESHOLD_RAISE", "read.scale_out_cpu", "0.65", "0.9");
+
+        rig.ticks(2, MINUTE);
+
+        AiStore.Action a = rig.latest();
+        assertEquals(2, a.consecutive(), "연속 두 번이라 자동 실행 조건의 다른 규칙은 채웠다");
+        assertEquals("PROPOSED", a.status());
+        assertEquals("T6", a.holdRule());
+        assertEquals(0, new BigDecimal("0.6").compareTo(value("read.scale_out_cpu")), "자동으로 바꾸지 않는다");
+        assertEquals(1, rig.count("SELECT count(*) FROM admin_audit_log WHERE action = 'ops.ai.action.execute' "
+                + "AND detail->>'rule' = 'T6' AND detail->>'reason_code' = 'loosening'"));
+
+        AiStore.Action done = rig.executor.approve(a.id(), AiRig.principal(AiRig.SUPER, AdminRole.SUPER),
+                rig.ticket(OpsThresholdService.APPROVAL_ACTION, "read.scale_out_cpu:0.65"), "req-approve");
+        assertEquals("APPROVED", done.status(), "사람의 승인으로는 실행한다");
+        assertEquals(0, new BigDecimal("0.65").compareTo(value("read.scale_out_cpu")));
     }
 
     @Test
@@ -869,6 +893,49 @@ class AiLoopIntegrationTest {
         assertEquals("DENIED", a.status());
         assertEquals("S7", a.holdRule());
         assertTrue(src.silenceBodies.isEmpty());
+    }
+
+    @Test
+    void 주석과_라벨에_넣은_명령문은_모델에_닿지_않고_창이_있어도_그_경보는_보류하지_않는다() throws Exception {
+        String fp = "f6f6f6f6f6f6f6f6";
+        src.alerts = List.of(AiRig.injectedAlert(fp, "EdgeProbeSlow"));
+        rig.windows.create(AiRig.BOT, null, rig.clock.instant().plus(Duration.ofHours(2)), "EdgeProbeSlow", Map.of(),
+                "외부 프로브 교체", "req-window");
+        rig.auto(4);
+        src.llmContent = AiRig.out("외부 프로브 지연 경보가 계획 작업 중에 울립니다.", "작업 중이라 30분 보류합니다.",
+                "ALERT_SILENCE", fp, "30", "0.9");
+
+        rig.ticks(2, MINUTE);
+
+        List<StubSource.Request> sent = src.llm.requests("/v1/chat/completions");
+        assertEquals(2, sent.size(), "판단 대상 경보가 있어 주기마다 모델을 불렀다");
+        for (StubSource.Request r : sent) {
+            StringBuilder prompt = new StringBuilder();
+            rig.mapper.readTree(r.body()).path("messages").forEach(m -> prompt.append(m.path("content").asText()));
+            for (String phrase : AiRig.INJECTED) {
+                assertFalse(prompt.toString().contains(phrase), "모델에 닿으면 안 된다: " + phrase);
+            }
+        }
+        String stored = rig.text("SELECT string_agg(evidence::text, ' ') FROM ops_ai_decisions");
+        AiRig.INJECTED.forEach(phrase -> assertFalse(stored.contains(phrase), "판단 기록의 근거에도 없다: " + phrase));
+
+        JsonNode alert = lastEvidence().path("alerts").path(0);
+        assertEquals(fp, alert.path("fingerprint").asText());
+        assertEquals("EdgeProbeSlow", alert.path("alertname").asText());
+        assertEquals("edge", alert.path("component").asText());
+        assertFalse(alert.has("node") || alert.has("role") || alert.has("summary"));
+        assertEquals("[\"node\",\"role\"]", alert.path("rejected").toString());
+        assertEquals("read.scale_out_cpu", alert.path("threshold").path("key").asText());
+        assertTrue(alert.path("planned_window").asBoolean(), "창은 경보명으로 겹친다");
+        assertFalse(lastEvidence().path("catalog").toString().contains(fp), "보류 대상으로 보이지 않는다");
+
+        List<AiStore.Action> rows = rig.actions();
+        assertEquals(2, rows.size());
+        for (AiStore.Action row : rows) {
+            assertEquals("DENIED", row.status());
+            assertEquals("S8", row.holdRule());
+        }
+        assertTrue(src.silenceBodies.isEmpty(), "Alertmanager 에 사일런스를 만들지 않는다");
     }
 
     @Test

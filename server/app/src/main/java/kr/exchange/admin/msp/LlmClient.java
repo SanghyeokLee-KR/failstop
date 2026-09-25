@@ -65,7 +65,7 @@ public class LlmClient {
     public record ServerStatus(String version, Boolean modelLoaded, Boolean modelListed, List<LoadedModel> loaded) {
     }
 
-    public static final String PROMPT_VERSION = "msp-ai/2";
+    public static final String PROMPT_VERSION = "msp-ai/3";
     static final String SCHEMA_RESOURCE = "/msp/ai-output.schema.json";
     static final String PROMPT_RESOURCE = "/msp/ai-system-prompt.txt";
     static final int MAX_RESPONSE = 64 * 1024;

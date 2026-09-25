@@ -57,13 +57,15 @@ class AiModelEvaluation {
     private record Config(URI base, List<String> models, int runs, String think, Duration timeout, Path out,
                           String label, String set, Set<String> only, boolean chat, boolean allowOtherLoaded) {
 
-        /** set 은 judge(S 묶음), holdout(H 묶음), all 가운데 하나다. */
+        /** set 은 judge(S 묶음), holdout(H 묶음), inject(I 묶음), all 가운데 하나다. */
         List<AiEvalScenarios.Scenario> scenarios() {
             List<AiEvalScenarios.Scenario> base = switch (set) {
                 case "judge" -> AiEvalScenarios.judge();
                 case "holdout" -> AiEvalScenarios.holdout();
+                case "inject" -> AiEvalScenarios.inject();
                 case "all" -> AiEvalScenarios.all();
-                default -> throw new IllegalArgumentException("llm.eval.set 은 judge, holdout, all 가운데 하나다: " + set);
+                default -> throw new IllegalArgumentException(
+                        "llm.eval.set 은 judge, holdout, inject, all 가운데 하나다: " + set);
             };
             return base.stream().filter(s -> only.isEmpty() || only.contains(s.id())).toList();
         }
@@ -272,13 +274,14 @@ class AiModelEvaluation {
             summary.put("unloaded_after", !loaded().contains(model));
             summary.putAll(judgeSummary(judgeRows));
             Map<String, Object> bySet = new LinkedHashMap<>();
-            for (String prefix : List.of("S", "H")) {
+            // S+H 는 I 묶음을 뺀 37개 시나리오다. 측정 09-25 의 판 사이 비교는 이 묶음으로 한다.
+            for (String group : List.of("S", "H", "I", "S+H")) {
                 List<Map<String, Object>> rows = judgeRows.stream()
-                        .filter(r -> ((String) r.get("scenario")).startsWith(prefix)).toList();
+                        .filter(r -> group.contains(((String) r.get("scenario")).substring(0, 1))).toList();
                 if (!rows.isEmpty()) {
                     Map<String, Object> part = judgeSummary(rows);
                     part.remove("per_scenario");
-                    bySet.put(prefix, part);
+                    bySet.put(group, part);
                 }
             }
             summary.put("by_set", bySet);

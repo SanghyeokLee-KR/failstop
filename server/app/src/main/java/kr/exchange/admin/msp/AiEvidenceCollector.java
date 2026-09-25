@@ -25,7 +25,6 @@ public class AiEvidenceCollector {
     // 근거와 응답에 내는 경보 라벨. instance(사설 주소와 포트)는 내지 않는다.
     private static final List<String> ALERT_LABELS = List.of("node", "role", "component", "mountpoint");
     private static final int MAX_ALERTS = 20;
-    private static final int MAX_SUMMARY = 200;
     private static final int RECENT_ACTIONS = 5;
 
     private final MspProperties props;
@@ -101,7 +100,7 @@ public class AiEvidenceCollector {
                 if (alerts.size() >= MAX_ALERTS) {
                     break;
                 }
-                alerts.add(alert(a));
+                alerts.add(alert(a, items.keySet()));
             }
         }
         Map<String, AiEvidence.Metric> metrics = metrics(now);
@@ -148,17 +147,36 @@ public class AiEvidenceCollector {
         return since;
     }
 
-    private static AiEvidence.Alert alert(AlertmanagerClient.Alert a) {
+    /**
+     * 경보 하나를 근거 필드로 옮긴다(설계 7-2 신뢰 경계). 주석은 threshold_key 하나만 레지스트리 키와 대조하고 요약 같은
+     * 문장은 싣지 않는다. 형식 밖인 지문·경보명·라벨 값은 버리고 필드 이름만 rejected 에 남긴다.
+     */
+    static AiEvidence.Alert alert(AlertmanagerClient.Alert a, Set<String> thresholdKeys) {
+        List<String> rejected = new ArrayList<>();
+        if (!IncidentStore.FINGERPRINT.matcher(a.fingerprint()).matches()) {
+            rejected.add("fingerprint");
+        }
+        String name = AiEvidence.screen(a.labels().get("alertname"), AiEvidence.Field.ALERTNAME, thresholdKeys);
+        if (name == null) {
+            rejected.add("alertname");
+        }
         Map<String, String> labels = new LinkedHashMap<>();
-        for (String name : ALERT_LABELS) {
-            String v = a.labels().get(name);
-            if (v != null) {
-                labels.put(name, v);
+        for (String key : ALERT_LABELS) {
+            String raw = a.labels().get(key);
+            if (raw == null) {
+                continue;
+            }
+            String value = AiEvidence.screen(raw, AiEvidence.Field.LABEL, thresholdKeys);
+            if (value == null) {
+                rejected.add(key);
+            } else {
+                labels.put(key, value);
             }
         }
-        return new AiEvidence.Alert(a.fingerprint(), a.labels().getOrDefault("alertname", ""),
-                IncidentPoller.severity(a.labels()), labels, a.startsAt(), !a.silencedBy().isEmpty(),
-                AiStore.clip(IncidentStore.summary(a), MAX_SUMMARY), a.annotations().get("threshold_key"));
+        String key = a.annotations().get("threshold_key");
+        String thresholdKey = key != null && thresholdKeys.contains(key) ? key : null;
+        return new AiEvidence.Alert(a.fingerprint(), name, IncidentPoller.severity(a.labels()), labels, a.startsAt(),
+                !a.silencedBy().isEmpty(), thresholdKey, List.copyOf(rejected));
     }
 
     private Map<String, AiEvidence.Metric> metrics(Instant now) {
@@ -260,8 +278,8 @@ public class AiEvidenceCollector {
         boolean alertsFresh = ev.alertsPolledAt() != null
                 && !ev.alertsPolledAt().plus(AiEvidence.MAX_AGE).isBefore(now);
         for (AiEvidence.Alert a : ev.alerts()) {
-            if (!alertsFresh || a.silenced() || !"warning".equals(a.severity()) || AiPolicy.observabilityPath(a)
-                    || AiPolicy.forbiddenFamily(a)) {
+            if (!alertsFresh || a.silenced() || !"warning".equals(a.severity()) || !a.rejected().isEmpty()
+                    || AiPolicy.observabilityPath(a) || AiPolicy.forbiddenFamily(a)) {
                 continue;
             }
             for (MaintenanceWindows.Window w : ev.windows()) {

@@ -560,7 +560,7 @@ public class AiExecutor {
         for (AiEvidence.Alert a : ev.alerts()) {
             if ("critical".equals(a.severity()) && !a.silenced() && !before.contains(a.fingerprint())
                     && a.startsAt().isAfter(row.executedAt())) {
-                return "실행 뒤 새 critical 경보 " + a.alertname();
+                return "실행 뒤 새 critical 경보 " + a.displayName();
             }
         }
         if (row.action() instanceof AiAction.ReadNodes r && r.delta() < 0 && ev.read() != null
