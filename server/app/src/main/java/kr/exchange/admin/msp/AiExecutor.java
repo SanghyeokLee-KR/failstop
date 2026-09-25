@@ -29,7 +29,7 @@ import java.util.function.Supplier;
  * AI 조치 요청의 실행, 되돌리기, 관찰 창, 끊긴 실행의 대조(설계 7-7·7-8).
  *
  * 잠금은 어느 경로든 JVM 잠금(사일런스는 지문별, 봇 발행률은 하나), 트랜잭션 어드바이저리 락, 모드 행, 대상 행의
- * 순서로만 잡는다. DB 안에서 끝나는 조치(조회 노드, 임계값, 큐 경로의 봇 발행률)는 모드 확인, 상태 전이, 변경이 한
+ * 순서로만 잡는다. DB 안에서 끝나는 조치(app-3 켜기·끄기, 임계값, 큐 경로의 봇 발행률)는 모드 확인, 상태 전이, 변경이 한
  * 트랜잭션이다. 사일런스와 같은 JVM 의 거버너처럼 DB 밖의 효과는 EXECUTING 을 커밋하고, 호출하고, 결과를 적는다.
  */
 public class AiExecutor {
@@ -567,7 +567,7 @@ public class AiExecutor {
                 && ev.read().avgCpu() != null) {
             AiEvidence.Threshold out = ev.thresholds().get(OpsThresholdService.SCALE_OUT);
             if (out != null && out.value() != null && BigDecimal.valueOf(ev.read().avgCpu()).compareTo(out.value()) >= 0) {
-                return "축소 뒤 조회 평균 CPU가 증설 임계 이상";
+                return "app-3를 끈 뒤 조회 평균 CPU가 증설 임계 이상";
             }
         }
         if (row.action() instanceof AiAction.Threshold t && t.from() != null
@@ -685,7 +685,7 @@ public class AiExecutor {
             lockForRevert(row);
             CapacityPlanService.Plan plan = capacity.planForUpdate();
             if (plan.desired() != expected) {
-                throw new Denied(new AiPolicy.Denial("C5", "target_changed", "현재 희망 대수 " + plan.desired()
+                throw new Denied(new AiPolicy.Denial("C5", "target_changed", "현재 앱 계층 희망 대수 " + plan.desired()
                         + "대가 조치 결과 " + expected + "대와 달라 되돌리지 않습니다."));
             }
             CapacityPlanService.Change c = capacity.change(-r.delta(), actor,

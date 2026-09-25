@@ -136,7 +136,7 @@ public class AlertmanagerClient {
 
     static String requireId(String id) {
         if (id == null || !SILENCE_ID.matcher(id).matches()) {
-            throw new IllegalArgumentException("사일런스 id 모양이 아니다");
+            throw new IllegalArgumentException("사일런스 id 모양이 아닙니다.");
         }
         return id;
     }

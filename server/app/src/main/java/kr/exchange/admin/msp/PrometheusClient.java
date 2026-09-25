@@ -91,7 +91,7 @@ public class PrometheusClient {
      */
     public SourceCache.Cached<Matrix> range(MspQuery query, MspTrends.Range range, Instant end) {
         if (!query.trend()) {
-            throw new IllegalArgumentException("추세로 읽을 수 없는 질의다: " + query);
+            throw new IllegalArgumentException("추세로 읽을 수 없는 질의입니다: " + query);
         }
         return cache.get("prometheus:range:" + query.name() + ":" + range.label() + ":" + end.getEpochSecond(),
                 range.cacheTtl(), () -> loadRange(query, range, end));

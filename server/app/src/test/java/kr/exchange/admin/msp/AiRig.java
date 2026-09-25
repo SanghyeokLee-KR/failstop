@@ -273,7 +273,7 @@ final class AiRig implements AutoCloseable {
                 + "WHEN 'confidence_pct' THEN 80 WHEN 'auto_cap' THEN 5 WHEN 'threshold_per_item' THEN 2 "
                 + "WHEN 'bot_cooldown_min' THEN 10 ELSE 30 END").update();
         jdbc.sql("UPDATE ops_thresholds SET value = default_value, version = 1, updated_by = 'migration:V70'").update();
-        jdbc.sql("UPDATE capacity_plan SET min_nodes = 2, desired_nodes = 2, max_nodes = 4 WHERE tier = 'app'").update();
+        jdbc.sql("UPDATE capacity_plan SET min_nodes = 2, desired_nodes = 2, max_nodes = 3 WHERE tier = 'app'").update();
         // 앞 시험의 판단 주기가 쥔 임대를 놓는다. 시험마다 새 판단 주기(새 보유자)를 만든다.
         jdbc.sql("UPDATE ops_runner_lease SET holder = NULL, expires_at = NULL, renewed_at = NULL").update();
     }

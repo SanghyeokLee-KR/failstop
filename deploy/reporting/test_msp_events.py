@@ -69,11 +69,11 @@ class MspEventTests(unittest.TestCase):
         body = card["attachments"][0]["content"]["body"]
         texts = [block.get("text", "") for block in body]
         self.assertEqual(texts[0], "페일스톱 운영 관제 · exchange / AWS")
-        self.assertIn("AI 자동 조치 실행 · 조회 노드 1대 증설", texts[1])
+        self.assertIn("AI 자동 조치 실행 · app-3 켜기", texts[1])
         self.assertEqual(texts[2], "P3 · 담당자 확인 필요")
         self.assertEqual(body[3]["facts"], [
-            {"title": "대상", "value": "조회 계층"}, {"title": "발생", "value": "2026-09-25 09:00 KST"},
-            {"title": "영향", "value": "조회 노드 1대 증설\\(2→3\\) · 관찰 창 09:05 KST까지 · 악화하면 되돌리거나 수동 전환"}])
+            {"title": "대상", "value": "앱 계층 app-3"}, {"title": "발생", "value": "2026-09-25 09:00 KST"},
+            {"title": "영향", "value": "app-3 켜기\\(2→3\\) · 관찰 창 09:05 KST까지 · 악화하면 되돌리거나 수동 전환"}])
         self.assertFalse(any("|" in text for text in texts), "영향은 세로줄 구분자 없이 이름-값 줄로 싣는다")
         self.assertEqual(texts[4], "담당자 조치")
         self.assertIn("후속 관측 · 2026-09-25 09:00 KST", texts)
@@ -177,8 +177,8 @@ class MspEventTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in result["reports"]], ["msp:" + EVENT_ID])
         entry = result["reports"][0]
         self.assertEqual((entry["kind"], entry["severity"], entry["alertState"]), ("msp", "P3", None))
-        self.assertEqual(entry["title"], "AI 자동 조치 실행 · 조회 노드 1대 증설")
-        self.assertEqual(entry["targets"], ["조회 계층"])
+        self.assertEqual(entry["title"], "AI 자동 조치 실행 · app-3 켜기")
+        self.assertEqual(entry["targets"], ["앱 계층 app-3"])
         self.assertEqual(entry["links"], {"pdf": None, "html": None})
 
     def test_installer_copies_every_local_module_the_service_imports(self):

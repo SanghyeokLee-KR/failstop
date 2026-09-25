@@ -72,7 +72,8 @@ class LlmClientTest {
         JsonNode schema = body.path("response_format").path("json_schema").path("schema");
         assertEquals("reason_ko", schema.path("required").get(1).asText());
         String system = body.path("messages").get(0).path("content").asText();
-        assertTrue(system.contains("READ_NODE_ADD_ONE: 조회 노드를 1대 늘립니다."), "조치 설명이 프롬프트에 붙는다");
+        assertTrue(system.contains("READ_NODE_ADD_ONE: 조회 전용 노드 app-3를 켜서 앱 계층을 2대에서 3대로 늘립니다."),
+                "조치 설명이 프롬프트에 붙는다");
         assertTrue(system.contains("합니다체"), "모델 문장은 합니다체로 쓰게 한다");
         assertEquals("{\"schema\":\"msp-evidence/2\"}", body.path("messages").get(1).path("content").asText());
     }
@@ -108,9 +109,11 @@ class LlmClientTest {
         assertTrue(system.contains("alerts_collect"), "경보 목록의 신선도를 본다");
         assertTrue(system.contains("BOT_LOAD_REDUCE: 시장 봇 발행률을 줄입니다. 봇 호스트 CPU(bot_host_cpu)가 봇 용량 보호 임계"
                 + "(bot.capacity_guard) 이상일 때만 뜻이 있고"), "봇 부하 줄이기의 전제를 보인다");
-        assertTrue(system.contains("READ_NODE_REMOVE_ONE: 조회 노드를 1대 줄입니다. 조회 계층 평균 CPU가 축소 임계 미만인 상태가"
-                + " 정해진 지속 시간 이상"), "축소의 지속 전제를 보인다");
-        assertEquals("msp-ai/3", LlmClient.PROMPT_VERSION, "프롬프트를 바꾸면 판단 기록의 판도 바꾼다");
+        assertTrue(system.contains("READ_NODE_REMOVE_ONE: 조회 전용 노드 app-3를 꺼서 앱 계층을 3대에서 2대로 줄입니다."),
+                "끄는 대상이 app-3임을 보인다");
+        assertTrue(system.contains("축소 임계 미만인 상태가 정해진 지속 시간 이상 이어지고"), "축소의 지속 전제를 보인다");
+        assertTrue(system.contains("app-1·app-2는 대상이 아닙니다"), "늘 켜 두는 두 앱 노드는 조치 대상이 아니다");
+        assertEquals("msp-ai/4", LlmClient.PROMPT_VERSION, "프롬프트를 바꾸면 판단 기록의 판도 바꾼다");
     }
 
     @Test

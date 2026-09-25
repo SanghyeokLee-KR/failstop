@@ -322,19 +322,19 @@ final class AiPolicy {
         return null;
     }
 
-    /* ===== 조회 노드 ===== */
+    /* ===== 앱 계층 대수(app-3 켜기·끄기) ===== */
 
     /** R1. ±1 이고 결과 대수가 최소~최대 안. */
     static Denial r1Bounds(AiAction.ReadNodes r, AiEvidence.ReadTier read) {
         if (Math.abs(r.delta()) != 1) {
-            return new Denial("R1", "bad_delta", "조회 노드는 한 번에 1대만 바꿉니다.");
+            return new Denial("R1", "bad_delta", "앱 계층 대수는 한 번에 1대(app-3 켜기나 끄기)만 바꿉니다.");
         }
         if (read == null) {
-            return new Denial("R1", "no_read_tier", "조회 계층 정보가 없습니다.");
+            return new Denial("R1", "no_read_tier", "앱 계층 대수 정보가 없습니다.");
         }
         int next = read.desired() + r.delta();
         if (next < read.min() || next > read.max()) {
-            return new Denial("R1", "out_of_bounds", "희망 " + read.desired() + "대에서 " + next + "대는 최소 "
+            return new Denial("R1", "out_of_bounds", "앱 계층 희망 " + read.desired() + "대에서 " + next + "대는 최소 "
                     + read.min() + "~최대 " + read.max() + "대 밖입니다.");
         }
         return null;
@@ -343,7 +343,7 @@ final class AiPolicy {
     /** R2. 로컬 조정기(CAPACITY_PLAN)만. AWS 는 ASG 정책이 대수를 소유한다. */
     static Denial r2Mode(MspProperties.ReadCapacityMode mode) {
         return mode == MspProperties.ReadCapacityMode.CAPACITY_PLAN ? null
-                : new Denial("R2", "read_capacity_mode", "이 환경에서는 AI가 조회 노드 수를 바꾸지 않습니다(" + mode + ").");
+                : new Denial("R2", "read_capacity_mode", "이 환경에서는 AI가 app-3를 켜거나 끄지 않습니다(" + mode + ").");
     }
 
     /* ===== 임계값 ===== */
@@ -555,12 +555,12 @@ final class AiPolicy {
 
     /* ===== 방향 전제(결정적 코드 규칙) ===== */
 
-    /** D1. 조회 노드 증설은 근거의 조회 평균 CPU 가 증설 임계 이상일 때만. */
+    /** D1. app-3 켜기는 근거의 조회 평균 CPU 가 증설 임계 이상일 때만. */
     static Denial d1ScaleOut(AiEvidence ev) {
         AiEvidence.ReadTier read = ev.read();
         BigDecimal limit = value(ev, OpsThresholdService.SCALE_OUT);
         if (read == null || read.avgCpu() == null || limit == null) {
-            return new Denial("D1", "direction_conflict", "방향 모순: 조회 평균 CPU를 모르면 증설하지 않습니다.");
+            return new Denial("D1", "direction_conflict", "방향 모순: 조회 평균 CPU를 모르면 app-3를 켜지 않습니다.");
         }
         BigDecimal cpu = BigDecimal.valueOf(read.avgCpu());
         return cpu.compareTo(limit) >= 0 ? null
@@ -568,12 +568,12 @@ final class AiPolicy {
                 + ApiFormats.amount(limit) + " 이상이 아닙니다.");
     }
 
-    /** D2. 조회 노드 축소는 축소 임계 미만이 설정 시간 이상 이어질 때만. */
+    /** D2. app-3 끄기는 축소 임계 미만이 설정 시간 이상 이어질 때만. */
     static Denial d2ScaleIn(AiEvidence ev, Duration sustain, Instant now) {
         AiEvidence.ReadTier read = ev.read();
         BigDecimal limit = value(ev, OpsThresholdService.SCALE_IN);
         if (read == null || read.avgCpu() == null || limit == null) {
-            return new Denial("D2", "direction_conflict", "방향 모순: 조회 평균 CPU를 모르면 축소하지 않습니다.");
+            return new Denial("D2", "direction_conflict", "방향 모순: 조회 평균 CPU를 모르면 app-3를 끄지 않습니다.");
         }
         BigDecimal cpu = BigDecimal.valueOf(read.avgCpu());
         if (cpu.compareTo(limit) >= 0) {

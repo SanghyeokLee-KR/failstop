@@ -99,8 +99,8 @@ public class CapacityPlanService {
                             "min", before.min(), "max", before.max()));
             throw new ApiException(409, "CAPACITY_OUT_OF_BOUNDS",
                     outcome.next() < before.min()
-                            ? "최소 " + before.min() + "대 아래로 축소 불가"
-                            : "최대 " + before.max() + "대 위로 증설 불가");
+                            ? "앱 계층은 최소 " + before.min() + "대 아래로 줄일 수 없습니다."
+                            : "앱 계층은 최대 " + before.max() + "대 위로 늘릴 수 없습니다.");
         }
         return new Change(before.desired(), outcome.next());
     }

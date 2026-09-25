@@ -216,17 +216,17 @@ public class OpsThresholdService {
         configured.put(SCALE_IN, scaleIn);
         for (Map.Entry<String, BigDecimal> entry : configured.entrySet()) {
             Item item = item(entry.getKey()).orElseThrow(() -> new IllegalStateException(
-                    "임계값 레지스트리에 " + entry.getKey() + " 항목이 없다. V70 적용을 확인한다"));
+                    "임계값 레지스트리에 " + entry.getKey() + " 항목이 없습니다. V70 적용을 확인해야 합니다."));
             if (entry.getValue().stripTrailingZeros().scale() > MAX_SCALE
                     || entry.getValue().compareTo(item.min()) < 0 || entry.getValue().compareTo(item.max()) > 0) {
                 throw new IllegalStateException("exchange.capacity 의 " + entry.getKey() + " 설정값 "
                         + ApiFormats.amount(entry.getValue()) + " 이 레지스트리 허용 범위("
-                        + ApiFormats.amount(item.min()) + "~" + ApiFormats.amount(item.max()) + ") 밖이다");
+                        + ApiFormats.amount(item.min()) + "~" + ApiFormats.amount(item.max()) + ") 밖입니다.");
             }
         }
         if (violatesReadGap(scaleOut, scaleIn)) {
             throw new IllegalStateException("exchange.capacity 의 축소 임계 " + ApiFormats.amount(scaleIn)
-                    + " 는 증설 임계 " + ApiFormats.amount(scaleOut) + " 보다 0.15 이상 낮아야 한다(정책 T3)");
+                    + " 는 증설 임계 " + ApiFormats.amount(scaleOut) + " 보다 0.15 이상 낮아야 합니다(정책 T3).");
         }
         tx.executeWithoutResult(status -> {
             Map<String, Item> locked = lockForWrite(SCALE_OUT);
@@ -239,7 +239,7 @@ public class OpsThresholdService {
                 next.put(key, untouched ? configured.get(key) : locked.get(key).value());
             }
             if (violatesReadGap(next.get(SCALE_OUT), next.get(SCALE_IN))) {
-                log.warn("조회 임계 설정값을 적용하지 않는다. 사람이 바꾼 값과 합치면 T3 을 어긴다: out={}, in={}",
+                log.warn("조회 임계 설정값을 적용하지 않습니다. 사람이 바꾼 값과 합치면 T3 을 어깁니다: out={}, in={}",
                         next.get(SCALE_OUT), next.get(SCALE_IN));
                 return;
             }
@@ -267,7 +267,7 @@ public class OpsThresholdService {
                             item.value() == null ? Double.NaN : item.value().doubleValue()));
                 }
             } catch (RuntimeException e) {
-                log.warn("임계값 게이지 갱신 실패. 직전 값을 유지한다: {}", e.toString());
+                log.warn("임계값 게이지 갱신 실패. 직전 값을 유지합니다: {}", e.toString());
                 return;
             }
             gauge.register(rows, true);

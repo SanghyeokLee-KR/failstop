@@ -1359,9 +1359,11 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 확장 대상은 조회를 받는 앱 계층뿐이다. 쓰기는 매칭엔진이 단일 라이터라 노드를 늘려도 천장이
 오르지 않고(2026-09-07 실측 56.8/s -> 54.3/s), DB 는 primary 가 하나여야 한다. 리더가 죽은
 상태에서 노드를 늘려도 쓰기는 재개되지 않는다. 늘어나는 노드는 `exchange.engine.enabled=false`
-인 조회 전용이다.
+인 조회 전용이다. ADR 0030 사용자 정정(2026-09-25)에 따라 앱 계층은 늘 켜진 app-1·app-2와 조회 전용
+app-3을 합친 2~3대이고, `capacity_plan`의 `app` 행 초기값(V32) min 2·desired 2·max 3이 그 경계다. 증설은
+app-3 켜기, 축소는 app-3 끄기다. 권고 문장도 이 말로 쓴다(v2.52.7, 합니다체).
 
-**관제센터 설계와의 관계(v2.52.1, 권고 임계와 잠금은 구현, 조회 노드 조치는 v2.52.2 구현).** 관제센터(`exchange.msp.enabled=true`)를 켠 배포에서는 권고 임계의 원천을 설정에서 임계값 레지스트리(§6-F, DB 설계 §10)의 `read.scale_out_cpu`·`read.scale_in_cpu`로 옮긴다. 끈 배포는 지금처럼 `exchange.capacity.scale-out-cpu`·`scale-in-cpu`(기본 0.60·0.30)를 읽고 새 표를 읽지 않는다. 앱이 Flyway를 끄는 배포에서 새 JAR가 V70보다 먼저 떠도 이 경로가 없는 표 때문에 실패하지 않게 하기 위해서다. 응답의 `thresholds` 두 숫자는 어느 쪽이든 모양을 바꾸지 않는다. 켠 배포에서 두 설정값은 환경 기본값이 되어, 레지스트리 항목을 사람이나 AI가 바꾼 적이 없을 때만 기동 시 그 값으로 맞춘다. 증설·축소의 경계 검사와 `capacity_plan` 갱신은 한 서비스(`CapacityPlanService`)가 맡고 관제센터의 조회 노드 조치(§6-F)도 그 코드를 다시 쓴다. 이 서비스는 `capacity_plan`을 `FOR UPDATE`로 읽는다. 2026-09-25 전의 구현은 잠금 없이 읽은 값에 1을 더한 절대값을 써서, 동시에 누른 두 변경이 둘 다 같은 전이로 성공하고 한 변경을 잃었다. 지금은 겹친 두 증설 가운데 하나만 반영되고 다른 하나는 `409 CAPACITY_OUT_OF_BOUNDS`다. 경계를 넘은 거부의 감사(`DENIED`)는 트랜잭션 밖에서 남겨 롤백으로 사라지지 않는다. 조회 노드 조치는 `read-capacity.mode=CAPACITY_PLAN`인 로컬 Docker에서만 허용되고, 자동 모드(ADR 0035, 사용자 확정 2026-09-24)에서는 사람 버튼 없이 1대씩 바뀔 수 있다. 위 권고 자체에 자동 액션이 없다는 서술은 그대로다. AWS에서는 ASG 정책이 대상당 요청 수로 대수를 정하므로 CPU 권고 임계는 그 판단에 쓰이지 않고, 관제센터가 이 경로로 대수를 바꾸지 않는다.
+**관제센터 설계와의 관계(v2.52.1, 권고 임계와 잠금은 구현, app-3 켜기·끄기 조치는 v2.52.2 구현).** 관제센터(`exchange.msp.enabled=true`)를 켠 배포에서는 권고 임계의 원천을 설정에서 임계값 레지스트리(§6-F, DB 설계 §10)의 `read.scale_out_cpu`·`read.scale_in_cpu`로 옮긴다. 끈 배포는 지금처럼 `exchange.capacity.scale-out-cpu`·`scale-in-cpu`(기본 0.60·0.30)를 읽고 새 표를 읽지 않는다. 앱이 Flyway를 끄는 배포에서 새 JAR가 V70보다 먼저 떠도 이 경로가 없는 표 때문에 실패하지 않게 하기 위해서다. 응답의 `thresholds` 두 숫자는 어느 쪽이든 모양을 바꾸지 않는다. 켠 배포에서 두 설정값은 환경 기본값이 되어, 레지스트리 항목을 사람이나 AI가 바꾼 적이 없을 때만 기동 시 그 값으로 맞춘다. 증설·축소의 경계 검사와 `capacity_plan` 갱신은 한 서비스(`CapacityPlanService`)가 맡고 관제센터의 app-3 켜기·끄기 조치(§6-F `READ_NODES`)도 그 코드를 다시 쓴다. 이 서비스는 `capacity_plan`을 `FOR UPDATE`로 읽는다. 2026-09-25 전의 구현은 잠금 없이 읽은 값에 1을 더한 절대값을 써서, 동시에 누른 두 변경이 둘 다 같은 전이로 성공하고 한 변경을 잃었다. 지금은 겹친 두 증설 가운데 하나만 반영되고 다른 하나는 `409 CAPACITY_OUT_OF_BOUNDS`다. 경계를 넘은 거부의 감사(`DENIED`)는 트랜잭션 밖에서 남겨 롤백으로 사라지지 않는다. app-3 켜기·끄기 조치는 `read-capacity.mode=CAPACITY_PLAN`인 로컬 Docker에서만 허용되고, 자동 모드(ADR 0035, 사용자 확정 2026-09-24)에서는 사람 버튼 없이 1대씩 바뀔 수 있다. 위 권고 자체에 자동 액션이 없다는 서술은 그대로다. AWS에서는 ASG 정책이 대상당 요청 수로 대수를 정하므로 CPU 권고 임계는 그 판단에 쓰이지 않고, 관제센터가 이 경로로 대수를 바꾸지 않는다.
 
 ### 6-B. 카오스 주입 API
 
@@ -1756,13 +1758,13 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 판단 결과 `outcome`은 `PROPOSED`, `NO_ACTION`, `INVALID_OUTPUT`, `MODEL_ERROR`, `EVIDENCE_STALE`이다. 모델 호출이 실패하면 `MODEL_ERROR`이고 `error`에 분류 코드(`timeout`, `unreachable`, `http_status`, `bad_response`, `response_limit`, `remote_address`)를 싣는다. 모델이 적재 중이면 판단을 기록하지 않고 다음 주기로 넘긴다. 출력이 16 KiB를 넘거나 JSON이 아니거나 필드와 형이 맞지 않거나 자유 문장에 링크 표기가 있으면 `INVALID_OUTPUT`이다. 조치 이름이 여덟 가지 밖이거나(`UNKNOWN_KIND`, 예: `DB_PROMOTE`), 값 형식이 틀리거나(`BAD_PARAMS`), 범위 밖이거나(`OUT_OF_RANGE`), 이 환경에서 쓸 수 없는 종류거나(`UNAVAILABLE_KIND`), 대상이 지금 없거나(`STALE_TARGET`), 임계값의 올림·내림이 값과 반대면(`DIRECTION_MISMATCH`) 그 조치를 버리고 판단 상세의 `dropped`에 남기며 결과는 `NO_ACTION`이다. 한 판단의 조치는 하나다.
 
-남은 조치는 정책 엔진이 제안 때 종류별 규칙과 방향 전제를 검사한다. 방향 전제는 결정적 코드 규칙이다. 조회 노드 증설은 근거의 조회 평균 CPU가 증설 임계 이상일 때만(D1), 축소는 축소 임계 미만이 설정 시간(기본 10분) 이상 이어질 때만(D2), 임계값 변경은 둔하게 하는 방향이면 그 항목의 경보가 울리는 중이 아니고 근거 지표가 임계를 넘지 않았을 때만(D3) 받는다. 봇 부하 줄이기는 bot-1 CPU(`bot_host_cpu`)가 봇 용량 보호 임계(`bot.capacity_guard`) 이상일 때만(D4, v2.52.5) 받고, 임계가 미설정이거나 CPU를 모르면 받지 않는다. 경보 보류는 활성 `warning` 경보만(S1), 봇 부하는 줄이는 방향만(B1) 받는다. 막히면 요청은 `DENIED`로 남고 `hold_rule`에 규칙 id, `hold_reason`에 사유(예: '방향 모순: 조회 평균 CPU 0.82가 축소 임계 0.30 미만이 아닙니다')를 적는다. 연속 두 번 같은 판단(A4)은 무작위 흔들림을 거르지만 같은 입력에 같은 오답을 내는 결정적 설정의 체계적 오답은 막지 못하므로, 방향 전제가 그 몫을 한다.
+남은 조치는 정책 엔진이 제안 때 종류별 규칙과 방향 전제를 검사한다. 방향 전제는 결정적 코드 규칙이다. app-3 켜기(앱 계층 증설)는 근거의 조회 평균 CPU가 증설 임계 이상일 때만(D1), app-3 끄기(축소)는 축소 임계 미만이 설정 시간(기본 10분) 이상 이어질 때만(D2), 임계값 변경은 둔하게 하는 방향이면 그 항목의 경보가 울리는 중이 아니고 근거 지표가 임계를 넘지 않았을 때만(D3) 받는다. 봇 부하 줄이기는 bot-1 CPU(`bot_host_cpu`)가 봇 용량 보호 임계(`bot.capacity_guard`) 이상일 때만(D4, v2.52.5) 받고, 임계가 미설정이거나 CPU를 모르면 받지 않는다. 경보 보류는 활성 `warning` 경보만(S1), 봇 부하는 줄이는 방향만(B1) 받는다. 막히면 요청은 `DENIED`로 남고 `hold_rule`에 규칙 id, `hold_reason`에 사유(예: '방향 모순: 조회 평균 CPU 0.82가 축소 임계 0.30 미만이 아닙니다')를 적는다. 연속 두 번 같은 판단(A4)은 무작위 흔들림을 거르지만 같은 입력에 같은 오답을 내는 결정적 설정의 체계적 오답은 막지 못하므로, 방향 전제가 그 몫을 한다.
 
 조치 요청 상태는 `PROPOSED`, `DEFERRED`, `EXECUTING`, `APPROVED`(사람 승인 실행), `AUTO_EXECUTED`, `FAILED`, `UNKNOWN`(실행이 중간에 끊겨 결과를 원천에서 대조하지 못함), `REJECTED`, `DENIED`(정책이 제안 때 막음), `WITHDRAWN`(뒤 판단이 제안하지 않음), `EXPIRED`(만료 또는 정지), `REVERTED`, `AUTO_REVERTED`다. `WITHDRAWN`과 `EXPIRED`는 `DEFERRED`에도 같다. 나중에는 요청의 만료 시각을 늘리지 않고(`minutes`는 만료 시각에서 자른다), 나중에로 둔 요청은 자동 실행하지 않으며 사람의 승인으로만 실행된다. 같은 조치는 그 요청이 끝난 뒤에도 나중에 시각까지 자동 실행하지 않는다. VIEWER의 나중에가 AI의 실행 기회를 늘리지 않게 하기 위해서다. `UNKNOWN`은 서버가 원천(Alertmanager 사일런스 목록)과 다시 대조해 결과를 채우거나 `FAILED`로 닫는다. 임계값 조치 요청(`THRESHOLD`)은 판단 때의 현재값(`params.from`)에서 새 값으로 바꾸는 요청이다. 같은 새 값을 내는 판단이 이어져도 그 사이에 현재값이 바뀌었으면 열린 요청을 `WITHDRAWN`으로 닫고 새 요청을 만들어 연속 판단을 처음부터 센다(v2.52.4). 그래서 요청의 `verb`(올림·내림)와 `params.from`은 마지막 판단의 현재값과 맞는다.
 
 판단 상세의 `situation`, `reason`과 조치 요청의 `reason`은 모델이 쓴 평문이다. 서버는 링크를 만드는 표기(URL 스킴, `www.`, Markdown 링크·이미지, 꺾쇠 자동 링크와 HTML 태그, `@` 멘션)가 있으면 그 출력을 `INVALID_OUTPUT`으로 버린다. 화면은 이 필드를 Markdown이나 링크로 그리지 않고, Teams 통지에는 싣지 않는다.
 
-승인은 정책 엔진의 공통 규칙(C1~C6), 종류별 규칙, 방향 전제, 정지(M9)를 실행 직전에 새로 모은 근거로 다시 검사한다. 확신도·연속 판단·쿨다운 같은 자동 모드 규칙, 빈도 규칙(활성당 항목별 횟수, 같은 지문 연속 보류, 백업 하루 1회)과 임계값의 민감한 방향(T6)은 사람의 승인에 걸지 않는다. 승인과 자동 실행은 검사하기 전에 대상 행(`READ_NODES`는 용량 계획, `THRESHOLD`는 임계값 항목)을 잠그고, 잠근 값이 실행 직전에 모은 근거의 값과 같은지 본다. `THRESHOLD`는 요청의 `params.from`과도 같아야 한다. 다르면 근거를 모은 뒤나 요청을 만든 뒤에 사람이 대상을 바꾼 것이므로 `409 msp_policy_denied`(`detail.rule=C5`, `detail.reason_code=target_changed`)다(v2.52.4). 거부는 `409 msp_policy_denied`(`detail.rule`, `detail.reason_code`), 이미 처리됐거나 만료된 요청(같은 요청의 두 번째 승인 포함, 정책 C3)은 `409 ai_action_not_open`, 경계를 넘는 조회 노드 변경은 §6-A-a와 같은 `409 CAPACITY_OUT_OF_BOUNDS`다. 되돌리기는 종류마다 다르다. `READ_NODES`는 현재 희망 대수가 조치 결과와 같을 때 반대 방향 1대, `THRESHOLD`는 최신 변경이고 T3을 지킬 때 직전 값, `SILENCE`는 사일런스 종료, `BOT_LOAD`는 직전 목표 발행률이다. `THRESHOLD` 되돌리기 티켓의 대상은 실행 때 바꾸기 전의 값(`{key}:{result.from}`)이다. `BACKUP_NOW`는 되돌리기가 없고, 이미 되돌렸거나 실행되지 않은 요청과 함께 `409 ai_action_not_open`이다.
+승인은 정책 엔진의 공통 규칙(C1~C6), 종류별 규칙, 방향 전제, 정지(M9)를 실행 직전에 새로 모은 근거로 다시 검사한다. 확신도·연속 판단·쿨다운 같은 자동 모드 규칙, 빈도 규칙(활성당 항목별 횟수, 같은 지문 연속 보류, 백업 하루 1회)과 임계값의 민감한 방향(T6)은 사람의 승인에 걸지 않는다. 승인과 자동 실행은 검사하기 전에 대상 행(`READ_NODES`는 용량 계획, `THRESHOLD`는 임계값 항목)을 잠그고, 잠근 값이 실행 직전에 모은 근거의 값과 같은지 본다. `THRESHOLD`는 요청의 `params.from`과도 같아야 한다. 다르면 근거를 모은 뒤나 요청을 만든 뒤에 사람이 대상을 바꾼 것이므로 `409 msp_policy_denied`(`detail.rule=C5`, `detail.reason_code=target_changed`)다(v2.52.4). 거부는 `409 msp_policy_denied`(`detail.rule`, `detail.reason_code`), 이미 처리됐거나 만료된 요청(같은 요청의 두 번째 승인 포함, 정책 C3)은 `409 ai_action_not_open`, 경계(앱 계층 최소 2·최대 3대)를 넘는 app-3 켜기·끄기는 승인 때 정책이 먼저 막아 `409 msp_policy_denied`(`detail.rule=R1`, `reason_code=out_of_bounds`)이고, `CAPACITY_OUT_OF_BOUNDS`는 §6-A-a의 용량 경로에서만 난다(v2.52.7, 서버 응답 스냅숏으로 확인). 되돌리기는 종류마다 다르다. `READ_NODES`는 현재 희망 대수가 조치 결과와 같을 때 반대 방향 1대, `THRESHOLD`는 최신 변경이고 T3을 지킬 때 직전 값, `SILENCE`는 사일런스 종료, `BOT_LOAD`는 직전 목표 발행률이다. `THRESHOLD` 되돌리기 티켓의 대상은 실행 때 바꾸기 전의 값(`{key}:{result.from}`)이다. `BACKUP_NOW`는 되돌리기가 없고, 이미 되돌렸거나 실행되지 않은 요청과 함께 `409 ai_action_not_open`이다.
 
 ```json
 // GET /admin/v1/msp/ai/decisions/305 → 200
@@ -1771,7 +1773,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
   "evidence":{ "schema":"msp-evidence/2", "collected_at":"2026-09-24T09:01:58.000Z" },
   "evidence_sha256":"9b1f...","oldest_sample_at":"2026-09-24T09:01:45.000Z",
   "output_raw":"{\"situation_ko\":\"...\"}","output_sha256":"4c2e...","output_truncated":false,
-  "situation":"조회 노드 평균 CPU가 증설 임계를 넘었습니다.","reason":"조회 요청이 늘어 노드를 한 대 늘려야 합니다.",
+  "situation":"조회를 받는 앱 노드의 평균 CPU가 증설 임계를 넘었습니다.","reason":"app-3를 켜서 앱 계층을 2대에서 3대로 늘리면 조회 부하가 나뉩니다.",
   "confidence":"0.86","latency_ms":930,"incident_id":12,
   "actions":[{"id":77,"kind":"READ_NODES","verb":"READ_NODE_ADD_ONE","params":{"delta":1},
               "status":"AUTO_EXECUTED","consecutive":2,"hold_rule":null,"hold_reason":null}],
@@ -1836,8 +1838,8 @@ Alertmanager 경보는 폴러 한 곳이 15초마다 읽고 조회 경로는 그
 ```json
 // POST /admin/v1/msp/ai/chat  (VIEWER+)
 { "operator_id":"op-02","question":"지금 5xx가 늘었나요?",
-  "history":[{"role":"user","content":"조회 노드는 몇 대인가요?"},
-             {"role":"assistant","content":"조회 노드는 희망 3대, 관측 3대입니다."}] }
+  "history":[{"role":"user","content":"앱 계층은 몇 대인가요?"},
+             {"role":"assistant","content":"앱 계층은 희망 3대, 관측 3대입니다. app-3가 켜져 있습니다."}] }
 // 200
 { "schema_version":"1.0","state":"ANSWERED","reason":null,
   "preface":"근거 일부가 60초보다 오래되었습니다(가장 오래된 표본 95초 전).",
@@ -2671,3 +2673,4 @@ ADR 0022 9단계(이벤트 대역 확대, V46)가 `event_seq` 의 대역 폭을 
 
 - **ADR 0035 연결.** 병합으로 ADR 파일이 같은 트리에 들어와 §3-6과 §6-F에서 링크한다. v2.52.1이 병합 때 정리하겠다고 적은 대체 관계 가운데 §3-6의 '관측 데이터의 지시 무시'는 이 판에서 ADR 0035의 대체 범위로 적었다. 하네스 CI·CD §5-6, ADR 0027, 관리자 설계 §6의 해당 문장도 같은 병합에서 고쳤다. §6-A-a의 '판정은 자동이고 실행은 사람'은 레거시 용량 권고 경로의 서술이라 그대로이고, 기획안 정본 7.5의 같은 문장은 정본 개정이 남아 있다.
 - **ADR 0035에 반영한 서버 쪽 결정.** 방향 전제 D3와 T6의 비대칭, D4 유지, 근거 자유 문장 제거(S8), 통지 개입 등급(P1~P4), DGX Spark 모델 후보를 ADR 0035 본문('서버 구현에서 정한 것')에 적었다. 이 문서의 규칙은 바뀌지 않는다.
+- **app-3 모델과 합니다체(같은 판, 병합 뒤 두 번째 변경).** ADR 0030 사용자 정정(앱 계층은 app-1·app-2 고정과 조회 전용 app-3 자동 증설의 2~3대)에 맞춰 `READ_NODES` 조치의 말을 'app-3 켜기·끄기(앱 계층 2~3대)'로 고쳤다. 모델에 주는 조치 설명과 시스템 규칙 4·5가 바뀌어 판단 기록의 `prompt_version`이 `msp-ai/4`가 됐다. 출력 스키마와 조치 이름(`READ_NODE_ADD_ONE` 등), 응답 필드는 그대로다. 정책 거부 사유, 상담 근거 이름('앱 계층 조회 평균 CPU'), §6-A-a 용량 권고 문장과 경계 거부 사유를 합니다체로 고쳤다. 사유 문장은 화면에 그대로 나가는 서버 문구라 형식이 계약이 아니다. 로컬 모델 평가([측정 09-25](../../measurements/20260925.md))는 `msp-ai/3` 문구로 돌린 것이라 새 문구로 다시 재야 한다. §6-A-a의 `capacity_plan` 경계(V32 초기값 min 2·max 3)와 AI 조치의 R1이 같은 경계를 쓴다는 것을 서버 시험(`AppTierCapacityIntegrationTest`)으로 고정했다.

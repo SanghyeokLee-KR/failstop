@@ -153,7 +153,7 @@ public class CapacityAdminController {
         thresholds.put("scale_out_cpu_ratio", limits.scaleOut());
         thresholds.put("scale_in_cpu_ratio", limits.scaleIn());
         out.put("thresholds", thresholds);
-        out.put("advice", advice(plan, up, avgCpu, leaderUp, limits));
+        out.put("advice", advice(plan, up, avgCpu, leaderUp, limits, configured));
         return out;
     }
 
@@ -176,53 +176,60 @@ public class CapacityAdminController {
      * 상황에서 "부하가 높으니 늘리세요" 를 먼저 보이면 이미 누른 버튼을 또 누르게 된다.
      */
     private List<Map<String, Object>> advice(CapacityPlanService.Plan plan, int up, Double avgCpu, boolean leaderUp,
-                                             Limits limits) {
+                                             Limits limits, List<CapacityProperties.Node> configured) {
         List<Map<String, Object>> out = new ArrayList<>();
 
         if (!leaderUp) {
             // 이 문구가 정확해야 한다. 노드를 늘려도 쓰기는 돌아오지 않는다. 늘어나는 노드는
             // 매칭엔진이 없는 조회 전용이다(ADR 0015 영향 절).
             out.add(card("leader_down", "danger", "주문 접수 중단",
-                    "주문을 처리하는 서버가 응답하지 않는다. 조회는 남은 서버가 계속 받는다. "
-                            + "서버를 추가해도 조회 용량만 늘고 주문은 재개되지 않는다. "
-                            + "주문 재개는 그 서버가 다시 서야 가능하다.", null));
+                    "주문을 처리하는 앱 노드가 응답하지 않습니다. 조회는 남은 앱 노드가 계속 받습니다. "
+                            + "조회 전용 노드를 켜도 조회 용량만 늘고 주문은 재개되지 않습니다. "
+                            + "주문은 그 노드가 다시 서야 재개됩니다.", null));
         }
         if (up < plan.desired()) {
-            out.add(card("under_provisioned", "warn", "서버 부족",
-                    "있어야 할 서버가 " + plan.desired() + "대인데 " + up + "대만 응답한다. "
-                            + "추가한 서버가 준비 중이거나 한 대가 멈춘 상태다.", null));
+            out.add(card("under_provisioned", "warn", "노드 부족",
+                    "있어야 할 앱 노드가 " + plan.desired() + "대인데 " + up + "대만 응답합니다. "
+                            + "켠 노드가 준비 중이거나 한 대가 멈춘 상태입니다.", null));
         }
         if (up > plan.desired()) {
-            out.add(card("over_provisioned", "warn", "서버 초과",
-                    "있어야 할 서버가 " + plan.desired() + "대인데 " + up + "대가 응답한다. "
-                            + "줄이기가 끝나지 않았고 그동안 비용이 더 나간다.", null));
+            out.add(card("over_provisioned", "warn", "노드 초과",
+                    "있어야 할 앱 노드가 " + plan.desired() + "대인데 " + up + "대가 응답합니다. "
+                            + "끄기가 끝나지 않았고 그동안 비용이 더 나갑니다.", null));
         }
         if (avgCpu == null) {
             out.add(card("no_metrics", "warn", "상태 읽기 실패",
-                    "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 "
-                            + "권고를 내지 않는다.", null));
+                    "조회를 받는 앱 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 "
+                            + "권고를 내지 않습니다.", null));
             return out;
         }
         int pct = (int) Math.round(avgCpu * 100);
         if (avgCpu >= limits.scaleOut() && plan.desired() < plan.max()) {
             out.add(card("scale_out", "warn", "조회 부하 높음",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 늘리면 부하가 "
-                            + "나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.",
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. " + nodeName(configured, plan.desired())
+                            + "를 켜면 앱 계층이 " + (plan.desired() + 1) + "대가 되어 조회가 나뉩니다. "
+                            + "켜는 데 약 17초가 걸리고 서비스는 멈추지 않습니다.",
                     "SCALE_OUT"));
         } else if (avgCpu >= limits.scaleOut()) {
-            out.add(card("at_max", "warn", "조회 부하 높음. 증설 불가",
-                    "평균 사용률 " + pct + "%인데 이미 최대 " + plan.max() + "대다. "
-                            + "최대 대수를 올리려면 비용 판정이 먼저다.", null));
+            out.add(card("at_max", "warn", "조회 부하 높음 · 증설 불가",
+                    "평균 사용률이 " + pct + "%인데 이미 앱 계층 최대 " + plan.max() + "대입니다. "
+                            + "최대 대수를 올리려면 비용 판단이 먼저입니다.", null));
         } else if (avgCpu <= limits.scaleIn() && plan.desired() > plan.min()) {
             out.add(card("scale_in", "info", "조회 부하 낮음",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 줄이면 비용이 "
-                            + "준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.",
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. " + nodeName(configured, plan.desired() - 1)
+                            + "를 끄면 앱 계층이 " + (plan.desired() - 1) + "대가 되어 비용이 줄고, "
+                            + "끄기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.",
                     "SCALE_IN"));
         } else {
             out.add(card("steady", "ok", "안정",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 조치 불요.", null));
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. 할 조치가 없습니다.", null));
         }
         return out;
+    }
+
+    /** 켜고 끄는 노드는 설정 순서로 희망 대수 경계에 있는 노드다(AWS 구성에서는 app-3). */
+    private static String nodeName(List<CapacityProperties.Node> configured, int index) {
+        return index >= 0 && index < configured.size() ? configured.get(index).getId() : "조회 전용 노드";
     }
 
     private static Map<String, Object> card(String id, String level, String headline,

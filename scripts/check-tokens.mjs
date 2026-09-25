@@ -17,7 +17,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkCopyTone } from "./copy-tone.mjs";
+import { checkCopyTone, plainEnding } from "./copy-tone.mjs";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const WEB = join(ROOT, "web");
@@ -341,9 +341,21 @@ const SERVER_COPY_EXEMPT = [];
 /**
  * 관리 평면 서버. 이 패키지의 한국어 문구는 관리 콘솔에만 나가므로 관리 콘솔 평면 규칙(디자인 시스템
  * §10-1, 문장은 합니다체)을 따른다. 관제센터 서버(`admin/msp`)의 정책 거부 사유·상담 안내가 화면에 그대로
- * 실리는 합니다체 문장이라, 거래 평면의 존댓말 금지를 여기에 걸면 두 평면 규칙이 서로 부딪친다(2026-09-25 병합)
+ * 실리는 합니다체 문장이라, 거래 평면의 존댓말 금지를 여기에 걸면 두 평면 규칙이 서로 부딪친다(2026-09-25 병합).
+ * 관리 콘솔과 같이 반말 평서문 종결('한다', '없다', '아니다')을 잡는다.
  */
 const SERVER_ADMIN_PREFIX = "server/app/src/main/java/kr/exchange/admin/";
+/**
+ * 관리 평면이지만 기동 설정 검증 문구만 있는 파일. 잘못된 설정으로 기동을 멈출 때 배포 담당자가 기동 로그에서 읽는
+ * 문장이고 관리 콘솔에 나가지 않는다(exchange.msp.*, exchange.admin.* 설정 키를 적는 한다체).
+ */
+const SERVER_ADMIN_PLAIN_EXEMPT = [
+  "server/app/src/main/java/kr/exchange/admin/AdminConfig.java",
+  "server/app/src/main/java/kr/exchange/admin/msp/MspProperties.java",
+  "server/app/src/main/java/kr/exchange/admin/msp/MspConfig.java",
+  "server/app/src/main/java/kr/exchange/admin/msp/LlmClient.java",
+  "server/app/src/main/java/kr/exchange/admin/msp/ReportingClient.java",
+];
 
 function checkServerCopy() {
   const JAVA_ROOT = join(ROOT, "server", "app", "src", "main", "java");
@@ -356,7 +368,8 @@ function checkServerCopy() {
   for (const file of javaFiles) {
     const rel = relative(ROOT, file).split(sep).join("/");
     if (SERVER_COPY_EXEMPT.includes(rel)) continue;
-    if (rel.startsWith(SERVER_ADMIN_PREFIX)) continue;
+    const admin = rel.startsWith(SERVER_ADMIN_PREFIX);
+    if (admin && SERVER_ADMIN_PLAIN_EXEMPT.includes(rel)) continue;
     const code = stripComments(readFileSync(file, "utf8"), false);
     /* 한국어 조건을 정규식 안에 넣지 않는다. 넣으면 따옴표 짝이 어긋나 문구를 놓친다
        (koreanLiterals 주석) */
@@ -367,6 +380,11 @@ function checkServerCopy() {
          그것은 전 평면의 API 오류 문구를 바꾸는 일이라 API 계약과 서버 테스트를 함께 봐야 한다.
          관리 콘솔 카피와 범위가 다르므로 별도 변경으로 남긴다(로드맵). 여기 기준을 낮춘 것이
          아니라 종전 그대로 두는 것이다. */
+      if (admin) {
+        const found = plainEnding(text);
+        if (found) fail("copy-tone", rel, `관리 평면 반말 종결 "${found}" in "${text.slice(0, 40)}". 관리 콘솔 문장은 합니다체다`);
+        continue;
+      }
       if (/(습니다|하세요|하십시오|십시오|해 주세요|해주세요)/.test(text)) {
         fail("copy-tone", rel, `존댓말 종결 "${text.slice(0, 40)}". 사용자에게 그대로 노출된다`);
       }

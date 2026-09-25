@@ -22,12 +22,14 @@ public sealed interface AiAction {
     enum Verb {
         NO_ACTION(null, "조치하지 않습니다. 근거가 부족하거나 확신이 없거나, 허용 목록의 조치로 고칠 수 없는 문제일 때"
                 + " 고릅니다. target 과 value 는 빈 문자열입니다."),
-        READ_NODE_ADD_ONE(Kind.READ_NODES, "조회 노드를 1대 늘립니다. 지금 목표로 둔 희망 대수(desired)를 1 늘리는 조치입니다."
-                + " 조회 계층 평균 CPU가 증설 임계 이상이고 희망 대수가 최대(max)보다 작을 때만 catalog 에 있으므로, catalog 에"
-                + " 있으면 이 조건은 이미 채운 것입니다."),
-        READ_NODE_REMOVE_ONE(Kind.READ_NODES, "조회 노드를 1대 줄입니다. 조회 계층 평균 CPU가 축소 임계 미만인 상태가 정해진"
-                + " 지속 시간 이상 이어지고 희망 대수(desired)가 최소(min)보다 클 때만 catalog 에 있으므로, catalog 에 있으면"
-                + " 지속 시간을 포함한 이 조건은 이미 채운 것입니다."),
+        READ_NODE_ADD_ONE(Kind.READ_NODES, "조회 전용 노드 app-3를 켜서 앱 계층을 2대에서 3대로 늘립니다. 앱 계층 희망 대수"
+                + "(read_tier.desired)를 1 늘리는 조치이며, 늘 켜 두는 app-1·app-2는 대상이 아닙니다. 조회를 받는 앱 노드의 평균"
+                + " CPU가 증설 임계 이상이고 희망 대수가 최대(max)보다 작을 때만 catalog 에 있으므로, catalog 에 있으면 이 조건은"
+                + " 이미 채운 것입니다."),
+        READ_NODE_REMOVE_ONE(Kind.READ_NODES, "조회 전용 노드 app-3를 꺼서 앱 계층을 3대에서 2대로 줄입니다. 앱 계층 희망 대수"
+                + "(read_tier.desired)를 1 줄이는 조치이며, app-1·app-2는 끄지 않습니다. 조회를 받는 앱 노드의 평균 CPU가 축소"
+                + " 임계 미만인 상태가 정해진 지속 시간 이상 이어지고 희망 대수가 최소(min)보다 클 때만 catalog 에 있으므로,"
+                + " catalog 에 있으면 지속 시간을 포함한 이 조건은 이미 채운 것입니다."),
         THRESHOLD_RAISE(Kind.THRESHOLD, "임계값 항목 하나를 올립니다. target 은 catalog 의 항목 키, value 는 지금 값보다 큰 새"
                 + " 값이며 한 번에 그 항목의 최대 변경폭까지만 바꿉니다. 울리는 경보나 이미 넘은 지표를 가리려고 쓰지 않습니다."),
         THRESHOLD_LOWER(Kind.THRESHOLD, "임계값 항목 하나를 내립니다. target 은 catalog 의 항목 키, value 는 지금 값보다 작은 새"

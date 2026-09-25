@@ -1,4 +1,4 @@
-# DB 설계 (v2.51.4)
+# DB 설계 (v2.51.5)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -366,7 +366,7 @@ erDiagram
 | V29 | `V29__sim_fleet_state_target_ops_width.sql` | 같은 표의 목표 OPS 열 폭 확장 | V28(`sim_fleet_state` 생성) |
 | V30 | `V30__assert_and_lock_leader.sql` | `assert_and_lock_leader`. 세대 번호 검증과 행 잠금을 한 호출로 묶는다. 잠금 모드는 V41 이 FOR KEY SHARE 로 바꿨다 | V1(`leader_lease`, `assert_current_leader` 호출) |
 | V31 | `V31__order_id_sequence.sql` | 주문 식별자 시퀀스. 단일 라이터 전제에서 채번을 DB 로 옮긴다 | V0, V1(`journal_counters`·`orders`에서 시작값 역산, `app_role` GRANT) |
-| V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정이 이 표를 읽는다 | V0(`app_role` GRANT) |
+| V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정과 관제센터의 app-3 켜기·끄기(`READ_NODES`)가 이 표를 읽는다. `app` 행은 앱 계층 전체 대수이고 초기값 min 2·desired 2·max 3은 app-1·app-2 고정과 app-3 자동 증설의 2~3대다(ADR 0030 사용자 정정, v2.51.5) | V0(`app_role` GRANT) |
 | V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) | V1(`leader_lease`) |
 | V34 | `V34__single_operator_approval.sql` | `chk_approval_two_person` 제약 제거. 파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019). 바꾼 뒤의 판정 축은 정본 8.2가 남긴 방어 일곱이다: 승인 티켓 별도 발급 단계, 티켓 수명 5분, 단회 소각, 액션과 대상 바인딩, 요청자 바인딩, 역할 통제, 추가만 가능한 감사 기록. 사라진 한 겹은 발급자와 사용자의 분리이고, 그 대가는 정본 13.3 한계 11이 등재한다 | V5(`admin_approvals` 생성) |
 | V35 | `V35__orders_locked_account_index.sql` | `orders.locked_account_id` 부분 인덱스. C14 불변식이 orders 를 순차 스캔하던 것을 인덱스로 바꾼다. 열린 상태 셋만 담는다 | V1 |
@@ -4249,3 +4249,9 @@ V72의 제약과 권한은 Testcontainers 시험(`AiSchemaIntegrationTest`)으�
 §10.5를 다시 쓰고 §3 표의 계획 행을 V73 행으로 바꿨다. 통지를 관리 JVM이 Teams에 직접 보내지 않고 보고 서비스(`deploy/reporting`)로 넘기는 안을 택했으므로, 보관함의 상태는 Teams 전송이 아니라 넘김의 상태(`PENDING`, `SENDING`, `ACCEPTED`, `FAILED`, `SKIPPED`)다. 보고 서비스가 사건 id로 중복을 걸러 주므로 응답을 잃은 넘김은 다시 보내도 되고, v2.51.2 계획의 `UNKNOWN`(다시 보내지 않음)과 `SENT`를 뺐다. 사건 종류는 관리 JVM의 통지 포트(`AiNotifier.Kind`) 아홉 가지와 같다. 본문 16 KiB 상한과 접수 시각 CHECK를 더했다.
 
 사용자 요구(2026-09-25, 여러 앱 노드 가운데 한 곳에서만 AI 판단 주기)를 위해 임대 표 `ops_runner_lease`를 더했다. 매칭 리더와 무관하고 커넥션을 붙잡지 않는다. 앱 계정은 임대 열만 바꿀 수 있고 행을 늘리거나 지울 수 없다. 원장·저널·정산·주문 표와의 외래키와 트리거는 여전히 없다. 제약과 권한은 Testcontainers 시험(`NotificationSchemaIntegrationTest`)으로 실제로 어겨 보아 확인한다.
+
+## v2.51.5 패치 반영 사항
+
+관제센터 화면과 서버를 한 브랜치로 병합한 뒤 `capacity_plan`의 해석을 ADR 0030 사용자 정정에 맞췄다. 2026-09-25 갱신. 판 번호는 v2.51.2와 같은 이유로 v2.51.5로 둔다. 표, 열, 제약, 마이그레이션은 바뀌지 않는다.
+
+- **`capacity_plan`의 `app` 행.** 앱 계층 전체 대수다. 초기값(V32) min 2·desired 2·max 3은 늘 켜진 매칭 리더 app-1·app-2와 부하에 따라 켜고 끄는 조회 전용 app-3을 합친 2~3대다. 관제센터 AI의 `READ_NODES` 조치는 이 행의 `desired_nodes`를 1 바꾸는 app-3 켜기·끄기이고, 정책 R1이 같은 경계를 쓴다. V32 파일의 열 주석('리더를 포함한 총 앱 노드 수. 조회 전용 노드 수는 이 값에서 1을 뺀 값')은 단일 리더 때의 설명이다. 적용한 마이그레이션은 고치지 않으므로 주석은 그대로 두고 이 문서가 지금 해석을 적는다. 초기값과 경계는 서버 시험(`AppTierCapacityIntegrationTest`)이 마이그레이션한 DB에서 확인한다.

@@ -17,7 +17,9 @@ MODE_KEYS = {"mode", "cause", "actor", "valid_until"}
 ACTION_KINDS = {"READ_NODES", "THRESHOLD", "SILENCE", "BOT_LOAD", "BACKUP_NOW"}
 STATUSES = {"PROPOSED", "DEFERRED", "EXECUTING", "APPROVED", "AUTO_EXECUTED", "FAILED", "UNKNOWN", "REJECTED",
             "DENIED", "WITHDRAWN", "EXPIRED", "REVERTED", "AUTO_REVERTED"}
-VERBS = {"READ_NODE_ADD_ONE": "조회 노드 1대 증설", "READ_NODE_REMOVE_ONE": "조회 노드 1대 축소",
+# 앱 계층은 app-1·app-2 고정과 조회 전용 app-3 자동 증설의 2~3대다(ADR 0030 사용자 정정 2026-09-25).
+# READ_NODES 조치는 app-3을 켜거나 끄는 것이다.
+VERBS = {"READ_NODE_ADD_ONE": "app-3 켜기", "READ_NODE_REMOVE_ONE": "app-3 끄기",
          "THRESHOLD_RAISE": "임계값 올림", "THRESHOLD_LOWER": "임계값 내림", "ALERT_SILENCE": "경보 보류",
          "BOT_LOAD_REDUCE": "시장 봇 부하 줄임", "BACKUP_RUN_NOW": "DB 백업 즉시 실행"}
 OUTCOMES = {"KEPT": "유지", "REVERTED": "되돌림", "UNOBSERVABLE": "관찰 불가", "REVERT_BLOCKED": "되돌림 불가",
@@ -153,7 +155,7 @@ def _metric_value(name, value):
 
 def _target(action):
     target = action["target"]
-    return {"app": "조회 계층", "bot-fleet": "시장 봇", "databasus": "DB 백업"}.get(
+    return {"app": "앱 계층 app-3", "bot-fleet": "시장 봇", "databasus": "DB 백업"}.get(
         target, ("경보 " + target) if action["kind"] == "SILENCE" else target)
 
 

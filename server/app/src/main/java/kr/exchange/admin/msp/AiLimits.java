@@ -74,7 +74,7 @@ public record AiLimits(Map<Key, Integer> values) {
         values = Map.copyOf(values);
         for (Key k : Key.values()) {
             if (!values.containsKey(k)) {
-                throw new IllegalStateException("AI 한도 항목이 빠졌다: " + k.id());
+                throw new IllegalStateException("AI 한도 항목이 빠졌습니다: " + k.id());
             }
         }
     }

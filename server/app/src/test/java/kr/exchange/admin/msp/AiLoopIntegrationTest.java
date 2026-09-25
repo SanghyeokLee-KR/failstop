@@ -513,7 +513,8 @@ class AiLoopIntegrationTest {
 
     @Test
     void 사람의_같은_종류_조치도_쿨다운을_시작시킨다() {
-        rig.capacity.change(1, AiRig.SUPER, "capacity.scale_out", "사람의 증설", "req-human");
+        rig.nodes(3);
+        rig.capacity.change(-1, AiRig.SUPER, "capacity.scale_in", "사람의 app-3 끄기", "req-human");
         rig.auto(4);
         src.cpu = 0.82;
         src.llmContent = ADD;
@@ -523,7 +524,7 @@ class AiLoopIntegrationTest {
         AiStore.Action a = rig.latest();
         assertEquals("PROPOSED", a.status());
         assertEquals("A8", a.holdRule());
-        assertEquals(3, rig.desired());
+        assertEquals(2, rig.desired());
         assertEquals(1, rig.count("SELECT count(*) FROM admin_audit_log WHERE action = 'ops.ai.action.execute' "
                 + "AND result = 'DENIED' AND detail->>'rule' = 'A8'"));
 
@@ -532,7 +533,7 @@ class AiLoopIntegrationTest {
         rig.ticks(2, MINUTE);
         a = reload(a);
         assertEquals("AUTO_EXECUTED", a.status());
-        assertEquals(4, rig.desired());
+        assertEquals(3, rig.desired());
     }
 
     @Test
@@ -542,22 +543,27 @@ class AiLoopIntegrationTest {
         assertTrue(cap.immediate());
         AiControl.Mode first = rig.auto(4);
         assertEquals(1, first.activationLimits().autoCap());
-        src.cpu = 0.82;
-        src.llmContent = ADD;
+        rig.nodes(3);
+        src.cpu = 0.10;
+        src.llmContent = REMOVE;
+        rig.collector.collect();
 
         rig.ticks(2, MINUTE);
-        assertEquals(3, rig.desired());
+        assertEquals(2, rig.desired());
         assertEquals(1, rig.control.autoUsed(first.activation()));
 
         // 관찰 창(5분)이 끝난 뒤의 다음 조치는 상한(A7)에 걸린다.
+        src.cpu = 0.82;
+        src.llmContent = ADD;
         rig.advance(Duration.ofMinutes(6));
         rig.ticks(2, MINUTE);
         AiStore.Action held = rig.latest();
+        assertEquals(AiAction.Verb.READ_NODE_ADD_ONE, held.action().verb());
         assertEquals("PROPOSED", held.status());
         assertEquals("A7", held.holdRule());
         assertFalse(rig.control.mode().auto(), "상한에 닿으면 수동으로 돌린다");
         assertTrue(rig.noticed(AiNotifier.Kind.CAP_REACHED));
-        assertEquals(3, rig.desired());
+        assertEquals(2, rig.desired());
 
         AiControl.Mode second = rig.auto(4);
         assertEquals(first.activation() + 1, second.activation(), "수동에서 다시 켜면 활성 번호가 오른다");
@@ -565,29 +571,33 @@ class AiLoopIntegrationTest {
         rig.advance(Duration.ofMinutes(2));
         rig.ticks(2, MINUTE);
         assertEquals("AUTO_EXECUTED", reload(held).status());
-        assertEquals(4, rig.desired());
+        assertEquals(3, rig.desired());
         assertEquals(1, rig.control.autoUsed(second.activation()));
     }
 
     @Test
     void 다시_켜도_관찰_창과_쿨다운은_이어진다() {
+        rig.nodes(3);
         AiControl.Mode first = rig.auto(4);
-        src.cpu = 0.82;
-        src.llmContent = ADD;
+        src.cpu = 0.10;
+        src.llmContent = REMOVE;
+        rig.collector.collect();
         rig.ticks(2, MINUTE);
-        assertEquals(3, rig.desired());
+        assertEquals(2, rig.desired());
 
         rig.control.manual(AiRig.SUPER, "다시 켜기 시험", "req-manual");
         AiControl.Mode second = rig.auto(4);
         assertEquals(first.activation() + 1, second.activation());
 
+        src.cpu = 0.82;
+        src.llmContent = ADD;
         rig.ticks(2, MINUTE);
         assertEquals("A6", rig.latest().holdRule(), "앞선 조치의 관찰 창은 새 활성에서도 이어진다");
 
         rig.advance(Duration.ofMinutes(3));
         rig.ticks(2, MINUTE);
         assertEquals("A8", rig.latest().holdRule(), "쿨다운도 새 활성에서 이어진다");
-        assertEquals(3, rig.desired());
+        assertEquals(2, rig.desired());
     }
 
     @Test
@@ -857,12 +867,12 @@ class AiLoopIntegrationTest {
 
     @Test
     void 최대_대수에서_울리는_CPU_경보를_창_없이_보류하려_하면_계획_작업_창_없음으로_거부한다() {
-        rig.nodes(4);
+        rig.nodes(3);
         src.cpu = 0.88;
         String fp = "a1a1a1a1a1a1a1a1";
         src.alerts = List.of(AiRig.alert(fp, "ReadTierCpuHigh", "warning", "app"));
         rig.auto(4);
-        src.llmContent = AiRig.out("조회 노드가 최대 4대인데 평균 CPU가 88%입니다.", "더 늘릴 수 없어 경보를 30분 보류합니다.",
+        src.llmContent = AiRig.out("앱 계층이 최대 3대인데 평균 CPU가 88%입니다.", "더 늘릴 수 없어 경보를 30분 보류합니다.",
                 "ALERT_SILENCE", fp, "30", "0.9");
 
         rig.ticks(2, MINUTE);

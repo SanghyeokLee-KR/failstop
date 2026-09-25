@@ -66,7 +66,7 @@ public class HaMonitoringController {
         if (v instanceof Number n) {
             return n.longValue();
         }
-        throw new IllegalStateException("집계 결과가 숫자가 아니다: "
+        throw new IllegalStateException("집계 결과가 숫자가 아닙니다: "
                 + (v == null ? "null" : v.getClass().getName()));
     }
 

@@ -181,7 +181,7 @@ public class SimAdminController {
         try {
             arr = objectMapper.readTree(marketsJson);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("발행된 플릿 스냅샷을 읽을 수 없다", e);
+            throw new IllegalStateException("발행된 플릿 스냅샷을 읽을 수 없습니다.", e);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (JsonNode n : arr) {

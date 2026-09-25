@@ -633,7 +633,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 | color-literal | 색 리터럴 금지. 토큰으로 소비 | 코인 브랜드색(engine.ts), 대비 계산 입력(brandChip.ts), tokens.css |
 | undefined-token | var(--x)의 x가 어디에도 선언되지 않음 | 없음 |
 | dead-token | 시맨틱·별칭 토큰의 소비처 0 | 팔레트 램프(미사용 단계는 결함 아님) |
-| copy-tone | 평면별 UI 카피 종결형(2026-09-25 개정). 관리 콘솔(`web/app/admin`, `web/components/admin`, `web/lib/admin`)은 반말 평서문 종결 금지(문장은 합니다체), 그 밖의 web/ 문자열·JSX와 server/ ApiException 메시지는 존댓말 종결 금지. 규칙은 `scripts/copy-tone.mjs`, 시험은 `scripts/tests/copy-tone.test.mjs` | 시드 게시글·댓글과 신고 본문(사용자 작성물) |
+| copy-tone | 평면별 UI 카피 종결형(2026-09-25 개정). 관리 콘솔(`web/app/admin`, `web/components/admin`, `web/lib/admin`)은 반말 평서문 종결 금지(문장은 합니다체), 그 밖의 web/ 문자열·JSX와 server/ ApiException 메시지는 존댓말 종결 금지. 관리 평면 서버(`kr.exchange.admin`)의 한국어 문구는 관리 콘솔 규칙(반말 평서문 종결 금지)이고 기동 설정 검증 파일 다섯은 뺀다(2026-09-25 병합). 규칙은 `scripts/copy-tone.mjs`, 시험은 `scripts/tests/copy-tone.test.mjs` | 시드 게시글·댓글과 신고 본문(사용자 작성물) |
 | direction-format | formatChangeRate 직접 호출 금지, formatDirectional 사용 | 허용 목록에 이유 기재 시 |
 | focus-ring | :focus 계열에서 자체 outline 선언 금지 | none 또는 --focus-outline-* 소비 |
 
