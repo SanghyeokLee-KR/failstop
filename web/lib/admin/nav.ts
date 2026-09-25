@@ -76,7 +76,7 @@ export const OPS_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/reports", label: "보고서", icon: "reports" },
       { href: "/admin/sla", label: "SLA 월간 보고", icon: "sla" },
-      { href: "/admin/cost", label: "비용", icon: "cost" },
+      { href: "/admin/cost", label: "비용", icon: "cost", badge: "cost" },
     ],
   },
   {

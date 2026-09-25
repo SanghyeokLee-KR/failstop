@@ -64,6 +64,7 @@ import type {
   ChangeInput,
   ChangeRequest,
   MaintenanceWindow,
+  SlaMonth,
   WindowInput,
 } from "./types";
 
@@ -274,6 +275,11 @@ export interface AdminApi {
    * sim은 관리 어댑터의 감사 기록에 사건·판단·되돌림 이음을 붙여 옮긴다. http는 감사 로그(GET /admin/v1/audit)의 한 쪽과
    * 조치 요청 목록(GET /admin/v1/msp/ai/actions?status=ALL)이다. 받아 온 쪽만 옮기므로 cursor로 이전 쪽을 더 읽는다 */
   getActionRecords(cursor?: string | null): Promise<ActionFeed>;
+
+  /* ===== SLA 월간 보고(관리자 설계 4-10-5) =====
+   * 달을 골라 읽으므로 관제 판에 싣지 않는다. sim은 관제 판이 닿는 날을 판과 감사에서 세고 그 앞은 예시다. http는 월 집계 경로
+   * (GET /admin/v1/msp/sla?month=YYYY-MM)가 3라운드 계약 초안이고 외부 프로브가 없어 원천 연결 전이다 */
+  getSlaMonth(month: string): Promise<OpsSection<SlaMonth>>;
 
   /* ===== 변경·작업(관리자 설계 4-10-4) =====
    * 계획 작업 창은 서버 계약(API 설계 §6-F)이 있어 http도 등록·조기 종료를 보낸다. 변경 요청은 3라운드 계약 초안이라 http는

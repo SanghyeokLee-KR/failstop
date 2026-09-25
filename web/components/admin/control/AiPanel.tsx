@@ -20,6 +20,7 @@ import { actionKey, AI_ACTION_LABEL, canAutoRun, limitsOf, type AiLimits } from 
 import { useOpsDetail } from "@/lib/admin/detailStore";
 import { flashTone } from "@/lib/admin/motion";
 import { useOpsFocus } from "@/lib/admin/opsCenter";
+import { AI_ACTION_CAP, CAP_NEED } from "@/lib/admin/roles";
 import { useCan } from "@/lib/admin/store";
 import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
 import { joinDots } from "@/lib/admin/text";
@@ -187,7 +188,8 @@ function ExpiredLine({ p, fresh }: { p: AiProposal; fresh: boolean }) {
 
 function DoneCard({ p, onChanged, fresh }: { p: AiProposal; onChanged: () => void; fresh: boolean }) {
   const now = useClock(p.status === "AUTO_EXECUTED" ? 1000 : 3_600_000);
-  const canSuper = useCan("SUPER");
+  // 되돌리기는 승인과 같이 조치 종류별 역할이다(API 설계 §6-F)
+  const canRevert = useCan(AI_ACTION_CAP[p.kind]);
   const [busy, setBusy] = useState(false);
   const revert = async () => {
     setBusy(true);
@@ -239,7 +241,13 @@ function DoneCard({ p, onChanged, fresh }: { p: AiProposal; onChanged: () => voi
         {revertible && (
           <>
             <span className={styles.spacer} />
-            <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy} onClick={() => void revert()}>
+            <button
+              type="button"
+              className={adminStyles.neutralBtn}
+              disabled={!canRevert || busy}
+              title={canRevert ? undefined : CAP_NEED[AI_ACTION_CAP[p.kind]]}
+              onClick={() => void revert()}
+            >
               되돌리기
             </button>
           </>
@@ -363,7 +371,9 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
   onEvidence: (p: AiProposal) => void;
   fresh: boolean;
 }) {
-  const canSuper = useCan("SUPER");
+  // 승인은 조치 종류별 역할이다. 봇 부하 줄임·경보 보류는 봇 운영, app-3·임계값·백업은 총괄(API 설계 §6-F)
+  const need = AI_ACTION_CAP[p.kind];
+  const canApprove = useCan(need);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const badge = autoBadge(p, ai.mode, limits);
@@ -415,8 +425,8 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence, fresh }: {
         <button
           type="button"
           className={adminStyles.approveBtn}
-          disabled={!canSuper || busy}
-          title={canSuper ? undefined : "총괄 권한 필요"}
+          disabled={!canApprove || busy}
+          title={canApprove ? undefined : CAP_NEED[need]}
           onClick={() => setConfirm(true)}
         >
           승인하고 실행

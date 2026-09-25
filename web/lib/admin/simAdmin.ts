@@ -8,7 +8,7 @@ import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type { AdminApi } from "./api";
 import { AdminError } from "./api";
-import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
+import { ACTION_CAP, AI_ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
@@ -86,6 +86,7 @@ import type {
   ChangeRequest,
   MaintenanceWindow,
   WindowInput,
+  SlaMonth,
 } from "./types";
 import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 
@@ -1009,16 +1010,21 @@ export class SimAdminApi implements AdminApi {
     return out;
   }
 
+  /** 경보 확인. 서버와 같이 봇 운영 이상이다(API 설계 §6-F) */
   ackAlert(alertId: string): Promise<void> {
-    const s = this.auth("VIEW");
+    const s = this.auth("BOT_OPS");
     const incidentId = this.ops.incidentOfAlert(alertId);
     this.ops.ackAlert(alertId, actorOf(s), Date.now());
     this.log(s, "ops.alert.ack", alertId, null, "OK", { incidentId });
     return Promise.resolve();
   }
 
+  /**
+   * 경보 보류. 이 경로는 장애 등급이 아닌 경보의 30분 이하 보류뿐이라(시뮬레이터가 그 밖을 막음) 서버의 티켓 없는 보류와 같이
+   * 봇 운영 이상이다. 장애·등급 모름·30분 초과 보류(SUPER와 ops.alert.silence 티켓)는 화면에 없다
+   */
   silenceAlert(alertId: string, minutes: number): Promise<void> {
-    const s = this.auth("SUPER");
+    const s = this.auth("BOT_OPS");
     this.ops.silenceAlert(alertId, minutes, actorOf(s), Date.now());
     this.log(s, "ops.alert.silence", `${alertId} ${minutes}m`, null, "OK", { incidentId: this.ops.incidentOfAlert(alertId) });
     return Promise.resolve();
@@ -1043,8 +1049,10 @@ export class SimAdminApi implements AdminApi {
   }
 
   async decideAiProposal(proposalId: string, decision: AiDecision): Promise<void> {
-    // 승인은 인프라 조치라 SUPER다. 거절과 나중에는 조치를 줄이는 쪽이라 조회 권한으로 된다
-    const s = this.auth(decision === "APPROVE" ? "SUPER" : "VIEW");
+    // 승인은 조치 종류별 역할이다(봇 부하·보류는 봇 운영, app-3·임계값·백업은 총괄. API 설계 §6-F). 거절과 나중에는 조치를
+    // 줄이는 쪽이라 조회 권한으로 된다. 없는 조치안은 역할을 가리지 않고 아래 검사가 not_found로 거절한다
+    const kind = this.ops.proposalKindOf(proposalId);
+    const s = this.auth(decision === "APPROVE" && kind ? AI_ACTION_CAP[kind] : "VIEW");
     const now = Date.now();
     this.ops.checkDecision(proposalId, decision, now);
     const t = decision === "APPROVE" ? this.ops.thresholdProposal(proposalId) : null;
@@ -1060,8 +1068,10 @@ export class SimAdminApi implements AdminApi {
     this.ops.decide(proposalId, decision, actorOf(s), now);
   }
 
+  /** 실행한 조치 되돌리기. 승인과 같이 조치 종류별 역할이다 */
   revertAiAction(proposalId: string): Promise<void> {
-    const s = this.auth("SUPER");
+    const kind = this.ops.proposalKindOf(proposalId);
+    const s = this.auth(kind ? AI_ACTION_CAP[kind] : "SUPER");
     this.ops.revert(proposalId, actorOf(s), Date.now());
     return Promise.resolve();
   }
@@ -1198,6 +1208,22 @@ export class SimAdminApi implements AdminApi {
     rows.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     this.sweep();
     return Promise.resolve({ origin: "SIM", rows, approvals: this.approvals.map((a) => this.projectApproval(a)), nextCursor: null, partial: false });
+  }
+
+  /* ===== SLA 월간 보고(관리자 설계 4-10-5) ===== */
+
+  /**
+   * 한 달의 SLA. 관제 판이 닿는 날은 지금 판과 감사 기록에서 세고(오늘 줄은 경보·사건 화면의 오늘 값과 같은 함수), 그 앞의 날은
+   * 시뮬레이터 예시다. 규칙 파일은 SLA 화면이 처음 읽을 때 불러온다
+   */
+  async getSlaMonth(month: string): Promise<OpsSection<SlaMonth>> {
+    this.auth("VIEW");
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new AdminError("invalid_parameter", "달은 YYYY-MM");
+    const { slaMonth } = await import("./sla");
+    const now = Date.now();
+    const board = this.ops.snapshot(now);
+    const data = slaMonth({ month, now, board, unavail: (from, to) => this.ops.unavailMinutes(from, to), audit: this.audit, aiRecent: this.aiRecent(now) });
+    return { state: "READY", data };
   }
 
   /* ===== 변경·작업(관리자 설계 4-10-4) ===== */

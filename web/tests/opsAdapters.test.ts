@@ -135,11 +135,21 @@ test("sim: 조회 권한 운영자는 임계값 티켓을 소각해도 적용되
   assert.equal(reg.items.find((t) => t.key === "host.cpu_alert")?.value, 85);
 });
 
-test("sim: 경보 보류는 SUPER만, 확인은 조회 권한으로 된다", async () => {
+test("sim: 경보 확인과 30분 이하 보류는 서버처럼 봇 운영 이상이고, 조회 권한만 있으면 거절한다(API 설계 §6-F)", async () => {
   const api = new SimAdminApi();
   await api.establishSession("op-02");
-  await rejectsWith(() => api.silenceAlert("없는-경보", 10), "admin_forbidden");
+  // 봇 운영(op-02)은 역할 검사를 지나 없는 경보라서 거절된다
+  await rejectsWith(() => api.silenceAlert("없는-경보", 10), "not_found");
   await rejectsWith(() => api.ackAlert("없는-경보"), "not_found");
+  // op-02에서 봇 운영과 실험 운영을 회수하면 조회 권한만 남는다
+  await api.establishSession("op-01");
+  for (const role of ["BOT_OPS", "CHAOS_OPS"] as const) {
+    const issued = await api.issueApproval("op-01", "operators.roles", { action: "operators.roles", operatorId: "op-02", grant: "REVOKE", role });
+    await api.consumeApproval(issued);
+  }
+  await api.establishSession("op-02");
+  await rejectsWith(() => api.silenceAlert("없는-경보", 10), "admin_forbidden");
+  await rejectsWith(() => api.ackAlert("없는-경보"), "admin_forbidden");
 });
 
 test("http: 관제 조작은 서버 경로(/admin/v1/msp/**)로 보내고, 시뮬레이터 전용 조작만 요청 없이 거절한다", async () => {

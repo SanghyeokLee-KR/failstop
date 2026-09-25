@@ -1,0 +1,194 @@
+/* 타임라인 스크럽 바(디자인 시스템 §12-15 ScrubBar). 누르는 자리 44px, 트랙 4px(모서리 1px). 트랙은 라이트 sunken, 다크
+   border-default이고 지나온 몫은 크롬 악센트다(서비스 흐름 재생 자막의 진행 막대와 같다). 손잡이는 14px 원(슬라이더 손잡이라 둥글어도
+   된다, §12-10). 재생 박자로 옮길 때만 1초 선형으로 미끄러지고, 끌거나 건너뛸 때와 움직임 줄이기에서는 곧바로 선다 */
+
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+}
+.wrap[data-lane] {
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+.lane {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.bar {
+  position: relative;
+  height: 44px;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: var(--radius-xs);
+}
+.track {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 25px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--surface-sunken);
+}
+:global([data-theme="dark"]) .track {
+  background: var(--border-default);
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .track {
+    background: var(--border-default);
+  }
+}
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  background: var(--chrome-accent);
+  transform-origin: left center;
+}
+/* 단계 경계. 1px x 10px 눈금과 그 위의 단계 번호다 */
+.tick {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  margin-left: -0.5px;
+  background: var(--border-strong);
+}
+/* 단계 번호는 트랙에 직접 선다. 16px 안에 붙은 번호는 '2·3'으로 모이고 손잡이 시각 글자가 덮는 번호는 비운다 */
+.tickNo {
+  position: absolute;
+  bottom: 9px;
+  translate: -50% 0;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.tickNo[data-passed] {
+  color: var(--text-default);
+}
+/* 기록 표지(8px). 사건 기록 레일의 문법이다. 시스템은 무채 빈 원, AI는 AI 강조색, 운영자는 잉크, 경보 발생은 주의 색 마름모,
+   해제는 초록 원이다 */
+.mark {
+  position: absolute;
+  top: 9px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.mark[data-kind="SYSTEM"] {
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-default);
+}
+.mark[data-kind="AI"] {
+  background: var(--ai-accent);
+}
+.mark[data-kind="OPERATOR"] {
+  background: var(--text-strong);
+}
+.mark[data-kind="RESOLVE"] {
+  background: var(--color-success);
+}
+.mark[data-kind="OPEN"] {
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 1px;
+  background: var(--color-warning);
+  transform: rotate(45deg);
+}
+/* 손잡이 자리. 폭 없는 자리를 transform으로 옮기고 그 안에 손잡이와 시각을 둔다 */
+.handleRail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 2;
+}
+.bar[data-animate] .handleRail,
+.bar[data-animate] .fill {
+  transition: transform 1000ms linear;
+}
+.handle {
+  position: absolute;
+  left: -7px;
+  top: -5px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--chrome-accent);
+  background: var(--surface-elevated);
+}
+.handleTime {
+  position: absolute;
+  bottom: 13px;
+  left: 0;
+  translate: -50% 0;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.handleTime[data-edge="start"] {
+  translate: -8px 0;
+}
+.handleTime[data-edge="end"] {
+  translate: calc(-100% + 8px) 0;
+}
+/* 가리킨 시각과 가장 가까운 기록. 떠 있는 층이라 그림자를 받는다(§12-10) */
+.peek {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  translate: -50% 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.peek[data-edge="start"] {
+  translate: 0 0;
+}
+.peek[data-edge="end"] {
+  translate: -100% 0;
+}
+.peekKind {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.peekText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar[data-animate] .handleRail,
+  .bar[data-animate] .fill {
+    transition: none;
+  }
+}

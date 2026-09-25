@@ -10,7 +10,9 @@ import { OpsSim, type OpsActorRef } from "../lib/admin/opsSim";
 import { capacityOf, SimAdminApi } from "../lib/admin/simAdmin";
 import { asgView, flowFromCenter, isLeader, nodeViews, type AppId, type EngineId } from "../lib/admin/flowSim";
 import { collectTargets, infraCounts, overallOf } from "../lib/admin/opsHealth";
-import { integrationsOf, teamsDelivery } from "../lib/admin/integrations";
+import { channelsOf, integrationsOf, teamsDelivery } from "../lib/admin/integrations";
+import { writeStateOf } from "../lib/admin/opsHealth";
+import { app3Cost } from "../lib/admin/cost";
 import { simReportDesk } from "../lib/admin/reportSim";
 import { kstDay, lagWord, remainWord } from "../lib/admin/timeText";
 import { breachMinutes, trendDelta } from "../lib/admin/opsTrends";
@@ -141,6 +143,10 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
 
   // Teams: 설정의 연동 행과 서비스 흐름의 보고 경로 자리는 같은 판정을 쓴다
   assert.equal(rows.teams.state, teamsDelivery(desk).state, `${where}: Teams 판정`);
+  // 알림 채널(설정 4-10-7)은 연동 표의 Teams·Alertmanager 행과 같은 판정이다
+  const channels = Object.fromEntries(channelsOf(Object.values(rows), true).map((r) => [r.key, r]));
+  assert.equal(channels.teamsReport.state, rows.teams.state, `${where}: 알림 채널의 보고 경로`);
+  assert.equal(channels.teamsAlert.state, rows.alertmanager.state, `${where}: 알림 채널의 경보 카드`);
 
   // ai-1: 구축 전이라 연결은 가정이고, 연결됨으로 세지 않으며 인프라 집계에 들지 않는다
   const ai = ready<{ assumed: boolean }>(c.aiServer);
@@ -190,6 +196,10 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   // app-3 가동 시간은 용량·부하의 활동 기록과 비용이 읽는 판의 값이 같다
   const outlook = ready<CapacityOutlook>(c.outlook);
   assert.ok(Math.abs(onSecondsFromActivity(outlook.activity, boardNow) - (tier.onSecondsToday ?? -1)) <= 2, `${where}: app-3 가동 시간`);
+  assert.ok(app3Cost(tier.onSecondsToday ?? 0) >= 0, `${where}: 비용의 app-3 계획 비용`);
+
+  // 3라운드 묶음 C. 쓰기 상태는 관제 판에서 늘 열림이라 거래 요약 띠와 시나리오의 관제 칸이 같은 판정(writeStateOf)으로 비운다
+  assert.equal(writeStateOf(c.trading), null, `${where}: 관제 판의 쓰기 상태`);
 }
 
 test("평시 한 판에서 모든 화면의 봇 발행률, 조회 CPU, 증설 기준, 대수, 리더, 복제, 연동 값이 같다", () => {

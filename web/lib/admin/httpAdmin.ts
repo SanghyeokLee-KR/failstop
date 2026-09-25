@@ -29,6 +29,7 @@ import {
   type WireWindow,
 } from "./httpOps";
 import { linkReverts, serverRecords } from "./actionLog";
+import { SLA_SOURCE } from "./sla";
 import { INVARIANT_DEFS } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { isoNow } from "../format";
@@ -101,6 +102,7 @@ import type {
   ChangeRequest,
   MaintenanceWindow,
   WindowInput,
+  SlaMonth,
 } from "./types";
 
 /** 마켓 심볼 -> 한글명. 서버 config/markets는 한글명을 싣지 않아 표시용으로만 조인한다 */
@@ -1217,6 +1219,11 @@ export class HttpAdminApi implements AdminApi {
 
   getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
     return Promise.resolve({ state: "NOT_CONNECTED", source: "운영자·당번 명부 · 서버 계약에 없음" });
+  }
+
+  /** SLA 월 집계는 3라운드 계약 초안이고 외부 프로브가 없어 가용성 실적의 원천부터 없다(관리자 설계 4-10-5) */
+  getSlaMonth(_month: string): Promise<OpsSection<SlaMonth>> {
+    return Promise.resolve({ state: "NOT_CONNECTED", source: SLA_SOURCE });
   }
 
   /* ===== 조치 기록(관리자 설계 4-10-4) ===== */

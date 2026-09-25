@@ -14,6 +14,7 @@ export const VIA_WORD: Record<TierActivity["via"], string> = {
   REVERT: "되돌림",
   AUTO_REVERT: "자동 되돌림",
   SCENARIO: "시나리오 준비",
+  POLICY: "ASG 지표 정책",
 };
 
 /** 걸린 시간 칸의 글. 기동·드레이닝이 끝났으면 초, 아니면 진행이나 멈춤이다 */

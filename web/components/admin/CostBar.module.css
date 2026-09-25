@@ -1,0 +1,72 @@
+/* 비용 막대(디자인 시스템 §12-15 CostBar). 시각 12px, 모서리 1px. 계획 소진은 --text-secondary 채움, app-3 상시 몫은 같은 색의
+   사선 무늬(판독용 무늬, §12-10), 남는 몫은 트랙(라이트 sunken, 다크 border-default)이다. 오늘은 2px 잉크, 운영 종료일은 1px 점선
+   눈금이다 */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.bar {
+  position: relative;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--surface-sunken);
+}
+:global([data-theme="dark"]) .bar {
+  background: var(--border-default);
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .bar {
+    background: var(--border-default);
+  }
+}
+.plan,
+.extra,
+.over {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  transform-origin: left center;
+}
+.plan {
+  border-radius: 1px 0 0 1px;
+  background: var(--text-secondary);
+}
+.extra {
+  background: repeating-linear-gradient(135deg, var(--text-secondary) 0 2px, transparent 2px 5px);
+}
+.over {
+  left: 100%;
+  background: var(--color-warning);
+}
+.today,
+.end {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  margin-left: -1px;
+}
+.today {
+  width: 2px;
+  background: var(--text-strong);
+}
+.end {
+  width: 0;
+  border-left: 1px dashed var(--border-strong);
+}
+.overWord {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--color-warning-text);
+}
+.overShape {
+  color: var(--color-warning);
+}

@@ -1382,8 +1382,7 @@ export interface ControlCenter {
   database: OpsSection<DbStats>;
   /** 용량 전망과 앱 계층 활동 기록. sim은 예시와 시뮬레이터 기록, http는 원천 연결 전(GET /admin/v1/msp/capacity/outlook 초안)이다 */
   outlook: OpsSection<CapacityOutlook>;
-  /** 이번 달 SLA */
-  sla?: OpsSection<SlaMonth>;
+  /* SLA 달은 달을 골라 읽으므로 이 판에 싣지 않는다. 관리 어댑터의 조회(getSlaMonth)가 이 판과 감사에서 만든다(4-10-8) */
 }
 
 export type AiDecision = "APPROVE" | "REJECT" | "DEFER";
@@ -1776,8 +1775,11 @@ export interface TierActivity {
   action: "ON" | "OFF";
   actor: OpsActor;
   actorName: string;
-  /** 누가 어떤 길로 바꿨나. 운영자 직접(용량·부하 화면), AI 조치 승인, AI 자동 실행, 되돌림, 시나리오 무대 준비(sim) */
-  via: "OPERATOR" | "AI_APPROVED" | "AI_AUTO" | "REVERT" | "AUTO_REVERT" | "SCENARIO";
+  /**
+   * 누가 어떤 길로 바꿨나. 운영자 직접(용량·부하 화면), AI 조치 승인, AI 자동 실행, 되돌림, 시나리오 무대 준비(sim), AWS 지표
+   * 정책(시나리오 재생의 AI 서버 무응답에서 AI 대신 대수를 바꾸는 ASG 정책 흉내, 관리자 설계 4-10-9)
+   */
+  via: "OPERATOR" | "AI_APPROVED" | "AI_AUTO" | "REVERT" | "AUTO_REVERT" | "SCENARIO" | "POLICY";
   reason: string;
   /** 기동(켜기)이나 드레이닝(끄기)에 걸린 초. 아직 끝나지 않았거나 끝나기 전에 멈췄으면 null */
   tookSec: number | null;
@@ -1838,13 +1840,21 @@ export interface CertificateInfo {
  */
 export type WriteState = "OPEN" | "FAILING" | "SUSPENDED";
 
-/** SLA 한 달(4-10-5). 가용성은 외부 프로브 성공률이다. 주문 API SLO(API 설계 §7-4)와 다른 지표다 */
+/**
+ * SLA 한 달(4-10-5). 가용성은 외부 프로브 성공률이다. 주문 API SLO(API 설계 §7-4)와 다른 지표다. 달을 골라 읽으므로 관제 판에
+ * 싣지 않고 관리 어댑터의 조회(getSlaMonth)가 낸다. sim은 관제 판의 기록이 닿는 날(BOARD)을 판과 감사에서 세고, 그 앞의 날은
+ * 시뮬레이터 예시(SEED)다
+ */
 export interface SlaMonth {
   /** YYYY-MM(KST) */
   month: string;
+  /** 센 마지막 날(KST). 이번 달이면 오늘, 지난 달이면 그 달의 끝이다 */
+  throughDay: string;
+  daysInMonth: number;
   targetPct: number;
+  /** 센 날의 분에서 낸 가용성. 원천이 없으면 null */
   availabilityPct: number | null;
-  /** 오류 예산(분). 쓴 값을 모르면 null */
+  /** 오류 예산(분). 허용은 그 달 전체의 분 x (100 - 목표)%다. 쓴 값을 모르면 null */
   budget: { allowedMin: number; usedMin: number | null };
   incidents: {
     total: number;
@@ -1855,12 +1865,60 @@ export interface SlaMonth {
     postmortems: number;
   };
   changes: { done: number; rolledBack: number };
-  ai: { runs: number; autoRuns: number; reverts: number };
-  /** 날마다. SEED는 시뮬레이터 예시, BOARD는 관제 판에서 센 날이다 */
-  days: { day: string; availabilityPct: number | null; incidents: number; source: "SEED" | "BOARD" }[];
-  /** 그 달의 수에서 나온 권고. basis는 근거 수를 적은 글이다 */
-  recommendations: { text: string; basis: string }[];
+  /**
+   * 그 달의 AI 조치. runs는 승인·자동 실행 수, autoRuns는 그 가운데 자동 실행, reverts는 되돌림(운영자·자동), autoReverts는 그 가운데
+   * 관찰 창의 자동 되돌림이다. recent는 AI 판단 화면의 '지난 24시간 AI 조치 n회 · 되돌림 m회'와 같은 감사에서 센 값이다(이번 달만)
+   */
+  ai: { runs: number; autoRuns: number; reverts: number; autoReverts: number; recent: { runs: number; reverts: number } | null };
+  /** 날마다(센 날까지). SEED는 시뮬레이터 예시, BOARD는 관제 판에서 센 날이다 */
+  days: SlaDay[];
+  /** 그 달의 사건. 관제 판의 사건은 사건 드로어를 열고, 예시 사건은 열 곳이 없다. 최신이 앞이다 */
+  incidentRows: SlaIncident[];
+  /** 그 달에 끝난 변경 요청(완료·되돌림). 관제 판의 요청은 변경 요청 드로어를 연다. 최신이 앞이다 */
+  changeRows: SlaChange[];
+  /** 그 달의 수에서 나온 권고. basis는 근거 수를 적은 글이다. 규칙에 걸린 것이 없으면 빈 배열이다 */
+  recommendations: { rule: SlaRule; text: string; basis: string }[];
 }
+
+export interface SlaDay {
+  day: string;
+  availabilityPct: number | null;
+  /** 가용하지 않았던 분(외부 프로브 실패율 x 분) */
+  unavailMin: number | null;
+  incidents: number;
+  /** 그날 연 사건의 평균 확인·해제 시간. 값이 있는 사건이 없으면 null */
+  mttaMs: number | null;
+  mttrMs: number | null;
+  source: "SEED" | "BOARD";
+}
+
+export interface SlaIncident {
+  id: string;
+  title: string;
+  /** 사건을 연 경보 이름. 같은 경보로 연 사건을 세는 권고가 쓴다 */
+  alert: string;
+  severity: AlertSeverity;
+  openedAt: string;
+  resolvedAt: string | null;
+  ttaMs: number | null;
+  ttrMs: number | null;
+  /** 확인 전에 보낸 가장 높은 호출 단계. 없으면 0 */
+  pagedLevel: 0 | EscalationLevel;
+  postmortem: "DONE" | "DRAFT" | "NONE";
+  source: "SEED" | "BOARD";
+}
+
+export interface SlaChange {
+  id: string;
+  title: string;
+  state: "DONE" | "ROLLED_BACK";
+  closedAt: string;
+  result: string | null;
+  source: "SEED" | "BOARD";
+}
+
+/** SLA 권고 규칙(4-10-5). 근거 수에서만 문장을 만든다 */
+export type SlaRule = "BUDGET" | "REPEAT" | "AUTO_REVERT" | "PAGED" | "ROLLED_BACK";
 
 /** 조치 기록의 종류(4-10-4). 서버와 sim의 액션 코드가 달라도 같은 종류로 묶는다 */
 export type ActionCategory =
@@ -1967,22 +2025,62 @@ export type ScenarioId =
  */
 export type ScenarioAssumption = "NONE" | "PATRONI_APPLIED" | "AWS_ASG_POLICY";
 
+/**
+ * 재생 세계에 거는 일(4-10-9). 대본의 장애·회복(시스템)과 사람이 SSM에서 한 런북 단계의 효과다. 관제 시뮬레이터는 이 어휘만
+ * 받고, 무엇을 언제 거는지는 시나리오 대본(scenarios.ts)이 정한다. NOTE는 세계를 바꾸지 않고 사람의 확인만 기록에 남긴다
+ */
+export type ScenarioOp =
+  | "DB_PRIMARY_LOST"
+  | "DB_ISOLATE"
+  | "DB_PROMOTE"
+  | "DB_SWITCH"
+  | "DB_REJOIN"
+  | "STANDBY_LOST"
+  | "STANDBY_BACK"
+  | "DISK_FILL"
+  | "DISK_CLEANED"
+  | "BOTS_RESUMED"
+  | "BOT_RUNAWAY"
+  | "AI_DOWN"
+  | "INJECTED_ALERT"
+  | "INJECTED_CLEAR"
+  | "CERT_RENEWED"
+  | "NOTE";
+
+/**
+ * 시나리오 단계. 단계가 서는 때는 재생 세계의 기록에서 찾는다. START는 0초이고, EVENT는 앞 단계가 선 뒤의 첫 기록(종류, 행위자,
+ * 글의 머리)이다. 같은 단계라도 수동과 자동에서 서는 때가 다르다
+ */
 export interface ScenarioStage {
-  /** 재생 시작부터의 가상 초 */
-  atSec: number;
+  key: string;
   title: string;
   /** 이 단계에서 보일 것 */
   expect: string;
+  on: { kind: "START" } | { kind: "EVENT"; events: IncidentEventKind[]; actor?: OpsActor; prefix?: string };
+  /* prefix는 기록 글의 머리다. 같은 종류의 기록(해제와 경보 해제, 런북 단계)을 가른다 */
 }
 
-/** 재생 대본의 사람 몫. 운영자의 콘솔 결정이거나 운영자가 SSM에서 한 런북 단계다 */
+/**
+ * 재생 대본 한 줄. WORLD는 대본의 장애·회복(시스템)이고 나머지는 사람 몫이다. APPROVE_FIRST와 ACK_ALERT는 콘솔 결정, RUNBOOK_STEP과
+ * RESUME_BOTS는 SSM에서 한 런북 단계, CHECK는 런북이 없는 상황에서 사람이 한 확인이다
+ */
 export interface ScenarioCue {
   atSec: number;
   /** 이 대본이 도는 모드. ANY는 두 모드 모두다 */
   mode: "MANUAL" | "AUTO" | "ANY";
-  kind: "APPROVE_FIRST" | "ACK_ALERT" | "RUNBOOK_STEP" | "RESUME_BOTS";
+  kind: "WORLD" | "APPROVE_FIRST" | "ACK_ALERT" | "RUNBOOK_STEP" | "RESUME_BOTS" | "CHECK";
+  /** 세계에 거는 일. APPROVE_FIRST와 ACK_ALERT는 콘솔 결정이라 없다 */
+  op?: ScenarioOp;
+  /** 런북 단계 번호(1부터). RUNBOOK_STEP만 싣는다 */
+  step?: number;
+  /** ACK_ALERT가 확인할 경보 이름. 없거나 서 있지 않으면 가장 무거운 경보다 */
+  alert?: string;
+  /** 운영자 칸과 기록에 남기는 말 */
   note: string;
 }
+
+/** 시나리오 목록의 표지. LIVE는 관제 판에 걸 수 있음, PATRONI는 Patroni 적용 가정, NO_AI는 AI 조치 없음이다 */
+export type ScenarioTag = "LIVE" | "PATRONI" | "ASG_POLICY" | "NO_AI";
 
 export interface ScenarioSpec {
   id: ScenarioId;
@@ -1997,6 +2095,13 @@ export interface ScenarioSpec {
   runbookId: RunbookId | null;
   /** 관제 판에 실시간으로 거는 시나리오의 id. 재생 전용이면 null */
   live: OpsScenarioId | null;
+  tags: ScenarioTag[];
+  /** AI 조치가 없는 재생에서 정책 엔진 칸이 대조하는 금지 목록 번호(ADR 0035, aiPolicy.AI_FORBIDDEN의 1부터) */
+  forbidden: number[];
+  /** 통지 등급과 그 근거(보고 서비스의 개입 판정) */
+  notice: { priority: "P1" | "P2" | "P3" | "P4"; basis: string };
+  /** 재생 판에 적는 한계. 측정·지금 구성과 다른 점이다 */
+  caveats: string[];
 }
 
 /** 모델 평가 한 행(4-10-2). 측정 문서의 값을 옮긴 정적 기록이라 글자 그대로 싣는다 */
@@ -2039,19 +2144,20 @@ export interface AllowedPath {
 }
 
 /** 비용 계획(4-10-5). 두 원천이 같은 정적 입력이고 app-3 가동 시간만 관제 판에서 읽는다 */
+/** 비용 계획의 입력. 달러는 부동소수점으로 셈하지 않도록 소수 넷째 자리까지의 십진 문자열로 둔다('6.73', '0.0335') */
 export interface CostPlan {
   /** 개인 계정 크레딧(달러)과 그 값의 출처 */
-  creditUsd: number;
+  creditUsd: string;
   creditNote: string;
   /** 운영 기간(KST 날짜, 양 끝 포함) */
   startDay: string;
   endDay: string;
   /** 계획 하루 비용(달러). app-3을 늘 켠 경우를 따로 둔다 */
-  dailyUsd: number;
-  dailyWithApp3Usd: number;
+  dailyUsd: string;
+  dailyWithApp3Usd: string;
   /** app-3 한 대의 계획 단가(달러/시간) */
-  app3HourlyUsd: number;
+  app3HourlyUsd: string;
   /** 계산에서 뺀 것 */
   excluded: string[];
-  school: { monthlyKrw: number; note: string; reference: { label: string; usd: number } };
+  school: { monthlyKrw: number; note: string; reference: { label: string; usd: string } };
 }

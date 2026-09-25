@@ -149,3 +149,67 @@ export function integrationsOf(c: ControlCenter | null, desk: OpsSection<ReportD
   }
   return rows;
 }
+
+/** 알림 채널 한 줄(관리자 설계 4-10-7) */
+export interface ChannelRow {
+  key: "teamsReport" | "teamsAlert" | "reporterAlert" | "page" | "email";
+  /** 받는 곳 */
+  name: string;
+  /** 보내는 쪽. 경로가 없으면 빈 글이다 */
+  via: string;
+  /** 쓰는 일 */
+  uses: string;
+  /** 연동 표와 같은 판정. 경로를 두지 않았으면 null이다 */
+  state: IntegrationState | null;
+  /** 상태 옆의 짧은 사실 */
+  detail: string;
+}
+
+/**
+ * 알림 채널(관리자 설계 4-10-7). 경보는 Alertmanager가 두 갈래로 보낸다. Teams 운영 채널에 경보 카드를 직접 보내고(AI 분석과
+ * 따로 가서 AI가 멈춰도 전달된다), 보고 서비스에 웹훅으로 넘겨 사건 보고의 근거가 된다(deploy/linux/reporting/
+ * alertmanager.school.yml, 둘 다 해제 포함). 보고와 AI 통지는 보고 서비스가 Teams로 보낸다. 상태는 연동 표의 같은 행(Alertmanager,
+ * Teams)에서 옮겨 두 표가 같은 말을 한다. 콘솔은 Alertmanager의 카드 전송 결과를 읽지 않는다. 당번 호출(전화·문자)은 원천이
+ * 없고 이메일 경로는 두지 않았다
+ */
+export function channelsOf(rows: IntegrationRow[], sim: boolean): ChannelRow[] {
+  const am = rows.find((r) => r.key === "alertmanager");
+  const teams = rows.find((r) => r.key === "teams");
+  const amState = am?.state ?? "NOT_CONNECTED";
+  const amWord = amState === "CONNECTED" ? "카드 전송 결과는 읽지 않음" : am?.detail ?? "";
+  return [
+    {
+      key: "teamsReport",
+      name: "Teams 운영 채널",
+      via: "보고 서비스 경유",
+      uses: "일일 운영 보고 09:00 KST, 사건 보고, AI 통지(P1 즉시 대응~P4 관찰)",
+      state: teams?.state ?? "NOT_CONNECTED",
+      detail: teams?.detail ?? "",
+    },
+    {
+      key: "teamsAlert",
+      name: "Teams 운영 채널",
+      via: "Alertmanager 직접",
+      uses: "경보 발생·해제 카드. AI 분석과 따로 가서 AI가 멈춰도 갑니다",
+      state: amState,
+      detail: amWord,
+    },
+    {
+      key: "reporterAlert",
+      name: "보고 서비스",
+      via: "Alertmanager 웹훅",
+      uses: "경보 발생·해제를 받아 사건 보고의 근거로 모읍니다",
+      state: amState,
+      detail: amState === "CONNECTED" ? "수신 결과는 읽지 않음" : am?.detail ?? "",
+    },
+    {
+      key: "page",
+      name: "당번 호출",
+      via: "전화·문자",
+      uses: "호출 단계의 1차와 책임자 호출",
+      state: "NOT_CONNECTED",
+      detail: sim ? "호출 원천 없음 · 호출은 사건 기록에만 남음" : "호출 원천 없음",
+    },
+    { key: "email", name: "이메일", via: "", uses: "알림을 이메일로 보내는 경로를 두지 않았습니다", state: null, detail: "" },
+  ];
+}

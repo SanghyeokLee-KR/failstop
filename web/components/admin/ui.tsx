@@ -189,13 +189,17 @@ export function segmentedTabId(panelId: string, value: string): string {
   return `${panelId}-tab-${value}`;
 }
 
-export type SimMarkKind = "sim" | "assumed" | "replay" | "design";
+export type SimMarkKind = "sim" | "assumed" | "replay" | "scenario" | "design" | "plan" | "patroni" | "asgPolicy";
 
 const SIM_MARK: Record<SimMarkKind, { text: string; sr: string }> = {
   sim: { text: "시뮬레이션", sr: "값은 브라우저 시뮬레이터가 만든 것입니다" },
   assumed: { text: "시뮬레이션 가정", sr: "구축 전이라 연결과 값은 시뮬레이터의 가정입니다" },
   replay: { text: "재생 · 관제 값과 별개", sr: "로컬 Docker 측정 기록의 사건 순서를 재생하고 사이 값은 지어낸 것이라 관제센터의 값과 다릅니다" },
+  scenario: { text: "재생 · 관제 값과 별개", sr: "시나리오 대본을 브라우저 시뮬레이터의 재생 세계에서 돌린 값이라 관제센터의 값과 다릅니다" },
   design: { text: "설계 의도 · 관측 아님", sr: "설계 문서의 허용 경로를 옮긴 표이고 콘솔이 AWS에서 읽은 값이 아닙니다" },
+  plan: { text: "계획 계산", sr: "계획 입력으로 계산한 값이고 실제 청구액이 아닙니다" },
+  patroni: { text: "Patroni 적용 가정", sr: "다른 작업 브랜치에서 구성 중인 Patroni 엄격 동기 자동 전환(ADR 0036)을 적용했다는 가정의 재생이고 지금 AWS·로컬 스택의 동작이 아닙니다" },
+  asgPolicy: { text: "AWS 지표 정책 가정", sr: "AWS 환경에서 ASG 지표 정책이 앱 계층 대수를 소유한다는 가정의 재생입니다" },
 };
 
 /**
@@ -211,7 +215,7 @@ export function SimMark({ kind = "sim", short }: { kind?: SimMarkKind; short?: s
   return (
     <>
       <span className={styles.simMark} data-kind={kind} aria-hidden="true" title={short ? m.text : undefined}>
-        {kind === "replay" && <StatusShape kind="play" size={9} />}
+        {(kind === "replay" || kind === "scenario") && <StatusShape kind="play" size={9} />}
         {short ?? m.text}
       </span>
       <span className="sr-only">

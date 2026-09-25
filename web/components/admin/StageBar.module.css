@@ -118,6 +118,14 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* 정책 보기(설정의 호출 단계). 진행이 없어 모든 원이 같은 빈 원이고, 이름은 읽는 글이라 default 잉크다 */
+.bar[data-plan] .name {
+  color: var(--text-default);
+  font-weight: var(--fw-semibold);
+}
+.bar[data-plan] .when {
+  color: var(--text-default);
+}
 /* 좁은 칸의 번호. 이름이 들지 않을 때만 이름 자리에 선다 */
 .no {
   display: none;

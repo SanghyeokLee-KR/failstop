@@ -867,7 +867,8 @@
   color: var(--text-default);
   white-space: nowrap;
 }
-.simMark[data-kind="replay"] {
+.simMark[data-kind="replay"],
+.simMark[data-kind="scenario"] {
   min-height: 28px;
   padding: 0 var(--space-2);
   border: 2px solid var(--border-strong);

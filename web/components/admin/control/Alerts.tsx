@@ -14,6 +14,7 @@ import { AI_RULES } from "@/lib/admin/aiPolicy";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { escalationOf } from "@/lib/admin/opsDetail";
 import { runbookById, runbookForAlert, runbookHref } from "@/lib/admin/runbooks";
+import { CAP_NEED } from "@/lib/admin/roles";
 import { useCan } from "@/lib/admin/store";
 import type { EscalationStep, IncidentLog, OpsAlert } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
@@ -26,7 +27,8 @@ import StatusShape from "../StatusShape";
 const SILENCE_CHOICES = [10, 20, AI_RULES.silenceMaxMin];
 
 function SilenceButton({ alert, onDone }: { alert: OpsAlert; onDone: () => void }) {
-  const canSuper = useCan("SUPER");
+  // 이 단추의 보류는 장애 등급이 아닌 경보의 30분 이하라 서버의 티켓 없는 보류와 같이 봇 운영 이상이다(API 설계 §6-F)
+  const canSilence = useCan("BOT_OPS");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -47,7 +49,7 @@ function SilenceButton({ alert, onDone }: { alert: OpsAlert; onDone: () => void 
   const blocked = alert.severity === "critical" ? "장애 등급은 보류 불가"
     : alert.state === "SILENCED" ? null
     : alert.silencedBefore ? "같은 경보 연속 보류 불가"
-    : !canSuper ? "총괄 권한 필요" : null;
+    : !canSilence ? CAP_NEED.BOT_OPS : null;
   if (alert.state === "SILENCED") return null;
   const silence = async (minutes: number) => {
     setOpen(false);
@@ -106,6 +108,8 @@ export function AlertRow({ alert, onChanged, fresh = false, context }: { alert: 
   const escalation = inc && context?.log ? escalationOf(inc, context.policy, context.log.events) : null;
   const runbook = context?.runbooks ? runbookForAlert(alert) : null;
   const lit = refMatches(focus, { kind: "ALERT", id: alert.id });
+  // 확인은 서버와 같이 봇 운영 이상이다(API 설계 §6-F)
+  const canAck = useCan("BOT_OPS");
   const ack = async () => {
     try {
       await getAdminApi().ackAlert(alert.id);
@@ -145,7 +149,7 @@ export function AlertRow({ alert, onChanged, fresh = false, context }: { alert: 
             <span aria-hidden="true"><StatusShape kind="circle" /></span> 확인 · {alert.ackBy} {alert.ackAt ? hm(alert.ackAt) : ""}
           </span>
         ) : (
-          <button type="button" className={styles.smallBtn} onClick={() => void ack()}>
+          <button type="button" className={styles.smallBtn} disabled={!canAck} title={canAck ? undefined : CAP_NEED.BOT_OPS} onClick={() => void ack()}>
             확인
           </button>
         )}

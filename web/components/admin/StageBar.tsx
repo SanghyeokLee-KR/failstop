@@ -41,7 +41,7 @@ function whenText(m: StageMark): string {
   }
 }
 
-export default function StageBar({ items, label, urgent = false, renderWhen }: {
+export default function StageBar({ items, label, urgent = false, renderWhen, plan = false }: {
   items: StageMark[];
   /** 목록의 접근 이름('사건 생애 단계') */
   label: string;
@@ -49,6 +49,11 @@ export default function StageBar({ items, label, urgent = false, renderWhen }: {
   urgent?: boolean;
   /** 둘째 줄을 바꿔 그린다(다음 호출까지 남은 시간처럼 매초 바뀌는 글). null이면 기본 글이다 */
   renderWhen?: (m: StageMark) => ReactNode | null;
+  /**
+   * 진행이 없는 정책 보기(설정의 호출 단계). 모든 칸이 같은 빈 원이고 선을 채우지 않으며, 상태어('앞 단계 대기')를 읽지 않고
+   * 이름과 보조 말만 읽는다. 칸의 상태는 todo로 넘긴다
+   */
+  plan?: boolean;
 }) {
   const current = items.findIndex((m) => m.state === "current");
   // 선은 지난(또는 실패한) 마지막 칸까지 채운다. 그 앞에서 건너뛴 칸은 지나간 칸이라 함께 채우고, 끝에 남은 건너뛴 칸
@@ -60,7 +65,7 @@ export default function StageBar({ items, label, urgent = false, renderWhen }: {
   const pulse = useChangeFlags({ cur: current >= 0 ? items[current].key : "" }, 1800).cur;
   return (
     <div className={styles.wrap}>
-      <ol className={styles.bar} aria-label={label} style={style}>
+      <ol className={styles.bar} aria-label={label} style={style} data-plan={plan ? "" : undefined}>
         {items.map((m, i) => {
           const custom = renderWhen?.(m) ?? null;
           const text = whenText(m);
@@ -94,7 +99,8 @@ export default function StageBar({ items, label, urgent = false, renderWhen }: {
                 {custom ?? text}
               </span>
               <span className="sr-only">
-                {m.label} · {STATE_WORD[m.state]}
+                {m.label}
+                {plan ? "" : ` · ${STATE_WORD[m.state]}`}
                 {text && m.state !== "current" ? ` · ${text}` : m.note ? ` · ${m.note}` : ""}
                 {m.marks.map((x) => ` · ${x.label} ${hm(x.at)}`).join("")}
               </span>

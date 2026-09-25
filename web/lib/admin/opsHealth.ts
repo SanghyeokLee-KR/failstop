@@ -3,7 +3,7 @@
  * 써야 화면마다 다른 말을 하지 않는다. 상태 어휘와 형태는 디자인 시스템 §12-3을 따른다.
  */
 
-import type { ControlCenter, OpsHost, OpsHostRole, ReadNodeState, ThresholdKey, ThresholdRegistry } from "./types";
+import type { ControlCenter, OpsHost, OpsHostRole, OpsSection, OpsTrading, ReadNodeState, ThresholdKey, ThresholdRegistry, WriteState } from "./types";
 
 export interface NodeState {
   tone: "success" | "warning" | "danger" | "off";
@@ -173,4 +173,15 @@ export function collectTargets(c: ControlCenter): { rows: CollectRow[]; targets:
   }
   const live = rows.filter((r) => r.readState !== "OFF");
   return { rows, targets: live.length, ok: live.filter((r) => r.ok).length };
+}
+
+/**
+ * 쓰기 상태의 낱말(관리자 설계 4-10-8). 시나리오의 관제 상태 칸과 관제센터 거래 요약 띠가 이 한 판정을 쓴다. 쓰기 실패와 거래 일시
+ * 중단은 거래가 멈춘 장애라 ■이다. 평시(열림)와 원천이 싣지 않은 판은 null이라 거래 요약 띠는 아무것도 적지 않는다
+ */
+export function writeStateOf(trading: OpsSection<OpsTrading> | null): { state: Exclude<WriteState, "OPEN">; word: string; detail: string } | null {
+  const w = trading?.state === "READY" ? trading.data.writes : undefined;
+  if (w === "FAILING") return { state: w, word: "쓰기 실패", detail: "DB에 쓰지 못해 주문이 실패합니다" };
+  if (w === "SUSPENDED") return { state: w, word: "거래 일시 중단", detail: "주문·취소를 거절하고 조회만 받습니다" };
+  return null;
 }

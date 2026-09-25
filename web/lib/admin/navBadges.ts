@@ -8,9 +8,10 @@ import type { ControlCenter, ThresholdKey } from "./types";
 import { appTierHot, hostState } from "./opsHealth";
 import { certDaysLeft } from "./certs";
 import { openWindows } from "./changes";
+import { COST_PLAN, exhaustsEarly } from "./cost";
 
 /** 운영 관제 메뉴 옆 상태 배지의 종류. 메뉴 표(nav.ts)가 항목마다 고른다 */
-export type OpsBadgeKind = "incidents" | "ai" | "hosts" | "database" | "thresholds" | "security" | "changes";
+export type OpsBadgeKind = "incidents" | "ai" | "hosts" | "database" | "thresholds" | "security" | "changes" | "cost";
 
 /** 배지의 형태(StatusShape의 한 벌에서 배지가 쓰는 넷). 이 판정은 화면 부품에 기대지 않는다 */
 export type BadgeShape = "square" | "triangle" | "circle" | "play";
@@ -85,6 +86,9 @@ export function badgeOf(kind: OpsBadgeKind, c: ControlCenter): Badge | null {
       if (warn > 0) return { tone: "warning", shape: "triangle", label: null, count: warn, sr: `30일 안에 만료되는 인증서 ${warn}장` };
       return null;
     }
+    case "cost":
+      // 계획 소진 예상일이 운영 종료일보다 이르면 주의다(관리자 설계 4-10-1). 계획 입력만 보므로 판의 값과 무관하다
+      return exhaustsEarly(COST_PLAN) ? { tone: "warning", shape: "triangle", label: null, count: null, sr: "계획 소진 예상일이 운영 종료일보다 이릅니다" } : null;
     case "changes": {
       // 진행 중인 계획 작업 창. 상태가 아니라 사실이라 무채 윤곽의 '진행'이다(§12-9). 모드 줄, 변경·작업과 같은 판정이다
       if (c.changes.state !== "READY") return null;

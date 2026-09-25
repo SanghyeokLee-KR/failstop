@@ -1,0 +1,372 @@
+/* SLA 월간 보고(관리자 설계 4-10-5, 디자인 시스템 §12-15 달력 보기의 SLA 칸, 레이아웃 §7 3라운드). 요약 여섯 칸(판독 묶음), 그 아래
+   두 칸 1 : 1(일별 가용성 달력 | 사건 표와 주요 변경), 그 아래 AI 자동화와 다음 달 권고다. 칸 면을 색으로 칠하는 열지도는 쓰지 않고
+   목표 미만인 날만 ▲와 주의 글자다 */
+
+.monthPick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.monthWord {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* AI 자동화는 제 높이로 서고(권고가 길어도 빈 판을 늘리지 않는다), 권고가 오른쪽 두 몫이다 */
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.gap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.shape {
+  flex: none;
+}
+.shape[data-tone="ink"] {
+  color: var(--text-strong);
+}
+.shape[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.shape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.shape[data-tone="info"] {
+  color: var(--color-info);
+}
+.note {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* 달력 칸 안. 그날 가용성(caption 13 tabular), 형태와 사건 수(dense 12). 고른 날의 sunken 칸 위에서도 4.5:1을 지키게 글자를
+   default 이상으로 둔다 */
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dayAv {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.dayAv[data-low] {
+  color: var(--color-warning-text);
+}
+.dayMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.dayBoard {
+  align-self: flex-start;
+  padding: 0 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: 16px;
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.dayNarrow {
+  display: none;
+}
+/* 달력이 좁으면(1280 창, 칸 안쪽 48px 안팎) 가용성을 dense 12로, 사건 글을 '0건' 꼴로 줄여 칸 안에 든다 */
+@container cal (max-width: 520px) {
+  .dayAv {
+    font-size: var(--font-dense-size);
+    line-height: var(--font-dense-line);
+  }
+  .dayWide {
+    display: none;
+  }
+  .dayNarrow {
+    display: inline;
+  }
+}
+/* 칸이 표지보다 좁으면(AI 상담을 연 좁은 창) 표지를 숨긴다. 범례 글이 관제 판의 날이 어디서부터인지 늘 적는다 */
+@container cal (max-width: 400px) {
+  .dayBoard {
+    display: none;
+  }
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 사건 표 */
+.tableWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+  color: var(--text-default);
+}
+.table thead th {
+  border-top: 0;
+  padding-top: 0;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.table [data-num] {
+  text-align: right;
+  white-space: nowrap;
+}
+.table td:first-child {
+  width: 84px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.table td:last-child,
+.table th:last-child {
+  padding-right: 0;
+  width: 64px;
+  white-space: nowrap;
+}
+.rowLink,
+.rowText {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.rowLink {
+  cursor: pointer;
+}
+.rowLink::after {
+  content: "";
+  position: absolute;
+  /* 누르는 자리 44px(글 줄 18px에 위아래 13px) */
+  inset: -13px -4px;
+}
+.rowLink:hover {
+  text-decoration: underline;
+}
+.rowLink > svg,
+.rowText > svg {
+  margin-top: 5px;
+}
+.seedTag {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: 16px;
+  font-weight: var(--fw-regular);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.paged {
+  display: block;
+  margin-top: 2px;
+  padding-left: 16px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--color-warning-text);
+}
+.clear {
+  position: relative;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+  white-space: nowrap;
+}
+.clear::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  min-width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* 주요 변경 */
+.changes {
+  display: flex;
+  flex-direction: column;
+}
+.change {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.change + .change {
+  border-top: 1px solid var(--border-subtle);
+}
+.changeId {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.changeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.changeLink,
+.changeTitle {
+  position: relative;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+.changeLink:hover {
+  text-decoration: underline;
+}
+.changeLink::after {
+  content: "";
+  position: absolute;
+  /* 누르는 자리 44px(글 줄 18px에 위아래 13px) */
+  inset: -13px -4px;
+}
+.changeResult {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.changeState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* AI 자동화 */
+.aiFacts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.aiFacts dt {
+  color: var(--text-default);
+}
+.aiFacts dd {
+  text-align: right;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* 다음 달 권고. 근거 수를 굵게 앞에 두고 문장을 잇는다 */
+.recs {
+  display: flex;
+  flex-direction: column;
+}
+.rec {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+.rec + .rec {
+  border-top: 1px solid var(--border-subtle);
+}
+.recNo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.recBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+  text-wrap: pretty;
+}
+.recBody b {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}

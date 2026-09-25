@@ -47,7 +47,12 @@ export type AdminIconName =
   | "cost"
   | "scenarios"
   | "ack"
-  | "timer";
+  | "timer"
+  | "play"
+  | "pause"
+  | "restart"
+  | "stepBack"
+  | "stepForward";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -328,6 +333,31 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M8 9 V6.25" />
       <path d="M6.5 1.75 H9.5" />
       <path d="M8 1.75 V4" />
+    </>
+  ),
+  // 재생: 오른쪽을 가리키는 삼각형. 선으로만 그려 다른 아이콘과 같은 무게다
+  play: <path d="M5 3.25 L12.25 8 L5 12.75 Z" />,
+  // 일시정지: 두 세로 막대
+  pause: <path d="M5.75 3.5 V12.5 M10.25 3.5 V12.5" />,
+  // 처음으로: 세로 막대와 왼쪽 삼각형
+  restart: (
+    <>
+      <path d="M4.25 3.5 V12.5" />
+      <path d="M12 3.75 L6.5 8 L12 12.25 Z" />
+    </>
+  ),
+  // 이전 단계: 왼쪽 삼각형 둘
+  stepBack: (
+    <>
+      <path d="M8 4 L3.5 8 L8 12" />
+      <path d="M12.75 4 L8.25 8 L12.75 12" />
+    </>
+  ),
+  // 다음 단계: 오른쪽 삼각형 둘
+  stepForward: (
+    <>
+      <path d="M3.25 4 L7.75 8 L3.25 12" />
+      <path d="M8 4 L12.5 8 L8 12" />
     </>
   ),
   // 시나리오: 재생 삼각형과 그 아래 시간 축의 눈금

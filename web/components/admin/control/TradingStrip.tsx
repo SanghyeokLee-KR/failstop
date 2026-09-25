@@ -7,12 +7,16 @@
  * 값이라 인프라 칸, 봇 플릿, 서비스 흐름과 같은 숫자다(관리자 설계 4-4 sim 단일 원천). 거래 칸이 원천 연결 전인
  * http에서는 기존 조회 여섯 건의 합성(getOverview)을 읽고, 초당 체결은 두 표본의 누적 체결 차로 낸다. 첫
  * 표본에는 이전 값이 없어 비워 둔다. 안전 검사, 앱 복구 판정, 중지 마켓, 대기 승인은 늘 합성 조회에서 온다.
+ *
+ * 쓰기 상태는 열림이 아닐 때만 선다(쓰기 실패, 거래 일시 중단). 시나리오 재생의 관제 칸과 같은 판정(writeStateOf)이라 두
+ * 자리가 같은 말을 한다(관리자 설계 4-10-8 일치 목록).
  */
 
 import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { AdminOverview, InvariantState, OpsSection, OpsTrading } from "@/lib/admin/types";
 import { formatKRW } from "@/lib/format";
+import { writeStateOf } from "@/lib/admin/opsHealth";
 import { hms } from "./parts";
 import styles from "./control.module.css";
 import StatusShape from "../StatusShape";
@@ -44,6 +48,7 @@ function TradingStrip({ ov, at, trading }: { ov: AdminOverview | null; at: numbe
   const invTone = inv === null ? undefined : inv.state === "VIOLATED" ? "danger" : inv.state === "PASS" ? undefined : "warning";
   const ops = t ? t.botOps : ov?.currentOps ?? null;
   const tps = t ? t.tradesPerSec : rate;
+  const writes = writeStateOf(trading);
   return (
     <section className={styles.strip} aria-label="거래 요약">
       <span className={styles.stripTitle}>거래 요약</span>
@@ -79,6 +84,17 @@ function TradingStrip({ ov, at, trading }: { ov: AdminOverview | null; at: numbe
       <span className={styles.stripItem}>
         체결 <b className="num">{tps === null ? "측정 중" : `${tps.toFixed(1)}/s`}</b>
       </span>
+      {writes && (
+        <span className={styles.stripItem} title={writes.detail}>
+          쓰기{" "}
+          <b data-tone={writes.state === "FAILING" ? "danger" : "warning"}>
+            <span aria-hidden="true">
+              <StatusShape kind={writes.state === "FAILING" ? "square" : "triangle"} />{" "}
+            </span>
+            {writes.word}
+          </b>
+        </span>
+      )}
       {inv && (
         <span className={styles.stripItem}>
           안전 검사{" "}

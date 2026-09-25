@@ -58,6 +58,25 @@ function baseline(m: number): { p95: number; av: number; err: number } {
   };
 }
 
+/**
+ * 분 구간 [from, to)에서 가용하지 않았던 분(가용성 실패율 x 분). 끝의 분은 걸친 몫만 센다. av는 그 분의 가용성(%)이다. SLA 월간
+ * 보고가 날마다의 오류 예산 사용을 이 규칙으로 센다
+ */
+function unavailOver(from: number, to: number, av: (m: number) => number): number {
+  if (to <= from) return 0;
+  let out = 0;
+  for (let m = Math.floor(from / MINUTE); m * MINUTE < to; m += 1) {
+    const w = (Math.min(to, (m + 1) * MINUTE) - Math.max(from, m * MINUTE)) / MINUTE;
+    if (w > 0) out += ((100 - av(m)) / 100) * w;
+  }
+  return out;
+}
+
+/** 기준선만으로 센 가용하지 않은 분. 관제 판이 닿지 않는 날(시뮬레이터 예시)의 바탕이다 */
+export function baselineUnavailMinutes(from: number, to: number): number {
+  return unavailOver(from, to, (m) => baseline(m).av);
+}
+
 const sum = (xs: ArrayLike<number>, from: number, to: number) => {
   let s = 0;
   for (let i = from; i < to; i += 1) s += xs[i];
@@ -84,6 +103,17 @@ export class TrendBook {
     rec.fired += fired;
     this.minutes.set(m, rec);
     for (const k of this.minutes.keys()) if (k <= m - SPAN_MIN) this.minutes.delete(k);
+  }
+
+  /**
+   * 두 시각 사이에 가용하지 않았던 분. 시뮬레이터가 잰 분은 그 분의 평균, 그 앞은 기준선이다. 추세선과 같은 값이라 SLA의 관제 판
+   * 날과 상태 요약 추세가 같은 말을 한다
+   */
+  unavailMinutes(from: number, to: number): number {
+    return unavailOver(from, to, (m) => {
+      const rec = this.minutes.get(m);
+      return rec && rec.n > 0 ? rec.av / rec.n : baseline(m).av;
+    });
   }
 
   build(now: number, incidents: Incident[]): OpsTrends {
