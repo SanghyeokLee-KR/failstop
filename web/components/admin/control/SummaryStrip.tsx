@@ -11,6 +11,7 @@ import { memo, type ReactNode } from "react";
 import type { IncidentLog, OpsAlert, OpsRef, OpsSection, OpsSummary, OpsTrends, OpsTrendSeries, TrendRange } from "@/lib/admin/types";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { flashTone } from "@/lib/admin/motion";
+import { alertCounts, todayIncidents } from "@/lib/admin/opsDetail";
 import { breachMinutes, DELTA_BACK_MIN, trendDelta, type TrendDelta } from "@/lib/admin/opsTrends";
 import { kstDay } from "@/lib/admin/timeText";
 import { AdminIcon, type AdminIconName } from "../icons";
@@ -127,21 +128,8 @@ function Missing({ icon, label, source }: { icon: AdminIconName; label: string; 
   );
 }
 
-/** 오늘 사건 수와 해제된 사건의 평균 복구 시간. 오늘은 KST 날짜 기준이다(§12-12) */
-export function todayIncidents(log: IncidentLog, now: number): { count: number; open: number; mttrMs: number | null } {
-  const today = kstDay(now);
-  const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
-  const done = list.filter((i) => i.resolvedAt !== null);
-  const mttrMs = done.length === 0 ? null
-    : done.reduce((a, i) => a + (Date.parse(i.resolvedAt as string) - Date.parse(i.openedAt)), 0) / done.length;
-  return { count: list.length, open: list.length - done.length, mttrMs };
-}
-
-export function alertCounts(alerts: OpsAlert[]): Record<"critical" | "warning" | "info", number> {
-  const out = { critical: 0, warning: 0, info: 0 };
-  for (const a of alerts) out[a.severity] += 1;
-  return out;
-}
+// 오늘 사건 수와 경보 등급 수는 lib(opsDetail)에 있다. 경보·사건 화면과 웹 단위 시험이 같은 함수를 읽는다
+export { alertCounts, todayIncidents };
 
 // 추세선이 memo라 표기 함수는 모듈에 둔다. 칸 안에서 만들면 그릴 때마다 새 함수라 추세선이 매번 다시 그린다
 const pct2 = (v: number) => `${v.toFixed(2)}%`;

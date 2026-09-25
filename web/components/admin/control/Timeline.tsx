@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * 사건 타임라인. 발생, AI 판단, 승인, 조치, 해제 다섯 단계를 누가 언제 했는지와 함께 적는다.
- * 자동 모드의 조치는 사전 승인(자동 모드 켜기 티켓)을 딛고 실행되므로 승인 단계에 '자동'으로 적는다.
+ * 사건 기록. 사건 생애 다섯 단계(발생, 확인, 대응, 해제, 사후 분석)의 막대와, 누가 언제 무엇을 했는지의 기록이다.
  * 기록은 세로 레일 위의 점으로 늘어서고, 점은 누가 했는지(시스템·AI·운영자)와 발생·해제를 모양과 색으로 가른다.
  */
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { useOpsDetail } from "@/lib/admin/detailStore";
+import { lifecycleOf } from "@/lib/admin/opsDetail";
+import { kstDay, mdhm } from "@/lib/admin/timeText";
 import type { Incident, IncidentEvent, IncidentLog, OpsActor } from "@/lib/admin/types";
+import StageBar from "../StageBar";
 import { useFreshKeys } from "../useFreshKeys";
 import { AiMark, durationWord, hms, SEVERITY_SHAPE, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
-
-const STAGES = ["발생", "AI 판단", "승인", "조치", "해제"] as const;
 
 /** 기록 거르기. 경보는 시스템이 낸 기록(경보 발생·해제·알림), AI와 운영자는 행위자로 가른다 */
 export type EventFilter = "ALL" | OpsActor;
@@ -24,61 +24,12 @@ const FILTERS: { id: EventFilter; label: string }[] = [
   { id: "OPERATOR", label: "운영자" },
 ];
 
-interface StageMark {
-  at: string | null;
-  ai: boolean;
-  note?: string;
-}
-
-/** 사건의 단계별 첫 기록. 기록이 오래된 순서로 들어온다 */
-export function stagesOf(inc: Incident, events: IncidentEvent[]): StageMark[] {
-  const opened = events.find((e) => e.kind === "OPENED") ?? null;
-  // 단계는 발생 뒤의 기록만 본다. 자동 조치 뒤 악화 사건처럼 원인이 된 앞선 기록은 목록에만 남는다
-  const from = Date.parse(opened?.at ?? inc.openedAt);
-  const first = (pred: (e: IncidentEvent) => boolean) => events.find((e) => Date.parse(e.at) >= from && pred(e)) ?? null;
-  const judged = first((e) => e.kind === "AI_JUDGED" || e.kind === "AUTO_ACTED" || e.kind === "AUTO_REVERTED");
-  const approved = first((e) => e.kind === "APPROVED" || e.kind === "REJECTED" || e.kind === "AUTO_ACTED" || e.kind === "AUTO_REVERTED");
-  const acted = first((e) => (e.kind === "ACTED" && e.actor !== "OPERATOR") || e.kind === "AUTO_ACTED" || e.kind === "AUTO_REVERTED" || e.kind === "REVERTED");
-  const auto = approved !== null && (approved.kind === "AUTO_ACTED" || approved.kind === "AUTO_REVERTED");
-  return [
-    { at: opened?.at ?? inc.openedAt, ai: false },
-    { at: judged?.at ?? null, ai: true },
-    { at: approved?.at ?? null, ai: auto, note: auto ? "자동" : approved?.kind === "REJECTED" ? "거절" : undefined },
-    { at: acted?.at ?? null, ai: acted !== null && acted.actor === "AI" },
-    { at: inc.resolvedAt, ai: false },
-  ];
-}
-
-export function Stages({ inc, events }: { inc: Incident; events: IncidentEvent[] }) {
-  const marks = stagesOf(inc, events);
-  const current = inc.resolvedAt === null ? marks.findIndex((m) => m.at === null) : -1;
-  // 막대는 지나온 마지막 단계까지 늘어난다(§12-4 사건 단계 막대)
-  const lastDone = marks.reduce((a, m, i) => (m.at !== null ? i : a), 0);
-  const progress = { "--stage-progress": lastDone / (STAGES.length - 1) } as CSSProperties;
-  return (
-    <ol className={styles.stages} aria-label="사건 단계" style={progress}>
-      {STAGES.map((label, i) => {
-        const m = marks[i];
-        const done = m.at !== null;
-        return (
-          <li
-            key={label}
-            className={styles.stage}
-            data-done={done ? "" : undefined}
-            data-current={i === current ? "" : undefined}
-            data-ai={m.ai ? "" : undefined}
-          >
-            <span className={styles.stageDot} aria-hidden="true" />
-            <span>{label}</span>
-            <span className={`${styles.stageWhen} num`}>
-              {done ? `${m.at ? hms(m.at).slice(0, 5) : ""}${m.note ? ` · ${m.note}` : ""}` : i === current ? "대기" : ""}
-            </span>
-            <span className="sr-only">{done ? "완료" : i === current ? "진행 중" : "앞 단계 대기"}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
+/**
+ * 사건 생애 다섯 단계(발생, 확인, 대응, 해제, 사후 분석, 관리자 설계 4-10-2). 모든 화면이 이 한 막대를 쓴다. AI 판단과
+ * 승인은 대응 칸 아래의 작은 표지이고, AI의 판단 흐름은 AI 판단 상세의 판단 과정이 싣는다
+ */
+export function Lifecycle({ inc, events }: { inc: Incident; events: IncidentEvent[] }) {
+  return <StageBar items={lifecycleOf(inc, events)} label="사건 생애 단계" urgent={inc.resolvedAt === null} />;
 }
 
 /** 점의 모양. 발생과 해제는 상태 모양을 따르고, 나머지는 누가 했는지를 적는다 */
@@ -89,11 +40,16 @@ function dotKind(e: IncidentEvent): string {
   return e.actor.toLowerCase();
 }
 
-export function EventRow({ e, showIncident, fresh }: { e: IncidentEvent; showIncident?: string | null; fresh?: boolean }) {
+/**
+ * 기록 한 줄. day(사건을 연 KST 날짜)를 주면 그날이 아닌 줄(다음 날 쓴 사후 분석)은 시각 앞에 날짜를 붙인다. 그런 줄이
+ * 있는 목록은 events에 data-days를 달아 시각 칸을 넓힌다
+ */
+export function EventRow({ e, showIncident, fresh, day }: { e: IncidentEvent; showIncident?: string | null; fresh?: boolean; day?: string }) {
+  const other = day !== undefined && kstDay(Date.parse(e.at)) !== day;
   return (
     <li className={styles.event} data-dot={dotKind(e)} data-fresh={fresh ? "" : undefined}>
       <span className={styles.eventDot} aria-hidden="true" />
-      <span className={`${styles.eventTime} num`}>{hms(e.at)}</span>
+      <span className={`${styles.eventTime} num`}>{other ? mdhm(e.at) : hms(e.at)}</span>
       <span className={styles.actor} data-actor={e.actor} title={e.actorName}>
         {e.actor === "AI" && <AiMark size={11} />}
         <span className={styles.actorName}>{e.actorName}</span>
@@ -155,7 +111,7 @@ export function IncidentView({ inc, log, limit, filter = "ALL" }: { inc: Inciden
           <b className="num">{open ? <OpenElapsed from={inc.openedAt} /> : durationWord(Date.parse(inc.resolvedAt as string) - Date.parse(inc.openedAt))}</b>
         </span>
       </div>
-      <Stages inc={inc} events={asc} />
+      <Lifecycle inc={inc} events={asc} />
       {shown.length === 0 ? (
         <p className={styles.eventsEmpty}>이 사건에 고른 종류의 기록이 없습니다</p>
       ) : (

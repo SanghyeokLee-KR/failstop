@@ -16,6 +16,8 @@
 import { isoNow } from "../format";
 import { AI_LIMIT_DEFS, actionKey, isStricter } from "./aiPolicy";
 import { requestedGuide } from "./aiChat";
+import { DB_STATS_SOURCE } from "./dbFacts";
+import { runbookForAlert } from "./runbooks";
 import { THRESHOLD_META, isThresholdKey } from "./thresholdMeta";
 import type {
   AiActionKind,
@@ -35,6 +37,7 @@ import type {
   AiServer,
   AlertSeverity,
   ControlCenter,
+  HostAsset,
   Incident,
   IncidentEvent,
   IncidentEventKind,
@@ -548,8 +551,13 @@ function hostOf(h: WireHost): OpsHost {
     cpuCredits: mval(h.cpu_credits),
     // 마켓 묶음은 서버 한 판이 싣지 않는다
     partition: null,
+    // 자산 칸은 서버 경로(GET /admin/v1/msp/hosts/inventory)가 3라운드 계약 초안이라 값마다 원천 연결 전이다
+    asset: { ...NO_ASSET },
   };
 }
+
+/** 자산 원천이 없는 노드의 자산 칸. 값마다 null이고 화면이 칸마다 원천 이름을 적는다(관리자 설계 4-10-3) */
+export const NO_ASSET: HostAsset = { os: null, kernel: null, bootedAt: null, inodeUsedPct: null, failedUnits: null, securityUpdates: null };
 
 /**
  * 앱 계층(ADR 0030 사용자 정정). 서버의 용량 계획(capacity_plan)은 앱 계층 전체 대수이고 min 대까지가 늘 켜진 노드,
@@ -569,7 +577,7 @@ function readTierOf(r: WireReadTier): OpsSection<ReadTier> {
     const want = desired >= n;
     const have = observed !== null && observed >= n;
     const state: ReadNodeState = want ? (have ? "IN_SERVICE" : "PENDING") : have ? "DRAINING" : "OFF";
-    return { id: `app-${n}`, state, cpuPct: null, instanceType: "", az: "" };
+    return { id: `app-${n}`, state, cpuPct: null, instanceType: "", az: "", ...(state === "OFF" ? {} : { asset: { ...NO_ASSET } }) };
   });
   return {
     state: "READY",
@@ -633,6 +641,7 @@ function alertOf(a: WireAlert, hostIds: Set<string>): OpsAlert {
     silencedBy: a.silence?.by ?? a.silence?.actor ?? null,
     // AI의 연속 보류 금지(S3)는 서버가 판정한다. 사람의 보류에는 이 제약이 없다
     silencedBefore: false,
+    incidentId: a.incident_id === null || a.incident_id === undefined || a.incident_id === "" ? null : String(a.incident_id),
   };
 }
 
@@ -670,6 +679,8 @@ export function incidentOf(i: WireIncident, eventsLoaded: boolean): Incident {
     openedAt: i.started_at ?? "",
     resolvedAt: i.resolved_at ?? null,
     eventsLoaded,
+    // 런북은 경보 규칙 이름으로 고르는 정적 표다. 담당·호출·사후 분석은 서버 경로가 계약 초안이라 싣지 않는다(원천 연결 전)
+    runbookId: runbookForAlert({ name: i.alertname ?? "", target: i.node ?? i.component ?? "", detail: i.summary ?? "", thresholdKey: null }),
   };
 }
 
@@ -1420,8 +1431,13 @@ export function absentBoard(): ControlCenter {
     trends: nc(why),
     scenario: null,
     sources: null,
+    oncall: nc(why),
+    database: nc(why),
   };
 }
+
+/** 3라운드 계약 초안(관리자 설계 4-4)의 칸. 서버에 경로가 없어 원천 연결 전이다 */
+const ONCALL_SOURCE = "당번 명부와 호출 정책(GET /admin/v1/msp/oncall · 3라운드 계약 초안)";
 
 function newest(times: (string | null | undefined)[]): string | null {
   let best: string | null = null;
@@ -1496,6 +1512,8 @@ export function boardOf(w: WireOverview, x: OpsExtrasSnapshot, now: number): Con
     trends: trendsOf(w.trends, x.trends[1], x.trends[6]),
     scenario: null,
     sources: sourcesOf(w),
+    oncall: nc(ONCALL_SOURCE),
+    database: nc(DB_STATS_SOURCE),
   };
   // 실측 표식은 관측 원천(지표·경보)의 값이 있을 때만 세운다. DB의 임계값 레지스트리만 있는 판은 실측이 아니다
   const anyLive = [board.summary, board.hosts, board.alerts].some((s) => s.state === "READY");

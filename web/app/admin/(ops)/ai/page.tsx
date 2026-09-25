@@ -1,40 +1,42 @@
 "use client";
 
 /**
- * AI 판단(/admin/ai, 관리자 설계 4-2·4-4). AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지,
- * 자동 모드의 한도가 얼마나 남았는지를 한곳에 둔다. 규칙은 ADR 0035다. 왼쪽은 판단과 감사 기록, 오른쪽은
- * 자동 조치 수·쿨다운(표 하나), AI 한도, 허용·금지 목록이다(레이아웃 §7 v1.7)
+ * AI 판단(/admin/ai, 관리자 설계 4-10-2). AI가 무엇을 왜 판단했고, 어디까지 할 수 있으며, 얼마나 믿을 만한가에 답한다.
+ * 규칙은 ADR 0035다. 왼쪽 칸은 무엇을 왜 판단했고 얼마나 믿을 만한가다. AI 관제 전체판(판단 한 줄, 권장 조치, 근거,
+ * 처리된 조치, 판단 기록), 모드·정지 이력, ai-1 상태, 모델 평가 순서다. 오른쪽 칸은 어디까지 할 수 있는가다. 자동 조치
+ * 수와 쿨다운(표 하나), AI 한도, 허용·금지 목록이다(레이아웃 §7 3라운드).
+ * 감사 기록 칸은 조치 기록 화면으로 옮겼고 이 화면은 모드·정지 이력만 감사에서 읽는다. 판단 기록 행은 AI 판단 상세를 연다.
  */
 
 import { useCallback } from "react";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, cooldownSec, limitsOf } from "@/lib/admin/aiPolicy";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
-import type { AiActionKind, AuditEntry } from "@/lib/admin/types";
-import Skeleton from "@/components/Skeleton";
+import type { AiActionKind } from "@/lib/admin/types";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import AiLimitsPanel from "@/components/admin/control/AiLimits";
 import AiPanel from "@/components/admin/control/AiPanel";
 import ModeBar from "@/components/admin/control/ModeBar";
 import OpsHead from "@/components/admin/control/OpsHead";
+import PageSkeleton from "@/components/admin/control/PageSkeleton";
 import { hms, mmss, PanelHead, useClock } from "@/components/admin/control/parts";
+import AiServerPanel from "@/components/admin/ai/AiServerPanel";
+import ModeHistory from "@/components/admin/ai/ModeHistory";
+import ModelEvalPanel from "@/components/admin/ai/ModelEvalPanel";
 import { StatStrip, StatTile } from "@/components/admin/ui";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
+import KeepNames from "@/components/admin/KeepNames";
 import StatusShape from "@/components/admin/StatusShape";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 const KINDS: AiActionKind[] = ["READ_NODES", "THRESHOLD", "SILENCE", "BOT_LOAD", "BACKUP_NOW"];
 
-/** AI와 관제 조작만 거른다. 감사 원장은 관리 요청 전체를 싣는다 */
-function isOpsAudit(e: AuditEntry): boolean {
-  return e.action.startsWith("ai.") || e.action.startsWith("ops.") || e.action.includes(":ops.");
-}
-
 export default function AiPage() {
   const { data, loading, refresh } = useOpsCenter();
   const now = useClock();
+  // 모드·정지 이력은 감사 기록의 ops.ai.* 행이다. 감사 원장은 관리 요청 전체를 싣으므로 최근 한 쪽만 읽는다
   const loadAudit = useCallback(() => getAdminApi().getAudit({ limit: 200 }), []);
   const audit = useAdminResource(loadAudit, { cadence: "idle", isSessionError });
   const reloadAudit = audit.reload;
@@ -44,17 +46,16 @@ export default function AiPage() {
   }, [refresh, reloadAudit]);
   const ai = data?.ai.state === "READY" ? data.ai.data : null;
   const limits = limitsOf(ai?.limits);
-  const rows = (audit.data?.data ?? []).filter(isOpsAudit).slice(0, 14);
 
   return (
     <div className={adminStyles.page}>
-      <OpsHead
-        title="AI 판단"
-        desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남깁니다. 규칙은 ADR 0035를 따릅니다"
-        center={data}
-      />
+      <OpsHead title="AI 판단" center={data} />
       {data === null ? (
-        loading ? <Skeleton variant="card" width="100%" height={520} /> : <AdminErrorState onRetry={() => void refresh()} />
+        loading ? (
+          <PageSkeleton columns={[1.4, 1]} rows={[5, 4]} label="AI 판단 판을 불러오는 중입니다" />
+        ) : (
+          <AdminErrorState onRetry={() => void refresh()} />
+        )
       ) : (
         <>
           <ModeBar section={data.ai} onChanged={onChanged} />
@@ -63,44 +64,9 @@ export default function AiPage() {
               <div className={styles.aiTall}>
                 <AiPanel section={data.ai} onChanged={onChanged} full />
               </div>
-              <section className={styles.panel} aria-labelledby="ai-audit">
-                <PanelHead id="ai-audit" title="감사 기록" meta="AI 운영 계정과 운영자의 관제 조작" />
-                {audit.error ? (
-                  <AdminErrorState reason={audit.errorReason} onRetry={audit.reload} />
-                ) : rows.length === 0 ? (
-                  <div className={styles.empty}>
-                    <span className={styles.emptyMark} aria-hidden="true" />
-                    관제 조작 기록 없음
-                  </div>
-                ) : (
-                  /* 열 너비를 고정해 카드 폭 안에 둔다. 감사 기록은 원문을 다 읽어야 해서 자르지 않는다. 액션 코드는 기계
-                     식별자라 어디서든 끊고, 대상은 낱말 단위로 다음 줄로 넘긴다(디자인 시스템 §12-12) */
-                  <table className={styles.hist}>
-                    <thead>
-                      <tr>
-                        <th scope="col" data-col="at">시각</th>
-                        <th scope="col" data-col="who">누가</th>
-                        <th scope="col">액션</th>
-                        <th scope="col">대상</th>
-                        <th scope="col" data-col="ok">승인</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((e) => (
-                        <tr key={e.id}>
-                          <td className="num">{hms(e.at)}</td>
-                          <td title={e.operatorName}>
-                            <b>{e.operatorName}</b>
-                          </td>
-                          <td data-code="">{e.action}</td>
-                          <td data-wrap="">{e.target}</td>
-                          <td>{e.approvalId ? "티켓" : "없음"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
+              <ModeHistory audit={audit} live={isAdminHttp()} />
+              <AiServerPanel section={data.aiServer} />
+              <ModelEvalPanel />
             </div>
             <div className={styles.stack}>
               <section className={styles.panel} aria-labelledby="ai-usage">
@@ -110,12 +76,7 @@ export default function AiPage() {
                 ) : (
                   <>
                     <StatStrip label="자동 조치 현황" count={3}>
-                      <StatTile
-                        label="이번 자동 모드"
-                        value={`${ai.autoUsed}/${ai.autoCap}`}
-                        unit="회"
-                        sub="자동을 켤 때마다 0부터 셉니다"
-                      />
+                      <StatTile label="이번 자동 모드" value={`${ai.autoUsed}/${ai.autoCap}`} unit="회" sub="자동을 켤 때마다 0부터 셉니다" />
                       <StatTile
                         label="관찰 창"
                         value={ai.observation ? mmss(now - Date.parse(ai.observation.startedAt)) : "없음"}
@@ -167,9 +128,14 @@ export default function AiPage() {
                     <ul className={styles.rulesList}>
                       {allowedRules(limits).map((r) => (
                         <li key={r.kind}>
-                          <span aria-hidden="true"><StatusShape kind="circle" /></span>
+                          <span aria-hidden="true">
+                            <StatusShape kind="circle" />
+                          </span>
                           <span>
-                            <b>{AI_ACTION_LABEL[r.kind]}</b> · {r.rule}
+                            <b>
+                              <KeepNames text={AI_ACTION_LABEL[r.kind]} />
+                            </b>{" "}
+                            · <KeepNames text={r.rule} />
                           </span>
                         </li>
                       ))}
@@ -180,8 +146,12 @@ export default function AiPage() {
                     <ul className={styles.rulesList}>
                       {AI_FORBIDDEN.map((r) => (
                         <li key={r}>
-                          <span aria-hidden="true"><StatusShape kind="square" /></span>
-                          <span>{r}</span>
+                          <span aria-hidden="true">
+                            <StatusShape kind="square" />
+                          </span>
+                          <span>
+                            <KeepNames text={r} />
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -191,8 +161,12 @@ export default function AiPage() {
                 <ul className={styles.rulesList}>
                   {autoPreconditions(limits).map((r) => (
                     <li key={r}>
-                      <span aria-hidden="true"><StatusShape kind="triangle" /></span>
-                      <span>{r}</span>
+                      <span aria-hidden="true">
+                        <StatusShape kind="triangle" />
+                      </span>
+                      <span>
+                        <KeepNames text={r} />
+                      </span>
                     </li>
                   ))}
                 </ul>

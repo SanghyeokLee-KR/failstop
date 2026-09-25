@@ -8,9 +8,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ASSET_SOURCE } from "@/lib/admin/assets";
+import { bytesWord, walGap } from "@/lib/admin/dbFacts";
 import { appTierHot, hostState, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
 import { nodeAlerts, nodeEvents, nodeList, nodeServices, type NodeRef } from "@/lib/admin/opsDetail";
-import type { ControlCenter, ReadNode, ThresholdRegistry } from "@/lib/admin/types";
+import { mdhm, spanWord } from "@/lib/admin/timeText";
+import type { ControlCenter, HostAsset, ReadNode, ThresholdRegistry } from "@/lib/admin/types";
 import GrafanaLink, { grafanaConfigured } from "../GrafanaLink";
 import { AdminIcon } from "../icons";
 import { MeterRail } from "../instruments/MeterRail";
@@ -18,7 +21,7 @@ import { Modal } from "../layer/Layer";
 import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import { Segmented, SimMark, StateChip } from "../ui";
 import { HOST_KIND } from "../control/Infra";
-import { Ago, GaugeRow, SEVERITY_SHAPE } from "../control/parts";
+import { Ago, GaugeRow, SEVERITY_SHAPE, useClock } from "../control/parts";
 import { EventRow } from "../control/Timeline";
 import controlStyles from "../control/control.module.css";
 import styles from "./detail.module.css";
@@ -57,6 +60,31 @@ function roleLine(ref: NodeRef): string {
 
 function chipTone(s: NodeState) {
   return s.tone === "off" ? "off" : s.tone;
+}
+
+/** 노드의 자산 칸. 호스트와 켜진 app-3만 있고, ai-1(구축 전)과 꺼진 app-3는 없다 */
+function assetOf(ref: NodeRef): HostAsset | null {
+  if (ref.kind === "host") return ref.host.asset ?? null;
+  if (ref.kind === "read") return ref.node.asset ?? null;
+  return null;
+}
+
+/** 자산 칸 하나. 원천이 없으면(http) '◌'과 원천 이름이다 */
+/** 가동 시간. 자산 표와 같은 분 박자를 읽어 두 자리가 같은 값을 적는다 */
+function Uptime({ at }: { at: string }) {
+  const now = useClock(60_000);
+  return <>{spanWord(now - Date.parse(at))}</>;
+}
+
+function AssetValue({ asset, k, children }: { asset: HostAsset; k: keyof HostAsset; children: React.ReactNode }) {
+  if (asset[k] === null) {
+    return (
+      <span className={styles.missingValue} title={`원천 연결 전 · ${ASSET_SOURCE[k]}`}>
+        ◌ 원천 연결 전
+      </span>
+    );
+  }
+  return <>{children}</>;
 }
 
 /** 큰 판독값과 임계 눈금 막대 하나. 값이 임계를 넘으면 테두리·값·채움이 상태색이다(§12-14 미터 채움 규칙) */
@@ -191,7 +219,12 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
   const ev = log ? nodeEvents(log, node) : { system: [], actions: [] };
   const openInc = log?.incidents.find((i) => i.resolvedAt === null && ev.system.some((e) => e.incidentId === i.id)) ?? null;
   const services = nodeServices(node);
+  const asset = assetOf(node);
+  // 실패한 서비스 원천(node_systemd_unit_state)이 없으면 서비스 상태를 적지 않는다. sim은 노드 상태에서 가른 가정이다
+  const unitsKnown = node.kind === "ai" || (asset !== null && asset.failedUnits !== null) || (node.kind === "read" && node.node.state === "OFF");
+  const dbStats = center.database.state === "READY" ? center.database.data : null;
   const serviceState = (unit: string): NodeState => {
+    if (asset?.failedUnits?.includes(unit)) return { tone: "danger", shape: "■", word: "실패" };
     if (node.kind === "read") {
       if (node.node.state === "OFF") return { tone: "off", shape: "○", word: "중지" };
       if (node.node.state === "PENDING") return { tone: "warning", shape: "▲", word: "기동 중" };
@@ -303,6 +336,61 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
                     <dd>{node.server.model}</dd>
                   </>
                 )}
+                {asset && (
+                  <>
+                    <dt>OS · 커널</dt>
+                    <dd>
+                      <AssetValue asset={asset} k="os">
+                        {asset.os}
+                        {asset.kernel ? ` · 커널 ${asset.kernel}` : ""}
+                      </AssetValue>
+                    </dd>
+                    <dt>가동 시간</dt>
+                    <dd className="num">
+                      <AssetValue asset={asset} k="bootedAt">
+                        {asset.bootedAt ? (
+                          <>
+                            <Uptime at={asset.bootedAt} /> · {mdhm(asset.bootedAt)} 부팅
+                          </>
+                        ) : (
+                          ""
+                        )}
+                      </AssetValue>
+                    </dd>
+                    <dt>보안 업데이트</dt>
+                    <dd className="num">
+                      <AssetValue asset={asset} k="securityUpdates">
+                        {asset.securityUpdates === 0 ? "대기 없음" : `${asset.securityUpdates}건 대기`}
+                      </AssetValue>
+                    </dd>
+                    <dt>inode</dt>
+                    <dd className="num">
+                      <AssetValue asset={asset} k="inodeUsedPct">
+                        {asset.inodeUsedPct}% 사용
+                      </AssetValue>
+                    </dd>
+                    <dt>실패한 서비스</dt>
+                    <dd>
+                      <AssetValue asset={asset} k="failedUnits">
+                        {asset.failedUnits && asset.failedUnits.length > 0 ? asset.failedUnits.join(", ") : "없음"}
+                      </AssetValue>
+                    </dd>
+                  </>
+                )}
+                {node.kind === "host" && (node.host.role === "DB_PRIMARY" || node.host.role === "DB_STANDBY") && (
+                  <>
+                    <dt>DB 통계</dt>
+                    <dd className="num">
+                      {dbStats === null ? (
+                        <span className={styles.missingValue}>◌ 원천 연결 전</span>
+                      ) : node.host.role === "DB_PRIMARY" ? (
+                        `연결 ${dbStats.connections?.used ?? "◌"}/${dbStats.connections?.max ?? "◌"} · ${dbStats.tps ?? "◌"} TPS · WAL ${dbStats.wal?.primaryLsn ?? "◌"}`
+                      ) : (
+                        `재생 ${dbStats.wal?.standbyReplayLsn ?? "◌"} · 뒤처짐 ${walGap(dbStats) === null ? "◌" : bytesWord(walGap(dbStats) as number)}`
+                      )}
+                    </dd>
+                  </>
+                )}
               </dl>
             </section>
             <section className={styles.section} aria-label="지금 부하와 경보">
@@ -390,7 +478,13 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
                       </td>
                       <td>{sv.role}</td>
                       <td>
-                        <StateChip tone={chipTone(st)} label={st.word} />
+                        {unitsKnown ? (
+                          <StateChip tone={chipTone(st)} label={st.word} />
+                        ) : (
+                          <span className={styles.missingValue} title={`원천 연결 전 · ${ASSET_SOURCE.failedUnits}`}>
+                            ◌ 원천 연결 전
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

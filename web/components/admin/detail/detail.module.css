@@ -72,10 +72,11 @@
   border-radius: var(--control-radius);
   color: var(--text-default);
 }
+/* 누름 영역은 44x44다(32px 단추 둘레 6px) */
 .navBtn::after {
   content: "";
   position: absolute;
-  inset: -6px -2px;
+  inset: -6px;
 }
 .navBtn:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -115,6 +116,11 @@
 }
 .kv dd b {
   font-weight: var(--fw-semibold);
+}
+/* 원천이 없는 칸. 값이 없는 것도 실패도 아니라 원천을 붙이기 전이라는 뜻이라 무채다(§12-8) */
+.missingValue {
+  color: var(--text-secondary);
+  font-weight: var(--fw-regular);
 }
 
 .twoCol {
@@ -291,10 +297,11 @@
   color: var(--chrome-accent);
   white-space: nowrap;
 }
+/* 글 단추의 누름 영역을 44px 높이와 짧은 낱말(빼기)의 44px 폭까지 넓힌다 */
 .linkBtn::after {
   content: "";
   position: absolute;
-  inset: -12px -6px;
+  inset: -14px -12px;
 }
 .linkBtn:hover {
   text-decoration: underline;
@@ -339,6 +346,347 @@
   line-height: var(--font-dense-line);
   font-weight: var(--fw-regular);
   color: var(--text-default);
+}
+
+/* 해제 전 사건의 사후 분석 자리. 연결 전이 아니라 아직 쓸 때가 아니라는 뜻이라 점선이 아닌 헤어라인이다 */
+.postmortem[data-kind="wait"] {
+  border-style: solid;
+  border-color: var(--border-subtle);
+}
+.pmWait {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+/* ===== 담당 ===== */
+.owner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.ownerName {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.ownerMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 폼 줄. 고르기와 단추가 같은 40px 높이로 윗선과 아랫선이 한 줄에 선다(§12-5 폼 줄) */
+.formRow {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+.formRow > button {
+  min-height: 44px;
+}
+.grow {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.grow select {
+  min-height: 44px;
+  width: 100%;
+  max-width: none;
+}
+.runbook {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.runbookLink {
+  position: relative;
+  align-self: flex-start;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+  text-decoration: none;
+}
+.runbookLink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  min-width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.runbookLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ===== 사후 분석 양식 ===== */
+.pmForm,
+.pmDone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.pmField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pmField textarea {
+  width: 100%;
+  line-height: var(--font-body-sm-line);
+}
+.pmLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.pmCount {
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.pmSet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pmSet > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+.pmPick {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.pmPick > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+/* 고르는 줄 전체가 누르는 자리다. 줄은 32px이고 누르는 자리는 투명 ::after로 44px까지 넓힌다(§10-2) */
+.pmPickRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 64px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 6px var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+  cursor: pointer;
+}
+label.pmPickRow::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.pmPickRow[data-extra] {
+  cursor: default;
+}
+.pmPickRow input {
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--chrome-accent);
+}
+.pmPickText {
+  min-width: 0;
+}
+.pmExtraMark {
+  align-self: center;
+  justify-self: center;
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+}
+.pmAddRow {
+  display: flex;
+  gap: var(--space-2);
+}
+.pmAddRow > button {
+  min-height: 44px;
+}
+.pmInput,
+.pmSelect {
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-body-sm-size);
+}
+.pmAddRow > .pmInput {
+  flex: 1;
+}
+.pmInput::placeholder {
+  color: var(--text-placeholder);
+}
+.pmSelect {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: var(--space-7);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+}
+.pmActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* 조치 한 건은 두 줄이다. 할 일이 첫 줄 전체를 쓰고 둘째 줄에 담당, 기한, 완료, 빼기가 선다. 드로어 폭(560px)에서
+   할 일이 잘리지 않게 한다 */
+.pmActionRow {
+  display: grid;
+  grid-template-columns: 120px 152px auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.pmActionRow + .pmActionRow {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.pmTask {
+  grid-column: 1 / -1;
+}
+.pmRemove {
+  justify-self: end;
+}
+.pmAddAction {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+.pmCheck {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  font-size: var(--font-caption-size);
+  color: var(--text-default);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pmCheck::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  min-width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.pmCheck input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--chrome-accent);
+}
+.pmButtons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+}
+.pmBlock {
+  margin-right: auto;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.pmRead {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+}
+.pmRead dt {
+  color: var(--text-secondary);
+}
+.pmRead dd {
+  margin: 0;
+  color: var(--text-strong);
+}
+.pmSub {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.pmTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pmTimeline li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--space-2);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.pmActionsTable th:nth-child(2),
+.pmActionsTable td:nth-child(2) {
+  width: 88px;
+}
+.pmActionsTable th:nth-child(3),
+.pmActionsTable td:nth-child(3) {
+  width: 96px;
+}
+.pmActionsTable th:nth-child(4),
+.pmActionsTable td:nth-child(4) {
+  width: 64px;
+}
+.num {
+  text-align: right;
+}
+.pmDoneMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.pmDoneMark[data-done] {
+  color: var(--text-default);
+}
+.pmDoneMark[data-done] > svg {
+  color: var(--color-success);
 }
 
 /* ===== AI 판단 상세 ===== */
@@ -618,4 +966,8 @@
   .step {
     animation: none;
   }
+}
+/* 사건을 연 날과 다른 날의 줄이 있으면 시각 칸이 날짜까지 싣는다(9.24 18:03) */
+.rows[data-days] .row {
+  grid-template-columns: 80px minmax(0, 1fr) auto;
 }

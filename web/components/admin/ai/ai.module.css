@@ -1,0 +1,264 @@
+/* AI 판단 화면의 3라운드 칸(관리자 설계 4-10-2, 레이아웃 §7). 모드·정지 이력 표, ai-1 판독, 모델 평가 표다. 표는 열의
+   성격으로 정렬을 정한다(§12-7). 식별 글은 왼쪽, 수치와 시각은 오른쪽 tabular다. AI 강조색은 AI 행위자 글자와 표지에만 쓴다 */
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.table [data-col="at"] {
+  width: 76px;
+}
+.table [data-col="change"] {
+  width: 112px;
+}
+.table [data-col="who"] {
+  width: 84px;
+}
+.table [data-col="hours"] {
+  width: 64px;
+}
+.table [data-col="ticket"] {
+  width: 112px;
+}
+.table th {
+  padding: 0 var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: top;
+}
+.table tr:last-child td {
+  border-bottom: 0;
+}
+.table [data-num] {
+  text-align: right;
+}
+.table th:last-child,
+.table td:last-child {
+  padding-right: 0;
+}
+.change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.change b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.changeShape {
+  flex: none;
+  color: var(--color-warning);
+}
+.changeSub {
+  display: block;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.actor {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.actor[data-actor="AI"] {
+  color: var(--ai-accent-text);
+}
+.actor[data-actor="OPERATOR"] {
+  color: var(--text-strong);
+}
+.actorName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reason {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.quiet {
+  color: var(--text-secondary);
+}
+/* 승인 티켓 id는 한 줄이다. 칸보다 길면 말줄임하고 전체는 툴팁이 싣는다 */
+.ticket code {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  color: var(--text-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tableSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+/* ===== ai-1 ===== */
+.model {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  white-space: normal;
+}
+.srvMeta {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.srvMeta dt {
+  color: var(--text-secondary);
+}
+.srvMeta dd {
+  margin: 0;
+  color: var(--text-default);
+}
+
+/* ===== 모델 평가 ===== */
+.evalCaption {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.evalTable {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.evalTable thead th {
+  padding: 0 0 var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  text-align: left;
+  vertical-align: bottom;
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.evalTable thead th:first-child {
+  width: 46%;
+  padding-left: 0;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+}
+.evalTable thead th[data-num] {
+  text-align: right;
+}
+.modelName {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.think {
+  display: block;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.evalTable tbody th,
+.evalTable tbody td {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+.evalTable tbody tr:last-child th,
+.evalTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+.evalTable tbody th {
+  text-align: left;
+  font-weight: var(--fw-regular);
+}
+.evalTable tbody td {
+  padding-left: var(--space-3);
+  text-align: right;
+  color: var(--text-default);
+  white-space: nowrap;
+}
+/* 나은 값만 굵게 둔다. 상태가 아니라 비교라 색을 바꾸지 않는다 */
+.evalTable tbody td[data-better] {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 잘못 실행될 조치는 모델 선택의 첫 기준이라 행을 한 단 올린다 */
+.evalTable tbody tr[data-key="wrongExec"] td {
+  font-size: var(--font-body-sm-size);
+}
+.metric {
+  display: block;
+  color: var(--text-default);
+}
+.metricNote {
+  display: block;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.evalNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.evalNotesTitle {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+/* 오답 유형은 순서 없는 설명 목록이다. 들여쓴 자리에 기본 점 표지를 둔다 */
+.evalList {
+  display: block;
+  margin: 0;
+  padding: 0 0 0 var(--space-5);
+  list-style: disc outside;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.evalList > li + li {
+  margin-top: var(--space-1);
+}
+.evalNext {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.evalSource {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.evalSource code {
+  font-family: var(--font-mono);
+  color: var(--text-default);
+  word-break: break-all;
+}

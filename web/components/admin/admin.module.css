@@ -346,6 +346,9 @@
 }
 /* 페이지 본문 스크롤 컨테이너. opbar는 형제라 스크롤 밖에 고정된다 */
 .content {
+  /* 절대 위치 자손(보조기술용 sr-only 글, 부풀린 누름 영역)의 기준 상자를 이 스크롤 상자로 둔다. 기준이 문서면 아래쪽
+     글이 문서 높이를 늘려, 초점 이동이나 scrollIntoView가 운영자 바까지 셸 전체를 위로 밀어 올린다 */
+  position: relative;
   flex: 1;
   min-width: 0;
   overflow-y: auto;

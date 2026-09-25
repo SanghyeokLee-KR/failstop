@@ -58,6 +58,7 @@ import type {
   OnCallEntry,
   OpsScenarioId,
   OpsSection,
+  PostmortemDraft,
   ReportDesk,
 } from "./types";
 
@@ -218,6 +219,16 @@ export interface AdminApi {
   ackAlert(alertId: string): Promise<void>;
   /** 경보 보류. 최대 30분, 장애 등급 불가, 같은 경보 연속 불가(ADR 0035) */
   silenceAlert(alertId: string, minutes: number): Promise<void>;
+  /**
+   * 사건 담당 지정(관리자 설계 4-10-2, BOT_OPS 이상, 감사 msp.incident.assign). http는 서버 경로가 3라운드 계약 초안이라
+   * 원천 연결 전으로 거절한다
+   */
+  assignIncident(incidentId: string, operatorId: string): Promise<void>;
+  /**
+   * 사후 분석 저장(BOT_OPS 이상, 감사 msp.incident.postmortem). done이면 완료하고 그 뒤로는 고치지 않는다. 해제된 사건에만
+   * 쓴다. http는 서버 경로가 계약 초안이라 원천 연결 전으로 거절한다
+   */
+  savePostmortem(incidentId: string, draft: PostmortemDraft, done: boolean): Promise<void>;
   /** AI 조치안 결정. 승인은 실행이고, 임계값 조치안은 1인 승인 티켓(ops.threshold.set)을 발급·소각한다 */
   decideAiProposal(proposalId: string, decision: AiDecision): Promise<void>;
   /** 자동 실행된 조치를 되돌리기 창 안에서 되돌린다 */

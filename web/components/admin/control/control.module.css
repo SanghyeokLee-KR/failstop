@@ -2070,13 +2070,14 @@
   border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
+/* 28px 단추의 누름 영역을 44x44로 넓힌다(조치안 카드의 더 보기) */
 .iconBtn::after {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   transform: translate(-50%, -50%);
 }
 .iconBtn:hover,
@@ -2387,6 +2388,12 @@
   color: var(--text-default);
   min-width: 0;
 }
+/* 경보가 속한 사건의 호출 칩. 설명 뒤에 붙고 좁으면 다음 줄로 넘어간다 */
+.alertChip {
+  display: inline-flex;
+  margin-left: var(--space-2);
+  vertical-align: 1px;
+}
 .alertActions {
   grid-column: 3;
   justify-self: end;
@@ -2527,84 +2534,6 @@
   font-weight: var(--fw-bold);
   color: var(--text-strong);
 }
-/* 단계 줄. 번호 원 다섯 개와 뒤를 지나는 막대 하나. 막대는 지나온 단계까지 가로 배율로 늘어난다(§12-4 사건 단계 막대).
-   다섯 칸이 같은 폭이라 원의 가운데는 칸 폭의 10%·30%·50%·70%·90%에 선다 */
-.stages {
-  /* 지나온 단계의 비율(0~1). 기록 조각이 인라인 스타일로 덮어쓴다 */
-  --stage-progress: 0;
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-/* 목록 안에 li 아닌 요소를 두지 않으려고 막대는 목록의 가짜 요소로 그린다. 채움 폭은 --stage-progress(0~1)다 */
-.stages::before,
-.stages::after {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 10%;
-  right: 10%;
-  height: 2px;
-  border-radius: 1px;
-}
-.stages::before {
-  background: var(--border-default);
-}
-.stages::after {
-  background: var(--text-secondary);
-  transform: scaleX(var(--stage-progress));
-  transform-origin: left center;
-  transition: transform var(--dur-base) var(--ease-decelerate);
-}
-.stage {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  text-align: center;
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  color: var(--text-secondary);
-}
-.stageDot {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-full);
-  border: 2px solid var(--border-strong);
-  background: var(--surface-default);
-}
-.stage[data-done] .stageDot {
-  border-color: var(--text-strong);
-  background: var(--text-strong);
-}
-.stage[data-done] {
-  color: var(--text-default);
-}
-.stage[data-current] .stageDot {
-  border-color: var(--color-warning-text);
-  box-shadow: 0 0 0 3px var(--color-warning-bg);
-}
-.stage[data-current] {
-  color: var(--text-strong);
-  font-weight: var(--fw-semibold);
-}
-.stage[data-ai] .stageDot {
-  border-color: var(--ai-accent);
-}
-.stage[data-ai][data-done] .stageDot {
-  background: var(--ai-accent);
-}
-.stageWhen {
-  font-size: var(--font-micro-size);
-  color: var(--text-secondary);
-  font-weight: var(--fw-regular);
-}
 /* 기록은 세로 레일 위의 점으로 늘어선다. 레일은 점 칸 가운데를 지나는 헤어라인 한 줄이고,
    점은 누가 했는지(시스템 무채·AI 강조색·운영자 진한 글자색)와 발생·해제를 모양으로 가른다 */
 .events {
@@ -2680,6 +2609,10 @@
 .eventText {
   grid-area: text;
 }
+/* 사건을 연 날과 다른 날의 줄이 있으면 시각 칸이 날짜까지 싣는다(9.24 18:17) */
+.events[data-days] .event {
+  grid-template-columns: 9px 76px 76px minmax(0, 1fr);
+}
 /* 좁은 기둥에서는 시각과 행위자를 한 줄에, 글을 그 아래 줄에 둔다. 네 칸을 나란히 두면 글이 한 줄에 몇 자씩 접힌다 */
 @container col (max-width: 340px) {
   .event {
@@ -2688,6 +2621,9 @@
       "dot time actor"
       ". text text";
     row-gap: 0;
+  }
+  .events[data-days] .event {
+    grid-template-columns: 9px 76px minmax(0, 1fr);
   }
 }
 .eventsEmpty {
@@ -3706,6 +3642,18 @@
   border-radius: var(--panel-radius);
   background: var(--surface-default);
 }
+/* 3라운드 화면의 뼈대 격자. 칸 비율은 부품이 인라인으로 준다(PageSkeleton) */
+.skGrid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+.skColumn[data-short] {
+  min-height: 360px;
+}
+.summary[data-cols="6"] {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
 .skCard {
   display: flex;
   flex-direction: column;
@@ -3840,7 +3788,6 @@
   }
   .observeFill,
   .confFill,
-  .stages::after,
   .flashNum,
   .host,
   .dbPair,

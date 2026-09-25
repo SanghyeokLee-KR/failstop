@@ -14,10 +14,17 @@ import { integrationsOf, teamsDelivery } from "../lib/admin/integrations";
 import { simReportDesk } from "../lib/admin/reportSim";
 import { kstDay, lagWord, remainWord } from "../lib/admin/timeText";
 import { breachMinutes, trendDelta } from "../lib/admin/opsTrends";
+import { assetRows } from "../lib/admin/assets";
+import { walGap } from "../lib/admin/dbFacts";
+import { ONCALL_ROSTER, onDutyAt } from "../lib/admin/oncall";
+import { escalationOf, isPageEvent, todayIncidents, todayMeans } from "../lib/admin/opsDetail";
 import type {
   AiDesk,
   ControlCenter,
+  DbStats,
   IncidentLog,
+  OnCallDesk,
+  OpsAlert,
   OpsHost,
   OpsSection,
   OpsTrading,
@@ -138,6 +145,28 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   assert.equal(counts.ok + counts.warn + counts.down, hosts.length + tier.nodes.filter((n) => n.state !== "OFF").length, `${where}: 인프라 집계에서 ai-1 제외`);
   // 운영자 바의 '노드 n', 인프라 칸 머리의 주의·장애 수는 같은 노드를 센다(기동·드레이닝 중인 app-3 포함)
   assert.equal(overallOf(c).nodes, counts.warn + counts.down, `${where}: 운영자 바와 인프라 칸의 주의 노드 수`);
+
+  // 3라운드 일치 목록(관리자 설계 4-10-8). 오늘 사건의 평균 해제 시간은 관제센터 요약 칸과 경보·사건 화면·드로어가 같다
+  const log = ready<IncidentLog>(c.incidents);
+  assert.equal(todayIncidents(log, now).mttrMs, todayMeans(log, now).mttrMs, `${where}: 오늘 평균 해제 시간`);
+  // 호출 단계는 사건의 호출 기록과 사건 기록의 호출 줄이 같은 수이고, 경보 행의 칩과 목록·드로어가 한 함수로 같은 단계를 적는다
+  const oncall = ready<OnCallDesk>(c.oncall);
+  assert.deepEqual(oncall.roster, ONCALL_ROSTER, `${where}: 관제 판 명부와 연락 체계 조회가 같은 한 벌`);
+  for (const inc of log.incidents) {
+    const pageLines = log.events.filter((e) => e.incidentId === inc.id && isPageEvent(e)).length;
+    assert.equal(inc.pages?.length ?? 0, pageLines, `${where}: ${inc.title} 호출 기록과 호출 줄`);
+    const view = escalationOf(inc, oncall.policy, log.events);
+    assert.equal(view?.level ?? 0, Math.max(0, ...(inc.pages ?? []).map((p) => p.level)), `${where}: ${inc.title} 호출 단계`);
+    const assigned = log.events.some((e) => e.incidentId === inc.id && e.kind === "ASSIGNED");
+    if (!assigned) assert.equal(inc.owner?.name, onDutyAt(Date.parse(inc.openedAt)).person, `${where}: ${inc.title} 자동 배정 담당은 그때의 당번`);
+  }
+  for (const a of ready<OpsAlert[]>(c.alerts)) {
+    assert.ok(a.incidentId === null || log.incidents.some((i) => i.id === a.incidentId), `${where}: ${a.name} 경보의 사건`);
+  }
+  // DB 통계의 WAL 차이는 DB 묶음의 복제 지연 바이트와 같다
+  assert.equal(walGap(ready<DbStats>(c.database)), repl.lagBytes, `${where}: WAL 차이와 복제 지연 바이트`);
+  // 자산 목록의 수집 중 행은 설정의 Prometheus 행(수집 대상 응답 수)과 같다
+  assert.equal(assetRows(c).filter((r) => r.responding).length, targets.ok, `${where}: 자산 목록 수집 중 행`);
 }
 
 test("평시 한 판에서 모든 화면의 봇 발행률, 조회 CPU, 증설 기준, 대수, 리더, 복제, 연동 값이 같다", () => {
@@ -207,6 +236,9 @@ test("관리 어댑터의 종합 조회와 봇 상태는 관제 판의 거래 �
   assert.equal(status.currentOps, trading.botOps);
   const ha = await api.getHaStatus();
   assert.deepEqual(ha.nodes.map((n) => n.id), ["app-1", "app-2"], "옛 engine-01~03은 없다");
+  // 연락 체계 조회와 관제 판의 당번 칸이 같은 명부다(관리자 설계 4-10-7 합침)
+  const onCall = await api.getOnCall();
+  assert.deepEqual(onCall.state === "READY" ? onCall.data : null, ready<OnCallDesk>(c.oncall).roster);
 
   await api.simSetRate(45);
   const after = ready<OpsTrading>((await api.getControlCenter()).trading);

@@ -13,6 +13,7 @@ import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { actionKey } from "./aiPolicy";
+import { ONCALL_ROSTER } from "./oncall";
 import { BASE_BOT_OPS, OpsSim, type OpsActorRef } from "./opsSim";
 import { onBeat } from "./ticker";
 import type {
@@ -76,6 +77,7 @@ import type {
   OnCallEntry,
   OpsScenarioId,
   OpsSection,
+  PostmortemDraft,
   ReportDesk,
 } from "./types";
 import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
@@ -955,6 +957,24 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve();
   }
 
+  /** 사건 담당 지정. 서버 계약 초안과 같이 BOT_OPS 이상이고 감사 코드는 msp.incident.assign이다 */
+  assignIncident(incidentId: string, operatorId: string): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    const op = this.operators.find((o) => o.operatorId === operatorId && o.status === "ACTIVE");
+    if (!op) return Promise.reject(new AdminError("invalid_parameter", "담당으로 지정할 운영자 없음"));
+    this.ops.assignIncident(incidentId, { id: op.operatorId, name: op.displayName }, actorOf(s), Date.now());
+    this.log(s, "msp.incident.assign", `${incidentId} → ${op.displayName}`, null, "OK");
+    return Promise.resolve();
+  }
+
+  /** 사후 분석 저장. BOT_OPS 이상이고 감사 코드는 msp.incident.postmortem이다 */
+  savePostmortem(incidentId: string, draft: PostmortemDraft, done: boolean): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    this.ops.savePostmortem(incidentId, draft, done, actorOf(s), Date.now());
+    this.log(s, "msp.incident.postmortem", `${incidentId} · ${done ? "완료" : "초안 저장"}`, null, "OK");
+    return Promise.resolve();
+  }
+
   async decideAiProposal(proposalId: string, decision: AiDecision): Promise<void> {
     // 승인은 인프라 조치라 SUPER다. 거절과 나중에는 조치를 줄이는 쪽이라 조회 권한으로 된다
     const s = this.auth(decision === "APPROVE" ? "SUPER" : "VIEW");
@@ -1074,15 +1094,8 @@ export class SimAdminApi implements AdminApi {
 
   getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
     this.auth("VIEW");
-    // 예시 명부다. 역할 이름은 보고 서비스의 권고 담당 역할과 같게 둔다
-    return Promise.resolve({
-      state: "READY",
-      data: [
-        { role: "총괄 · DB 운영 담당", person: "김수퍼", operatorId: "op-01", channel: "Teams 운영 채널 멘션 · 당번 호출", hours: "평일 09~18시 · 야간은 당번" },
-        { role: "Linux·관측 운영 담당", person: "이오퍼", operatorId: "op-02", channel: "Teams 운영 채널 멘션", hours: "평일 09~18시" },
-        { role: "서비스 운영 담당", person: "당번 교대", operatorId: null, channel: "당번 호출 · 사건 보고 P1·P2", hours: "야간·주말 주 단위 교대" },
-      ],
-    });
+    // 예시 명부다. 관제 판의 당번 칸(사건 담당 자동 배정과 호출)과 같은 한 벌(oncall.ts)을 읽는다
+    return Promise.resolve({ state: "READY", data: ONCALL_ROSTER.map((r) => ({ ...r })) });
   }
 
   /** 모의 전송이다. 밖으로 보내는 자리라 총괄 권한과 감사를 요구한다 */

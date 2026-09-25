@@ -1,0 +1,209 @@
+/* 서버·노드 자산 목록(관리자 설계 4-10-3, 레이아웃 §7 3라운드). 여덟 칸 두 줄이고 1280 창(표 폭 988px)에서 가로
+   스크롤 없이 든다. 칸 폭은 표 폭의 몫이라 넓은 창에서도 한 칸만 늘지 않는다. 식별 글은 왼쪽, 수치와 시각은 오른쪽
+   tabular다(§12-7). 윗줄은 값, 아랫줄은 짝 항목의 보조 글이고 행을 누르면 노드 상세가 열린다 */
+
+.tableWrap {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+}
+.cName {
+  width: 15%;
+}
+.cAz {
+  width: 11%;
+}
+.cUp {
+  width: 10%;
+}
+.cUpd {
+  width: 9%;
+}
+.cCollect {
+  width: 10%;
+}
+.cDisk {
+  width: 10%;
+}
+.cFailed {
+  width: 11%;
+}
+.table thead th {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+.table th[data-num],
+.table td[data-num] {
+  text-align: right;
+}
+.table thead th:first-child,
+.table tbody th {
+  padding-left: var(--space-4);
+}
+.table thead th:last-child,
+.table tbody td:last-child {
+  padding-right: var(--space-4);
+  /* 오른쪽 맞춤인 디스크·inode 칸 바로 뒤라 왼쪽 여백을 한 단 넓힌다 */
+  padding-left: var(--space-4);
+}
+.row {
+  cursor: pointer;
+}
+.row th,
+.row td {
+  height: 52px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  text-align: left;
+  vertical-align: middle;
+  font-weight: var(--fw-regular);
+}
+.row:last-child th,
+.row:last-child td {
+  border-bottom: 0;
+}
+.row:hover {
+  background: var(--surface-hover);
+}
+.row td b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 꺼진 app-3는 인스턴스가 없다. 글자를 흐리지 않고 칸을 비워 둔다(§12-6) */
+.row[data-off] {
+  cursor: pointer;
+}
+.nameCell {
+  white-space: nowrap;
+}
+/* 칸의 윗줄과 아랫줄. 넘치면 줄을 바꾸지 않고 말줄임한다(원문은 칸의 툴팁) */
+.line,
+.sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.line {
+  color: var(--text-default);
+}
+.sub {
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.row:hover .sub {
+  color: var(--text-default);
+}
+.name {
+  position: relative;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+.name::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.row:hover .name {
+  text-decoration-color: currentColor;
+}
+.assumed {
+  display: inline-flex;
+  margin-left: var(--space-1);
+  vertical-align: 1px;
+}
+.clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.missing {
+  color: var(--text-secondary);
+}
+.quiet {
+  color: var(--text-secondary);
+}
+/* 디스크와 inode 사이 구분점. 읽히는 글이라 보조 글과 같은 대비(4.5:1)를 지킨다 */
+.sep {
+  color: var(--text-secondary);
+}
+.failed {
+  color: var(--color-danger);
+}
+.collect {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.collectShape[data-tone="success"] {
+  color: var(--color-success);
+}
+.collectShape[data-tone="warning"] {
+  color: var(--color-warning);
+}
+.collectShape[data-tone="off"] {
+  color: var(--text-secondary);
+}
+.collect[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.collectAgo {
+  padding-left: 15px;
+}
+.row:hover .collectAgo,
+.row:hover .quiet,
+.row:hover .missing {
+  color: var(--text-default);
+}
+
+/* 역할 묶음 판의 안내 줄과 앱 계층 자동 증설 칸 */
+.guide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.asgFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.asgFact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.asgFactTitle {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}

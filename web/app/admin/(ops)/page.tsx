@@ -59,11 +59,6 @@ export default function ControlCenterPage() {
     <div className={adminStyles.page}>
       <OpsHead
         title="관제센터"
-        desc={
-          <>
-            관찰과 추이는 <b>Grafana</b>에서, 판단·조치·기록은 <b>관제센터</b>에서 합니다
-          </>
-        }
         center={data}
         aside={
           <>
@@ -84,7 +79,7 @@ export default function ControlCenterPage() {
           <div className={styles.columns}>
             <InfraColumn center={data} />
             <AiPanel section={data.ai} onChanged={onChanged} />
-            <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} onChanged={onChanged} />
+            <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} oncall={data.oncall} onChanged={onChanged} />
           </div>
           <ThresholdPanel section={data.thresholds} onChanged={onChanged} />
           <TradingStrip ov={ov.data} at={ov.lastUpdatedAt} trading={data.trading} />

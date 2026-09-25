@@ -77,6 +77,35 @@ export function durationWord(ms: number): string {
   return `${Math.floor(m / 60)}시간 ${m % 60}분`;
 }
 
+/**
+ * 긴 지난 기간(가동 시간). 하루 이상은 일과 시간, 한 시간 이상은 시간과 분, 그 아래는 분이다. 자산 표와 노드 상세가
+ * 같은 꼴로 적는다
+ */
+export function spanWord(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000));
+  if (m < 60) return `${m}분`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 ${m % 60}분`;
+  return `${Math.floor(h / 24)}일 ${h % 24}시간`;
+}
+
+/** KST 날짜와 요일('9.25 금'). 달력과 교대표가 쓴다 */
+export function mdw(iso: string): string {
+  const k = kstParts(Date.parse(iso));
+  return `${k.month}.${k.day} ${k.weekday}`;
+}
+
+/** 이 시각을 품은 주의 시작. 월요일 KST hour시다. 당번 교대가 이 경계에서 바뀐다 */
+export function weekStartKst(ms: number, hour = 9): number {
+  const d = new Date(ms + KST_OFFSET_MS);
+  const back = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - back);
+  d.setUTCHours(hour, 0, 0, 0);
+  let t = d.getTime() - KST_OFFSET_MS;
+  if (t > ms) t -= 7 * 86_400_000;
+  return t;
+}
+
 /** 초 단위 지연(복제 지연). 소수 첫째 자리로 고정해 '1초'와 '0.3초'가 한 자리에서 자릿수를 바꾸지 않게 한다(§12-12) */
 export function lagWord(sec: number): string {
   return `${sec.toFixed(1)}초`;

@@ -7,21 +7,26 @@
 
 import { memo } from "react";
 import Link from "next/link";
-import type { IncidentLog, OpsAlert, OpsJobs, OpsSection } from "@/lib/admin/types";
+import type { IncidentLog, OnCallDesk, OpsAlert, OpsJobs, OpsSection } from "@/lib/admin/types";
 import AlertList from "./Alerts";
 import JobsBlock from "./Jobs";
 import { PanelHead, SectionBody } from "./parts";
 import TimelineBlock from "./Timeline";
 import styles from "./control.module.css";
 
-/** 경보·사건·운영 작업 세 칸만 받는다. 세 칸이 그대로면 판이 매초 새로 와도 다시 그리지 않는다 */
-function ActionsColumn({ alerts, incidents, jobs, onChanged }: {
+/**
+ * 경보·사건·운영 작업 세 칸과 당번 칸만 받는다. 칸이 그대로면 판이 매초 새로 와도 다시 그리지 않는다. 경보 행의 호출
+ * 칩은 사건 기록과 당번 칸의 호출 정책을 읽는다(관리자 설계 4-10-2 관제센터 연결점)
+ */
+function ActionsColumn({ alerts, incidents, jobs, oncall, onChanged }: {
   alerts: OpsSection<OpsAlert[]>;
   incidents: OpsSection<IncidentLog>;
   jobs: OpsSection<OpsJobs>;
+  oncall: OpsSection<OnCallDesk>;
   onChanged: () => void;
 }) {
   const firing = alerts.state === "READY" ? alerts.data.length : null;
+  const context = { log: incidents.state === "READY" ? incidents.data : null, policy: oncall.state === "READY" ? oncall.data.policy : null };
   return (
     <section className={styles.column} aria-labelledby="col-actions">
       <PanelHead id="col-actions" title="조치와 기록" actions={<Link href="/admin/incidents" className={styles.stripLink}>경보·사건</Link>} />
@@ -31,7 +36,7 @@ function ActionsColumn({ alerts, incidents, jobs, onChanged }: {
             활성 경보 {firing !== null && <span className={`${styles.count} num`}>{firing}</span>}
           </div>
           <SectionBody section={alerts} what="경보" compact>
-            {(list) => <AlertList alerts={list} onChanged={onChanged} />}
+            {(list) => <AlertList alerts={list} onChanged={onChanged} context={context} />}
           </SectionBody>
           <div className={styles.divider} />
           {incidents.state === "READY" ? (

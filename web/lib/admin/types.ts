@@ -825,6 +825,11 @@ export interface ReadNode {
   cpuPct: number | null;
   instanceType: string;
   az: string;
+  /**
+   * 자산 칸(관리자 설계 4-10-3). 켤 때마다 새 인스턴스라 가동 시간과 최근 재부팅이 켠 시각에서 온다. 꺼져 있으면
+   * 인스턴스가 없어 없다. http는 원천이 채우기 전이라 값마다 null이다
+   */
+  asset?: HostAsset;
 }
 
 /**
@@ -892,6 +897,11 @@ export interface OpsAlert {
   silencedBy: string | null;
   /** 이미 한 번 보류했는가. 같은 경보를 잇달아 보류하지 못한다(ADR 0035) */
   silencedBefore: boolean;
+  /**
+   * 이 경보가 속한 사건. 경보 행의 호출 단계 칩이 그 사건의 호출 기록을 읽는다(관리자 설계 4-10-2). 서버는 경보마다
+   * incident_id를 싣고, 원천이 사건을 싣지 않으면 null이다
+   */
+  incidentId: string | null;
 }
 
 export type IncidentEventKind =
@@ -924,7 +934,9 @@ export type IncidentEventKind =
   /** 관찰 창의 끝 */
   | "OBSERVED"
   /** 사건 담당 지정(관리자 설계 4-10-2). 서버 경로는 계약 초안이다 */
-  | "ASSIGNED";
+  | "ASSIGNED"
+  /** 사후 분석 완료(관리자 설계 4-10-2). 생애의 다섯째 단계다. 서버 경로는 계약 초안이다 */
+  | "POSTMORTEM";
 
 export type OpsActor = "SYSTEM" | "AI" | "OPERATOR";
 
@@ -950,12 +962,16 @@ export interface Incident {
    * getIncidentEvents로 읽는다. sim은 늘 싣는다(undefined)
    */
   eventsLoaded?: boolean;
-  /* 아래 넷은 3라운드 칸이다(관리자 설계 4-10-2). 원천이 채우기 전에는 없다 */
+  /*
+   * 아래 셋은 3라운드 칸이다(관리자 설계 4-10-2). 당번 명부·호출·사후 분석 원천이 있어야 채운다. sim은 늘 채우고
+   * http는 서버 경로가 계약 초안이라 없다. 없으면 화면이 그 칸을 원천 연결 전으로 그린다
+   */
   owner?: IncidentOwner | null;
   /** 보낸 호출. 오래된 것이 앞이다 */
   pages?: IncidentPage[];
   postmortem?: Postmortem | null;
-  runbookId?: RunbookId | null;
+  /** 사건의 런북. 경보의 이름과 임계값 키로 정적 런북 표에서 고른다(runbooks.ts). 두 원천 모두 채운다 */
+  runbookId: RunbookId | null;
 }
 
 /** 최신이 앞이다 */
@@ -1345,13 +1361,16 @@ export interface ControlCenter {
    * 관리 API에 관제 모듈이 없어 모르면 null이다
    */
   sources: OpsSourceState[] | null;
-  /* 아래는 3라운드 칸이다(관리자 설계 4-10-8). 원천이 채우기 전에는 없고, 화면은 칸이 없으면 원천 연결 전으로 그린다 */
-  /** 당번 명부와 호출 정책 */
-  oncall?: OpsSection<OnCallDesk>;
+  /*
+   * 아래는 3라운드 칸이다(관리자 설계 4-10-8). 두 원천이 채운 칸은 필수다(http는 서버 경로가 계약 초안이라 원천 연결
+   * 전을 싣는다). 선택 칸은 원천이 채우기 전에는 없고, 화면은 칸이 없으면 원천 연결 전으로 그린다
+   */
+  /** 당번 명부와 호출 정책. sim은 예시 명부, http는 원천 연결 전(GET /admin/v1/msp/oncall 초안)이다 */
+  oncall: OpsSection<OnCallDesk>;
   /** 계획 작업 창과 변경 요청 */
   changes?: OpsSection<ChangeDesk>;
-  /** DB 통계와 복제 방식 */
-  database?: OpsSection<DbStats>;
+  /** DB 통계. sim은 예시 값, http는 원천 연결 전(GET /admin/v1/msp/database 초안)이다. 복제 방식은 DB_TOPOLOGY가 싣는다 */
+  database: OpsSection<DbStats>;
   /** 용량 전망과 앱 계층 활동 기록 */
   outlook?: OpsSection<CapacityOutlook>;
   /** 이번 달 SLA */
@@ -1573,7 +1592,9 @@ export interface OnCallDesk {
   /** 단계 순서다 */
   policy: EscalationStep[];
   /** 지금 당번. 명부에 교대가 없으면 null */
-  onDuty: { role: string; person: string; until: string } | null;
+  onDuty: { role: string; person: string; operatorId: string | null; until: string } | null;
+  /** 주 단위 당번 교대. 이번 주와 다음 주다. 교대가 없으면 빈 배열이다 */
+  rotation: { person: string; operatorId: string | null; from: string; until: string }[];
 }
 
 /** 사건 담당. 이 사건을 맡은 사람이고 보고서의 권고 담당 역할(4-7)과 다르다 */
@@ -1605,10 +1626,35 @@ export interface Postmortem {
   impact: string;
   /** 사건 기록에서 고른 줄과 운영자가 더한 줄. 오래된 것이 앞이다 */
   timeline: { at: string; text: string }[];
-  /** 재발 방지 조치 */
+  /** 재발 방지 조치. due는 KST 날짜(YYYY-MM-DD)다 */
   actions: { task: string; owner: string; due: string; done: boolean }[];
   updatedAt: string;
   updatedBy: string;
+}
+
+/** 운영자가 쓰는 사후 분석 본문. 상태와 누가 언제는 원천이 정한다 */
+export type PostmortemDraft = Pick<Postmortem, "cause" | "impact" | "timeline" | "actions">;
+
+/**
+ * AI 모드·정지 이력 한 줄(관리자 설계 4-10-2). 감사 기록의 ops.ai.* 행에서 옮긴다(aiHistory.ts). 사유와 유효 시간은
+ * 감사 대상 칸이 싣는 만큼만 적고, 서버 감사 목록처럼 사유가 없으면 null이다
+ */
+export interface AiModeRow {
+  /** 감사 기록 id. 조치 기록의 상세가 이 행을 연다 */
+  auditId: string;
+  at: string;
+  kind: "AUTO_ON" | "AUTO_OFF" | "STOP" | "RESUME" | "EXPIRE" | "SYSTEM";
+  /** 전환 전후 모드 */
+  from: AiMode;
+  to: AiMode;
+  actor: OpsActor;
+  actorName: string;
+  reason: string | null;
+  /** 자동 모드 유효 시간(시간). 자동 켜기가 아니면 null */
+  hours: number | null;
+  approvalId: string | null;
+  /** 감사 원문 코드 */
+  action: string;
 }
 
 /** 계획 작업 창(API 설계 §6-F). AI의 경보 보류는 이 창과 겹치는 warning 경보뿐이다(ADR 0035) */

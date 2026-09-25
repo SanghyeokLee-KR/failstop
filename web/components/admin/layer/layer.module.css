@@ -32,6 +32,8 @@
   box-shadow: var(--shadow-4);
   color: var(--text-default);
   animation: dialogIn var(--dur-dialog) var(--ease-decelerate) both;
+  /* 층 안의 단계 막대(StageBar)가 원 안을 층의 면으로 칠해 뒤를 지나는 선을 가린다 */
+  --stage-surface: var(--surface-elevated);
 }
 .panel:focus {
   outline: none;

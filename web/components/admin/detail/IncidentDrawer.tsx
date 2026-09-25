@@ -1,30 +1,46 @@
 "use client";
 
 /**
- * 사건 드로어(오른쪽 560px, 디자인 시스템 §12-13의 2, 관리자 설계 4-9). 한 사건의 생애 단계, 확인·해제까지 걸린
- * 시간, 관련 경보, AI 판단, 운영자 조치, Teams 전송을 한 줄기로 읽는다. http 판에 기록 줄이 없는 사건은 열 때 한 번 읽는다.
- * 사후 분석은 보고 서비스와 잇는 양식의 자리만 둔다. 주소의 ?incident= 가 이 층을 연다(DetailHost).
+ * 사건 드로어(오른쪽 560px, 디자인 시스템 §12-13의 2, 관리자 설계 4-9·4-10-2). 한 사건의 생애 다섯 단계, 확인·해제까지
+ * 걸린 시간, 담당(바꾸기), 단계별 호출, 런북, 관련 경보, AI 판단, 운영자 조치, Teams 전송, 사후 분석을 한 줄기로 읽는다.
+ * http 판에 기록 줄이 없는 사건은 열 때 한 번 읽는다. 담당·호출·사후 분석은 원천이 없으면(http) 원천 연결 전이다.
+ * 주소의 ?incident= 가 이 층을 연다(DetailHost). 담당 지정과 사후 분석 말고는 실행 단추가 없다.
  */
 
-import { useEffect, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
-import { incidentSections, incidentTimes, judgmentAt, todayMeans } from "@/lib/admin/opsDetail";
-import type { ControlCenter, IncidentEvent } from "@/lib/admin/types";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { escalationOf, incidentSections, incidentTimes, judgmentAt, todayMeans } from "@/lib/admin/opsDetail";
+import { useOpsCenter } from "@/lib/admin/opsCenter";
+import { runbookById, runbookHref } from "@/lib/admin/runbooks";
+import { useCan } from "@/lib/admin/store";
+import { kstDay, mdhm } from "@/lib/admin/timeText";
+import { directionParticle } from "@/lib/admin/text";
+import type { AdminOperator, ControlCenter, Incident, IncidentEvent } from "@/lib/admin/types";
+import { toast } from "@/components/Toast";
+import { useAdminResource } from "../useAdminResource";
 import { Drawer } from "../layer/Layer";
 import { SimMark, StateChip } from "../ui";
 import { durationWord, hm, hms, useClock } from "../control/parts";
-import { OpenElapsed, Stages } from "../control/Timeline";
+import { Lifecycle, OpenElapsed } from "../control/Timeline";
+import { EscalationBar, NextPage } from "../incidents/Escalation";
+import StatusShape from "../StatusShape";
+import PostmortemForm from "./PostmortemForm";
+import adminStyles from "../admin.module.css";
 import controlStyles from "../control/control.module.css";
 import styles from "./detail.module.css";
-import StatusShape from "../StatusShape";
 
-function Rows({ events, empty, link }: { events: IncidentEvent[]; empty: string; link?: (e: IncidentEvent) => React.ReactNode }) {
+const ONCALL_SOURCE = "당번 명부·호출(GET /admin/v1/msp/oncall, 사건 확장 필드 · 3라운드 계약 초안)";
+
+/** 사건 드로어의 기록 줄. 사건을 연 날과 다른 날의 줄(다음 날 쓴 사후 분석)은 날짜를 붙이고 목록의 시각 칸을 넓힌다 */
+function Rows({ events, empty, day, link }: { events: IncidentEvent[]; empty: string; day: string; link?: (e: IncidentEvent) => React.ReactNode }) {
   if (events.length === 0) return <div className={styles.empty}>{empty}</div>;
+  const other = (e: IncidentEvent) => kstDay(Date.parse(e.at)) !== day;
   return (
-    <ol className={styles.rows}>
+    <ol className={styles.rows} data-days={events.some(other) ? "" : undefined}>
       {events.map((e) => (
         <li key={e.id} className={styles.row}>
-          <span className={`${styles.rowTime} num`}>{hms(e.at)}</span>
+          <span className={`${styles.rowTime} num`}>{other(e) ? mdhm(e.at) : hms(e.at)}</span>
           <span className={styles.rowText}>
             {e.actor !== "SYSTEM" && <b>{e.actorName} </b>}
             {e.text}
@@ -33,6 +49,79 @@ function Rows({ events, empty, link }: { events: IncidentEvent[]; empty: string;
         </li>
       ))}
     </ol>
+  );
+}
+
+/** 담당. 지금 담당과 누가 언제 정했는지, 바꾸기(BOT_OPS 이상)다. 담당은 사건을 맡은 사람이고 보고서의 권고 담당 역할과 다르다 */
+function OwnerSection({ inc, operators, onChanged }: {
+  inc: Incident;
+  operators: AdminOperator[] | null;
+  onChanged: () => void;
+}) {
+  const canAssign = useCan("BOT_OPS");
+  const owner = inc.owner;
+  const [pick, setPick] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  if (owner === undefined) {
+    return (
+      <div className={controlStyles.notConnected} data-compact="">
+        <span className={controlStyles.notConnectedTitle}>
+          <span aria-hidden="true">
+            <StatusShape kind="dashed" />{" "}
+          </span>
+          담당 원천 연결 전
+        </span>
+        <span className={controlStyles.notConnectedSource}>{ONCALL_SOURCE}</span>
+      </div>
+    );
+  }
+  const active = (operators ?? []).filter((o) => o.status === "ACTIVE");
+  const choice = pick || active.find((o) => o.operatorId !== owner?.operatorId)?.operatorId || "";
+  const same = choice === owner?.operatorId;
+  const block = !canAssign ? "봇 운영 이상 권한 필요" : operators === null ? "운영자 목록을 읽는 중" : active.length === 0 ? "지정할 운영자 없음" : same ? "지금 담당과 같음" : null;
+  const assign = async () => {
+    setBusy(true);
+    try {
+      await getAdminApi().assignIncident(inc.id, choice);
+      const name = active.find((o) => o.operatorId === choice)?.displayName ?? choice;
+      toast(`담당을 ${name}${directionParticle(name)} 지정했습니다`, "success");
+      setPick("");
+      onChanged();
+    } catch (e) {
+      toast(e instanceof AdminError ? e.message : "담당 지정 실패", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div className={styles.owner}>
+        <span className={styles.ownerName}>{owner?.name ?? "담당 없음"}</span>
+        {owner && (
+          <span className={styles.ownerMeta}>
+            {owner.role} · {owner.assignedBy === "시스템" ? "자동 배정 · 당번" : `${owner.assignedBy} 지정`} ·{" "}
+            <span className="num">{mdhm(owner.assignedAt)}</span>
+          </span>
+        )}
+      </div>
+      <div className={styles.formRow}>
+        <label className={`${adminStyles.field} ${styles.grow}`}>
+          <span className="sr-only">새 담당</span>
+          <select value={choice} onChange={(e) => setPick(e.target.value)} disabled={!canAssign || active.length === 0}>
+            {active.map((o) => (
+              <option key={o.operatorId} value={o.operatorId}>
+                {o.displayName} · {o.operatorId}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className={adminStyles.neutralBtn} disabled={block !== null || busy} onClick={() => void assign()}>
+          담당 지정
+        </button>
+      </div>
+      {block && block !== "지금 담당과 같음" && <p className={styles.note}>{block}</p>}
+      <p className={styles.note}>담당은 이 사건을 맡은 사람입니다. 보고서가 권하는 담당 역할과 다르고, 지정은 사건 기록과 감사에 남습니다.</p>
+    </>
   );
 }
 
@@ -45,6 +134,9 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
 }) {
   // 오늘 평균의 '오늘' 경계만 읽는다. 진행 중 경과처럼 매초 바뀌는 글자는 그 조각이 시계를 탄다
   const now = useClock(60_000);
+  const { refresh } = useOpsCenter();
+  const loadOperators = useCallback(() => getAdminApi().getOperators(), []);
+  const ops = useAdminResource(loadOperators, { cadence: "manual" });
   const log = center.incidents.state === "READY" ? center.incidents.data : null;
   const inc = log?.incidents.find((i) => i.id === id) ?? null;
   // http 판은 최근 사건 몇 건의 기록만 싣는다. 기록이 판에 없는 사건은 열 때 한 번 읽는다(GET .../incidents/{id})
@@ -78,6 +170,14 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
   const sec = incidentSections(inc, allEvents);
   const pendingEvents = lazy && !extra;
   const history = center.ai.state === "READY" ? center.ai.data.history : [];
+  const policy = center.oncall.state === "READY" ? center.oncall.data.policy : null;
+  const esc = escalationOf(inc, policy, allEvents);
+  const runbook = inc.runbookId ? runbookById(inc.runbookId) : null;
+  const operators = ops.data ?? null;
+  const onChanged = () => void refresh(true);
+  // 오늘이 아닌 시각은 날짜를 붙인다. 생애 막대의 시각은 이 머리의 날짜를 따른다
+  const when = (iso: string) => (kstDay(Date.parse(iso)) === kstDay(now) ? hm(iso) : mdhm(iso));
+  const day = kstDay(Date.parse(inc.openedAt));
 
   return (
     <Drawer
@@ -101,7 +201,7 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
       sub={
         <>
           <span className="num">
-            {hm(inc.openedAt)} 발생{inc.resolvedAt ? ` · ${hm(inc.resolvedAt)} 해제` : ""}
+            {when(inc.openedAt)} 발생{inc.resolvedAt ? ` · ${when(inc.resolvedAt)} 해제` : ""}
           </span>
           <span className="num">기록 {events.length}건</span>
           {sim && <SimMark />}
@@ -110,9 +210,12 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
       onClose={onClose}
     >
       <section className={styles.section} aria-label="생애 단계">
-        <span className={styles.sectionTitle}>생애 단계</span>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionTitle}>생애</span>
+          <span className={styles.sectionMeta}>대응 칸 아래 점은 AI 판단과 승인입니다</span>
+        </div>
         {pendingEvents && <p className={styles.note}>{loaded?.id === id && loaded.failed ? "이 사건의 기록 줄을 불러오지 못했습니다. 다시 열면 한 번 더 읽습니다" : "이 사건의 기록 줄을 불러오는 중입니다"}</p>}
-        <Stages inc={inc} events={asc} />
+        <Lifecycle inc={inc} events={asc} />
       </section>
 
       <section className={styles.section} aria-label="확인·해제까지">
@@ -138,12 +241,50 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
         </div>
       </section>
 
+      <section className={styles.section} aria-label="담당">
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionTitle}>담당</span>
+        </div>
+        <OwnerSection inc={inc} operators={operators} onChanged={onChanged} />
+      </section>
+
+      <section className={styles.section} aria-label="호출">
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionTitle}>호출</span>
+          <span className={`${styles.sectionMeta} num`}>
+            {esc === null ? "원천 연결 전" : esc.next ? <NextPage view={esc} /> : "확인하거나 해제되면 멈춥니다"}
+          </span>
+        </div>
+        <EscalationBar view={esc} source={ONCALL_SOURCE} />
+        {esc !== null && (
+          <Rows day={day} events={sec.pages} empty="보낸 호출이 없습니다. 발생 뒤 5분 안에 확인·결정하면 호출하지 않습니다" />
+        )}
+      </section>
+
+      <section className={styles.section} aria-label="런북">
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionTitle}>런북</span>
+        </div>
+        {runbook ? (
+          <div className={styles.runbook}>
+            <Link href={runbookHref(runbook.id)} className={styles.runbookLink} onClick={onClose}>
+              {runbook.title}
+            </Link>
+            <span className={styles.note}>
+              {runbook.steps.length}단계 · 운영자가 SSM 세션에서 실행합니다 · 이 콘솔에는 실행 단추가 없습니다
+            </span>
+          </div>
+        ) : (
+          <div className={styles.empty}>이 사건의 경보에 맞는 런북이 없습니다</div>
+        )}
+      </section>
+
       <section className={styles.section} aria-label="관련 경보">
         <div className={styles.sectionHead}>
           <span className={styles.sectionTitle}>관련 경보</span>
           <span className={`${styles.sectionMeta} num`}>{sec.alerts.length}건</span>
         </div>
-        <Rows events={sec.alerts} empty="이 사건에 경보 기록이 없습니다. 자동 조치 뒤 악화처럼 경보보다 먼저 연 사건입니다" />
+        <Rows day={day} events={sec.alerts} empty="이 사건에 경보 기록이 없습니다. 자동 조치 뒤 악화처럼 경보보다 먼저 연 사건입니다" />
       </section>
 
       <section className={styles.section} aria-label="AI 판단">
@@ -152,6 +293,7 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
           <span className={`${styles.sectionMeta} num`}>{sec.ai.length}건</span>
         </div>
         <Rows
+          day={day}
           events={sec.ai}
           empty="이 사건에 AI 판단 기록이 없습니다"
           link={(e) => {
@@ -170,7 +312,7 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
           <span className={styles.sectionTitle}>운영자 조치</span>
           <span className={`${styles.sectionMeta} num`}>{sec.operator.length}건</span>
         </div>
-        <Rows events={sec.operator} empty="운영자가 한 조치가 없습니다" />
+        <Rows day={day} events={sec.operator} empty="운영자가 한 조치가 없습니다" />
       </section>
 
       <section className={styles.section} aria-label="Teams 전송">
@@ -178,32 +320,26 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
           <span className={styles.sectionTitle}>Teams 전송</span>
           <span className={`${styles.sectionMeta} num`}>{sec.teams.length}건</span>
         </div>
-        <Rows events={sec.teams} empty="이 사건으로 보낸 Teams 알림이 없습니다. 일일 보고는 보고서 화면에서 봅니다" />
+        <Rows day={day} events={sec.teams} empty="이 사건으로 보낸 Teams 알림이 없습니다. 일일 보고는 보고서 화면에서 봅니다" />
       </section>
 
       <section className={styles.section} aria-label="사후 분석">
-        <div className={styles.postmortem}>
-          <span className={controlStyles.notConnectedTitle}>
-            <span aria-hidden="true"><StatusShape kind="dashed" /> </span>사후 분석 양식 · 2단계
-          </span>
-          <span className={controlStyles.notConnectedSource}>
-            해제 뒤 보고 서비스가 사건 보고를 만들면 이 자리에서 이어 적습니다. 지금은 입력과 저장을 받지 않습니다
-          </span>
-          <ul className={styles.pmFields}>
-            <li>
-              원인<span>무엇이 왜 일어났는가</span>
-            </li>
-            <li>
-              영향<span>누가 얼마나 겪었는가</span>
-            </li>
-            <li>
-              재발 방지<span>무엇을 바꾸는가</span>
-            </li>
-            <li>
-              담당<span>누가 언제까지</span>
-            </li>
-          </ul>
+        <div className={styles.sectionHead}>
+          <span className={styles.sectionTitle}>사후 분석</span>
+          {inc.postmortem && (
+            <span className={`${styles.sectionMeta} num`}>
+              {inc.postmortem.status === "DONE" ? "완료" : "초안"} · {inc.postmortem.updatedBy} {mdhm(inc.postmortem.updatedAt)}
+              {inc.postmortem.status === "DONE" ? "" : " 저장"}
+            </span>
+          )}
         </div>
+        <PostmortemForm
+          key={`${inc.id}-${inc.postmortem?.updatedAt ?? "none"}`}
+          inc={inc}
+          events={asc}
+          operators={(operators ?? []).filter((o) => o.status === "ACTIVE").map((o) => o.displayName)}
+          onSaved={onChanged}
+        />
       </section>
     </Drawer>
   );

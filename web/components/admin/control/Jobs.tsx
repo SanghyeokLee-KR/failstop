@@ -11,6 +11,7 @@ import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import type { JobOutcome, OpsBackup, OpsJobs } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
+import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
 import { kstDay, kstParts } from "@/lib/admin/timeText";
 import { ago, hm, Shape, useClock } from "./parts";
@@ -74,11 +75,13 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
   const now = useClock(60_000);
   const canSuper = useCan("SUPER");
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
   const run = async () => {
     setBusy(true);
     try {
       await getAdminApi().runBackupNow();
       toast("Databasus 백업 시작", "info");
+      setAsking(false);
       onChanged();
     } catch (e) {
       toast(e instanceof AdminError ? e.message : "백업 실행 실패", "error");
@@ -86,6 +89,20 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
       setBusy(false);
     }
   };
+  // 즉시 실행은 확인 대화상자를 거친다(관리자 설계 4-10-3). 대상과 영향, 오늘 실행 수를 다시 보인다
+  const confirm = asking && (
+    <ConfirmDialog
+      title="Databasus 백업을 지금 실행합니다"
+      description="읽기 전용 계정으로 전체 백업과 외부 보관, 복원 검증을 한 번 돌립니다. 운영 DB 쓰기에는 영향이 없고 백업 한 벌만큼 보관 공간을 씁니다."
+      target={`exchange DB · 오늘 즉시 실행 ${b.manualRunsToday === null ? "수 원천 연결 전" : `${b.manualRunsToday}회`}`}
+      blastRadius="감사 로그(ops.backup.run)와 사건 밖 운영 기록에 남습니다"
+      confirmLabel="지금 백업"
+      tone="warning"
+      busy={busy}
+      onConfirm={() => void run()}
+      onClose={() => setAsking(false)}
+    />
+  );
   if (detail) {
     return (
       <dl className={styles.kv}>
@@ -124,9 +141,10 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
         <dt data-mid="">즉시 실행</dt>
         <dd className={styles.kvAction}>
           <span>{b.manualRunsToday === null ? "오늘 실행 수 원천 연결 전" : `오늘 ${b.manualRunsToday}회`} · AI 자동 실행은 하루 1회{b.canRun ? "" : " · Databasus 연결 전이라 실행할 수 없습니다"}</span>
-          <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => void run()}>
+          <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => setAsking(true)}>
             {b.running ? "실행 중" : "지금 백업"}
           </button>
+          {confirm}
         </dd>
       </dl>
     );
@@ -152,10 +170,11 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
         </span>
       </span>
       <span className={styles.jobAct}>
-        <button type="button" className={styles.smallBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => void run()}
+        <button type="button" className={styles.smallBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => setAsking(true)}
           title={b.canRun ? undefined : "Databasus 연결 전이라 실행할 수 없습니다"}>
           지금 백업
         </button>
+        {confirm}
       </span>
     </div>
   );

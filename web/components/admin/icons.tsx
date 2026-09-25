@@ -45,7 +45,9 @@ export type AdminIconName =
   | "runbooks"
   | "sla"
   | "cost"
-  | "scenarios";
+  | "scenarios"
+  | "ack"
+  | "timer";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -310,6 +312,22 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
     <>
       <rect x="1.75" y="4" width="12.5" height="8" rx="1.5" />
       <circle cx="8" cy="8" r="1.75" />
+    </>
+  ),
+  // 확인까지(MTTA): 원 안의 확인 표. 운영자가 사건을 받아 들었다는 뜻이다
+  ack: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M5.4 8.2 L7.2 10 L10.6 6.2" />
+    </>
+  ),
+  // 해제까지(MTTR): 꼭지가 달린 초시계. 걸린 시간을 잰다
+  timer: (
+    <>
+      <circle cx="8" cy="9" r="5" />
+      <path d="M8 9 V6.25" />
+      <path d="M6.5 1.75 H9.5" />
+      <path d="M8 1.75 V4" />
     </>
   ),
   // 시나리오: 재생 삼각형과 그 아래 시간 축의 눈금

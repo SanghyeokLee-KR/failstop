@@ -12,9 +12,13 @@
 import { isoNow } from "../format";
 import { AdminError } from "./api";
 import { AI_ACTION_LABEL, AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, isStricter, type AiLimits } from "./aiPolicy";
+import { DB_TOPOLOGY, lsnOf, SLOW_QUERY_SOURCE } from "./dbFacts";
+import { ESCALATION_POLICY, LEVEL_WORD, ONCALL_ROSTER, oncallDesk, onDutyAt, ONDUTY_ROLE, pageTarget } from "./oncall";
+import { isOperatorTouch } from "./opsDetail";
 import { TrendBook } from "./opsTrends";
+import { runbookForAlert } from "./runbooks";
 import { THRESHOLD_META } from "./thresholdMeta";
-import { hms, lagWord, nextKst } from "./timeText";
+import { hms, kstDay, lagWord, nextKst } from "./timeText";
 import type {
   AiActionKind,
   AiCheckRule,
@@ -35,6 +39,8 @@ import type {
   AiServer,
   AlertSeverity,
   ControlCenter,
+  DbStats,
+  HostAsset,
   Incident,
   IncidentEvent,
   IncidentEventKind,
@@ -50,8 +56,10 @@ import type {
   OpsSlo,
   OpsSourceName,
   OpsThreshold,
+  PostmortemDraft,
   ReadNode,
   ReadNodeState,
+  RunbookId,
   ThresholdChange,
   ThresholdKey,
   ThresholdUnit,
@@ -66,6 +74,9 @@ export interface OpsActorRef {
 /** AI 조치의 행위자. ADR 0035의 AI 전용 운영자 계정 자리다 */
 export const AI_ACTOR: OpsActorRef = { id: "ai-ops", name: "AI 운영" };
 
+/** 관제 시스템의 행위자. 서버 감사의 system:msp 자리다(유효 시간 만료, 상한 도달 같은 시스템 모드 전환) */
+export const SYSTEM_ACTOR: OpsActorRef = { id: "system:msp", name: "시스템" };
+
 export type OpsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null) => void;
 
 const TICK_MS = 1000;
@@ -74,6 +85,11 @@ const MAX_CATCHUP = 900;
 const JUDGE_EVERY = 5;
 /** 경보 발생·해제에 필요한 연속 틱. Prometheus 규칙의 for 를 줄인 것이다 */
 const FOR_TICKS = 3;
+/**
+ * 경보 카드의 묶음 간격. 학교 Alertmanager(`deploy/linux/reporting/alertmanager.school.yml`)는 같은 경보 묶음의 새 알림을
+ * group_interval 5분마다 보낸다. 한 사건 안에서 같은 경보가 이 간격 안에 다시 서면 새 카드를 남기지 않는다
+ */
+const ALERT_GROUP_INTERVAL_MS = 5 * 60_000;
 const NODE_BOOT_TICKS = 6;
 const NODE_DRAIN_TICKS = 4;
 const BACKUP_RUN_TICKS = 8;
@@ -150,6 +166,10 @@ interface HostDef {
   disk: number;
   credits: number;
   partition: OpsPartition | null;
+  /** 자산 예시(관리자 설계 4-10-3). 시뮬레이터가 연 시각부터 거꾸로 센 마지막 부팅(시간), inode 사용률, 보안 업데이트 대기 */
+  bootAgoH: number;
+  inodeUsed: number;
+  updates: number;
 }
 
 /**
@@ -158,12 +178,26 @@ interface HostDef {
  * 것이 달라 따로 둔다
  */
 const HOST_DEFS: HostDef[] = [
-  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] } },
-  { id: "app-2", role: "APP", az: "ap-northeast-2c", mem: 61, disk: 40, credits: 301, partition: { id: "p1", markets: ["ETH", "SOL", "ADA", "LINK", "MATIC", "ATOM"] } },
-  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412, partition: null },
-  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540, partition: null },
-  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176, partition: null },
+  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] }, bootAgoH: 147, inodeUsed: 4, updates: 3 },
+  { id: "app-2", role: "APP", az: "ap-northeast-2c", mem: 61, disk: 40, credits: 301, partition: { id: "p1", markets: ["ETH", "SOL", "ADA", "LINK", "MATIC", "ATOM"] }, bootAgoH: 51, inodeUsed: 4, updates: 0 },
+  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2 },
+  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2 },
+  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176, partition: null, bootAgoH: 152, inodeUsed: 6, updates: 5 },
 ];
+
+/**
+ * 노드 이미지. OS는 학교 노드의 첫 셸 점검 기록(Amazon Linux 2023.12.20260918)이고 커널은 판 번호를 지어내지 않고
+ * 계열만 적는다. 켤 때마다 새로 뜨는 app-3는 최신 이미지라 보안 업데이트 대기가 없다
+ */
+const NODE_OS = "Amazon Linux 2023.12.20260918";
+const NODE_KERNEL = "6.1 계열";
+
+/** DB 통계 예시. 최대 연결은 학교 DB 설정(max_connections 100), 크기와 하루 증가는 지어낸 예시다 */
+const DB_MAX_CONN = 100;
+const DB_SIZE0 = 386_000_000;
+export const DB_GROWTH_PER_DAY = 38_000_000;
+/** 시뮬레이터가 열 때의 Primary WAL 위치(3/1C4A8F20) */
+const WAL0 = 3 * 2 ** 32 + 0x1c4a8f20;
 
 /** ai-1의 통합 메모리(DGX Spark 128GB)와 평시에 잡고 있는 양. 적재 모델은 평가로 정하므로 sim 값이다 */
 const AI_MEM_TOTAL_GB = 128;
@@ -265,6 +299,8 @@ interface ReadNodeRec {
   state: ReadNodeState;
   /** 지금 상태에 들어선 틱 */
   since: number;
+  /** 지금 인스턴스가 뜬 시각(ms). 켤 때마다 새로 뜨고, 꺼져 있으면 null이다 */
+  bootedAt: number | null;
 }
 
 interface Observation {
@@ -330,7 +366,9 @@ export class OpsSim {
   /** 앱 계층 희망 대수(2~3). 3이면 app-3가 켜져 있거나 켜지는 중이다 */
   private desired = READ_MIN;
   /** Auto Scaling이 켜고 끄는 자리. app-3 한 대다 */
-  private nodes: ReadNodeRec[] = [{ id: "app-3", state: "OFF", since: 0 }];
+  private nodes: ReadNodeRec[] = [{ id: "app-3", state: "OFF", since: 0, bootedAt: null }];
+  /** 시뮬레이터를 연 시각. 호스트 부팅 시각과 DB 크기의 기준이다 */
+  private readonly openedAt: number;
   /** 시장 봇 목표 발행률. 운영자(봇 플릿)와 AI 조치(봇 부하 줄임)가 바꾼다 */
   private botTarget = BASE_BOT_OPS;
   /** 봇 플릿. 관리 어댑터가 봇 목록을 바꿀 때 알린다. 봇이 내는 발행률은 목표와 봇들의 합 가운데 작은 쪽이다 */
@@ -347,6 +385,11 @@ export class OpsSim {
   private hostCpu = new Map<string, number>();
   private lagSec = 0.2;
   private lagBytes = 12_288;
+  /** DB 통계 예시. 틱마다 다시 계산하고 WAL 위치만 쌓는다 */
+  private dbTps = 0;
+  private dbConn = 0;
+  private dbCacheHit = 99.6;
+  private walBytes = WAL0;
 
   private alerts: AlertRec[] = [];
   private breachTicks = new Map<string, number>();
@@ -403,6 +446,7 @@ export class OpsSim {
   constructor(now: number, audit: OpsAudit = () => {}) {
     this.audit = audit;
     this.t = now;
+    this.openedAt = now;
     for (const d of THRESHOLD_DEFS) {
       this.thresholds.set(d.key, { ...d, aiSuggested: null, aiReason: null, updatedAt: isoNow(now - 6 * 86_400_000), updatedBy: "초기값" });
     }
@@ -432,32 +476,81 @@ export class OpsSim {
    * 셋은 상태 요약 추세의 앞 구간을 채운다. 추세의 경보·사건은 이 기록만 센다(opsTrends.ts)
    */
   private seedHistory(now: number): void {
-    const add = (openedAgoMin: number, minutes: number, title: string, severity: AlertSeverity, steps: [number, IncidentEventKind, OpsActor, string, string][]) => {
+    type Step = [number, IncidentEventKind, OpsActor, string, string];
+    type Pm = { done: boolean; afterH: number; by: string; cause: string; impact: string; actions: { task: string; owner: string; dueDays: number; done: boolean }[] };
+    const add = (openedAgoMin: number, minutes: number, title: string, severity: AlertSeverity, steps: Step[], opt: { runbook?: RunbookId | null; pages?: number[]; pm?: Pm } = {}) => {
       const opened = now - openedAgoMin * 60_000;
-      const inc: Incident = { id: uid("inc"), title, severity, openedAt: isoNow(opened), resolvedAt: isoNow(opened + minutes * 60_000) };
+      const inc = this.newIncident(title, severity, opened, opt.runbook ?? null);
+      inc.resolvedAt = isoNow(opened + minutes * 60_000);
+      // 지금 경보처럼 경보 발생 바로 뒤에 Teams 경보 알림이 남는다(fire)
+      steps.push([0, "NOTIFIED", "SYSTEM", "Teams", `Teams 경보 알림 · ${title}`]);
+      // 확인 전에 보낸 호출은 확인으로 멈춘 뒤 ACKED다. 호출 기록은 사건 기록의 호출 줄과 같은 시각이다
+      for (const offMin of opt.pages ?? []) {
+        const step = ESCALATION_POLICY.find((s) => s.afterMin === offMin);
+        if (!step) continue;
+        const at = opened + offMin * 60_000;
+        const who = pageTarget(step, at);
+        inc.pages?.push({ level: step.level, at: isoNow(at), role: step.role, person: who.person, channel: step.channel, state: "ACKED" });
+        steps.push([offMin, "NOTIFIED", "SYSTEM", "Teams", `호출 ${LEVEL_WORD[step.level]} · ${step.role} · ${who.person ?? "명부 없음"} · ${step.channel}`]);
+      }
+      if (opt.pm) {
+        const p = opt.pm;
+        inc.postmortem = {
+          status: p.done ? "DONE" : "DRAFT",
+          cause: p.cause,
+          impact: p.impact,
+          timeline: [...steps].filter((s) => s[1] !== "NOTIFIED" && s[1] !== "AI_JUDGED").sort((a, b) => a[0] - b[0]).map(([off, , , , text]) => ({ at: isoNow(opened + off * 60_000), text })),
+          actions: p.actions.map((a) => ({ task: a.task, owner: a.owner, due: kstDay(opened + a.dueDays * 86_400_000), done: a.done })),
+          updatedAt: isoNow(opened + p.afterH * 3_600_000),
+          updatedBy: p.by,
+        };
+        if (p.done) steps.push([p.afterH * 60, "POSTMORTEM", "OPERATOR", p.by, `사후 분석 완료 · 재발 방지 조치 ${p.actions.length}건`]);
+      }
       this.incidents.unshift(inc);
-      for (const [offMin, kind, actor, name, text] of steps) {
+      for (const [offMin, kind, actor, name, text] of [...steps].sort((a, b) => a[0] - b[0])) {
         this.events.unshift({ id: uid("evt"), at: isoNow(opened + offMin * 60_000), kind, actor, actorName: name, text, incidentId: inc.id });
       }
     };
     add(41 * 60 + 12, 9, "디스크 여유 부족 · bot-1", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 여유 17% < 20%"],
       [0.5, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 디스크 정리는 금지 목록. 허용 목록 조치 없음"],
-      [2, "ACKED", "OPERATOR", "김수퍼", "확인 · 오래된 로그 압축과 보관"],
+      [2, "ACKED", "OPERATOR", "김수퍼", "확인 · 디스크 정리 런북으로 대응"],
+      [4, "ACTED", "OPERATOR", "김수퍼", "조치 · 디스크 정리 런북 · 오래된 로그 압축과 보관(SSM)"],
       [9, "RESOLVED", "SYSTEM", "시스템", "해제 · 여유 34%. 복구 9분 00초"],
-    ]);
-    add(31 * 60 + 40, 3, "복제 지연 · db-standby", "warning", [
+    ], {
+      runbook: "DISK_CLEANUP",
+      pm: {
+        done: true, afterH: 20, by: "김수퍼",
+        cause: "오래된 로그가 쌓여 bot-1 루트 디스크 여유가 17%까지 줄었습니다.",
+        impact: "bot-1 디스크 여유가 경보 기준 20% 아래에 9분 동안 머물렀습니다.",
+        actions: [
+          { task: "로그 보관 기간과 압축 주기 정하기", owner: "이오퍼", dueDays: 3, done: true },
+          { task: "bot-1 디스크 사용률을 7일 추세로 점검", owner: "김수퍼", dueDays: 7, done: false },
+        ],
+      },
+    });
+    // 새벽이라 확인이 늦어 1차·2차 호출이 나간 사건이다. 호출은 확인·결정이 오면 멈춘다. 늘 새벽이도록 부른 시각에서
+    // 하루 넘게 거슬러 가장 가까운 03:20 KST에 연다(오늘 목록에는 서지 않고 7일 목록에 선다)
+    add(Math.round((now - lastKst(now - 86_400_000, 3, 20)) / 60_000), 17, "복제 지연 · db-standby", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 재생 지연 33초 ≥ 30초"],
       [0.4, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 따라잡는 중. 허용 목록 조치 없음"],
-      [3, "RESOLVED", "SYSTEM", "시스템", "해제 · 지연 0.4초. 복구 3분 00초"],
-    ]);
+      [16, "ACKED", "OPERATOR", "이오퍼", "확인 · Standby 디스크 I/O와 복제 추이 확인"],
+      [17, "RESOLVED", "SYSTEM", "시스템", "해제 · 지연 0.4초. 복구 17분 00초"],
+    ], { pages: [5, 15] });
     add(26 * 60 + 5, 5, "응답 지연 증가 · 외부 응답", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · p95 431ms ≥ 목표 400ms"],
       [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(app-3 켜기) · 확신도 84%"],
       [1, "APPROVED", "OPERATOR", "김수퍼", "승인 · app-3 켜기 (앱 2 → 3대)"],
       [1, "ACTED", "SYSTEM", "시스템", "조치 · 앱 계층 2 → 3대 · app-3 기동"],
       [5, "RESOLVED", "SYSTEM", "시스템", "해제 · p95 188ms. 복구 5분 00초"],
-    ]);
+    ], {
+      pm: {
+        done: false, afterH: 2, by: "김수퍼",
+        cause: "조회 요청이 몰려 app-3가 뜨기 전까지 앱 두 대가 부하를 받았습니다.",
+        impact: "응답 p95가 431ms까지 올라 목표 400ms를 넘었습니다.",
+        actions: [{ task: "증설 CPU 임계를 55%로 낮출지 검토", owner: "김수퍼", dueDays: 3, done: false }],
+      },
+    });
     add(190, 6, "복제 지연 · db-standby", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 재생 지연 41초 ≥ 30초"],
       [0.4, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · Primary 쓰기 몰림 뒤 따라잡는 중. 허용 목록 조치 없음"],
@@ -470,7 +563,9 @@ export class OpsSim {
       [1.1, "APPROVED", "OPERATOR", "김수퍼", "승인 · 시장 봇 부하 줄임"],
       [1.1, "ACTED", "SYSTEM", "시스템", "조치 · 봇 발행 60 → 30 OPS"],
       [4, "RESOLVED", "SYSTEM", "시스템", "해제 · bot-1 CPU 43%. 복구 4분 00초"],
-    ]);
+    ], { runbook: "BOT_STOP" });
+    // 사후 분석 완료처럼 사건보다 늦게 남은 줄이 있어 사건마다 쌓은 기록을 다시 최신 순서로 세운다
+    this.events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     // 위 기록에서 운영자가 승인한 AI 조치. 감사 로그에도 같은 일이 남아 있어야 두 기록이 같은 말을 한다
     this.seededAudit = [
       { at: isoNow(now - (26 * 60 + 4) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:READ_NODES", target: "app-3 켜기 (앱 2 → 3대)" },
@@ -495,9 +590,12 @@ export class OpsSim {
     const moved = this.progressNodes();
     this.progressBackup(now);
     this.measure();
+    // Primary WAL은 쓰기만큼 쌓인다. 봇 주문이 많을수록 빨리 나아간다(예시 값)
+    this.walBytes += Math.round(46_000 + this.botOpsNow() * 1_500 + Math.abs(wobble(this.tick, 18, 5_000)));
     this.credits.set("bot-1", Math.max(0, (this.credits.get("bot-1") ?? 0) - 0.02));
     this.evaluateAlerts(now);
     this.settleIncident(now);
+    this.escalate(now);
     this.expireSilences(now);
     this.expireAuto(now);
     this.watchObservation(now);
@@ -592,6 +690,10 @@ export class OpsSim {
     this.hostCpu.set("bot-1", cpu(28 + ops * 0.45 + wobble(this.tick, 6, 3)));
     this.lagSec = round1(0.2 + Math.abs(wobble(this.tick, 7, 0.2)));
     this.lagBytes = Math.round(12_288 + wobble(this.tick, 8, 3000));
+    // DB 통계 예시. 트랜잭션은 봇 주문과 체결, 조회 몫이고 연결은 앱 풀과 봇, 관측 연결이다
+    this.dbTps = Math.max(0, Math.round(ops * 1.1 + tradesPerSec(ops) * 2 + 6 + this.demand * 0.05 + wobble(this.tick, 15, 2)));
+    this.dbConn = Math.min(DB_MAX_CONN, Math.round(18 + (app3On ? 8 : 0) + ops / 10 + Math.abs(wobble(this.tick, 16, 2))));
+    this.dbCacheHit = Math.round((99.6 - Math.max(0, this.demand - BASE_DEMAND) * 0.004 + wobble(this.tick, 17, 0.08)) * 100) / 100;
   }
 
   /** 기동·드레이닝이 끝난 노드가 있으면 true */
@@ -605,6 +707,7 @@ export class OpsSim {
       } else if (n.state === "DRAINING" && this.tick - n.since >= NODE_DRAIN_TICKS) {
         n.state = "OFF";
         n.since = this.tick;
+        n.bootedAt = null;
         moved = true;
       }
     }
@@ -723,16 +826,32 @@ export class OpsSim {
     }
   }
 
+  /**
+   * 새 사건. 연 순간의 당번을 담당으로 둔다('자동 배정 · 당번', 관리자 설계 4-10-2). 호출 기록은 비어 있고, 런북은 연
+   * 경보의 이름과 임계값 키로 고른다
+   */
+  private newIncident(title: string, severity: AlertSeverity, at: number, runbookId: RunbookId | null): Incident {
+    const duty = onDutyAt(at);
+    return {
+      id: uid("inc"), title, severity, openedAt: isoNow(at), resolvedAt: null,
+      owner: { operatorId: duty.operatorId, name: duty.person, role: ONDUTY_ROLE, assignedAt: isoNow(at), assignedBy: "시스템" },
+      pages: [], postmortem: null, runbookId,
+    };
+  }
+
   private fire(id: string, b: Breach, now: number): void {
     this.breachTicks.delete(id);
     this.firedNow += 1;
+    const runbook = runbookForAlert({ name: b.name, target: b.target, detail: b.detail, thresholdKey: b.thresholdKey });
     if (this.openIncident === null) {
-      const inc: Incident = { id: uid("inc"), title: `${b.name} · ${b.target}`, severity: b.severity, openedAt: isoNow(now), resolvedAt: null };
+      const inc = this.newIncident(`${b.name} · ${b.target}`, b.severity, now, runbook);
       this.incidents.unshift(inc);
       this.openIncident = inc.id;
     } else {
       const inc = this.incidents.find((x) => x.id === this.openIncident);
       if (inc && b.severity === "critical") inc.severity = "critical";
+      // 먼저 선 경보에 런북이 없었으면 뒤에 선 경보의 런북을 쓴다
+      if (inc && inc.runbookId === null) inc.runbookId = runbook;
     }
     this.alerts.push({
       id, name: b.name, severity: b.severity, target: b.target, detail: b.detail, since: now,
@@ -740,6 +859,13 @@ export class OpsSim {
       silencedUntil: null, silencedBy: null, silencedBefore: false, incidentId: this.openIncident,
     });
     this.log(this.openIncident, "OPENED", "SYSTEM", "시스템", `경보 발생 · ${b.name} · ${b.detail}`);
+    // Alertmanager가 Teams 운영 채널로 보내는 경보 카드다(학교 설정의 msteamsv2 수신처). 호출 단계의 '첫 알림'이 이 줄이다.
+    // 같은 사건에서 같은 경보가 묶음 간격 안에 다시 서면(값이 임계 근처를 오갈 때) 새 카드를 남기지 않는다. 해제 카드는
+    // 기록하지 않는다(시뮬레이터의 단순화, 관리자 설계 4-10-2)
+    const card = `Teams 경보 알림 · ${b.name} · ${b.target}`;
+    const incidentId = this.openIncident;
+    const sent = this.events.some((e) => e.incidentId === incidentId && e.kind === "NOTIFIED" && e.text === card && now - Date.parse(e.at) < ALERT_GROUP_INTERVAL_MS);
+    if (!sent) this.log(incidentId, "NOTIFIED", "SYSTEM", "Teams", card);
   }
 
   private resolveAlert(a: AlertRec, now: number): void {
@@ -752,10 +878,38 @@ export class OpsSim {
     }
     const inc = this.incidents.find((x) => x.id === incId);
     if (!inc) return;
-    inc.resolvedAt = isoNow(now);
+    this.closeIncident(inc, now);
     const sec = (now - Date.parse(inc.openedAt)) / 1000;
     this.log(incId, "RESOLVED", "SYSTEM", "시스템", `해제 · ${a.name} 해제로 사건 종료. 복구 ${mmss(sec)}`);
     if (this.openIncident === incId) this.openIncident = null;
+  }
+
+  /** 사건을 닫는다. 확인되지 않은 채 남은 호출은 해제로 멈춘다 */
+  private closeIncident(inc: Incident, now: number): void {
+    inc.resolvedAt = isoNow(now);
+    for (const p of inc.pages ?? []) if (p.state === "SENT") p.state = "CLOSED";
+  }
+
+  /**
+   * 단계별 호출(관리자 설계 4-10-2). 열린 사건에 운영자의 확인·결정이 없으면 호출 정책의 단계(5·15·30분)마다 그 역할의
+   * 사람을 부른다. 밖으로 보내지 않고 사건 기록과 호출 기록에 남긴다. 한 틱에 한 단계만 보낸다
+   */
+  private escalate(now: number): void {
+    const id = this.openIncident;
+    if (id === null) return;
+    const inc = this.incidents.find((x) => x.id === id);
+    if (!inc || inc.resolvedAt !== null) return;
+    const opened = Date.parse(inc.openedAt);
+    if (this.events.some((e) => e.incidentId === id && isOperatorTouch(e) && Date.parse(e.at) >= opened)) return;
+    const pages = inc.pages ?? (inc.pages = []);
+    for (const step of ESCALATION_POLICY) {
+      if (pages.some((p) => p.level === step.level)) continue;
+      if (now - opened < step.afterMin * 60_000) return;
+      const who = pageTarget(step, now);
+      pages.push({ level: step.level, at: isoNow(now), role: step.role, person: who.person, channel: step.channel, state: "SENT" });
+      this.log(id, "NOTIFIED", "SYSTEM", "Teams", `호출 ${LEVEL_WORD[step.level]} · ${step.role} · ${who.person ?? "명부 없음"} · ${step.channel}`);
+      return;
+    }
   }
 
   /** 경보 없이 연 사건(자동 되돌림)은 조치 뒤 지표가 가라앉으면 닫는다 */
@@ -765,7 +919,7 @@ export class OpsSim {
     if (this.nodes.some((n) => n.state === "PENDING" || n.state === "DRAINING")) return;
     const inc = this.incidents.find((x) => x.id === id);
     if (!inc || now - Date.parse(inc.openedAt) < 8_000) return;
-    inc.resolvedAt = isoNow(now);
+    this.closeIncident(inc, now);
     this.log(id, "RESOLVED", "SYSTEM", "시스템", `해제 · 조치 뒤 지표 정상. 복구 ${mmss((now - Date.parse(inc.openedAt)) / 1000)}`);
     this.openIncident = null;
   }
@@ -1196,6 +1350,7 @@ export class OpsSim {
   private stopAtCap(): void {
     if (this.mode !== "AUTO" || this.autoRuns < this.limits.autoCap) return;
     this.setManual(`이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, "SYSTEM", "시스템");
+    this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", `자동 조치 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, null);
     // 상한 도달은 수동 전환(모드 변경)이라 P4다(Teams 개입 등급, 사용자 확정 2026-09-25)
     this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 P4 · 자동 조치 상한 도달 · 수동 전환");
     this.notice = { kind: "AUTO_CAP", at: this.t, text: `이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동으로 바뀌었습니다`, tone: "neutral", incidentId: this.openIncident };
@@ -1310,7 +1465,7 @@ export class OpsSim {
     const cause = saturated ? `앱 평균 CPU가 ${avg}%로 증설 임계 ${scaleOut}%를 넘어` : `응답 p95가 ${this.p95}ms로 목표 ${SLO.p95Ms}ms를 넘어`;
     if (this.openIncident === null) {
       // 경보가 서기 전에 되돌리므로 사건을 여기서 연다. 되돌림이 어떤 악화 때문인지 한 기록에 남긴다
-      const inc: Incident = { id: uid("inc"), title: `자동 조치 뒤 악화 · ${p.target}`, severity: "warning", openedAt: isoNow(now), resolvedAt: null };
+      const inc = this.newIncident(`자동 조치 뒤 악화 · ${p.target}`, "warning", now, null);
       this.incidents.unshift(inc);
       this.openIncident = inc.id;
       // 원인이 된 자동 실행 기록을 이 사건으로 묶는다. 무엇을 자동으로 했고 왜 되돌렸는지 한 기록에서 읽힌다
@@ -1333,7 +1488,11 @@ export class OpsSim {
     this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${undo} · 되돌린 조치 ${p.title} · ${why}`);
     this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null);
     const wasAuto = this.mode === "AUTO";
-    if (wasAuto) this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
+    if (wasAuto) {
+      this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
+      // 서버는 시스템이 모드를 바꾼 일을 ops.ai.mode.system으로 감사에 남긴다. 모드·정지 이력이 이 줄을 읽는다
+      this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", "악화로 자동 되돌림 · 수동 전환", null);
+    }
     // 자동 되돌림은 P2다(Teams 개입 등급, 사용자 확정 2026-09-25)
     this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", wasAuto ? "Teams 알림 P2 · 자동 되돌림과 수동 전환" : "Teams 알림 P2 · 자동 되돌림");
     this.notice = {
@@ -1346,6 +1505,7 @@ export class OpsSim {
   private expireAuto(now: number): void {
     if (this.auto !== null && now >= this.auto.until) {
       this.setManual("유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
+      this.audit(SYSTEM_ACTOR, "ops.ai.mode.expire", "유효 시간 만료 · 수동 복귀", null);
       this.notice = { kind: "AUTO_EXPIRED", at: now, text: "자동 모드 유효 시간 만료 · 수동으로 돌아왔습니다", tone: "neutral", incidentId: this.openIncident };
     }
   }
@@ -1381,6 +1541,8 @@ export class OpsSim {
       if (slot) {
         slot.state = "PENDING";
         slot.since = this.tick;
+        // 새 인스턴스가 뜬다. 내리는 중이던 자리를 다시 켜도 새로 띄운다(관리자 설계 4-4 sim 동작)
+        slot.bootedAt = this.t;
       }
       this.desired += 1;
     }
@@ -1450,7 +1612,12 @@ export class OpsSim {
 
   private log(incidentId: string | null, kind: IncidentEventKind, actor: OpsActor, actorName: string, text: string): void {
     this.events.unshift({ id: uid("evt"), at: isoNow(this.t), kind, actor, actorName, text, incidentId });
-    this.events = this.events.slice(0, 120);
+    this.events = this.events.slice(0, 160);
+    // 운영자가 확인·결정하면 보낸 호출이 확인된 것으로 바뀌고 다음 단계로 올리지 않는다(escalate)
+    if (incidentId !== null && isOperatorTouch({ actor, kind })) {
+      const inc = this.incidents.find((x) => x.id === incidentId);
+      for (const p of inc?.pages ?? []) if (p.state === "SENT") p.state = "ACKED";
+    }
   }
 
   /* ===== 운영자 조작 ===== */
@@ -1568,6 +1735,8 @@ export class OpsSim {
     this.autoRuns = 0;
     this.aiThresholdRuns.clear();
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, `모드 · 자동 켜기 ${hours}시간 · 사유 "${reason.trim()}"`);
+    // 서버 감사와 같은 코드(ops.ai.auto, 대상 AUTO:{시간})다. 서버는 사유를 감사 상세에만 두지만 sim은 대상 칸에 함께 적는다
+    this.audit(actor, "ops.ai.auto", `AUTO:${hours} · 사유 ${reason.trim()}`, approvalId);
     for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
   }
 
@@ -1712,6 +1881,44 @@ export class OpsSim {
   }
 
   /**
+   * 사건 담당 지정(관리자 설계 4-10-2). 담당은 이 사건을 맡은 사람이고 확인·결정이 아니라 호출을 멈추지 않는다.
+   * 담당의 역할은 명부에서 찾는다. 사건 기록에 운영자 기록(ASSIGNED)을 남기고 감사는 어댑터가 남긴다
+   */
+  assignIncident(id: string, assignee: OpsActorRef, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    const inc = this.incidents.find((x) => x.id === id);
+    if (!inc) throw new AdminError("not_found", "사건 없음");
+    if (inc.owner?.operatorId === assignee.id) throw new AdminError("invalid_parameter", "이미 이 사건의 담당");
+    const role = ONCALL_ROSTER.find((r) => r.operatorId === assignee.id)?.role ?? "운영자";
+    const before = inc.owner?.name ?? "없음";
+    inc.owner = { operatorId: assignee.id, name: assignee.name, role, assignedAt: isoNow(this.t), assignedBy: actor.name };
+    this.log(inc.id, "ASSIGNED", "OPERATOR", actor.name, `담당 지정 · ${before} → ${assignee.name}`);
+  }
+
+  /**
+   * 사후 분석 저장(관리자 설계 4-10-2). 해제된 사건에만 쓰고, 완료하면 생애의 다섯째 단계가 선다. 완료한 분석은 고치지
+   * 않는다. 완료에는 원인과 영향, 재발 방지 조치마다의 할 일과 기한이 있어야 한다
+   */
+  savePostmortem(id: string, draft: PostmortemDraft, done: boolean, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    const inc = this.incidents.find((x) => x.id === id);
+    if (!inc) throw new AdminError("not_found", "사건 없음");
+    if (inc.resolvedAt === null) throw new AdminError("invalid_parameter", "해제 전 사건은 사후 분석 불가");
+    if (inc.postmortem?.status === "DONE") throw new AdminError("invalid_parameter", "완료한 사후 분석은 수정 불가");
+    const cause = draft.cause.trim();
+    const impact = draft.impact.trim();
+    if (cause.length > 2000 || impact.length > 2000) throw new AdminError("invalid_parameter", "원인·영향은 2000자 이하");
+    const timeline = draft.timeline.map((l) => ({ at: l.at, text: l.text.trim() })).filter((l) => l.text.length > 0 && Number.isFinite(Date.parse(l.at)));
+    const actions = draft.actions.map((a) => ({ task: a.task.trim(), owner: a.owner.trim(), due: a.due, done: a.done })).filter((a) => a.task.length > 0);
+    if (actions.some((a) => !/^\d{4}-\d{2}-\d{2}$/.test(a.due))) throw new AdminError("invalid_parameter", "기한은 YYYY-MM-DD");
+    if (done && (cause.length === 0 || impact.length === 0)) throw new AdminError("invalid_parameter", "완료하려면 원인과 영향 필요");
+    if (done && actions.length === 0) throw new AdminError("invalid_parameter", "완료하려면 재발 방지 조치 1건 이상 필요");
+    timeline.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    inc.postmortem = { status: done ? "DONE" : "DRAFT", cause, impact, timeline, actions, updatedAt: isoNow(this.t), updatedBy: actor.name };
+    if (done) this.log(inc.id, "POSTMORTEM", "OPERATOR", actor.name, `사후 분석 완료 · 재발 방지 조치 ${actions.length}건`);
+  }
+
+  /**
    * 운영자가 용량·부하 화면에서 app-3를 켜고 끈다(앱 계층 희망 대수 2~3). AI 조치와 같은 희망 대수를 바꾸므로 관제센터와
    * 용량 화면의 대수가 함께 움직인다. 사람이 이미 정한 대수를 겨냥한 열린 조치안은 거두고, AI 자동 실행이
    * 곧바로 반대로 되돌리지 않게 app-3 켜기·끄기 쿨다운을 건다. 감사는 어댑터가 capacity.* 로 남긴다
@@ -1799,7 +2006,7 @@ export class OpsSim {
     this.scenario = { id, startedAt: now };
     if (id === "NIGHT_SCALE_IN") {
       // 야간 시나리오는 app-3까지 세 대가 떠 있는 데서 시작한다. 조치가 아니라 무대 준비다
-      this.nodes = this.nodes.map((n) => ({ ...n, state: "IN_SERVICE", since: this.tick }));
+      this.nodes = this.nodes.map((n) => ({ ...n, state: "IN_SERVICE", since: this.tick, bootedAt: n.bootedAt ?? this.t - 3 * 3_600_000 }));
       this.desired = READ_MAX;
       this.measure();
     }
@@ -1816,6 +2023,12 @@ export class OpsSim {
       cpuPct: this.hostCpu.get(h.id) ?? null, memPct: Math.round(h.mem + wobble(this.tick, h.mem, 1)),
       diskUsedPct: h.disk, cpuCredits: Math.round(this.credits.get(h.id) ?? 0),
       partition: h.partition === null ? null : { id: h.partition.id, markets: [...h.partition.markets] },
+      // 실패한 서비스는 노드 상태에서 가른 가정이다. 수집이 되는 노드는 서비스 탭처럼 모두 실행 중이다(관리자 설계 4-9)
+      asset: {
+        // 정시 경계에서 시작하지 않게 17분을 더 거슬러 간다. 분 박자 시계(자산 표)와 초 시계가 경계 양쪽에 서지 않는다
+        os: NODE_OS, kernel: NODE_KERNEL, bootedAt: isoNow(this.openedAt - (h.bootAgoH * 60 + 17) * 60_000),
+        inodeUsedPct: h.inodeUsed, failedUnits: [], securityUpdates: h.updates,
+      },
     }));
     const lat = [...this.aiLatency].sort((a, b) => a - b);
     const q = (p: number) => (lat.length === 0 ? null : lat[Math.min(lat.length - 1, Math.floor(p * lat.length))]);
@@ -1839,18 +2052,38 @@ export class OpsSim {
       served: this.aiServed,
       lastServedAt: this.aiServedAt === null ? null : isoNow(this.aiServedAt),
     };
-    const readNodes: ReadNode[] = this.nodes.map((n) => ({
-      id: n.id,
-      state: n.state,
-      instanceType: "t3.small",
-      az: APP3_AZ,
-      cpuPct: n.state === "IN_SERVICE" ? this.hostCpu.get(n.id) ?? null : n.state === "PENDING" ? 4 : n.state === "DRAINING" ? 12 : null,
-    }));
+    const readNodes: ReadNode[] = this.nodes.map((n) => {
+      const node: ReadNode = {
+        id: n.id,
+        state: n.state,
+        instanceType: "t3.small",
+        az: APP3_AZ,
+        cpuPct: n.state === "IN_SERVICE" ? this.hostCpu.get(n.id) ?? null : n.state === "PENDING" ? 4 : n.state === "DRAINING" ? 12 : null,
+      };
+      // 켤 때마다 최신 이미지로 새로 뜨는 인스턴스라 보안 업데이트 대기가 없고 inode도 거의 비어 있다
+      if (n.bootedAt !== null) {
+        node.asset = { os: NODE_OS, kernel: NODE_KERNEL, bootedAt: isoNow(n.bootedAt), inodeUsedPct: 2, failedUnits: [], securityUpdates: 0 };
+      }
+      return node;
+    });
     const alerts: OpsAlert[] = this.alerts.map((a) => ({
       id: a.id, name: a.name, severity: a.severity, target: a.target, detail: a.detail, since: isoNow(a.since),
       thresholdKey: a.thresholdKey, ref: a.ref, state: a.state, ackBy: a.ackBy, ackAt: a.ackAt === null ? null : isoNow(a.ackAt),
       silencedUntil: a.silencedUntil === null ? null : isoNow(a.silencedUntil), silencedBy: a.silencedBy, silencedBefore: a.silencedBefore,
+      incidentId: a.incidentId,
     }));
+    const dbDays = (this.t - this.openedAt) / 86_400_000;
+    const database: DbStats = {
+      mode: DB_TOPOLOGY.mode,
+      failover: DB_TOPOLOGY.failover,
+      connections: { used: this.dbConn, max: DB_MAX_CONN },
+      tps: this.dbTps,
+      cacheHitPct: this.dbCacheHit,
+      // Standby 재생 위치는 Primary WAL 위치에서 복제 지연 바이트만큼 뒤다. DB 묶음의 지연 바이트와 같은 값이다
+      wal: { primaryLsn: lsnOf(this.walBytes), standbyReplayLsn: lsnOf(this.walBytes - this.lagBytes) },
+      sizeBytes: Math.round(DB_SIZE0 + dbDays * DB_GROWTH_PER_DAY),
+      slowQueries: { state: "NOT_CONNECTED", source: SLOW_QUERY_SOURCE },
+    };
     // 열린 조치안이 앞이고 그 안에서는 서비스에 가까운 조치부터다. 결정된 것은 최근 순서다
     const open = this.proposals.filter((p) => p.status === "PROPOSED")
       .sort((a, b) => KIND_PRIORITY[a.params.kind] - KIND_PRIORITY[b.params.kind]);
@@ -1909,7 +2142,19 @@ export class OpsSim {
       readTier: { state: "READY", data: { min: READ_MIN, max: READ_MAX, desired: this.desired, fixed: ["app-1", "app-2"], serving: this.servingApps(), nodes: readNodes, avgCpuPct: this.readAvg === null ? null : Math.round(this.readAvg) } },
       replication: { state: "READY", data: { primary: "db-primary", standby: "db-standby", stream: "STREAMING", lagBytes: this.lagBytes, lagSec: this.lagSec } },
       alerts: { state: "READY", data: alerts },
-      incidents: { state: "READY", data: { incidents: this.incidents.map((i) => ({ ...i })), events: this.events.map((e) => ({ ...e })) } },
+      // 담당·호출·사후 분석은 시뮬레이터가 제자리에서 고치는 값이라 판마다 새 객체로 옮긴다. 받은 판이 뒤에 바뀌지 않는다
+      incidents: {
+        state: "READY",
+        data: {
+          incidents: this.incidents.map((i) => ({
+            ...i,
+            owner: i.owner ? { ...i.owner } : i.owner,
+            pages: i.pages?.map((p) => ({ ...p })),
+            postmortem: i.postmortem ? { ...i.postmortem, timeline: i.postmortem.timeline.map((l) => ({ ...l })), actions: i.postmortem.actions.map((a) => ({ ...a })) } : i.postmortem,
+          })),
+          events: this.events.map((e) => ({ ...e })),
+        },
+      },
       jobs: {
         state: "READY",
         data: {
@@ -1933,6 +2178,8 @@ export class OpsSim {
       },
       // 시뮬레이터가 흉내 내는 원천은 모두 붙어 있는 것으로 둔다. 확인 시각은 이 판의 시각이다
       sources: SOURCE_NAMES.map((name) => ({ name, state: "READY", checkedAt: at, reason: null })),
+      oncall: { state: "READY", data: oncallDesk(this.t) },
+      database: { state: "READY", data: database },
     };
   }
 }

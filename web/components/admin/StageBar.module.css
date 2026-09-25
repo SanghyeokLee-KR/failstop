@@ -1,0 +1,186 @@
+/* 단계 막대(디자인 시스템 §12-15 StageBar). 칸은 같은 폭이고 16px 원과 뒤를 지나는 2px 선이다. 상태가 아닌 단계(계획,
+   변경 요청의 진행)에는 헬스 색을 쓰지 않고, 진행 중인 사건의 지금 단계만 주의 색 고리를 쓴다(data-urgent) */
+
+.wrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+.bar {
+  --stage-n: 5;
+  /* 지나온 몫(0~1). 부품이 인라인 스타일로 덮어쓴다 */
+  --stage-progress: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--stage-n), minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 선은 첫 칸의 가운데에서 끝 칸의 가운데까지다. 칸이 같은 폭이라 양끝에서 반 칸씩 들어간다 */
+.bar::before,
+.bar::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: calc(50% / var(--stage-n));
+  right: calc(50% / var(--stage-n));
+  height: 2px;
+  border-radius: 1px;
+}
+.bar::before {
+  background: var(--border-default);
+}
+.bar::after {
+  background: var(--text-secondary);
+  transform: scaleX(var(--stage-progress));
+  transform-origin: left center;
+  transition: transform var(--dur-base) var(--ease-decelerate);
+}
+.stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+/* 원 안은 칸이 놓인 면과 같은 색이라 뒤를 지나는 선을 가린다. 층(드로어·모달)은 --stage-surface를 elevated로 덮는다 */
+.dot {
+  --pulse-color: var(--chrome-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+  background: var(--stage-surface, var(--surface-default));
+  color: var(--color-danger);
+  transition: border-color var(--dur-base) var(--ease-standard);
+}
+.stage[data-state="done"] .dot {
+  border-color: var(--text-strong);
+  background: var(--text-strong);
+}
+.stage[data-ai] .dot {
+  border-color: var(--ai-accent);
+}
+.stage[data-ai][data-state="done"] .dot {
+  background: var(--ai-accent);
+}
+.stage[data-state="current"] .dot {
+  border-color: var(--chrome-accent);
+  box-shadow: 0 0 0 3px var(--surface-sunken);
+}
+.stage[data-urgent] .dot {
+  --pulse-color: var(--color-warning);
+  border-color: var(--color-warning-text);
+  box-shadow: 0 0 0 3px var(--color-warning-bg);
+}
+.stage[data-state="skipped"] .dot {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.stage[data-state="failed"] .dot {
+  border-color: var(--color-danger);
+}
+/* 대응 칸 아래의 보조 표지(AI 판단, 승인). 원 아래 띠에 6px 점으로 서고 이름은 툴팁과 접근 이름이 싣는다 */
+.marks {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  display: flex;
+  gap: 3px;
+  transform: translateX(-50%);
+}
+.mark {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-secondary);
+}
+.mark[data-ai] {
+  background: var(--ai-accent);
+}
+.name {
+  margin-top: 12px;
+  max-width: 100%;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.stage[data-state="done"] .name {
+  color: var(--text-default);
+}
+.stage[data-state="current"] .name {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 좁은 칸의 번호. 이름이 들지 않을 때만 이름 자리에 선다 */
+.no {
+  display: none;
+  margin-top: 12px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.when {
+  max-width: 100%;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.stage[data-urgent] .when {
+  color: var(--color-warning-text);
+  font-weight: var(--fw-semibold);
+}
+
+/* 칸 폭이 64px 아래면 이름을 두 줄까지 두고, 44px 아래면 번호만 둔다. 칸 수에 따라 막대의 폭 경계가 다르다 */
+@container (max-width: 219px) {
+  .bar .name {
+    display: none;
+  }
+  .bar .no {
+    display: block;
+  }
+}
+
+/* 지금 단계가 옮겨 가는 순간 새 지금 단계에 링 펄스가 한 번 선다 */
+.stage[data-pulse] .dot {
+  animation: stagePulse var(--dur-pulse) var(--ease-decelerate) 1;
+}
+.stage[data-pulse][data-urgent] .dot {
+  animation-name: stagePulseUrgent;
+}
+@keyframes stagePulse {
+  from {
+    box-shadow: 0 0 0 3px var(--surface-sunken), 0 0 0 3px color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 3px var(--surface-sunken), 0 0 0 12px color-mix(in srgb, var(--pulse-color) 0%, transparent);
+  }
+}
+@keyframes stagePulseUrgent {
+  from {
+    box-shadow: 0 0 0 3px var(--color-warning-bg), 0 0 0 3px color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 3px var(--color-warning-bg), 0 0 0 12px color-mix(in srgb, var(--pulse-color) 0%, transparent);
+  }
+}
+
+/* 움직임 줄이기. 선은 곧바로 서고, 펄스 자리는 1.8초 동안 3px 정적 고리다(§12-4) */
+@media (prefers-reduced-motion: reduce) {
+  .bar::after,
+  .dot {
+    transition: none;
+  }
+  .stage[data-pulse] .dot,
+  .stage[data-pulse][data-urgent] .dot {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+}

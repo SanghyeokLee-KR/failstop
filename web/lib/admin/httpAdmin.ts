@@ -1084,6 +1084,16 @@ export class HttpAdminApi implements AdminApi {
     this.ops.invalidate("incidents");
   }
 
+  /** 사건 담당 지정. 서버 경로(POST .../incidents/{id}/assign)가 3라운드 계약 초안이라 보내지 않는다 */
+  assignIncident(): Promise<void> {
+    return Promise.reject(new AdminError("not_connected", "사건 담당 지정 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
+  /** 사후 분석 저장. 서버 경로(PUT .../incidents/{id}/postmortem)가 3라운드 계약 초안이라 보내지 않는다 */
+  savePostmortem(): Promise<void> {
+    return Promise.reject(new AdminError("not_connected", "사후 분석 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
   /**
    * 조치 요청 결정. 승인은 실행이고, 임계값 조치는 1인 승인 티켓(ops.threshold.set, 대상은 바꿀 값)을 발급해 곧바로
    * 싣는다. 나중에는 서버 기본(15분)을 쓰며 요청의 만료를 늘리지 않는다

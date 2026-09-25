@@ -3,15 +3,21 @@
 /**
  * 활성 경보. 확인은 누가 보고 있는지 남기는 기록이고 경보를 끄지 않는다. 보류는 최대 30분이고
  * 장애 등급과 같은 경보의 연속 보류는 막는다(ADR 0035). 막힌 이유는 버튼 옆에 적는다.
+ * 경보가 속한 사건에서 호출이 나갔으면 호출 칩을 달고(관리자 설계 4-10-2), 경보·사건 화면에서는 그 경보의 런북으로 가는
+ * 링크를 둔다. 런북은 사람이 SSM 세션에서 하는 절차이고 이 행에는 실행 단추가 없다.
  */
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { AI_RULES } from "@/lib/admin/aiPolicy";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
+import { escalationOf } from "@/lib/admin/opsDetail";
+import { runbookById, runbookForAlert, runbookHref } from "@/lib/admin/runbooks";
 import { useCan } from "@/lib/admin/store";
-import type { OpsAlert } from "@/lib/admin/types";
+import type { EscalationStep, IncidentLog, OpsAlert } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
+import { EscalationChip } from "../incidents/Escalation";
 import { useFreshKeys } from "../useFreshKeys";
 import { durationWord, hm, SEVERITY_SHAPE, SEVERITY_WORD, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
@@ -86,8 +92,19 @@ function AlertAge({ since }: { since: string }) {
   return <>{ms < 2000 ? "방금" : `${durationWord(ms)}째`}</>;
 }
 
-export function AlertRow({ alert, onChanged, fresh = false }: { alert: OpsAlert; onChanged: () => void; fresh?: boolean }) {
+/** 경보 행이 사건과 호출 정책을 읽는 자리. 사건 기록이나 당번 칸이 없으면 칩을 그리지 않는다 */
+export interface AlertContext {
+  log: IncidentLog | null;
+  policy: EscalationStep[] | null;
+  /** 런북 링크를 둘지. 경보·사건 화면만 둔다. 관제센터 기둥은 좁아 칩만 단다 */
+  runbooks?: boolean;
+}
+
+export function AlertRow({ alert, onChanged, fresh = false, context }: { alert: OpsAlert; onChanged: () => void; fresh?: boolean; context?: AlertContext }) {
   const focus = useOpsFocus((s) => s.ref);
+  const inc = context?.log && alert.incidentId ? context.log.incidents.find((i) => i.id === alert.incidentId) ?? null : null;
+  const escalation = inc && context?.log ? escalationOf(inc, context.policy, context.log.events) : null;
+  const runbook = context?.runbooks ? runbookForAlert(alert) : null;
   const lit = refMatches(focus, { kind: "ALERT", id: alert.id });
   const ack = async () => {
     try {
@@ -111,8 +128,18 @@ export function AlertRow({ alert, onChanged, fresh = false }: { alert: OpsAlert;
       </span>
       <span className={styles.alertDetail}>
         {alert.target} · {alert.detail}
+        {escalation && escalation.level > 0 && (
+          <span className={styles.alertChip}>
+            <EscalationChip view={escalation} />
+          </span>
+        )}
       </span>
       <div className={styles.alertActions}>
+        {runbook && (
+          <Link href={runbookHref(runbook)} className={styles.stripLink} title={`런북 · ${runbookById(runbook).title}`}>
+            런북
+          </Link>
+        )}
         {alert.ackBy ? (
           <span className={styles.alertState}>
             <span aria-hidden="true"><StatusShape kind="circle" /></span> 확인 · {alert.ackBy} {alert.ackAt ? hm(alert.ackAt) : ""}
@@ -134,7 +161,7 @@ export function AlertRow({ alert, onChanged, fresh = false }: { alert: OpsAlert;
   );
 }
 
-export default function AlertList({ alerts, onChanged }: { alerts: OpsAlert[]; onChanged: () => void }) {
+export default function AlertList({ alerts, onChanged, context }: { alerts: OpsAlert[]; onChanged: () => void; context?: AlertContext }) {
   // 새로 선 경보 행만 들어오는 움직임을 받는다(§12-4 목록 행 등장)
   const fresh = useFreshKeys(alerts.map((a) => a.id));
   if (alerts.length === 0) {
@@ -150,7 +177,7 @@ export default function AlertList({ alerts, onChanged }: { alerts: OpsAlert[]; o
   return (
     <ul className={styles.alertList} aria-label="활성 경보">
       {sorted.map((a) => (
-        <AlertRow key={a.id} alert={a} onChanged={onChanged} fresh={fresh.has(a.id)} />
+        <AlertRow key={a.id} alert={a} onChanged={onChanged} fresh={fresh.has(a.id)} context={context} />
       ))}
     </ul>
   );

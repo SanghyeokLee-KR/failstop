@@ -1,207 +1,243 @@
 "use client";
 
 /**
- * 경보·사건(/admin/incidents, 관리자 설계 4-2). 활성 경보를 확인·보류하고 사건이 발생에서 해제까지
- * 어떻게 흘렀는지 누가 언제 했는지와 함께 본다. 추이는 Grafana로 보낸다.
+ * 경보·사건(/admin/incidents, 관리자 설계 4-10-2). 무엇이 울렸고, 누가 맡아 어디까지 대응했는지에 답한다. 요약 다섯 칸(활성
+ * 경보, 진행 중 사건, 오늘 사건, 평균 확인 시간, 평균 해제 시간) 아래 왼쪽은 활성 경보(확인·보류, 호출 칩, 런북 링크)와
+ * 사건 목록(오늘·7일), 오른쪽은 고른 사건의 담당·생애·호출·기록이다. 담당 바꾸기와 사후 분석은 사건 드로어에서 한다.
+ *
+ * 값은 관제 판(사건 기록, 사건 칸의 담당·호출·사후 분석, 당번 칸의 호출 정책)에서만 읽는다. MTTA·MTTR은 새 값이 아니라
+ * 사건 기록에서 센다(opsDetail의 incidentTimes·todayMeans). http는 담당·호출·사후 분석이 원천 연결 전이다. 추이는 Grafana다.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
-import Skeleton from "@/components/Skeleton";
+import { incidentsIn, openIncidents, todayMeans } from "@/lib/admin/opsDetail";
 import GrafanaLink from "@/components/admin/GrafanaLink";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import AlertList from "@/components/admin/control/Alerts";
 import OpsHead from "@/components/admin/control/OpsHead";
 import { alertCounts, Tile, todayIncidents } from "@/components/admin/control/SummaryStrip";
-import { byFilter, EventRow, FilterSwitch, IncidentView, OpenElapsed, type EventFilter } from "@/components/admin/control/Timeline";
-import { durationWord, FlashNum, hm, PanelHead, SectionBody, SEVERITY_SHAPE, Shape, useClock } from "@/components/admin/control/parts";
+import { EventRow, OpenElapsed } from "@/components/admin/control/Timeline";
+import { durationWord, FlashNum, hm, PanelHead, SectionBody, SEVERITY_WORD, useClock } from "@/components/admin/control/parts";
+import IncidentFocus from "@/components/admin/incidents/IncidentFocus";
+import IncidentList from "@/components/admin/incidents/IncidentList";
+import PageSkeleton from "@/components/admin/control/PageSkeleton";
+import StatusShape from "@/components/admin/StatusShape";
+import { Segmented } from "@/components/admin/ui";
 import { flashTone } from "@/lib/admin/motion";
-import { kstDay } from "@/lib/admin/timeText";
+import type { ControlCenter, IncidentLog } from "@/lib/admin/types";
 import adminStyles from "@/components/admin/admin.module.css";
-import styles from "@/components/admin/control/control.module.css";
+import controlStyles from "@/components/admin/control/control.module.css";
+import styles from "@/components/admin/incidents/incidents.module.css";
+
+type Range = "today" | "week";
+const RANGES: { value: Range; label: string }[] = [
+  { value: "today", label: "오늘" },
+  { value: "week", label: "7일" },
+];
+
+/** 요약 다섯 칸. 상태를 싣는 칸이라 칸마다 테두리를 둔 Tile이다(§12-14). 오늘은 KST 날짜다 */
+function Summary({ center }: { center: ControlCenter }) {
+  const now = useClock(60_000);
+  if (center.alerts.state !== "READY" || center.incidents.state !== "READY") {
+    return (
+      <SectionBody section={center.incidents.state !== "READY" ? center.incidents : center.alerts} what="경보·사건 요약">
+        {() => null}
+      </SectionBody>
+    );
+  }
+  const alerts = center.alerts.data;
+  const log = center.incidents.data;
+  const c = alertCounts(alerts);
+  const t = todayIncidents(log, now);
+  const mean = todayMeans(log, now);
+  const opens = openIncidents(log);
+  const oldest = opens[0] ?? null;
+  const tone = c.critical > 0 ? "danger" : c.warning > 0 ? "warning" : undefined;
+  return (
+    <section className={controlStyles.summary} aria-label="경보·사건 요약">
+      <Tile
+        icon="incidents"
+        label="활성 경보"
+        tone={tone}
+        value={
+          <span className={`${controlStyles.tileValue} num`} data-tone={tone}>
+            {tone && <StatusShape kind={tone === "danger" ? "square" : "triangle"} size={14} className={controlStyles.tileMark} />}
+            <FlashNum value={alerts.length} tone={flashTone} />
+            <span className={controlStyles.tileUnit}>건</span>
+          </span>
+        }
+        sub={
+          <span className={controlStyles.alertCounts}>
+            {(["critical", "warning", "info"] as const).map((sev) => (
+              <span key={sev} className={controlStyles.alertCount} data-sev={sev} data-zero={c[sev] === 0 ? "" : undefined}>
+                <span aria-hidden="true">
+                  <StatusShape kind={sev === "critical" ? "square" : sev === "warning" ? "triangle" : "circle"} />
+                </span>
+                <b className="num">{c[sev]}</b>
+                <span className="sr-only">{SEVERITY_WORD[sev]}</span>
+              </span>
+            ))}
+          </span>
+        }
+      />
+      <Tile
+        icon="clock"
+        label="진행 중 사건"
+        tone={oldest ? "warning" : undefined}
+        value={
+          <span className={`${controlStyles.tileValue} num`} data-tone={oldest ? "warning" : undefined}>
+            {oldest && <StatusShape kind="triangle" size={14} className={controlStyles.tileMark} />}
+            <FlashNum value={opens.length} tone={flashTone} />
+            <span className={controlStyles.tileUnit}>건</span>
+          </span>
+        }
+        sub={
+          oldest ? (
+            // 1280 창의 칸 폭에 들도록 한 건이면 발생 시각과 경과만 적는다
+            <>
+              {opens.length > 1 ? "가장 오래된 " : ""}
+              {hm(oldest.openedAt)} 발생 · <b className="num"><OpenElapsed from={oldest.openedAt} />째</b>
+            </>
+          ) : (
+            "진행 중인 사건 없음"
+          )
+        }
+      />
+      <Tile
+        icon="audit"
+        label="오늘 사건"
+        value={
+          <span className={`${controlStyles.tileValue} num`}>
+            <FlashNum value={t.count} tone={(prev, next) => (next > prev ? "warning" : null)} />
+            <span className={controlStyles.tileUnit}>건</span>
+          </span>
+        }
+        sub={
+          <>
+            해제 <b className="num">{t.count - t.open}</b> · 진행 <b className="num">{t.open}</b>
+          </>
+        }
+      />
+      <Tile
+        icon="ack"
+        label="평균 확인 시간 · MTTA"
+        value={<span className={`${controlStyles.tileValue} ${mean.mttaMs === null ? controlStyles.tileValueText : ""} num`}>{mean.mttaMs === null ? "기록 없음" : durationWord(mean.mttaMs)}</span>}
+        sub="오늘 연 사건 · 첫 확인·결정까지"
+      />
+      <Tile
+        icon="timer"
+        label="평균 해제 시간 · MTTR"
+        value={<span className={`${controlStyles.tileValue} ${mean.mttrMs === null ? controlStyles.tileValueText : ""} num`}>{mean.mttrMs === null ? "기록 없음" : durationWord(mean.mttrMs)}</span>}
+        sub="오늘 연 사건 · 발생부터 해제까지"
+      />
+    </section>
+  );
+}
 
 export default function IncidentsPage() {
   const { data, loading, refresh } = useOpsCenter();
-  // '오늘'의 경계만 읽는다. 진행 중 사건의 경과처럼 매초 바뀌는 글자는 그 조각이 시계를 탄다
   const now = useClock(60_000);
+  const [range, setRange] = useState<Range>("today");
   const [picked, setPicked] = useState<string | null>(null);
-  const [filter, setFilter] = useState<EventFilter>("ALL");
   const onChanged = () => void refresh(true);
-  // 오늘의 경계는 KST 자정이다(§12-12)
-  const today = kstDay(now);
+  const log = data?.incidents.state === "READY" ? data.incidents.data : null;
+  const policy = data?.oncall.state === "READY" ? data.oncall.data.policy : null;
+  const list = log ? incidentsIn(log, range, now) : [];
+  // 고른 사건이 거른 목록에 없으면 진행 중인 사건, 없으면 가장 최근 사건을 고른다
+  const current = list.find((i) => i.id === picked) ?? list.find((i) => i.resolvedAt === null) ?? list[0] ?? null;
+
+  // 다른 화면이 ?pick=로 한 사건을 가리키면 먼저 고른다. 드로어를 여는 ?incident=와 다르다
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("pick");
+    if (id) setPicked(id);
+  }, []);
 
   return (
     <div className={adminStyles.page}>
-      <OpsHead
-        title="경보·사건"
-        desc="경보를 확인·보류하고 사건이 발생에서 해제까지 흐른 순서를 봅니다. 추이는 Grafana"
-        center={data}
-        actions={<GrafanaLink board="msp-overview" label="경보 추이" />}
-      />
+      <OpsHead title="경보·사건" center={data} actions={<GrafanaLink board="msp-overview" label="경보 추이" />} />
       {data === null ? (
-        loading ? <Skeleton variant="card" width="100%" height={420} /> : <AdminErrorState onRetry={() => void refresh()} />
+        loading ? <PageSkeleton tiles={5} columns={[1, 1.15]} rows={[3, 4]} label="경보·사건 판을 불러오는 중입니다" /> : <AdminErrorState onRetry={() => void refresh()} />
       ) : (
         <>
-          <section className={styles.summary} data-cols="4" aria-label="경보·사건 요약">
-            {data.alerts.state === "READY" && data.incidents.state === "READY" ? (
-              (() => {
-                const c = alertCounts(data.alerts.data);
-                const t = todayIncidents(data.incidents.data, now);
-                const open = data.incidents.data.incidents.find((i) => i.resolvedAt === null) ?? null;
-                const tone = c.critical > 0 ? "danger" : c.warning > 0 ? "warning" : undefined;
-                return (
-                  <>
-                    <Tile
-                      icon="incidents"
-                      label="활성 경보"
-                      tone={tone}
-                      value={
-                        <span className={`${styles.tileValue} num`} data-tone={tone}>
-                          <FlashNum value={data.alerts.data.length} tone={flashTone} />
-                          <span className={styles.tileUnit}>건</span>
-                        </span>
-                      }
-                      sub={
-                        <span className={styles.alertCounts}>
-                          {(["critical", "warning", "info"] as const).map((sev) => (
-                            <span key={sev} className={styles.alertCount} data-sev={sev} data-zero={c[sev] === 0 ? "" : undefined}>
-                              <Shape tone={c[sev] === 0 ? "off" : sev === "critical" ? "danger" : sev === "warning" ? "warning" : "info"}>{SEVERITY_SHAPE[sev]}</Shape>
-                              <b className="num">{c[sev]}</b>
-                            </span>
-                          ))}
-                          <span>장애 · 주의 · 정보</span>
-                        </span>
-                      }
-                    />
-                    <Tile
-                      icon="clock"
-                      label="진행 중 사건"
-                      tone={open ? "warning" : undefined}
-                      value={
-                        <span className={`${styles.tileValue} num`}>
-                          {open ? 1 : 0}
-                          <span className={styles.tileUnit}>건</span>
-                        </span>
-                      }
-                      sub={
-                        open ? (
-                          <>
-                            {hm(open.openedAt)}부터 · <OpenElapsed from={open.openedAt} />
-                          </>
-                        ) : (
-                          "진행 중인 사건 없음"
-                        )
-                      }
-                    />
-                    <Tile
-                      icon="audit"
-                      label="오늘 사건"
-                      value={
-                        <span className={`${styles.tileValue} num`}>
-                          {t.count}
-                          <span className={styles.tileUnit}>건</span>
-                        </span>
-                      }
-                      sub={`해제 ${t.count - t.open} · 진행 ${t.open}`}
-                    />
-                    <Tile
-                      icon="clock"
-                      label="평균 복구 시간"
-                      value={<span className={`${styles.tileValue} ${styles.tileValueText} num`}>{t.mttrMs === null ? "기록 없음" : durationWord(t.mttrMs)}</span>}
-                      sub="오늘 해제한 사건 · 발생부터 해제까지"
-                    />
-                  </>
-                );
-              })()
-            ) : null}
-          </section>
-          <div className={styles.split}>
+          <Summary center={data} />
+          <div className={styles.layout}>
             <div className={styles.stack}>
-              <section className={styles.panel} aria-labelledby="inc-alerts">
-                <PanelHead id="inc-alerts" title="활성 경보" meta="확인은 기록이고 경보를 끄지 않습니다. 보류는 최대 30분" />
+              <section className={controlStyles.panel} aria-labelledby="inc-alerts">
+                <PanelHead
+                  id="inc-alerts"
+                  title={
+                    <>
+                      활성 경보{data.alerts.state === "READY" && <span className={`${styles.count} num`}> {data.alerts.data.length}</span>}
+                    </>
+                  }
+                  meta="확인은 기록이고 경보를 끄지 않습니다 · 보류는 30분까지"
+                />
                 <SectionBody section={data.alerts} what="경보">
-                  {(alerts) => <AlertList alerts={alerts} onChanged={onChanged} />}
+                  {(alerts) => <AlertList alerts={alerts} onChanged={onChanged} context={{ log, policy, runbooks: true }} />}
                 </SectionBody>
               </section>
-              <section className={styles.panel} aria-labelledby="inc-list">
-                <PanelHead id="inc-list" title="오늘 사건" meta="누르면 오른쪽에 기록을 펼칩니다. 사건 이름을 누르면 상세가 열립니다" />
+              <section className={controlStyles.panel} aria-labelledby="inc-list">
+                <PanelHead
+                  id="inc-list"
+                  title={
+                    <>
+                      사건<span className={`${styles.count} num`}> {list.length}</span>
+                    </>
+                  }
+                  actions={<Segmented items={RANGES} value={range} onChange={setRange} ariaLabel="사건 기간" size="xs" />}
+                />
                 <SectionBody section={data.incidents} what="사건 기록">
-                  {(log) => {
-                    const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
-                    if (list.length === 0) {
-                      return (
-                        <div className={styles.empty}>
-                          <span className={styles.emptyMark} aria-hidden="true" />
-                          오늘 사건 없음
-                        </div>
-                      );
-                    }
-                    return (
-                      <ul className={styles.incList}>
-                        {list.map((i, n) => {
-                          const selected = (picked ?? list[0]?.id) === i.id;
-                          const open = i.resolvedAt === null;
-                          return (
-                            <li key={i.id}>
-                              <button type="button" className={styles.incRow} aria-pressed={selected} onClick={() => setPicked(i.id)}>
-                                <Shape tone={open ? "warning" : "success"}>{open ? SEVERITY_SHAPE[i.severity] : "●"}</Shape>
-                                <span>
-                                  <b>{i.title}</b>
-                                  <br />
-                                  {hm(i.openedAt)} 발생 · {open ? "진행 중" : `${durationWord(Date.parse(i.resolvedAt as string) - Date.parse(i.openedAt))} 만에 해제`}
-                                </span>
-                                <span className="num">#{list.length - n}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    );
-                  }}
+                  {(l) =>
+                    list.length === 0 ? (
+                      <div className={controlStyles.empty}>
+                        <span className={controlStyles.emptyMark} aria-hidden="true" />
+                        이 기간 사건 없음
+                      </div>
+                    ) : (
+                      <IncidentList list={list} log={l} policy={policy} picked={current?.id ?? null} onPick={setPicked} />
+                    )
+                  }
                 </SectionBody>
               </section>
             </div>
-            <section className={styles.panel} aria-labelledby="inc-detail">
-              <PanelHead
-                id="inc-detail"
-                title="사건 기록"
-                meta="발생 · AI 판단 · 승인 · 조치 · 해제"
-                actions={<FilterSwitch value={filter} onChange={setFilter} label="기록 거르기" />}
-              />
-              <SectionBody section={data.incidents} what="사건 기록">
-                {(log) => {
-                  const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
-                  const inc = list.find((i) => i.id === (picked ?? list[0]?.id)) ?? null;
-                  const loose = log.events.filter((e) => e.incidentId === null).filter(byFilter(filter)).slice(0, 12);
-                  return (
-                    <div className={styles.stack}>
-                      {inc ? (
-                        <IncidentView inc={inc} log={log} filter={filter} />
-                      ) : (
-                        <div className={styles.empty}>
-                          <span className={styles.emptyMark} aria-hidden="true" />
-                          오늘 사건 없음
-                        </div>
-                      )}
-                      {loose.length > 0 && (
-                        <>
-                          <div className={styles.divider} />
-                          <div className={styles.subHead}>사건 밖 운영 기록</div>
-                          <ol className={styles.events}>
-                            {loose.map((e) => (
-                              <EventRow key={e.id} e={e} />
-                            ))}
-                          </ol>
-                        </>
-                      )}
-                    </div>
-                  );
-                }}
-              </SectionBody>
-            </section>
+            <div className={styles.stack}>
+              {log && current ? (
+                // 사건을 바꾸면 새로 그린다. 바꾼 순간의 기록 줄은 새로 온 줄이 아니다
+                <IncidentFocus key={current.id} inc={current} log={log} policy={policy} />
+              ) : (
+                <section className={controlStyles.panel} aria-label="고른 사건">
+                  <SectionBody section={data.incidents} what="사건 기록">
+                    {() => (
+                      <div className={controlStyles.empty}>
+                        <span className={controlStyles.emptyMark} aria-hidden="true" />
+                        이 기간 사건 없음
+                      </div>
+                    )}
+                  </SectionBody>
+                </section>
+              )}
+              {log && <LooseEvents log={log} />}
+            </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/** 사건 밖 운영 기록. 모드 전환, 경보 없는 조치, 백업처럼 사건에 속하지 않는 최근 기록이다 */
+function LooseEvents({ log }: { log: IncidentLog }) {
+  const loose = log.events.filter((e) => e.incidentId === null).slice(0, 8);
+  if (loose.length === 0) return null;
+  return (
+    <section className={controlStyles.panel} aria-labelledby="inc-loose">
+      <PanelHead id="inc-loose" title="사건 밖 운영 기록" meta="모드 전환, 백업처럼 사건에 속하지 않는 최근 기록" />
+      <ol className={controlStyles.events}>
+        {loose.map((e) => (
+          <EventRow key={e.id} e={e} />
+        ))}
+      </ol>
+    </section>
   );
 }
