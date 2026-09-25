@@ -739,6 +739,8 @@ export interface OpsHost {
   cpuCredits: number | null;
   /** 매칭 노드만 있다 */
   partition: OpsPartition | null;
+  /** 자산 칸(관리자 설계 4-10-3). 원천이 채우기 전에는 없다 */
+  asset?: HostAsset;
 }
 
 /**
@@ -793,6 +795,8 @@ export interface OpsTrading {
   botTargetOps: number;
   botOps: number;
   tradesPerSec: number;
+  /** 쓰기 상태(관리자 설계 4-10-8). 원천이 채우기 전에는 없다 */
+  writes?: WriteState;
 }
 
 /** 상태 요약 추세선의 범위(시간) */
@@ -842,6 +846,11 @@ export interface ReadTier {
   nodes: ReadNode[];
   /** 조회를 받는 앱 노드의 평균 CPU. 받는 노드가 없으면 null */
   avgCpuPct: number | null;
+  /**
+   * KST 오늘 app-3이 기동·운영·드레이닝이던 초(관리자 설계 4-10-5 비용). 인스턴스 요금은 켜져 있는 동안 붙으므로
+   * 조회를 받기 전과 내리는 동안도 센다. 원천이 채우기 전에는 없다
+   */
+  onSecondsToday?: number | null;
 }
 
 export type ReplicationStream = "STREAMING" | "CATCHUP" | "STOPPED";
@@ -913,7 +922,9 @@ export type IncidentEventKind =
   /** 정책 엔진이 조치 요청을 막음 */
   | "DENIED"
   /** 관찰 창의 끝 */
-  | "OBSERVED";
+  | "OBSERVED"
+  /** 사건 담당 지정(관리자 설계 4-10-2). 서버 경로는 계약 초안이다 */
+  | "ASSIGNED";
 
 export type OpsActor = "SYSTEM" | "AI" | "OPERATOR";
 
@@ -939,6 +950,12 @@ export interface Incident {
    * getIncidentEvents로 읽는다. sim은 늘 싣는다(undefined)
    */
   eventsLoaded?: boolean;
+  /* 아래 넷은 3라운드 칸이다(관리자 설계 4-10-2). 원천이 채우기 전에는 없다 */
+  owner?: IncidentOwner | null;
+  /** 보낸 호출. 오래된 것이 앞이다 */
+  pages?: IncidentPage[];
+  postmortem?: Postmortem | null;
+  runbookId?: RunbookId | null;
 }
 
 /** 최신이 앞이다 */
@@ -972,6 +989,8 @@ export interface OpsJobs {
   backupSource: string | null;
   /** 인증서 만료 원천이 없으면 null이다 */
   certificate: { domain: string; expiresAt: string } | null;
+  /** 인증서 목록(관리자 설계 4-10-3). 공개 인증서와 관리 게이트웨이 내부 인증서다. 원천이 채우기 전에는 없다 */
+  certificates?: CertificateInfo[] | null;
   /** hour는 보고 예약 시각(KST 시)이다. 원천이 예약 시각을 알려 주지 않으면 null이다 */
   dailyReport: {
     hour: number | null;
@@ -1213,6 +1232,11 @@ export interface AiJudgmentTrace {
   candidates: AiTraceCandidate[];
   checks: AiTraceCheck[];
   result: string;
+  /**
+   * 모델 근거에 싣지 않고 버린 경보 필드의 이름(서버 판단 근거의 rejected, 관리자 설계 4-10-9 프롬프트 주입).
+   * 버린 것이 없거나 원천이 채우기 전에는 없다
+   */
+  rejected?: { alert: string; fields: string[] }[];
 }
 
 export interface AiJudgment {
@@ -1321,6 +1345,17 @@ export interface ControlCenter {
    * 관리 API에 관제 모듈이 없어 모르면 null이다
    */
   sources: OpsSourceState[] | null;
+  /* 아래는 3라운드 칸이다(관리자 설계 4-10-8). 원천이 채우기 전에는 없고, 화면은 칸이 없으면 원천 연결 전으로 그린다 */
+  /** 당번 명부와 호출 정책 */
+  oncall?: OpsSection<OnCallDesk>;
+  /** 계획 작업 창과 변경 요청 */
+  changes?: OpsSection<ChangeDesk>;
+  /** DB 통계와 복제 방식 */
+  database?: OpsSection<DbStats>;
+  /** 용량 전망과 앱 계층 활동 기록 */
+  outlook?: OpsSection<CapacityOutlook>;
+  /** 이번 달 SLA */
+  sla?: OpsSection<SlaMonth>;
 }
 
 export type AiDecision = "APPROVE" | "REJECT" | "DEFER";
@@ -1514,4 +1549,364 @@ export interface ReportDesk {
   };
   /** Teams 연결 시험(운영 자료를 싣지 않는 모의 전송) 기록. 최신이 앞이다 */
   tests: ReportAttempt[];
+}
+
+/* ===== 3라운드 화면(관리자 설계 4-10) =====
+ * 사이드바 전체를 MSP 관점으로 넓히며 더하는 모양이다. 관제 판의 칸(ControlCenter의 선택 필드)은 sim이 관제
+ * 시뮬레이터 한 판에서 내고 http는 서버 계약이 있는 것만 채운다. 조치 기록은 감사 기록을 가진 관리 어댑터가,
+ * 런북·시나리오 라이브러리·모델 평가·허용 경로·비용 계획은 두 원천이 같은 정적 자료가 낸다. */
+
+/** 호출 단계. 첫 알림 뒤 운영자 확인이 없으면 1차·2차·책임자로 올린다 */
+export type EscalationLevel = 1 | 2 | 3;
+
+/** 호출 정책 한 줄(4-10-7). 발생 뒤 확인 없이 afterMin분이 지나면 role에게 channel로 알린다 */
+export interface EscalationStep {
+  level: EscalationLevel;
+  afterMin: number;
+  role: string;
+  channel: string;
+}
+
+/** 당번 명부, 호출 정책, 지금 당번(4-10-7) */
+export interface OnCallDesk {
+  roster: OnCallEntry[];
+  /** 단계 순서다 */
+  policy: EscalationStep[];
+  /** 지금 당번. 명부에 교대가 없으면 null */
+  onDuty: { role: string; person: string; until: string } | null;
+}
+
+/** 사건 담당. 이 사건을 맡은 사람이고 보고서의 권고 담당 역할(4-7)과 다르다 */
+export interface IncidentOwner {
+  operatorId: string | null;
+  name: string;
+  /** 연락 체계의 담당 역할 */
+  role: string;
+  assignedAt: string;
+  /** 지정한 운영자. 당번 자동 배정이면 시스템이다 */
+  assignedBy: string;
+}
+
+/** 보낸 호출 한 건. 운영자가 확인하면 ACKED, 해제로 멈추면 CLOSED다 */
+export interface IncidentPage {
+  level: EscalationLevel;
+  at: string;
+  role: string;
+  /** 명부에서 찾은 사람. 명부가 없으면 null */
+  person: string | null;
+  channel: string;
+  state: "SENT" | "ACKED" | "CLOSED";
+}
+
+/** 사후 분석. 해제된 사건에만 쓴다 */
+export interface Postmortem {
+  status: "DRAFT" | "DONE";
+  cause: string;
+  impact: string;
+  /** 사건 기록에서 고른 줄과 운영자가 더한 줄. 오래된 것이 앞이다 */
+  timeline: { at: string; text: string }[];
+  /** 재발 방지 조치 */
+  actions: { task: string; owner: string; due: string; done: boolean }[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** 계획 작업 창(API 설계 §6-F). AI의 경보 보류는 이 창과 겹치는 warning 경보뿐이다(ADR 0035) */
+export interface MaintenanceWindow {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  /** 대상 경보명. 라벨로만 고른 창은 null */
+  alertname: string | null;
+  /** 대상 라벨. 키는 node·role·component·mountpoint뿐이다 */
+  labels: Record<string, string>;
+  reason: string;
+  createdBy: string;
+  endedAt: string | null;
+  endedBy: string | null;
+  active: boolean;
+  /** 이 창을 연 변경 요청. 창만 따로 등록했으면 null */
+  changeId: string | null;
+}
+
+export type ChangeState = "REQUESTED" | "APPROVED" | "IN_PROGRESS" | "DONE" | "ROLLED_BACK" | "CANCELED";
+
+/** 변경 요청(4-4 3라운드 계약 초안). 등록, 1인 승인(ops.change.approve), 진행, 종료, 검토로 흐른다 */
+export interface ChangeRequest {
+  id: string;
+  title: string;
+  target: string;
+  plan: string;
+  rollback: string;
+  risk: "LOW" | "MEDIUM" | "HIGH";
+  startsAt: string;
+  endsAt: string;
+  state: ChangeState;
+  requestedBy: string;
+  requestedAt: string;
+  approvalId: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  /** 진행하며 연 계획 작업 창 */
+  windowId: string | null;
+  /** 종료 때 적은 결과. 종료 전이면 null */
+  result: string | null;
+  closedAt: string | null;
+}
+
+export interface ChangeDesk {
+  /** 끝 시각 역순 */
+  windows: MaintenanceWindow[];
+  changes: ChangeRequest[];
+}
+
+/** 복제 방식. 지금은 비동기이고 Patroni 엄격 동기는 구성 중이다(ADR 0024, ADR 0036은 다른 브랜치) */
+export type ReplicationMode = "ASYNC" | "SYNC_STRICT";
+/** DB 전환 방식. PATRONI_BUILDING은 설계·구현이 진행 중이고 이 환경에 적용하지 않았다는 뜻이다 */
+export type FailoverMode = "MANUAL" | "PATRONI_BUILDING" | "PATRONI";
+
+export interface DbStats {
+  mode: ReplicationMode;
+  failover: FailoverMode;
+  connections: { used: number; max: number } | null;
+  tps: number | null;
+  cacheHitPct: number | null;
+  wal: { primaryLsn: string; standbyReplayLsn: string } | null;
+  sizeBytes: number | null;
+  /** 느린 질의. 학교 DB에 pg_stat_statements를 적재하지 않아 두 원천 모두 연결 전이다 */
+  slowQueries: OpsSection<{ query: string; calls: number; meanMs: number }[]>;
+}
+
+/** 용량 전망과 앱 계층 활동 기록(4-10-3). 전망은 예측이라 근거 구간을 함께 싣는다 */
+export interface CapacityOutlook {
+  /** 근거 구간(시간). 24시간보다 짧으면 가득 참 예상일을 내지 않는다 */
+  basisHours: number;
+  disks: { host: string; usedPct: number; growthPctPerDay: number | null; fullAt: string | null }[];
+  dbGrowthBytesPerDay: number | null;
+  /** app-3 켜기·끄기. 최신이 앞이다 */
+  activity: { at: string; action: "ON" | "OFF"; actor: OpsActor; actorName: string; reason: string; tookSec: number | null }[];
+}
+
+/** 호스트 자산(4-10-3). 원천이 없는 칸은 null이다 */
+export interface HostAsset {
+  os: string | null;
+  kernel: string | null;
+  bootedAt: string | null;
+  inodeUsedPct: number | null;
+  /** 실패한 systemd 서비스. 없으면 빈 배열이다 */
+  failedUnits: string[] | null;
+  /** 보안 업데이트 대기 수 */
+  securityUpdates: number | null;
+}
+
+/** 인증서 한 장(4-10-3) */
+export interface CertificateInfo {
+  domain: string;
+  issuer: string;
+  expiresAt: string;
+  /** 갱신 방식. 자동 갱신 타이머나 자동 갱신 없음 */
+  renewal: string;
+  /** 마지막 모의 갱신 성공. 모르면 null */
+  lastDryRunAt: string | null;
+}
+
+/**
+ * 쓰기 상태(4-10-8). FAILING은 DB에 쓰지 못해 주문이 실패하는 상태, SUSPENDED는 엄격 동기에서 Standby가 없어
+ * 거래를 일시 중단하고 조회만 받는 상태다(ADR 0036 적용 뒤)
+ */
+export type WriteState = "OPEN" | "FAILING" | "SUSPENDED";
+
+/** SLA 한 달(4-10-5). 가용성은 외부 프로브 성공률이다. 주문 API SLO(API 설계 §7-4)와 다른 지표다 */
+export interface SlaMonth {
+  /** YYYY-MM(KST) */
+  month: string;
+  targetPct: number;
+  availabilityPct: number | null;
+  /** 오류 예산(분). 쓴 값을 모르면 null */
+  budget: { allowedMin: number; usedMin: number | null };
+  incidents: {
+    total: number;
+    bySeverity: Record<AlertSeverity, number>;
+    mttaMs: number | null;
+    mttrMs: number | null;
+    /** 사후 분석을 마친 사건 수 */
+    postmortems: number;
+  };
+  changes: { done: number; rolledBack: number };
+  ai: { runs: number; autoRuns: number; reverts: number };
+  /** 날마다. SEED는 시뮬레이터 예시, BOARD는 관제 판에서 센 날이다 */
+  days: { day: string; availabilityPct: number | null; incidents: number; source: "SEED" | "BOARD" }[];
+  /** 그 달의 수에서 나온 권고. basis는 근거 수를 적은 글이다 */
+  recommendations: { text: string; basis: string }[];
+}
+
+/** 조치 기록의 종류(4-10-4). 서버와 sim의 액션 코드가 달라도 같은 종류로 묶는다 */
+export type ActionCategory =
+  | "ALERT"
+  | "AI_ACTION"
+  | "AI_MODE"
+  | "THRESHOLD"
+  | "AI_LIMIT"
+  | "CAPACITY"
+  | "BOT"
+  | "BACKUP"
+  | "WINDOW"
+  | "CHANGE"
+  | "INCIDENT"
+  | "REPORT"
+  | "SESSION"
+  | "OTHER";
+
+/** 조치 기록 한 줄. 관리 어댑터가 감사 기록과 사건 기록을 옮기고, 관제 판에는 싣지 않는다 */
+export interface ActionRecord {
+  id: string;
+  at: string;
+  actor: OpsActor;
+  /** 인증 주체(운영자 id, ai-ops, system:msp) */
+  actorId: string;
+  actorName: string;
+  category: ActionCategory;
+  /** 감사 원문 코드. 화면은 한국어 주해와 함께 원문을 늘 보인다 */
+  action: string;
+  target: string;
+  result: AuditResult | "REVERTED";
+  approvalId: string | null;
+  incidentId: string | null;
+  /** 이 조치를 되돌린 기록 */
+  revertedBy: string | null;
+  /** 이 조치가 되돌린 기록 */
+  revertOf: string | null;
+}
+
+/** 런북(4-10-4). 운영자가 SSM 세션에서 실행하는 절차이고 콘솔에 실행 단추가 없다 */
+export type RunbookId = "DB_PROMOTE" | "APP_RESTART" | "DISK_CLEANUP" | "CERT_RENEW" | "BOT_STOP" | "BACKUP_RESTORE";
+
+export interface RunbookStep {
+  title: string;
+  detail: string;
+  /** 다음 단계로 가기 전에 확인할 것 */
+  check: string;
+  /** 원문 문서에 적힌 명령만 옮긴다. 없으면 빈 배열이다 */
+  commands: string[];
+}
+
+export interface Runbook {
+  id: RunbookId;
+  title: string;
+  when: string;
+  /** AI가 하지 않는 이유(ADR 0035 금지 목록 번호나 허용 목록 밖) */
+  notForAi: string;
+  /** 관련 경보. sim 경보 이름과 서버 경보 규칙 이름 */
+  alerts: { sim: string | null; rule: string | null }[];
+  steps: RunbookStep[];
+  rollback: string;
+  /** 원문(저장소 경로와 절 이름) */
+  sources: { path: string; section: string }[];
+}
+
+/** 시나리오 라이브러리(4-10-9). live가 있는 것만 관제 판에 실시간으로 걸 수 있다 */
+export type ScenarioId =
+  | "READ_SURGE"
+  | "NIGHT_SCALE_IN"
+  | "DB_PRIMARY_DOWN"
+  | "SYNC_STANDBY_LOST"
+  | "DISK_LOW"
+  | "BOT_RUNAWAY"
+  | "AI_SERVER_DOWN"
+  | "PROMPT_INJECTION"
+  | "CERT_EXPIRY";
+
+/**
+ * 재생의 전제. NONE은 지금 구성, PATRONI_APPLIED는 ADR 0036(다른 브랜치)을 적용한 뒤, AWS_ASG_POLICY는 AWS 지표
+ * 정책이 앱 계층 대수를 소유하는 환경이다. NONE이 아니면 재생 판에 가정 표식을 단다
+ */
+export type ScenarioAssumption = "NONE" | "PATRONI_APPLIED" | "AWS_ASG_POLICY";
+
+export interface ScenarioStage {
+  /** 재생 시작부터의 가상 초 */
+  atSec: number;
+  title: string;
+  /** 이 단계에서 보일 것 */
+  expect: string;
+}
+
+/** 재생 대본의 사람 몫. 운영자의 콘솔 결정이거나 운영자가 SSM에서 한 런북 단계다 */
+export interface ScenarioCue {
+  atSec: number;
+  /** 이 대본이 도는 모드. ANY는 두 모드 모두다 */
+  mode: "MANUAL" | "AUTO" | "ANY";
+  kind: "APPROVE_FIRST" | "ACK_ALERT" | "RUNBOOK_STEP" | "RESUME_BOTS";
+  note: string;
+}
+
+export interface ScenarioSpec {
+  id: ScenarioId;
+  title: string;
+  question: string;
+  /** 사실 전제(지금 구성, 적용 전 구성) */
+  premise: string[];
+  assumption: ScenarioAssumption;
+  durationSec: number;
+  stages: ScenarioStage[];
+  cues: ScenarioCue[];
+  runbookId: RunbookId | null;
+  /** 관제 판에 실시간으로 거는 시나리오의 id. 재생 전용이면 null */
+  live: OpsScenarioId | null;
+}
+
+/** 모델 평가 한 행(4-10-2). 측정 문서의 값을 옮긴 정적 기록이라 글자 그대로 싣는다 */
+export interface ModelEvalRow {
+  model: string;
+  think: string | null;
+  wrongExec: number;
+  approvalWrong: number;
+  correct: string;
+  schema: string;
+  consistent: string;
+  latency: string;
+  honorific: string;
+  outOfCatalog: number;
+  injection: string;
+  chat: string;
+}
+
+export interface ModelEvaluation {
+  /** 측정 문서 경로 */
+  source: string;
+  measuredAt: string;
+  where: string;
+  promptVersion: string;
+  rows: ModelEvalRow[];
+  errorTypes: string[];
+  next: string;
+}
+
+/** 보안 그룹 허용 경로의 설계 의도(4-10-3). AWS에서 읽은 값이 아니다 */
+export interface AllowedPath {
+  from: string;
+  to: string;
+  port: string;
+  purpose: string;
+  /** 근거(저장소 경로) */
+  source: string;
+  /** 학교 계정에 콘솔로 적용한 기록. 기록이 없으면 null */
+  school: string | null;
+}
+
+/** 비용 계획(4-10-5). 두 원천이 같은 정적 입력이고 app-3 가동 시간만 관제 판에서 읽는다 */
+export interface CostPlan {
+  /** 개인 계정 크레딧(달러)과 그 값의 출처 */
+  creditUsd: number;
+  creditNote: string;
+  /** 운영 기간(KST 날짜, 양 끝 포함) */
+  startDay: string;
+  endDay: string;
+  /** 계획 하루 비용(달러). app-3을 늘 켠 경우를 따로 둔다 */
+  dailyUsd: number;
+  dailyWithApp3Usd: number;
+  /** app-3 한 대의 계획 단가(달러/시간) */
+  app3HourlyUsd: number;
+  /** 계산에서 뺀 것 */
+  excluded: string[];
+  school: { monthlyKrw: number; note: string; reference: { label: string; usd: number } };
 }

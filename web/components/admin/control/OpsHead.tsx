@@ -63,7 +63,8 @@ export function RangeSwitch({ range, onRange }: { range: TrendRange; onRange: (r
 
 export default function OpsHead({ title, desc, center, actions, aside }: {
   title: string;
-  desc: ReactNode;
+  /** 설명 줄. 3라운드 화면은 두지 않는다(관리자 설계 4-10). 머리 높이는 예약 높이가 지킨다 */
+  desc?: ReactNode;
   center: ControlCenter | null;
   actions?: ReactNode;
   /** 조작 앞에 두는 판독(추세 범위, 수집 상태). 관제센터만 넘긴다 */
@@ -76,7 +77,7 @@ export default function OpsHead({ title, desc, center, actions, aside }: {
           <h1 className={adminStyles.pageTitle}>{title}</h1>
           <OpsSource center={center} />
         </div>
-        <p className={styles.headDesc}>{desc}</p>
+        {desc != null && <p className={styles.headDesc}>{desc}</p>}
       </div>
       {(aside != null || actions != null) && (
         <div className={styles.headActions}>

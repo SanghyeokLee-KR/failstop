@@ -38,7 +38,14 @@ export type AdminIconName =
   | "settings"
   | "close"
   | "send"
-  | "info";
+  | "info"
+  | "security"
+  | "changes"
+  | "actions"
+  | "runbooks"
+  | "sla"
+  | "cost"
+  | "scenarios";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -259,6 +266,60 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   ),
   // 보내기: 위로 가는 화살
   send: <path d="M8 12.75 V3.5 M4.25 7.25 L8 3.5 L11.75 7.25" />,
+  // 네트워크·보안: 방패와 열쇠 구멍. 들어올 수 있는 길과 권한을 지키는 자리다
+  security: (
+    <>
+      <path d="M8 1.75 L13 3.75 V7.5 C13 10.6 10.9 13 8 14.25 C5.1 13 3 10.6 3 7.5 V3.75 Z" />
+      <circle cx="8" cy="7" r="1.25" />
+      <path d="M8 8.25 V10.25" />
+    </>
+  ),
+  // 변경·작업: 고리가 달린 달력과 그 안의 작업 창 막대
+  changes: (
+    <>
+      <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.5" />
+      <path d="M5.25 1.75 V4.5 M10.75 1.75 V4.5" />
+      <path d="M2.25 6.5 H13.75" />
+      <path d="M5 9.75 H9.5" />
+    </>
+  ),
+  // 조치 기록: 점 머리가 달린 기록 줄. 줄만 그은 감사 로그 문서와 가른다
+  actions: (
+    <>
+      <path d="M3.5 4 V4.1 M3.5 8 V8.1 M3.5 12 V12.1" strokeWidth="2.25" />
+      <path d="M6.25 4 H13 M6.25 8 H13 M6.25 12 H10.5" />
+    </>
+  ),
+  // 런북: 가운데 등이 있는 펼친 책. 사람이 따라 하는 절차다
+  runbooks: (
+    <>
+      <path d="M8 4.25 C6.5 3.25 4.5 3 2.25 3.25 V12.5 C4.5 12.25 6.5 12.5 8 13.5 C9.5 12.5 11.5 12.25 13.75 12.5 V3.25 C11.5 3 9.5 3.25 8 4.25 Z" />
+      <path d="M8 4.25 V13.5" />
+    </>
+  ),
+  // SLA 월간 보고: 과녁과 겨눈 선. 약속한 수준에 닿았는지를 본다
+  sla: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <circle cx="8" cy="8" r="2.25" />
+      <path d="M8 8 L12.25 3.75" />
+    </>
+  ),
+  // 비용: 지폐 한 장. 가운데 원이 액면이다
+  cost: (
+    <>
+      <rect x="1.75" y="4" width="12.5" height="8" rx="1.5" />
+      <circle cx="8" cy="8" r="1.75" />
+    </>
+  ),
+  // 시나리오: 재생 삼각형과 그 아래 시간 축의 눈금
+  scenarios: (
+    <>
+      <path d="M5.5 2.75 L11.5 6.5 L5.5 10.25 Z" />
+      <path d="M2.25 13.25 H13.75" />
+      <path d="M8 12 V14.5" />
+    </>
+  ),
 };
 
 export function AdminIcon({ name, size = 16 }: { name: AdminIconName; size?: number }) {

@@ -28,15 +28,15 @@ export interface AdminNavItem {
 export interface AdminNavGroup {
   label: string;
   items: AdminNavItem[];
-  /** 처음에는 접어 둔다. 운영자가 펼치면 그 선택을 기억한다 */
+  /** 처음에는 접어 둔다. 운영자가 펴거나 접은 선택은 묶음마다 기억하고 이 기본보다 앞선다 */
   closedByDefault?: boolean;
 }
 
 /**
- * 운영 관제. MSP 관제센터 구조다(2026-09-24 사용자 요구로 개편, 관리자 설계 4-1).
- * 관제는 판단과 기록, 인프라는 판독, 조치는 값을 바꾸는 자리, 시연은 재생 시안이다. 보고서는 bot-1 보고
- * 서비스가 Teams로 보낸 보고를 읽는 자리라 관제에 둔다. 시연은 1280x800 창에서 목록 끝이 스크롤 없이
- * 보이도록 접은 채로 시작한다.
+ * 운영 관제. 사이드바 전체를 MSP 관점으로 짠 3라운드 구조다(관리자 설계 4-10-1). 관제는 보고 판단하는 자리,
+ * 인프라는 판독, 조치는 바꾸고 기록하는 자리, 보고는 밖에 내놓는 결과, 시연은 재생이다.
+ * 열여덟 항목을 모두 펴면 1280x800 창의 목록 자리를 넘으므로 관제 밖의 묶음은 접은 채로 시작하고, 지금
+ * 화면이 든 묶음은 사이드바가 펴 둔다.
  */
 export const OPS_NAV: AdminNavGroup[] = [
   {
@@ -45,22 +45,36 @@ export const OPS_NAV: AdminNavGroup[] = [
       { href: "/admin", label: "관제센터", icon: "overview", exact: true },
       { href: "/admin/incidents", label: "경보·사건", icon: "incidents", badge: "incidents" },
       { href: "/admin/ai", label: "AI 판단", icon: "ai", badge: "ai" },
-      { href: "/admin/reports", label: "보고서", icon: "reports" },
     ],
   },
   {
     label: "인프라",
+    closedByDefault: true,
     items: [
       { href: "/admin/hosts", label: "서버·노드", icon: "hosts", badge: "hosts" },
       { href: "/admin/database", label: "데이터베이스", icon: "database", badge: "database" },
       { href: "/admin/capacity", label: "용량·부하", icon: "monitoring" },
+      { href: "/admin/security", label: "네트워크·보안", icon: "security" },
     ],
   },
   {
     label: "조치",
+    closedByDefault: true,
     items: [
       { href: "/admin/thresholds", label: "임계값 관리", icon: "thresholds", badge: "thresholds" },
+      { href: "/admin/changes", label: "변경·작업", icon: "changes" },
+      { href: "/admin/actions", label: "조치 기록", icon: "actions" },
+      { href: "/admin/runbooks", label: "런북", icon: "runbooks" },
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },
+    ],
+  },
+  {
+    label: "보고",
+    closedByDefault: true,
+    items: [
+      { href: "/admin/reports", label: "보고서", icon: "reports" },
+      { href: "/admin/sla", label: "SLA 월간 보고", icon: "sla" },
+      { href: "/admin/cost", label: "비용", icon: "cost" },
     ],
   },
   {
@@ -71,6 +85,8 @@ export const OPS_NAV: AdminNavGroup[] = [
       { href: "/admin/flow", label: "서비스 흐름", icon: "flow" },
       // 서비스 흐름과 같은 재생 주행의 추이. 흐름 화면에서 걸어 둔 재생이 여기 차트로 이어진다(flowRun.ts)
       { href: "/admin/monitor", label: "지표 관제", icon: "metrics" },
+      // 관제 판과 따로 도는 재생 세계. 관제센터의 값을 바꾸지 않는다(관리자 설계 4-10-6)
+      { href: "/admin/scenarios", label: "시나리오", icon: "scenarios" },
     ],
   },
 ];

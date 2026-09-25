@@ -56,6 +56,8 @@ const SCREENS = [
   "/auth/login", "/auth/signup",
   "/admin", "/admin/incidents", "/admin/ai", "/admin/hosts", "/admin/database", "/admin/thresholds",
   "/admin/reports", "/admin/settings",
+  "/admin/security", "/admin/changes", "/admin/actions", "/admin/runbooks",
+  "/admin/sla", "/admin/cost", "/admin/scenarios",
   "/admin/audit", "/admin/back", "/admin/bots", "/admin/capacity",
   "/admin/community", "/admin/config", "/admin/flow", "/admin/monitor",
   "/admin/members", "/admin/operators", "/admin/transfers", "/admin/support",
