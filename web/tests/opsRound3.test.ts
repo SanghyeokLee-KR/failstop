@@ -317,6 +317,22 @@ test("자산 목록은 노드 상세의 이웃 순서이고 수집기 상태는 
   assert.equal(ready<ReadTier>(c.readTier).nodes[0].state, "IN_SERVICE");
 });
 
+test("자산 예시의 OS와 커널 계열은 학교 첫 앱 노드의 첫 셸 점검 기록(증거본 070~071, 073)과 같다", () => {
+  const readme = readFileSync(path.resolve(__dirname, "..", "..", "..", "증거본", "2026-09-19_학교AWS", "README.md"), "utf8");
+  const os = /\| 070~071 \| `cat \/etc\/os-release` \| (Amazon Linux [\d.]+)\./.exec(readme)?.[1];
+  const kernel = /\| 073 \| `uname -rm` \| (\d+\.\d+)\.\d+-/.exec(readme)?.[1];
+  assert.ok(os && kernel, "증거본에서 OS와 커널 기록을 읽어야 공허 통과가 아니다");
+  const sim = new OpsSim(T0);
+  const assets = ready<OpsHost[]>(sim.snapshot(at(5)).hosts).map((h) => h.asset);
+  sim.scaleReadNodes(1, OP, at(6));
+  assets.push(assetRows(sim.snapshot(at(20))).find((r) => r.id === "app-3")?.asset ?? undefined);
+  assert.equal(assets.length, 6, "고정 다섯 대와 켠 app-3");
+  for (const a of assets) {
+    assert.equal(a?.os, os);
+    assert.equal(a?.kernel, `${kernel} 계열`);
+  }
+});
+
 test("모드·정지 이력은 감사의 ops.ai.* 행에서 전환 전후와 사유·유효 시간·승인 티켓을 옮긴다", async () => {
   const api = new SimAdminApi();
   await api.establishSession("op-01");

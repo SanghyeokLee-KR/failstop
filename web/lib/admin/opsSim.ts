@@ -278,11 +278,11 @@ const HOST_DEFS: HostDef[] = [
 const OUTLOOK_BASIS_H = 72;
 
 /**
- * 노드 이미지. OS는 학교 노드의 첫 셸 점검 기록(Amazon Linux 2023.12.20260918)이고 커널은 판 번호를 지어내지 않고
- * 계열만 적는다. 켤 때마다 새로 뜨는 app-3는 최신 이미지라 보안 업데이트 대기가 없다
+ * 노드 이미지. OS와 커널은 학교 첫 앱 노드의 첫 셸 점검 기록이다(증거본 2026-09-19 학교 AWS 070~071 os-release, 073 `uname -rm`
+ * 6.18.48). 다른 노드는 재지 않아 커널은 계열만 적는다. 켤 때마다 새로 뜨는 app-3는 최신 이미지라 보안 업데이트 대기가 없다
  */
 const NODE_OS = "Amazon Linux 2023.12.20260918";
-const NODE_KERNEL = "6.1 계열";
+const NODE_KERNEL = "6.18 계열";
 
 /** DB 통계 예시. 최대 연결은 학교 DB 설정(max_connections 100), 크기와 하루 증가는 지어낸 예시다 */
 const DB_MAX_CONN = 100;

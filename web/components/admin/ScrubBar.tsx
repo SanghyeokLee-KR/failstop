@@ -7,12 +7,13 @@
  *
  * 슬라이더 의미(role=slider)다. ←·→ 1초, Shift+←·→ 10초, PageUp·PageDown 단계, Home·End 처음과 끝, Space 재생·일시정지다. 끄는
  * 동안에는 한 프레임에 한 번만 옮긴다. 재생 중 손잡이와 지나온 몫은 박자마다 transform으로 옮기고(배속에 맞춘 1초 선형), 끌거나
- * 건너뛸 때와 움직임 줄이기에서는 곧바로 선다. 가리키면 그 시각과 가장 가까운 기록 한 줄이 떠 있는 층으로 선다.
+ * 건너뛸 때와 움직임 줄이기에서는 곧바로 선다. 가리키면 그 시각과 가장 가까운 기록 한 줄이 떠 있는 층으로 선다. 재생이 건너뛰는 빈
+ * 구간은 트랙을 끊긴 선으로 그린다.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { mmss } from "@/lib/admin/timeText";
-import type { MarkerKind, ReplayMarker } from "@/lib/admin/scenarioWorld";
+import { durationWord, mmss } from "@/lib/admin/timeText";
+import type { MarkerKind, QuietSpan, ReplayMarker } from "@/lib/admin/scenarioWorld";
 import styles from "./ScrubBar.module.css";
 
 export interface ScrubStage {
@@ -30,6 +31,7 @@ export default function ScrubBar({
   onStage,
   stages,
   markers,
+  quiet = [],
   label,
   valueText,
   animate,
@@ -45,6 +47,8 @@ export default function ScrubBar({
   onStage?: (dir: -1 | 1) => void;
   stages: ScrubStage[];
   markers: ReplayMarker[];
+  /** 재생이 건너뛰는 빈 구간. 건너뛰기가 꺼져 있으면 비운다 */
+  quiet?: QuietSpan[];
   label: string;
   valueText: (sec: number) => string;
   /** 재생 박자로 옮기는 중인가. 이때만 손잡이가 1초 선형으로 미끄러진다 */
@@ -135,6 +139,7 @@ export default function ScrubBar({
 
   const p = duration > 0 ? value / duration : 0;
   const near = hover === null ? null : markers.reduce<ReplayMarker | null>((a, m) => (Math.abs(m.sec - hover.sec) <= Math.max(2, duration / 80) && (a === null || Math.abs(m.sec - hover.sec) < Math.abs(a.sec - hover.sec)) ? m : a), null);
+  const hoverQuiet = hover === null || near !== null ? null : quiet.find((q) => q.from < hover.sec && hover.sec < q.to) ?? null;
   // 손잡이 위 시각 글자가 트랙 밖으로 나가지 않게 양끝에서는 안쪽으로 붙인다
   const edge = p < 0.04 ? "start" : p > 0.96 ? "end" : "mid";
   // 단계 번호. 트랙에서 16px 안에 붙은 번호는 앞 자리에 모아 둘이면 '2·3', 셋 이상이면 '2~4'로 적고, 손잡이 시각 글자가 덮는
@@ -172,6 +177,14 @@ export default function ScrubBar({
       >
         <div className={styles.track} ref={trackRef}>
           <span className={styles.fill} style={{ transform: `scaleX(${p})` }} aria-hidden="true" />
+          {quiet.map((q) => (
+            <span
+              key={q.from}
+              className={styles.quiet}
+              style={{ left: `${(q.from / Math.max(1, duration)) * 100}%`, width: `${((q.to - q.from) / Math.max(1, duration)) * 100}%` }}
+              aria-hidden="true"
+            />
+          ))}
           {stages.map((s, i) =>
             s.sec === null ? null : (
               <span key={`${i}-${s.title}`} className={styles.tick} style={{ left: `${(s.sec / Math.max(1, duration)) * 100}%` }} aria-hidden="true" />
@@ -203,6 +216,12 @@ export default function ScrubBar({
                     {MARK_WORD[near.kind]} {mmss(near.sec * 1000)}
                   </span>
                   <span className={styles.peekText}>{near.text}</span>
+                </>
+              )}
+              {hoverQuiet && (
+                <>
+                  <span className={styles.peekKind}>빈 구간 · {durationWord((hoverQuiet.to - hoverQuiet.from) * 1000)}</span>
+                  <span className={styles.peekText}>기록이 없어 재생 때 건너뜁니다</span>
                 </>
               )}
             </span>

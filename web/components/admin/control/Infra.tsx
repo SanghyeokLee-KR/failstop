@@ -8,7 +8,7 @@
  */
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type {
   AiServer,
   ControlCenter,
@@ -305,8 +305,16 @@ export function AsgBand({ tier, reg, alertRefs }: { tier: ReadTier; reg: Thresho
           <MeterRail value={avg ?? 0} max={100} threshold={out ?? undefined} tone={hot ? "warning" : undefined}
             marks={inn === null ? undefined : [{ at: inn, label: `축소 ${inn}%` }]} />
           <span className={styles.asgTicks} aria-hidden="true">
-            {inn !== null && <span className={styles.asgTick} style={{ left: `${inn}%` }}>축소 {inn}</span>}
-            {out !== null && <span className={styles.asgTick} style={{ left: `${out}%` }}>증설 {out}</span>}
+            {inn !== null && (
+              <span className={styles.asgTick} data-side="in" style={{ "--tick-at": inn } as CSSProperties}>
+                축소 {inn}
+              </span>
+            )}
+            {out !== null && (
+              <span className={styles.asgTick} data-side="out" style={{ "--tick-at": out } as CSSProperties}>
+                증설 {out}
+              </span>
+            )}
           </span>
         </span>
       </div>

@@ -50,6 +50,15 @@
   background: var(--chrome-accent);
   transform-origin: left center;
 }
+/* 빈 구간. 재생이 건너뛰는 구간을 끊긴 선(6px 선, 3px 틈)으로 그린다. 틈은 판의 면 색이라 지나온 몫 위에서도 끊겨 보인다(판독용
+   무늬, §12-10) */
+.quiet {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, var(--surface-default) 6px 9px);
+  pointer-events: none;
+}
 /* 단계 경계. 1px x 10px 눈금과 그 위의 단계 번호다 */
 .tick {
   position: absolute;

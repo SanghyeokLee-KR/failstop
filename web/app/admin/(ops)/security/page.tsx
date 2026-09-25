@@ -48,7 +48,7 @@ function expiryWord(c: CertificateInfo): string {
 
 const ACCESS_ROWS = 12;
 
-/** 운영자가 들어온 경로. sim은 인증서 목록을 모사하고, http는 배포의 인증 방식이다 */
+/** 운영자가 들어온 경로. 배포마다 하나라 표 아래 캡션에 한 번 적는다. sim은 인증서 목록을 모사하고, http는 배포의 인증 방식이다 */
 function accessPath(sim: boolean): string {
   if (sim) return "mTLS 인증서 · 모사";
   return process.env.NEXT_PUBLIC_ADMIN_AUTH === "password" ? "비밀번호 게이트웨이" : "mTLS 인증서";
@@ -219,10 +219,15 @@ export default function SecurityPage() {
               <span className={styles.emptyMark} aria-hidden="true" />이 기간 관리 접근 기록 없음
             </div>
           ) : (
-            <ActionTable rows={access.slice(0, ACCESS_ROWS)} now={now} onOpen={setOpen} columns="access" caption={(r) => (r.actor === "OPERATOR" ? path : "해당 없음")} />
+            <ActionTable rows={access.slice(0, ACCESS_ROWS)} now={now} onOpen={setOpen} columns="access" />
           )}
           <div className={secStyles.accessFoot}>
-            <span>{sim ? "관리 어댑터의 감사 기록에서 거릅니다" : "감사 로그의 받아 온 쪽에서만 거릅니다"}</span>
+            <span className={secStyles.accessNotes}>
+              <span>
+                운영자 접속 경로 <span className={secStyles.pathValue}>{path}</span>
+              </span>
+              <span>{sim ? "관리 어댑터의 감사 기록에서 거릅니다" : "감사 로그의 받아 온 쪽에서만 거릅니다"}</span>
+            </span>
             {access && access.length > 0 && (
               <Link href="/admin/actions?category=SESSION" className={secStyles.moreLink}>
                 조치 기록에서 {access.length > ACCESS_ROWS ? `${access.length}건 모두` : "보기"}

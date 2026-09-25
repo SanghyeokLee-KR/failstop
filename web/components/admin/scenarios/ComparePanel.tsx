@@ -7,7 +7,7 @@
  */
 
 import { mmss } from "@/lib/admin/timeText";
-import type { ReplayMode, ReplayTimeline } from "@/lib/admin/scenarioWorld";
+import type { QuietSpan, ReplayMode, ReplayTimeline } from "@/lib/admin/scenarioWorld";
 import type { ScenarioSpec } from "@/lib/admin/types";
 import ScrubBar from "../ScrubBar";
 import StatusShape from "../StatusShape";
@@ -28,7 +28,7 @@ function noticeWord(tl: ReplayTimeline): string {
   return n.top ? `${n.count}건 · 가장 높은 등급 ${n.top}` : `${n.count}건 · 경보 카드`;
 }
 
-export default function ComparePanel({ spec, timelines, sec, onSeek, onToggle, onStage, animate, valueText }: {
+export default function ComparePanel({ spec, timelines, sec, onSeek, onToggle, onStage, animate, valueText, quiet }: {
   spec: ScenarioSpec;
   timelines: Record<ReplayMode, ReplayTimeline>;
   sec: number;
@@ -37,6 +37,8 @@ export default function ComparePanel({ spec, timelines, sec, onSeek, onToggle, o
   onStage: (dir: -1 | 1) => void;
   animate: boolean;
   valueText: (s: number) => string;
+  /** 두 모드 모두 조용한 빈 구간. 건너뛰기가 꺼져 있으면 비어 있다 */
+  quiet: QuietSpan[];
 }) {
   const modes: ReplayMode[] = ["MANUAL", "AUTO"];
   const same = spec.tags.includes("NO_AI");
@@ -74,6 +76,7 @@ export default function ComparePanel({ spec, timelines, sec, onSeek, onToggle, o
                 onStage={onStage}
                 stages={spec.stages.map((st, i) => ({ sec: timelines[m].stageSecs[i], title: st.title }))}
                 markers={timelines[m].markers}
+                quiet={quiet}
                 label={`${MODE_WORD[m]} 재생 위치`}
                 valueText={valueText}
                 animate={animate}

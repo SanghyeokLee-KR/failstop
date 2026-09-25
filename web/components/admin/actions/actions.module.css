@@ -92,6 +92,10 @@
   margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
   border-top: 1px solid var(--border-subtle);
 }
+/* 표 뒤에 캡션이나 '더 불러오기' 줄이 오면 표를 판 아래 여백으로 당기지 않는다. 당기면 뒤 줄이 마지막 행에 붙는다 */
+.tableWrap:not(:last-child) {
+  margin-bottom: 0;
+}
 .table {
   width: 100%;
   table-layout: fixed;
@@ -235,6 +239,19 @@
   color: var(--text-secondary);
 }
 .row:hover .code {
+  color: var(--text-default);
+}
+/* 관리 접근 기록의 조치 칸 둘째 줄(대상). 원문 코드 자리를 대상이 쓰고 원문은 툴팁이 싣는다 */
+.target {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.row:hover .target {
   color: var(--text-default);
 }
 .ok {

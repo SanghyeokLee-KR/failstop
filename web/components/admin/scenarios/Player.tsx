@@ -2,8 +2,8 @@
 
 /**
  * 시나리오 재생 판(관리자 설계 4-10-6, 디자인 시스템 §12-15 시나리오 재생 판). 위에서부터 머리(제목, 가정 표식, 전제 칩), 조작 줄(재생·
- * 일시정지, 처음으로, 이전·다음 단계, 배속, 모드, 관제센터에서 실시간으로 걸기), 타임라인 스크럽 바, 단계 막대, 네 칸이다. 비교
- * 보기에서는 두 줄의 스크럽 바와 결과 표가 네 칸 자리를 쓴다.
+ * 일시정지, 처음으로, 이전·다음 단계, 배속, 빈 구간, 모드, 관제센터에서 실시간으로 걸기), 타임라인 스크럽 바, 단계 막대, 네 칸이다.
+ * 비교 보기에서는 두 줄의 스크럽 바와 결과 표가 네 칸 자리를 쓴다.
  *
  * 조작은 Space 재생·일시정지, ←·→ 1초, Shift+←·→ 10초, PageUp·PageDown 단계, Home 처음이다. 스크럽 바에 초점이 있으면 바가 받고,
  * 판의 다른 자리(단추·입력 밖)에서도 같은 건반이 듣는다. 관제센터에서 실시간으로 걸기는 관제 판에 걸 수 있는 시나리오(조회 급증
@@ -15,7 +15,7 @@ import Link from "next/link";
 import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import type { StageMark } from "@/lib/admin/opsDetail";
 import { stageAt } from "@/lib/admin/scenarioWorld";
-import { mmss } from "@/lib/admin/timeText";
+import { durationWord, mmss } from "@/lib/admin/timeText";
 import type { ScenarioSpec } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
@@ -39,6 +39,16 @@ const SPEEDS: { value: `${ReplaySpeed}`; label: string }[] = [
   { value: "2", label: "2배" },
   { value: "4", label: "4배" },
 ];
+const QUIET: { value: "skip" | "watch"; label: string }[] = [
+  { value: "skip", label: "건너뛰기" },
+  { value: "watch", label: "보기" },
+];
+
+/** 빈 구간을 넘었을 때 보조기술에 알리는 글. 길이 글은 '초'나 '분'으로 끝난다 */
+function skipNotice(sec: number): string {
+  const word = durationWord(sec * 1000);
+  return `빈 구간 ${word}${word.endsWith("초") ? "를" : "을"} 건너뛰었습니다`;
+}
 
 function IconBtn({ icon, label, onClick, disabled }: { icon: AdminIconName; label: string; onClick: () => void; disabled?: boolean }) {
   return (
@@ -144,6 +154,9 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
           {mmss(r.sec * 1000)}
           <span className={styles.clockTotal}> / {mmss(spec.durationSec * 1000)}</span>
         </span>
+        <span className="sr-only" aria-live="polite">
+          {r.skipped ? skipNotice(r.skipped.sec) : ""}
+        </span>
         <span className={styles.controlSep} aria-hidden="true" />
         {/* 이름과 조작은 한 묶음으로 줄을 바꾼다. 좁은 창에서 이름만 앞 줄에 남지 않게 한다 */}
         <span className={styles.controlGroup}>
@@ -151,6 +164,12 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
             배속
           </span>
           <Segmented items={SPEEDS} value={`${r.speed}`} onChange={(v) => r.setSpeed(Number(v) as ReplaySpeed)} ariaLabel="배속" semantics="pressed" size="xs" />
+        </span>
+        <span className={styles.controlGroup}>
+          <span className={styles.controlLabel} aria-hidden="true">
+            빈 구간
+          </span>
+          <Segmented items={QUIET} value={r.skipQuiet ? "skip" : "watch"} onChange={(v) => r.setSkipQuiet(v === "skip")} ariaLabel="빈 구간" semantics="pressed" size="xs" />
         </span>
         <span className={styles.controlGroup}>
           <span className={styles.controlLabel} aria-hidden="true">
@@ -185,6 +204,7 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
             onStage={r.stageStep}
             stages={spec.stages.map((st, i) => ({ sec: tl?.stageSecs[i] ?? null, title: st.title }))}
             markers={tl?.markers ?? []}
+            quiet={r.skipQuiet ? r.quiet : []}
             label="재생 위치"
             valueText={valueText}
             animate={r.animate}
@@ -214,7 +234,17 @@ export default function Player({ spec, initialView, onView }: { spec: ScenarioSp
           </button>
         </div>
       ) : r.view === "COMPARE" ? (
-        <ComparePanel spec={spec} timelines={r.timelines} sec={r.sec} onSeek={r.seek} onToggle={r.toggle} onStage={r.stageStep} animate={r.animate} valueText={valueText} />
+        <ComparePanel
+          spec={spec}
+          timelines={r.timelines}
+          sec={r.sec}
+          onSeek={r.seek}
+          onToggle={r.toggle}
+          onStage={r.stageStep}
+          animate={r.animate}
+          valueText={valueText}
+          quiet={r.skipQuiet ? r.quiet : []}
+        />
       ) : (
         r.frame &&
         tl && (

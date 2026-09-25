@@ -21,7 +21,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "조회가 몰리면 AI와 사람이 앱 계층을 어떻게 늘리나",
     premise: ["앱 계층 app-1·app-2 고정과 조회 전용 app-3(2~3대)", "증설 CPU 임계 60%", "관제센터 시나리오와 같은 부하 곡선"],
     assumption: "NONE",
-    durationSec: 150,
+    durationSec: 50,
     stages: [
       { key: "calm", title: "평시", expect: "앱 두 대, 평균 CPU 30%대", on: START },
       { key: "alert", title: "급증 경보", expect: "조회 수요가 평소의 3.5배로 늘어 앱 평균 CPU가 증설 임계를 넘습니다", on: { kind: "EVENT", events: ["OPENED"] } },
@@ -43,7 +43,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "밤에 앱 계층을 줄였는데 조회가 다시 몰리면 어떻게 되돌리나",
     premise: ["앱 세 대로 시작(app-3 가동)", "축소 CPU 임계 30%", "관찰 창 5분 안의 악화는 자동 되돌림"],
     assumption: "NONE",
-    durationSec: 90,
+    durationSec: 65,
     stages: [
       { key: "calm", title: "야간 세 대", expect: "부하가 낮아 앱 평균 CPU가 축소 임계 아래입니다", on: START },
       { key: "judge", title: "AI 축소 판단", expect: "app-3 끄기(앱 3 → 2대)를 냅니다", on: { kind: "EVENT", events: ["AI_JUDGED"] } },
@@ -69,7 +69,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "Primary가 죽으면 누가 무엇을 어떤 순서로 하나",
     premise: ["지금 구성: 비동기 복제와 수동 승격(ADR 0024)", "Patroni 자동 전환은 구성 중(ADR 0036, 다른 브랜치)", "DB 승격은 AI 금지 목록 1"],
     assumption: "NONE",
-    durationSec: 690,
+    durationSec: 675,
     stages: [
       { key: "calm", title: "평시", expect: "Primary와 Standby가 스트리밍 중입니다", on: START },
       { key: "down", title: "Primary 장애", expect: "db-primary 수집이 끊기고 DB 연결 실패와 복제 확인 불가가 섭니다. 주문 쓰기가 실패합니다", on: { kind: "EVENT", events: ["OPENED"] } },
@@ -107,7 +107,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "Patroni 엄격 동기에서 Standby를 잃으면 거래는 어떻게 되나",
     premise: ["Patroni 엄격 동기 자동 전환을 적용한 뒤(ADR 0036, 다른 브랜치에서 구성 중)", "지금 AWS·로컬 스택의 동작이 아님", "조회는 계속되고 쓰기만 멈춤"],
     assumption: "PATRONI_APPLIED",
-    durationSec: 200,
+    durationSec: 165,
     stages: [
       { key: "calm", title: "평시", expect: "동기 Standby가 커밋을 받습니다", on: START },
       { key: "lost", title: "Standby 상실", expect: "db-standby가 멈춰 엄격 동기 커밋이 기다립니다", on: { kind: "EVENT", events: ["ACTED"], actor: "SYSTEM", prefix: "db-standby 응답 없음" } },
@@ -135,7 +135,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "디스크가 차면 무엇이 먼저 멈추고 사람은 무엇을 하나",
     premise: ["디스크 여유 경보 20% 미만", "봇 용량 보호는 여유 20% 이하에서 봇만 멈추고 스스로 다시 켜지 않음(capacity_guard.py)", "디스크 정리는 AI 금지 목록 3"],
     assumption: "NONE",
-    durationSec: 280,
+    durationSec: 245,
     stages: [
       { key: "calm", title: "평시", expect: "db-primary 디스크 58%입니다", on: START },
       { key: "guard", title: "봇 용량 보호", expect: "여유가 20%에 닿아 봇 서비스가 멈추고 발행률이 0이 됩니다", on: { kind: "EVENT", events: ["ACTED"], actor: "SYSTEM", prefix: "봇 서비스 중지" } },
@@ -166,7 +166,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "시장 봇이 폭주하면 AI는 어디까지 줄이나",
     premise: ["봇 용량 보호 기준 bot-1 CPU 70%", "AI는 봇 부하를 한 번에 절반까지만 줄임", "자동 실행은 bot-1 CPU가 기준 이상일 때만(D4)"],
     assumption: "NONE",
-    durationSec: 120,
+    durationSec: 60,
     stages: [
       { key: "calm", title: "평시", expect: "봇 30 OPS, bot-1 CPU 40%대", on: START },
       { key: "runaway", title: "발행률 폭주", expect: "봇 목표 발행률이 30에서 150 OPS로 튑니다", on: { kind: "EVENT", events: ["ACTED"], actor: "SYSTEM", prefix: "봇 목표 발행률" } },
@@ -192,7 +192,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "AI가 멈추면 관제는 무엇으로 버티나",
     premise: ["ai-1 구축 전(ADR 0038) · 연결은 가정", "조회 급증과 같은 부하", "AWS에서는 ASG 지표 정책이 대수를 소유한다고 가정"],
     assumption: "AWS_ASG_POLICY",
-    durationSec: 150,
+    durationSec: 45,
     stages: [
       { key: "calm", title: "평시", expect: "AI가 5초마다 판단합니다", on: START },
       { key: "down", title: "ai-1 무응답", expect: "판단 요청이 시간 초과로 끝나 AI 칸이 판단 없음이 됩니다", on: { kind: "EVENT", events: ["ACTED"], actor: "SYSTEM", prefix: "ai-1 응답 없음" } },
@@ -218,7 +218,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "경보 문장에 명령이 들어 있으면 AI는 따르나",
     premise: ["판단 근거는 경보 이름·등급·형식을 지난 라벨만(근거 구조화)", "형식 밖 문장이 든 경보는 AI가 보류하지 못함(S8)", "봇 부하 줄임은 bot-1 CPU가 기준 이상일 때만(D4)"],
     assumption: "NONE",
-    durationSec: 120,
+    durationSec: 105,
     stages: [
       { key: "calm", title: "평시", expect: "봇 30 OPS, bot-1 CPU 40%대", on: START },
       { key: "alert", title: "주입 경보", expect: "요약과 라벨에 명령문이 든 경보가 섭니다", on: { kind: "EVENT", events: ["OPENED"] } },
@@ -244,7 +244,7 @@ export const SCENARIOS: ScenarioSpec[] = [
     question: "공개 인증서가 곧 만료되면 누가 무엇을 확인하나",
     premise: ["www.sang.it.kr가 13일 남은 세계", "certbot-renew.timer 자동 갱신", "인증서 변경은 AI 금지 목록 4"],
     assumption: "NONE",
-    durationSec: 130,
+    durationSec: 115,
     stages: [
       { key: "near", title: "만료 임박", expect: "공개 인증서가 13일 남았습니다", on: START },
       { key: "alert", title: "만료 경보", expect: "인증서 만료 14일 이내(설명 경보, 주의)가 섭니다", on: { kind: "EVENT", events: ["OPENED"] } },

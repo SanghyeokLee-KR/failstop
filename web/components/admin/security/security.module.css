@@ -224,10 +224,21 @@
 .accessFoot {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
   font-size: var(--font-dense-size);
   line-height: var(--font-dense-line);
   color: var(--text-secondary);
+}
+/* 접속 경로와 원천 캡션. 칸이 좁으면(1280 창) 두 줄로 쌓이고 오른쪽 링크는 첫 줄에 남는다 */
+.accessNotes {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1 1 240px;
+  gap: 2px var(--space-4);
+  min-width: 0;
+}
+.pathValue {
+  color: var(--text-default);
 }

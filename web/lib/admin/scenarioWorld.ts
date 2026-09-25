@@ -14,8 +14,21 @@ import type { AiJudgmentTrace, ControlCenter, IncidentEvent, ScenarioCue, Scenar
 
 export type ReplayMode = "MANUAL" | "AUTO";
 
-/** 재생의 자동 모드 유효 시간. 가장 긴 재생(DB Primary 장애 11분 30초)보다 길다 */
+/** 재생의 자동 모드 유효 시간. 가장 긴 재생(DB Primary 장애 11분 15초)보다 길다 */
 const AUTO_HOURS = 8;
+
+/**
+ * 빈 구간(관리자 설계 4-10-6). 다음 기록까지 QUIET_SEC(가상 초)보다 길게 아무 일도 없으면 재생이 다음 기록 QUIET_LEAD_SEC 앞으로
+ * 넘어간다. 앞 여유는 다가오는 기록을 한두 박자 보이게 둔다
+ */
+export const QUIET_SEC = 30;
+export const QUIET_LEAD_SEC = 3;
+
+/** 재생이 건너뛰는 구간. from은 앞 기록의 초, to는 다음 기록의 앞 여유 자리다 */
+export interface QuietSpan {
+  from: number;
+  to: number;
+}
 
 /** 대본 한 줄을 세계에 건다. 콘솔 결정은 시뮬레이터의 조작 경로를, 런북과 장애는 재생 경로를 탄다 */
 function applyCue(sim: OpsSim, cue: ScenarioCue, t: number): void {
@@ -221,6 +234,35 @@ export function runTimeline(spec: ScenarioSpec, mode: ReplayMode, t0: number): R
   }
   const events = world.events().map((e) => ({ sec: Math.max(0, Math.round((Date.parse(e.at) - t0) / 1000)), e }));
   return { mode, durationSec: spec.durationSec, samples, events, stageSecs: stageSecs(spec, events), markers: markersOf(events), result: resultOf(events, samples) };
+}
+
+/**
+ * 빈 구간. 주어진 타임라인들 가운데 어느 하나에라도 기록, 선 단계, 그 모드의 대본이 있는 초를 모아 이웃한 두 초의 틈이 QUIET_SEC보다
+ * 길면 구간으로 둔다. 비교 보기는 두 모드를 함께 넘겨 두 줄 모두 조용한 구간만 남긴다
+ */
+export function quietSpans(spec: ScenarioSpec, timelines: ReplayTimeline[]): QuietSpan[] {
+  const secs = new Set<number>([0, spec.durationSec]);
+  for (const tl of timelines) {
+    for (const x of tl.events) secs.add(x.sec);
+    for (const s of tl.stageSecs) if (s !== null) secs.add(s);
+    for (const c of spec.cues) if (c.mode === "ANY" || c.mode === tl.mode) secs.add(c.atSec);
+  }
+  const sorted = [...secs].sort((a, b) => a - b);
+  const out: QuietSpan[] = [];
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (sorted[i] - sorted[i - 1] > QUIET_SEC) out.push({ from: sorted[i - 1], to: sorted[i] - QUIET_LEAD_SEC });
+  }
+  return out;
+}
+
+/**
+ * 재생 박자 한 번 뒤의 초. 빈 구간의 앞 기록을 이미 보였으면 그 구간의 끝으로 넘어간다. 박자 한 번이 기록을 건너 구간에 들어서면
+ * 그 박자는 배속대로 가서 앞 기록 직후의 판을 먼저 보인다
+ */
+export function nextPlaySec(sec: number, speed: number, duration: number, quiet: QuietSpan[]): number {
+  const next = Math.min(duration, sec + speed);
+  const span = quiet.find((q) => q.from <= sec && sec < q.to);
+  return span && next < span.to ? span.to : next;
 }
 
 /** 재생 세계의 시작 시각. 분 경계로 내려 같은 세션에서 두 모드와 되감기가 같은 세계를 만든다 */

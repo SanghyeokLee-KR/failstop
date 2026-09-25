@@ -10,7 +10,7 @@ import { SimAdminApi } from "../lib/admin/simAdmin";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
 import { OpsSim } from "../lib/admin/opsSim";
 import { SCENARIOS, scenarioById } from "../lib/admin/scenarios";
-import { ReplayWorld, runTimeline, stageAt, teamsNoticeOf, type ReplayTimeline } from "../lib/admin/scenarioWorld";
+import { nextPlaySec, QUIET_LEAD_SEC, QUIET_SEC, quietSpans, ReplayWorld, runTimeline, stageAt, teamsNoticeOf, type ReplayTimeline } from "../lib/admin/scenarioWorld";
 import { budgetMinutes, daysIn, monthOf, prevMonth, recommendationsOf, SLA_SOURCE, SLA_TARGET_PCT } from "../lib/admin/sla";
 import { app3Cost, COST_PLAN, costView, exhaustsEarly, md, toUnits, usd } from "../lib/admin/cost";
 import { ACTION_CAP, AI_ACTION_CAP, can, OPS_PERMISSIONS, roleAllows } from "../lib/admin/roles";
@@ -21,7 +21,7 @@ import { certDaysLeft } from "../lib/admin/certs";
 import { badgeOf } from "../lib/admin/navBadges";
 import { kstDay } from "../lib/admin/timeText";
 import { simReportDesk } from "../lib/admin/reportSim";
-import type { AiDesk, DestructiveAction, IncidentLog, OpsJobs, OpsSection, ReportDesk, SlaIncident, SlaMonth } from "../lib/admin/types";
+import type { AiDesk, DestructiveAction, IncidentLog, OpsAlert, OpsJobs, OpsSection, ReportDesk, SlaIncident, SlaMonth } from "../lib/admin/types";
 
 // 로컬 정오. 하루 경계와 새벽 백업 시각에 걸리지 않게 한다
 const T0 = new Date(2026, 8, 24, 12, 0, 0).getTime();
@@ -174,6 +174,58 @@ test("Teams 카드 미리보기는 통지 글에서 종류와 등급을 가른�
   assert.ok(notices.some((n) => n.kind === "ALERT" && n.priority === null), "경보 카드는 등급이 없다");
 });
 
+test("재생 길이는 두 모드 가운데 늦은 쪽의 마지막 기록 뒤 12초를 5초 단위로 올린 값이라 긴 빈 꼬리가 없다", () => {
+  for (const s of SCENARIOS) {
+    const last = Math.max(...(["MANUAL", "AUTO"] as const).flatMap((m) => timeline(s.id, m).events.map((x) => x.sec)));
+    assert.equal(s.durationSec, Math.ceil((last + 12) / 5) * 5, `${s.id}: 마지막 기록 ${last}초`);
+  }
+});
+
+test("재생은 빈 구간의 앞 기록을 보인 뒤 다음 기록 3초 앞으로 넘고, 건너뛰기를 끄면 배속대로 간다", () => {
+  const db = scenarioById("DB_PRIMARY_DOWN");
+  assert.ok(db);
+  const spans = quietSpans(db, [timeline(db.id, "MANUAL")]);
+  // 옛 Primary 재편입(660초) 앞의 새 베이스백업 구간이 가장 길다
+  assert.deepEqual(spans, [{ from: 50, to: 127 }, { from: 168, to: 196 }, { from: 230, to: 657 }]);
+  const end = db.durationSec;
+  assert.equal(nextPlaySec(229, 1, end, spans), 230, "앞 기록까지는 배속대로 간다");
+  assert.equal(nextPlaySec(230, 1, end, spans), 657, "앞 기록을 보인 다음 박자에 넘는다");
+  assert.equal(nextPlaySec(657, 1, end, spans), 658);
+  assert.equal(nextPlaySec(228, 4, end, spans), 232, "박자가 기록을 건너 구간에 들면 기록 직후의 판을 먼저 보인다");
+  assert.equal(nextPlaySec(232, 4, end, spans), 657);
+  assert.equal(nextPlaySec(674, 4, end, spans), end, "재생 끝을 넘지 않는다");
+  assert.equal(nextPlaySec(230, 1, end, []), 231, "건너뛰기를 끄면 배속대로 간다");
+});
+
+test("빈 구간 안에는 두 모드의 기록·대본이 없고, 1배로 끝까지 재생해도 기록 없이 30박자 넘게 흐르지 않는다", () => {
+  let spanCount = 0;
+  for (const s of SCENARIOS) {
+    const views: ReplayTimeline[][] = [[timeline(s.id, "MANUAL")], [timeline(s.id, "AUTO")], [timeline(s.id, "MANUAL"), timeline(s.id, "AUTO")]];
+    for (const tls of views) {
+      const q = quietSpans(s, tls);
+      spanCount += q.length;
+      const points = new Set<number>([s.durationSec]);
+      for (const tl of tls) {
+        for (const x of tl.events) points.add(x.sec);
+        for (const c of s.cues) if (c.mode === "ANY" || c.mode === tl.mode) points.add(c.atSec);
+      }
+      for (const span of q) {
+        assert.ok([...points].every((p) => p <= span.from || p >= span.to + QUIET_LEAD_SEC), `${s.id}: ${span.from}~${span.to} 안에 기록이 없다`);
+        assert.ok(points.has(span.to + QUIET_LEAD_SEC), `${s.id}: 빈 구간은 다음 기록 ${QUIET_LEAD_SEC}초 앞에서 끝난다`);
+      }
+      let sec = 0;
+      let idle = 0;
+      while (sec < s.durationSec) {
+        const next = nextPlaySec(sec, 1, s.durationSec, q);
+        idle = [...points].some((p) => p > sec && p <= next) ? 0 : idle + 1;
+        assert.ok(idle <= QUIET_SEC, `${s.id}: ${sec}초에서 기록 없이 ${idle}박자`);
+        sec = next;
+      }
+    }
+  }
+  assert.ok(spanCount > 0, "빈 구간이 있는 시나리오가 있어야 공허 통과가 아니다");
+});
+
 /* ===== SLA 월간 보고(4-10-5) ===== */
 
 test("오류 예산은 그 달 전체 분의 0.5%다", () => {
@@ -222,11 +274,13 @@ test("sim SLA의 오늘 줄은 경보·사건 화면의 오늘 사건 수·평�
   await rejectsWith(() => api.getSlaMonth("2026-9"), "invalid_parameter");
 });
 
+let slaSeq = 0;
+const inc = (alert: string, pagedLevel: 0 | 1 | 2 | 3): SlaIncident => ({
+  id: `i-${alert}-${pagedLevel}-${(slaSeq += 1)}`, title: alert, alert, severity: "warning", openedAt: "2026-09-10T00:00:00Z", resolvedAt: "2026-09-10T00:10:00Z",
+  ttaMs: 60_000, ttrMs: 600_000, pagedLevel, postmortem: "NONE", source: "SEED",
+});
+
 test("다음 달 권고는 규칙에 걸린 수에서만 나오고 근거 수를 붙인다", () => {
-  const inc = (alert: string, pagedLevel: 0 | 1 | 2 | 3): SlaIncident => ({
-    id: `i-${alert}-${pagedLevel}-${Math.random()}`, title: alert, alert, severity: "warning", openedAt: "2026-09-10T00:00:00Z", resolvedAt: "2026-09-10T00:10:00Z",
-    ttaMs: 60_000, ttrMs: 600_000, pagedLevel, postmortem: "NONE", source: "SEED",
-  });
   const quiet = recommendationsOf({ budget: { allowedMin: 216, usedMin: 20 }, incidentRows: [inc("복제 지연", 0)], changeRows: [], autoReverts: 0 });
   assert.deepEqual(quiet, [], "걸린 규칙이 없으면 권고도 없다");
   const busy = recommendationsOf({
@@ -238,6 +292,25 @@ test("다음 달 권고는 규칙에 걸린 수에서만 나오고 근거 수를
   assert.deepEqual(busy.map((r) => r.rule), ["BUDGET", "REPEAT", "AUTO_REVERT", "PAGED", "ROLLED_BACK"]);
   assert.equal(busy[0].basis, "오류 예산 88% 사용(190.0분 / 216분)");
   assert.equal(busy[1].basis, "복제 지연 경보로 연 사건 3건");
+});
+
+test("다음 달 권고의 문턱은 오류 예산 80%, 같은 경보 3건, 확인 전 2차 호출, 되돌린 변경 1건이고 바로 아래에서는 권고가 없다", () => {
+  const below = recommendationsOf({
+    budget: { allowedMin: 100, usedMin: 79.9 },
+    incidentRows: [inc("복제 지연", 1), inc("복제 지연", 1), inc("백업 지연", 0)],
+    changeRows: [{ id: "CHG-0911", title: "시험", state: "DONE", closedAt: "2026-09-11T06:00:00Z", result: "완료", source: "SEED" }],
+    autoReverts: 0,
+  });
+  assert.deepEqual(below, [], "예산 79.9%, 같은 경보 2건, 1차 호출, 완료한 변경");
+  const edge = recommendationsOf({
+    budget: { allowedMin: 100, usedMin: 80 },
+    incidentRows: [inc("복제 지연", 1), inc("복제 지연", 0), inc("복제 지연", 2)],
+    changeRows: [],
+    autoReverts: 0,
+  });
+  assert.deepEqual(edge.map((r) => r.rule), ["BUDGET", "REPEAT", "PAGED"]);
+  assert.equal(edge[0].basis, "오류 예산 80% 사용(80.0분 / 100분)");
+  assert.equal(edge[2].basis, "확인 없이 2차 호출까지 간 사건 1건");
 });
 
 test("http SLA는 요청 없이 원천 연결 전이다", async () => {
@@ -284,7 +357,30 @@ test("비용 계획은 십진 입력을 정수 셈 단위로 옮겨 셈한다", 
   assert.equal(app3Cost(0), 0);
 });
 
-test("비용 배지는 소진 예상일이 운영 종료일보다 이를 때만 서고, 비용의 app-3 가동 시간은 관제 판의 값이다", () => {
+test("비용 배지는 계획 소진 예상일이 운영 종료일과 같거나 이를 때만 주의 ▲로 선다", () => {
+  const plan = (creditUsd: string) => ({ ...COST_PLAN, creditUsd });
+  // 하루 $6.73, 10.2 착수, 10.16 종료. 소진일은 착수일부터 '크레딧 / 하루'의 몫만큼 뒤다
+  assert.equal(costView(plan("100"), T0).exhaustDay, "2026-10-16");
+  assert.equal(exhaustsEarly(plan("100")), true, "종료일과 같은 날");
+  assert.equal(costView(plan("90"), T0).exhaustDay, "2026-10-15");
+  assert.equal(exhaustsEarly(plan("90")), true, "종료일보다 하루 이른 날");
+  assert.equal(costView(plan("101"), T0).exhaustDay, "2026-10-17");
+  assert.equal(exhaustsEarly(plan("101")), false, "종료일 다음 날");
+  assert.equal(exhaustsEarly(plan("100.95")), false, "크레딧이 15일을 꼭 채우면 넘지 않는다");
+  // 사이드바 배지는 계획표 하나를 읽는다. 계획표를 잠시 줄여 배지 모양을 보고 되돌린다
+  const board = new OpsSim(T0).snapshot(T0 + 5000);
+  const saved = COST_PLAN.creditUsd;
+  try {
+    COST_PLAN.creditUsd = "100";
+    const b = badgeOf("cost", board);
+    assert.deepEqual(b && [b.tone, b.shape, b.count], ["warning", "triangle", null]);
+  } finally {
+    COST_PLAN.creditUsd = saved;
+  }
+  assert.equal(badgeOf("cost", board), null, "지금 계획(10.27 소진)에서는 서지 않는다");
+});
+
+test("지금 계획에서는 비용 배지가 서지 않고, 비용의 app-3 가동 시간은 관제 판의 값이다", () => {
   const sim = new OpsSim(T0);
   sim.startScenario("READ_SURGE", T0);
   sim.decide(ready<AiDesk>(sim.snapshot(T0 + 20_000).ai).proposals.find((p) => p.kind === "READ_NODES")?.id ?? "", "APPROVE", { id: "op-01", name: "김수퍼" }, T0 + 21_000);
@@ -336,6 +432,49 @@ test("sim 조치안 승인은 조치 종류별 역할이다. 봇 운영은 app-3
   await api.decideAiProposal(readNodes.id, "APPROVE");
   const after = ready<AiDesk>((await api.getControlCenter()).ai);
   assert.equal(after.proposals.find((p) => p.id === readNodes.id)?.status, "APPROVED");
+});
+
+/** 봇 발행률을 올려 bot-1 CPU가 용량 보호 기준을 넘게 하고, 운영자 변경 뒤의 봇 부하 쿨다운(10분)이 지난 판을 읽는다 */
+async function botLoadBoard(api: SimAdminApi, tick: (ms: number) => void, rate: number): Promise<AiDesk> {
+  await api.simSetRate(rate);
+  tick(400_000);
+  await api.getControlCenter();
+  tick(325_000);
+  return ready<AiDesk>((await api.getControlCenter()).ai);
+}
+
+test("sim 조치안 승인·되돌리기의 조치 종류별 역할: 봇 운영은 봇 부하 줄임을 승인하고 자동 실행한 봇 부하 줄임을 되돌린다", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: T0 });
+  const tick = (ms: number) => t.mock.timers.tick(ms);
+  const api = new SimAdminApi();
+  await api.establishSession("op-02");
+  const manual = (await botLoadBoard(api, tick, 140)).proposals.find((p) => p.kind === "BOT_LOAD" && p.status === "PROPOSED");
+  assert.ok(manual, "봇 부하 줄임 조치안이 서야 공허 통과가 아니다");
+  await api.decideAiProposal(manual.id, "APPROVE");
+  assert.equal(ready<AiDesk>((await api.getControlCenter()).ai).proposals.find((p) => p.id === manual.id)?.status, "APPROVED");
+
+  // 자동 모드는 총괄이 켠다. 그 뒤 AI가 스스로 실행한 봇 부하 줄임을 봇 운영이 되돌린다
+  await api.establishSession("op-01");
+  await api.enableAiAuto(2, "야간 대기");
+  await api.establishSession("op-02");
+  const auto = (await botLoadBoard(api, tick, 160)).proposals.find((p) => p.kind === "BOT_LOAD" && p.status === "AUTO_EXECUTED");
+  assert.ok(auto, "자동 실행한 봇 부하 줄임이 서야 공허 통과가 아니다");
+  await api.revertAiAction(auto.id);
+  assert.equal(ready<AiDesk>((await api.getControlCenter()).ai).proposals.find((p) => p.id === auto.id)?.status, "REVERTED");
+});
+
+test("sim 조치안 승인의 조치 종류별 역할: 봇 운영은 계획 작업 창 안의 주의 경보 보류안을 승인한다", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: T0 });
+  const api = new SimAdminApi();
+  await api.establishSession("op-02");
+  await api.createWindow({ startsAt: null, endsAt: new Date(T0 + 600_000).toISOString(), alertname: null, labels: { role: "app" }, reason: "조회 증설 시험" });
+  await api.startOpsScenario("READ_SURGE");
+  t.mock.timers.tick(120_000);
+  const silence = ready<AiDesk>((await api.getControlCenter()).ai).proposals.find((p) => p.kind === "SILENCE" && p.status === "PROPOSED");
+  assert.ok(silence, "창 안의 경보 보류안이 서야 공허 통과가 아니다");
+  await api.decideAiProposal(silence.id, "APPROVE");
+  const alert = ready<OpsAlert[]>((await api.getControlCenter()).alerts).find((a) => a.name === "앱 계층 CPU 높음");
+  assert.equal(alert?.state, "SILENCED");
 });
 
 /* ===== 알림 채널·설정(4-10-7) ===== */

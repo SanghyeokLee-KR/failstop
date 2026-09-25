@@ -25,6 +25,7 @@ import PageSkeleton from "@/components/admin/control/PageSkeleton";
 import StatusShape from "@/components/admin/StatusShape";
 import { Segmented } from "@/components/admin/ui";
 import { flashTone } from "@/lib/admin/motion";
+import { kstDay } from "@/lib/admin/timeText";
 import type { ControlCenter, IncidentLog } from "@/lib/admin/types";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
@@ -217,7 +218,7 @@ export default function IncidentsPage() {
                   </SectionBody>
                 </section>
               )}
-              {log && <LooseEvents log={log} />}
+              {log && <LooseEvents log={log} now={now} />}
             </div>
           </div>
         </>
@@ -226,16 +227,20 @@ export default function IncidentsPage() {
   );
 }
 
-/** 사건 밖 운영 기록. 모드 전환, 경보 없는 조치, 백업처럼 사건에 속하지 않는 최근 기록이다 */
-function LooseEvents({ log }: { log: IncidentLog }) {
+/**
+ * 사건 밖 운영 기록. 모드 전환, 경보 없는 조치, 백업처럼 사건에 속하지 않는 최근 기록이다. 여러 날에 걸치므로 KST 오늘이 아닌
+ * 줄은 날짜를 붙인다(조치 기록 표와 같은 꼴)
+ */
+function LooseEvents({ log, now }: { log: IncidentLog; now: number }) {
   const loose = log.events.filter((e) => e.incidentId === null).slice(0, 8);
   if (loose.length === 0) return null;
+  const today = kstDay(now);
   return (
     <section className={controlStyles.panel} aria-labelledby="inc-loose">
       <PanelHead id="inc-loose" title="사건 밖 운영 기록" meta="모드 전환, 백업처럼 사건에 속하지 않는 최근 기록" />
-      <ol className={controlStyles.events}>
+      <ol className={controlStyles.events} data-days={loose.some((e) => kstDay(Date.parse(e.at)) !== today) ? "" : undefined}>
         {loose.map((e) => (
-          <EventRow key={e.id} e={e} />
+          <EventRow key={e.id} e={e} day={today} />
         ))}
       </ol>
     </section>

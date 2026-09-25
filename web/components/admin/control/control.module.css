@@ -1511,6 +1511,7 @@
 
 /* ===== 앱 계층 자동 증설(app-3 Auto Scaling) ===== */
 .asg {
+  container: asg / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1620,6 +1621,14 @@
   align-items: start;
   gap: var(--space-3);
 }
+/* 띠 안쪽 폭이 좁으면(서버·노드 1280·1440 창, 관제센터 1280 창) 막대를 글 아래로 내려 띠 폭을 쓰게 한다. 글 옆에 두면 막대가
+   100px 안팎으로 줄어 눈금을 읽기 어렵다 */
+@container asg (max-width: 280px) {
+  .asgRail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+}
 .asgAvg {
   font-size: var(--font-dense-size);
   line-height: 12px;
@@ -1638,20 +1647,34 @@
   min-width: 0;
   padding-bottom: 14px;
 }
+/* 이름을 막대 끝 안쪽에 붙이는 계산(cqw)이 막대 폭을 기준으로 삼게 한다 */
 .asgTicks {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: 13px;
+  container-type: inline-size;
 }
+/* 눈금 자리(임계값, %)는 Infra가 인라인 --tick-at으로 준다. 여기 값은 받기 전의 기본값이다 */
 .asgTick {
+  --tick-at: 0;
   position: absolute;
-  transform: translateX(-50%);
+  left: calc(var(--tick-at) * 1%);
   font-size: var(--font-micro-size);
   line-height: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+/* 축소 이름은 눈금 왼쪽에서 끝나고 증설 이름은 눈금 오른쪽에서 시작해 서로 반대쪽으로 뻗는다. 축소 임계가 늘 증설보다 낮아
+   막대 폭과 무관하게 겹치지 않는다(가운데 맞춤은 좁은 막대에서 겹친다). 막대 끝에 닿으면 막대 안쪽으로 붙는다 */
+.asgTick[data-side="in"] {
+  padding-right: 3px;
+  transform: translateX(max(-100%, calc(var(--tick-at) * -1cqw)));
+}
+.asgTick[data-side="out"] {
+  padding-left: 3px;
+  transform: translateX(min(0px, calc((100 - var(--tick-at)) * 1cqw - 100%)));
 }
 
 /* ===== 온프레미스 AI 서버 =====
@@ -3155,22 +3178,6 @@
   color: var(--text-default);
   max-width: 720px;
   word-break: keep-all;
-}
-.planned {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--control-radius);
-}
-.plannedTitle {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
 }
 /* AI 판단 화면의 쿨다운 표. 조치마다 한 행이고 쿨다운이 걸린 행만 남은 시간이 굵다 */
 .cooldowns {

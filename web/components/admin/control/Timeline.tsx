@@ -10,6 +10,7 @@ import { useOpsDetail } from "@/lib/admin/detailStore";
 import { lifecycleOf } from "@/lib/admin/opsDetail";
 import { kstDay, mdhm } from "@/lib/admin/timeText";
 import type { Incident, IncidentEvent, IncidentLog, OpsActor } from "@/lib/admin/types";
+import KeepNames from "../KeepNames";
 import StageBar from "../StageBar";
 import { useFreshKeys } from "../useFreshKeys";
 import { AiMark, durationWord, hms, SEVERITY_SHAPE, Shape, useClock } from "./parts";
@@ -41,8 +42,8 @@ function dotKind(e: IncidentEvent): string {
 }
 
 /**
- * 기록 한 줄. day(사건을 연 KST 날짜)를 주면 그날이 아닌 줄(다음 날 쓴 사후 분석)은 시각 앞에 날짜를 붙인다. 그런 줄이
- * 있는 목록은 events에 data-days를 달아 시각 칸을 넓힌다
+ * 기록 한 줄. day(기준 KST 날짜. 사건 기록은 사건을 연 날, 사건 밖 운영 기록은 오늘)를 주면 그날이 아닌 줄은 시각 대신 날짜와
+ * 시:분을 적는다. 그런 줄이 있는 목록은 events에 data-days를 달아 시각 칸을 넓힌다
  */
 export function EventRow({ e, showIncident, fresh, day }: { e: IncidentEvent; showIncident?: string | null; fresh?: boolean; day?: string }) {
   const other = day !== undefined && kstDay(Date.parse(e.at)) !== day;
@@ -55,7 +56,7 @@ export function EventRow({ e, showIncident, fresh, day }: { e: IncidentEvent; sh
         <span className={styles.actorName}>{e.actorName}</span>
       </span>
       <span className={styles.eventText} data-kind={e.kind}>
-        {e.text}
+        <KeepNames text={e.text} />
         {showIncident && <span className={styles.incTag}> · {showIncident}</span>}
       </span>
     </li>
@@ -128,6 +129,7 @@ export function IncidentView({ inc, log, limit, filter = "ALL" }: { inc: Inciden
 /** 관제센터 오른쪽 기둥의 타임라인. 진행 중인 사건이 없으면 가장 최근 사건을 보인다 */
 export default function TimelineBlock({ log }: { log: IncidentLog }) {
   const [filter, setFilter] = useState<EventFilter>("ALL");
+  const today = kstDay(useClock(60_000));
   const current = log.incidents.find((i) => i.resolvedAt === null) ?? log.incidents[0] ?? null;
   // 진행 중인 사건이 있으면 그 기록만 싣는다. 사건 밖 기록은 사건이 없을 때만 자리를 쓴다
   const loose = current?.resolvedAt === null ? [] : log.events.filter((e) => e.incidentId === null).filter(byFilter(filter)).slice(0, 2);
@@ -148,9 +150,9 @@ export default function TimelineBlock({ log }: { log: IncidentLog }) {
           {loose.length > 0 && (
             <>
               <div className={styles.subHead}>사건 밖 운영 기록</div>
-              <ol className={styles.events}>
+              <ol className={styles.events} data-days={loose.some((e) => kstDay(Date.parse(e.at)) !== today) ? "" : undefined}>
                 {loose.map((e) => (
-                  <EventRow key={e.id} e={e} />
+                  <EventRow key={e.id} e={e} day={today} />
                 ))}
               </ol>
             </>
