@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 중계 수신(S6 설계 4-5). 구독 연결로 받은 봉투의 모양을 보고, 자기가 보낸 봉투는 확인만 하고 건너뛴다. 하트비트는 소유자 표만
- * 갱신하고, 나머지는 내장 브로커로 보낸 뒤 호가·티커면 미러를, 체결이면 캔들 팬아웃을 갱신한다.
+ * 갱신하고, 나머지는 호가·티커면 미러를 갱신한 뒤 내장 브로커로 보내고, 체결이면 보낸 뒤 캔들 팬아웃을 갱신한다.
  *
  * 확인은 200건이나 200ms 마다 마지막으로 받은 메시지로 누적해 보낸다. 처리하다 실패해도 확인한다(최대 한 번 전달).
  */
@@ -106,11 +106,14 @@ public final class RelaySubscriber implements BrokerLink.Listener {
         switch (e.kind()) {
             case HB -> onHeartbeat(e);
             case TOPIC -> {
-                fanout.deliverTopic(e.dest(), e.body());
+                // 미러를 먼저 갱신한 뒤 세션에 전달한다. 반대면 전달과 미러 갱신 사이에 등록된 구독의 스냅샷이 미러의 옛 seq 를 읽고,
+                // 방금 전달된 번호는 그 구독에 가지 않아 결번이 된다(API 설계 §5-2 '스냅샷을 읽는 시점').
                 MarketMirror.Channel channel = e.mirrorChannel();
                 if (channel != null) {
                     mirror.update(channel, e.market(), e.epoch(), e.seq(), e.body());
-                } else if (e.trade()) {
+                }
+                fanout.deliverTopic(e.dest(), e.body());
+                if (channel == null && e.trade()) {
                     candles.onTrade(e.market(), e.epoch());
                 }
             }

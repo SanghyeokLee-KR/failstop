@@ -26,12 +26,15 @@ import kr.exchange.api.common.AdmissionGate;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor authInterceptor;
+    private final OrderbookSnapshotOnSubscribe orderbookSnapshots;
     private final String[] allowedOrigins;
     private final AdmissionGate admissionGate;
     private final AdmissionControl wsAdmission;
     private final WsGate wsGate;
 
     public WebSocketConfig(@Lazy StompAuthInterceptor authInterceptor,
+                           // 인증 가로채기처럼 지연 주입해, WS 브로커 구성이 호가 선택(MarketViews) 빈의 생성 순서에 묶이지 않게 한다.
+                           @Lazy OrderbookSnapshotOnSubscribe orderbookSnapshots,
                            @Value("${app.ws.allowed-origins:https://demo.exchange.local,http://localhost:3000}")
                            String[] allowedOrigins,
                            @Value("${exchange.require-secrets:false}") boolean requireSecrets,
@@ -54,6 +57,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             }
         }
         this.authInterceptor = authInterceptor;
+        this.orderbookSnapshots = orderbookSnapshots;
         this.allowedOrigins = allowedOrigins;
         this.admissionGate = admissionGate;
         this.wsAdmission = wsAdmission;
@@ -78,7 +82,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(authInterceptor);
+        // 구독 즉시 스냅샷은 내장 브로커가 SUBSCRIBE 를 처리한 뒤에 보낸다(§5-2 '스냅샷을 읽는 시점', 실행기 가로채기).
+        registration.interceptors(authInterceptor, orderbookSnapshots);
     }
 
     /**

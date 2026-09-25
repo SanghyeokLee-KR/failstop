@@ -20,7 +20,6 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -124,7 +123,7 @@ class MarketViewIntegrationTest {
             ExecutorSubscribableChannel outbound = new ExecutorSubscribableChannel();
             outbound.subscribe(out::add);
             new OrderbookSnapshotOnSubscribe(rig.markets, nonOwner, rig.json, () -> outbound)
-                    .onApplicationEvent(subscribeEvent("/topic/orderbook.KRW-BTC"));
+                    .sendSnapshot(subscribeMessage("/topic/orderbook.KRW-BTC"));
             JsonNode snapshot = rig.json.readTree((byte[]) out.get(0).getPayload());
             assertEquals("snapshot", snapshot.path("stream").asText());
             assertEquals(seq, snapshot.path("seq").asLong());
@@ -216,12 +215,12 @@ class MarketViewIntegrationTest {
         };
     }
 
-    private static SessionSubscribeEvent subscribeEvent(String destination) {
+    private static Message<byte[]> subscribeMessage(String destination) {
         StompHeaderAccessor a = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         a.setSessionId("s1");
         a.setSubscriptionId("sub-1");
         a.setDestination(destination);
-        return new SessionSubscribeEvent(new Object(), MessageBuilder.createMessage(new byte[0], a.getMessageHeaders()));
+        return MessageBuilder.createMessage(new byte[0], a.getMessageHeaders());
     }
 
     private static long num(Map<String, Object> body, String key) {
