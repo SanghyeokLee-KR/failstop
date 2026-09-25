@@ -449,8 +449,13 @@ def judge(scenario, timeline, observe, records, verify, facts):
                             if k in after}
             extra['definitive_deferred'] = metric_delta(facts, 'definitive_deferred')
     elif scenario == 'E-P1b':
+        # 타임라인은 판정 축이 아니라 기록 항목이다(사용자 확정 2026-09-25, 설계 13절 26). Patroni 4.1.5 는 리더 키를 쥔 채
+        # 재기동한 노드를 읽기 전용으로 띄운 뒤 스스로 다시 승격하므로 같은 노드여도 타임라인이 하나 오른다.
         pre, post = timeline.get('pre', {}), timeline.get('post', {})
-        axes.append(equals('timeline_unchanged', None if post.get('timeline') is None else post['timeline'] - pre.get('timeline', 0), 0))
+        extra['timeline_change'] = {'pre': pre.get('timeline'), 'post': post.get('timeline'),
+                                    'delta': diff(post.get('timeline'), pre.get('timeline'))}
+        extra['patroni_leader_changed'] = None if not post.get('patroni_leader') \
+            else pre.get('patroni_leader') != post.get('patroni_leader')
         axes += ack_axes
         axes += common_integrity(facts)
         extra['definitive_deferred'] = metric_delta(facts, 'definitive_deferred')

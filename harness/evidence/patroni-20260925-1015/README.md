@@ -2,7 +2,7 @@
 
 [Patroni 설계](../../../docs/reference/architecture/DB_자동전환_Patroni_설계.md) 8-3의 E-P1~E-P6을 compose 프로젝트 `exchange-patroni`에서 실제로 돌린 기록이다. 회차마다 스택을 새로 세우고 끝에 지웠다. 앱 이미지는 이 작업 트리(브랜치 `claude/patroni`, 기준 9a6d2474에 작업 트리 변경을 더한 상태)의 bootJar로 첫 회차에서 새로 만들어 `exchange-chaos-app:patroni`로만 태그했다. AWS에는 접속하지 않았다.
 
-결론부터 적는다. E-P1, E-P2a, E-P2b, E-P3a, E-P3b, E-P4a, E-P4b, E-P5, E-P6(a·b)는 회차 무효 조건에 걸리지 않은 회차(E-P4a·b는 시간 축이 없는 실험)에서 모두 **PASS**였다. 판정 도구가 FAIL을 낸 회차는 E-P1b 하나다. 그 축은 '타임라인 불변'인데, Patroni 4.1.5는 리더 키를 쥔 채 재기동한 노드를 읽기 전용으로 띄운 뒤 스스로 승격시켜 타임라인을 하나 올린다(아래 E-P1b). 앱 코드 결함이 아니라 설계의 PASS 조건이 이 동작을 반영하지 못한 것이다. 코드는 고치지 않았다.
+결론부터 적는다. E-P1, E-P2a, E-P2b, E-P3a, E-P3b, E-P4a, E-P4b, E-P5, E-P6(a·b)는 회차 무효 조건에 걸리지 않은 회차(E-P4a·b는 시간 축이 없는 실험)에서 모두 **PASS**였다. E-P1b는 처음 판정에서 '타임라인 불변' 축 하나로 FAIL이었다. Patroni 4.1.5는 리더 키를 쥔 채 재기동한 노드를 읽기 전용으로 띄운 뒤 스스로 승격시켜 타임라인을 하나 올린다(아래 E-P1b). 사용자가 2026-09-25에 타임라인 변경을 허용하고 기록 항목으로 두기로 확정했고, 바꾼 판정 도구로 같은 원자료를 다시 판정한 결과는 **PASS** 7/7이다. 앱 코드는 고치지 않았다.
 
 ## 조건
 
@@ -25,6 +25,8 @@ pwsh -NoProfile -File <scratchpad>\ep-batch.ps1 -RunList "ep-p2a-standby-stop,ep
 $env:EP_WAIT_BUDGET='1800'; pwsh -NoProfile -File <scratchpad>\ep-batch.ps1 -RunList "ep-p3b-asymmetric-isolate,ep-p5-load-failover"
 python harness/scale/patroni_axes.py --scenario E-P1 --dir <E-P6b 원시 폴더> --out ...EP6b-20260925-101936.as-EP1.verdict.json
 python harness/evidence/patroni-20260925-1015/ep6b_axes.py <E-P6b 원시 폴더> ...EP6b-20260925-101936.ep6b.verdict.json
+# 사용자 확정(2026-09-25) 뒤 E-P1b 재판정. 스택은 띄우지 않고 기록된 원자료만 다시 판정했다.
+python harness/scale/patroni_axes.py --scenario E-P1b --dir <E-P1b 원시 폴더> --out ...EP1b-20260925-141742.verdict-rejudge-20260925.json
 ```
 
 [ep-batch.ps1](ep-batch.ps1)은 실행기를 차례로 부르는 순서기다. 회차마다 앞에서 `chaos-*`·`pml-*`·다른 프로젝트의 k6 컨테이너, Testcontainers, 다른 작업 트리의 Gradle 시험 JVM이 있으면 2분 간격으로 기다렸다(누적 3시간 상한). 순서기의 줄 기록은 [batch-log.txt](batch-log.txt)다. 누적 대기가 3시간에 닿은 14:09 뒤의 세 회차(E-P4b, 첫 E-P5, E-P1b)는 S5 스택이 떠 있는 채로 시작했다. 판정 도구의 무효 조건 검사는 그 세 회차에서 실험 밖 부하 도구를 찾지 못했고 CPU 표본 평균은 16~34%였다. S5 스택은 떠 있었지만 부하 주행은 없었던 것으로 본다(프로세스 목록과 CPU 표본으로만 판단, 설계 8-1 (d)).
@@ -44,7 +46,7 @@ python harness/evidence/patroni-20260925-1015/ep6b_axes.py <E-P6b 원시 폴더>
 | E-P4a etcd-3(bot-1 역할) 정지 | [EP4a-20260925-133551](../patroni-EP-20260925-1335/) | 13:37:19 | **PASS** 7/7 | 상태 표본 중단 0, `EtcdMemberDown` 발화, Patroni 리더·타임라인·epoch 불변 | 실험 밖 부하(`pml-s6-watch-W2`, 다른 작업 Gradle). 이 실험에는 시간 축이 없다 |
 | E-P4b etcd 두 멤버 정지 | [EP4b-20260925-140938](../patroni-EP-20260925-1409/) | 14:11:10 | **PASS** 8/8 | 상태 표본 중단 0, `patroni_failsafe_mode_is_active` 1, `EtcdQuorumLost` 발화, Primary 유지 | S5 스택이 떠 있음(부하 도구 검출 없음). 시간 축 없음 |
 | E-P5 부하 중 Primary kill(봇 40 OPS) | [EP5-20260925-141322](../patroni-EP-20260925-1413/), [EP5-20260925-142512](../patroni-EP-20260925-1425/) | 14:14:50, 14:26:28 | **PASS** 20/20, **PASS** 20/20 | 승격 23.18·22.98, 같은 `client_order_id` 주문 둘 0, 출금 불확실 키 62·62개 모두 같은 키로 재전송·요청 하나에 행 둘 0, C07'·C16 0, epoch +1 | 첫 회차는 S5 스택이 떠 있음(검출 없음), 둘째는 깨끗함 |
-| E-P1b Primary kill 직후 start | [EP1b-20260925-141742](../patroni-EP-20260925-1417/) | 14:19:03 | **FAIL** 7/8 | `timeline_unchanged` 1(1→2). 리더는 같은 노드(db-2), 앱 리더·epoch 불변, 재개 T0+10.3초, 확정 응답 보류 12건 | S5 스택이 떠 있음(검출 없음) |
+| E-P1b Primary kill 직후 start | [EP1b-20260925-141742](../patroni-EP-20260925-1417/) | 14:19:03 | **PASS** 7/7(재판정). 처음 판정은 FAIL 7/8 | 타임라인 1→2(기록 항목). 리더는 같은 노드(db-2), 앱 리더·epoch 불변, 재개 T0+10.3초, 확정 응답 보류 12건. 처음 판정의 FAIL 축은 `timeline_unchanged` 하나였다 | S5 스택이 떠 있음(검출 없음) |
 
 모든 회차에서 불변식 사후 run 위반 0(이름을 든 C01·C02·C05·C07'·C13A·C14'·C17·C31 포함), C16 0, 구 epoch 쓰기 증분 0, 주문 `500` 0, DB 수준 ACK 유실 0이었다. acked가 아닌 시도는 강제 종료·격리 순간의 연결 끊김 4건(unknown)과, 승격 직후 HAProxy가 새 Primary로 넘긴 뒤 승격이 끝나기 전의 `25006 read-only` 실패(E-P6b 20건, E-P5 첫 회차 4건, E-P1b 4건)다. 후자는 커밋 전에 받은 오류라 `failed`이고, failed인데 표에 있는 번호는 0이었다.
 
@@ -61,7 +63,11 @@ python harness/evidence/patroni-20260925-1015/ep6b_axes.py <E-P6b 원시 폴더>
 ## 설계·과제 문장과 다른 점
 
 - **거절 코드.** 과제 문장은 E-P2의 주문 응답을 '503(거래 일시 중단)'으로 적었지만, 이 브랜치의 계약(API 설계 §2-5-d v2.57, ADR 0036)과 코드는 동기 Standby가 없어 쓰기를 멈춘 상태(SUSPENDED)를 `423 trading_suspended` + `Retry-After: 5`로, DB에 닿지 못하는 상태(UNREACHABLE)를 `503 service_unavailable`로 가른다. 판정은 계약대로 423으로 했다. E-P2a·E-P2b 중단 구간의 쓰기 표본은 모두 423이었고 503은 없었다. E-P1·E-P5처럼 Primary가 없어지는 구간에서는 게이트 503(E-P5 첫 회차 319건)과 LB 502가 먼저 오고, 승격 뒤 동기 Standby가 없는 동안 423이 온다.
-- **E-P1b의 타임라인.** 설계 8-3은 'T_promote 없음(타임라인 불변)'을 PASS 조건으로 두었다. Patroni 4.1.5 로그는 `starting as readonly because i had the session lock` 다음 `promoted self to leader because I had the session lock`, PostgreSQL은 `selected new timeline ID: 2`였다(14:19:05~06). 노드 전환은 없었고(리더 db-2 그대로, 앱 리더·epoch 불변) 사후 불변식·ACK 유실·C16·구 epoch 쓰기는 모두 0이었다. 조건을 '리더 노드 불변, 타임라인 +1은 재기동 절차'로 바꿀지는 문서 단계의 결정이다. 설계가 E-P1b에 요구한 '첫 확인 탐지 전에 나간 by-client 200·V47 201 0'은 판정 도구에 축이 없어 이 회차에서 판정하지 않았고, 확정 응답 보류 계수(`exchange_write_definitive_deferred_total`) 증가 12만 기록했다.
+- **E-P1b의 타임라인.** 설계 8-3은 'T_promote 없음(타임라인 불변)'을 PASS 조건으로 두었다. Patroni 4.1.5 로그는 `starting as readonly because i had the session lock` 다음 `promoted self to leader because I had the session lock`, PostgreSQL은 `selected new timeline ID: 2`였다(14:19:05~06). 노드 전환은 없었고(리더 db-2 그대로, 앱 리더·epoch 불변) 사후 불변식·ACK 유실·C16·구 epoch 쓰기는 모두 0이었다. 처음 판정 도구는 이 타임라인 변화를 `timeline_unchanged` FAIL로 냈다([처음 판정](../patroni-EP-20260925-1417/EP1b-20260925-141742.verdict.json), 이력으로 보존).
+
+  사용자가 2026-09-25에 타임라인 변경을 허용하고 기록하는 항목으로 두기로 확정했다(설계 13절 26). 판정 도구 `patroni_axes.py`의 E-P1b에서 그 축을 빼고 `extra.timeline_change`(전후 값과 차이)와 `extra.patroni_leader_changed`로 기록하게 바꿨다. 같은 원자료(저장소 밖 원시 폴더, `ackrec.jsonl` SHA-256이 `.hashes.json`과 같고 나머지 네 파일은 저장소 사본과 같음을 확인)를 바꾼 도구로 다시 판정한 결과가 [재판정](../patroni-EP-20260925-1417/EP1b-20260925-141742.verdict-rejudge-20260925.json)이다. 판정은 **PASS**이고 축 7개(`ackrec_rpo` 0, `ackrec_failed_present` 0, `post_invariants_gated` 0, `post_invariants_named` 0, `c16_rpo_records` 0, `stale_epoch_writes` 0, `order_500` 0)가 모두 참, 판정 불가 0이다. 기록 항목은 타임라인 1→2(차이 1), Patroni 리더 교체 없음, 앱 리더 교체 없음, 확정 응답 보류 증가 12다. 시각·무효 조건·기록기 요약은 처음 판정과 같다.
+
+  설계가 E-P1b에 요구한 '첫 확인 탐지 전에 나간 by-client 200·V47 201 0'은 판정 도구에 축이 없어 재판정에서도 판정하지 않았고, 확정 응답 보류 계수(`exchange_write_definitive_deferred_total`) 증가 12만 기록했다. epoch 규칙(앱 리더가 그대로면 epoch 불변)도 도구의 축이 아니며, 실행기가 적은 전후 값(epoch 1→1, 앱 리더 api-1 그대로)으로만 확인했다. 재판정 PASS는 도구의 축 7개에 대한 판정이다.
 - **E-P6(b)의 T_sync.** 설계 문구는 '재초기화 시작부터 T_sync까지 ACTIVE 0회'다. 새 멤버의 walsender가 붙은 뒤 `/cluster`가 `sync_standby`를 적기까지 8초가 걸렸고 그 사이 ACTIVE 표본이 3개 있었다. 그 구간은 멤버 사본이 있는 정상 확인이다(설계 8-1 (7)이 확인 커밋 축의 끝을 T_sync에서 멤버 walsender 시작으로 바꾼 것과 같은 이유). 판정은 멤버 walsender 시작을 끝으로 했고 설계 문구대로 센 값 3은 기록으로 남겼다.
 - **E-P5의 V47.** 두 E-P5 회차 모두 V47 결과(`commit_recovered`, `unresolved`, `unavailable`)와 확정 응답 보류가 0이었다. Primary를 죽인 순간 커밋을 기다리던 주문 접수가 없었거나, 있었어도 앱이 결과를 모르는 상태로 남기지 않았다. 설계가 기대한 '결과를 모르는 접수가 생기고 V47이 새 Primary에서 판정'하는 장면은 이 두 회차에서 나오지 않았다. 판정 도구의 E-P5 축은 모두 통과했지만 V47 경로는 이 실험으로 검증하지 못했다.
 
@@ -81,6 +87,7 @@ python harness/evidence/patroni-20260925-1015/ep6b_axes.py <E-P6b 원시 폴더>
 | `../patroni-EP-<YYYYMMDD-HHMM>/<run>.verdict.json` | 회차 판정(시각, 축, 무효 조건, 기록기 요약) |
 | `.timeline.json`, `.facts.json`, `.observe.jsonl`, `.ackrec-verify.json`, `.hashes.json`, `.json` | 실행기 시각·사실, 관측 표본, 기록기 대조, 원문 로그 해시, lib.ps1 표준 판정 |
 | `../patroni-EP-20260925-1019/EP6b-20260925-101936.as-EP1.verdict.json`, `.ep6b.verdict.json` | E-P6(b) 회차의 E-P1 축 판정과 재초기화 축 판정 |
+| `../patroni-EP-20260925-1417/EP1b-20260925-141742.verdict-rejudge-20260925.json` | E-P1b 재판정(타임라인을 기록 항목으로 바꾼 도구). 같은 폴더의 `.verdict.json`과 `.json`은 처음 판정(FAIL)으로 보존 |
 | [preserved-volumes-start.txt](preserved-volumes-start.txt), [preserved-volumes-end.txt](preserved-volumes-end.txt) | 보존 볼륨과 남은 자원 확인 |
 | [batch-log.txt](batch-log.txt), [ep-batch.ps1](ep-batch.ps1) | 순서기 기록과 순서기 |
 | [summarize.py](summarize.py) | 판정 파일에서 표의 값을 뽑는 도구 |

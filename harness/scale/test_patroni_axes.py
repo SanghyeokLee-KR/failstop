@@ -278,6 +278,43 @@ class PrimaryKillTest(unittest.TestCase):
         self.assertFalse(by_id(self.run_judge(), 'app_epoch_increase')['pass'])
 
 
+class PrimaryRestartTest(unittest.TestCase):
+    """E-P1b: T0 에 Primary kill 직후 start. 같은 노드(db-1)가 리더 키를 쥔 채 스스로 다시 승격해 타임라인이 1→2 가 된다."""
+
+    def setUp(self):
+        self.timeline = {'scenario': 'E-P1b', 'run_id': 'EP1b-test', 't0': T0, 'injected': DB1,
+                         'role_injected': 'primary-restart',
+                         'pre': {'patroni_leader': DB1, 'timeline': 1, 'epoch': 1, 'app_leader': 'patroni-api-1'},
+                         'post': {'patroni_leader': DB1, 'timeline': 2, 'epoch': 1, 'app_leader': 'patroni-api-1'},
+                         'db_ips': {DB1: IP1, DB2: IP2}}
+        end = T0 + 60
+        self.observe = (status_series(T0 - 40, end, T0 + 3, T0 + 10)
+                        + cluster_series(T0 - 40, end, lambda t: DB1, lambda t: [DB2],
+                                         lambda t: 1 if t < T0 + 4 else 2))
+        self.records = ack_records(end, lambda t: IP1, unknown_windows=[(T0, T0 + 1)])
+        self.verify = ar.verify_against(self.records, [r['n'] for r in ar.attempts(self.records)
+                                                       if r['result'] == ar.ACKED])
+        self.facts = clean_facts()
+
+    def run_judge(self, **kw):
+        return pa.judge('E-P1b', kw.get('timeline', self.timeline), self.observe, self.records,
+                        self.verify, kw.get('facts', self.facts))
+
+    def test_timeline_change_is_recorded_not_judged(self):
+        r = self.run_judge()
+        self.assertNotIn('timeline_unchanged', [a['id'] for a in r['axes']], '타임라인은 판정 축이 아니다')
+        self.assertEqual({'pre': 1, 'post': 2, 'delta': 1}, r['extra']['timeline_change'])
+        self.assertFalse(r['extra']['patroni_leader_changed'])
+        self.assertFalse(r['extra']['app_leader_changed'])
+        self.assertEqual('PASS', r['verdict'], [a for a in r['axes'] if a['pass'] is not True])
+
+    def test_safety_axes_still_gate(self):
+        self.assertEqual('FAIL', self.run_judge(facts=clean_facts(stale_write_delta=1))['verdict'])
+        facts = clean_facts()
+        facts['invariants']['post']['checks'][0]['violatedRows'] = 1
+        self.assertEqual('FAIL', self.run_judge(facts=facts)['verdict'])
+
+
 class SlowPathTest(unittest.TestCase):
 
     def test_ep7_requires_no_suspension_on_slow_node_and_nonvacuous_probe(self):
