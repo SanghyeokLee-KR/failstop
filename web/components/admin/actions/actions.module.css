@@ -1,0 +1,368 @@
+/* 조치 기록(관리자 설계 4-10-4, 레이아웃 §7 3라운드). 머리 아래 거르기 줄(높이 44px)과 전폭 표(행 44px)다. 'CSV 내보내기'는
+   거르기 줄 오른쪽 끝이다. 행위자는 사건 기록 레일의 문법(운영자 잉크 채운 원, AI 악센트 채운 원, 시스템 무채 빈 원)이다 */
+
+/* 거르기 줄. 왼쪽 거르기는 칸이 모자라면 줄을 바꾸고, 오른쪽 끝의 CSV 내보내기는 첫 줄에 남는다 */
+.filterBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 44px;
+}
+/* 고르기·검색 칸의 래퍼. 칸은 36px로 보이고 누름 영역 44px는 래퍼 label이 가진다(§10-2) */
+.filterGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+.filterLabel {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.select,
+.search {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  font-family: inherit;
+}
+.select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: var(--space-7);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+}
+.search {
+  width: 200px;
+}
+.search::placeholder {
+  color: var(--text-placeholder);
+}
+.filterEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+}
+.capNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 요약 한 줄. AI 판단 화면의 평상 한 줄과 같은 기록에서 센다 */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.summary b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.summaryNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 표 ===== */
+.tableWrap {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.cAt {
+  width: 112px;
+}
+/* 1280 창(표 폭 약 968px)에서 대상 칸이 약 190px을 받게 나눈다 */
+.cActor {
+  width: 11%;
+}
+.cCat {
+  width: 9%;
+}
+.cResult {
+  width: 88px;
+}
+.cTicket {
+  width: 10%;
+}
+.cIncident {
+  width: 72px;
+}
+.table thead th {
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+.table thead th:first-child,
+.table tbody td:first-child {
+  padding-left: var(--space-4);
+}
+.table thead th:last-child,
+.table tbody td:last-child {
+  padding-right: var(--space-4);
+}
+.row {
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.row td,
+.row th {
+  height: 44px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: var(--fw-regular);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text-default);
+}
+.row:last-child td,
+.row:last-child th {
+  border-bottom: 0;
+}
+.row:hover {
+  background: var(--surface-hover);
+}
+/* 되돌린 조치는 줄을 흐리지 않는다. 결과 칩이 사실을 싣는다 */
+.cell {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time {
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.actor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.actor > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actorShape {
+  flex: none;
+}
+.actor[data-actor="OPERATOR"] .actorShape {
+  color: var(--text-strong);
+}
+.actor[data-actor="AI"] .actorShape {
+  color: var(--ai-accent);
+}
+.actor[data-actor="SYSTEM"] .actorShape {
+  color: var(--text-secondary);
+}
+.gloss {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+.row:hover .gloss {
+  text-decoration-color: currentColor;
+}
+/* 글 단추의 누름 영역 44x44(§10-2). 행 전체도 누르면 열리므로 옆 줄에 걸쳐도 같은 행을 연다 */
+.gloss::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translateY(-50%);
+}
+.code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.row:hover .code {
+  color: var(--text-default);
+}
+.ok {
+  color: var(--text-default);
+}
+.ticket {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.none {
+  color: var(--text-secondary);
+}
+.row:hover .none {
+  color: var(--text-default);
+}
+.incident {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--chrome-accent);
+  white-space: nowrap;
+}
+.incident::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.incident:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.moreRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+/* ===== 조치 상세 모달(720px) ===== */
+.kv {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  margin: 0;
+}
+.kv dt,
+.kv dd {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.kv dt {
+  color: var(--text-secondary);
+}
+.kv dd {
+  min-width: 0;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.kv > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.kvCode {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.linkBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+  text-align: left;
+}
+.linkBtn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  min-width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.linkBtn:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.relation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.relation li {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.relationKey {
+  color: var(--text-secondary);
+}

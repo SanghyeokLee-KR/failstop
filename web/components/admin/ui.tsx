@@ -189,12 +189,13 @@ export function segmentedTabId(panelId: string, value: string): string {
   return `${panelId}-tab-${value}`;
 }
 
-export type SimMarkKind = "sim" | "assumed" | "replay";
+export type SimMarkKind = "sim" | "assumed" | "replay" | "design";
 
 const SIM_MARK: Record<SimMarkKind, { text: string; sr: string }> = {
   sim: { text: "시뮬레이션", sr: "값은 브라우저 시뮬레이터가 만든 것입니다" },
   assumed: { text: "시뮬레이션 가정", sr: "구축 전이라 연결과 값은 시뮬레이터의 가정입니다" },
   replay: { text: "재생 · 관제 값과 별개", sr: "로컬 Docker 측정 기록의 사건 순서를 재생하고 사이 값은 지어낸 것이라 관제센터의 값과 다릅니다" },
+  design: { text: "설계 의도 · 관측 아님", sr: "설계 문서의 허용 경로를 옮긴 표이고 콘솔이 AWS에서 읽은 값이 아닙니다" },
 };
 
 /**

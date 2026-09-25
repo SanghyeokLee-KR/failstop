@@ -6,10 +6,13 @@
  * 백업 지표(마지막 성공, 복원 검증)만, 인증서는 연결 전으로 그린다
  */
 
+import Link from "next/link";
 import { useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { CERT_SOURCE, certDateWord, certDaysLeft, certTone, soonestCert } from "@/lib/admin/certs";
 import { useCan } from "@/lib/admin/store";
-import type { JobOutcome, OpsBackup, OpsJobs } from "@/lib/admin/types";
+import type { CertificateInfo, JobOutcome, OpsBackup, OpsJobs } from "@/lib/admin/types";
+import KeepNames from "../KeepNames";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
@@ -195,20 +198,30 @@ function MissingJob({ name, source }: { name: string; source: string }) {
   );
 }
 
-function CertificateLine({ cert, now }: { cert: { domain: string; expiresAt: string }; now: number }) {
-  const days = Math.floor((Date.parse(cert.expiresAt) - now) / 86_400_000);
-  const certTone = days < 14 ? "danger" : days < 30 ? "warning" : "success";
-  const expires = kstParts(Date.parse(cert.expiresAt));
+/**
+ * 가장 먼저 만료되는 인증서 한 줄. 네트워크·보안의 인증서 표, 사이드바 배지와 같은 판정(certs.ts)이라 세 자리가 같은 날과
+ * 모양을 적는다(30일 이내 ▲, 7일 이내 ■). 나머지 인증서는 개수만 적고 네트워크·보안으로 보낸다
+ */
+function CertificateLine({ certs, now }: { certs: CertificateInfo[]; now: number }) {
+  const cert = soonestCert(certs);
+  if (!cert) return <MissingJob name="인증서" source="인증서 기록 없음" />;
+  const days = certDaysLeft(cert, now);
+  const tone = certTone(days);
   return (
     <div className={styles.job}>
       <span className={styles.jobKey}>인증서</span>
       <span className={styles.jobVal}>
         <span>
-          <Shape tone={certTone}>{certTone === "success" ? "●" : certTone === "warning" ? "▲" : "■"}</Shape> {cert.domain}
+          <Shape tone={tone}>{tone === "success" ? "●" : tone === "warning" ? "▲" : "■"}</Shape> <KeepNames text={cert.domain} />
         </span>
         <span>
-          만료 <b className="num">D-{days}</b> · {expires.month}.{expires.day}
+          만료 <b className="num">D-{days}</b> · <span className="num">{certDateWord(cert)}</span>
         </span>
+        {certs.length > 1 && (
+          <Link href="/admin/security" className={styles.stripLink}>
+            외 {certs.length - 1}장
+          </Link>
+        )}
       </span>
       <span />
     </div>
@@ -227,7 +240,7 @@ export default function JobsBlock({ jobs, onChanged }: { jobs: OpsJobs; onChange
   return (
     <div className={styles.jobs}>
       {jobs.backup ? <BackupLine b={jobs.backup} onChanged={onChanged} /> : <MissingJob name="백업" source={jobs.backupSource ?? "Databasus"} />}
-      {jobs.certificate ? <CertificateLine cert={jobs.certificate} now={now} /> : <MissingJob name="인증서" source="인증서 만료 원천" />}
+      {jobs.certificates ? <CertificateLine certs={jobs.certificates} now={now} /> : <MissingJob name="인증서" source={CERT_SOURCE} />}
       <div className={styles.job}>
         <span className={styles.jobKey}>일일 보고</span>
         <span className={styles.jobVal}>

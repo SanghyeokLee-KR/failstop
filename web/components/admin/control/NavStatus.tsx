@@ -11,74 +11,11 @@
 
 import type { ReactNode } from "react";
 import type { OpsBadgeKind } from "@/lib/admin/nav";
+import { badgeOf } from "@/lib/admin/navBadges";
 import { useOpsPick, useOpsPickShallow } from "@/lib/admin/opsCenter";
-import type { ControlCenter, ThresholdKey } from "@/lib/admin/types";
-import { appTierHot, hostState } from "@/lib/admin/opsHealth";
-import StatusShape, { type StatusShapeKind } from "../StatusShape";
+import StatusShape from "../StatusShape";
 import { AiMark, remainWord, useClock } from "./parts";
 import styles from "./control.module.css";
-
-/** 원시 값으로만 된 배지. 사이드바가 배지를 얕게 견줘 바뀔 때만 다시 그린다 */
-export interface Badge {
-  tone: "danger" | "warning" | "info" | "ai";
-  /** 상태 배지의 모양(§12-3). AI 배지는 모양 대신 이름표를 쓴다 */
-  shape: StatusShapeKind | null;
-  /** 펼친 메뉴에서만 보이는 이름표('제안', 'AI') */
-  label: string | null;
-  /** 건수. 복제 끊김처럼 셀 것이 없으면 null이다 */
-  count: number | null;
-  sr: string;
-}
-
-export function badgeOf(kind: OpsBadgeKind, c: ControlCenter): Badge | null {
-  const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
-  const val = (k: ThresholdKey) => reg?.items.find((t) => t.key === k)?.value ?? null;
-  switch (kind) {
-    case "incidents": {
-      if (c.alerts.state !== "READY") return null;
-      const firing = c.alerts.data.filter((a) => a.state !== "SILENCED");
-      const crit = firing.filter((a) => a.severity === "critical").length;
-      const warn = firing.filter((a) => a.severity === "warning").length;
-      const info = firing.filter((a) => a.severity === "info").length;
-      if (crit > 0) return { tone: "danger", shape: "square", label: null, count: crit, sr: `장애 경보 ${crit}건` };
-      if (warn > 0) return { tone: "warning", shape: "triangle", label: null, count: warn, sr: `주의 경보 ${warn}건` };
-      if (info > 0) return { tone: "info", shape: "circle", label: null, count: info, sr: `정보 경보 ${info}건` };
-      return null;
-    }
-    case "ai": {
-      if (c.ai.state !== "READY") return null;
-      const open = c.ai.data.proposals.filter((p) => p.status === "PROPOSED").length;
-      return open > 0 ? { tone: "ai", shape: null, label: "제안", count: open, sr: `AI 조치안 ${open}건 대기` } : null;
-    }
-    case "hosts": {
-      if (c.hosts.state !== "READY") return null;
-      // 전체 상태(운영자 바)·인프라 칸 집계와 같은 판정을 쓴다. 수집이 끊긴 노드도, 앱 계층 과부하의 앱 노드도 주의로 센다
-      const hot = appTierHot(c);
-      const tones = c.hosts.data.map((h) => hostState(h, reg, hot).tone);
-      const tier = c.readTier.state === "READY" ? c.readTier.data : null;
-      // 켜진 app-3도 같은 부하를 받는다. 기동·드레이닝 중인 app-3는 넘어가는 중이라 주의다
-      const app3 = tier?.nodes.filter((n) => n.state !== "OFF" && (hot || n.state !== "IN_SERVICE")).length ?? 0;
-      const bad = tones.filter((t) => t !== "success").length + app3;
-      if (tones.includes("danger")) return { tone: "danger", shape: "square", label: null, count: bad, sr: `장애 호스트 ${bad}대` };
-      if (bad > 0) return { tone: "warning", shape: "triangle", label: null, count: bad, sr: `주의 노드 ${bad}대` };
-      return null;
-    }
-    case "database": {
-      const repl = c.replication.state === "READY" ? c.replication.data : null;
-      const lag = val("db.replication_lag_alert");
-      const late = repl !== null && repl.lagSec !== null && lag !== null && repl.lagSec >= lag;
-      const backupLate = c.alerts.state === "READY" && c.alerts.data.some((a) => a.id === "backup_delay");
-      if (repl?.stream === "STOPPED") return { tone: "danger", shape: "square", label: null, count: null, sr: "복제 끊김" };
-      if (late || backupLate || (repl !== null && repl.stream !== "STREAMING")) return { tone: "warning", shape: "triangle", label: null, count: null, sr: "DB 주의" };
-      return null;
-    }
-    case "thresholds": {
-      if (!reg) return null;
-      const n = reg.items.filter((t) => t.aiSuggested !== null).length;
-      return n > 0 ? { tone: "ai", shape: null, label: "AI", count: n, sr: `AI 제안값 ${n}건` } : null;
-    }
-  }
-}
 
 export function NavBadge({ kind }: { kind: OpsBadgeKind }) {
   // 판은 매초 새로 오지만 배지 글자는 드물게 바뀐다. 글자가 같으면 다시 그리지 않는다

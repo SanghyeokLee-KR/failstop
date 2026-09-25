@@ -1,0 +1,362 @@
+/* 용량·부하의 확장 칸(관리자 설계 4-10-3, 레이아웃 §7 3라운드). 지금 판 아래 두 칸 1 : 1(CPU 크레딧 | 용량 전망), 그 아래
+   전폭 앱 계층 활동 기록과 부하 시험 기록이다. 전망은 예측이라 칸 머리에 근거 구간을 적는다 */
+
+/* ===== CPU 크레딧 ===== */
+.credits {
+  display: flex;
+  flex-direction: column;
+}
+/* 두 칸 판의 한 칸이라 1280 창에서 칸 안쪽이 약 450px이다. 고정 칸을 줄이고 눈금 막대가 남는 폭을 가진다 */
+.creditHead,
+.creditRow {
+  display: grid;
+  grid-template-columns: 84px minmax(48px, 1fr) 48px 84px 104px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+.creditHead {
+  padding-top: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.span2 {
+  grid-column: span 2;
+}
+.creditHead > span:nth-child(n + 3),
+.creditRow > .num {
+  text-align: right;
+}
+.creditRow + .creditRow {
+  border-top: 1px solid var(--border-subtle);
+}
+.creditRow {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.host {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+/* 전망 표의 노드 칸. 이름 아래 줄에 볼륨 크기를 둔다 */
+.hostCell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.value {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.value[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.value[data-tone="warning"] > svg {
+  color: var(--color-warning);
+}
+.net {
+  white-space: nowrap;
+}
+.net[data-dir="down"] {
+  color: var(--text-strong);
+}
+.forecast {
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.missing {
+  color: var(--text-secondary);
+}
+.creditFacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+/* 사실 줄. 이름 칸과 글 칸의 두 열이라 글이 길어도 이름 아래로 흘러 들어가지 않는다 */
+.fact {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.factKey {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+/* ===== 용량 전망 ===== */
+.forecastMark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.diskHead,
+.diskRow {
+  display: grid;
+  grid-template-columns: 88px minmax(64px, 1fr) 56px 80px 80px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+.diskHead {
+  padding-top: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.diskHead > span:nth-child(n + 3),
+.diskRow > .num {
+  text-align: right;
+}
+.diskRow {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.diskRow + .diskRow {
+  border-top: 1px solid var(--border-subtle);
+}
+/* 사용률은 수치 아래에 막대를 둔다. 좁은 칸에서도 막대가 수치에 밀려 사라지지 않는다 */
+.diskUsed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.diskUsed > .num {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.creditNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+.whenSub {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.outlookFoot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.outlookNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 앱 계층 활동 기록 ===== */
+.tableWrap {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.cAt {
+  width: 112px;
+}
+.cAct {
+  width: 96px;
+}
+.cWho {
+  width: 17%;
+}
+.cTook {
+  width: 150px;
+}
+.cInc {
+  width: 132px;
+}
+.table thead th {
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+.table thead th:first-child,
+.table tbody td:first-child {
+  padding-left: var(--space-4);
+}
+.table thead th:last-child,
+.table tbody td:last-child {
+  padding-right: var(--space-4);
+}
+.table tbody td {
+  height: 44px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table tbody tr[data-link] {
+  cursor: pointer;
+}
+.table tbody tr[data-link]:hover {
+  background: var(--surface-hover);
+}
+.act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.act[data-action="ON"] > svg {
+  color: var(--chrome-accent);
+}
+.act[data-action="OFF"] > svg {
+  color: var(--text-secondary);
+}
+.cell {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.who {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whoSub {
+  display: block;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.table tbody tr[data-link]:hover .whoSub {
+  color: var(--text-default);
+}
+.took[data-stopped] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.incLink {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--chrome-accent);
+  white-space: nowrap;
+}
+.incLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.incLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.none {
+  color: var(--text-secondary);
+}
+
+/* ===== 부하 시험 기록 ===== */
+.tests {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.test {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-1) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.test + .test {
+  border-top: 1px solid var(--border-subtle);
+}
+.testDay {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.testText {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+.capacityTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.nodeNote {
+  margin-top: var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}

@@ -14,7 +14,9 @@ import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { actionKey } from "./aiPolicy";
 import { ONCALL_ROSTER } from "./oncall";
-import { BASE_BOT_OPS, OpsSim, type OpsActorRef } from "./opsSim";
+import { BASE_BOT_OPS, OpsSim, type OpsActorRef, type OpsAuditMeta, type SeedAudit } from "./opsSim";
+import { isAction, linkReverts, recordOf } from "./actionLog";
+import { windowTargetWord } from "./changes";
 import { onBeat } from "./ticker";
 import type {
   AdminPage,
@@ -79,6 +81,11 @@ import type {
   OpsSection,
   PostmortemDraft,
   ReportDesk,
+  ActionFeed,
+  ChangeInput,
+  ChangeRequest,
+  MaintenanceWindow,
+  WindowInput,
 } from "./types";
 import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 
@@ -427,26 +434,73 @@ export class SimAdminApi implements AdminApi {
 
   private stopTick: (() => void) | null = null;
 
+  /**
+   * 감사 줄마다의 이음(사건, 판단 기록, 되돌림 참조). 조치 기록(관리자 설계 4-10-4)이 감사를 사건과 판단, 되돌린 기록과 잇는다.
+   * 서버 감사 목록은 이 이음을 싣지 않아 http에서는 조치 요청 목록이 대신한다
+   */
+  private auditMeta = new Map<string, OpsAuditMeta>();
+
   /** 관제센터 시뮬레이션(관리자 설계 4-4). AI가 한 일도 감사 로그에 AI 운영 계정으로 남긴다 */
-  private readonly opsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null) =>
-    this.log({ operatorId: actor.id, displayName: actor.name }, action, target, approvalId, "OK");
+  private readonly opsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null, meta?: OpsAuditMeta) =>
+    this.log({ operatorId: actor.id, displayName: actor.name }, action, target, approvalId, meta?.result ?? "OK", meta);
   private ops = new OpsSim(Date.now(), this.opsAudit);
 
   constructor() {
-    // 관제 시뮬레이터가 시드한 지난 사건의 AI 조치도 감사 로그에 있어야 두 기록이 같은 말을 한다.
-    // 초기화(resetOps)는 사건만 새로 시드하므로 여기서 한 번만 붙인다
-    for (const e of this.ops.seededAudit) {
-      this.audit.push({
-        id: uid("aud"), at: e.at, operatorId: e.actor.id, operatorName: e.actor.name, action: e.action,
-        target: e.target, approvalId: null, result: "OK", requestId: uid("req"),
-      });
-    }
+    this.seedAudit();
     if (typeof window !== "undefined") {
       this.restore();
       this.start();
     }
     if (this.restoredRate !== null) this.ops.seedBotTarget(this.restoredRate);
     this.syncFleet();
+  }
+
+  /**
+   * 관제 시뮬레이터가 시드한 지난 기록(AI 조치, 용량 조작, 변경 요청과 창)을 감사 로그에 붙이고, 관리 접근 기록(4-10-3)의
+   * 예시로 지난 세션 발급과 권한 거부 한 건을 더한다. 승인 티켓으로 실행한 시드 줄은 승인 원장에도 발급·소각한 티켓을 둔다.
+   * 초기화(resetOps)는 관제 판만 새로 시드하므로 여기서 한 번만 붙인다
+   */
+  private seedAudit(): void {
+    const now = Date.now();
+    const su = { id: "op-01", name: "김수퍼" };
+    const op = { id: "op-02", name: "이오퍼" };
+    const rows: (SeedAudit & { result?: "OK" | "DENIED" })[] = [...this.ops.seededAudit];
+    rows.push(
+      { at: isoNow(now - (26 * 60 + 40) * 60_000), actor: op, action: "session.establish", target: "mTLS CN=op-02" },
+      { at: isoNow(now - (26 * 60 + 10) * 60_000), actor: op, action: "capacity.scale_out", target: "앱 계층 · app-3", result: "DENIED" },
+      { at: isoNow(now - (26 * 60 + 8) * 60_000), actor: su, action: "session.establish", target: "mTLS CN=op-01" },
+      { at: isoNow(now - 5 * 3_600_000 - 4 * 60_000), actor: op, action: "session.establish", target: "mTLS CN=op-02" },
+      { at: isoNow(now - 3 * 3_600_000 - 90_000), actor: su, action: "session.establish", target: "mTLS CN=op-01" },
+      { at: isoNow(now - 100 * 60_000), actor: op, action: "session.establish", target: "mTLS CN=op-02" },
+    );
+    let n = 0;
+    for (const e of rows) {
+      if (e.action !== "execute:ops.change.approve") continue;
+      n += 1;
+      const consumed = Date.parse(e.at);
+      const issued = consumed - 40_000;
+      const id = `apr-seed-${n}`;
+      e.approvalId = id;
+      this.approvals.push({
+        id, action: "ops.change.approve", targetKey: `ops.change.approve:${e.target}`, targetLabel: e.target,
+        requesterId: e.actor.id, requesterName: e.actor.name, approverId: e.actor.id, approverName: e.actor.name,
+        state: "CONSUMED", issuedAt: isoNow(issued), expiresAt: isoNow(issued + APPROVAL_TTL_MS), consumedAt: isoNow(consumed),
+        payload: { action: "ops.change.approve", id: e.target.split(" · ")[0], title: e.target }, token: "",
+      });
+      rows.push({ at: isoNow(issued), actor: e.actor, action: "approval.issue:ops.change.approve", target: e.target, approvalId: id });
+    }
+    rows.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    this.approvals.sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt));
+    for (const e of rows) {
+      const id = uid("aud");
+      this.audit.push({
+        id, at: e.at, operatorId: e.actor.id, operatorName: e.actor.name, action: e.action,
+        target: e.target, approvalId: e.approvalId ?? null, result: e.result ?? e.meta?.result ?? "OK", requestId: uid("req"),
+      });
+      if (e.meta) this.auditMeta.set(id, e.meta);
+    }
+    // 원장 id를 변경 요청에도 적는다. 조치 기록과 변경·작업 드로어가 같은 티켓을 가리킨다
+    this.ops.seedApprovalIds(rows.filter((e) => e.action === "execute:ops.change.approve" && e.approvalId).map((e) => ({ changeId: e.target.split(" · ")[0], approvalId: e.approvalId as string })));
   }
 
   /**
@@ -628,9 +682,10 @@ export class SimAdminApi implements AdminApi {
     return s;
   }
 
-  private log(op: { operatorId: string; displayName: string }, action: string, target: string, approvalId: string | null, result: "OK" | "DENIED"): void {
+  private log(op: { operatorId: string; displayName: string }, action: string, target: string, approvalId: string | null, result: "OK" | "DENIED", meta?: OpsAuditMeta): void {
+    const id = uid("aud");
     this.audit.unshift({
-      id: uid("aud"),
+      id,
       at: isoNow(),
       operatorId: op.operatorId,
       operatorName: op.displayName,
@@ -640,7 +695,11 @@ export class SimAdminApi implements AdminApi {
       result,
       requestId: uid("req"),
     });
-    this.audit = this.audit.slice(0, 200);
+    if (meta) this.auditMeta.set(id, meta);
+    // 감사 원장은 최근 400줄을 둔다. 조치 기록의 '전체' 기간과 관리 접근 기록이 이 범위를 읽는다
+    const dropped = this.audit.slice(400);
+    this.audit = this.audit.slice(0, 400);
+    for (const e of dropped) this.auditMeta.delete(e.id);
     /* 저장 지점을 여기 하나로 둔다. 운영자가 한 일은 예외 없이 감사 로그를 남기므로,
        로그가 남는 순간이 곧 저장할 순간이다. 제어 메서드마다 persist 를 흩어 놓으면
        나중에 추가되는 액션 하나가 조용히 저장에서 빠진다 */
@@ -744,14 +803,15 @@ export class SimAdminApi implements AdminApi {
     if (!can(s.roles, ACTION_CAP[a.action])) {
       return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한 부족"));
     }
-    this.applyEffect(a.payload, s, a.id);
+    const meta = this.applyEffect(a.payload, s, a.id);
     a.state = "CONSUMED";
     a.consumedAt = isoNow();
-    this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK");
+    this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK", meta);
     return Promise.resolve();
   }
 
-  private applyEffect(payload: ApprovalPayload, by: AdminSession, approvalId: string): void {
+  /** 승인한 효과를 실행한다. 조치 기록이 되돌림을 잇도록 바꾼 기록의 참조를 돌려준다 */
+  private applyEffect(payload: ApprovalPayload, by: AdminSession, approvalId: string): OpsAuditMeta | undefined {
     switch (payload.action) {
       case "sim.bots.params": {
         const bot = this.bots.find((b) => b.id === payload.botId);
@@ -825,17 +885,23 @@ export class SimAdminApi implements AdminApi {
       case "members.close":
         this.closeMember(payload.externalId);
         break;
-      case "ops.threshold.set":
-        this.ops.applyThreshold(payload.key, payload.from ?? payload.to, payload.to, actorOf(by), approvalId, payload.reason,
+      case "ops.threshold.set": {
+        const change = this.ops.applyThreshold(payload.key, payload.from ?? payload.to, payload.to, actorOf(by), approvalId, payload.reason,
           payload.revertOf, payload.proposalId, Date.now());
-        break;
+        return change === null ? undefined : { ref: `threshold:${change}`, revertOfRef: payload.revertOf ? `threshold:${payload.revertOf}` : null };
+      }
       case "ops.ai.auto":
         this.ops.enableAuto(payload.hours, payload.reason, actorOf(by), approvalId, Date.now());
         break;
-      case "ops.ai.limits":
-        this.ops.setLimit(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason, payload.revertOf, Date.now());
-        break;
+      case "ops.ai.limits": {
+        const change = this.ops.setLimit(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason, payload.revertOf, Date.now());
+        return { ref: `limit:${change}`, revertOfRef: payload.revertOf ? `limit:${payload.revertOf}` : null };
+      }
+      case "ops.change.approve":
+        this.ops.approveChange(payload.id, actorOf(by), approvalId, Date.now());
+        return { ref: `change:${payload.id}` };
     }
+    return undefined;
   }
 
   listApprovals(state?: ApprovalState, opts: PageOpts = {}): Promise<AdminPage<ApprovalRequest>> {
@@ -945,15 +1011,16 @@ export class SimAdminApi implements AdminApi {
 
   ackAlert(alertId: string): Promise<void> {
     const s = this.auth("VIEW");
+    const incidentId = this.ops.incidentOfAlert(alertId);
     this.ops.ackAlert(alertId, actorOf(s), Date.now());
-    this.log(s, "ops.alert.ack", alertId, null, "OK");
+    this.log(s, "ops.alert.ack", alertId, null, "OK", { incidentId });
     return Promise.resolve();
   }
 
   silenceAlert(alertId: string, minutes: number): Promise<void> {
     const s = this.auth("SUPER");
     this.ops.silenceAlert(alertId, minutes, actorOf(s), Date.now());
-    this.log(s, "ops.alert.silence", `${alertId} ${minutes}m`, null, "OK");
+    this.log(s, "ops.alert.silence", `${alertId} ${minutes}m`, null, "OK", { incidentId: this.ops.incidentOfAlert(alertId) });
     return Promise.resolve();
   }
 
@@ -963,7 +1030,7 @@ export class SimAdminApi implements AdminApi {
     const op = this.operators.find((o) => o.operatorId === operatorId && o.status === "ACTIVE");
     if (!op) return Promise.reject(new AdminError("invalid_parameter", "담당으로 지정할 운영자 없음"));
     this.ops.assignIncident(incidentId, { id: op.operatorId, name: op.displayName }, actorOf(s), Date.now());
-    this.log(s, "msp.incident.assign", `${incidentId} → ${op.displayName}`, null, "OK");
+    this.log(s, "msp.incident.assign", `${incidentId} → ${op.displayName}`, null, "OK", { incidentId });
     return Promise.resolve();
   }
 
@@ -971,7 +1038,7 @@ export class SimAdminApi implements AdminApi {
   savePostmortem(incidentId: string, draft: PostmortemDraft, done: boolean): Promise<void> {
     const s = this.auth("BOT_OPS");
     this.ops.savePostmortem(incidentId, draft, done, actorOf(s), Date.now());
-    this.log(s, "msp.incident.postmortem", `${incidentId} · ${done ? "완료" : "초안 저장"}`, null, "OK");
+    this.log(s, "msp.incident.postmortem", `${incidentId} · ${done ? "완료" : "초안 저장"}`, null, "OK", { incidentId });
     return Promise.resolve();
   }
 
@@ -1010,14 +1077,14 @@ export class SimAdminApi implements AdminApi {
     // 자동 끄기와 AI 정지는 누구든 언제든 된다. 조치를 멈추는 쪽이라 승인과 역할을 요구하지 않는다(ADR 0035)
     const s = this.auth("VIEW");
     this.ops.stopAuto(actorOf(s), Date.now());
-    this.log(s, "ops.ai.manual", "AI 자동 모드", null, "OK");
+    this.log(s, "ops.ai.manual", "AI 자동 모드", null, "OK", { incidentId: this.ops.currentIncident() });
     return Promise.resolve();
   }
 
   stopAi(): Promise<void> {
     const s = this.auth("VIEW");
     this.ops.stopAi(actorOf(s), Date.now());
-    this.log(s, "ops.ai.stop", "AI 운영", null, "OK");
+    this.log(s, "ops.ai.stop", "AI 운영", null, "OK", { incidentId: this.ops.currentIncident() });
     return Promise.resolve();
   }
 
@@ -1025,7 +1092,7 @@ export class SimAdminApi implements AdminApi {
     // 재개는 AI가 다시 조치안을 내게 하는 쪽이라 조치안 승인과 같은 SUPER로 둔다
     const s = this.auth("SUPER");
     this.ops.resumeAi(reason, actorOf(s), Date.now());
-    this.log(s, "ops.ai.resume", `AI 운영 · 사유 ${reason.trim()}`, null, "OK");
+    this.log(s, "ops.ai.resume", `AI 운영 · 사유 ${reason.trim()}`, null, "OK", { incidentId: this.ops.currentIncident() });
     return Promise.resolve();
   }
 
@@ -1046,6 +1113,9 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("VIEW");
     // 관제 세계 전체를 처음으로 돌린다. 봇 발행률도 기준값으로 돌아가고 봇 목록은 그대로다
     this.ops = new OpsSim(Date.now(), this.opsAudit);
+    // 새 판의 시드 변경 요청에 원장의 시드 티켓을 다시 잇는다. 감사와 원장은 초기화하지 않는다
+    this.ops.seedApprovalIds(this.approvals.filter((a) => a.id.startsWith("apr-seed-") && a.payload.action === "ops.change.approve")
+      .map((a) => ({ changeId: a.payload.action === "ops.change.approve" ? a.payload.id : "", approvalId: a.id })));
     this.syncFleet();
     this.log(s, "ops.scenario.reset", "관제 시뮬레이션", null, "OK");
     return Promise.resolve();
@@ -1106,6 +1176,79 @@ export class SimAdminApi implements AdminApi {
     this.log(s, "ops.report.teams_test", "Teams 연결 시험(모의)", null, "OK");
   }
 
+  /* ===== 조치 기록(관리자 설계 4-10-4) ===== */
+
+  /**
+   * 감사 기록 전체를 조치 기록으로 옮긴다. 줄마다의 이음(사건, 판단 기록, 되돌림 참조)을 붙이고 되돌린 조치와 되돌린 기록을
+   * 서로 잇는다. AI 판단 화면의 '지난 24시간 AI 조치 n회 · 되돌림 m회'와 같은 감사에서 센다
+   */
+  getActionRecords(): Promise<ActionFeed> {
+    this.auth("VIEW");
+    const rows = this.audit.filter((e) => isAction(e.action)).map((e) => {
+      const r = recordOf(e);
+      const meta = this.auditMeta.get(e.id);
+      if (meta) {
+        r.incidentId = meta.incidentId ?? null;
+        r.judgmentId = meta.judgmentId ?? null;
+      }
+      return r;
+    });
+    const refs = new Map(rows.map((r) => [r.id, { ref: this.auditMeta.get(r.id)?.ref ?? null, revertOfRef: this.auditMeta.get(r.id)?.revertOfRef ?? null }]));
+    linkReverts(rows, refs);
+    rows.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    this.sweep();
+    return Promise.resolve({ origin: "SIM", rows, approvals: this.approvals.map((a) => this.projectApproval(a)), nextCursor: null, partial: false });
+  }
+
+  /* ===== 변경·작업(관리자 설계 4-10-4) ===== */
+
+  createChange(input: ChangeInput): Promise<ChangeRequest> {
+    const s = this.auth("BOT_OPS");
+    const c = this.ops.createChange(input, actorOf(s), Date.now());
+    this.log(s, "msp.change.create", `${c.id} · ${c.title}`, null, "OK", { ref: `change:${c.id}` });
+    return Promise.resolve(c);
+  }
+
+  startChange(id: string): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    const w = this.ops.startChange(id, actorOf(s), Date.now());
+    this.log(s, "msp.change.start", id, null, "OK", { ref: `change:${id}` });
+    this.log(s, "msp.window.create", `${w.id} · ${windowTargetWord(w)}`, null, "OK", { ref: `window:${w.id}` });
+    return Promise.resolve();
+  }
+
+  finishChange(id: string, outcome: "DONE" | "ROLLED_BACK", note: string): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    const open = this.ops.windowOfChange(id);
+    this.ops.finishChange(id, outcome, note, actorOf(s), Date.now());
+    this.log(s, "msp.change.finish", `${id} · ${outcome === "DONE" ? "완료" : "되돌림"}`, null, "OK", { ref: `change:${id}` });
+    if (open) this.log(s, "msp.window.end", `${open} · 조기 종료`, null, "OK", { ref: `window:${open}` });
+    return Promise.resolve();
+  }
+
+  cancelChange(id: string): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    this.ops.cancelChange(id, actorOf(s), Date.now());
+    this.log(s, "msp.change.cancel", `${id} · 취소`, null, "OK", { ref: `change:${id}` });
+    return Promise.resolve();
+  }
+
+  createWindow(input: WindowInput): Promise<MaintenanceWindow> {
+    const s = this.auth("BOT_OPS");
+    const w = this.ops.createWindow(input, actorOf(s), Date.now());
+    this.log(s, "msp.window.create", `${w.id} · ${windowTargetWord(w)}`, null, "OK", { ref: `window:${w.id}` });
+    return Promise.resolve(w);
+  }
+
+  endWindow(id: string): Promise<void> {
+    // 창을 일찍 닫는 것은 AI 권한을 줄이는 조작이라 조회 권한으로 된다(API 설계 §6-F)
+    const s = this.auth("VIEW");
+    const changed = this.ops.endWindow(id, actorOf(s), Date.now());
+    if (!changed) return Promise.reject(new AdminError("invalid_parameter", "이미 끝난 창"));
+    this.log(s, "msp.window.end", `${id} · 조기 종료`, null, "OK", { ref: `window:${id}` });
+    return Promise.resolve();
+  }
+
   /* ===== 용량(앱 계층 희망 대수 · app-3 켜기·끄기) ===== */
 
   getCapacity(): Promise<CapacityState> {
@@ -1130,13 +1273,12 @@ export class SimAdminApi implements AdminApi {
     const session = this.auth("SUPER");
     const now = Date.now();
     try {
-      this.ops.scaleReadNodes(delta, actorOf(session), now);
+      this.ops.scaleReadNodes(delta, actorOf(session), now, reason ?? "");
     } catch (e) {
       this.log(session, action, "앱 계층 · app-3", null, "DENIED");
       throw e;
     }
-    this.log(session, action, "앱 계층 · app-3", null, "OK");
-    void reason;
+    this.log(session, action, "앱 계층 · app-3", null, "OK", { incidentId: this.ops.currentIncident() });
     return this.capacitySnapshot(now);
   }
 

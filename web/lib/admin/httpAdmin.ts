@@ -14,8 +14,11 @@ import {
   eventOf,
   judgmentOf,
   limitWireKey,
+  proposalOf,
   reportDeskOf,
   thresholdToWire,
+  windowOf,
+  type WireAction,
   type WireChatReply,
   type WireDecision,
   type WireIncidentEvent,
@@ -23,7 +26,9 @@ import {
   type WireReport as WireOpsReport,
   type WireReportsStatus,
   type WireSection,
+  type WireWindow,
 } from "./httpOps";
+import { linkReverts, serverRecords } from "./actionLog";
 import { INVARIANT_DEFS } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { isoNow } from "../format";
@@ -92,6 +97,10 @@ import type {
   ReportResolution,
   ReportStatus,
   AdminTransferStatus,
+  ActionFeed,
+  ChangeRequest,
+  MaintenanceWindow,
+  WindowInput,
 } from "./types";
 
 /** 마켓 심볼 -> 한글명. 서버 config/markets는 한글명을 싣지 않아 표시용으로만 조인한다 */
@@ -223,6 +232,9 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
       return { action: "ops.ai.auto", target: `AUTO:${payload.hours}` };
     case "ops.ai.limits":
       return { action: "ops.ai.limits", target: `${limitWireKey(payload.key)}:${payload.to}` };
+    case "ops.change.approve":
+      // 서버 경로는 3라운드 계약 초안이다(대상 {id}). 변경 요청 원천이 연결 전이라 화면이 이 티켓을 만들지 않는다
+      return { action: "ops.change.approve", target: payload.id };
   }
 }
 
@@ -245,6 +257,7 @@ function consoleAction(wireAction: string): DestructiveAction {
     case "ops.threshold.set":
     case "ops.ai.auto":
     case "ops.ai.limits":
+    case "ops.change.approve":
       return wireAction;
     default:
       return "sim.bots.params";
@@ -985,6 +998,8 @@ export class HttpAdminApi implements AdminApi {
         });
         this.ops.invalidate("ai.limits", "ai.limitChanges");
         return;
+      case "ops.change.approve":
+        throw new AdminError("not_connected", "변경 요청 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다");
     }
   }
 
@@ -1202,6 +1217,78 @@ export class HttpAdminApi implements AdminApi {
 
   getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
     return Promise.resolve({ state: "NOT_CONNECTED", source: "운영자·당번 명부 · 서버 계약에 없음" });
+  }
+
+  /* ===== 조치 기록(관리자 설계 4-10-4) ===== */
+
+  /**
+   * 감사 로그의 한 쪽(최신 500줄)과 조치 요청 목록, 승인 원장의 한 쪽을 읽어 조치 기록으로 옮긴다. 감사에는 관리 요청마다의
+   * 줄이 함께 있어 읽기와 같은 요청의 필터 줄을 뺀다(actionLog.serverRecords). AI 조치 줄('ai-action:77')은 조치 요청의 제목과
+   * 판단 기록으로 잇고, 되돌린 줄과 되돌린 기록을 서로 가리키게 한다. 이전 쪽은 cursor로 더 읽는다
+   */
+  async getActionRecords(cursor: string | null = null): Promise<ActionFeed> {
+    const page = await this.getAudit({ cursor, limit: 500 });
+    const [actions, approvals] = cursor === null
+      ? await Promise.all([
+          this.http<{ data?: WireAction[] }>("/admin/v1/msp/ai/actions?status=ALL&limit=100").then((r) => r.data ?? []).catch(() => [] as WireAction[]),
+          this.listApprovals(undefined, { limit: 100 }).then((r) => r.data).catch(() => [] as ApprovalRequest[]),
+        ])
+      : [[] as WireAction[], [] as ApprovalRequest[]];
+    const rows = serverRecords(page.data);
+    const byId = new Map(actions.map((a) => [String(a.id ?? ""), a]));
+    const refs = new Map<string, { ref: string | null; revertOfRef: string | null }>();
+    for (const r of rows) {
+      const m = /^ai-action:(\S+)$/.exec(r.target);
+      if (!m) continue;
+      const a = byId.get(m[1]);
+      if (a) {
+        r.title = proposalOf(a, { desired: null, alertNames: new Map() })?.title ?? null;
+        r.judgmentId = a.last_decision_id == null ? null : String(a.last_decision_id);
+      }
+      const revert = /\.(auto_)?revert$/.test(r.action);
+      const run = /\.(approve|execute)$/.test(r.action);
+      refs.set(r.id, { ref: run ? `action:${m[1]}` : null, revertOfRef: revert ? `action:${m[1]}` : null });
+    }
+    linkReverts(rows, refs);
+    return { origin: "LIVE", rows, approvals, nextCursor: page.nextCursor, partial: true };
+  }
+
+  /* ===== 변경·작업(관리자 설계 4-10-4) =====
+   * 계획 작업 창은 서버 계약(§6-F)이 있어 보낸다. 변경 요청은 서버 경로가 3라운드 계약 초안이라 보내지 않고 거절한다 */
+
+  createChange(): Promise<ChangeRequest> {
+    return Promise.reject(new AdminError("not_connected", "변경 요청 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
+  startChange(): Promise<void> {
+    return Promise.reject(new AdminError("not_connected", "변경 요청 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
+  finishChange(): Promise<void> {
+    return Promise.reject(new AdminError("not_connected", "변경 요청 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
+  cancelChange(): Promise<void> {
+    return Promise.reject(new AdminError("not_connected", "변경 요청 원천 연결 전. 서버 경로는 3라운드 계약 초안입니다"));
+  }
+
+  /** 창 등록(BOT_OPS 이상). 시작을 비우면 서버가 지금으로 둔다 */
+  async createWindow(input: WindowInput): Promise<MaintenanceWindow> {
+    const labels = Object.fromEntries(Object.entries(input.labels).filter(([, v]) => (v ?? "").trim() !== ""));
+    const body: Record<string, unknown> = { ends_at: input.endsAt, reason: input.reason.trim() };
+    if (input.startsAt) body.starts_at = input.startsAt;
+    if (input.alertname && input.alertname.trim() !== "") body.alertname = input.alertname.trim();
+    if (Object.keys(labels).length > 0) body.labels = labels;
+    const res = await this.post("/admin/v1/msp/maintenance-windows", body);
+    this.ops.invalidate("windows");
+    return windowOf(res as WireWindow);
+  }
+
+  /** 창 조기 종료(VIEWER 이상). 이미 끝난 창이면 서버가 changed:false를 준다 */
+  async endWindow(id: string): Promise<void> {
+    const res = (await this.post(`/admin/v1/msp/maintenance-windows/${encodeURIComponent(id)}/end`)) as { changed?: boolean };
+    this.ops.invalidate("windows");
+    if (res?.changed === false) throw new AdminError("invalid_parameter", "이미 끝난 창");
   }
 
   /* ===== 용량(ADR 0015) ===== */

@@ -12,8 +12,10 @@
 
 import type { AdminIconName } from "@/components/admin/icons";
 
-/** 운영 관제 메뉴 옆 상태 배지의 종류(components/admin/control/NavStatus) */
-export type OpsBadgeKind = "incidents" | "ai" | "hosts" | "database" | "thresholds";
+import type { OpsBadgeKind } from "./navBadges";
+
+/** 운영 관제 메뉴 옆 상태 배지의 종류와 판정은 navBadges.ts에 있다(시험이 화면 부품 없이 판정을 본다) */
+export type { OpsBadgeKind };
 
 export interface AdminNavItem {
   href: string;
@@ -54,7 +56,7 @@ export const OPS_NAV: AdminNavGroup[] = [
       { href: "/admin/hosts", label: "서버·노드", icon: "hosts", badge: "hosts" },
       { href: "/admin/database", label: "데이터베이스", icon: "database", badge: "database" },
       { href: "/admin/capacity", label: "용량·부하", icon: "monitoring" },
-      { href: "/admin/security", label: "네트워크·보안", icon: "security" },
+      { href: "/admin/security", label: "네트워크·보안", icon: "security", badge: "security" },
     ],
   },
   {
@@ -62,7 +64,7 @@ export const OPS_NAV: AdminNavGroup[] = [
     closedByDefault: true,
     items: [
       { href: "/admin/thresholds", label: "임계값 관리", icon: "thresholds", badge: "thresholds" },
-      { href: "/admin/changes", label: "변경·작업", icon: "changes" },
+      { href: "/admin/changes", label: "변경·작업", icon: "changes", badge: "changes" },
       { href: "/admin/actions", label: "조치 기록", icon: "actions" },
       { href: "/admin/runbooks", label: "런북", icon: "runbooks" },
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },

@@ -12,6 +12,9 @@
 import { isoNow } from "../format";
 import { AdminError } from "./api";
 import { AI_ACTION_LABEL, AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, isStricter, type AiLimits } from "./aiPolicy";
+import { SCHOOL_CERTIFICATES } from "./certs";
+import { aiMaySilenceKind, CHANGE_STATE_WORD, changeInputError, cleanLabels, openWindows, simAlertLabels, windowCovers, windowInputError, windowOpen, windowTargetWord } from "./changes";
+import { creditNetPerHour, T3_SMALL } from "./credits";
 import { DB_TOPOLOGY, lsnOf, SLOW_QUERY_SOURCE } from "./dbFacts";
 import { ESCALATION_POLICY, LEVEL_WORD, ONCALL_ROSTER, oncallDesk, onDutyAt, ONDUTY_ROLE, pageTarget } from "./oncall";
 import { isOperatorTouch } from "./opsDetail";
@@ -38,12 +41,17 @@ import type {
   AiRisk,
   AiServer,
   AlertSeverity,
+  CapacityOutlook,
+  ChangeInput,
+  ChangeRequest,
   ControlCenter,
   DbStats,
+  DiskOutlook,
   HostAsset,
   Incident,
   IncidentEvent,
   IncidentEventKind,
+  MaintenanceWindow,
   OpsActor,
   OpsAlert,
   OpsBackup,
@@ -64,11 +72,25 @@ import type {
   ThresholdKey,
   ThresholdUnit,
   ThresholdVia,
+  TierActivity,
+  WindowInput,
 } from "./types";
 
 export interface OpsActorRef {
   id: string;
   name: string;
+}
+
+/**
+ * 감사 한 줄에 붙이는 이음. 조치 기록(관리자 설계 4-10-4)이 감사를 사건, 판단 기록, 되돌림과 잇는다. ref는 같은 일을 가리키는
+ * 참조(조치안, 변경 요청, 창)이고 revertOfRef는 이 줄이 되돌린 일의 참조다
+ */
+export interface OpsAuditMeta {
+  incidentId?: string | null;
+  judgmentId?: string | null;
+  ref?: string | null;
+  revertOfRef?: string | null;
+  result?: "OK" | "DENIED";
 }
 
 /** AI 조치의 행위자. ADR 0035의 AI 전용 운영자 계정 자리다 */
@@ -77,7 +99,17 @@ export const AI_ACTOR: OpsActorRef = { id: "ai-ops", name: "AI 운영" };
 /** 관제 시스템의 행위자. 서버 감사의 system:msp 자리다(유효 시간 만료, 상한 도달 같은 시스템 모드 전환) */
 export const SYSTEM_ACTOR: OpsActorRef = { id: "system:msp", name: "시스템" };
 
-export type OpsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null) => void;
+export type OpsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null, meta?: OpsAuditMeta) => void;
+
+/** 시드 감사 한 줄. 어댑터가 처음 한 번 감사 로그에 붙인다 */
+export interface SeedAudit {
+  at: string;
+  actor: OpsActorRef;
+  action: string;
+  target: string;
+  approvalId?: string | null;
+  meta?: OpsAuditMeta;
+}
 
 const TICK_MS = 1000;
 /** 한 번에 따라잡는 틱 상한. 배경 탭에서 오래 멈췄다 돌아와도 한 호출이 길어지지 않게 한다 */
@@ -170,6 +202,10 @@ interface HostDef {
   bootAgoH: number;
   inodeUsed: number;
   updates: number;
+  /** 루트 볼륨(GiB). 앱·bot-1 20GiB, DB 50GiB는 학교 배포의 볼륨이다(AWS 작업 안내) */
+  diskGiB: number;
+  /** 용량 전망의 하루 디스크 증가(%p) 예시 */
+  diskGrowth: number;
 }
 
 /**
@@ -178,12 +214,15 @@ interface HostDef {
  * 것이 달라 따로 둔다
  */
 const HOST_DEFS: HostDef[] = [
-  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] }, bootAgoH: 147, inodeUsed: 4, updates: 3 },
-  { id: "app-2", role: "APP", az: "ap-northeast-2c", mem: 61, disk: 40, credits: 301, partition: { id: "p1", markets: ["ETH", "SOL", "ADA", "LINK", "MATIC", "ATOM"] }, bootAgoH: 51, inodeUsed: 4, updates: 0 },
-  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2 },
-  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2 },
-  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176, partition: null, bootAgoH: 152, inodeUsed: 6, updates: 5 },
+  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] }, bootAgoH: 147, inodeUsed: 4, updates: 3, diskGiB: 20, diskGrowth: 0.2 },
+  { id: "app-2", role: "APP", az: "ap-northeast-2c", mem: 61, disk: 40, credits: 301, partition: { id: "p1", markets: ["ETH", "SOL", "ADA", "LINK", "MATIC", "ATOM"] }, bootAgoH: 51, inodeUsed: 4, updates: 0, diskGiB: 20, diskGrowth: 0.2 },
+  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2, diskGiB: 50, diskGrowth: 0.1 },
+  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540, partition: null, bootAgoH: 124, inodeUsed: 3, updates: 2, diskGiB: 50, diskGrowth: 0.1 },
+  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176, partition: null, bootAgoH: 152, inodeUsed: 6, updates: 5, diskGiB: 20, diskGrowth: 0.6 },
 ];
+
+/** 용량 전망의 근거 구간 예시(시간). 24시간보다 짧으면 예상 시각을 내지 않는다 */
+const OUTLOOK_BASIS_H = 72;
 
 /**
  * 노드 이미지. OS는 학교 노드의 첫 셸 점검 기록(Amazon Linux 2023.12.20260918)이고 커널은 판 번호를 지어내지 않고
@@ -229,7 +268,8 @@ export const OPS_SCENARIO_TITLE: Record<OpsScenarioId, string> = {
 type Params =
   | { kind: "READ_NODES"; delta: 1 | -1; from: number; to: number }
   | { kind: "THRESHOLD"; key: ThresholdKey; from: number; to: number }
-  | { kind: "SILENCE"; alertId: string; minutes: number }
+  /** AI 보류는 계획 작업 창 안에서만 낸다(S6). 보류의 끝은 그 창의 끝을 넘지 않는다 */
+  | { kind: "SILENCE"; alertId: string; minutes: number; windowId: string }
   | { kind: "BOT_LOAD"; fromOps: number; toOps: number }
   | { kind: "BACKUP_NOW" };
 
@@ -428,11 +468,20 @@ export class OpsSim {
 
   private backup: SimBackup;
   private backupRunTick: number | null = null;
-  private readonly certExpires: number;
   private reportSent: number | null;
 
-  /** 시드 기록의 AI 조치 감사. 어댑터가 처음 한 번 감사 로그 끝(오래된 쪽)에 붙인다 */
-  seededAudit: { at: string; actor: OpsActorRef; action: string; target: string }[] = [];
+  /** 계획 작업 창과 변경 요청(관리자 설계 4-10-4). 창은 끝 시각 역순, 요청은 등록 역순으로 판에 싣는다 */
+  private windows: MaintenanceWindow[] = [];
+  private changeReqs: ChangeRequest[] = [];
+  private changeSeq = 100;
+  private windowSeq = 40;
+  /** 앱 계층 활동 기록(app-3 켜기·끄기). 최신이 앞이다 */
+  private activity: TierActivity[] = [];
+  /** app-3가 켜져 있던 구간(ms). 꺼질 때 닫힌 구간을 쌓는다. 오늘 가동 초(onSecondsToday)가 이 구간에서 나온다 */
+  private onIntervals: { from: number; to: number }[] = [];
+
+  /** 시드 기록의 감사. 어댑터가 처음 한 번 감사 로그에 붙인다. 최신이 앞이다 */
+  seededAudit: SeedAudit[] = [];
 
   private readonly trends = new TrendBook();
   /** 이번 틱에 새로 선 경보 수. 추세의 경보 발생 수가 쓴다 */
@@ -462,10 +511,11 @@ export class OpsSim {
       manualRunsToday: 0,
       canRun: true,
     };
-    this.certExpires = now + 62 * 86_400_000;
     const report = lastKst(now, 9, 0);
     this.reportSent = report + 4_000;
     this.seedHistory(now);
+    this.seedChanges(now);
+    this.seededAudit.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     this.measure();
     this.lastOutcome = "";
     this.describe(now, []);
@@ -478,7 +528,7 @@ export class OpsSim {
   private seedHistory(now: number): void {
     type Step = [number, IncidentEventKind, OpsActor, string, string];
     type Pm = { done: boolean; afterH: number; by: string; cause: string; impact: string; actions: { task: string; owner: string; dueDays: number; done: boolean }[] };
-    const add = (openedAgoMin: number, minutes: number, title: string, severity: AlertSeverity, steps: Step[], opt: { runbook?: RunbookId | null; pages?: number[]; pm?: Pm } = {}) => {
+    const add = (openedAgoMin: number, minutes: number, title: string, severity: AlertSeverity, steps: Step[], opt: { runbook?: RunbookId | null; pages?: number[]; pm?: Pm } = {}): Incident => {
       const opened = now - openedAgoMin * 60_000;
       const inc = this.newIncident(title, severity, opened, opt.runbook ?? null);
       inc.resolvedAt = isoNow(opened + minutes * 60_000);
@@ -510,6 +560,7 @@ export class OpsSim {
       for (const [offMin, kind, actor, name, text] of [...steps].sort((a, b) => a[0] - b[0])) {
         this.events.unshift({ id: uid("evt"), at: isoNow(opened + offMin * 60_000), kind, actor, actorName: name, text, incidentId: inc.id });
       }
+      return inc;
     };
     add(41 * 60 + 12, 9, "디스크 여유 부족 · bot-1", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 여유 17% < 20%"],
@@ -537,7 +588,7 @@ export class OpsSim {
       [16, "ACKED", "OPERATOR", "이오퍼", "확인 · Standby 디스크 I/O와 복제 추이 확인"],
       [17, "RESOLVED", "SYSTEM", "시스템", "해제 · 지연 0.4초. 복구 17분 00초"],
     ], { pages: [5, 15] });
-    add(26 * 60 + 5, 5, "응답 지연 증가 · 외부 응답", "warning", [
+    const latency = add(26 * 60 + 5, 5, "응답 지연 증가 · 외부 응답", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · p95 431ms ≥ 목표 400ms"],
       [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(app-3 켜기) · 확신도 84%"],
       [1, "APPROVED", "OPERATOR", "김수퍼", "승인 · app-3 켜기 (앱 2 → 3대)"],
@@ -557,20 +608,151 @@ export class OpsSim {
       [1.2, "ACKED", "OPERATOR", "김수퍼", "확인 · 복제 추이 관찰"],
       [6, "RESOLVED", "SYSTEM", "시스템", "해제 · 지연 0.3초. 복구 6분 00초"],
     ]);
-    add(72, 4, "봇 용량 보호 · bot-1", "warning", [
+    const guard = add(72, 4, "봇 용량 보호 · bot-1", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · bot-1 CPU 78% ≥ 70%"],
       [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(봇 부하 60 → 30 OPS) · 확신도 88%"],
       [1.1, "APPROVED", "OPERATOR", "김수퍼", "승인 · 시장 봇 부하 줄임"],
       [1.1, "ACTED", "SYSTEM", "시스템", "조치 · 봇 발행 60 → 30 OPS"],
       [4, "RESOLVED", "SYSTEM", "시스템", "해제 · bot-1 CPU 43%. 복구 4분 00초"],
     ], { runbook: "BOT_STOP" });
+    // 응답 지연 사건의 app-3 켜기와, 사건이 끝나고 조회가 줄어 운영자가 용량·부하 화면에서 끈 일이다(앱 계층 활동 기록)
+    const onAt = now - (26 * 60 + 4) * 60_000;
+    const offAt = now - (24 * 60 + 31) * 60_000;
+    this.activity.push(
+      { id: uid("act"), at: isoNow(offAt), action: "OFF", actor: "OPERATOR", actorName: "김수퍼", via: "OPERATOR", reason: "조회가 줄어 두 대로 충분 · 용량·부하 화면", tookSec: NODE_DRAIN_TICKS, interrupted: false, incidentId: null },
+      { id: uid("act"), at: isoNow(onAt), action: "ON", actor: "OPERATOR", actorName: "김수퍼", via: "AI_APPROVED", reason: "AI 조치안 승인 · p95 431ms ≥ 목표 400ms", tookSec: NODE_BOOT_TICKS, interrupted: false, incidentId: latency.id },
+    );
+    this.onIntervals.push({ from: onAt, to: offAt + NODE_DRAIN_TICKS * 1000 });
+    this.log(null, "ACTED", "OPERATOR", "김수퍼", "app-3 끄기 (앱 3 → 2대) · 용량·부하 화면", offAt);
     // 사후 분석 완료처럼 사건보다 늦게 남은 줄이 있어 사건마다 쌓은 기록을 다시 최신 순서로 세운다
     this.events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-    // 위 기록에서 운영자가 승인한 AI 조치. 감사 로그에도 같은 일이 남아 있어야 두 기록이 같은 말을 한다
-    this.seededAudit = [
-      { at: isoNow(now - (26 * 60 + 4) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:READ_NODES", target: "app-3 켜기 (앱 2 → 3대)" },
-      { at: isoNow(now - (72 - 1.1) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:BOT_LOAD", target: "시장 봇 부하 줄임 (60 → 30 OPS)" },
-    ];
+    // 위 기록에서 운영자가 승인한 AI 조치와 용량 조작. 감사 로그에도 같은 일이 남아 있어야 두 기록이 같은 말을 한다
+    const su = { id: "op-01", name: "김수퍼" };
+    this.seededAudit.push(
+      { at: isoNow(onAt), actor: su, action: "ai.approve:READ_NODES", target: "app-3 켜기 (앱 2 → 3대)", meta: { incidentId: latency.id, ref: "seed:read-on" } },
+      { at: isoNow(offAt), actor: su, action: "capacity.scale_in", target: "앱 계층 · app-3", meta: { ref: "seed:read-off" } },
+      { at: isoNow(now - (72 - 1.1) * 60_000), actor: su, action: "ai.approve:BOT_LOAD", target: "시장 봇 부하 줄임 (60 → 30 OPS)", meta: { incidentId: guard.id, ref: "seed:bot-load" } },
+    );
+  }
+
+  /**
+   * 변경 요청과 계획 작업 창의 예시(관리자 설계 4-10-4). 지난 기록은 사건 기록과 맞물린다. 어제의 조회 증설 시험 창 안에서
+   * 응답 지연 사건이 났고, 오늘의 봇 발행률 상향 시험은 봇 용량 보호 사건으로 되돌렸다. 예정 한 건과 승인 대기 한 건,
+   * 취소 한 건, 창만 따로 등록한 한 건을 더한다. 시각은 시뮬레이터를 연 시각에서 거꾸로 센다
+   */
+  private seedChanges(now: number): void {
+    const su = { id: "op-01", name: "김수퍼" };
+    const op = { id: "op-02", name: "이오퍼" };
+    const at = (ms: number) => isoNow(ms);
+    const audit = (ms: number, who: OpsActorRef, action: string, target: string, ref: string, approvalId: string | null = null) =>
+      this.seededAudit.push({ at: at(ms), actor: who, action, target, approvalId, meta: { ref } });
+    const make = (o: {
+      title: string; target: string; plan: string; rollback: string; risk: ChangeRequest["risk"]; start: number; end: number;
+      alertname?: string | null; labels: ChangeRequest["labels"]; by: OpsActorRef; requestedAt: number;
+      approvedAt?: number; approvedBy?: OpsActorRef; startedAt?: number; startedBy?: OpsActorRef; closedAt?: number; closedBy?: OpsActorRef;
+      state: ChangeRequest["state"]; result?: string;
+    }): ChangeRequest => {
+      this.changeSeq += 1;
+      const id = `CHG-${this.changeSeq}`;
+      const c: ChangeRequest = {
+        id, title: o.title, target: o.target, plan: o.plan, rollback: o.rollback, risk: o.risk, startsAt: at(o.start), endsAt: at(o.end),
+        alertname: o.alertname ?? null, labels: o.labels, state: o.state, requestedBy: o.by.name, requestedAt: at(o.requestedAt),
+        approvalId: null, approvedBy: o.approvedBy?.name ?? null, approvedAt: o.approvedAt === undefined ? null : at(o.approvedAt),
+        startedAt: o.startedAt === undefined ? null : at(o.startedAt), startedBy: o.startedBy?.name ?? null, windowId: null,
+        result: o.result ?? null, closedAt: o.closedAt === undefined ? null : at(o.closedAt), closedBy: o.closedBy?.name ?? null,
+      };
+      audit(o.requestedAt, o.by, "msp.change.create", `${id} · ${o.title}`, `change:${id}`);
+      if (o.approvedAt !== undefined && o.approvedBy) audit(o.approvedAt, o.approvedBy, "execute:ops.change.approve", `${id} · ${o.title}`, `change:${id}`);
+      if (o.startedAt !== undefined && o.startedBy) {
+        this.windowSeq += 1;
+        const w: MaintenanceWindow = {
+          id: `W-${this.windowSeq}`, startsAt: at(o.startedAt), endsAt: at(o.end), alertname: c.alertname, labels: c.labels,
+          reason: `${id} · ${o.title}`, createdBy: o.startedBy.name,
+          // 종료가 끝 시각보다 이르면 창을 일찍 닫은 것이다. 끝 시각에 저절로 닫힌 창은 조기 종료 기록이 없다
+          endedAt: o.closedAt !== undefined && o.closedAt < o.end ? at(o.closedAt) : null,
+          endedBy: o.closedAt !== undefined && o.closedAt < o.end ? o.closedBy?.name ?? null : null, active: false, changeId: id,
+        };
+        this.windows.push(w);
+        c.windowId = w.id;
+        audit(o.startedAt, o.startedBy, "msp.change.start", `${id} · ${o.title}`, `change:${id}`);
+        audit(o.startedAt, o.startedBy, "msp.window.create", `${w.id} · ${windowTargetWord(w)}`, `window:${w.id}`);
+        this.log(null, "WINDOW", "OPERATOR", o.startedBy.name, `계획 작업 창 열림 · ${w.id} · ${id} ${o.title}`, o.startedAt);
+      }
+      if (o.closedAt !== undefined && o.closedBy) {
+        const verb = o.state === "CANCELED" ? "msp.change.cancel" : "msp.change.finish";
+        audit(o.closedAt, o.closedBy, verb, `${id} · ${o.state === "ROLLED_BACK" ? "되돌림" : o.state === "DONE" ? "완료" : "취소"}`, `change:${id}`);
+        const w = this.windows.find((x) => x.id === c.windowId);
+        if (w && w.endedBy !== null) audit(o.closedAt, o.closedBy, "msp.window.end", `${w.id} · 조기 종료`, `window:${w.id}`);
+        if (w) this.log(null, "WINDOW", "OPERATOR", o.closedBy.name, `계획 작업 창 닫힘 · ${w.id} · ${id} ${CHANGE_STATE_WORD[o.state]}`, o.closedAt);
+      }
+      this.changeReqs.unshift(c);
+      return c;
+    };
+    const day = 86_400_000;
+    const h = 3_600_000;
+    const m = 60_000;
+
+    make({
+      title: "Grafana 메모리 상한 조정", target: "bot-1 · grafana-server", risk: "LOW",
+      plan: "grafana-server의 MemoryMax를 올리고 재시작 뒤 대시보드 응답을 봅니다",
+      rollback: "limits.conf를 .before-gc 판으로 되돌리고 재시작합니다",
+      start: now - 5 * day - 3 * h, end: now - 5 * day - 2 * h, labels: { node: "bot-1" }, by: op, requestedAt: now - 6 * day,
+      state: "CANCELED", closedAt: now - 5 * day - 6 * h, closedBy: op, result: "취소 · 메모리 여유가 돌아와 작업이 필요 없어졌습니다",
+    });
+    make({
+      title: "관측 규칙 교체", target: "bot-1 · Prometheus 규칙", risk: "MEDIUM",
+      plan: "학교 경보 규칙을 저장소 판으로 바꾸고 규칙 검사와 경보 발생·해제를 확인합니다",
+      rollback: "규칙 파일을 바꾸기 전 판으로 되돌리고 Prometheus를 다시 읽힙니다",
+      start: now - 3 * day - 2 * h, end: now - 3 * day - 1 * h, labels: { node: "bot-1", component: "monitoring" }, by: op, requestedAt: now - 4 * day,
+      approvedAt: now - 3 * day - 5 * h, approvedBy: su, startedAt: now - 3 * day - 2 * h, startedBy: op,
+      closedAt: now - 3 * day - 70 * m, closedBy: op, state: "DONE", result: "완료 · 새 규칙으로 경보 발생과 해제를 확인했습니다",
+    });
+    make({
+      title: "조회 증설 경로 시험", target: "앱 계층 · app-3", risk: "MEDIUM",
+      plan: "조회 부하를 올려 app-3가 켜지고 조회가 세 노드로 나뉘는지 보고, 부하를 거둔 뒤 끕니다",
+      rollback: "부하를 멈추고 app-3를 끕니다",
+      start: now - (26 * 60 + 20) * m, end: now - (24 * 60 + 20) * m, labels: { role: "app" }, by: op, requestedAt: now - 2 * day,
+      approvedAt: now - (27 * 60) * m, approvedBy: su, startedAt: now - (26 * 60 + 20) * m, startedBy: op,
+      closedAt: now - (24 * 60 + 25) * m, closedBy: su, state: "DONE", result: "완료 · 급증에서 app-3가 켜지고 p95가 목표 안으로 돌아왔습니다",
+    });
+    const bot = make({
+      title: "봇 발행률 상향 시험(30 → 60 OPS)", target: "bot-1 · 시장 봇", risk: "MEDIUM",
+      plan: "봇 발행률을 60 OPS로 올려 체결과 bot-1 CPU를 봅니다",
+      rollback: "봇 발행률을 30 OPS로 되돌립니다",
+      start: now - 95 * m, end: now - 35 * m, labels: { node: "bot-1" }, by: op, requestedAt: now - 5 * h,
+      approvedAt: now - 3 * h, approvedBy: su, startedAt: now - 95 * m, startedBy: op,
+      closedAt: now - 66 * m, closedBy: op, state: "ROLLED_BACK",
+      result: "되돌림 · bot-1 CPU가 봇 용량 보호 기준 70%를 넘어 AI 조치안(60 → 30 OPS)을 승인했습니다",
+    });
+    // 시험을 시작하며 운영자가 발행률을 올린 일. 오늘의 봇 용량 보호 사건이 이 뒤에 섰다
+    this.log(null, "ACTED", "OPERATOR", op.name, `봇 발행 30 → 60 OPS · ${bot.id}`, now - 94 * m);
+    this.seededAudit.push({ at: at(now - 94 * m), actor: op, action: "sim.rate", target: "60 OPS", meta: { ref: `change:${bot.id}:rate` } });
+    const tomorrow = nextKst(now + 6 * h, 3, 0);
+    make({
+      title: "app-1 보안 업데이트 적용", target: "app-1 · dnf 보안 업데이트", risk: "LOW",
+      plan: "대기 중인 보안 업데이트를 적용하고 재부팅 없이 서비스와 health를 확인합니다",
+      rollback: "dnf history로 이번 거래를 되돌립니다",
+      start: tomorrow, end: tomorrow + h, labels: { node: "app-1" }, by: op, requestedAt: now - 8 * h,
+      approvedAt: now - 2 * h, approvedBy: su, state: "APPROVED",
+    });
+    const later = nextKst(now + 30 * h, 10, 0);
+    make({
+      title: "certbot 갱신 실패 경보 수집 적용", target: "app-1 · node_exporter 수집 목록", risk: "LOW",
+      plan: "certbot-renew 유닛을 수집 목록에 넣어 갱신이 실패하면 LinuxServiceFailed 경보가 서게 합니다",
+      rollback: "node_exporter 설정을 바꾸기 전 판으로 되돌리고 재시작합니다",
+      start: later, end: later + 30 * m, labels: { node: "app-1", component: "monitoring" }, by: op, requestedAt: now - 40 * m,
+      state: "REQUESTED",
+    });
+    // 변경 요청 없이 창만 따로 등록한 일(서버 계약의 창 등록)
+    this.windowSeq += 1;
+    const solo: MaintenanceWindow = {
+      id: `W-${this.windowSeq}`, startsAt: at(now - 2 * day - 5 * h), endsAt: at(now - 2 * day - 4.5 * h), alertname: null,
+      labels: { node: "bot-1", component: "reporting" }, reason: "보고 서비스 재시작 전 점검", createdBy: op.name, endedAt: null, endedBy: null, active: false, changeId: null,
+    };
+    this.windows.push(solo);
+    audit(now - 2 * day - 5 * h, op, "msp.window.create", `${solo.id} · ${windowTargetWord(solo)}`, `window:${solo.id}`);
+    this.windows.sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt));
+    this.events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   }
 
   /* ===== 시계 ===== */
@@ -592,7 +774,12 @@ export class OpsSim {
     this.measure();
     // Primary WAL은 쓰기만큼 쌓인다. 봇 주문이 많을수록 빨리 나아간다(예시 값)
     this.walBytes += Math.round(46_000 + this.botOpsNow() * 1_500 + Math.abs(wobble(this.tick, 18, 5_000)));
-    this.credits.set("bot-1", Math.max(0, (this.credits.get("bot-1") ?? 0) - 0.02));
+    // t3.small 크레딧은 CPU가 기준선 20%보다 높으면 줄고 낮으면 쌓인다(credits.ts). 한 틱은 1초다
+    for (const h of HOST_DEFS) {
+      const net = creditNetPerHour(this.hostCpu.get(h.id) ?? 0) / 3600;
+      this.credits.set(h.id, Math.min(T3_SMALL.maxCredits, Math.max(0, (this.credits.get(h.id) ?? 0) + net)));
+    }
+    this.progressWindows(now);
     this.evaluateAlerts(now);
     this.settleIncident(now);
     this.escalate(now);
@@ -703,15 +890,50 @@ export class OpsSim {
       if (n.state === "PENDING" && this.tick - n.since >= NODE_BOOT_TICKS) {
         n.state = "IN_SERVICE";
         n.since = this.tick;
+        this.settleActivity("ON");
         moved = true;
       } else if (n.state === "DRAINING" && this.tick - n.since >= NODE_DRAIN_TICKS) {
         n.state = "OFF";
         n.since = this.tick;
+        // 켜져 있던 구간을 닫는다. 인스턴스 요금은 기동부터 내릴 때까지 붙는다
+        if (n.bootedAt !== null) this.onIntervals.push({ from: n.bootedAt, to: this.t });
+        this.onIntervals = this.onIntervals.slice(-50);
         n.bootedAt = null;
+        this.settleActivity("OFF");
         moved = true;
       }
     }
     return moved;
+  }
+
+  /** 기동·드레이닝이 끝나면 그 켜기·끄기 기록에 걸린 초를 적는다 */
+  private settleActivity(action: TierActivity["action"]): void {
+    const a = this.activity.find((x) => x.action === action && x.tookSec === null && !x.interrupted);
+    if (a) a.tookSec = Math.max(0, Math.round((this.t - Date.parse(a.at)) / 1000));
+  }
+
+  /**
+   * 앱 계층 활동 기록 한 줄(app-3 켜기·끄기). 희망 대수를 바꾸는 모든 길(운영자, AI 승인, AI 자동, 되돌림)이 부른다.
+   * 드레이닝 중인 app-3를 다시 켜면 앞의 끄기는 끝나지 못했으므로 멈춘 기록으로 닫는다
+   */
+  private recordActivity(action: TierActivity["action"], actor: OpsActor, actorName: string, via: TierActivity["via"], reason: string): void {
+    for (const a of this.activity) if (a.tookSec === null && !a.interrupted && a.action !== action) a.interrupted = true;
+    this.activity.unshift({ id: uid("act"), at: isoNow(this.t), action, actor, actorName, via, reason, tookSec: null, interrupted: false, incidentId: this.openIncident });
+    this.activity = this.activity.slice(0, 40);
+  }
+
+  /** 계획 작업 창의 끝. 끝 시각이 지난 창은 닫히고, 창을 연 변경 요청이 진행 중이면 기록에 창이 닫혔다고 남긴다 */
+  private progressWindows(now: number): void {
+    for (const w of this.windows) {
+      const open = windowOpen(w, now);
+      if (w.active && !open) {
+        w.active = false;
+        this.log(null, "WINDOW", "SYSTEM", "시스템", `계획 작업 창 끝 · ${w.id} · ${w.reason}`);
+      } else if (!w.active && open) {
+        w.active = true;
+        this.log(null, "WINDOW", "SYSTEM", "시스템", `계획 작업 창 시작 · ${w.id} · ${w.reason}`);
+      }
+    }
   }
 
   private progressBackup(now: number): void {
@@ -930,7 +1152,34 @@ export class OpsSim {
         a.state = a.ackBy ? "ACKED" : "FIRING";
         a.silencedUntil = null;
         this.log(a.incidentId, "SILENCED", "SYSTEM", "시스템", `보류 만료 · ${a.name}`);
+        // 서버처럼 시스템이 한 일도 감사에 남긴다(msp.silence.expire). 조치 기록이 이 줄을 읽는다
+        this.audit(SYSTEM_ACTOR, "msp.silence.expire", `${a.name} · ${a.target}`, null, { incidentId: a.incidentId });
       }
+    }
+  }
+
+  /** 지금 열린 사건. 어댑터가 운영자 조작의 감사를 사건과 잇는다 */
+  currentIncident(): string | null {
+    return this.openIncident;
+  }
+
+  /** 경보가 속한 사건 */
+  incidentOfAlert(alertId: string): string | null {
+    return this.alerts.find((a) => a.id === alertId)?.incidentId ?? null;
+  }
+
+  /** 변경 요청이 연 창이 지금 열려 있으면 그 id. 종료가 창을 일찍 닫는지 어댑터가 미리 본다 */
+  windowOfChange(changeId: string): string | null {
+    const c = this.changeReqs.find((x) => x.id === changeId);
+    const w = c?.windowId ? this.windows.find((x) => x.id === c.windowId) : undefined;
+    return w && windowOpen(w, this.t) ? w.id : null;
+  }
+
+  /** 시드 변경 요청의 승인 티켓 id. 어댑터가 승인 원장에 시드 티켓을 두고 같은 id를 알린다 */
+  seedApprovalIds(list: { changeId: string; approvalId: string }[]): void {
+    for (const x of list) {
+      const c = this.changeReqs.find((r) => r.id === x.changeId);
+      if (c) c.approvalId = x.approvalId;
     }
   }
 
@@ -995,14 +1244,22 @@ export class OpsSim {
         confidencePct: 86,
       });
     }
+    // AI의 경보 보류는 계획 작업 창과 겹치는 주의 경보뿐이다(S1, S6). 창 안이어도 복제·DB·백업·디스크 계열은 보류하지 않는다(S7)
+    const windows = openWindows(this.windows, this.t);
     for (const a of this.alerts) {
-      if (a.severity !== "info" || a.state === "SILENCED" || a.silencedBefore) continue;
+      if (a.severity !== "warning" || a.state === "SILENCED" || a.silencedBefore) continue;
+      const labels = simAlertLabels(a);
+      if (!aiMaySilenceKind(a, labels)) continue;
+      const w = windows.find((x) => windowCovers(x, a.name, labels));
+      if (!w) continue;
+      const minutes = Math.min(AI_RULES.silenceMaxMin, Math.floor((Date.parse(w.endsAt) - this.t) / 60_000));
+      if (minutes < 1) continue;
       out.push({
-        sig: `SILENCE:${a.id}`, params: { kind: "SILENCE", alertId: a.id, minutes: AI_RULES.silenceMaxMin },
-        title: `경보 보류 ${AI_RULES.silenceMaxMin}분 · ${a.name}`, target: `${a.target} 경보`,
-        impact: "정보 등급이라 서비스 영향이 없습니다. 보류 동안 다른 경보는 그대로 울립니다",
+        sig: `SILENCE:${a.id}`, params: { kind: "SILENCE", alertId: a.id, minutes, windowId: w.id },
+        title: `경보 보류 ${minutes}분 · ${a.name}`, target: `${a.target} 경보`,
+        impact: `계획 작업 창 ${w.id}(${w.reason}) 안에서 예상한 경보입니다. 보류 동안 다른 경보는 그대로 울립니다`,
         cost: "비용 변화가 없습니다",
-        risk: "LOW", revertPlan: "보류를 해제합니다. 30분 뒤에는 저절로 풀립니다",
+        risk: "LOW", revertPlan: "보류를 해제합니다. 창이 끝나거나 보류 시간이 지나면 저절로 풀립니다",
         confidencePct: 83,
       });
     }
@@ -1068,6 +1325,7 @@ export class OpsSim {
     const itemRuns = q.kind === "THRESHOLD" ? this.aiThresholdRuns.get(q.key) ?? 0 : 0;
     const botCpu = this.hostCpu.get("bot-1") ?? 0;
     const botGuard = this.value("bot.capacity_guard");
+    const win = q.kind === "SILENCE" ? this.windows.find((w) => w.id === q.windowId) ?? null : null;
     return [
       row("ALLOWED", "허용 목록", "PASS", AI_ACTION_LABEL[q.kind]),
       this.observation !== null
@@ -1113,6 +1371,11 @@ export class OpsSim {
         : this.backup.manualRunsToday >= 1
           ? row("BACKUP_TODAY", "오늘 즉시 백업", "BLOCK", "오늘 즉시 백업을 이미 실행함")
           : row("BACKUP_TODAY", "오늘 즉시 백업", "PASS", "오늘 0회"),
+      q.kind !== "SILENCE"
+        ? row("WINDOW", "계획 작업 창", "NA", "")
+        : win !== null && windowOpen(win, now)
+          ? row("WINDOW", "계획 작업 창", "PASS", `${win.id} 안 · 창 끝까지 ${Math.max(0, Math.floor((Date.parse(win.endsAt) - now) / 60_000))}분`)
+          : row("WINDOW", "계획 작업 창", "BLOCK", "계획 작업 창 없음"),
       this.mode === "AUTO"
         ? row("MODE", "모드", "PASS", "자동 · 한도 안에서 실행")
         : row("MODE", "모드", "HOLD", "수동 · 실행은 운영자 승인"),
@@ -1350,7 +1613,7 @@ export class OpsSim {
   private stopAtCap(): void {
     if (this.mode !== "AUTO" || this.autoRuns < this.limits.autoCap) return;
     this.setManual(`이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, "SYSTEM", "시스템");
-    this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", `자동 조치 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, null);
+    this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", `자동 조치 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, null, { incidentId: this.openIncident });
     // 상한 도달은 수동 전환(모드 변경)이라 P4다(Teams 개입 등급, 사용자 확정 2026-09-25)
     this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 P4 · 자동 조치 상한 도달 · 수동 전환");
     this.notice = { kind: "AUTO_CAP", at: this.t, text: `이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동으로 바뀌었습니다`, tone: "neutral", incidentId: this.openIncident };
@@ -1360,10 +1623,14 @@ export class OpsSim {
     const q = p.params;
     let did = "";
     switch (q.kind) {
-      case "READ_NODES":
+      case "READ_NODES": {
+        const avg = Math.round(this.readAvg ?? 0);
+        const edge = q.delta > 0 ? `≥ 증설 ${this.value("read.scale_out_cpu")}%` : `≤ 축소 ${this.value("read.scale_in_cpu")}%`;
         this.setDesired(this.desired + q.delta);
+        this.recordActivity(q.delta > 0 ? "ON" : "OFF", how === "AUTO" ? "AI" : "OPERATOR", actor.name, how === "AUTO" ? "AI_AUTO" : "AI_APPROVED", `AI 조치안 · 앱 평균 CPU ${avg}% ${edge}`);
         did = `앱 계층 ${this.desired - q.delta} → ${this.desired}대 · app-3 ${q.delta > 0 ? "기동" : "드레이닝"}`;
         break;
+      }
       case "THRESHOLD":
         this.writeThreshold(q.key, q.to, actor, how === "AUTO" ? "AI_AUTO" : "AI_APPROVED", approvalId, "AI 조치안", null, now, false);
         did = `${this.thresholds.get(q.key)?.label ?? q.key} ${q.from} → ${q.to}`;
@@ -1371,8 +1638,11 @@ export class OpsSim {
         break;
       case "SILENCE": {
         const a = this.alerts.find((x) => x.id === q.alertId);
-        if (a) this.silence(a, q.minutes, actor.name, now);
-        did = `${a?.name ?? "경보"} ${q.minutes}분 보류`;
+        // 보류의 끝은 창의 끝을 넘지 않는다(S6). 판단 뒤 몇 초가 지났으면 그만큼 짧아진다
+        const w = this.windows.find((x) => x.id === q.windowId);
+        const minutes = w ? Math.min(q.minutes, Math.floor((Date.parse(w.endsAt) - now) / 60_000)) : q.minutes;
+        if (a) this.silence(a, minutes, actor.name, now);
+        did = `${a?.name ?? "경보"} ${minutes}분 보류 · 창 ${q.windowId}`;
         break;
       }
       case "BOT_LOAD":
@@ -1399,12 +1669,12 @@ export class OpsSim {
       this.log(this.openIncident, "AUTO_ACTED", "AI", AI_ACTOR.name, `자동 실행 · ${p.title} · ${did}`);
       // 되돌림이 아닌 자동 실행은 P3다(Teams 개입 등급, 사용자 확정 2026-09-25)
       this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 P3 · 자동 조치와 되돌리기 링크");
-      this.audit(AI_ACTOR, `ai.auto:${q.kind}`, p.title, approvalId);
+      this.audit(AI_ACTOR, `ai.auto:${q.kind}`, p.title, approvalId, { incidentId: this.openIncident, judgmentId: this.judgments[0]?.id ?? null, ref: `proposal:${p.id}` });
     } else {
       p.status = "APPROVED";
       this.log(this.openIncident, "APPROVED", "OPERATOR", actor.name, `승인 · ${p.title}`);
       this.log(this.openIncident, "ACTED", "SYSTEM", "시스템", `조치 · ${did}`);
-      this.audit(actor, `ai.approve:${q.kind}`, p.title, approvalId);
+      this.audit(actor, `ai.approve:${q.kind}`, p.title, approvalId, { incidentId: this.openIncident, judgmentId: this.judgments[0]?.id ?? null, ref: `proposal:${p.id}` });
     }
     // 조치 직후 상황 문장이 다음 판단(최대 5초)까지 조치 전 내용으로 남지 않게 바로 다시 적는다
     this.describe(now, this.findings());
@@ -1417,6 +1687,8 @@ export class OpsSim {
       case "READ_NODES": {
         const before = this.desired;
         this.setDesired(before - q.delta);
+        const ai = actor.id === AI_ACTOR.id;
+        this.recordActivity(q.delta > 0 ? "OFF" : "ON", ai ? "AI" : "OPERATOR", actor.name, ai ? "AUTO_REVERT" : "REVERT", `되돌린 조치 · ${p.title}`);
         return `app-3 ${q.delta > 0 ? "끄기" : "켜기"} (앱 ${before} → ${this.desired}대)`;
       }
       case "THRESHOLD": {
@@ -1486,12 +1758,12 @@ export class OpsSim {
     this.lastRevert = { at: now, kind: q.kind, delta: q.kind === "READ_NODES" ? q.delta : 0, undo, cause, by: AI_ACTOR.name };
     // 기록의 첫머리는 되돌리며 실제로 한 일이다. 되돌린 조치의 제목을 앞에 두면 그 조치를 한 것처럼 읽힌다
     this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${undo} · 되돌린 조치 ${p.title} · ${why}`);
-    this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null);
+    this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null, { incidentId: this.openIncident, revertOfRef: `proposal:${p.id}` });
     const wasAuto = this.mode === "AUTO";
     if (wasAuto) {
       this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
       // 서버는 시스템이 모드를 바꾼 일을 ops.ai.mode.system으로 감사에 남긴다. 모드·정지 이력이 이 줄을 읽는다
-      this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", "악화로 자동 되돌림 · 수동 전환", null);
+      this.audit(SYSTEM_ACTOR, "ops.ai.mode.system", "악화로 자동 되돌림 · 수동 전환", null, { incidentId: this.openIncident });
     }
     // 자동 되돌림은 P2다(Teams 개입 등급, 사용자 확정 2026-09-25)
     this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", wasAuto ? "Teams 알림 P2 · 자동 되돌림과 수동 전환" : "Teams 알림 P2 · 자동 되돌림");
@@ -1505,7 +1777,7 @@ export class OpsSim {
   private expireAuto(now: number): void {
     if (this.auto !== null && now >= this.auto.until) {
       this.setManual("유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
-      this.audit(SYSTEM_ACTOR, "ops.ai.mode.expire", "유효 시간 만료 · 수동 복귀", null);
+      this.audit(SYSTEM_ACTOR, "ops.ai.mode.expire", "유효 시간 만료 · 수동 복귀", null, { incidentId: this.openIncident });
       this.notice = { kind: "AUTO_EXPIRED", at: now, text: "자동 모드 유효 시간 만료 · 수동으로 돌아왔습니다", tone: "neutral", incidentId: this.openIncident };
     }
   }
@@ -1539,6 +1811,11 @@ export class OpsSim {
       // 꺼진 app-3를 켠다. 내리는 중이면 그 자리를 다시 띄운다. 희망 대수와 기동 중인 노드 수가 늘 같다
       const slot = this.nodes.find((n) => n.state === "OFF") ?? this.nodes.find((n) => n.state === "DRAINING");
       if (slot) {
+        // 내리는 중이던 인스턴스의 켜진 구간은 여기서 닫는다. 다시 켜면 새 인스턴스가 떠 구간이 끊기지 않고 이어진다
+        if (slot.state === "DRAINING" && slot.bootedAt !== null) {
+          this.onIntervals.push({ from: slot.bootedAt, to: this.t });
+          this.onIntervals = this.onIntervals.slice(-50);
+        }
         slot.state = "PENDING";
         slot.since = this.tick;
         // 새 인스턴스가 뜬다. 내리는 중이던 자리를 다시 켜도 새로 띄운다(관리자 설계 4-4 sim 동작)
@@ -1610,8 +1887,9 @@ export class OpsSim {
     return change;
   }
 
-  private log(incidentId: string | null, kind: IncidentEventKind, actor: OpsActor, actorName: string, text: string): void {
-    this.events.unshift({ id: uid("evt"), at: isoNow(this.t), kind, actor, actorName, text, incidentId });
+  /** 기록 한 줄. 시각을 주지 않으면 시뮬레이터의 지금이다. 시드만 지난 시각을 주고, 넣은 뒤 기록을 시각 순서로 다시 세운다 */
+  private log(incidentId: string | null, kind: IncidentEventKind, actor: OpsActor, actorName: string, text: string, at: number = this.t): void {
+    this.events.unshift({ id: uid("evt"), at: isoNow(at), kind, actor, actorName, text, incidentId });
     this.events = this.events.slice(0, 160);
     // 운영자가 확인·결정하면 보낸 호출이 확인된 것으로 바뀌고 다음 단계로 올리지 않는다(escalate)
     if (incidentId !== null && isOperatorTouch({ actor, kind })) {
@@ -1669,6 +1947,11 @@ export class OpsSim {
       if (this.value(q.key) !== q.from) throw new AdminError("invalid_parameter", "현재값이 조치안 뒤에 바뀜");
       this.checkThreshold(q.key, q.to);
     }
+    // AI가 낸 보류는 사람이 승인해도 창 안에서만 된다(S6은 제안과 승인에 모두 건다)
+    if (q.kind === "SILENCE") {
+      const w = this.windows.find((x) => x.id === q.windowId);
+      if (!w || !windowOpen(w, now) || Date.parse(w.endsAt) - now < 60_000) throw new AdminError("invalid_parameter", "계획 작업 창이 끝나 AI 보류를 실행할 수 없음");
+    }
   }
 
   decide(id: string, decision: AiDecision, actor: OpsActorRef, now: number, approvalId: string | null = null): void {
@@ -1690,7 +1973,7 @@ export class OpsSim {
     this.syncSuggestions();
     this.log(this.openIncident, decision === "REJECT" ? "REJECTED" : "DEFERRED", "OPERATOR", actor.name,
       `${decision === "REJECT" ? "거절" : "나중에"} · ${p.title}`);
-    this.audit(actor, `ai.${decision === "REJECT" ? "reject" : "defer"}:${p.params.kind}`, p.title, null);
+    this.audit(actor, `ai.${decision === "REJECT" ? "reject" : "defer"}:${p.params.kind}`, p.title, null, { incidentId: this.openIncident, judgmentId: this.judgments[0]?.id ?? null });
   }
 
   /** 운영자가 자동 조치를 되돌린다. 되돌리기 창(관찰 창) 안에서만 된다 */
@@ -1712,7 +1995,7 @@ export class OpsSim {
     this.suppressed.set(p.sig, now + REVERT_SUPPRESS_MS);
     this.lastRevert = { at: now, kind: p.params.kind, delta: p.params.kind === "READ_NODES" ? p.params.delta : 0, undo, cause: null, by: actor.name };
     this.log(this.openIncident, "REVERTED", "OPERATOR", actor.name, `되돌리기 · ${undo} · 되돌린 조치 ${p.title}`);
-    this.audit(actor, `ai.revert:${p.params.kind}`, p.title, null);
+    this.audit(actor, `ai.revert:${p.params.kind}`, p.title, null, { incidentId: this.openIncident, revertOfRef: `proposal:${p.id}` });
     this.describe(now, this.findings());
   }
 
@@ -1736,7 +2019,7 @@ export class OpsSim {
     this.aiThresholdRuns.clear();
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, `모드 · 자동 켜기 ${hours}시간 · 사유 "${reason.trim()}"`);
     // 서버 감사와 같은 코드(ops.ai.auto, 대상 AUTO:{시간})다. 서버는 사유를 감사 상세에만 두지만 sim은 대상 칸에 함께 적는다
-    this.audit(actor, "ops.ai.auto", `AUTO:${hours} · 사유 ${reason.trim()}`, approvalId);
+    this.audit(actor, "ops.ai.auto", `AUTO:${hours} · 사유 ${reason.trim()}`, approvalId, { incidentId: this.openIncident });
     for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
   }
 
@@ -1813,7 +2096,7 @@ export class OpsSim {
    * 이번 자동 모드가 끝난 뒤(다음 활성부터) 적용한다
    */
   setLimit(key: AiLimitKey, from: number, to: number, actor: OpsActorRef, approvalId: string, reason: string,
-           revertOf: string | null, now: number): void {
+           revertOf: string | null, now: number): string {
     // AI 운영 계정은 자기 한도를 바꾸지 못한다(ADR 0035 금지 목록 8)
     if (actor.id === AI_ACTOR.id) throw new AdminError("admin_forbidden", "AI는 한도를 바꿀 수 없음");
     if (!approvalId) throw new AdminError("admin_forbidden", "한도 변경은 승인 티켓 필요");
@@ -1834,8 +2117,9 @@ export class OpsSim {
       const orig = this.limitHistory.find((c) => c.id === revertOf);
       if (orig) orig.reverted = true;
     }
+    const changeId = uid("alc");
     this.limitHistory.unshift({
-      id: uid("alc"), key, label: def.label, unit: def.unit, from, to, at: isoNow(now), by: actor.name,
+      id: changeId, key, label: def.label, unit: def.unit, from, to, at: isoNow(now), by: actor.name,
       approvalId, reason: reason.trim(), revertOf, reverted: false, apply,
     });
     this.limitHistory = this.limitHistory.slice(0, 40);
@@ -1845,17 +2129,19 @@ export class OpsSim {
       for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
       this.stopAtCap();
     }
+    return changeId;
   }
 
+  /** 임계값 변경을 적용하고 새 변경 기록의 id를 돌려준다. AI 조치안의 승인이면 조치안 쪽 기록이라 null이다 */
   applyThreshold(key: ThresholdKey, from: number, to: number, actor: OpsActorRef, approvalId: string, reason: string,
-                 revertOf: string | null, proposalId: string | null, now: number): void {
+                 revertOf: string | null, proposalId: string | null, now: number): string | null {
     this.advance(now);
     if (this.value(key) !== from) throw new AdminError("invalid_parameter", "현재값이 요청 뒤 바뀜. 다시 요청 필요");
     if (proposalId !== null) {
       this.decide(proposalId, "APPROVE", actor, now, approvalId);
-      return;
+      return null;
     }
-    this.writeThreshold(key, to, actor, revertOf ? "REVERT" : "MANUAL", approvalId, reason, revertOf, now);
+    const change = this.writeThreshold(key, to, actor, revertOf ? "REVERT" : "MANUAL", approvalId, reason, revertOf, now);
     // 운영자가 바꾼 항목은 같은 쿨다운을 건다. 사람이 바꾼 직후 AI가 반대로 되돌리지 않게 한다
     this.cooldowns.set("THRESHOLD", now + AI_RULES.thresholdCooldownSec * 1000);
     const open = this.proposals.find((p) => p.status === "PROPOSED" && p.params.kind === "THRESHOLD" && p.params.key === key);
@@ -1865,6 +2151,7 @@ export class OpsSim {
       open.decidedBy = actor.name;
       this.syncSuggestions();
     }
+    return change.id;
   }
 
   checkThresholdChange(key: ThresholdKey, from: number, to: number, now: number): void {
@@ -1877,7 +2164,7 @@ export class OpsSim {
     this.advance(now);
     if (this.backup.running) throw new AdminError("invalid_parameter", "백업 진행 중");
     this.startBackup(now);
-    this.audit(actor, "ops.backup.run", "Databasus exchange", null);
+    this.audit(actor, "ops.backup.run", "Databasus exchange", null, { incidentId: this.openIncident });
   }
 
   /**
@@ -1918,15 +2205,147 @@ export class OpsSim {
     if (done) this.log(inc.id, "POSTMORTEM", "OPERATOR", actor.name, `사후 분석 완료 · 재발 방지 조치 ${actions.length}건`);
   }
 
+  /* ===== 변경·작업(관리자 설계 4-10-4) ===== */
+
+  private changeById(id: string): ChangeRequest {
+    const c = this.changeReqs.find((x) => x.id === id);
+    if (!c) throw new AdminError("not_found", "변경 요청 없음");
+    return c;
+  }
+
+  /** 변경 요청 등록(BOT_OPS 이상). 창 규칙(24시간 이내, 대상)을 등록 때 먼저 본다. 감사는 어댑터가 남긴다 */
+  createChange(input: ChangeInput, actor: OpsActorRef, now: number): ChangeRequest {
+    this.advance(now);
+    const err = changeInputError(input, this.t);
+    if (err) throw new AdminError("invalid_parameter", err);
+    this.changeSeq += 1;
+    const c: ChangeRequest = {
+      id: `CHG-${this.changeSeq}`, title: input.title.trim(), target: input.target.trim(), plan: input.plan.trim(), rollback: input.rollback.trim(),
+      risk: input.risk, startsAt: input.startsAt, endsAt: input.endsAt, alertname: input.alertname?.trim() || null, labels: cleanLabels(input.labels),
+      state: "REQUESTED", requestedBy: actor.name, requestedAt: isoNow(this.t), approvalId: null, approvedBy: null, approvedAt: null,
+      startedAt: null, startedBy: null, windowId: null, result: null, closedAt: null, closedBy: null,
+    };
+    this.changeReqs.unshift(c);
+    this.log(null, "ACTED", "OPERATOR", actor.name, `변경 요청 등록 · ${c.id} · ${c.title}`);
+    return { ...c, labels: { ...c.labels } };
+  }
+
+  /** 승인 티켓을 발급하기 전에 막힐 이유를 본다. 쓸모없는 티켓이 남지 않게 한다 */
+  checkChangeApproval(id: string, now: number): void {
+    this.advance(now);
+    const c = this.changeById(id);
+    if (c.state !== "REQUESTED") throw new AdminError("invalid_parameter", `승인할 수 없는 상태(${CHANGE_STATE_WORD[c.state]})`);
+  }
+
+  /** 변경 요청 승인. 1인 승인 티켓(ops.change.approve)을 소각하는 자리에서 부른다 */
+  approveChange(id: string, actor: OpsActorRef, approvalId: string, now: number): void {
+    this.checkChangeApproval(id, now);
+    const c = this.changeById(id);
+    c.state = "APPROVED";
+    c.approvalId = approvalId;
+    c.approvedBy = actor.name;
+    c.approvedAt = isoNow(this.t);
+    this.log(null, "ACTED", "OPERATOR", actor.name, `변경 요청 승인 · ${c.id} · ${c.title}`);
+  }
+
+  /**
+   * 진행. 승인된 요청의 같은 대상으로 계획 작업 창을 연다. 창은 지금부터 계획한 끝까지이고 24시간을 넘지 않는다. 계획한 끝이
+   * 지났으면 열지 않는다(시각을 고쳐 다시 등록)
+   */
+  startChange(id: string, actor: OpsActorRef, now: number): MaintenanceWindow {
+    this.advance(now);
+    const c = this.changeById(id);
+    if (c.state !== "APPROVED") throw new AdminError("invalid_parameter", c.state === "REQUESTED" ? "승인 전 요청은 진행할 수 없음" : `진행할 수 없는 상태(${CHANGE_STATE_WORD[c.state]})`);
+    const w = this.openWindow({ startsAt: null, endsAt: c.endsAt, alertname: c.alertname, labels: c.labels, reason: `${c.id} · ${c.title}` }, actor, c.id);
+    c.state = "IN_PROGRESS";
+    c.startedAt = isoNow(this.t);
+    c.startedBy = actor.name;
+    c.windowId = w.id;
+    this.log(null, "ACTED", "OPERATOR", actor.name, `변경 작업 진행 · ${c.id} · 창 ${w.id}`);
+    return w;
+  }
+
+  /** 종료. 결과(완료·되돌림)를 적고 그 요청의 창이 열려 있으면 일찍 닫는다 */
+  finishChange(id: string, outcome: "DONE" | "ROLLED_BACK", note: string, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    const c = this.changeById(id);
+    if (c.state !== "IN_PROGRESS") throw new AdminError("invalid_parameter", "진행 중인 요청만 종료할 수 있음");
+    const text = note.trim();
+    if (text.length > 500) throw new AdminError("invalid_parameter", "결과는 500자 이내");
+    c.state = outcome;
+    c.result = `${outcome === "DONE" ? "완료" : "되돌림"}${text ? ` · ${text}` : ""}`;
+    c.closedAt = isoNow(this.t);
+    c.closedBy = actor.name;
+    const w = this.windows.find((x) => x.id === c.windowId);
+    if (w && windowOpen(w, this.t)) this.closeWindow(w, actor);
+    this.log(null, "ACTED", "OPERATOR", actor.name, `변경 작업 종료 · ${c.id} · ${c.result}`);
+  }
+
+  /** 취소. 진행 전(승인 대기·예정)의 요청만 취소한다 */
+  cancelChange(id: string, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    const c = this.changeById(id);
+    if (c.state !== "REQUESTED" && c.state !== "APPROVED") throw new AdminError("invalid_parameter", "진행 전 요청만 취소할 수 있음");
+    c.state = "CANCELED";
+    c.result = "취소";
+    c.closedAt = isoNow(this.t);
+    c.closedBy = actor.name;
+    this.log(null, "ACTED", "OPERATOR", actor.name, `변경 요청 취소 · ${c.id} · ${c.title}`);
+  }
+
+  /** 창만 따로 등록한다(서버 계약의 창 등록, BOT_OPS 이상) */
+  createWindow(input: WindowInput, actor: OpsActorRef, now: number): MaintenanceWindow {
+    this.advance(now);
+    return this.openWindow(input, actor, null);
+  }
+
+  private openWindow(input: WindowInput, actor: OpsActorRef, changeId: string | null): MaintenanceWindow {
+    const err = windowInputError(input, this.t);
+    if (err) throw new AdminError("invalid_parameter", err);
+    this.windowSeq += 1;
+    const start = input.startsAt === null ? this.t : Date.parse(input.startsAt);
+    const w: MaintenanceWindow = {
+      id: `W-${this.windowSeq}`, startsAt: isoNow(start), endsAt: input.endsAt, alertname: input.alertname?.trim() || null, labels: cleanLabels(input.labels),
+      reason: input.reason.trim(), createdBy: actor.name, endedAt: null, endedBy: null, active: start <= this.t, changeId,
+    };
+    this.windows.unshift(w);
+    this.windows.sort((a, b) => Date.parse(b.endsAt) - Date.parse(a.endsAt));
+    this.windows = this.windows.slice(0, 100);
+    this.log(null, "WINDOW", "OPERATOR", actor.name, `계획 작업 창 ${start <= this.t ? "열림" : "등록"} · ${w.id} · ${windowTargetWord(w)}`);
+    // 창이 열리면 창 안의 경보를 두고 AI가 다시 판단한다
+    this.describe(this.t, this.findings());
+    return { ...w, labels: { ...w.labels } };
+  }
+
+  /** 창을 일찍 닫는다. AI 권한을 줄이는 조작이라 누구나 한다(VIEWER 이상). 이미 끝난 창은 바꾸지 않는다 */
+  endWindow(id: string, actor: OpsActorRef, now: number): boolean {
+    this.advance(now);
+    const w = this.windows.find((x) => x.id === id);
+    if (!w) throw new AdminError("not_found", "계획 작업 창 없음");
+    if (w.endedAt !== null || Date.parse(w.endsAt) <= this.t) return false;
+    this.closeWindow(w, actor);
+    return true;
+  }
+
+  private closeWindow(w: MaintenanceWindow, actor: OpsActorRef): void {
+    w.endedAt = isoNow(this.t);
+    w.endedBy = actor.name;
+    w.active = false;
+    this.log(null, "WINDOW", "OPERATOR", actor.name, `계획 작업 창 조기 종료 · ${w.id}`);
+    // 창 밖이 된 AI 보류 조치안은 다음 판단에서 거둔다. 지금 곧바로 적어 두 자리가 다른 말을 하지 않게 한다
+    this.describe(this.t, this.findings());
+  }
+
   /**
    * 운영자가 용량·부하 화면에서 app-3를 켜고 끈다(앱 계층 희망 대수 2~3). AI 조치와 같은 희망 대수를 바꾸므로 관제센터와
    * 용량 화면의 대수가 함께 움직인다. 사람이 이미 정한 대수를 겨냥한 열린 조치안은 거두고, AI 자동 실행이
    * 곧바로 반대로 되돌리지 않게 app-3 켜기·끄기 쿨다운을 건다. 감사는 어댑터가 capacity.* 로 남긴다
    */
-  scaleReadNodes(delta: 1 | -1, actor: OpsActorRef, now: number): void {
+  scaleReadNodes(delta: 1 | -1, actor: OpsActorRef, now: number, reason = ""): void {
     this.advance(now);
     const before = this.desired;
     this.setDesired(before + delta);
+    this.recordActivity(delta > 0 ? "ON" : "OFF", "OPERATOR", actor.name, "OPERATOR", reason.trim() ? `${reason.trim()} · 용량·부하 화면` : "용량·부하 화면");
     this.cooldowns.set("READ_NODES", now + AI_RULES.readNodesCooldownSec * 1000);
     let withdrew = false;
     for (const p of this.proposals) {
@@ -2005,8 +2424,17 @@ export class OpsSim {
     }
     this.scenario = { id, startedAt: now };
     if (id === "NIGHT_SCALE_IN") {
-      // 야간 시나리오는 app-3까지 세 대가 떠 있는 데서 시작한다. 조치가 아니라 무대 준비다
-      this.nodes = this.nodes.map((n) => ({ ...n, state: "IN_SERVICE", since: this.tick, bootedAt: n.bootedAt ?? this.t - 3 * 3_600_000 }));
+      // 야간 시나리오는 app-3까지 세 대가 떠 있는 데서 시작한다. 조치가 아니라 무대 준비다. 꺼져 있던 app-3를 세 시간 전에 켠
+      // 것으로 두므로 활동 기록에도 그 켜기를 남긴다. 가동 시간(비용)과 활동 기록이 같은 구간을 센다
+      const staged = this.t - 3 * 3_600_000;
+      for (const n of this.nodes) {
+        if (n.bootedAt !== null) continue;
+        this.activity.unshift({
+          id: uid("act"), at: isoNow(staged), action: "ON", actor: "SYSTEM", actorName: "시나리오", via: "SCENARIO",
+          reason: "야간 축소 시나리오 무대 준비 · 세 대로 시작", tookSec: NODE_BOOT_TICKS, interrupted: false, incidentId: null,
+        });
+      }
+      this.nodes = this.nodes.map((n) => ({ ...n, state: "IN_SERVICE", since: this.tick, bootedAt: n.bootedAt ?? staged }));
       this.desired = READ_MAX;
       this.measure();
     }
@@ -2139,7 +2567,13 @@ export class OpsSim {
       collectedAt: at,
       summary: { state: "READY", data: { availabilityPct: this.availability, p95Ms: this.p95, errorRatePct: this.errors, slo: { ...SLO } } },
       hosts: { state: "READY", data: hosts },
-      readTier: { state: "READY", data: { min: READ_MIN, max: READ_MAX, desired: this.desired, fixed: ["app-1", "app-2"], serving: this.servingApps(), nodes: readNodes, avgCpuPct: this.readAvg === null ? null : Math.round(this.readAvg) } },
+      readTier: {
+        state: "READY",
+        data: {
+          min: READ_MIN, max: READ_MAX, desired: this.desired, fixed: ["app-1", "app-2"], serving: this.servingApps(), nodes: readNodes,
+          avgCpuPct: this.readAvg === null ? null : Math.round(this.readAvg), onSecondsToday: this.onSecondsToday(),
+        },
+      },
       replication: { state: "READY", data: { primary: "db-primary", standby: "db-standby", stream: "STREAMING", lagBytes: this.lagBytes, lagSec: this.lagSec } },
       alerts: { state: "READY", data: alerts },
       // 담당·호출·사후 분석은 시뮬레이터가 제자리에서 고치는 값이라 판마다 새 객체로 옮긴다. 받은 판이 뒤에 바뀌지 않는다
@@ -2160,7 +2594,8 @@ export class OpsSim {
         data: {
           backup: { ...this.backup, offsite: { ...this.backup.offsite }, restoreCheck: { ...this.backup.restoreCheck } },
           backupSource: null,
-          certificate: { domain: "www.sang.it.kr", expiresAt: isoNow(this.certExpires) },
+          // 학교 배포의 인증서 기록이다(certs.ts). 관제센터 운영 작업 줄과 네트워크·보안, 사이드바 배지가 이 목록을 읽는다
+          certificates: SCHOOL_CERTIFICATES.map((c) => ({ ...c })),
           dailyReport: { hour: 9, channel: "Teams", lastSentAt: this.reportSent === null ? null : isoNow(this.reportSent) },
         },
       },
@@ -2180,6 +2615,46 @@ export class OpsSim {
       sources: SOURCE_NAMES.map((name) => ({ name, state: "READY", checkedAt: at, reason: null })),
       oncall: { state: "READY", data: oncallDesk(this.t) },
       database: { state: "READY", data: database },
+      changes: {
+        state: "READY",
+        data: {
+          windows: this.windows.map((w) => ({ ...w, labels: { ...w.labels }, active: windowOpen(w, this.t) })),
+          changes: { state: "READY", data: this.changeReqs.map((c) => ({ ...c, labels: { ...c.labels } })) },
+        },
+      },
+      outlook: { state: "READY", data: this.outlook() },
+    };
+  }
+
+  /**
+   * KST 오늘 app-3이 켜져 있던 초. 닫힌 구간과 지금 켜져 있는 구간을 KST 자정부터 지금까지로 잘라 더한다. 비용 화면의
+   * 'app-3 계획 비용'과 용량·부하의 활동 기록이 같은 값을 읽는다
+   */
+  private onSecondsToday(): number {
+    const midnight = Date.parse(`${kstDay(this.t)}T00:00:00+09:00`);
+    const open = this.nodes.filter((n) => n.bootedAt !== null).map((n) => ({ from: n.bootedAt as number, to: this.t }));
+    let ms = 0;
+    for (const s of [...this.onIntervals, ...open]) ms += Math.max(0, Math.min(s.to, this.t) - Math.max(s.from, midnight));
+    return Math.round(ms / 1000);
+  }
+
+  /**
+   * 용량 전망(예시). 디스크는 노드마다 하루 증가(%p) 예시를 이어 경보 기준(여유 임계)과 가득 참에 닿을 시각을 낸다. DB 하루
+   * 증가는 DB 통계의 크기 증가와 같은 값이다. 활동 기록은 시뮬레이터가 남긴 app-3 켜기·끄기다
+   */
+  private outlook(): CapacityOutlook {
+    const freeAlert = this.value("host.disk_free_alert");
+    const reach = (used: number, perDay: number, target: number): string | null =>
+      perDay <= 0 || used >= target ? null : isoNow(this.t + ((target - used) / perDay) * 86_400_000);
+    const disks: DiskOutlook[] = HOST_DEFS.map((h) => ({
+      host: h.id, sizeGiB: h.diskGiB, usedPct: h.disk, growthPctPerDay: h.diskGrowth,
+      alertAt: reach(h.disk, h.diskGrowth, 100 - freeAlert), fullAt: reach(h.disk, h.diskGrowth, 100),
+    }));
+    return {
+      basisHours: OUTLOOK_BASIS_H,
+      disks,
+      dbGrowthBytesPerDay: DB_GROWTH_PER_DAY,
+      activity: this.activity.map((a) => ({ ...a })),
     };
   }
 }

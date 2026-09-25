@@ -60,6 +60,11 @@ import type {
   OpsSection,
   PostmortemDraft,
   ReportDesk,
+  ActionFeed,
+  ChangeInput,
+  ChangeRequest,
+  MaintenanceWindow,
+  WindowInput,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -264,6 +269,27 @@ export interface AdminApi {
   sendTeamsTest(): Promise<void>;
   /** 담당자와 연락 체계. sim은 예시, http는 운영자·당번 명부 연결 전이다 */
   getOnCall(): Promise<OpsSection<OnCallEntry[]>>;
+
+  /* ===== 조치 기록(관리자 설계 4-10-4) =====
+   * sim은 관리 어댑터의 감사 기록에 사건·판단·되돌림 이음을 붙여 옮긴다. http는 감사 로그(GET /admin/v1/audit)의 한 쪽과
+   * 조치 요청 목록(GET /admin/v1/msp/ai/actions?status=ALL)이다. 받아 온 쪽만 옮기므로 cursor로 이전 쪽을 더 읽는다 */
+  getActionRecords(cursor?: string | null): Promise<ActionFeed>;
+
+  /* ===== 변경·작업(관리자 설계 4-10-4) =====
+   * 계획 작업 창은 서버 계약(API 설계 §6-F)이 있어 http도 등록·조기 종료를 보낸다. 변경 요청은 3라운드 계약 초안이라 http는
+   * 원천 연결 전으로 거절한다. 변경 요청의 승인은 승인 목록(ApprovalList)의 ops.change.approve 티켓이다 */
+  /** 변경 요청 등록(BOT_OPS 이상, 감사 msp.change.create) */
+  createChange(input: ChangeInput): Promise<ChangeRequest>;
+  /** 진행. 같은 대상의 계획 작업 창을 연다(BOT_OPS 이상, 감사 msp.change.start와 msp.window.create) */
+  startChange(id: string): Promise<void>;
+  /** 종료. 결과(완료·되돌림)를 적고 창을 닫는다(BOT_OPS 이상, 감사 msp.change.finish) */
+  finishChange(id: string, outcome: "DONE" | "ROLLED_BACK", note: string): Promise<void>;
+  /** 진행 전 요청 취소(BOT_OPS 이상, 감사 msp.change.cancel) */
+  cancelChange(id: string): Promise<void>;
+  /** 창만 따로 등록(BOT_OPS 이상, 감사 msp.window.create) */
+  createWindow(input: WindowInput): Promise<MaintenanceWindow>;
+  /** 창 조기 종료. AI 권한을 줄이는 조작이라 VIEWER 이상이다(감사 msp.window.end) */
+  endWindow(id: string): Promise<void>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

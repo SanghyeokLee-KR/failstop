@@ -284,8 +284,9 @@
   background: transparent;
 }
 /* 판독 거르기용 작은 분절. 시각 높이만 줄이고 히트 영역 44px는 ::after가 지킨다 */
+/* 두 글자 이름('AI', '7일')도 누름 폭 44px를 갖는다(§10-2) */
 .switchBtn[data-size="sm"] {
-  min-width: 0;
+  min-width: 44px;
   height: 28px;
   padding: 0 var(--space-3);
   font-size: var(--font-caption-size);
@@ -3059,6 +3060,12 @@
 }
 .stripLink:hover {
   text-decoration: underline;
+}
+/* 모드 줄의 진행 중인 계획 작업 창. ▶는 크롬 악센트 글자를 따르고 남은 시간은 tabular다 */
+.windowLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* ===== 관제 화면 공용 격자(경보·사건, AI 판단, 서버·노드, 데이터베이스) ===== */

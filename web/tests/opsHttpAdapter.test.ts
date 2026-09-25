@@ -78,6 +78,7 @@ function fullServer(p: string): Snap | null {
   if (p === "/admin/v1/msp/trends?range=1h") return snap("trends-1h");
   if (p === "/admin/v1/msp/trends?range=6h") return snap("trends-6h");
   if (p === "/admin/v1/msp/reports/status") return snap("reports-status");
+  if (p.startsWith("/admin/v1/msp/maintenance-windows?")) return snap("maintenance-windows");
   return null;
 }
 
@@ -140,7 +141,7 @@ test("서버 한 판: 칸마다 단위를 화면 단위로 옮기고, 서버에 
   assert.equal(jobs.backup.tool, "백업 지표");
   assert.equal(jobs.backup.restoreCheck.outcome, "SUCCESS");
   assert.equal(jobs.backup.canRun, false, "Databasus 연결 전이라 즉시 실행을 막는다");
-  assert.equal(jobs.certificate, null);
+  assert.equal(jobs.certificates, null);
   assert.equal(jobs.dailyReport.lastRunAt, "2026-09-24T22:50:04.000Z");
 
   // AI 서버: 서버가 잰 호출 지연과 적재 모델. 장비 메모리와 GPU는 원천이 없다

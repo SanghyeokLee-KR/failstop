@@ -80,7 +80,9 @@ export type DestructiveAction =
   // 관제센터 세 액션. 서버 승인 원장의 액션 이름과 같다(API §3-6, §6-F)
   | "ops.threshold.set"
   | "ops.ai.auto"
-  | "ops.ai.limits";
+  | "ops.ai.limits"
+  // 변경 요청 승인(관리자 설계 4-4 3라운드 계약 초안). 서버 경로는 아직 없다
+  | "ops.change.approve";
 
 /**
  * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 원장 최초 상태가 ISSUED이고
@@ -112,6 +114,7 @@ export type ApprovalPayload =
       proposalId: string | null;
     }
   | { action: "ops.ai.auto"; hours: number; reason: string }
+  | { action: "ops.change.approve"; id: string; title: string }
   | {
       action: "ops.ai.limits";
       key: AiLimitKey;
@@ -853,9 +856,9 @@ export interface ReadTier {
   avgCpuPct: number | null;
   /**
    * KST 오늘 app-3이 기동·운영·드레이닝이던 초(관리자 설계 4-10-5 비용). 인스턴스 요금은 켜져 있는 동안 붙으므로
-   * 조회를 받기 전과 내리는 동안도 센다. 원천이 채우기 전에는 없다
+   * 조회를 받기 전과 내리는 동안도 센다. 용량·부하의 활동 기록과 비용이 이 값을 읽는다. 원천이 없으면 null이다
    */
-  onSecondsToday?: number | null;
+  onSecondsToday: number | null;
 }
 
 export type ReplicationStream = "STREAMING" | "CATCHUP" | "STOPPED";
@@ -927,7 +930,7 @@ export type IncidentEventKind =
   | "RESUMED"
   /** AI 한도 변경 */
   | "LIMITS"
-  /** 계획 작업 창 등록·종료 */
+  /** 계획 작업 창 등록·종료. 관제 시뮬레이터도 창과 변경 요청의 기록에 쓴다(관리자 설계 4-10-4) */
   | "WINDOW"
   /** 정책 엔진이 조치 요청을 막음 */
   | "DENIED"
@@ -1003,10 +1006,11 @@ export interface OpsJobs {
   /** 백업 원천이 없으면 null이고 backupSource에 붙일 원천을 적는다 */
   backup: OpsBackup | null;
   backupSource: string | null;
-  /** 인증서 만료 원천이 없으면 null이다 */
-  certificate: { domain: string; expiresAt: string } | null;
-  /** 인증서 목록(관리자 설계 4-10-3). 공개 인증서와 관리 게이트웨이 내부 인증서다. 원천이 채우기 전에는 없다 */
-  certificates?: CertificateInfo[] | null;
+  /**
+   * 인증서 목록(관리자 설계 4-10-3). 공개 인증서, 관리 게이트웨이 내부 인증서, DB TLS 서버 인증서다. 관제센터 운영 작업 줄,
+   * 네트워크·보안, 사이드바 배지가 이 한 목록을 읽는다. 원천이 없으면 null이다
+   */
+  certificates: CertificateInfo[] | null;
   /** hour는 보고 예약 시각(KST 시)이다. 원천이 예약 시각을 알려 주지 않으면 null이다 */
   dailyReport: {
     hour: number | null;
@@ -1227,6 +1231,8 @@ export type AiCheckRule =
   | "STEP"
   | "PER_ITEM"
   | "BACKUP_TODAY"
+  /** 경보 보류는 계획 작업 창과 겹치는 주의 경보만(S1~S8, 관리자 설계 4-10-4) */
+  | "WINDOW"
   | "DIRECTION"
   | "BOT_GUARD"
   | "MODE";
@@ -1367,12 +1373,15 @@ export interface ControlCenter {
    */
   /** 당번 명부와 호출 정책. sim은 예시 명부, http는 원천 연결 전(GET /admin/v1/msp/oncall 초안)이다 */
   oncall: OpsSection<OnCallDesk>;
-  /** 계획 작업 창과 변경 요청 */
-  changes?: OpsSection<ChangeDesk>;
+  /**
+   * 계획 작업 창과 변경 요청. sim은 관제 시뮬레이터, http는 창을 서버(§6-F maintenance-windows)에서 읽고 변경 요청은
+   * 원천 연결 전(3라운드 계약 초안)이다
+   */
+  changes: OpsSection<ChangeDesk>;
   /** DB 통계. sim은 예시 값, http는 원천 연결 전(GET /admin/v1/msp/database 초안)이다. 복제 방식은 DB_TOPOLOGY가 싣는다 */
   database: OpsSection<DbStats>;
-  /** 용량 전망과 앱 계층 활동 기록 */
-  outlook?: OpsSection<CapacityOutlook>;
+  /** 용량 전망과 앱 계층 활동 기록. sim은 예시와 시뮬레이터 기록, http는 원천 연결 전(GET /admin/v1/msp/capacity/outlook 초안)이다 */
+  outlook: OpsSection<CapacityOutlook>;
   /** 이번 달 SLA */
   sla?: OpsSection<SlaMonth>;
 }
@@ -1665,7 +1674,7 @@ export interface MaintenanceWindow {
   /** 대상 경보명. 라벨로만 고른 창은 null */
   alertname: string | null;
   /** 대상 라벨. 키는 node·role·component·mountpoint뿐이다 */
-  labels: Record<string, string>;
+  labels: Partial<Record<WindowLabelKey, string>>;
   reason: string;
   createdBy: string;
   endedAt: string | null;
@@ -1675,7 +1684,20 @@ export interface MaintenanceWindow {
   changeId: string | null;
 }
 
+/** 계획 작업 창의 라벨 키. 서버가 받는 넷뿐이다(API 설계 §6-F 계획 작업 창) */
+export type WindowLabelKey = "node" | "role" | "component" | "mountpoint";
+
+/** 계획 작업 창 등록 입력. 시작을 비우면 지금이고 끝은 시작 뒤 24시간 이내다. 경보명과 라벨 가운데 하나는 있어야 한다 */
+export interface WindowInput {
+  startsAt: string | null;
+  endsAt: string;
+  alertname: string | null;
+  labels: Partial<Record<WindowLabelKey, string>>;
+  reason: string;
+}
+
 export type ChangeState = "REQUESTED" | "APPROVED" | "IN_PROGRESS" | "DONE" | "ROLLED_BACK" | "CANCELED";
+export type ChangeRisk = "LOW" | "MEDIUM" | "HIGH";
 
 /** 변경 요청(4-4 3라운드 계약 초안). 등록, 1인 승인(ops.change.approve), 진행, 종료, 검토로 흐른다 */
 export interface ChangeRequest {
@@ -1684,26 +1706,36 @@ export interface ChangeRequest {
   target: string;
   plan: string;
   rollback: string;
-  risk: "LOW" | "MEDIUM" | "HIGH";
+  risk: ChangeRisk;
   startsAt: string;
   endsAt: string;
+  /** 진행하며 열 계획 작업 창의 대상. 경보명과 라벨 */
+  alertname: string | null;
+  labels: Partial<Record<WindowLabelKey, string>>;
   state: ChangeState;
   requestedBy: string;
   requestedAt: string;
   approvalId: string | null;
   approvedBy: string | null;
   approvedAt: string | null;
+  startedAt: string | null;
+  startedBy: string | null;
   /** 진행하며 연 계획 작업 창 */
   windowId: string | null;
   /** 종료 때 적은 결과. 종료 전이면 null */
   result: string | null;
   closedAt: string | null;
+  closedBy: string | null;
 }
 
+/** 변경 요청 등록 입력 */
+export type ChangeInput = Pick<ChangeRequest, "title" | "target" | "plan" | "rollback" | "risk" | "startsAt" | "endsAt" | "alertname" | "labels">;
+
 export interface ChangeDesk {
-  /** 끝 시각 역순 */
+  /** 끝 시각 역순. 서버 목록(status=ALL)과 같은 순서다 */
   windows: MaintenanceWindow[];
-  changes: ChangeRequest[];
+  /** 변경 요청. 서버 경로가 3라운드 계약 초안이라 http는 원천 연결 전이다. 등록 순서의 역순이다 */
+  changes: OpsSection<ChangeRequest[]>;
 }
 
 /** 복제 방식. 지금은 비동기이고 Patroni 엄격 동기는 구성 중이다(ADR 0024, ADR 0036은 다른 브랜치) */
@@ -1723,14 +1755,46 @@ export interface DbStats {
   slowQueries: OpsSection<{ query: string; calls: number; meanMs: number }[]>;
 }
 
+/** 노드 한 대의 디스크 전망. 하루 증가는 근거 구간의 추세이고, 두 예상 시각은 그 추세를 이은 예측이다 */
+export interface DiskOutlook {
+  host: string;
+  /** 루트 볼륨 크기(GiB). 모르면 null */
+  sizeGiB: number | null;
+  usedPct: number;
+  /** 하루 증가(%p). 근거가 모자라면 null */
+  growthPctPerDay: number | null;
+  /** 디스크 여유 경보 기준(host.disk_free_alert)에 닿을 예상 시각. 줄어들거나 근거가 없으면 null */
+  alertAt: string | null;
+  /** 가득 찰 예상 시각. 줄어들거나 근거가 없으면 null */
+  fullAt: string | null;
+}
+
+/** 앱 계층 활동 기록 한 줄(app-3 켜기·끄기). 행위자가 AI면 승인 실행인지 자동 실행인지를 via가 가른다 */
+export interface TierActivity {
+  id: string;
+  at: string;
+  action: "ON" | "OFF";
+  actor: OpsActor;
+  actorName: string;
+  /** 누가 어떤 길로 바꿨나. 운영자 직접(용량·부하 화면), AI 조치 승인, AI 자동 실행, 되돌림, 시나리오 무대 준비(sim) */
+  via: "OPERATOR" | "AI_APPROVED" | "AI_AUTO" | "REVERT" | "AUTO_REVERT" | "SCENARIO";
+  reason: string;
+  /** 기동(켜기)이나 드레이닝(끄기)에 걸린 초. 아직 끝나지 않았거나 끝나기 전에 멈췄으면 null */
+  tookSec: number | null;
+  /** 끝나기 전에 반대 조치가 들어와 멈췄는가(내리는 중에 다시 켬) */
+  interrupted: boolean;
+  /** 이 일이 속한 사건. 사건 밖이면 null */
+  incidentId: string | null;
+}
+
 /** 용량 전망과 앱 계층 활동 기록(4-10-3). 전망은 예측이라 근거 구간을 함께 싣는다 */
 export interface CapacityOutlook {
-  /** 근거 구간(시간). 24시간보다 짧으면 가득 참 예상일을 내지 않는다 */
+  /** 근거 구간(시간). 24시간보다 짧으면 예상 시각을 내지 않는다 */
   basisHours: number;
-  disks: { host: string; usedPct: number; growthPctPerDay: number | null; fullAt: string | null }[];
+  disks: DiskOutlook[];
   dbGrowthBytesPerDay: number | null;
   /** app-3 켜기·끄기. 최신이 앞이다 */
-  activity: { at: string; action: "ON" | "OFF"; actor: OpsActor; actorName: string; reason: string; tookSec: number | null }[];
+  activity: TierActivity[];
 }
 
 /** 호스트 자산(4-10-3). 원천이 없는 칸은 null이다 */
@@ -1745,15 +1809,27 @@ export interface HostAsset {
   securityUpdates: number | null;
 }
 
-/** 인증서 한 장(4-10-3) */
+/**
+ * 인증서 한 장(4-10-3). 만료는 기록이 날짜만 적은 인증서가 있어 KST 날짜(expiresOn)로 싣고, 시각까지 기록된 인증서만
+ * expiresAt을 채운다. 남은 날은 KST 날짜의 차이로 센다
+ */
 export interface CertificateInfo {
+  /** 도메인이나 인증서 이름 */
   domain: string;
+  /** 쓰는 곳 */
+  purpose: string;
   issuer: string;
-  expiresAt: string;
+  /** 만료 날짜(YYYY-MM-DD, KST) */
+  expiresOn: string;
+  /** 만료 시각. 기록에 시각이 없으면 null */
+  expiresAt: string | null;
+  /** 날짜가 UTC 기준으로 기록된 인증서(DB TLS). 화면이 'UTC 날짜'를 덧붙인다 */
+  utcDate: boolean;
   /** 갱신 방식. 자동 갱신 타이머나 자동 갱신 없음 */
   renewal: string;
-  /** 마지막 모의 갱신 성공. 모르면 null */
-  lastDryRunAt: string | null;
+  autoRenew: boolean;
+  /** 마지막 모의 갱신 성공 날짜(KST). 모르거나 모의 갱신이 없으면 null */
+  lastDryRunOn: string | null;
 }
 
 /**
@@ -1815,13 +1891,36 @@ export interface ActionRecord {
   /** 감사 원문 코드. 화면은 한국어 주해와 함께 원문을 늘 보인다 */
   action: string;
   target: string;
+  /** 읽기 쉬운 대상(AI 조치 요청의 제목 등). 원문 대상만 있으면 null이다 */
+  title: string | null;
+  /** 결과. 성공한 조치를 뒤에 되돌렸으면 REVERTED다 */
   result: AuditResult | "REVERTED";
   approvalId: string | null;
   incidentId: string | null;
+  /** AI 조치를 낸 판단 기록. 없으면 null */
+  judgmentId: string | null;
   /** 이 조치를 되돌린 기록 */
   revertedBy: string | null;
   /** 이 조치가 되돌린 기록 */
   revertOf: string | null;
+  /** 같은 요청의 감사 줄을 잇는 요청 id. 없으면 null */
+  requestId: string | null;
+  /** 감사 원문. 상세 모달이 접힌 JSON으로 보인다 */
+  raw: Record<string, unknown>;
+}
+
+/**
+ * 조치 기록 조회 한 번의 결과. 서버 감사는 커서로 나눠 읽으므로 받아 온 범위만 있고(partial), 더 읽을 커서를 싣는다.
+ * 승인 티켓의 발급·소각 시각은 승인 원장의 한 쪽에서 찾는다
+ */
+export interface ActionFeed {
+  origin: OpsOrigin;
+  rows: ActionRecord[];
+  approvals: ApprovalRequest[];
+  /** 더 이전 기록을 읽는 커서. 끝이면 null */
+  nextCursor: string | null;
+  /** 받아 온 쪽만 담았는가. sim은 기록 전체라 false다 */
+  partial: boolean;
 }
 
 /** 런북(4-10-4). 운영자가 SSM 세션에서 실행하는 절차이고 콘솔에 실행 단추가 없다 */

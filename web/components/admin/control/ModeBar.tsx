@@ -15,7 +15,9 @@ import { memo, useState } from "react";
 import Link from "next/link";
 import { getAdminApi, AdminError } from "@/lib/admin/api";
 import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, AUTO_HOURS, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
+import { openWindows, windowRemainWord, windowTargetWord } from "@/lib/admin/changes";
 import { useOpsDetail } from "@/lib/admin/detailStore";
+import { useOpsPick } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { AiDesk, AiNotice, OpsSection } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
@@ -275,6 +277,24 @@ function NoticeLine({ n, pending }: { n: AiNotice; pending: number }) {
   );
 }
 
+/**
+ * 진행 중인 계획 작업 창(관리자 설계 4-10-4). 창 안에서만 AI가 주의 경보를 보류할 수 있어 모드 줄 끝에 남은 시간을 적는다.
+ * 변경·작업 화면과 사이드바 배지와 같은 판정(openWindows)이다. 남은 시간이 매초 바뀌므로 이 조각만 시계를 탄다
+ */
+function WindowLink() {
+  const windows = useOpsPick((c) => (c?.changes.state === "READY" ? c.changes.data.windows : null));
+  const now = useClock();
+  const open = windows ? openWindows(windows, now) : [];
+  if (open.length === 0) return null;
+  const w = open[0];
+  return (
+    <Link href="/admin/changes" className={`${styles.stripLink} ${styles.windowLink}`} title={`${w.id} · ${windowTargetWord(w)}`}>
+      <StatusShape kind="play" size={8} />
+      계획 작업 창{open.length > 1 ? ` ${open.length}개` : ""} · <span className="num">{windowRemainWord(Date.parse(w.endsAt) - now)}</span> 남음
+    </Link>
+  );
+}
+
 /** AI 칸만 받는다. 모드 줄은 매초 다시 그리지 않고, 자동 모드의 시계 글자만 따로 돈다 */
 function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; onChanged: () => void }) {
   const canSuper = useCan("SUPER");
@@ -364,6 +384,7 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
         </span>
       )}
       <span className={styles.modeTail}>
+        <WindowLink />
         <RulesDisclosure limits={limits} />
         <Link href="/admin/ai#ai-limits" className={styles.stripLink}>
           AI 한도

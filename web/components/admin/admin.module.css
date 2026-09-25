@@ -2312,6 +2312,8 @@
   line-height: var(--font-dense-line);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
+  /* 'app-3 켜기' 머리가 1280 창에서 하이픈 뒤로 꺾이지 않게 한다(§12-12 하이픈 이름) */
+  white-space: nowrap;
 }
 .capacityTable tbody th {
   color: var(--text-strong);
@@ -2709,6 +2711,7 @@
 .commandChip {
   position: relative;
   display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: var(--space-2);
   min-height: 32px;
@@ -2733,6 +2736,7 @@
 }
 /* 사람이 옮겨 칠 문자열이라 l/1·O/0 판독에 12px이 하한이다(§12-2). 칩 높이 32px 안에 든다 */
 .commandChip code {
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--font-dense-size);
   line-height: var(--font-dense-line);
@@ -2742,7 +2746,10 @@
   text-overflow: ellipsis;
 }
 /* sunken 면에서 secondary는 4.27:1이라 미달이다. default 11.11:1 */
+/* 칩이 칸 폭으로 줄면 명령만 말줄임으로 줄고 '복사'는 한 덩이로 남는다 */
 .commandCopy {
+  flex: none;
+  white-space: nowrap;
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   color: var(--text-default);

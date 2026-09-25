@@ -36,12 +36,14 @@ import type {
   AiProposalStatus,
   AiServer,
   AlertSeverity,
+  ChangeDesk,
   ControlCenter,
   HostAsset,
   Incident,
   IncidentEvent,
   IncidentEventKind,
   IncidentLog,
+  MaintenanceWindow,
   OpsActor,
   OpsAlert,
   OpsBackup,
@@ -589,6 +591,8 @@ function readTierOf(r: WireReadTier): OpsSection<ReadTier> {
       serving: observed ?? 0,
       nodes,
       avgCpuPct: pct(mval(r.avg_cpu_ratio)),
+      // 켜진 시간을 세는 원천이 없다(AWS 활동 기록·용량 활동 기록 연결 전)
+      onSecondsToday: null,
     },
   };
 }
@@ -711,8 +715,8 @@ function jobsOf(o: WireOps, lastDailySentAt: string | null): OpsJobs {
   return {
     backup,
     backupSource,
-    // 인증서 만료는 이 판에서 원천이 없다(§6-F 운영 작업)
-    certificate: null,
+    // 인증서 만료는 이 판에서 원천이 없다(§6-F 운영 작업의 certificate 칸이 연결 전이다)
+    certificates: null,
     dailyReport: { hour: null, channel: "Teams", lastSentAt: lastDailySentAt, lastRunAt: daily?.last_triggered_at ?? null },
   };
 }
@@ -1119,6 +1123,7 @@ function checkRuleOf(rule: string): AiCheckRule {
   if (rule === "T2") return "STEP";
   if (rule === "T4") return "PER_ITEM";
   if (rule === "K2") return "BACKUP_TODAY";
+  if (rule.startsWith("S")) return "WINDOW";
   if (rule === "D4" || rule.startsWith("B")) return "BOT_GUARD";
   if (rule.startsWith("D") || rule === "T6") return "DIRECTION";
   if (rule.startsWith("M") || rule === "A1") return "MODE";
@@ -1136,6 +1141,7 @@ const CHECK_LABEL: Record<AiCheckRule, string> = {
   STEP: "임계값 1회 변경폭",
   PER_ITEM: "임계값 항목당 횟수",
   BACKUP_TODAY: "백업 하루 1회·디스크 여유",
+  WINDOW: "경보 보류 조건·계획 작업 창",
   DIRECTION: "방향 전제",
   BOT_GUARD: "봇 용량 보호",
   MODE: "모드",
@@ -1394,6 +1400,8 @@ export interface OpsExtrasSnapshot {
   incidentEvents: Map<string, WireIncidentEvent[]>;
   trends: { 1: WireTrends | null; 6: WireTrends | null };
   reportsStatus: WireReportsStatus | null;
+  /** 계획 작업 창 목록. 읽지 못했으면 null이다 */
+  windows: WireWindow[] | null;
 }
 
 export function emptyExtras(): OpsExtrasSnapshot {
@@ -1404,6 +1412,7 @@ export function emptyExtras(): OpsExtrasSnapshot {
     incidentEvents: new Map(),
     trends: { 1: null, 6: null },
     reportsStatus: null,
+    windows: null,
   };
 }
 
@@ -1433,11 +1442,64 @@ export function absentBoard(): ControlCenter {
     sources: null,
     oncall: nc(why),
     database: nc(why),
+    changes: nc(why),
+    outlook: nc(why),
   };
 }
 
 /** 3라운드 계약 초안(관리자 설계 4-4)의 칸. 서버에 경로가 없어 원천 연결 전이다 */
 const ONCALL_SOURCE = "당번 명부와 호출 정책(GET /admin/v1/msp/oncall · 3라운드 계약 초안)";
+export const CHANGE_SOURCE = "변경 요청(GET·POST /admin/v1/msp/changes · 3라운드 계약 초안)";
+export const OUTLOOK_SOURCE = "용량 전망과 앱 계층 활동 기록(GET /admin/v1/msp/capacity/outlook · 3라운드 계약 초안)";
+const WINDOW_SOURCE = "계획 작업 창(GET /admin/v1/msp/maintenance-windows)";
+
+/** 서버 계획 작업 창 한 건(API 설계 §6-F) */
+export interface WireWindow {
+  id?: number | string;
+  starts_at?: string;
+  ends_at?: string;
+  alertname?: string | null;
+  labels?: Record<string, string> | null;
+  reason?: string;
+  created_by?: string;
+  ended_at?: string | null;
+  ended_by?: string | null;
+  active?: boolean;
+}
+
+/** 라벨은 서버가 받는 네 키만 옮긴다 */
+function windowLabels(l: Record<string, string> | null | undefined): MaintenanceWindow["labels"] {
+  const out: MaintenanceWindow["labels"] = {};
+  for (const k of ["node", "role", "component", "mountpoint"] as const) if (l?.[k]) out[k] = l[k];
+  return out;
+}
+
+export function windowOf(w: WireWindow): MaintenanceWindow {
+  return {
+    id: String(w.id ?? ""),
+    startsAt: w.starts_at ?? "",
+    endsAt: w.ends_at ?? "",
+    alertname: w.alertname ?? null,
+    labels: windowLabels(w.labels),
+    reason: w.reason ?? "",
+    createdBy: w.created_by ?? "",
+    endedAt: w.ended_at ?? null,
+    endedBy: w.ended_by ?? null,
+    active: w.active === true,
+    // 변경 요청 원천이 연결 전이라 창을 연 요청을 모른다
+    changeId: null,
+  };
+}
+
+/**
+ * 변경·작업 칸. 창은 서버 목록(status=ALL, 끝 시각 역순)이고 변경 요청은 원천 연결 전이다. 창 목록을 아직 읽지 못했으면
+ * '아직 읽지 않음'을 적는다(사건 목록과 같다). 한 판에 AI 칸이 없는 서버는 창 목록을 읽지 않으므로 원천 연결 전이다
+ */
+function changesOf(windows: WireWindow[] | null, hasAi: boolean): OpsSection<ChangeDesk> {
+  if (!hasAi) return nc(`${WINDOW_SOURCE} · 서버 응답에 AI 제어 경로 없음`);
+  if (windows === null) return { state: "UNAVAILABLE", source: WINDOW_SOURCE, reason: "아직 읽지 않음" };
+  return { state: "READY", data: { windows: windows.map(windowOf), changes: nc(CHANGE_SOURCE) } };
+}
 
 function newest(times: (string | null | undefined)[]): string | null {
   let best: string | null = null;
@@ -1514,6 +1576,8 @@ export function boardOf(w: WireOverview, x: OpsExtrasSnapshot, now: number): Con
     sources: sourcesOf(w),
     oncall: nc(ONCALL_SOURCE),
     database: nc(DB_STATS_SOURCE),
+    changes: changesOf(x.windows, Boolean(w.ai)),
+    outlook: nc(OUTLOOK_SOURCE),
   };
   // 실측 표식은 관측 원천(지표·경보)의 값이 있을 때만 세운다. DB의 임계값 레지스트리만 있는 판은 실측이 아니다
   const anyLive = [board.summary, board.hosts, board.alerts].some((s) => s.state === "READY");
@@ -1740,6 +1804,9 @@ export class OpsFeed {
         out.push({ key: `trends.${r}`, path: `/admin/v1/msp/trends?range=${r}`, sig: "", ttlMs: r === "1h" ? 60_000 : 180_000, rank: r === "1h" ? 4 : 9 });
       }
     }
+    // 계획 작업 창은 AI 제어 경로(API 설계 §6-F)라 한 판에 AI 칸이 있을 때 읽는다. 모든 화면의 사이드바 배지와 관제센터 모드
+    // 줄이 읽고, 등록·종료 뒤에는 invalidate로 다시 읽는다
+    if (ai) out.push({ key: "windows", path: "/admin/v1/msp/maintenance-windows?status=ALL", sig: "", ttlMs: 120_000, rank: 2 });
     const teams = (w.sources ?? []).find((s) => s.name === "teams");
     if (teams && teams.state !== "NOT_CONNECTED") {
       out.push({ key: "reports.status", path: "/admin/v1/msp/reports/status", sig: teams.last_sent_at ?? "", ttlMs: 300_000, rank: 10 });
@@ -1816,6 +1883,7 @@ export class OpsFeed {
       incidentEvents: events,
       trends: { 1: body<WireTrends>("trends.1h"), 6: body<WireTrends>("trends.6h") },
       reportsStatus: body<WireReportsStatus>("reports.status"),
+      windows: body<{ data?: WireWindow[] }>("windows")?.data ?? null,
     };
   }
 }

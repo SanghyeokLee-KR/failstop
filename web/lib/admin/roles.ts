@@ -59,6 +59,8 @@ export const ACTION_CAP: Record<DestructiveAction, Capability> = {
   "ops.threshold.set": "SUPER",
   "ops.ai.auto": "SUPER",
   "ops.ai.limits": "SUPER",
+  // 변경 요청 승인은 작업 합의의 기록이라 총괄이 한다(관리자 설계 4-4 3라운드 계약 초안)
+  "ops.change.approve": "SUPER",
 };
 
 export const ACTION_LABEL: Record<DestructiveAction, string> = {
@@ -73,6 +75,7 @@ export const ACTION_LABEL: Record<DestructiveAction, string> = {
   "ops.threshold.set": "임계값 변경",
   "ops.ai.auto": "AI 자동 모드 켜기",
   "ops.ai.limits": "AI 한도 변경",
+  "ops.change.approve": "변경 요청 승인",
 };
 
 /** 요청 권한 충족 여부 */
@@ -122,5 +125,7 @@ export function approvalConsoleTarget(payload: ApprovalPayload): { key: string; 
         key: `ops.ai.limits:${payload.key}`,
         label: `AI 한도 ${payload.label} ${payload.from}${payload.unit} → ${payload.to}${payload.unit}${payload.revertOf ? " (되돌리기)" : ""}`,
       };
+    case "ops.change.approve":
+      return { key: `ops.change.approve:${payload.id}`, label: payload.title.startsWith(payload.id) ? payload.title : `${payload.id} · ${payload.title}` };
   }
 }

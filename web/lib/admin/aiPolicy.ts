@@ -97,7 +97,7 @@ export function allowedRules(limits: AiLimits = AI_LIMITS_DEFAULT): { kind: AiAc
   return [
     { kind: "READ_NODES", rule: "조회 전용 app-3 켜기·끄기(앱 계층 2~3대), 쿨다운 10분" },
     { kind: "THRESHOLD", rule: `항목별 허용 범위 안, 1회 변경폭 제한, 쿨다운 30분, 자동 모드 1회당 항목별 ${limits.thresholdPerItem}회. 자동은 더 민감하게 하는 방향만, 완화는 승인으로만` },
-    { kind: "SILENCE", rule: "최대 30분, 장애 등급 불가, 같은 경보 연속 보류 불가" },
+    { kind: "SILENCE", rule: "계획 작업 창 안의 주의 경보만, 최대 30분이고 창의 끝을 넘지 않음. 장애 등급, 복제·DB·백업·디스크와 관측 경로 경보 불가, 같은 경보 연속 보류 불가" },
     { kind: "BOT_LOAD", rule: `bot-1 CPU가 봇 용량 보호 기준 이상일 때만, 부하를 줄이는 방향만, 1회 최대 절반, 쿨다운 ${limits.botCooldownMin}분` },
     { kind: "BACKUP_NOW", rule: `Databasus 백업, 하루 1회, 저장 디스크 여유 ${limits.backupDiskFreePct}% 이상` },
   ];

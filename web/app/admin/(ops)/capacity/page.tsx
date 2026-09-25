@@ -37,6 +37,9 @@ import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
 import { toast } from "@/components/Toast";
+import { ActivityPanel, CreditPanel, LoadTestPanel, OutlookPanel } from "@/components/admin/capacity/CapacityPanels";
+import controlStyles from "@/components/admin/control/control.module.css";
+import capStyles from "@/components/admin/capacity/capacity.module.css";
 import styles from "@/components/admin/admin.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
@@ -130,7 +133,6 @@ export default function CapacityPage() {
     <PageHeader
       title="용량·부하"
       mark={isAdminHttp() ? undefined : <SimMark />}
-      desc="조회 전용 app-3를 켜고 끕니다(앱 계층 2~3대). 매칭 리더 app-1·app-2는 늘 켜져 있고 조회도 함께 받습니다"
       actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
     />
   );
@@ -218,6 +220,10 @@ export default function CapacityPage() {
             <SourceMark state="NOT_APPLIED" note={`계약 ${d.plan.desired}대 · 관측 ${d.observedTotal}대`} />
           </p>
         )}
+        {/* 3라운드 화면 머리는 설명 줄을 두지 않는다(레이아웃 §7). 머리에 있던 한 줄을 이 칸으로 옮겼다 */}
+        <p className={capStyles.nodeNote}>
+          조회 전용 app-3를 켜고 끕니다(앱 계층 2~3대). 매칭 리더 app-1·app-2는 늘 켜져 있고 조회도 함께 받습니다.
+        </p>
         {!canScale && <PermissionNote>app-3 켜기·끄기는 총괄 권한이 필요합니다</PermissionNote>}
       </PanelCard>
       </div>
@@ -269,6 +275,14 @@ export default function CapacityPage() {
           "권고에 따라 증설·축소",
         ]}
       />
+
+      {/* 3라운드 확장(관리자 설계 4-10-3). 관제 판의 칸을 골라 읽어 지금 판의 수동 갱신과 따로 움직인다 */}
+      <div className={controlStyles.split}>
+        <CreditPanel />
+        <OutlookPanel />
+      </div>
+      <ActivityPanel />
+      <LoadTestPanel />
 
       {pending && (
         <ConfirmDialog

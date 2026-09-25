@@ -18,14 +18,21 @@ import { assetRows } from "../lib/admin/assets";
 import { walGap } from "../lib/admin/dbFacts";
 import { ONCALL_ROSTER, onDutyAt } from "../lib/admin/oncall";
 import { escalationOf, isPageEvent, todayIncidents, todayMeans } from "../lib/admin/opsDetail";
+import { openPlanItems, openWindows, planItems } from "../lib/admin/changes";
+import { certDaysLeft, certTone, soonestCert } from "../lib/admin/certs";
+import { onSecondsFromActivity } from "../lib/admin/tierActivity";
+import { badgeOf } from "../lib/admin/navBadges";
 import type {
   AiDesk,
+  CapacityOutlook,
+  ChangeDesk,
   ControlCenter,
   DbStats,
   IncidentLog,
   OnCallDesk,
   OpsAlert,
   OpsHost,
+  OpsJobs,
   OpsSection,
   OpsTrading,
   ReadTier,
@@ -167,6 +174,22 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   assert.equal(walGap(ready<DbStats>(c.database)), repl.lagBytes, `${where}: WAL 차이와 복제 지연 바이트`);
   // 자산 목록의 수집 중 행은 설정의 Prometheus 행(수집 대상 응답 수)과 같다
   assert.equal(assetRows(c).filter((r) => r.responding).length, targets.ok, `${where}: 자산 목록 수집 중 행`);
+
+  // 3라운드 묶음 B. 진행 중인 계획 작업 창은 변경·작업 화면, 관제센터 모드 줄, 사이드바 배지가 같은 창을 센다
+  const boardNow = Date.parse(c.generatedAt);
+  const changeDesk = ready<ChangeDesk>(c.changes);
+  const openIds = openWindows(changeDesk.windows, boardNow).map((w) => w.id);
+  assert.deepEqual(openPlanItems(planItems(changeDesk.windows, ready(changeDesk.changes), boardNow), boardNow).map((it) => it.window?.id), openIds, `${where}: 변경·작업의 진행 중인 창`);
+  const changeBadge = badgeOf("changes", c);
+  assert.equal(changeBadge === null ? 0 : changeBadge.count ?? 1, openIds.length, `${where}: 변경·작업 배지`);
+  // 인증서 남은 날은 관제센터 운영 작업 줄(가장 먼저 만료), 네트워크·보안, 사이드바 배지가 같은 판정이다
+  const certs = ready<OpsJobs>(c.jobs).certificates ?? [];
+  const soon = soonestCert(certs);
+  const worst = soon === null ? "success" : certTone(certDaysLeft(soon, boardNow));
+  assert.equal(badgeOf("security", c)?.tone ?? "success", worst, `${where}: 인증서 배지와 운영 작업 줄`);
+  // app-3 가동 시간은 용량·부하의 활동 기록과 비용이 읽는 판의 값이 같다
+  const outlook = ready<CapacityOutlook>(c.outlook);
+  assert.ok(Math.abs(onSecondsFromActivity(outlook.activity, boardNow) - (tier.onSecondsToday ?? -1)) <= 2, `${where}: app-3 가동 시간`);
 }
 
 test("평시 한 판에서 모든 화면의 봇 발행률, 조회 CPU, 증설 기준, 대수, 리더, 복제, 연동 값이 같다", () => {

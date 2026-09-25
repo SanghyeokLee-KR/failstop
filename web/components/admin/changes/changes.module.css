@@ -1,0 +1,707 @@
+/* 변경·작업(관리자 설계 4-10-4, 레이아웃 §7 3라운드). 위는 두 칸 1.4 : 1(왼쪽 달력, 오른쪽 규칙 상자·진행 중인 창·고른 날의
+   항목), 아래는 전폭 변경 요청 표와 변경 기록이다. 드로어는 사건 드로어와 같은 오른쪽 560px 층이다(§12-13).
+   계획의 단계는 상태가 아니라 헬스 색을 쓰지 않고 형태와 무채 윤곽으로 가른다(§12-15). 되돌림만 실제로 되돌린 사실이라 주의다 */
+
+/* ===== 판 ===== */
+.calFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.calNote {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* 규칙 상자. 판독이 아니라 안내라 칸을 칠하지 않고 번호와 글만 둔다 */
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: rule;
+}
+.rules li {
+  position: relative;
+  padding-left: 22px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+  counter-increment: rule;
+}
+.rules li::before {
+  content: counter(rule);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  font-variant-numeric: tabular-nums;
+}
+.ruleSource {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* 진행 중인 창. 한 창이 한 덩이이고 창 사이는 헤어라인이다 */
+.openList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.openItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.openItem:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.openItem:last-child {
+  padding-bottom: 0;
+}
+.openTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.openTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.openMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.openActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 창의 상태 글. 열림은 크롬 악센트 ▶와 남은 시간이다(시각 상태가 아니라 계획의 진행) */
+.windowState {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.windowState b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.playShape {
+  color: var(--chrome-accent);
+}
+.doneShape {
+  color: var(--text-secondary);
+}
+.windowLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+/* 고른 날의 항목. 행 전체가 단추다 */
+.dayList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dayItem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.dayList li:first-child .dayItem {
+  border-top: 0;
+}
+.dayItem:hover {
+  background: var(--surface-hover);
+}
+.dayShape {
+  position: relative;
+  top: 1px;
+  color: var(--text-secondary);
+}
+.dayItem[data-state="IN_PROGRESS"] .dayShape {
+  color: var(--chrome-accent);
+}
+.dayItem[data-state="ROLLED_BACK"] .dayShape {
+  color: var(--color-warning-text);
+}
+.dayTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.dayState {
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.dayItem[data-state="ROLLED_BACK"] .dayState {
+  color: var(--color-warning-text);
+}
+.daySub {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.dayItem:hover .daySub {
+  color: var(--text-default);
+}
+
+/* ===== 변경 요청 표 ===== */
+.tableWrap {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.cId {
+  width: 96px;
+}
+.cWhen {
+  width: 22%;
+}
+.cRisk {
+  width: 80px;
+}
+.cState {
+  width: 112px;
+}
+.cWho {
+  width: 17%;
+}
+.table thead th {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+.table thead th:first-child,
+.table tbody th {
+  padding-left: var(--space-4);
+}
+.table thead th:last-child,
+.table tbody td:last-child {
+  padding-right: var(--space-4);
+}
+.row {
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.row th,
+.row td {
+  height: 52px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: var(--fw-regular);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text-default);
+}
+.row:last-child th,
+.row:last-child td {
+  border-bottom: 0;
+}
+.row:hover {
+  background: var(--surface-hover);
+}
+.line,
+.sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sub {
+  margin-top: 2px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.row:hover .sub {
+  color: var(--text-default);
+}
+.rowBtn {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+.row:hover .rowBtn {
+  text-decoration-color: currentColor;
+}
+.rowBtn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translateY(-50%);
+}
+.idText {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+
+/* 위험. 낮음은 무채 ●, 중간·높음은 ▲ 글자다. 계획의 성질이라 주의 색을 쓰지 않는다 */
+.risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.risk > svg {
+  color: var(--text-secondary);
+}
+.risk[data-risk="HIGH"] {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.risk[data-risk="HIGH"] > svg {
+  color: var(--text-strong);
+}
+
+/* ===== 변경 기록 ===== */
+.records {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.record:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.record:last-child {
+  padding-bottom: 0;
+}
+@container records (max-width: 760px) {
+  .record {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.recordsWrap {
+  container: records / inline-size;
+  min-width: 0;
+}
+.recordHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.recordTitle {
+  position: relative;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+.recordTitle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.recordTitle:hover {
+  text-decoration-color: currentColor;
+}
+.recordMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.recordKv {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.recordKv dt {
+  color: var(--text-secondary);
+}
+.recordKv dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-default);
+}
+.recordSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.recordSideHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.recordSideHead span {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+
+/* 창 안의 조치 한 줄. 시각, 누가 무엇을, 되돌림 여부다 */
+.inWindow {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.inWindowRow {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.inWindowRow:first-child {
+  border-top: 0;
+}
+.inWindowTime {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.inWindowText {
+  min-width: 0;
+}
+.inWindowText b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.reverted {
+  font-weight: var(--fw-semibold);
+  color: var(--color-warning-text);
+}
+.denied {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.inlineLink {
+  position: relative;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--chrome-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.inlineLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.inlineLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ===== 드로어 ===== */
+.idTag {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  overflow-wrap: anywhere;
+}
+.next {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.nextKey {
+  flex: none;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.kv {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  margin: 0;
+}
+.kv dt,
+.kv dd {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.kv dt {
+  color: var(--text-secondary);
+}
+.kv dd {
+  min-width: 0;
+  color: var(--text-strong);
+}
+.kv > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.approveRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.actions:empty {
+  display: none;
+}
+
+/* 입력. 드로어 안의 입력·고르기·단추는 44px이다(§12-13 v1.17) */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.formLead {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fieldLabel {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.fieldHint {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-family: inherit;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-placeholder);
+}
+.textarea {
+  resize: vertical;
+}
+.select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: var(--space-7);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+}
+/* 날짜와 시각 한 쌍. 한 줄 전폭에 반씩이다. 반 칸에 두면 시각 칸('오후 06:40')이 잘린다 */
+.when {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.twoCol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+/* 분절 조작은 칸 폭으로 늘이지 않는다 */
+.segWrap {
+  align-self: flex-start;
+  display: inline-flex;
+}
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.fieldset > legend {
+  padding: 0 var(--space-1);
+}
+.labelGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.formFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.formFoot > button {
+  min-height: 44px;
+}
+.formNote {
+  min-width: 0;
+  flex: 1;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.finishForm {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}
