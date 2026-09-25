@@ -332,7 +332,7 @@ test("http SLA는 요청 없이 원천 연결 전이다", async () => {
 /* ===== 비용(4-10-5) ===== */
 
 test("비용 계획은 십진 입력을 정수 셈 단위로 옮겨 셈한다", () => {
-  assert.equal(toUnits("172"), 1_720_000);
+  assert.equal(toUnits("163.62"), 1_636_200);
   assert.equal(toUnits("6.73"), 67_300);
   assert.equal(toUnits("0.0335"), 335);
   assert.throws(() => toUnits("1.23456"));
@@ -342,16 +342,16 @@ test("비용 계획은 십진 입력을 정수 셈 단위로 옮겨 셈한다", 
   assert.equal(v.days, 15, "10.2~10.16 양 끝 포함");
   assert.equal(usd(v.planTotal), "$100.95");
   assert.equal(usd(v.planWithApp3), "$112.95");
-  assert.equal(usd(v.remain), "$71.05");
-  assert.equal(usd(v.remainWithApp3), "$59.05");
-  assert.equal(v.exhaustDay, "2026-10-27", "25일을 쓰고 26일째에 넘는다");
-  assert.equal(v.exhaustDayWithApp3, "2026-10-24");
+  assert.equal(usd(v.remain), "$62.67");
+  assert.equal(usd(v.remainWithApp3), "$50.67");
+  assert.equal(v.exhaustDay, "2026-10-26", "24일을 쓰고 25일째에 넘는다");
+  assert.equal(v.exhaustDayWithApp3, "2026-10-23");
   assert.equal(v.spentToDate, 0);
   const mid = costView(COST_PLAN, Date.parse("2026-10-05T12:00:00+09:00"));
   assert.equal(mid.phase, "RUNNING");
   assert.equal(mid.spentToDate, 4 * 67_300);
   assert.equal(exhaustsEarly(), false);
-  assert.equal(md("2026-10-27"), "10.27");
+  assert.equal(md("2026-10-26"), "10.26");
   assert.equal(usd(-12_345), "-$1.23");
   assert.equal(app3Cost(3600), 335, "한 시간은 단가 그대로");
   assert.equal(app3Cost(0), 0);
