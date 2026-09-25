@@ -1,0 +1,73 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "items" : [ {
+      "key" : "confidence_pct",
+      "value" : 80,
+      "effective" : 80,
+      "pending" : false,
+      "min" : 70,
+      "max" : 95,
+      "tighter" : "UP",
+      "unit" : "%",
+      "version" : 1,
+      "updated_by" : "migration:V72",
+      "updated_at" : "2026-09-25T03:50:01.208Z",
+      "reason" : "확정값(ADR 0035)"
+    }, {
+      "key" : "auto_cap",
+      "value" : 5,
+      "effective" : 5,
+      "pending" : false,
+      "min" : 1,
+      "max" : 10,
+      "tighter" : "DOWN",
+      "unit" : "회",
+      "version" : 1,
+      "updated_by" : "migration:V72",
+      "updated_at" : "2026-09-25T03:50:01.208Z",
+      "reason" : "확정값(ADR 0035)"
+    }, {
+      "key" : "threshold_per_item",
+      "value" : 2,
+      "effective" : 2,
+      "pending" : false,
+      "min" : 1,
+      "max" : 3,
+      "tighter" : "DOWN",
+      "unit" : "회",
+      "version" : 1,
+      "updated_by" : "migration:V72",
+      "updated_at" : "2026-09-25T03:50:01.208Z",
+      "reason" : "확정값(ADR 0035)"
+    }, {
+      "key" : "bot_cooldown_min",
+      "value" : 10,
+      "effective" : 10,
+      "pending" : false,
+      "min" : 5,
+      "max" : 60,
+      "tighter" : "UP",
+      "unit" : "분",
+      "version" : 1,
+      "updated_by" : "migration:V72",
+      "updated_at" : "2026-09-25T03:50:01.208Z",
+      "reason" : "확정값(ADR 0035)"
+    }, {
+      "key" : "backup_disk_free_pct",
+      "value" : 30,
+      "effective" : 30,
+      "pending" : false,
+      "min" : 20,
+      "max" : 50,
+      "tighter" : "UP",
+      "unit" : "%",
+      "version" : 1,
+      "updated_by" : "migration:V72",
+      "updated_at" : "2026-09-25T03:50:01.208Z",
+      "reason" : "확정값(ADR 0035)"
+    } ],
+    "activation" : null
+  }
+}

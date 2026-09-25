@@ -26,7 +26,7 @@ import OpsHead from "@/components/admin/control/OpsHead";
 import { DatabasusLink } from "@/components/admin/control/Jobs";
 import StatusShape, { GLYPH_SHAPE } from "@/components/admin/StatusShape";
 import { SimMark } from "@/components/admin/ui";
-import { Ago, NotConnected, PanelHead } from "@/components/admin/control/parts";
+import { Ago, NotConnected, PanelHead, SectionGap, sectionSource } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
 import styles from "@/components/admin/settings/settings.module.css";
@@ -177,8 +177,8 @@ export default function SettingsPage() {
                 <Skeleton variant="card" width="100%" height={160} />
               ) : onCall.error || !onCall.data ? (
                 <AdminErrorState reason={onCall.errorReason} onRetry={onCall.reload} />
-              ) : onCall.data.state === "NOT_CONNECTED" ? (
-                <NotConnected what="연락 체계" source={onCall.data.source} />
+              ) : onCall.data.state !== "READY" ? (
+                <SectionGap section={onCall.data} what="연락 체계" />
               ) : (
                 <>
                   <table className={styles.contacts}>
@@ -262,7 +262,7 @@ export default function SettingsPage() {
                     })}
                   </dl>
                 ) : (
-                  <NotConnected what="AI 한도" source={data.ai.state === "NOT_CONNECTED" ? data.ai.source : ""} compact />
+                  <NotConnected what="AI 한도" source={sectionSource(data.ai)} compact />
                 )}
                 <div className={styles.links}>
                   <Link href="/admin/ai#ai-limits" className={controlStyles.stripLink}>

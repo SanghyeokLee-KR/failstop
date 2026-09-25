@@ -89,13 +89,22 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
   }
   if (r === null) return null;
   if (r.state !== "OK") {
+    // 서버가 쓴 안내(note)가 있으면 그것을 싣는다. 모델 호출 실패(UNAVAILABLE)는 사유까지 서버 문장에 있다
+    const fallback = r.state === "STOPPED"
+      ? "AI 정지 중이라 답하지 않습니다. 운영자 바의 'AI 재개'로 재개하면 다시 답합니다."
+      : r.state === "UNAVAILABLE" ? "상담 모델이 답하지 못했습니다." : "상담 모델 설정이 없어 답하지 않습니다.";
     return (
       <article className={styles.ai} aria-label="AI 답 없음">
         {head}
         <p className={styles.answer} data-tone="warning">
           <span aria-hidden="true"><StatusShape kind="triangle" /> </span>
-          {r.state === "STOPPED" ? "AI 정지 중이라 답하지 않습니다. 운영자 바의 'AI 재개'로 재개하면 다시 답합니다." : "상담 모델 설정이 없어 답하지 않습니다."}
+          {r.note ?? fallback}
         </p>
+        {r.state === "UNAVAILABLE" && m.question && (
+          <button type="button" className={`${styles.textBtn} ${styles.retry}`} disabled={busy} onClick={() => onRetry(m.question as string)}>
+            다시 묻기
+          </button>
+        )}
       </article>
     );
   }
@@ -103,6 +112,13 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
   return (
     <article className={styles.ai} aria-label="AI 답">
       {head}
+      {/* 근거가 오래됐거나 원천이 연결 전이면 서버가 그 사실을 답보다 먼저 싣는다(§6-F preface) */}
+      {r.note && (
+        <p className={styles.answer} data-tone="warning">
+          <span aria-hidden="true"><StatusShape kind="triangle" /> </span>
+          {r.note}
+        </p>
+      )}
       <p className={styles.answer}>{joinDots(r.answer)}</p>
       {r.evidence.length > 0 && (
         <dl className={styles.evidence} aria-label="근거">
@@ -159,7 +175,10 @@ export default function ChatPanel() {
   const sim = api.aiChat === "SIM";
   // AI 칸의 모드만 고른다. 판이 매초 새로 와도 모드가 같으면 다시 그리지 않는다
   const aiMode = useOpsPick((c) => (c?.ai.state === "READY" ? c.ai.data.mode : null));
-  const blocked: "http" | "stopped" | null = !sim ? "http" : aiMode === "STOPPED" ? "stopped" : null;
+  // 관제 서버가 없는 배포(판의 AI 칸 연결 전)에는 상담 경로도 없다. 판을 받기 전에도 보내지 않는다
+  const blocked: "http" | "stopped" | null = api.aiChat === "NOT_CONNECTED" || (!sim && aiMode === null)
+    ? "http"
+    : aiMode === "STOPPED" ? "stopped" : null;
 
   const [draft, setDraft] = useState("");
   const [drag, setDrag] = useState(false);
@@ -327,7 +346,7 @@ export default function ChatPanel() {
           <b>
             <span aria-hidden="true"><StatusShape kind="dashed" /> </span>AI 연결 전
           </b>
-          서버 상담 경로(POST /admin/v1/msp/ai/chat)를 붙이기 전이라 질문을 보내지 않습니다.
+          관리 API에 관제센터 서버가 없거나 판을 아직 받지 않아 질문을 보내지 않습니다(POST /admin/v1/msp/ai/chat).
         </div>
       )}
       {blocked === "stopped" && (

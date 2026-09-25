@@ -170,9 +170,10 @@ function summary(c: ControlCenter): Draft {
   const ev: AiChatEvidence[] = [];
   if (s) {
     const bad: string[] = [];
-    if (s.availabilityPct !== null && s.availabilityPct < s.slo.availabilityPct) bad.push("외부 가용성");
-    if (s.p95Ms !== null && s.p95Ms > s.slo.p95Ms) bad.push("응답 p95");
-    if (s.errorRatePct !== null && s.errorRatePct >= s.slo.errorRatePct) bad.push("5xx 비율");
+    // 목표가 없는 지표(서버에 SLO 설정 없음)는 견주지 않는다
+    if (s.availabilityPct !== null && s.slo.availabilityPct !== null && s.availabilityPct < s.slo.availabilityPct) bad.push("외부 가용성");
+    if (s.p95Ms !== null && s.slo.p95Ms !== null && s.p95Ms > s.slo.p95Ms) bad.push("응답 p95");
+    if (s.errorRatePct !== null && s.slo.errorRatePct !== null && s.errorRatePct >= s.slo.errorRatePct) bad.push("5xx 비율");
     out.push(
       `외부 가용성 ${s.availabilityPct ?? "미수집"}%, 응답 p95 ${s.p95Ms ?? "미수집"}ms, 5xx ${s.errorRatePct ?? "미수집"}%${
         bad.length === 0 ? "로 세 목표 안에 있습니다." : `입니다. 목표를 벗어난 지표는 ${bad.join("·")}입니다.`
@@ -301,6 +302,7 @@ function pending(c: ControlCenter): Draft {
 function aiServer(c: ControlCenter): Draft {
   const s = c.aiServer;
   if (s.state === "NOT_CONNECTED") return { answer: `ai-1 상태 원천이 연결 전입니다(${s.source}).`, evidence: [] };
+  if (s.state === "UNAVAILABLE") return { answer: `ai-1 상태를 불러오지 못했습니다(${s.reason}).`, evidence: [] };
   const a = s.data;
   const lat = (ms: number | null) => (ms === null ? "요청 없음" : secWord(ms));
   const state = a.link === "DOWN" ? "관제 서버와 연결이 끊겼습니다" : a.busy ? "지금 판단 요청을 처리하고 있습니다" : "대기 중입니다";
@@ -354,10 +356,11 @@ function backup(c: ControlCenter, now: number): Draft {
   const jobs = ready(c.jobs);
   if (!jobs) return { answer: "Databasus 원천이 연결 전이라 백업 상태를 알 수 없습니다.", evidence: [] };
   const b = jobs.backup;
+  if (!b) return { answer: `백업 원천이 연결 전이라 백업 상태를 알 수 없습니다(${jobs.backupSource ?? "Databasus"}).`, evidence: [] };
   const outcome = (o: string) => (o === "SUCCESS" ? "성공" : o === "FAILED" ? "실패" : "기록 없음");
   return {
     answer:
-      `마지막 백업 성공은 ${b.lastSuccessAt ? `${hm(b.lastSuccessAt)}(${ago(b.lastSuccessAt, now)})` : "기록 없음"}입니다. 외부 보관(${b.offsite.target})은 ${outcome(b.offsite.outcome)}, 복원 검증은 ${outcome(b.restoreCheck.outcome)}입니다.` +
+      `마지막 백업 성공은 ${b.lastSuccessAt ? `${hm(b.lastSuccessAt)}(${ago(b.lastSuccessAt, now)})` : "기록 없음"}입니다. 외부 보관은 ${b.offsite ? `(${b.offsite.target}) ${outcome(b.offsite.outcome)}` : "원천 연결 전"}, 복원 검증은 ${outcome(b.restoreCheck.outcome)}입니다.` +
       `${b.running ? " 지금 백업이 실행 중입니다." : ""} 다음 예약은 ${b.nextAt ? hm(b.nextAt) : "없음"}입니다.`,
     evidence: [metric("backup_last", "마지막 백업", b.lastSuccessAt ? ago(b.lastSuccessAt, now) : "기록 없음"), metric("backup_restore", "복원 검증", outcome(b.restoreCheck.outcome))],
   };
@@ -417,7 +420,7 @@ function declined(guide: AiChatGuide, c: ControlCenter): Draft {
 
 /** 관제 판으로 질문에 답한다(sim). 모델을 부르지 않는다. AI가 정지 중이면 답하지 않고 그 상태만 돌려준다 */
 export function answerFromCenter(question: string, c: ControlCenter, now: number): AiChatReply {
-  const base = { collectedAt: c.collectedAt, model: SIM_CHAT_MODEL };
+  const base = { collectedAt: c.collectedAt, model: SIM_CHAT_MODEL, note: null };
   const ai = ready(c.ai);
   if (ai?.mode === "STOPPED") return { ...base, state: "STOPPED", answer: "", evidence: [], declined: false, guide: null };
   const guide = requestedGuide(question);

@@ -37,6 +37,15 @@ export default function ControlCenterPage() {
   const { data, loading, failed, refresh } = useOpsCenter();
   // 관제센터는 지금을 보는 화면이라 기본 범위는 1시간이다. 긴 범위는 앞 구간 평균에 묻혀 증감이 늦게 움직인다
   const [range, setRange] = useState<TrendRange>(1);
+  // http 원천은 1시간 추세만 늘 읽으므로 다른 범위를 고르면 그 범위를 읽게 알린다(sim은 할 일이 없다)
+  const pickRange = useCallback(
+    (r: TrendRange) => {
+      setRange(r);
+      getAdminApi().wantTrends(r);
+      void refresh(true);
+    },
+    [refresh],
+  );
   const loadOverview = useCallback(() => getAdminApi().getOverview(), []);
   const ov = useAdminResource(loadOverview, { cadence: "idle", isSessionError });
   const reloadOverview = ov.reload;
@@ -58,7 +67,7 @@ export default function ControlCenterPage() {
         center={data}
         aside={
           <>
-            <RangeSwitch range={range} onRange={setRange} />
+            <RangeSwitch range={range} onRange={pickRange} />
             <CollectState center={data} failed={failed} />
           </>
         }

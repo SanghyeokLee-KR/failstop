@@ -1,0 +1,18 @@
+{
+  "status" : 201,
+  "body" : {
+    "schema_version" : "1.0",
+    "id" : 1,
+    "starts_at" : "2026-09-25T03:50:05.120Z",
+    "ends_at" : "2026-09-25T05:50:05.115Z",
+    "alertname" : "ReadTierCpuHigh",
+    "labels" : {
+      "component" : "app"
+    },
+    "reason" : "app-3 교체 작업",
+    "created_by" : "snap-bot",
+    "ended_at" : null,
+    "ended_by" : null,
+    "active" : true
+  }
+}

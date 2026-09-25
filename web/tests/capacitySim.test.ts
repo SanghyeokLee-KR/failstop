@@ -44,7 +44,7 @@ test("용량 판은 관제센터와 같은 노드 이름, 대수, 임계를 쓰�
   assert.equal(cap.reconciled, true);
   assert.equal(app3.expected, false, "평시 app-3는 희망 대수 밖이다");
 
-  const items = ready<{ items: { key: string; value: number }[] }>(c.thresholds).items;
+  const items = ready<{ items: { key: string; value: number | null }[] }>(c.thresholds).items;
   assert.equal(cap.thresholds.scaleOutCpuRatio, (items.find((t) => t.key === "read.scale_out_cpu")?.value ?? 0) / 100);
   assert.equal(cap.thresholds.scaleInCpuRatio, (items.find((t) => t.key === "read.scale_in_cpu")?.value ?? 0) / 100);
   assert.ok(cap.readAvgCpuRatio !== null && Math.abs(cap.readAvgCpuRatio * 100 - (tier.avgCpuPct ?? 0)) <= 5);

@@ -30,6 +30,7 @@ const GEMINI = "gemini-3.1-flash-lite";
 function dailyNormal(t: number): OpsReport {
   return {
     id: `daily:${dayKey(t)}`,
+    detail: "FULL",
     kind: "daily",
     createdAt: at(t),
     sentAt: at(t + 4 * SEC),
@@ -74,6 +75,7 @@ function dailyNormal(t: number): OpsReport {
 function dailyBackupCheck(t: number): OpsReport {
   return {
     id: `daily:${dayKey(t)}`,
+    detail: "FULL",
     kind: "daily",
     createdAt: at(t),
     sentAt: at(t + 41 * SEC),
@@ -136,6 +138,7 @@ function incidentAutoRevert(t: number): OpsReport {
   const created = resolved + 30 * SEC;
   return {
     id: "incident:7c2e91b04a5d",
+    detail: "FULL",
     kind: "incident",
     createdAt: at(created),
     sentAt: at(created + 3 * SEC),

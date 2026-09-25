@@ -5,6 +5,8 @@
  * 공통 표시 모델(presentation.py)과 같은 정보 구조를 이 콘솔의 판면으로 그린다. 제목과 개입 등급, 보고
  * 기준 시각(KST), 영향, 담당자 조치(담당 역할·착수·할 일·완료 조건), 후속 관측, 참고 분석, 미확인 자료,
  * 자동 조치 여부, PDF·HTML 보고서 순서다. AI 요약은 AI 표지와 모델 이름으로 사람이 정한 판정과 가른다.
+ * http 원천의 보고 서비스 읽기 프록시는 목록 요약만 주므로(detail SUMMARY) 본문 자리는 연결 전으로 그리고, 본문은
+ * 보고 서비스가 서명한 PDF·HTML로 본다.
  */
 
 import { INTERVENTION_SHAPE, JOB_WORD, KIND_WORD, cardTone, teamsCard } from "@/lib/admin/reports";
@@ -14,6 +16,7 @@ import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
 import { Modal } from "../layer/Layer";
 import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
+import { NotConnected } from "../control/parts";
 import styles from "./reports.module.css";
 
 /** 초까지 적는 KST 시각. 전송 기록은 초 단위로 가른다 */
@@ -67,9 +70,7 @@ export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolea
         </div>
         <div className={styles.fact}>
           <dt>고객 · 환경</dt>
-          <dd>
-            {r.customer} / {r.environment}
-          </dd>
+          <dd>{r.customer || r.environment ? `${r.customer} / ${r.environment}` : "관제 서버 설정의 범위"}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Teams 전송</dt>
@@ -81,101 +82,110 @@ export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolea
         </div>
       </dl>
 
-      <section className={styles.section} aria-label="상황과 영향">
-        <p className={styles.lead}>{r.lead}</p>
-        {r.events.length > 0 && (
-          <ol className={styles.events} aria-label="사건 경과">
-            {r.events.map((e) => (
-              <li key={`${e.name}-${e.startedAt}`} className={styles.event}>
-                <span className={styles.eventState}>{e.statusLabel}</span>
-                <span className={styles.eventName}>
-                  {e.name}
-                  <small>{e.target}</small>
-                </span>
-                <span className={`${styles.eventTime} num`}>
-                  {kst(e.startedAt, false)} 발생
-                  {e.endedAt && (
-                    <>
-                      <br />
-                      {kst(e.endedAt, false)} 해제
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-        <dl className={styles.kv}>
-          <dt>영향</dt>
-          <dd>{r.impact}</dd>
-          <dt>수집 시점</dt>
-          <dd>{r.currentState}</dd>
-        </dl>
-      </section>
-
-      <section className={styles.section} aria-labelledby="report-actions">
-        <h3 id="report-actions" className={styles.sectionHead}>
-          담당자 조치 <span className={`${styles.sectionMeta} num`}>{r.actions.length}건</span>
-        </h3>
-        <div className={styles.actions}>
-          <div className={`${styles.action} ${styles.actionHead}`} aria-hidden="true">
-            <span>순위</span>
-            <span>담당 역할 · 착수</span>
-            <span>할 일</span>
-            <span>완료 조건</span>
-          </div>
-          {r.actions.map((a) => (
-            <div key={`${a.priority}-${a.task}`} className={styles.action}>
-              <span className={`${styles.priority} num`}>{a.priority}</span>
-              <span className={styles.owner}>
-                <b>{a.owner}</b>
-                <span>{a.timing}</span>
-              </span>
-              <span className={styles.task}>{a.task}</span>
-              <span className={styles.done}>{a.doneWhen}</span>
-            </div>
-          ))}
-        </div>
-        <p className={styles.note}>수집 시점의 권고 기준입니다. 담당 역할과 착수 시점은 SLA나 작업 배정이 아닙니다.</p>
-      </section>
-
-      <section className={styles.section} aria-labelledby="report-metrics">
-        <h3 id="report-metrics" className={styles.sectionHead}>
-          후속 관측 <span className={`${styles.sectionMeta} num`}>{kst(r.collectedAt)}</span>
-        </h3>
-        <div className={styles.metrics}>
-          {r.metrics.map((m) => (
-            <div key={m.label} className={styles.metric} data-status={m.status}>
-              <span className={styles.metricKey}>{m.label}</span>
-              <span className={`${styles.metricValue} num`}>
-                {m.status === "attention" && <StatusShape kind="triangle" />}
-                {m.status === "unknown" && <StatusShape kind="dashed" />}
-                {m.value}
-              </span>
-              <span className={styles.metricDetail}>{m.detail}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="report-analysis">
-        <h3 id="report-analysis" className={styles.sectionHead}>
-          참고 분석
-          {ai && (
-            <>
-              <span className={styles.aiMark} aria-hidden="true">
-                <AdminIcon name="ai" size={14} />
-              </span>
-              <span className={styles.modelTag}>AI 요약 · {r.analysis.model ?? "모델 미확인"}</span>
-            </>
+      {r.detail === "SUMMARY" ? (
+        <section className={styles.section} aria-label="요약">
+          {r.lead && <p className={styles.lead}>{r.lead}</p>}
+          <NotConnected what="보고 본문" source="보고 서비스 읽기 프록시(GET /admin/v1/msp/reports)는 목록 요약만 줍니다. 영향, 담당자 조치, 후속 관측, 참고 분석은 PDF·HTML 보고서에서 봅니다" compact />
+        </section>
+      ) : (
+        <>
+        <section className={styles.section} aria-label="상황과 영향">
+          <p className={styles.lead}>{r.lead}</p>
+          {r.events.length > 0 && (
+            <ol className={styles.events} aria-label="사건 경과">
+              {r.events.map((e) => (
+                <li key={`${e.name}-${e.startedAt}`} className={styles.event}>
+                  <span className={styles.eventState}>{e.statusLabel}</span>
+                  <span className={styles.eventName}>
+                    {e.name}
+                    <small>{e.target}</small>
+                  </span>
+                  <span className={`${styles.eventTime} num`}>
+                    {kst(e.startedAt, false)} 발생
+                    {e.endedAt && (
+                      <>
+                        <br />
+                        {kst(e.endedAt, false)} 해제
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
           )}
-        </h3>
-        {ai ? <p className={styles.prose}>{r.analysis.summary}</p> : <p className={styles.prose}>AI 분석 없이 수집 근거로만 판정한 보고입니다.</p>}
-        <p className={styles.note}>{r.analysis.note}</p>
-      </section>
+          <dl className={styles.kv}>
+            <dt>영향</dt>
+            <dd>{r.impact}</dd>
+            <dt>수집 시점</dt>
+            <dd>{r.currentState}</dd>
+          </dl>
+        </section>
+
+        <section className={styles.section} aria-labelledby="report-actions">
+          <h3 id="report-actions" className={styles.sectionHead}>
+            담당자 조치 <span className={`${styles.sectionMeta} num`}>{r.actions.length}건</span>
+          </h3>
+          <div className={styles.actions}>
+            <div className={`${styles.action} ${styles.actionHead}`} aria-hidden="true">
+              <span>순위</span>
+              <span>담당 역할 · 착수</span>
+              <span>할 일</span>
+              <span>완료 조건</span>
+            </div>
+            {r.actions.map((a) => (
+              <div key={`${a.priority}-${a.task}`} className={styles.action}>
+                <span className={`${styles.priority} num`}>{a.priority}</span>
+                <span className={styles.owner}>
+                  <b>{a.owner}</b>
+                  <span>{a.timing}</span>
+                </span>
+                <span className={styles.task}>{a.task}</span>
+                <span className={styles.done}>{a.doneWhen}</span>
+              </div>
+            ))}
+          </div>
+          <p className={styles.note}>수집 시점의 권고 기준입니다. 담당 역할과 착수 시점은 SLA나 작업 배정이 아닙니다.</p>
+        </section>
+
+        <section className={styles.section} aria-labelledby="report-metrics">
+          <h3 id="report-metrics" className={styles.sectionHead}>
+            후속 관측 <span className={`${styles.sectionMeta} num`}>{kst(r.collectedAt)}</span>
+          </h3>
+          <div className={styles.metrics}>
+            {r.metrics.map((m) => (
+              <div key={m.label} className={styles.metric} data-status={m.status}>
+                <span className={styles.metricKey}>{m.label}</span>
+                <span className={`${styles.metricValue} num`}>
+                  {m.status === "attention" && <StatusShape kind="triangle" />}
+                  {m.status === "unknown" && <StatusShape kind="dashed" />}
+                  {m.value}
+                </span>
+                <span className={styles.metricDetail}>{m.detail}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.section} aria-labelledby="report-analysis">
+          <h3 id="report-analysis" className={styles.sectionHead}>
+            참고 분석
+            {ai && (
+              <>
+                <span className={styles.aiMark} aria-hidden="true">
+                  <AdminIcon name="ai" size={14} />
+                </span>
+                <span className={styles.modelTag}>AI 요약 · {r.analysis.model ?? "모델 미확인"}</span>
+              </>
+            )}
+          </h3>
+          {ai ? <p className={styles.prose}>{r.analysis.summary}</p> : <p className={styles.prose}>AI 분석 없이 수집 근거로만 판정한 보고입니다.</p>}
+          <p className={styles.note}>{r.analysis.note}</p>
+        </section>
+        </>
+      )}
 
       <footer className={styles.foot}>
-        {r.gaps.length > 0 ? (
+        {r.detail === "SUMMARY" ? null : r.gaps.length > 0 ? (
           <details className={styles.gaps}>
             <summary>
               미확인 자료 <b className="num">{r.gaps.length}</b>항목
@@ -191,9 +201,11 @@ export function ReportDetail({ r, sim, onOpenCard }: { r: OpsReport; sim: boolea
             미확인 자료 <b className="num">0</b>항목
           </span>
         )}
-        <span>
-          자동 조치 <b>{r.autoAction}</b>
-        </span>
+        {r.detail === "FULL" && (
+          <span>
+            자동 조치 <b>{r.autoAction}</b>
+          </span>
+        )}
         <span className={styles.files}>
           {r.links.pdf === null && <span className={styles.filesNote}>{sim ? "예시 보고라 보고 파일이 없습니다" : "보고 파일이 없거나 서명할 수 없습니다"}</span>}
           <FileButton label="PDF 보고서" href={r.links.pdf} />
@@ -227,6 +239,13 @@ function FileButton({ label, href }: { label: string; href: string | null }) {
  * Teams의 모양을 흉내 내지 않고 이 콘솔의 판면으로 그린다
  */
 export function TeamsCardModal({ r, onClose }: { r: OpsReport; onClose: () => void }) {
+  if (r.detail === "SUMMARY") {
+    return (
+      <Modal name="report-card" width={520} title="Teams로 보낸 카드" onClose={onClose}>
+        <NotConnected what="카드 본문" source="보고 서비스 읽기 프록시가 카드 본문을 싣지 않습니다. Teams 채널이나 PDF·HTML 보고서에서 봅니다" />
+      </Modal>
+    );
+  }
   const card = teamsCard(r);
   const tone = cardTone(r).tone;
   const job = JOB_WORD[r.status];
@@ -298,8 +317,14 @@ export function DeliveryLog({ r }: { r: OpsReport }) {
         <h3 id="delivery-log" className={styles.panelTitle}>
           전송 기록
         </h3>
-        <span className={`${styles.panelMeta} num`}>시도 {r.attempts.length}회</span>
+        <span className={`${styles.panelMeta} num`}>{r.detail === "SUMMARY" ? "요약" : `시도 ${r.attempts.length}회`}</span>
       </div>
+      {r.detail === "SUMMARY" && (
+        <p className={styles.note}>
+          {JOB_WORD[r.status].word}
+          {r.sentAt ? ` · ${kstSec(r.sentAt)}` : ""} · 시도별 기록은 보고 서비스 읽기 프록시가 싣지 않습니다
+        </p>
+      )}
       <ol className={styles.attempts}>
         {r.attempts.map((a) => {
           const w = JOB_WORD[a.status];

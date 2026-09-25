@@ -2,7 +2,8 @@
 
 /**
  * 운영 작업 상태. 백업은 Databasus의 결과를 판독만 하고 설정을 바꾸지 않는다(관리자 설계 4-4).
- * 인증서 만료와 일일 보고 전송은 날짜로 판정한다.
+ * 인증서 만료와 일일 보고 전송은 날짜로 판정한다. http 원천은 Databasus와 인증서 만료가 연결 전이라 백업은
+ * 백업 지표(마지막 성공, 복원 검증)만, 인증서는 연결 전으로 그린다
  */
 
 import { useState } from "react";
@@ -99,9 +100,17 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
           )}
           {b.running && " · 지금 실행 중"}
         </dd>
-        <dt>외부 보관({b.offsite.target})</dt>
+        <dt>외부 보관{b.offsite ? `(${b.offsite.target})` : ""}</dt>
         <dd>
-          <Outcome o={b.offsite.outcome} ok="보관 완료" /> {b.offsite.at && `· ${dayWord(b.offsite.at, now)}`}
+          {b.offsite ? (
+            <>
+              <Outcome o={b.offsite.outcome} ok="보관 완료" /> {b.offsite.at && `· ${dayWord(b.offsite.at, now)}`}
+            </>
+          ) : (
+            <span>
+              <Shape tone="off">◌</Shape> 원천 연결 전 · Databasus
+            </span>
+          )}
         </dd>
         <dt>복원 검증</dt>
         <dd>
@@ -114,8 +123,8 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
         {/* 단추가 있는 줄은 이름과 글을 단추 높이의 가운데에 맞춘다 */}
         <dt data-mid="">즉시 실행</dt>
         <dd className={styles.kvAction}>
-          <span>오늘 {b.manualRunsToday}회 · AI 자동 실행은 하루 1회</span>
-          <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy || b.running} onClick={() => void run()}>
+          <span>{b.manualRunsToday === null ? "오늘 실행 수 원천 연결 전" : `오늘 ${b.manualRunsToday}회`} · AI 자동 실행은 하루 1회{b.canRun ? "" : " · Databasus 연결 전이라 실행할 수 없습니다"}</span>
+          <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => void run()}>
             {b.running ? "실행 중" : "지금 백업"}
           </button>
         </dd>
@@ -133,15 +142,18 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
         ) : (
           <Outcome o={b.lastSuccessAt ? "SUCCESS" : "NONE"} ok={b.lastSuccessAt ? `${dayWord(b.lastSuccessAt, now)} · ${size(b.lastSizeBytes)}` : ""} />
         )}
-        <span>
-          외부 보관 <Outcome o={b.offsite.outcome} ok={b.offsite.target} />
-        </span>
+        {b.offsite && (
+          <span>
+            외부 보관 <Outcome o={b.offsite.outcome} ok={b.offsite.target} />
+          </span>
+        )}
         <span>
           복원 검증 <Outcome o={b.restoreCheck.outcome} ok="통과" />
         </span>
       </span>
       <span className={styles.jobAct}>
-        <button type="button" className={styles.smallBtn} disabled={!canSuper || busy || b.running} onClick={() => void run()}>
+        <button type="button" className={styles.smallBtn} disabled={!canSuper || busy || b.running || !b.canRun} onClick={() => void run()}
+          title={b.canRun ? undefined : "Databasus 연결 전이라 실행할 수 없습니다"}>
           지금 백업
         </button>
       </span>
@@ -149,46 +161,79 @@ export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: 
   );
 }
 
+/** 원천이 없는 작업 줄. 연결 전 모양(◌)으로 붙일 원천을 적는다 */
+function MissingJob({ name, source }: { name: string; source: string }) {
+  return (
+    <div className={styles.job}>
+      <span className={styles.jobKey}>{name}</span>
+      <span className={styles.jobVal}>
+        <span>
+          <Shape tone="off">◌</Shape> 원천 연결 전 · {source}
+        </span>
+      </span>
+      <span />
+    </div>
+  );
+}
+
+function CertificateLine({ cert, now }: { cert: { domain: string; expiresAt: string }; now: number }) {
+  const days = Math.floor((Date.parse(cert.expiresAt) - now) / 86_400_000);
+  const certTone = days < 14 ? "danger" : days < 30 ? "warning" : "success";
+  const expires = kstParts(Date.parse(cert.expiresAt));
+  return (
+    <div className={styles.job}>
+      <span className={styles.jobKey}>인증서</span>
+      <span className={styles.jobVal}>
+        <span>
+          <Shape tone={certTone}>{certTone === "success" ? "●" : certTone === "warning" ? "▲" : "■"}</Shape> {cert.domain}
+        </span>
+        <span>
+          만료 <b className="num">D-{days}</b> · {expires.month}.{expires.day}
+        </span>
+      </span>
+      <span />
+    </div>
+  );
+}
+
 export default function JobsBlock({ jobs, onChanged }: { jobs: OpsJobs; onChanged: () => void }) {
   const now = useClock(60_000);
-  const days = Math.floor((Date.parse(jobs.certificate.expiresAt) - now) / 86_400_000);
-  const certTone = days < 14 ? "danger" : days < 30 ? "warning" : "success";
   const report = jobs.dailyReport.lastSentAt;
+  const run = jobs.dailyReport.lastRunAt ?? null;
+  const hour = jobs.dailyReport.hour;
   const sentToday = report !== null && sameKstDay(Date.parse(report), now);
-  const due = kstParts(now).h >= jobs.dailyReport.hour;
-  const expires = kstParts(Date.parse(jobs.certificate.expiresAt));
+  const ranToday = run !== null && sameKstDay(Date.parse(run), now);
+  const due = hour !== null && kstParts(now).h >= hour;
+  const hh = hour === null ? null : String(hour).padStart(2, "0");
   return (
     <div className={styles.jobs}>
-      <BackupLine b={jobs.backup} onChanged={onChanged} />
-      <div className={styles.job}>
-        <span className={styles.jobKey}>인증서</span>
-        <span className={styles.jobVal}>
-          <span>
-            <Shape tone={certTone}>{certTone === "success" ? "●" : certTone === "warning" ? "▲" : "■"}</Shape> {jobs.certificate.domain}
-          </span>
-          <span>
-            만료 <b className="num">D-{days}</b> · {expires.month}.{expires.day}
-          </span>
-        </span>
-        <span />
-      </div>
+      {jobs.backup ? <BackupLine b={jobs.backup} onChanged={onChanged} /> : <MissingJob name="백업" source={jobs.backupSource ?? "Databasus"} />}
+      {jobs.certificate ? <CertificateLine cert={jobs.certificate} now={now} /> : <MissingJob name="인증서" source="인증서 만료 원천" />}
       <div className={styles.job}>
         <span className={styles.jobKey}>일일 보고</span>
         <span className={styles.jobVal}>
           <span>
-            {String(jobs.dailyReport.hour).padStart(2, "0")}:00 {jobs.dailyReport.channel}
+            {hh === null ? "예약 시각 원천 연결 전" : `${hh}:00`} {jobs.dailyReport.channel}
           </span>
           {sentToday ? (
             <span>
               <Shape tone="success">●</Shape> 전송 {hm(report as string)}
             </span>
+          ) : ranToday ? (
+            <span>
+              <Shape tone="off">○</Shape> 실행 {hm(run as string)} · 전송 기록 없음
+            </span>
           ) : due ? (
             <span>
               <Shape tone="warning">▲</Shape> 오늘 전송 기록 없음
             </span>
+          ) : hh !== null ? (
+            <span>
+              <Shape tone="off">○</Shape> 오늘 {hh}:00 예정
+            </span>
           ) : (
             <span>
-              <Shape tone="off">○</Shape> 오늘 {String(jobs.dailyReport.hour).padStart(2, "0")}:00 예정
+              <Shape tone="off">◌</Shape> 오늘 실행·전송 기록 없음
             </span>
           )}
         </span>

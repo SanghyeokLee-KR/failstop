@@ -14,7 +14,7 @@ import type { ApprovalPayload, ControlCenter, OpsSection, OpsThreshold, Threshol
 import ApprovalList from "../ApprovalList";
 import RequestButton from "../RequestButton";
 import GrafanaLink from "../GrafanaLink";
-import { hms, NotConnected, PanelHead } from "./parts";
+import { hms, PanelHead, SectionGap } from "./parts";
 import styles from "./control.module.css";
 import StatusShape from "../StatusShape";
 
@@ -23,7 +23,15 @@ const VIA_WORD: Record<ThresholdVia, string> = {
   AI_APPROVED: "AI 제안 승인",
   AI_AUTO: "AI 자동",
   REVERT: "되돌리기",
+  AUTO_REVERT: "AI 자동 되돌림",
+  SEED: "초기값",
+  CONFIG: "환경 기본값",
 };
+
+/** 값 글자. 서버 레지스트리의 미설정 항목은 판정하지 않는다 */
+function valueWord(v: number | null, unit: string): string {
+  return v === null ? "미설정" : `${v}${unit}`;
+}
 /** 증설 임계는 축소 임계보다 이만큼 높아야 한다(시뮬레이터와 같은 규칙) */
 const SCALE_GAP = 15;
 
@@ -41,9 +49,11 @@ function checkDraft(t: OpsThreshold, to: number, items: OpsThreshold[]): string 
 
 /** 현재값에 새 임계를 적용했을 때 무엇이 달라지는지. 판단 근거를 값으로 적는다 */
 function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
+  const cur = t.value;
+  if (cur === null) return "미설정 항목에 처음 값을 넣습니다. 이 값부터 경보나 판정이 이 임계로 걸립니다.";
   const tier = c.readTier.state === "READY" ? c.readTier.data : null;
   const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
-  const lower = to < t.value;
+  const lower = to < cur;
   const count = (pred: (v: number) => boolean, pick: (h: (typeof hosts)[number]) => number | null) =>
     hosts.filter((h) => {
       const v = pick(h);
@@ -52,41 +62,41 @@ function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
   switch (t.key) {
     case "read.scale_out_cpu": {
       const avg = tier?.avgCpuPct ?? null;
-      if (avg !== null && avg >= to && avg < t.value) return `지금 앱 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 app-3 켜기를 제안합니다.`;
+      if (avg !== null && avg >= to && avg < cur) return `지금 앱 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 app-3 켜기를 제안합니다.`;
       return lower ? "app-3가 더 일찍 켜집니다. 급증 때 지연 초과가 줄지만 평시에 켜지는 일이 잦아져 비용이 늘 수 있습니다." : "app-3가 더 늦게 켜집니다. 급증 때 응답 지연이 길어질 수 있습니다.";
     }
     case "read.scale_in_cpu":
       return lower ? "app-3가 더 늦게 꺼집니다. 비용 절감이 줄고 여유는 늘어납니다." : "app-3가 더 일찍 꺼집니다. 비용이 줄지만 다시 몰릴 때 도로 켜는 일이 잦아질 수 있습니다.";
     case "host.cpu_alert": {
-      const now = count((v) => v >= t.value, (h) => h.cpuPct);
+      const now = count((v) => v >= cur, (h) => h.cpuPct);
       const next = count((v) => v >= to, (h) => h.cpuPct);
       return `현재값 기준으로 CPU 경보 노드가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.mem_alert": {
-      const now = count((v) => v >= t.value, (h) => h.memPct);
+      const now = count((v) => v >= cur, (h) => h.memPct);
       const next = count((v) => v >= to, (h) => h.memPct);
       return `현재값 기준으로 메모리 경보 노드가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.disk_free_alert": {
-      const now = count((v) => 100 - v < t.value, (h) => h.diskUsedPct);
+      const now = count((v) => 100 - v < cur, (h) => h.diskUsedPct);
       const next = count((v) => 100 - v < to, (h) => h.diskUsedPct);
       return `현재값 기준으로 디스크 여유 경보 노드가 ${now}대에서 ${next}대가 됩니다. 디스크 정리는 금지 목록이라 AI가 하지 않습니다.`;
     }
     case "db.replication_lag_alert":
       return lower ? "복제 지연을 더 일찍 알립니다. 비동기 복제라 지연 동안의 기록은 Primary를 잃으면 함께 잃을 수 있습니다." : "복제 지연을 더 늦게 알립니다. 유실 위험 구간을 늦게 알게 됩니다.";
     case "backup.delay_alert": {
-      const b = c.jobs.state === "READY" ? c.jobs.data.backup.lastSuccessAt : null;
+      const b = c.jobs.state === "READY" ? c.jobs.data.backup?.lastSuccessAt ?? null : null;
       const h = b === null ? null : Math.floor((Date.now() - Date.parse(b)) / 3_600_000);
-      if (h !== null && h >= to && h < t.value) return `마지막 백업이 ${h}시간 전이라 적용 즉시 백업 지연 경보가 울리고 AI가 즉시 백업을 제안합니다.`;
+      if (h !== null && h >= to && h < cur) return `마지막 백업이 ${h}시간 전이라 적용 즉시 백업 지연 경보가 울리고 AI가 즉시 백업을 제안합니다.`;
       return lower ? "백업 지연을 더 일찍 알립니다." : "백업 지연을 더 늦게 알립니다.";
     }
     case "bot.capacity_guard": {
       const bot = hosts.find((h) => h.id === "bot-1")?.cpuPct ?? null;
-      if (bot !== null && bot >= to && bot < t.value) return `bot-1 CPU가 ${bot}%라 적용 즉시 봇 용량 보호가 걸리고 AI가 봇 부하 줄임을 제안합니다.`;
+      if (bot !== null && bot >= to && bot < cur) return `bot-1 CPU가 ${bot}%라 적용 즉시 봇 용량 보호가 걸리고 AI가 봇 부하 줄임을 제안합니다.`;
       return lower ? "봇 부하를 더 일찍 줄입니다. 관측 수집 여유를 더 지킵니다." : "봇 부하를 더 늦게 줄입니다.";
     }
     case "host.cpu_credit_alert": {
-      const now = count((v) => v < t.value, (h) => h.cpuCredits);
+      const now = count((v) => v < cur, (h) => h.cpuCredits);
       const next = count((v) => v < to, (h) => h.cpuCredits);
       return `현재값 기준으로 크레딧 경보 노드가 ${now}대에서 ${next}대가 됩니다. 정보 등급이라 AI가 30분 보류를 제안할 수 있습니다.`;
     }
@@ -124,17 +134,20 @@ function HistoryTable({ history, items, limit }: { history: ThresholdChange[]; i
       <tbody>
         {rows.map((h) => {
           const t = items.find((x) => x.key === h.key);
-          // 지금 값이 이 변경의 결과일 때만 되돌린다. 뒤에 다른 변경이 얹혔으면 그 변경부터 되돌려야 한다
-          const canRevert = t !== undefined && !h.reverted && h.via !== "REVERT" && t.value === h.to;
+          // 지금 값이 이 변경의 결과일 때만 되돌린다. 뒤에 다른 변경이 얹혔으면 그 변경부터 되돌려야 한다. 초기값·환경
+          // 기본값은 되돌리지 않고, 미설정으로 되돌리는 변경은 서버가 초기값 있는 항목에서 막으므로 이 화면에서 열지 않는다
+          const from = h.from;
+          const canRevert = t !== undefined && !h.reverted && h.via !== "REVERT" && h.via !== "AUTO_REVERT" && h.via !== "SEED" && h.via !== "CONFIG"
+            && from !== null && t.value === h.to;
           return (
             <tr key={h.id}>
               <td className="num">{hms(h.at)}</td>
               <td>{h.label}</td>
               <td className="num">
                 <b>
-                  {h.from} → {h.to}
+                  {h.from ?? "미설정"} → {h.to ?? "미설정"}
                 </b>
-                {h.unit}
+                {h.to === null ? "" : h.unit}
               </td>
               <td>
                 <span className={styles.via} data-via={h.via}>
@@ -143,15 +156,15 @@ function HistoryTable({ history, items, limit }: { history: ThresholdChange[]; i
               </td>
               <td>{h.by}</td>
               <td>
-                {canRevert && t ? (
+                {canRevert && t && from !== null ? (
                   <RequestButton
                     action="ops.threshold.set"
-                    payload={payloadOf(t, h.from, "이력에서 되돌리기", h.id)}
+                    payload={payloadOf(t, from, "이력에서 되돌리기", h.id)}
                     label="되돌리기"
                     confirm={{
                       title: "임계값 되돌리기 요청",
                       description: "되돌리기도 같은 1인 승인을 거칩니다. 발급하고 실행하면 적용됩니다.",
-                      target: `${h.label} ${h.to}${h.unit} → ${h.from}${h.unit}`,
+                      target: `${h.label} ${valueWord(h.to, h.unit)} → ${valueWord(from, h.unit)}`,
                       blastRadius: "승인 목록에서 발급·실행",
                       tone: "warning",
                       confirmLabel: "되돌리기 요청",
@@ -187,7 +200,7 @@ function ImpactRequest({ t, to, onDone }: { t: OpsThreshold; to: number; onDone:
       confirm={{
         title: "임계값 변경 요청",
         description: data ? impactOf(t, to, data) : undefined,
-        target: `${t.label} ${t.value}${t.unit} → ${to}${t.unit}`,
+        target: `${t.label} ${valueWord(t.value, t.unit)} → ${to}${t.unit}`,
         blastRadius: "승인 목록에서 발급·실행 뒤 적용",
         tone: "warning",
         confirmLabel: "변경 요청",
@@ -231,8 +244,8 @@ function ThresholdPanel({ section, onChanged, full = false }: {
           </>
         }
       />
-      {section === null ? null : section.state === "NOT_CONNECTED" ? (
-        <NotConnected what="임계값 레지스트리" source={section.source} />
+      {section === null ? null : section.state !== "READY" ? (
+        <SectionGap section={section} what="임계값 레지스트리" />
       ) : reg === null ? null : (
         <div className={styles.thGrid}>
           <table className={styles.thTable}>
@@ -248,7 +261,8 @@ function ThresholdPanel({ section, onChanged, full = false }: {
             <tbody>
               {reg.items.map((t) => {
                 const mine = draft?.key === t.key;
-                const value = mine && draft ? draft.value : t.value;
+                // 미설정 항목의 편집 칸은 허용 범위의 아래 끝에서 시작한다
+                const value = mine && draft ? draft.value : t.value ?? t.min;
                 return (
                   <tr key={t.key} data-draft={mine && dirty ? "" : undefined}>
                     <td>
@@ -258,8 +272,13 @@ function ThresholdPanel({ section, onChanged, full = false }: {
                       </span>
                     </td>
                     <td className={`${styles.thValue} num`}>
-                      {t.value}
-                      <small>{t.unit}</small>
+                      {t.value === null ? "미설정" : t.value}
+                      {t.value !== null && <small>{t.unit}</small>}
+                      {/* 서버 레지스트리만 싣는 두 사실(§6-F in_use, rule_value). sim은 싣지 않는다 */}
+                      {t.inUse === false && <span className={styles.none}> · 이 환경에서 쓰지 않음</span>}
+                      {t.ruleValue !== undefined && t.value !== null && t.ruleValue !== t.value && (
+                        <span className={styles.none}> · 규칙 반영 대기(규칙 {valueWord(t.ruleValue ?? null, t.unit)})</span>
+                      )}
                     </td>
                     <td className={`${styles.thRange} num`}>
                       {t.min}~{t.max}
@@ -320,17 +339,14 @@ function ThresholdPanel({ section, onChanged, full = false }: {
               <div className={styles.review}>
                 <div className={styles.subHead}>변경 검토 · {editing.label}</div>
                 <div className={`${styles.reviewDiff} num`}>
-                  <s>
-                    {editing.value}
-                    {editing.unit}
-                  </s>
+                  <s>{valueWord(editing.value, editing.unit)}</s>
                   <span aria-hidden="true">→</span>
                   <span>
                     {draft.value}
                     {editing.unit}
                   </span>
                   <span className="sr-only">
-                    {editing.value}에서 {draft.value}로
+                    {valueWord(editing.value, editing.unit)}에서 {draft.value}로
                   </span>
                 </div>
                 <p className={styles.reviewText}>

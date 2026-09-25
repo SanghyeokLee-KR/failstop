@@ -1,0 +1,45 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "data" : [ {
+      "id" : 1,
+      "kind" : "THRESHOLD",
+      "verb" : "THRESHOLD_RAISE",
+      "target" : "read.scale_in_cpu",
+      "identity_key" : "THRESHOLD:read.scale_in_cpu:0.35",
+      "params" : {
+        "key" : "read.scale_in_cpu",
+        "value" : "0.35",
+        "from" : "0.3"
+      },
+      "confidence" : "0.9",
+      "reason" : "축소 임계를 0.35로 올려 부하가 줄면 app-3를 더 일찍 끄게 합니다.",
+      "status" : "PROPOSED",
+      "hold_rule" : "T6",
+      "hold_reason" : "둔하게 바꾸는 임계값 변경은 자동으로 실행하지 않습니다. 운영자가 승인해야 합니다: read.scale_in_cpu",
+      "consecutive" : 2,
+      "auto" : false,
+      "deferred_until" : null,
+      "decided_by" : null,
+      "decided_at" : null,
+      "approval_id" : null,
+      "executed_by" : null,
+      "executed_at" : null,
+      "result" : null,
+      "observe_until" : null,
+      "observe_outcome" : null,
+      "reverted_by" : null,
+      "reverted_at" : null,
+      "created_at" : "2026-09-25T03:50:04.472Z",
+      "expires_at" : "2026-09-25T04:50:04.472Z",
+      "first_decision_id" : 1,
+      "last_decision_id" : 2,
+      "revertible" : false
+    } ],
+    "pagination" : {
+      "next_cursor" : null,
+      "has_more" : false
+    }
+  }
+}

@@ -27,6 +27,8 @@ const reg = (c: ControlCenter) => ready<ThresholdRegistry>(c.thresholds);
 function threshold(c: ControlCenter, key: string): number {
   const t = reg(c).items.find((x) => x.key === key);
   assert.ok(t, key);
+  // 시뮬레이터의 임계값은 늘 값이 있다. 미설정(null)은 http 원천에만 있다
+  assert.ok(t.value !== null, key);
   return t.value;
 }
 

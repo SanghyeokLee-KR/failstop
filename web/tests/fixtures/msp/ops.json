@@ -1,0 +1,35 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "environment" : "LOCAL_DOCKER",
+    "day_zone" : "Asia/Seoul",
+    "generated_at" : "2026-09-25T03:50:04.228Z",
+    "ops" : {
+      "state" : "READY",
+      "data" : {
+        "db_backup" : {
+          "state" : "READY",
+          "data" : {
+            "last_success_at" : "2026-09-25T00:50:04.000Z",
+            "verify_ok" : true
+          }
+        },
+        "databasus" : {
+          "state" : "NOT_CONNECTED",
+          "source" : "databasus"
+        },
+        "certificate" : {
+          "state" : "NOT_CONNECTED",
+          "source" : "certificate"
+        },
+        "daily_report" : {
+          "state" : "READY",
+          "data" : {
+            "last_triggered_at" : "2026-09-24T22:50:04.000Z"
+          }
+        }
+      }
+    }
+  }
+}

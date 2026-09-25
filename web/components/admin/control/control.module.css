@@ -1031,6 +1031,30 @@
   color: var(--text-secondary);
 }
 
+/* ===== 불러오기 실패(§12-8). 원천 설정은 있으나 이번 조회가 실패했다 ===== */
+.unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 96px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--panel-radius);
+  background: var(--color-danger-bg);
+}
+.unavailable[data-compact] {
+  min-height: 0;
+  padding: var(--space-3);
+}
+.unavailableTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
 /* ===== 근거 강조 고리(§12-4) ===== */
 .tile[data-focus],
 .host[data-focus],

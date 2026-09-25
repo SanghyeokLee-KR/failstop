@@ -3,10 +3,13 @@
 /**
  * AI 판단 상세(모달 960px, 디자인 시스템 §12-13의 3, 관리자 설계 4-9). 판단한 순간의 근거 스냅숏과 판단 과정
  * 다섯 단계(근거, 가설, 후보 조치, 정책 엔진 검사, 결과)를 한 판에 둔다. 판단 과정은 관제 판의 판단 기록(trace)
- * 그대로이고 화면이 새로 판정하지 않는다. 한 판단을 처음 열 때만 단계가 120ms 간격으로 차례로 켜진다.
+ * 그대로이고 화면이 새로 판정하지 않는다. http 판은 판단 목록만 싣고(lazy) 열 때 서버의 판단 상세를 한 번 읽는다.
+ * 서버 정책 엔진은 조치 요청마다 막은 규칙 하나만 남기므로 그 검사표에는 서버가 기록한 행만 선다. 한 판단을 처음
+ * 열 때만 단계가 120ms 간격으로 차례로 켜진다.
  */
 
 import { useEffect, useState } from "react";
+import { getAdminApi } from "@/lib/admin/api";
 import { stepDelays } from "@/lib/admin/motion";
 import { joinDots } from "@/lib/admin/text";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
@@ -33,11 +36,26 @@ function resultTone(outcome: string): "warning" | "neutral" | "success" {
 
 export default function JudgmentDetail({ center, id, sim, onClose }: { center: ControlCenter; id: string; sim: boolean; onClose: () => void }) {
   const ai = center.ai.state === "READY" ? center.ai.data : null;
-  const j: AiJudgment | null = ai?.history.find((h) => h.id === id) ?? null;
+  const brief: AiJudgment | null = ai?.history.find((h) => h.id === id) ?? null;
   const [first] = useState(() => !seen.has(id));
+  const [loaded, setLoaded] = useState<{ id: string; j: AiJudgment | null; failed: boolean } | null>(null);
+  const lazy = brief?.lazy === true;
   useEffect(() => {
     seen.add(id);
   }, [id]);
+  useEffect(() => {
+    if (!lazy) return;
+    let alive = true;
+    getAdminApi()
+      .getAiJudgment(id)
+      .then((j) => alive && setLoaded({ id, j, failed: false }))
+      .catch(() => alive && setLoaded({ id, j: null, failed: true }));
+    return () => {
+      alive = false;
+    };
+  }, [lazy, id]);
+  const full = lazy && loaded?.id === id ? loaded : null;
+  const j: AiJudgment | null = full?.j ?? brief;
   if (!ai || !j) {
     return (
       <Modal name="judgment" width={960} title="판단 기록을 찾지 못했습니다" onClose={onClose}>
@@ -76,7 +94,15 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
       {tr === null ? (
         <section className={styles.section}>
           <p className={styles.stepText}>{j.summary}</p>
-          <p className={styles.note}>판단이 아닌 기록이라 판단 과정이 없습니다.</p>
+          <p className={styles.note}>
+            {!lazy
+              ? "판단이 아닌 기록이라 판단 과정이 없습니다."
+              : full === null
+                ? "판단 과정을 서버에서 불러오는 중입니다."
+                : full.failed
+                  ? "판단 과정을 불러오지 못했습니다. 다시 열면 한 번 더 읽습니다."
+                  : "서버에 이 판단의 상세가 없습니다."}
+          </p>
         </section>
       ) : (
         <>

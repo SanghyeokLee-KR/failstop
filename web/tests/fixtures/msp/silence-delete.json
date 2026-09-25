@@ -1,0 +1,8 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "silence_id" : "27429c68-adca-407a-9e85-ead09745485d",
+    "incident_id" : 5
+  }
+}

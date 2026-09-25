@@ -1,0 +1,11 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "mode" : "AUTO",
+    "since" : "2026-09-25T03:50:04.399Z",
+    "valid_until" : "2026-09-25T07:50:04.399Z",
+    "approval_id" : 1,
+    "activation" : 1
+  }
+}

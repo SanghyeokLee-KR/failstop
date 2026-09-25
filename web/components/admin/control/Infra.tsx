@@ -29,7 +29,7 @@ import GrafanaLink from "../GrafanaLink";
 import { useChangeFlags } from "../useChangeFlags";
 import { MeterRail } from "../instruments/MeterRail";
 import { SimMark } from "../ui";
-import { Ago, FlashNum, GaugeRow, lagWord, NotConnected, PanelHead, secWord, Shape } from "./parts";
+import { Ago, FlashNum, GaugeRow, lagWord, PanelHead, SectionGap, secWord, Shape } from "./parts";
 import styles from "./control.module.css";
 import StatusShape from "../StatusShape";
 
@@ -324,7 +324,7 @@ function fmtMs(ms: number | null): string {
  * 적재 모델은 이름을 단정하지 않는다. AI 판단이 일어나면 대기 요청과 GPU가 잠깐 오른다
  */
 export function AiServerCard({ section }: { section: OpsSection<AiServer> }) {
-  if (section.state === "NOT_CONNECTED") return <NotConnected what="AI 서버" source={section.source} compact />;
+  if (section.state !== "READY") return <SectionGap section={section} what="AI 서버" compact />;
   const a = section.data;
   const s: NodeState = a.link === "DOWN"
     ? { tone: "warning", shape: "▲", word: "연결 끊김" }
@@ -348,14 +348,15 @@ export function AiServerCard({ section }: { section: OpsSection<AiServer> }) {
       </span>
       <div className={styles.gauges}>
         <GaugeRow label="GPU" name="GPU 사용률" value={a.gpuPct} threshold={null} />
+        {/* 장비 메모리를 모르면 막대의 분모가 없어 막대를 비우고, 아는 값(적재 모델 메모리)은 아래 줄에 적는다 */}
         <GaugeRow
           label="MEM"
           name="통합 메모리"
-          value={a.memUsedGb}
-          max={a.memTotalGb}
+          value={a.memTotalGb === null ? null : a.memUsedGb}
+          max={a.memTotalGb ?? undefined}
           unit="GB"
           threshold={null}
-          suffix={`/${a.memTotalGb}`}
+          suffix={a.memTotalGb === null ? "" : `/${a.memTotalGb}`}
         />
       </div>
       <dl className={styles.aiSrv}>
@@ -367,6 +368,12 @@ export function AiServerCard({ section }: { section: OpsSection<AiServer> }) {
         <dd className="num">{a.queue ?? "◌"}</dd>
         <dt>적재 모델</dt>
         <dd>{a.model}</dd>
+        {a.memTotalGb === null && a.memUsedGb !== null && (
+          <>
+            <dt>모델 메모리</dt>
+            <dd className="num">{a.memUsedGb}GB</dd>
+          </>
+        )}
         <dt>관제 연결</dt>
         <dd>
           {a.assumed ? (
@@ -379,7 +386,7 @@ export function AiServerCard({ section }: { section: OpsSection<AiServer> }) {
         </dd>
       </dl>
       <div className={styles.hostFoot}>
-        <span>구축 전 · ADR 0038</span>
+        <span>{a.assumed ? "구축 전 · ADR 0038" : "ADR 0038"}</span>
         <span className="num">{a.collectedAt === null ? "◌ 미수집" : <Ago at={a.collectedAt} prefix="수집 " />}</span>
       </div>
     </article>
@@ -405,11 +412,11 @@ function Group({ area, label, note, children }: { area: string; label: string; n
 export function InfraGroups({ center, board = false, wide = false }: { center: ControlCenter; board?: boolean; wide?: boolean }) {
   const reg = center.thresholds.state === "READY" ? center.thresholds.data : null;
   const alertRefs = alertRefMap(center);
-  if (center.hosts.state === "NOT_CONNECTED") {
+  if (center.hosts.state !== "READY") {
     return (
       <div className={styles.infraStack}>
-        <NotConnected what="호스트 지표" source={center.hosts.source} />
-        {center.readTier.state === "NOT_CONNECTED" && <NotConnected what="앱 계층 자동 증설" source={center.readTier.source} compact />}
+        <SectionGap section={center.hosts} what="호스트 지표" />
+        {center.readTier.state !== "READY" && <SectionGap section={center.readTier} what="앱 계층 자동 증설" compact />}
         <AiServerCard section={center.aiServer} />
       </div>
     );
@@ -431,7 +438,7 @@ export function InfraGroups({ center, board = false, wide = false }: { center: C
           {center.readTier.state === "READY" ? (
             <AsgBand tier={center.readTier.data} reg={reg} alertRefs={alertRefs} />
           ) : (
-            <NotConnected what="앱 계층 자동 증설" source={center.readTier.source} compact />
+            <SectionGap section={center.readTier} what="앱 계층 자동 증설" compact />
           )}
         </div>
       </Group>

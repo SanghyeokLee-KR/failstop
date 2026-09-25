@@ -1,0 +1,10 @@
+{
+  "status" : 201,
+  "body" : {
+    "schema_version" : "1.0",
+    "fingerprint" : "a1b2c3d4e5f60005",
+    "incident_id" : 5,
+    "silence_id" : "27429c68-adca-407a-9e85-ead09745485d",
+    "ends_at" : "2026-09-25T04:20:05.066Z"
+  }
+}

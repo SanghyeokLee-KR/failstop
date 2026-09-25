@@ -53,13 +53,17 @@ test("Teams 카드는 보고 서비스와 같은 순서로 머리, 영향, 담�
   assert.equal(t[1], "응답 지연 증가 해제");
   assert.equal(t[2], "P2 · 담당자 조치 필요", "AI 자동 되돌림 보고는 P2다(사용자 확정 2026-09-25)");
   assert.ok(t.some((x) => x.startsWith("대상=")) && t.some((x) => x.startsWith("해제=")), "사건 사실에 대상과 해제 시각이 있다");
-  const order = ["영향  |", "담당자 조치", "후속 관측 ·", "참고 분석", "미확인 자료 1항목", "기록 "];
+  // 영향은 대상·발생과 같은 이름-값 줄이고, 끝줄은 '보고 이름 · 자동 조치'다(보고 서비스와 같은 모양)
+  assert.ok(t.some((x) => x.startsWith("영향=")), "영향은 이름-값 줄이다");
+  assert.ok(!t.some((x) => x.includes("  |  ")), "세로줄 구분자를 쓰지 않는다");
+  const order = ["영향=", "담당자 조치", "후속 관측 ·", "참고 분석", "미확인 자료 1항목", "경보 보고 7c2e91b04a5d · "];
   const idx = order.map((head) => t.findIndex((x) => x.startsWith(head)));
   assert.ok(idx.every((i) => i >= 0), `모든 블록이 있다: ${idx}`);
   assert.deepEqual([...idx].sort((a, b) => a - b), idx, "순서가 보고 서비스와 같다");
   assert.equal(c.actions.length, 0, "보고 파일이 없으면 단추를 붙이지 않는다");
 
   const f = texts(teamsCard(backup).blocks);
+  assert.ok(f.some((x) => /^일일 보고 \d{4}-\d{2}-\d{2} · /.test(x)), "일일 보고의 끝줄은 날짜 전체를 적는다");
   assert.ok(!f.includes("참고 분석"), "AI 분석이 없으면 참고 분석 블록이 없다");
   assert.ok(f.includes("미확인 자료 2항목 · 상세 보고의 수집 범위 참조"));
   assert.ok(f.some((x) => x.startsWith("보고 기준=")), "사건이 없는 일일 보고는 보고 기준 시각을 사실로 싣는다");
@@ -126,22 +130,27 @@ test("sim 보고서·연락 체계는 예시를 돌려주고, Teams 연결 시�
   assert.ok(audit.some((e) => e.action === "ops.report.teams_test" && e.result === "OK"));
 });
 
-test("http 보고서·연락 체계는 서버 계약 전이라 원천 이름과 함께 연결 전이고, 연결 시험은 보내지 않는다", async () => {
+test("http 보고서는 보고 서비스 읽기 프록시를 읽고, 보고 서비스 설정이 없으면 원천 이름과 함께 연결 전이다. 연락 체계와 연결 시험은 서버 계약에 없다", async () => {
   const prev = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = (async () => {
-    calls += 1;
-    throw new Error("보고 엔드포인트를 부르면 안 된다");
+  const urls: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    urls.push(url.replace("http://admin.test", ""));
+    const body = url.endsWith("/reports/status")
+      ? { schema_version: "1.0", state: "NOT_CONNECTED", data: { reporting: null, outbox: { counts: {} } } }
+      : { schema_version: "1.0", state: "NOT_CONNECTED" };
+    return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   }) as typeof fetch;
   try {
     const api = new HttpAdminApi("http://admin.test");
     const desk = await api.getReports();
+    assert.deepEqual(urls.sort(), ["/admin/v1/msp/reports/status", "/admin/v1/msp/reports?limit=20"]);
     assert.equal(desk.state, "NOT_CONNECTED");
-    assert.ok(desk.state === "NOT_CONNECTED" && desk.source.includes("/admin/v1/msp/reports"));
+    assert.ok(desk.state === "NOT_CONNECTED" && desk.source.includes("exchange.msp.reporting.url"));
     const onCall = await api.getOnCall();
     assert.equal(onCall.state, "NOT_CONNECTED");
+    const before = urls.length;
     await rejectsWith(() => api.sendTeamsTest(), "source_unavailable");
-    assert.equal(calls, 0);
+    assert.equal(urls.length, before, "연결 시험은 서버 경로가 없어 보내지 않는다");
   } finally {
     globalThis.fetch = prev;
   }

@@ -186,8 +186,9 @@ export interface TrendDelta {
  */
 export function trendDelta(metric: TrendMetric, s: OpsTrendSeries, range: TrendRange, current: number | null): TrendDelta | null {
   const n = s.points.length;
-  const back = Math.round((DELTA_BACK_MIN[range] / (range * 60)) * POINTS[range]);
-  if (n <= back) return null;
+  // 앞 시점은 점 개수로 센다. 원천마다 점 간격이 달라(sim 1·5·15분, 서버 30초·3분·12분) 범위의 비율로 옮긴다
+  const back = Math.round((DELTA_BACK_MIN[range] / (range * 60)) * n);
+  if (n === 0 || back < 1 || n <= back) return null;
   let diff: number;
   if (metric === "incidents") {
     diff = s.points.slice(n - back).reduce<number>((a, v) => a + (v ?? 0), 0);
@@ -218,12 +219,13 @@ export function trendDelta(metric: TrendMetric, s: OpsTrendSeries, range: TrendR
  * 목표를 벗어난 채 이어진 분. 1시간 범위의 분 단위 점열 끝에서 거꾸로 세고 지금 분을 더한다. 칸이 목표를 벗어난 동안
  * 증감 대신 '목표 초과 n분째'로 적는다
  */
-export function breachMinutes(points: (number | null)[], over: (v: number) => boolean): number {
+export function breachMinutes(points: (number | null)[], over: (v: number) => boolean, stepMin = 1): number {
   let m = 1;
   for (let i = points.length - 2; i >= 0; i -= 1) {
     const v = points[i];
     if (v === null || !over(v)) break;
     m += 1;
   }
-  return m;
+  // 점 간격이 1분이 아니면(서버 1시간 추세는 30초) 점 수를 분으로 옮긴다
+  return Math.max(1, Math.round(m * stepMin));
 }

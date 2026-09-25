@@ -1,0 +1,27 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "mode" : "MANUAL",
+    "stopped" : true,
+    "stop" : {
+      "by" : "snap-view",
+      "at" : "2026-09-25T03:50:05.184Z",
+      "reason" : "판단 점검"
+    },
+    "auto" : null,
+    "activation" : null,
+    "cooldowns" : {
+      "READ_NODES" : "2026-09-25T04:00:04.986Z",
+      "THRESHOLD" : "2026-09-25T04:20:05.038Z",
+      "BOT_LOAD" : null
+    },
+    "observe_until" : "2026-09-25T03:55:04.881Z",
+    "llm" : {
+      "state" : "READY",
+      "provider" : "ollama-native",
+      "model" : "test-model",
+      "transport" : "LOOPBACK"
+    }
+  }
+}

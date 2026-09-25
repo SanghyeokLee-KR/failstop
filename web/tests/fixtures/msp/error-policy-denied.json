@@ -1,0 +1,16 @@
+{
+  "status" : 409,
+  "body" : {
+    "error" : {
+      "name" : "msp_policy_denied",
+      "message" : "앱 계층 희망 3대에서 4대는 최소 2~최대 3대 밖입니다.",
+      "detail" : {
+        "rule" : "R1",
+        "reason_code" : "out_of_bounds"
+      },
+      "trace_id" : null,
+      "request_id" : "461d5d5c-4629-4cad-9831-41a3fb93e350",
+      "retry_after" : null
+    }
+  }
+}

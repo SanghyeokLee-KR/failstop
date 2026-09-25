@@ -1,0 +1,41 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "state" : "ANSWERED",
+    "reason" : null,
+    "preface" : "근거 일부가 60초보다 오래되었습니다(가장 오래된 표본 95초 전).",
+    "answer" : "조회를 받는 앱 노드의 평균 CPU가 0.82로 증설 임계 0.60 이상입니다. app-3를 켜면 조회가 세 노드로 나뉩니다. 저는 조치를 실행하지 않았고 실행할 수 없으므로 관제센터의 AI 조치안 카드나 용량 화면에서 운영자가 직접 처리합니다.",
+    "citations" : [ {
+      "id" : "read_tier",
+      "label" : "앱 계층 조회 평균 CPU",
+      "value" : "0.8",
+      "collected_at" : "2026-09-25T03:50:05.165Z",
+      "age_seconds" : 0,
+      "collect" : "OK"
+    }, {
+      "id" : "threshold.read.scale_out_cpu",
+      "label" : "임계값 read.scale_out_cpu",
+      "value" : "0.6",
+      "collected_at" : "2026-09-25T03:50:05.165Z",
+      "age_seconds" : 0,
+      "collect" : "OK"
+    }, {
+      "id" : "alert.a1b2c3d4e5f60001",
+      "label" : "경보 ReadTierCpuHigh",
+      "value" : null,
+      "collected_at" : "2026-09-25T03:50:05.089Z",
+      "age_seconds" : 0,
+      "collect" : "OK"
+    } ],
+    "evidence" : {
+      "collected_at" : "2026-09-25T03:50:05.165Z",
+      "sha256" : "59a18dd798bf11c2cb2049b988b57fa4f81d1d7e8233d5582d6d1f0f85211619",
+      "items" : 35,
+      "stale" : true,
+      "not_connected" : [ ]
+    },
+    "model" : "test-model",
+    "latency_ms" : 0
+  }
+}

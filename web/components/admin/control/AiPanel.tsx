@@ -9,12 +9,13 @@
  * 카드마다 한 줄로 싣는다. AI라는 사실은 보라 빛이 아니라 이 내용과 판단 과정으로 드러낸다(§12-10). 조치 카드는
  * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는 대기 중인
  * 조치안에만 붙이고 카드마다 ai-proposal-n 앵커를 두어 모드 줄의 링크가 첫 카드로 온다. 승인 버튼은 운영자의
- * 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는 판단을 지어내지 않고 'AI 연결 전'만 그린다.
+ * 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는 관제센터 서버의 판단과 조치 요청을 그리고, 서버가 없으면
+ * 판단을 지어내지 않고 'AI 연결 전'만 그린다.
  */
 
 import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { actionKey, AI_ACTION_LABEL, canAutoRun, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
 import { useOpsDetail } from "@/lib/admin/detailStore";
 import { flashTone } from "@/lib/admin/motion";
@@ -30,13 +31,18 @@ import { useFlip } from "../useFlip";
 import { useFreshKeys } from "../useFreshKeys";
 import ActionConfirm from "./ActionConfirm";
 import { RulesDisclosure } from "./ModeBar";
-import { Ago, AiMark, FlashNum, hms, mmss, SEVERITY_SHAPE, useClock } from "./parts";
+import { Ago, AiMark, FlashNum, hms, mmss, sectionSource, SEVERITY_SHAPE, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const RISK_WORD = { LOW: "낮음", MEDIUM: "중간" } as const;
 
 /** '마지막 조치 결과'로 올리는 처리. 거둔 조치와 '나중에'는 한 일이 없어 올리지 않는다 */
-const LAST_RESULT = new Set<AiProposal["status"]>(["APPROVED", "AUTO_EXECUTED", "AUTO_REVERTED", "REVERTED", "REJECTED", "EXPIRED"]);
+const LAST_RESULT = new Set<AiProposal["status"]>(["APPROVED", "AUTO_EXECUTED", "AUTO_REVERTED", "REVERTED", "REJECTED", "EXPIRED", "FAILED", "UNKNOWN"]);
+
+/** 만료 까닭. 서버는 정지로 만료한 요청에 M9를 적고, 그 밖의 만료는 시간 초과다. sim의 만료는 정지뿐이다 */
+function expiredWord(p: AiProposal): string {
+  return p.hold && p.hold.rule !== "M9" ? "시간이 지나 만료" : "AI 정지로 만료";
+}
 
 /** 조치가 가리키는 자리. '근거 보기'가 그 자리를 잠깐 강조한다 */
 const KIND_REF: Record<AiActionKind, OpsRef | null> = {
@@ -81,7 +87,9 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
     case "DEFERRED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true"><StatusShape kind="dashed" /></span> 나중에 · {who} · 5분 동안 다시 내지 않음
+          <span aria-hidden="true"><StatusShape kind="dashed" /></span> 나중에 · {who} ·{" "}
+          {/* 서버는 나중에로 둔 요청을 자동 실행에서 영구히 빼고 사람 승인만 받는다(§6-F). sim은 5분 동안 다시 내지 않는다 */}
+          {p.hold !== null || isAdminHttp() ? "자동 실행하지 않고 승인만 받음" : "5분 동안 다시 내지 않음"}
         </span>
       );
     case "AUTO_EXECUTED": {
@@ -119,7 +127,33 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
     case "EXPIRED":
       return (
         <span className={styles.decided}>
-          <span aria-hidden="true"><StatusShape kind="ring" /></span> AI 정지로 만료 · {who} {when}
+          <span aria-hidden="true"><StatusShape kind="ring" /></span> {expiredWord(p)} · {who} {when}
+        </span>
+      );
+    // 아래 넷은 서버 정책 엔진에만 있는 상태다(API §6-F)
+    case "EXECUTING":
+      return (
+        <span className={styles.decided} data-tone="warning">
+          <span aria-hidden="true"><StatusShape kind="triangle" /></span> 실행 중 · {when}
+        </span>
+      );
+    case "FAILED":
+      return (
+        <span className={styles.decided} data-tone="danger">
+          <span aria-hidden="true"><StatusShape kind="square" /></span> 실행 실패 · {when}
+          {p.hold && <> · {p.hold.reason}</>}
+        </span>
+      );
+    case "UNKNOWN":
+      return (
+        <span className={styles.decided} data-tone="warning">
+          <span aria-hidden="true"><StatusShape kind="triangle" /></span> 결과 확인 필요 · 실행이 중간에 끊겼습니다
+        </span>
+      );
+    case "DENIED":
+      return (
+        <span className={styles.decided}>
+          <span aria-hidden="true"><StatusShape kind="square" /></span> 정책이 막음{p.hold && <> · {p.hold.rule} {p.hold.reason}</>}
         </span>
       );
     case "PROPOSED":
@@ -139,7 +173,7 @@ function ExpiredLine({ p, fresh }: { p: AiProposal; fresh: boolean }) {
     <p className={styles.doneLine} data-flip={p.id} data-fresh={fresh ? "" : undefined}>
       <StatusShape kind="ring" className={styles.shape} tone="off" />
       <span>
-        <b>AI 정지로 만료</b> · {p.title}
+        <b>{expiredWord(p)}</b> · {p.title}
         {p.decidedBy && (
           <>
             {" "}
@@ -412,7 +446,7 @@ function AiOff({ source }: { source: string }) {
         <span aria-hidden="true"><StatusShape kind="dashed" /> </span>AI 연결 전
       </span>
       <span className={styles.aiOffDesc}>
-        AI 판단 서비스와 서버 정책 엔진을 붙이는 2단계 전입니다. 판단과 조치안을 지어내지 않습니다. 경보와 ASG 정책은 AI 없이 그대로 동작합니다.
+        관리 API에 관제센터 서버(AI 판단 서비스와 정책 엔진)가 없어 판단과 조치안을 지어내지 않습니다. 경보와 ASG 정책은 AI 없이 그대로 동작합니다.
       </span>
       <span className={styles.notConnectedSource}>{source}</span>
     </div>
@@ -498,8 +532,8 @@ function AiPanel({ section, onChanged, full = false }: {
         )}
       </header>
       <div className={styles.scan} data-on={ai?.thinking ? "" : undefined} aria-hidden="true" />
-      {section !== null && section.state === "NOT_CONNECTED" ? (
-        <AiOff source={section.source} />
+      {section !== null && section.state !== "READY" ? (
+        <AiOff source={sectionSource(section)} />
       ) : ai === null ? (
         <div className={styles.aiOff}>
           <span className={styles.aiOffTitle}>판단 불러오는 중</span>

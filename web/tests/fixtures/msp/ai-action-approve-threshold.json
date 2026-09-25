@@ -1,0 +1,18 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "action_id" : 1,
+    "kind" : "THRESHOLD",
+    "status" : "APPROVED",
+    "deferred_until" : null,
+    "result" : {
+      "to" : "0.35",
+      "key" : "read.scale_in_cpu",
+      "from" : "0.3",
+      "version" : 2,
+      "change_id" : 10
+    },
+    "revertible" : true
+  }
+}

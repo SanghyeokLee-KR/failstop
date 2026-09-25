@@ -1,0 +1,85 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "tier" : "app",
+    "plan" : {
+      "min" : 2,
+      "desired" : 3,
+      "max" : 3,
+      "updated_by" : "snap-super",
+      "updated_at" : "2026-09-25T03:50:04.956Z"
+    },
+    "observed_total" : 2,
+    "reconciled" : false,
+    "read_avg_cpu_ratio" : 0.8,
+    "nodes" : [ {
+      "id" : "app-1",
+      "az" : "ap-northeast-2a",
+      "instance_type" : "t4g.small",
+      "engine" : true,
+      "scalable" : false,
+      "expected" : true,
+      "reachable" : true,
+      "leader" : true,
+      "serves_reads" : true,
+      "cpu_ratio" : 0.82,
+      "cpu_count" : 2,
+      "heap_used_bytes" : 336000000,
+      "heap_max_bytes" : 536870912,
+      "http_requests" : 182340.0,
+      "ws_clients" : 14.0
+    }, {
+      "id" : "app-2",
+      "az" : "ap-northeast-2c",
+      "instance_type" : "t4g.small",
+      "engine" : true,
+      "scalable" : false,
+      "expected" : true,
+      "reachable" : true,
+      "leader" : false,
+      "serves_reads" : true,
+      "cpu_ratio" : 0.78,
+      "cpu_count" : 2,
+      "heap_used_bytes" : 336000000,
+      "heap_max_bytes" : 536870912,
+      "http_requests" : 176512.0,
+      "ws_clients" : 11.0
+    }, {
+      "id" : "app-3",
+      "az" : "ap-northeast-2a",
+      "instance_type" : "t4g.small",
+      "engine" : false,
+      "scalable" : true,
+      "expected" : true,
+      "reachable" : false,
+      "leader" : false,
+      "serves_reads" : false,
+      "cpu_ratio" : null,
+      "cpu_count" : null,
+      "heap_used_bytes" : null,
+      "heap_max_bytes" : null,
+      "http_requests" : null,
+      "ws_clients" : null
+    } ],
+    "thresholds" : {
+      "scale_out_cpu_ratio" : 0.6,
+      "scale_in_cpu_ratio" : 0.3
+    },
+    "advice" : [ {
+      "id" : "under_provisioned",
+      "level" : "warn",
+      "headline" : "노드 부족",
+      "detail" : "있어야 할 앱 노드가 3대인데 2대만 응답합니다. 켠 노드가 준비 중이거나 한 대가 멈춘 상태입니다.",
+      "action" : null
+    }, {
+      "id" : "at_max",
+      "level" : "warn",
+      "headline" : "조회 부하 높음 · 증설 불가",
+      "detail" : "평균 사용률이 80%인데 이미 앱 계층 최대 3대입니다. 최대 대수를 올리려면 비용 판단이 먼저입니다.",
+      "action" : null
+    } ],
+    "changed_from" : 2,
+    "changed_to" : 3
+  }
+}

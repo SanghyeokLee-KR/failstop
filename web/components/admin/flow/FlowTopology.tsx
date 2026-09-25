@@ -855,6 +855,7 @@ interface AiView {
 function aiView(section: OpsSection<AiServer> | null): AiView {
   if (section === null) return { state: "absent", status: "확인 중", server: null, source: null };
   if (section.state === "NOT_CONNECTED") return { state: "absent", status: "연결 전", server: null, source: section.source };
+  if (section.state === "UNAVAILABLE") return { state: "failure", status: "불러오기 실패", server: null, source: `${section.reason} · ${section.source}` };
   const a = section.data;
   if (a.link === "DOWN") return { state: "failure", status: "연결 끊김", server: a, source: null };
   return { state: "running", status: a.busy ? "처리 중" : "대기", server: a, source: null };

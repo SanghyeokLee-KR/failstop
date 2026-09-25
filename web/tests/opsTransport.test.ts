@@ -1,7 +1,8 @@
 /**
- * 관제 판의 전송 규칙(관리자 설계 4-4). http는 한 판 조회(GET /admin/v1/msp/overview) 한 건을 읽고, 같은 조회가
+ * 관제 판의 전송 규칙(관리자 설계 4-4). http는 한 판 조회(GET /admin/v1/msp/overview)를 읽고, 같은 조회가
  * 겹치면 한 건만 보내며, ETag가 같으면 304로 받은 본문을 다시 쓴다. 관제 모듈이 없는 배포(404)는 칸마다
- * '원천 연결 전'이다. 폴러의 백오프, 판의 구조 공유, 추세선 점 줄이기도 여기서 본다.
+ * '원천 연결 전'이다. 폴러의 백오프, 판의 구조 공유, 추세선 점 줄이기도 여기서 본다. 서버 응답을 판으로 옮기는
+ * 규칙은 opsHttpAdapter.test.ts가 서버 스냅숏으로 본다.
  */
 
 import { test } from "node:test";
@@ -48,15 +49,21 @@ test("http: 관제 모듈이 없는 배포(404)는 칸마다 '원천 연결 전'
       assert.equal(s.state, "NOT_CONNECTED", key);
       assert.ok(s.state === "NOT_CONNECTED" && s.source.length > 0, `${key} 원천 이름`);
     }
-    // 조작은 서버 경로가 없어 요청을 보내지 않고 거절한다
-    for (const run of [() => api.ackAlert("a"), () => api.decideAiProposal("p", "APPROVE"), () => api.stopAi(), () => api.runBackupNow()]) {
-      await assert.rejects(run(), (e: unknown) => e instanceof AdminError && e.code === "source_unavailable");
+    // 조작은 서버 경로로 보내고, 관제 모듈이 없는 배포라 서버의 404를 그대로 올린다. 조작을 지어내 성공시키지 않는다
+    (api as unknown as { session: unknown }).session = { operatorId: "op-1", displayName: "op", roles: ["SUPER"], token: "t", issuedAt: "", expiresAt: "2999-01-01T00:00:00.000Z" };
+    for (const run of [() => api.ackAlert("a"), () => api.decideAiProposal("p", "REJECT"), () => api.stopAi(), () => api.runBackupNow()]) {
+      await assert.rejects(run(), (e: unknown) => e instanceof AdminError && e.status === 404);
     }
-    assert.equal(calls.length, 1);
+    assert.deepEqual(calls.slice(1).map((c) => c.url), [
+      "http://admin.test/admin/v1/msp/alerts/a/ack",
+      "http://admin.test/admin/v1/msp/ai/actions/p/reject",
+      "http://admin.test/admin/v1/msp/ai/stop",
+      "http://admin.test/admin/v1/msp/ops/backup",
+    ]);
   });
 });
 
-test("http: 한 판 조회가 답하면 환경과 원천 상태만 옮기고, 모르는 이름과 상태는 버린다", async () => {
+test("http: 칸이 빠진 한 판은 환경과 원천 상태만 옮기고 칸은 연결 전이다. 모르는 원천 이름과 상태는 버린다", async () => {
   const body = {
     environment: "SCHOOL_AWS",
     generated_at: "2026-09-25T01:00:00.000Z",
@@ -78,7 +85,7 @@ test("http: 한 판 조회가 답하면 환경과 원천 상태만 옮기고, �
       { name: "llm", state: "UNAVAILABLE", checkedAt: null, reason: "연결 시간 초과" },
       { name: "databasus", state: "NOT_CONNECTED", checkedAt: null, reason: null },
     ]);
-    // 칸의 값은 아직 옮기지 않는다(2단계). 서버가 답해도 값을 지어내지 않는다
+    // 서버가 싣지 않은 칸은 값을 지어내지 않는다
     for (const key of SECTIONS) assert.equal(c[key].state, "NOT_CONNECTED", key);
   });
 });

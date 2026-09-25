@@ -13,6 +13,7 @@ import { isoNow } from "../format";
 import { AdminError } from "./api";
 import { AI_ACTION_LABEL, AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, isStricter, type AiLimits } from "./aiPolicy";
 import { TrendBook } from "./opsTrends";
+import { THRESHOLD_META } from "./thresholdMeta";
 import { hms, lagWord, nextKst } from "./timeText";
 import type {
   AiActionKind,
@@ -86,7 +87,8 @@ const BASE_DEMAND = 34;
 export const BASE_BOT_OPS = 30;
 /** 호스트 CPU 상한. 봇 발행률을 크게 올려도 사용률이 100%를 넘지 않게 한다 */
 const CPU_CEIL = 99;
-const SLO: OpsSlo = { availabilityPct: 99.5, p95Ms: 400, errorRatePct: 1 };
+/** 시뮬레이터의 서비스 목표. 판에 싣는 OpsSlo는 목표가 없을 수 있는 모양이지만 시뮬레이터는 늘 목표를 둔다 */
+const SLO = { availabilityPct: 99.5, p95Ms: 400, errorRatePct: 1 } as const satisfies OpsSlo;
 /** 앱 계층 대수. app-1·app-2 두 대는 늘 켜져 있고 app-3 한 대가 자동으로 켜지고 꺼진다 */
 const READ_MIN = 2;
 const READ_MAX = 3;
@@ -107,6 +109,12 @@ const NOTICE_MS = 30_000;
 /** 자동 실행 후보가 여럿이면 서비스에 가까운 조치부터 본다 */
 const KIND_PRIORITY: Record<AiActionKind, number> = { READ_NODES: 0, BOT_LOAD: 1, BACKUP_NOW: 2, SILENCE: 3, THRESHOLD: 4 };
 
+/** 시뮬레이터의 임계값은 늘 값이 있다. 서버 레지스트리의 미설정(null)은 http 원천에만 있다 */
+type SimThreshold = OpsThreshold & { value: number };
+
+/** 시뮬레이터의 백업은 Databasus를 흉내 내므로 외부 보관과 오늘 실행 수가 늘 있다 */
+type SimBackup = OpsBackup & { offsite: NonNullable<OpsBackup["offsite"]>; manualRunsToday: number };
+
 interface ThresholdDef {
   key: ThresholdKey;
   label: string;
@@ -119,16 +127,19 @@ interface ThresholdDef {
   aiMaxStep: number;
 }
 
+/** 이름·단위·눈금은 http 원천과 같은 표(thresholdMeta.ts)에서 오고, 값·범위·AI 폭은 시뮬레이터의 초기값이다 */
+const simDef = (key: ThresholdKey, value: number, min: number, max: number, aiMaxStep: number): ThresholdDef => ({ key, ...THRESHOLD_META[key], value, min, max, aiMaxStep });
+
 const THRESHOLD_DEFS: ThresholdDef[] = [
-  { key: "read.scale_out_cpu", label: "증설 CPU 임계", appliesTo: "앱 계층 평균 CPU. 넘으면 app-3 켜기", unit: "%", value: 60, min: 40, max: 85, step: 1, aiMaxStep: 5 },
-  { key: "read.scale_in_cpu", label: "축소 CPU 임계", appliesTo: "앱 계층 평균 CPU. 아래면 app-3 끄기", unit: "%", value: 30, min: 10, max: 50, step: 1, aiMaxStep: 5 },
-  { key: "host.cpu_alert", label: "호스트 CPU 경보", appliesTo: "EC2 호스트 CPU", unit: "%", value: 85, min: 60, max: 95, step: 1, aiMaxStep: 5 },
-  { key: "host.mem_alert", label: "메모리 경보", appliesTo: "EC2 호스트 메모리", unit: "%", value: 90, min: 70, max: 95, step: 1, aiMaxStep: 5 },
-  { key: "host.disk_free_alert", label: "디스크 여유 경보", appliesTo: "루트 디스크 여유(미만이면 경보)", unit: "%", value: 20, min: 10, max: 40, step: 1, aiMaxStep: 5 },
-  { key: "db.replication_lag_alert", label: "복제 지연 경보", appliesTo: "Standby 재생 지연", unit: "초", value: 30, min: 5, max: 300, step: 5, aiMaxStep: 10 },
-  { key: "backup.delay_alert", label: "백업 지연 경보", appliesTo: "Databasus 마지막 성공 뒤 경과", unit: "시간", value: 26, min: 12, max: 72, step: 1, aiMaxStep: 6 },
-  { key: "bot.capacity_guard", label: "봇 용량 보호", appliesTo: "bot-1 CPU. 넘으면 봇 부하 줄임", unit: "%", value: 70, min: 50, max: 90, step: 1, aiMaxStep: 5 },
-  { key: "host.cpu_credit_alert", label: "CPU 크레딧 잔량 경보", appliesTo: "t3 호스트 CPU 크레딧(미만이면 경보)", unit: "크레딧", value: 50, min: 10, max: 200, step: 10, aiMaxStep: 20 },
+  simDef("read.scale_out_cpu", 60, 40, 85, 5),
+  simDef("read.scale_in_cpu", 30, 10, 50, 5),
+  simDef("host.cpu_alert", 85, 60, 95, 5),
+  simDef("host.mem_alert", 90, 70, 95, 5),
+  simDef("host.disk_free_alert", 20, 10, 40, 5),
+  simDef("db.replication_lag_alert", 30, 5, 300, 10),
+  simDef("backup.delay_alert", 26, 12, 72, 6),
+  simDef("bot.capacity_guard", 70, 50, 90, 5),
+  simDef("host.cpu_credit_alert", 50, 10, 200, 20),
 ];
 
 interface HostDef {
@@ -313,7 +324,7 @@ export class OpsSim {
   private tick = 0;
   private scenario: { id: OpsScenarioId; startedAt: number } | null = null;
 
-  private readonly thresholds = new Map<ThresholdKey, OpsThreshold>();
+  private readonly thresholds = new Map<ThresholdKey, SimThreshold>();
   private history: ThresholdChange[] = [];
 
   /** 앱 계층 희망 대수(2~3). 3이면 app-3가 켜져 있거나 켜지는 중이다 */
@@ -372,7 +383,7 @@ export class OpsSim {
   /** 모드 줄 알림. 싣는 시간은 snapshot이 NOTICE_MS로 거른다 */
   private notice: { kind: AiNotice["kind"]; at: number; text: string; tone: AiNotice["tone"]; incidentId: string | null } | null = null;
 
-  private backup: OpsBackup;
+  private backup: SimBackup;
   private backupRunTick: number | null = null;
   private readonly certExpires: number;
   private reportSent: number | null;
@@ -405,6 +416,7 @@ export class OpsSim {
       restoreCheck: { outcome: "SUCCESS", lastSuccessAt: isoNow(lastBackup + 21 * 60_000), lastFailureAt: isoNow(lastBackup - 3 * 86_400_000 + 21 * 60_000) },
       nextAt: isoNow(nextKst(now, 3, 10)),
       manualRunsToday: 0,
+      canRun: true,
     };
     this.certExpires = now + 62 * 86_400_000;
     const report = lastKst(now, 9, 0);
@@ -1398,7 +1410,7 @@ export class OpsSim {
   }
 
   /** 임계값 검증. 범위와 증설·축소 간격을 본다 */
-  private checkThreshold(key: ThresholdKey, to: number): OpsThreshold {
+  private checkThreshold(key: ThresholdKey, to: number): SimThreshold {
     const t = this.thresholds.get(key);
     if (!t) throw new AdminError("invalid_parameter", "임계값 항목 없음");
     if (!Number.isFinite(to) || to < t.min || to > t.max) {
@@ -1849,7 +1861,7 @@ export class OpsSim {
       confidencePct: p.confidencePct, status: p.status, createdAt: isoNow(p.createdAt),
       decidedAt: p.decidedAt === null ? null : isoNow(p.decidedAt), decidedBy: p.decidedBy,
       revertibleUntil: p.revertibleUntil === null ? null : isoNow(p.revertibleUntil), autoHold: p.autoHold, outcome: p.outcome,
-      change: this.changeOf(p.params), cost: p.cost, autoAllowed: this.autoAllowed(p.params),
+      change: this.changeOf(p.params), cost: p.cost, autoAllowed: this.autoAllowed(p.params), hold: null,
     }));
     const ai: AiDesk = {
       mode: this.mode,
@@ -1902,11 +1914,12 @@ export class OpsSim {
         state: "READY",
         data: {
           backup: { ...this.backup, offsite: { ...this.backup.offsite }, restoreCheck: { ...this.backup.restoreCheck } },
+          backupSource: null,
           certificate: { domain: "www.sang.it.kr", expiresAt: isoNow(this.certExpires) },
           dailyReport: { hour: 9, channel: "Teams", lastSentAt: this.reportSent === null ? null : isoNow(this.reportSent) },
         },
       },
-      thresholds: { state: "READY", data: { items: THRESHOLD_DEFS.map((d) => ({ ...(this.thresholds.get(d.key) as OpsThreshold) })), history: this.history.map((h) => ({ ...h })) } },
+      thresholds: { state: "READY", data: { items: THRESHOLD_DEFS.map((d) => ({ ...(this.thresholds.get(d.key) as SimThreshold) })), history: this.history.map((h) => ({ ...h })) } },
       ai: { state: "READY", data: ai },
       aiServer: { state: "READY", data: aiServer },
       trading: {

@@ -50,6 +50,9 @@ import type {
   AdminTransferStatus,
   AiDecision,
   AiChatReply,
+  AiJudgment,
+  IncidentEvent,
+  TrendRange,
   AiChatTurn,
   ControlCenter,
   OnCallEntry,
@@ -199,9 +202,18 @@ export interface AdminApi {
   getAudit(opts?: PageOpts): Promise<AdminPage<AuditEntry>>;
 
   /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
-   * 원천은 sim뿐이다. http 어댑터는 서버를 부르지 않고 칸마다 원천 연결 전을 돌려주며,
-   * 조작은 source_unavailable로 거절한다. 화면은 그 전에 조작을 막는다 */
+   * sim은 브라우저 시뮬레이터, http는 관리 API의 관제센터 서버(API 설계 §6-F, /admin/v1/msp/**)다. http는 한 판
+   * 조회에 세부 조회 몇 건을 붙여 판을 만들고(httpOps.ts), 서버에 없는 칸은 원천 연결 전으로 둔다 */
   getControlCenter(): Promise<ControlCenter>;
+  /**
+   * 판단 한 건의 과정(근거 스냅숏, 후보, 정책 엔진 검사). 판이 판단 목록만 싣는 원천(http)에서 상세를 열 때 읽는다.
+   * sim은 판에 과정을 늘 싣으므로 판의 기록을 돌려준다. 없으면 null이다
+   */
+  getAiJudgment(id: string): Promise<AiJudgment | null>;
+  /** 사건 한 건의 기록 줄. 판에 기록이 없는 사건(http의 오래된 사건)을 열 때 읽는다. sim은 null(판에 다 있음)이다 */
+  getIncidentEvents(incidentId: string): Promise<IncidentEvent[] | null>;
+  /** 화면이 고른 추세 범위를 알린다. http는 그 범위의 추세를 세부 조회로 읽고, sim은 할 일이 없다 */
+  wantTrends(range: TrendRange): void;
   /** 경보 확인. 확인 기록이고 경보를 끄지 않는다 */
   ackAlert(alertId: string): Promise<void>;
   /** 경보 보류. 최대 30분, 장애 등급 불가, 같은 경보 연속 불가(ADR 0035) */
@@ -227,15 +239,15 @@ export interface AdminApi {
   resetOps(): Promise<void>;
 
   /* ===== AI 상담(관리자 설계 4-6) =====
-   * 서버 계약 초안은 POST /admin/v1/msp/ai/chat이다. http 어댑터는 그 경로가 생기기 전까지 질문을 보내지 않는다 */
-  /** 상담의 원천. sim은 관제 판을 읽는 규칙 답이고, http는 서버 연결 전이다 */
-  readonly aiChat: "SIM" | "NOT_CONNECTED";
+   * http는 POST /admin/v1/msp/ai/chat이다. 서버가 질문 시점의 근거를 새로 모아 모델에 묻고, 상태를 바꾸는 호출이 없다 */
+  /** 상담의 원천. sim은 관제 판을 읽는 규칙 답, LIVE는 서버 상담 경로, NOT_CONNECTED는 서버가 없어 보내지 않음이다 */
+  readonly aiChat: "SIM" | "LIVE" | "NOT_CONNECTED";
   /** 관제 상태를 묻는다. 조회만 하고 조치를 실행하지 않는다. recent는 최근 대화(CHAT_RECENT_TURNS개까지)다 */
   askAi(question: string, recent: AiChatTurn[]): Promise<AiChatReply>;
 
   /* ===== 운영 보고(관리자 설계 4-7) =====
-   * bot-1 보고 서비스의 보고와 Teams 전송 기록을 읽는다. 서버 계약 초안은 보고 서비스 읽기 프록시
-   * (GET /admin/v1/msp/reports)이고 http 어댑터는 연결 전이다 */
+   * bot-1 보고 서비스의 보고와 Teams 전송 기록을 읽는다. http는 보고 서비스 읽기 프록시(GET /admin/v1/msp/reports,
+   * .../reports/status)이고, 프록시가 목록 요약만 주므로 보고 본문은 원천 연결 전이다 */
   getReports(): Promise<OpsSection<ReportDesk>>;
   /** Teams 연결 시험. 운영 자료를 싣지 않는 모의 메시지 한 건을 밖으로 보낸다 */
   sendTeamsTest(): Promise<void>;

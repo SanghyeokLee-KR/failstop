@@ -39,11 +39,17 @@ export function teamsDelivery(desk: OpsSection<ReportDesk> | null): {
   lastReportAt: string | null;
   detail: string;
 } {
+  if (desk?.state === "UNAVAILABLE") {
+    return { state: "ERROR", last: null, lastReportAt: null, detail: `불러오기 실패 · ${desk.reason}` };
+  }
   if (desk?.state !== "READY") {
     return { state: "NOT_CONNECTED", last: null, lastReportAt: null, detail: desk?.state === "NOT_CONNECTED" ? desk.source : "보고 서비스 확인 중" };
   }
   const d = desk.data;
-  const last = d.reports.flatMap((r) => r.attempts).concat(d.tests).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
+  // 보고 서비스 읽기 프록시(http)는 시도 기록을 싣지 않고 보고마다 보낸 시각만 준다. 그때는 마지막 보낸 보고를 전송으로 센다
+  const sent = d.reports.filter((r) => r.sentAt !== null).map((r): ReportAttempt => ({ attempt: 1, at: r.sentAt as string, status: "sent", error: null }));
+  const tried = d.reports.flatMap((r) => r.attempts);
+  const last = (tried.length > 0 ? tried : sent).concat(d.tests).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
   const lastReportAt = d.reports.map((r) => r.createdAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
   const failed = d.delivery.dead > 0;
   const detail = last
@@ -94,7 +100,7 @@ export function integrationsOf(c: ControlCenter | null, desk: OpsSection<ReportD
   });
 
   const jobs = sim && c?.jobs.state === "READY" ? c.jobs.data : null;
-  if (jobs) {
+  if (jobs && jobs.backup) {
     const b = jobs.backup;
     const restore = b.restoreCheck.outcome === "SUCCESS" ? "통과" : b.restoreCheck.outcome === "FAILED" ? "실패" : "기록 없음";
     rows.push({
@@ -124,7 +130,9 @@ export function integrationsOf(c: ControlCenter | null, desk: OpsSection<ReportD
   if (c?.aiServer.state === "READY") {
     const a = c.aiServer.data;
     const p95 = a.p95Ms === null ? "표본 없음" : secWord(a.p95Ms);
-    const values = `모델 ${a.model} · 적재 ${a.memUsedGb === null ? "미수집" : a.memUsedGb.toFixed(1)}/${a.memTotalGb}GB · 지연 p95 ${p95} · 마지막 응답 ${a.lastServedAt ? hms(a.lastServedAt) : "기록 없음"}`;
+    // 장비 메모리를 모르면(http) 분모 없이 적재 모델 메모리만 적는다
+    const mem = a.memUsedGb === null ? "미수집" : a.memTotalGb === null ? `${a.memUsedGb.toFixed(1)}GB` : `${a.memUsedGb.toFixed(1)}/${a.memTotalGb}GB`;
+    const values = `모델 ${a.model} · 적재 ${mem} · 지연 p95 ${p95} · 마지막 응답 ${a.lastServedAt ? hms(a.lastServedAt) : "기록 없음"}`;
     rows.push({
       key: "ai1",
       name: "AI 서버 ai-1",

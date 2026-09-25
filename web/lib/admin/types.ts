@@ -77,7 +77,7 @@ export type DestructiveAction =
   | "operators.status"
   | "operators.roles"
   | "members.close"
-  // 관제센터 세 액션은 API §3-6에 아직 없다. 서버 계약 초안(관리자 설계 4-4)이고 sim만 실행한다
+  // 관제센터 세 액션. 서버 승인 원장의 액션 이름과 같다(API §3-6, §6-F)
   | "ops.threshold.set"
   | "ops.ai.auto"
   | "ops.ai.limits";
@@ -102,7 +102,8 @@ export type ApprovalPayload =
       key: ThresholdKey;
       label: string;
       unit: ThresholdUnit;
-      from: number;
+      /** 바꾸기 전의 값. 서버 레지스트리의 미설정 항목이면 null이다 */
+      from: number | null;
       to: number;
       reason: string;
       /** 되돌리기면 되돌리는 변경의 id. 이력이 어떤 변경을 되돌린 것인지 잇는다 */
@@ -687,17 +688,23 @@ export interface AdminOverview {
 /** 값의 출처. SIM은 브라우저 시뮬레이터, LIVE는 관측 원천의 실측이다 */
 export type OpsOrigin = "SIM" | "LIVE";
 
-/** 배포 환경. 서버 설정이 원천이다(2단계). 모르면 UNKNOWN이고 화면이 짐작하지 않는다 */
+/** 배포 환경. 서버 설정(exchange.msp.environment)이 원천이다. 모르면 UNKNOWN이고 화면이 짐작하지 않는다 */
 export type OpsEnvironment = "SIMULATOR" | "LOCAL_DOCKER" | "SCHOOL_AWS" | "PERSONAL_AWS" | "UNKNOWN";
 
-/** 칸 하나. 원천을 붙이기 전이면 값 대신 붙일 원천의 이름을 싣는다 */
-export type OpsSection<T> = { state: "READY"; data: T } | { state: "NOT_CONNECTED"; source: string };
+/**
+ * 칸 하나. 원천을 붙이기 전이면 값 대신 붙일 원천의 이름을 싣는다. UNAVAILABLE은 원천 설정은 있으나 이번 조회가
+ * 실패했다는 뜻이고(API §6-F 칸 상태) reason에 서버의 분류 코드를 싣는다. 연결 전과 실패는 모양이 다르다(§12-8)
+ */
+export type OpsSection<T> =
+  | { state: "READY"; data: T }
+  | { state: "NOT_CONNECTED"; source: string }
+  | { state: "UNAVAILABLE"; source: string; reason: string };
 
-/** 서비스 목표. 상태 요약 칸이 벗어났는지를 이 값과 견준다 */
+/** 서비스 목표. 상태 요약 칸이 벗어났는지를 이 값과 견준다. 서버에 목표 설정이 없으면 null이고 견주지 않는다 */
 export interface OpsSlo {
-  availabilityPct: number;
-  p95Ms: number;
-  errorRatePct: number;
+  availabilityPct: number | null;
+  p95Ms: number | null;
+  errorRatePct: number | null;
 }
 
 export interface OpsSummary {
@@ -747,7 +754,8 @@ export interface AiServer {
   collectedAt: string | null;
   gpuPct: number | null;
   memUsedGb: number | null;
-  memTotalGb: number;
+  /** 장비 메모리. 원천이 알려 주지 않으면 null이다 */
+  memTotalGb: number | null;
   /** 최근 판단 요청의 추론 지연. 요청이 없었으면 null */
   p50Ms: number | null;
   p95Ms: number | null;
@@ -891,7 +899,21 @@ export type IncidentEventKind =
   | "NOTIFIED"
   | "ACKED"
   | "SILENCED"
-  | "RESOLVED";
+  | "RESOLVED"
+  /* 아래는 서버 사건 타임라인에만 있는 종류다(V71·V72). sim은 내지 않는다 */
+  /** 사람 보류 해제 */
+  | "UNSILENCED"
+  /** AI 즉시 정지와 재개 */
+  | "STOPPED"
+  | "RESUMED"
+  /** AI 한도 변경 */
+  | "LIMITS"
+  /** 계획 작업 창 등록·종료 */
+  | "WINDOW"
+  /** 정책 엔진이 조치 요청을 막음 */
+  | "DENIED"
+  /** 관찰 창의 끝 */
+  | "OBSERVED";
 
 export type OpsActor = "SYSTEM" | "AI" | "OPERATOR";
 
@@ -912,6 +934,11 @@ export interface Incident {
   severity: AlertSeverity;
   openedAt: string;
   resolvedAt: string | null;
+  /**
+   * 이 사건의 기록 줄이 판에 모두 실렸는가. http 판은 최근 사건 몇 건의 기록만 싣고 나머지는 사건을 열 때
+   * getIncidentEvents로 읽는다. sim은 늘 싣는다(undefined)
+   */
+  eventsLoaded?: boolean;
 }
 
 /** 최신이 앞이다 */
@@ -924,21 +951,36 @@ export interface IncidentLog {
 export type JobOutcome = "SUCCESS" | "FAILED" | "NONE";
 
 export interface OpsBackup {
-  tool: "Databasus";
+  /** 값의 원천. Databasus 판독이거나, Databasus 연결 전이면 백업 스크립트가 내는 지표(failstop_db_backup_*)다 */
+  tool: "Databasus" | "백업 지표";
   lastSuccessAt: string | null;
   lastSizeBytes: number | null;
   running: boolean;
-  offsite: { target: "SFTP" | "S3"; outcome: JobOutcome; at: string | null };
+  /** 외부 보관 결과. 원천이 알려 주지 않으면 null이다 */
+  offsite: { target: "SFTP" | "S3"; outcome: JobOutcome; at: string | null } | null;
   restoreCheck: { outcome: JobOutcome; lastSuccessAt: string | null; lastFailureAt: string | null };
   nextAt: string | null;
-  /** 오늘 운영자·AI가 즉시 실행한 횟수. 자동 즉시 실행은 하루 1회다(ADR 0035) */
-  manualRunsToday: number;
+  /** 오늘 운영자·AI가 즉시 실행한 횟수. 자동 즉시 실행은 하루 1회다(ADR 0035). 원천이 세지 않으면 null이다 */
+  manualRunsToday: number | null;
+  /** 즉시 실행을 받는 원천이 있는가. Databasus 연결 전이면 단추를 막는다 */
+  canRun: boolean;
 }
 
 export interface OpsJobs {
-  backup: OpsBackup;
-  certificate: { domain: string; expiresAt: string };
-  dailyReport: { hour: number; channel: "Teams"; lastSentAt: string | null };
+  /** 백업 원천이 없으면 null이고 backupSource에 붙일 원천을 적는다 */
+  backup: OpsBackup | null;
+  backupSource: string | null;
+  /** 인증서 만료 원천이 없으면 null이다 */
+  certificate: { domain: string; expiresAt: string } | null;
+  /** hour는 보고 예약 시각(KST 시)이다. 원천이 예약 시각을 알려 주지 않으면 null이다 */
+  dailyReport: {
+    hour: number | null;
+    channel: "Teams";
+    /** Teams 전송 기록의 마지막 일일 보고 */
+    lastSentAt: string | null;
+    /** 보고 타이머의 마지막 실행. 실행만 알고 전달 성공은 모른다(§6-F 운영 작업). sim은 싣지 않는다 */
+    lastRunAt?: string | null;
+  };
 }
 
 export type ThresholdKey =
@@ -959,7 +1001,8 @@ export interface OpsThreshold {
   label: string;
   appliesTo: string;
   unit: ThresholdUnit;
-  value: number;
+  /** 지금 값. 서버 레지스트리의 미설정 항목은 null이고 그 항목은 판정하지 않는다 */
+  value: number | null;
   min: number;
   max: number;
   step: number;
@@ -969,17 +1012,23 @@ export interface OpsThreshold {
   aiReason: string | null;
   updatedAt: string;
   updatedBy: string;
+  /** 이 환경에서 그 항목을 쓰는 규칙이나 권고가 있는가(§6-F in_use). sim은 싣지 않는다 */
+  inUse?: boolean | null;
+  /** 경보 규칙이 지금 쓰는 값(게이지 마지막 값). 값과 다르면 변경이 아직 규칙에 닿지 않았다. sim은 싣지 않는다 */
+  ruleValue?: number | null;
 }
 
-export type ThresholdVia = "MANUAL" | "AI_APPROVED" | "AI_AUTO" | "REVERT";
+/** 변경 경로. 뒤의 셋은 서버에만 있다(SEED 마이그레이션 초기값, CONFIG 환경 기본값, AUTO_REVERT 관찰 창의 자동 되돌림) */
+export type ThresholdVia = "MANUAL" | "AI_APPROVED" | "AI_AUTO" | "REVERT" | "AUTO_REVERT" | "SEED" | "CONFIG";
 
 export interface ThresholdChange {
   id: string;
   key: ThresholdKey;
   label: string;
   unit: ThresholdUnit;
-  from: number;
-  to: number;
+  /** 미설정에서 바꾸거나 미설정으로 되돌린 변경은 null이다 */
+  from: number | null;
+  to: number | null;
   at: string;
   by: string;
   via: ThresholdVia;
@@ -1039,7 +1088,8 @@ export interface AiLimitChange {
   reason: string;
   revertOf: string | null;
   reverted: boolean;
-  apply: AiLimitApply;
+  /** 적용 시점. 서버 변경 이력은 싣지 않아 http는 null이다 */
+  apply: AiLimitApply | null;
 }
 
 export interface AiAutoGrant {
@@ -1062,8 +1112,17 @@ export type AiProposalStatus =
   | "REVERTED"
   | "AUTO_REVERTED"
   | "WITHDRAWN"
-  /** AI 즉시 정지로 만료된 조치안. 승인할 수 없다 */
-  | "EXPIRED";
+  /** AI 즉시 정지나 시간 초과로 만료된 조치안. 승인할 수 없다. 어느 쪽인지는 hold가 가른다 */
+  | "EXPIRED"
+  /* 아래 넷은 서버 정책 엔진에만 있는 상태다(API §6-F). sim은 내지 않는다 */
+  /** 실행 중 */
+  | "EXECUTING"
+  /** 실행했으나 실패 */
+  | "FAILED"
+  /** 실행이 중간에 끊겨 결과를 원천에서 대조하지 못함 */
+  | "UNKNOWN"
+  /** 정책이 제안 때 막음 */
+  | "DENIED";
 
 export interface AiEvidence {
   id: string;
@@ -1102,6 +1161,11 @@ export interface AiProposal {
    * 부하 줄임은 bot-1 CPU가 봇 용량 보호 기준 이상일 때만 자동이다. 아니면 자동 모드에서도 '승인 필요'다
    */
   autoAllowed: boolean;
+  /**
+   * 서버 정책 엔진이 막거나 기다리게 한 규칙과 사유(hold_rule, hold_reason). 규칙 id는 관제센터 2단계 설계 7-6절이다.
+   * sim과 막힌 것이 없는 조치는 null이다
+   */
+  hold: { rule: string; reason: string } | null;
 }
 
 /** 판단 과정의 후보 조치 하나 */
@@ -1158,6 +1222,10 @@ export interface AiJudgment {
   outcome: string;
   /** 판단 과정. 판단이 아닌 기록(AI 정지 등)은 null이다 */
   trace: AiJudgmentTrace | null;
+  /**
+   * 판단 과정을 판에 싣지 않았는가. http 판은 판단 목록만 싣고, 상세를 열 때 getAiJudgment로 읽는다. sim은 늘 싣는다
+   */
+  lazy?: boolean;
 }
 
 /**
@@ -1297,8 +1365,11 @@ export interface AiChatTurn {
   text: string;
 }
 
-/** OK는 답이 있음, STOPPED는 AI 정지 중이라 답하지 않음, NOT_CONFIGURED는 상담 모델 설정이 없음 */
-export type AiChatState = "OK" | "STOPPED" | "NOT_CONFIGURED";
+/**
+ * OK는 답이 있음, STOPPED는 AI 정지 중이라 답하지 않음, NOT_CONFIGURED는 상담 모델 설정이 없음, UNAVAILABLE은 모델
+ * 호출이 실패했거나 모델을 적재하는 중이라 답하지 못함이다(서버 상담 state UNAVAILABLE)
+ */
+export type AiChatState = "OK" | "STOPPED" | "NOT_CONFIGURED" | "UNAVAILABLE";
 
 export type AiChatEvidenceKind = "METRIC" | "ALERT" | "INCIDENT" | "PROPOSAL" | "THRESHOLD" | "HOST";
 
@@ -1316,6 +1387,11 @@ export interface AiChatReply {
   state: AiChatState;
   /** 합니다체 답. state가 OK가 아니면 빈 문자열이다 */
   answer: string;
+  /**
+   * 답보다 먼저 보일 서버 안내(합니다체). 근거가 오래됐거나 원천이 연결 전일 때의 머리말(preface)이거나, OK가 아닐 때
+   * 서버가 쓴 안내 문장이다. sim은 null이다
+   */
+  note: string | null;
   evidence: AiChatEvidence[];
   /** 근거를 모은 시각 */
   collectedAt: string | null;
@@ -1383,6 +1459,11 @@ export interface ReportAttempt {
 
 export interface OpsReport {
   id: string;
+  /**
+   * 본문까지 실렸는가. 보고 서비스 읽기 프록시(GET /admin/v1/msp/reports)는 목록 요약만 주므로 http는 SUMMARY이고,
+   * 이때 영향·조치·후속 관측·분석 칸은 비어 있고 화면이 연결 전으로 그린다. sim은 FULL이다
+   */
+  detail: "FULL" | "SUMMARY";
   kind: ReportKind;
   createdAt: string;
   sentAt: string | null;

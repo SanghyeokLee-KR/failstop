@@ -1,0 +1,23 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "mode" : "MANUAL",
+    "stopped" : false,
+    "stop" : null,
+    "auto" : null,
+    "activation" : null,
+    "cooldowns" : {
+      "READ_NODES" : null,
+      "THRESHOLD" : null,
+      "BOT_LOAD" : null
+    },
+    "observe_until" : null,
+    "llm" : {
+      "state" : "READY",
+      "provider" : "ollama-native",
+      "model" : "test-model",
+      "transport" : "LOOPBACK"
+    }
+  }
+}

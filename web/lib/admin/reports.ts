@@ -41,6 +41,18 @@ export function cardTone(r: OpsReport): { tone: CardTone; shape: string } {
   return byCode[r.intervention.code];
 }
 
+/**
+ * 카드 끝줄의 보고 이름. 보고 서비스(presentation.py, 관제센터 2단계 설계 7-12절 '기록 줄')와 같이 보관함 키의 종류를
+ * 이름으로 바꾼다. 일일 보고는 날짜 전체, 경보 보고는 해시 앞 12자, AI 사건은 사건 id 첫 묶음(8자)이다
+ */
+export function reportName(id: string): string {
+  const [kind, rest = ""] = id.split(/:(.*)/s);
+  if (kind === "daily") return `일일 보고 ${rest}`;
+  if (kind === "msp") return `관제 사건 ${rest.split("-")[0].slice(0, 8)}`;
+  if (kind === "incident" || kind === "alert") return `경보 보고 ${rest.slice(0, 12)}`;
+  return id;
+}
+
 /** 보고 서비스가 보낸 Adaptive Card 본문과 같은 순서의 블록 */
 export function teamsCard(r: OpsReport): TeamsCard {
   const t = cardTone(r);
@@ -50,17 +62,20 @@ export function teamsCard(r: OpsReport): TeamsCard {
     { type: "text", text: `${r.intervention.priority} · ${r.intervention.label}`, bolder: true },
   ];
   const first = r.events[0];
+  // 영향은 한 줄 글이 아니라 대상·발생과 같은 이름-값 줄이다(보고 서비스 2026-09-25 보정, 설계 7-12절)
   blocks.push({
     type: "facts",
-    facts: first
-      ? [
-          { title: "대상", value: first.target },
-          { title: "발생", value: kst(first.startedAt) },
-          ...(first.endedAt ? [{ title: "해제", value: kst(first.endedAt) }] : []),
-        ]
-      : [{ title: "보고 기준", value: kst(r.collectedAt) }],
+    facts: [
+      ...(first
+        ? [
+            { title: "대상", value: first.target },
+            { title: "발생", value: kst(first.startedAt) },
+            ...(first.endedAt ? [{ title: "해제", value: kst(first.endedAt) }] : []),
+          ]
+        : [{ title: "보고 기준", value: kst(r.collectedAt) }]),
+      { title: "영향", value: r.impact },
+    ],
   });
-  blocks.push({ type: "text", text: `영향  |  ${r.impact}`, size: "small" });
   blocks.push({ type: "text", text: "담당자 조치", bolder: true, separator: true });
   for (const a of r.actions.slice(0, 2)) {
     blocks.push(
@@ -82,7 +97,7 @@ export function teamsCard(r: OpsReport): TeamsCard {
   if (r.gaps.length > 0) blocks.push({ type: "text", text: `미확인 자료 ${r.gaps.length}항목 · 상세 보고의 수집 범위 참조`, size: "small", subtle: true });
   blocks.push(
     { type: "text", text: r.analysis.note, size: "small", subtle: true, separator: true },
-    { type: "text", text: `기록 ${r.id.slice(-12)} · ${r.autoAction}`, size: "small", subtle: true },
+    { type: "text", text: `${reportName(r.id)} · ${r.autoAction}`, size: "small", subtle: true },
   );
   const actions: TeamsCard["actions"] = [];
   if (r.links.pdf) actions.push({ title: "PDF 보고서", url: r.links.pdf });

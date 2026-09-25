@@ -16,14 +16,21 @@ import { kstDay } from "@/lib/admin/timeText";
 import { AdminIcon, type AdminIconName } from "../icons";
 import StatusShape from "../StatusShape";
 import { useChangeFlags } from "../useChangeFlags";
-import { durationWord, FlashNum, SEVERITY_WORD, useClock } from "./parts";
+import { durationWord, FlashNum, sectionSource, SEVERITY_WORD, useClock } from "./parts";
 import Sparkline from "./Sparkline";
 import styles from "./control.module.css";
 
 type Tone = "warning" | "danger" | undefined;
 
-/** 범위별 점 사이 간격(분). opsTrends.ts 의 점 개수와 짝이다 */
+/**
+ * 점 사이 간격(분). 범위를 점 개수로 나눈다. sim은 1·5·15분이고, 서버 추세는 step이 범위마다 다르며(30초·3분·12분)
+ * 사건 막대는 범위를 24칸으로 나눈다(API §6-F 요약 추세). 점이 없으면 sim의 간격을 쓴다
+ */
 const STEP_MIN: Record<TrendRange, number> = { 1: 1, 6: 5, 24: 15 };
+function stepMinOf(range: TrendRange, series: OpsTrendSeries | undefined): number {
+  const n = series?.points.length ?? 0;
+  return n > 0 ? (range * 60) / n : STEP_MIN[range];
+}
 
 /** 비교 시점의 말. 1시간 범위는 '10분 전', 그 위는 시간이다 */
 function backWord(range: TrendRange): string {
@@ -156,30 +163,33 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
   const alerts = alertSec.state === "READY" ? alertSec.data : null;
   const log = incidents.state === "READY" ? incidents.data : null;
   const tr = trends.state === "READY" ? trends.data[range] : null;
-  const avTone: Tone = s && s.availabilityPct !== null && s.availabilityPct < s.slo.availabilityPct ? "danger" : undefined;
-  const p95Tone: Tone = s && s.p95Ms !== null && s.p95Ms > s.slo.p95Ms ? "warning" : undefined;
-  const errTone: Tone = s && s.errorRatePct !== null && s.errorRatePct >= s.slo.errorRatePct ? "warning" : undefined;
+  // 목표가 없으면(서버에 SLO 설정 없음) 견주지 않는다
+  const slo = s?.slo ?? null;
+  const avTone: Tone = s && slo && s.availabilityPct !== null && slo.availabilityPct !== null && s.availabilityPct < slo.availabilityPct ? "danger" : undefined;
+  const p95Tone: Tone = s && slo && s.p95Ms !== null && slo.p95Ms !== null && s.p95Ms > slo.p95Ms ? "warning" : undefined;
+  const errTone: Tone = s && slo && s.errorRatePct !== null && slo.errorRatePct !== null && s.errorRatePct >= slo.errorRatePct ? "warning" : undefined;
   const counts = alerts ? alertCounts(alerts) : null;
   const alertTone: Tone = counts ? (counts.critical > 0 ? "danger" : counts.warning > 0 ? "warning" : undefined) : undefined;
   const acked = alerts ? alerts.filter((a) => a.state === "ACKED").length : 0;
   const silenced = alerts ? alerts.filter((a) => a.state === "SILENCED").length : 0;
   const inc = log ? todayIncidents(log, now) : null;
-  const step = STEP_MIN[range];
-  // 벗어난 시간은 분 단위 점열(1시간 범위)에서 센다. 고른 범위와 무관하다
+  // 벗어난 시간은 1시간 범위의 점열에서 센다. 고른 범위와 무관하다
   const minute = trends.state === "READY" ? trends.data[1] : null;
+  const minuteStep = stepMinOf(1, minute?.availability);
   const firstAlert = alerts && alerts.length > 0 ? Math.min(...alerts.map((a) => Date.parse(a.since))) : null;
   const openInc = log ? log.incidents.find((i) => i.resolvedAt === null) ?? null : null;
   const sinceMin = (t: number) => Math.max(1, Math.floor((now - t) / 60_000) + 1);
   // 축의 최소 폭은 그 지표에서 눈여겨볼 변화의 크기다. 가용성·5xx는 0.06%p, p95는 60ms다
   const spark = (series: OpsTrendSeries | undefined, tone: Tone, format: (v: number) => string, what: string, opt: { kind?: "bars"; minSpan?: number; zero?: boolean } = {}) =>
     series ? (
-      <Sparkline points={series.points} tone={tone} format={format} stepMin={step} label={`지난 ${range}시간 ${what}`} kind={opt.kind} minSpan={opt.minSpan} zero={opt.zero} />
+      <Sparkline points={series.points} tone={tone} format={format} stepMin={stepMinOf(range, series)} label={`지난 ${range}시간 ${what}`} kind={opt.kind} minSpan={opt.minSpan} zero={opt.zero} />
     ) : null;
   const mark = (tone: Tone) =>
     tone && (
       <StatusShape kind={tone === "danger" ? "square" : "triangle"} size={14} className={styles.tileMark} />
     );
-  const source = (sec: OpsSection<unknown>) => (sec.state === "NOT_CONNECTED" ? sec.source : "");
+  const source = (sec: OpsSection<unknown>) => sectionSource(sec);
+  const goal = (v: number | null, text: (v: number) => ReactNode) => (v === null ? "목표 설정 없음" : text(v));
 
   return (
     <section className={styles.summary} aria-label="상태 요약">
@@ -188,7 +198,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
           <Tile icon="globe" label="외부 가용성" tone={avTone} focusRef={{ kind: "SLO", metric: "availability" }}
             delta={
               avTone && minute ? (
-                <Breach tone={avTone} word="목표 미달" minutes={breachMinutes(minute.availability.points, (v) => v < s.slo.availabilityPct)} />
+                <Breach tone={avTone} word="목표 미달" minutes={breachMinutes(minute.availability.points, (v) => v < (s.slo.availabilityPct ?? -Infinity), minuteStep)} />
               ) : tr ? (
                 <DeltaChip d={trendDelta("availability", tr.availability, range, s.availabilityPct)} range={range} />
               ) : null
@@ -201,12 +211,12 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
                 <span className={styles.tileUnit}>%</span>
               </span>
             }
-            sub={<>목표 {s.slo.availabilityPct}% · 외부 프로브 5분</>}
+            sub={<>{goal(s.slo.availabilityPct, (v) => `목표 ${v}%`)} · 외부 프로브 5분</>}
           />
           <Tile icon="clock" label="응답 p95" tone={p95Tone} focusRef={{ kind: "SLO", metric: "p95" }}
             delta={
               p95Tone && minute ? (
-                <Breach tone={p95Tone} word="목표 초과" minutes={breachMinutes(minute.p95.points, (v) => v > s.slo.p95Ms)} />
+                <Breach tone={p95Tone} word="목표 초과" minutes={breachMinutes(minute.p95.points, (v) => v > (s.slo.p95Ms ?? Infinity), minuteStep)} />
               ) : tr ? (
                 <DeltaChip d={trendDelta("p95", tr.p95, range, s.p95Ms)} range={range} />
               ) : null
@@ -219,12 +229,12 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
                 <span className={styles.tileUnit}>ms</span>
               </span>
             }
-            sub={<>목표 {s.slo.p95Ms}ms 이하</>}
+            sub={<>{goal(s.slo.p95Ms, (v) => `목표 ${v}ms 이하`)}</>}
           />
           <Tile icon="errors" label="5xx 비율" tone={errTone} focusRef={{ kind: "SLO", metric: "errors" }}
             delta={
               errTone && minute ? (
-                <Breach tone={errTone} word="목표 초과" minutes={breachMinutes(minute.errors.points, (v) => v >= s.slo.errorRatePct)} />
+                <Breach tone={errTone} word="목표 초과" minutes={breachMinutes(minute.errors.points, (v) => v >= (s.slo.errorRatePct ?? Infinity), minuteStep)} />
               ) : tr ? (
                 <DeltaChip d={trendDelta("errors", tr.errors, range, s.errorRatePct)} range={range} />
               ) : null
@@ -237,7 +247,7 @@ function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
                 <span className={styles.tileUnit}>%</span>
               </span>
             }
-            sub={<>목표 {s.slo.errorRatePct}% 미만</>}
+            sub={<>{goal(s.slo.errorRatePct, (v) => `목표 ${v}% 미만`)}</>}
           />
         </>
       ) : (

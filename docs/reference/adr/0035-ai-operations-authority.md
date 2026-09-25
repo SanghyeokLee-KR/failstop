@@ -97,7 +97,7 @@ AI는 조치 요청만 만든다. 허용 목록, 한도, 쿨다운, 전제 조�
 
 1단계는 관리 콘솔 관제센터 화면과 브라우저 시뮬레이터다. 규칙과 확정 한도, 임계값 항목별 민감한 방향은 [웹의 정책 정의](../../../web/lib/admin/aiPolicy.ts), 흉내 낸 판단과 자동 실행, AI 즉시 정지와 한도 변경은 [시뮬레이터](../../../web/lib/admin/opsSim.ts)에 있다. 시뮬레이터의 정책 검사표는 방향과 봇 용량 보호를 한 행씩 검사하고, 완화 방향의 임계값 조치안과 기준 아래의 봇 부하 줄임은 자동 모드에서도 '승인 필요' 배지로 남는다. 시뮬레이터는 모델을 부르지 않는 규칙 판단이고 서버 정책 엔진이 아니다.
 
-2단계는 관리 API의 관제센터 서버다(`kr.exchange.admin.msp`, V70~V73, [관제센터 2단계 설계](../architecture/MSP_관제센터_2단계_설계.md), [API 설계 §6-F](../contracts/백엔드_API_설계.md)). 2026-09-25 서버 정책 엔진(`AiPolicy`), AI 판단 주기와 실행기, 임계값 레지스트리, 승인 원장의 네 액션(`ops.threshold.set`, `ops.alert.silence`, `ops.ai.auto`, `ops.ai.limits`), 정지·재개와 한도 API, 감사, 보고 서비스를 거치는 Teams 통지를 구현했다. `exchange.msp.enabled`와 LLM 주소를 줄 때만 동작하고 기본으로 꺼져 있다. 가짜 LLM 스텁과 Testcontainers의 통합 시험, 개발 PC RTX 4090의 Ollama 평가로만 확인했고 학교·로컬 스택과 DGX Spark에는 적용하지 않았다. 같은 날 1단계 화면과 한 브랜치로 병합했다. 병합 직후 웹의 http 데이터 원천은 한 판 조회의 환경과 원천 상태만 읽고, 나머지 칸과 조작을 서버 계약에 잇는 일은 병합 뒤의 변경이다.
+2단계는 관리 API의 관제센터 서버다(`kr.exchange.admin.msp`, V70~V73, [관제센터 2단계 설계](../architecture/MSP_관제센터_2단계_설계.md), [API 설계 §6-F](../contracts/백엔드_API_설계.md)). 2026-09-25 서버 정책 엔진(`AiPolicy`), AI 판단 주기와 실행기, 임계값 레지스트리, 승인 원장의 네 액션(`ops.threshold.set`, `ops.alert.silence`, `ops.ai.auto`, `ops.ai.limits`), 정지·재개와 한도 API, 감사, 보고 서비스를 거치는 Teams 통지를 구현했다. `exchange.msp.enabled`와 LLM 주소를 줄 때만 동작하고 기본으로 꺼져 있다. 가짜 LLM 스텁과 Testcontainers의 통합 시험, 개발 PC RTX 4090의 Ollama 평가로만 확인했고 학교·로컬 스택과 DGX Spark에는 적용하지 않았다. 같은 날 1단계 화면과 한 브랜치로 병합하고 웹의 http 데이터 원천을 서버 계약에 이었다. http 화면에서 모드 스위치, 'AI 즉시 정지'와 재개, 조치 카드의 승인·거절·나중에·되돌리기, 한도 변경이 서버 정책 엔진을 거친다. 실제 관리 JVM과 모델에 붙여 본 적은 없고, 서버 통합 시험이 낸 응답 스냅숏으로만 화면을 확인했다([관리자 설계 4-4](../product/관리자_설계.md) http 동작).
 
 ### 서버 구현에서 정한 것(2026-09-25 병합 때 반영)
 

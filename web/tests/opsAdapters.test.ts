@@ -142,33 +142,42 @@ test("sim: 경보 보류는 SUPER만, 확인은 조회 권한으로 된다", asy
   await rejectsWith(() => api.ackAlert("없는-경보"), "not_found");
 });
 
-test("http: 관제 조작은 서버 경로가 없어 요청을 보내지 않고 '원천 연결 전'으로 거절한다", async () => {
+test("http: 관제 조작은 서버 경로(/admin/v1/msp/**)로 보내고, 시뮬레이터 전용 조작만 요청 없이 거절한다", async () => {
   const prev = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = (async () => {
-    calls += 1;
-    throw new Error("관제 조작 엔드포인트를 부르면 안 된다");
+  const urls: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    urls.push(url.replace("http://admin.test", ""));
+    return new Response(JSON.stringify({ schema_version: "1.0", approval_token: "APV" }), { status: 200, headers: { "Content-Type": "application/json" } });
   }) as typeof fetch;
   try {
-    // 계약(AdminApi)으로 부른다. 구현은 인자를 읽지 않고 곧바로 거절한다
     const api: AdminApi = new HttpAdminApi("http://admin.test");
+    (api as unknown as { session: unknown }).session = { operatorId: "op-1", displayName: "op", roles: ["SUPER"], token: "t", issuedAt: "", expiresAt: "2999-01-01T00:00:00.000Z" };
     assert.equal(api.opsScenarios, false);
-    for (const run of [
-      () => api.ackAlert("a"),
-      () => api.silenceAlert("a", 10),
-      () => api.decideAiProposal("p", "APPROVE"),
-      () => api.revertAiAction("p"),
-      () => api.enableAiAuto(1, "사유"),
-      () => api.stopAiAuto(),
-      () => api.stopAi(),
-      () => api.resumeAi("사유"),
-      () => api.runBackupNow(),
-      () => api.startOpsScenario("READ_SURGE"),
-      () => api.resetOps(),
-    ]) {
-      await rejectsWith(run, "source_unavailable");
-    }
-    assert.equal(calls, 0);
+    await api.ackAlert("a");
+    await api.silenceAlert("a", 10);
+    await api.decideAiProposal("p", "APPROVE");
+    await api.revertAiAction("p");
+    await api.enableAiAuto(1, "사유");
+    await api.stopAiAuto();
+    await api.stopAi();
+    await api.resumeAi("사유");
+    await api.runBackupNow();
+    assert.deepEqual(urls, [
+      "/admin/v1/msp/alerts/a/ack",
+      "/admin/v1/msp/alerts/a/silence",
+      "/admin/v1/msp/ai/actions/p/approve",
+      "/admin/v1/msp/ai/actions/p/revert",
+      "/admin/v1/approvals",
+      "/admin/v1/msp/ai/mode/auto",
+      "/admin/v1/msp/ai/mode/manual",
+      "/admin/v1/msp/ai/stop",
+      "/admin/v1/msp/ai/resume",
+      "/admin/v1/msp/ops/backup",
+    ]);
+    const before = urls.length;
+    await rejectsWith(() => api.startOpsScenario("READ_SURGE"), "source_unavailable");
+    await rejectsWith(() => api.resetOps(), "source_unavailable");
+    assert.equal(urls.length, before, "시나리오 재생과 초기화는 시뮬레이터에만 있어 요청을 보내지 않는다");
   } finally {
     globalThis.fetch = prev;
   }

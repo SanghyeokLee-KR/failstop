@@ -100,7 +100,9 @@ function Resources({ node, reg }: { node: NodeRef; reg: ThresholdRegistry | null
     return (
       <div className={styles.meters}>
         <Meter name="GPU 사용률" value={a.gpuPct} unit="%" threshold={null} note="판단 요청이 걸린 동안 오릅니다" />
-        <Meter name="통합 메모리" value={a.memUsedGb} unit={`/${a.memTotalGb}GB`} max={a.memTotalGb} threshold={null} note="적재 모델과 캐시" />
+        {/* 장비 메모리를 모르면(http 원천) 막대 대신 적재 모델 메모리만 적는다 */}
+        <Meter name="통합 메모리" value={a.memTotalGb === null ? null : a.memUsedGb} unit={a.memTotalGb === null ? "GB" : `/${a.memTotalGb}GB`} max={a.memTotalGb ?? undefined} threshold={null}
+          note={a.memTotalGb === null ? `장비 메모리 원천 연결 전 · 적재 모델 ${a.memUsedGb === null ? "미확인" : `${a.memUsedGb}GB`}` : "적재 모델과 캐시"} />
         <Meter name="추론 지연 p95" value={a.p95Ms === null ? null : Math.round(a.p95Ms / 100) / 10} unit="초" max={5} threshold={null} note={a.p50Ms === null ? "요청 없음" : `p50 ${Math.round(a.p50Ms / 100) / 10}초`} />
         <Meter name="대기 요청" value={a.queue} unit="건" max={4} threshold={null} note={`처리량 ${a.tokensPerSec ?? 0} 토큰/초`} />
       </div>
@@ -332,7 +334,7 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
                   <span className={styles.sectionTitle}>지금 부하</span>
                   <div className={controlStyles.gauges}>
                     <GaugeRow label="GPU" name="GPU 사용률" value={node.server.gpuPct} threshold={null} />
-                    <GaugeRow label="MEM" name="통합 메모리" value={node.server.memUsedGb} max={node.server.memTotalGb} unit="GB" threshold={null} suffix={`/${node.server.memTotalGb}`} />
+                    <GaugeRow label="MEM" name="통합 메모리" value={node.server.memTotalGb === null ? null : node.server.memUsedGb} max={node.server.memTotalGb ?? undefined} unit="GB" threshold={null} suffix={node.server.memTotalGb === null ? "" : `/${node.server.memTotalGb}`} />
                   </div>
                 </>
               )}

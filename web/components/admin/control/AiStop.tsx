@@ -121,8 +121,8 @@ export default function AiStop() {
         type="button"
         className={auto ? adminStyles.dangerBtn : `${adminStyles.neutralBtn} ${styles.stopCalm}`}
         disabled={!connected || busy}
-        title={connected ? "승인 없이 곧바로 멈춥니다. 자동 모드를 끄고 새 판단과 조치안을 멈춥니다" : "서버 정책 엔진 연결 전"}
-        aria-label={connected ? "AI 즉시 정지" : "AI 즉시 정지 · 서버 정책 엔진 연결 전"}
+        title={connected ? "승인 없이 곧바로 멈춥니다. 자동 모드를 끄고 새 판단과 조치안을 멈춥니다" : "관제센터 서버 없음(관제 모듈 꺼짐)"}
+        aria-label={connected ? "AI 즉시 정지" : "AI 즉시 정지 · 관제센터 서버 없음"}
         onClick={() => void stop()}
       >
         <StatusShape kind="square" className={styles.stopShape} />

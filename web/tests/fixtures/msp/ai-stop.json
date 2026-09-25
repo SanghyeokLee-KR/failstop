@@ -1,0 +1,10 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "stopped" : true,
+    "changed" : true,
+    "mode" : "MANUAL",
+    "expired_actions" : 1
+  }
+}

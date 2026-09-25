@@ -325,7 +325,7 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
           data-auto=""
           aria-pressed={auto}
           disabled={!connected || !canSuper || busy || stopped}
-          title={!connected ? "서버 정책 엔진 연결 전" : stopped ? "AI 정지 중 · 재개 뒤 켜기" : !canSuper ? "총괄 권한 필요" : undefined}
+          title={!connected ? "관제센터 서버 없음(관제 모듈 꺼짐)" : stopped ? "AI 정지 중 · 재개 뒤 켜기" : !canSuper ? "총괄 권한 필요" : undefined}
           onClick={() => {
             if (!auto) setDialog("auto");
           }}
@@ -335,7 +335,7 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
       </div>
       {!connected ? (
         <span className={styles.modeText}>
-          {section === null ? "모드 확인 중" : <><b>서버 정책 엔진 연결 전</b> · AI 판단과 자동 모드, AI 즉시 정지는 2단계에서 연결합니다</>}
+          {section === null ? "모드 확인 중" : <><b>관제센터 서버 없음</b> · AI 판단과 자동 모드, AI 즉시 정지는 관제 모듈을 켠 관리 API에서만 씁니다</>}
         </span>
       ) : auto ? (
         <AutoItems ai={ai} pending={pending} />

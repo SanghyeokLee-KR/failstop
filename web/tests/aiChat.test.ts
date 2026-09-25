@@ -110,19 +110,29 @@ test("sim 상담은 조회 권한으로 묻고 빈 질문과 길이 초과는 �
   await rejectsWith(() => api.askAi("가".repeat(CHAT_MAX_CHARS + 1), []), "invalid_parameter");
 });
 
-test("http 상담은 서버 계약 전이라 요청을 보내지 않고 연결 전으로 거절한다", async () => {
+test("http 상담은 서버 상담 경로에 질문과 최근 대화를 싣고, 서버가 쓴 머리말을 답보다 먼저 싣는다", async () => {
   const prev = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = (async () => {
-    calls += 1;
-    throw new Error("상담 엔드포인트를 부르면 안 된다");
+  const sent: { url: string; body: unknown }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
+    sent.push({ url, body: JSON.parse(String(init.body)) });
+    return new Response(
+      JSON.stringify({ state: "ANSWERED", reason: null, preface: "근거 일부가 60초보다 오래되었습니다.", answer: "지금 경보는 한 건입니다.", citations: [{ id: "metric.http_5xx_ratio", label: "5xx 비율", value: "0.0004" }], evidence: { collected_at: "2026-09-25T00:00:00.000Z" }, model: "test-model" }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   }) as typeof fetch;
   try {
-    // 계약(AdminApi)으로 부른다. 구현은 인자를 읽지 않고 곧바로 거절한다
     const api: AdminApi = new HttpAdminApi("http://admin.test");
-    assert.equal(api.aiChat, "NOT_CONNECTED");
-    await rejectsWith(() => api.askAi("지금 상태를 요약해 주세요", []), "source_unavailable");
-    assert.equal(calls, 0);
+    (api as unknown as { session: unknown }).session = { operatorId: "op-1", displayName: "op", roles: ["VIEWER"], token: "t", issuedAt: "", expiresAt: "2999-01-01T00:00:00.000Z" };
+    assert.equal(api.aiChat, "LIVE");
+    const r = await api.askAi("지금 상태를 요약해 주세요", [{ role: "operator", text: "앞 질문" }, { role: "ai", text: "앞 답" }]);
+    assert.deepEqual(sent, [{
+      url: "http://admin.test/admin/v1/msp/ai/chat",
+      body: { operator_id: "op-1", question: "지금 상태를 요약해 주세요", history: [{ role: "user", content: "앞 질문" }, { role: "assistant", content: "앞 답" }] },
+    }]);
+    assert.equal(r.state, "OK");
+    assert.equal(r.note, "근거 일부가 60초보다 오래되었습니다.");
+    assert.deepEqual(r.evidence.map((e) => e.id), ["metric:http_5xx_ratio"]);
+    assert.equal(r.declined, false, "요약을 부탁하는 말은 실행 부탁이 아니다");
   } finally {
     globalThis.fetch = prev;
   }

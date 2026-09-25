@@ -1,0 +1,13 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "key" : "host.mem_alert",
+    "from" : null,
+    "to" : "0.85",
+    "version" : 2,
+    "change_id" : 12,
+    "via" : "MANUAL",
+    "approval_id" : 4
+  }
+}

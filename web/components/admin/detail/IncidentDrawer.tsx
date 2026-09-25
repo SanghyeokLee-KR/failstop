@@ -2,10 +2,12 @@
 
 /**
  * 사건 드로어(오른쪽 560px, 디자인 시스템 §12-13의 2, 관리자 설계 4-9). 한 사건의 생애 단계, 확인·해제까지 걸린
- * 시간, 관련 경보, AI 판단, 운영자 조치, Teams 전송을 한 줄기로 읽는다. 사후 분석은 2단계에서 보고 서비스와
- * 잇는 양식의 자리만 둔다. 주소의 ?incident= 가 이 층을 연다(DetailHost).
+ * 시간, 관련 경보, AI 판단, 운영자 조치, Teams 전송을 한 줄기로 읽는다. http 판에 기록 줄이 없는 사건은 열 때 한 번 읽는다.
+ * 사후 분석은 보고 서비스와 잇는 양식의 자리만 둔다. 주소의 ?incident= 가 이 층을 연다(DetailHost).
  */
 
+import { useEffect, useState } from "react";
+import { getAdminApi } from "@/lib/admin/api";
 import { incidentSections, incidentTimes, judgmentAt, todayMeans } from "@/lib/admin/opsDetail";
 import type { ControlCenter, IncidentEvent } from "@/lib/admin/types";
 import { Drawer } from "../layer/Layer";
@@ -45,6 +47,20 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
   const now = useClock(60_000);
   const log = center.incidents.state === "READY" ? center.incidents.data : null;
   const inc = log?.incidents.find((i) => i.id === id) ?? null;
+  // http 판은 최근 사건 몇 건의 기록만 싣는다. 기록이 판에 없는 사건은 열 때 한 번 읽는다(GET .../incidents/{id})
+  const lazy = inc?.eventsLoaded === false;
+  const [loaded, setLoaded] = useState<{ id: string; events: IncidentEvent[] | null; failed: boolean } | null>(null);
+  useEffect(() => {
+    if (!lazy) return;
+    let alive = true;
+    getAdminApi()
+      .getIncidentEvents(id)
+      .then((events) => alive && setLoaded({ id, events, failed: false }))
+      .catch(() => alive && setLoaded({ id, events: null, failed: true }));
+    return () => {
+      alive = false;
+    };
+  }, [lazy, id]);
   if (!log || !inc) {
     return (
       <Drawer name="incident" width={560} title="사건을 찾지 못했습니다" onClose={onClose}>
@@ -53,11 +69,14 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
     );
   }
   const open = inc.resolvedAt === null;
-  const events = log.events.filter((e) => e.incidentId === inc.id);
+  const extra = lazy && loaded?.id === id && loaded.events ? loaded.events : null;
+  const allEvents = extra ? [...log.events.filter((e) => e.incidentId !== inc.id), ...extra] : log.events;
+  const events = allEvents.filter((e) => e.incidentId === inc.id).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const asc = [...events].reverse();
-  const t = incidentTimes(inc, log.events);
+  const t = incidentTimes(inc, allEvents);
   const mean = todayMeans(log, now);
-  const sec = incidentSections(inc, log.events);
+  const sec = incidentSections(inc, allEvents);
+  const pendingEvents = lazy && !extra;
   const history = center.ai.state === "READY" ? center.ai.data.history : [];
 
   return (
@@ -92,6 +111,7 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
     >
       <section className={styles.section} aria-label="생애 단계">
         <span className={styles.sectionTitle}>생애 단계</span>
+        {pendingEvents && <p className={styles.note}>{loaded?.id === id && loaded.failed ? "이 사건의 기록 줄을 불러오지 못했습니다. 다시 열면 한 번 더 읽습니다" : "이 사건의 기록 줄을 불러오는 중입니다"}</p>}
         <Stages inc={inc} events={asc} />
       </section>
 

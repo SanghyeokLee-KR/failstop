@@ -106,14 +106,46 @@ export function NotConnected({ what, source, compact }: { what: string; source: 
   );
 }
 
-/** 칸 하나를 그린다. 연결 전이면 원천 이름을, 아니면 본문을 그린다 */
+/**
+ * 원천 설정은 있으나 이번 조회가 실패한 칸(§12-8 불러오기 실패 면). 연결 전(점선)과 모양을 가른다. 사유는 서버의
+ * 분류 코드를 옮긴 말이다(시간 초과, 연결 불가 등)
+ */
+export function Unavailable({ what, source, reason, compact }: { what: string; source: string; reason: string; compact?: boolean }) {
+  return (
+    <div className={styles.unavailable} data-compact={compact ? "" : undefined} role="status">
+      <span className={styles.unavailableTitle}>
+        <span aria-hidden="true"><StatusShape kind="square" /> </span>
+        {what} 불러오기 실패 · {reason}
+      </span>
+      <span className={styles.notConnectedSource}>{source}</span>
+    </div>
+  );
+}
+
+/** 값이 없는 칸의 빈 모양. 연결 전과 불러오기 실패를 가른다 */
+export function SectionGap({ section, what, compact }: {
+  section: Exclude<OpsSection<unknown>, { state: "READY" }>;
+  what: string;
+  compact?: boolean;
+}) {
+  if (section.state === "UNAVAILABLE") return <Unavailable what={what} source={section.source} reason={section.reason} compact={compact} />;
+  return <NotConnected what={what} source={section.source} compact={compact} />;
+}
+
+/** 칸의 원천 이름. 값이 있으면 빈 문자열이다 */
+export function sectionSource(section: OpsSection<unknown>): string {
+  if (section.state === "READY") return "";
+  return section.state === "UNAVAILABLE" ? `불러오기 실패 · ${section.reason} · ${section.source}` : section.source;
+}
+
+/** 칸 하나를 그린다. 연결 전이나 실패면 그 모양을, 아니면 본문을 그린다 */
 export function SectionBody<T>({ section, what, compact, children }: {
   section: OpsSection<T>;
   what: string;
   compact?: boolean;
   children: (data: T) => ReactNode;
 }) {
-  if (section.state === "NOT_CONNECTED") return <NotConnected what={what} source={section.source} compact={compact} />;
+  if (section.state !== "READY") return <SectionGap section={section} what={what} compact={compact} />;
   return <>{children(section.data)}</>;
 }
 

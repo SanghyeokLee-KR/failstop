@@ -6,6 +6,24 @@
 
 import { AdminError, type AdminApi } from "./api";
 import { approvalConsoleTarget } from "./roles";
+import {
+  OpsFeed,
+  absentBoard,
+  boardOf,
+  chatReplyOf,
+  eventOf,
+  judgmentOf,
+  limitWireKey,
+  reportDeskOf,
+  thresholdToWire,
+  type WireChatReply,
+  type WireDecision,
+  type WireIncidentEvent,
+  type WireOverview,
+  type WireReport as WireOpsReport,
+  type WireReportsStatus,
+  type WireSection,
+} from "./httpOps";
 import { INVARIANT_DEFS } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { isoNow } from "../format";
@@ -58,14 +76,15 @@ import type {
   CommunityReport,
   ContentStatus,
   ControlCenter,
-  OpsEnvironment,
-  OpsSourceName,
-  OpsSourceState,
   AiChatReply,
   AiChatTurn,
+  AiDecision,
+  AiJudgment,
+  IncidentEvent,
   ReportDesk,
   OpsSection,
   OnCallEntry,
+  TrendRange,
   MemberStatus,
   MemberTransition,
   ModerationAction,
@@ -198,10 +217,12 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
       // 자원 스코프다. target은 대상 회원의 external_id(§6-E 바인딩)
       return { action: "members.close", target: payload.externalId };
     case "ops.threshold.set":
+      // 값까지 묶는다(§6-F). 되돌리기도 되돌린 뒤의 값(직전 값)이 대상이다. 서버 단위의 끝 0 없는 십진 표기다
+      return { action: "ops.threshold.set", target: `${payload.key}:${thresholdToWire(payload.key, payload.to)}` };
     case "ops.ai.auto":
+      return { action: "ops.ai.auto", target: `AUTO:${payload.hours}` };
     case "ops.ai.limits":
-      // 서버 승인 원장이 모르는 액션이다. 발급을 보내면 서버가 거절하므로 보내지 않는다
-      throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
+      return { action: "ops.ai.limits", target: `${limitWireKey(payload.key)}:${payload.to}` };
   }
 }
 
@@ -221,6 +242,9 @@ function consoleAction(wireAction: string): DestructiveAction {
     case "operators.status":
     case "operators.roles":
     case "members.close":
+    case "ops.threshold.set":
+    case "ops.ai.auto":
+    case "ops.ai.limits":
       return wireAction;
     default:
       return "sim.bots.params";
@@ -599,65 +623,8 @@ function verdictOf(v: string | undefined): RecoveryVerdict | null {
  * 서버 쪽 짝은 두 겹으로 막혀 있다. 설정이 on-profile: dev 아래에 있고,
  * StartupSecretValidator 가 운영 기동에서 trusted-forwarding=true 를 보면 기동을 중단한다.
  */
-/** 관제센터 조작의 거절 사유. 서버 엔드포인트가 없어 요청을 보내지 않는다 */
-const OPS_NOT_CONNECTED = "관제 원천 연결 전(2단계). 서버에 해당 엔드포인트 없음";
-
 /** ETag를 기억해 둘 GET 수. 커서마다 주소가 달라 끝없이 늘지 않게 오래된 것부터 버린다 */
 const ETAG_KEEP = 64;
-
-/** 관리 API 한 판 조회(서버 계약 초안 GET /admin/v1/msp/overview)에서 이 화면이 지금 읽는 필드 */
-interface WireOverview {
-  environment?: string;
-  generated_at?: string;
-  sources?: { name?: string; state?: string; last_poll_at?: string | null; reason?: string | null }[];
-}
-
-const SOURCE_NAMES: readonly OpsSourceName[] = ["prometheus", "alertmanager", "databasus", "llm", "teams"];
-const ENVIRONMENTS: readonly OpsEnvironment[] = ["LOCAL_DOCKER", "SCHOOL_AWS", "PERSONAL_AWS", "UNKNOWN"];
-
-/**
- * 원천 상태. 모르는 이름과 상태는 버리고 짐작하지 않는다. 확인 시각은 경보 폴러면 마지막 폴링,
- * 그 밖의 붙은 원천은 한 판을 만든 시각이다
- */
-function sourcesOf(w: WireOverview): OpsSourceState[] {
-  const out: OpsSourceState[] = [];
-  for (const s of w.sources ?? []) {
-    const name = SOURCE_NAMES.find((n) => n === s.name);
-    const state = s.state === "READY" || s.state === "NOT_CONNECTED" || s.state === "UNAVAILABLE" ? s.state : null;
-    if (!name || !state) continue;
-    const checkedAt = name === "alertmanager" ? s.last_poll_at ?? null : state === "READY" ? w.generated_at ?? null : null;
-    out.push({ name, state, checkedAt, reason: state === "UNAVAILABLE" ? s.reason ?? null : null });
-  }
-  return out;
-}
-
-/**
- * 관제센터 한 판. 칸의 값은 아직 옮기지 않아 칸마다 붙일 원천을 적는다(2단계). 서버가 답했으면 환경과
- * 원천 상태만 싣고, 관제 모듈이 꺼져 404였으면 그것도 모르는 채로 둔다
- */
-function boardOf(w: WireOverview | null): ControlCenter {
-  const nc = (source: string) => ({ state: "NOT_CONNECTED" as const, source });
-  return {
-    origin: null,
-    environment: ENVIRONMENTS.find((e) => e === w?.environment) ?? "UNKNOWN",
-    generatedAt: w?.generated_at ?? isoNow(),
-    collectedAt: null,
-    summary: nc("외부 프로브와 Prometheus 조회 API · 2단계"),
-    hosts: nc("Prometheus node_exporter 조회 · 2단계"),
-    readTier: nc("AWS Auto Scaling과 Prometheus 조회 · 2단계"),
-    replication: nc("PostgreSQL 복제 지표 · 2단계"),
-    alerts: nc("Alertmanager API · 2단계"),
-    incidents: nc("사건 기록 저장소 · 2단계"),
-    jobs: nc("Databasus API, 인증서·보고 서비스 상태 · 2단계"),
-    thresholds: nc("임계값 레지스트리(DB) · 2단계"),
-    ai: nc("AI 판단 서비스와 서버 정책 엔진 · 2단계"),
-    aiServer: nc("온프레미스 AI 서버 상태 API · 구축 전"),
-    trading: nc("관제 서버의 거래 칸 · 2단계"),
-    trends: nc("Prometheus 범위 조회 · 2단계"),
-    scenario: null,
-    sources: w ? sourcesOf(w) : null,
-  };
-}
 
 const DEV_OPERATOR_CNS: string[] = (process.env.NEXT_PUBLIC_ADMIN_DEV_CN ?? "")
   .split(",")
@@ -987,10 +954,37 @@ export class HttpAdminApi implements AdminApi {
           body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
-      case "ops.threshold.set":
+      case "ops.threshold.set": {
+        const body = { operator_id: operatorId, ...approval, reason: p.reason };
+        if (p.revertOf) {
+          await this.http<void>(`/admin/v1/msp/thresholds/changes/${encodeURIComponent(p.revertOf)}/revert`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+        } else {
+          await this.http<void>(`/admin/v1/msp/thresholds/${encodeURIComponent(p.key)}`, {
+            method: "POST",
+            body: JSON.stringify({ ...body, value: thresholdToWire(p.key, p.to) }),
+          });
+        }
+        this.ops.invalidate("thresholds.changes");
+        return;
+      }
       case "ops.ai.auto":
+        await this.http<void>("/admin/v1/msp/ai/mode/auto", {
+          method: "POST",
+          body: JSON.stringify({ operator_id: operatorId, ...approval, hours: p.hours, reason: p.reason }),
+        });
+        this.ops.invalidate("ai.mode", "ai.limits");
+        return;
       case "ops.ai.limits":
-        throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
+        // 되돌리기는 이력의 직전 값으로 같은 경로를 다시 부르는 것이다(§6-F AI 한도)
+        await this.http<void>(`/admin/v1/msp/ai/limits/${encodeURIComponent(limitWireKey(p.key))}`, {
+          method: "PUT",
+          body: JSON.stringify({ operator_id: operatorId, ...approval, value: p.to, reason: p.reason }),
+        });
+        this.ops.invalidate("ai.limits", "ai.limitChanges");
+        return;
     }
   }
 
@@ -1033,91 +1027,171 @@ export class HttpAdminApi implements AdminApi {
     };
   }
 
-  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
-   * 한 판은 관리 API의 한 판 조회 한 건(서버 계약 초안 GET /admin/v1/msp/overview)으로 읽는다. 칸의 값을
-   * 화면 형식으로 옮기는 일은 2단계라 아직 칸마다 붙일 원천을 적어 돌려주고 값을 지어내지 않는다.
-   * 서버가 답하면 환경과 원천 상태만 싣는다. 관제 모듈이 꺼진 배포는 이 경로가 404다 */
+  /* ===== MSP AI 관제센터(관리자 설계 4-4, API 설계 §6-F) =====
+   * 한 판(GET /admin/v1/msp/overview)을 ETag로 읽고, 세부 조회는 OpsFeed가 필요한 것만 골라 읽는다(httpOps.ts).
+   * 관제 모듈이 꺼진 배포는 overview가 404이고 판의 원천 상태를 모른다(sources null). 폴러는 그때 5분마다만 다시 본다 */
 
   readonly opsScenarios = false;
+  private readonly ops = new OpsFeed(<T,>(path: string) => this.http<T>(path));
 
   async getControlCenter(): Promise<ControlCenter> {
+    let w: WireOverview;
     try {
-      return boardOf(await this.http<WireOverview>("/admin/v1/msp/overview"));
+      w = await this.http<WireOverview>("/admin/v1/msp/overview");
     } catch (e) {
       // 관제 모듈이 없는 배포다. 오류 본문의 이름은 배포마다 달라 상태로 가른다
-      if (e instanceof AdminError && (e.status === 404 || e.code === "not_found")) return boardOf(null);
+      if (e instanceof AdminError && (e.status === 404 || e.code === "not_found")) return absentBoard();
+      throw e;
+    }
+    await this.ops.update(w);
+    return boardOf(w, this.ops.snapshot(w), Date.now());
+  }
+
+  wantTrends(range: TrendRange): void {
+    this.ops.wantTrend(range);
+  }
+
+  async getAiJudgment(id: string): Promise<AiJudgment | null> {
+    try {
+      const d = await this.http<WireDecision>(`/admin/v1/msp/ai/decisions/${encodeURIComponent(id)}`);
+      return judgmentOf(d, { desired: null, alertNames: new Map() });
+    } catch (e) {
+      if (e instanceof AdminError && e.status === 404) return null;
       throw e;
     }
   }
 
-  private opsRejected(): Promise<never> {
-    return Promise.reject(new AdminError("source_unavailable", OPS_NOT_CONNECTED));
+  async getIncidentEvents(incidentId: string): Promise<IncidentEvent[] | null> {
+    const res = await this.http<{ events?: WireIncidentEvent[] }>(`/admin/v1/msp/incidents/${encodeURIComponent(incidentId)}`);
+    return (res.events ?? []).map((ev) => eventOf(ev, incidentId)).filter((ev): ev is IncidentEvent => ev !== null);
   }
 
-  ackAlert(): Promise<void> {
-    return this.opsRejected();
+  private post(path: string, body: Record<string, unknown> = {}): Promise<unknown> {
+    return this.http<unknown>(path, { method: "POST", body: JSON.stringify({ operator_id: this.opId(), ...body }) });
   }
 
-  silenceAlert(): Promise<void> {
-    return this.opsRejected();
+  async ackAlert(alertId: string): Promise<void> {
+    await this.post(`/admin/v1/msp/alerts/${encodeURIComponent(alertId)}/ack`);
+    this.ops.invalidate("incidents");
   }
 
-  decideAiProposal(): Promise<void> {
-    return this.opsRejected();
+  /**
+   * 사람 보류. 화면은 30분 이하 warning·info만 연다(BOT_OPS 이상, 티켓 없음). 서버는 사유를 요구하므로 화면이 고른
+   * 길이를 사유에 적는다. critical·등급 모름과 30분 넘는 보류는 SUPER와 ops.alert.silence 티켓이 필요해 이 경로가 아니다
+   */
+  async silenceAlert(alertId: string, minutes: number): Promise<void> {
+    await this.post(`/admin/v1/msp/alerts/${encodeURIComponent(alertId)}/silence`, { minutes, reason: `관제센터에서 ${minutes}분 보류` });
+    this.ops.invalidate("incidents");
   }
 
-  revertAiAction(): Promise<void> {
-    return this.opsRejected();
+  /**
+   * 조치 요청 결정. 승인은 실행이고, 임계값 조치는 1인 승인 티켓(ops.threshold.set, 대상은 바꿀 값)을 발급해 곧바로
+   * 싣는다. 나중에는 서버 기본(15분)을 쓰며 요청의 만료를 늘리지 않는다
+   */
+  async decideAiProposal(proposalId: string, decision: AiDecision): Promise<void> {
+    const base = `/admin/v1/msp/ai/actions/${encodeURIComponent(proposalId)}`;
+    if (decision === "REJECT") await this.post(`${base}/reject`);
+    else if (decision === "DEFER") await this.post(`${base}/defer`);
+    else await this.post(`${base}/approve`, await this.actionTicket(proposalId, "approve"));
+    this.ops.invalidate("ai.actions", "ai.mode");
   }
 
-  enableAiAuto(): Promise<void> {
-    return this.opsRejected();
+  async revertAiAction(proposalId: string): Promise<void> {
+    await this.post(`/admin/v1/msp/ai/actions/${encodeURIComponent(proposalId)}/revert`, await this.actionTicket(proposalId, "revert"));
+    this.ops.invalidate("ai.actions", "ai.mode");
   }
 
-  stopAiAuto(): Promise<void> {
-    return this.opsRejected();
+  /**
+   * 임계값 조치의 승인·되돌리기 티켓. 승인 대상은 요청의 새 값, 되돌리기 대상은 실행 때 바꾸기 전의 값이다(§6-F).
+   * 다른 종류는 티켓이 없다. 읽어 둔 요청이 없으면 티켓 없이 보내고 서버가 판정한다
+   */
+  private async actionTicket(proposalId: string, verb: "approve" | "revert"): Promise<Record<string, string>> {
+    const a = this.ops.action(proposalId);
+    if (!a || a.kind !== "THRESHOLD") return {};
+    const key = String(a.params?.key ?? a.target ?? "");
+    const raw = verb === "approve" ? a.params?.to ?? a.params?.value : a.result?.from;
+    if (raw === undefined || raw === null) return {};
+    const value = String(raw).includes(".") ? String(raw).replace(/0+$/, "").replace(/\.$/, "") : String(raw);
+    const res = await this.http<WireIssue>("/admin/v1/approvals", {
+      method: "POST",
+      body: JSON.stringify({ requester_operator_id: this.opId(), action: "ops.threshold.set", target: `${key}:${value}` }),
+    });
+    return { approval_token: res.approval_token ?? "" };
   }
 
-  stopAi(): Promise<void> {
-    return this.opsRejected();
+  /** 자동 모드 켜기. 1인 승인 티켓(ops.ai.auto, 대상 AUTO:{hours})을 발급해 같은 요청에 싣는다(ADR 0019·0035) */
+  async enableAiAuto(hours: number, reason: string): Promise<void> {
+    const res = await this.http<WireIssue>("/admin/v1/approvals", {
+      method: "POST",
+      body: JSON.stringify({ requester_operator_id: this.opId(), action: "ops.ai.auto", target: `AUTO:${hours}` }),
+    });
+    await this.post("/admin/v1/msp/ai/mode/auto", { approval_token: res.approval_token ?? "", hours, reason });
+    this.ops.invalidate("ai.mode", "ai.limits");
   }
 
-  resumeAi(): Promise<void> {
-    return this.opsRejected();
+  async stopAiAuto(): Promise<void> {
+    await this.post("/admin/v1/msp/ai/mode/manual");
+    this.ops.invalidate("ai.mode");
   }
 
-  runBackupNow(): Promise<void> {
-    return this.opsRejected();
+  async stopAi(): Promise<void> {
+    await this.post("/admin/v1/msp/ai/stop");
+    this.ops.invalidate("ai.mode", "ai.actions");
+  }
+
+  async resumeAi(reason: string): Promise<void> {
+    await this.post("/admin/v1/msp/ai/resume", { reason });
+    this.ops.invalidate("ai.mode");
+  }
+
+  /** 백업 즉시 실행. Databasus 연결 전이라 서버가 409 msp_source_not_connected로 거절하고 성공을 지어내지 않는다 */
+  async runBackupNow(): Promise<void> {
+    await this.post("/admin/v1/msp/ops/backup");
   }
 
   startOpsScenario(): Promise<void> {
-    return this.opsRejected();
+    return Promise.reject(new AdminError("source_unavailable", "시나리오 재생은 시뮬레이터에만 있습니다"));
   }
 
   resetOps(): Promise<void> {
-    return this.opsRejected();
+    return Promise.reject(new AdminError("source_unavailable", "시뮬레이터 초기화는 시뮬레이터에만 있습니다"));
   }
 
-  /* ===== AI 상담·운영 보고(관리자 설계 4-6·4-7) =====
-   * 서버 계약 초안(POST /admin/v1/msp/ai/chat, GET /admin/v1/msp/reports)만 있고 경로가 아직 없다.
-   * 없는 경로를 부르지 않는다. 화면은 이 원천 상태를 보고 입력과 전송 단추를 미리 막는다 */
+  /* ===== AI 상담·운영 보고(관리자 설계 4-6·4-7) ===== */
 
-  readonly aiChat = "NOT_CONNECTED" as const;
+  readonly aiChat = "LIVE" as const;
 
-  askAi(): Promise<AiChatReply> {
-    return Promise.reject(new AdminError("source_unavailable", "AI 상담 연결 전. 서버 상담 경로(POST /admin/v1/msp/ai/chat) 없음"));
+  /** 서버 상담. 최근 대화는 요청에 실어 보내고 서버는 저장하지 않는다(§6-F AI 상담) */
+  async askAi(question: string, recent: AiChatTurn[]): Promise<AiChatReply> {
+    const history = recent.map((m) => ({ role: m.role === "operator" ? "user" : "assistant", content: m.text.slice(0, 1200) })).filter((m) => m.content.trim() !== "");
+    const res = await this.http<WireChatReply>("/admin/v1/msp/ai/chat", {
+      method: "POST",
+      body: JSON.stringify({ operator_id: this.opId(), question, history }),
+    });
+    return chatReplyOf(res, question);
   }
 
-  getReports(): Promise<OpsSection<ReportDesk>> {
-    return Promise.resolve({ state: "NOT_CONNECTED", source: "보고 서비스 읽기 프록시(GET /admin/v1/msp/reports) · 2단계" });
+  async getReports(): Promise<OpsSection<ReportDesk>> {
+    try {
+      const [list, status] = await Promise.all([
+        this.http<WireSection<WireOpsReport[]>>("/admin/v1/msp/reports?limit=20"),
+        this.http<WireReportsStatus>("/admin/v1/msp/reports/status"),
+      ]);
+      return reportDeskOf(list, status, "");
+    } catch (e) {
+      if (e instanceof AdminError && (e.status === 404 || e.code === "not_found")) {
+        return { state: "NOT_CONNECTED", source: "관리 API에 관제 모듈 없음(보고 서비스 읽기 프록시 404)" };
+      }
+      throw e;
+    }
   }
 
   sendTeamsTest(): Promise<void> {
-    return Promise.reject(new AdminError("source_unavailable", "Teams 연결 시험 연결 전. 서버 계약 없음"));
+    return Promise.reject(new AdminError("source_unavailable", "Teams 연결 시험은 서버 계약에 없습니다"));
   }
 
   getOnCall(): Promise<OpsSection<OnCallEntry[]>> {
-    return Promise.resolve({ state: "NOT_CONNECTED", source: "운영자·당번 명부 · 2단계" });
+    return Promise.resolve({ state: "NOT_CONNECTED", source: "운영자·당번 명부 · 서버 계약에 없음" });
   }
 
   /* ===== 용량(ADR 0015) ===== */

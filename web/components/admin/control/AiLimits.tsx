@@ -117,7 +117,7 @@ export default function AiLimitsPanel({ ai, onChanged }: { ai: AiDesk | null; on
     <section className={styles.panel} aria-labelledby="ai-limits-title" id="ai-limits">
       <PanelHead id="ai-limits-title" title="AI 한도" meta="운영자가 1인 승인으로 바꿉니다 · AI는 바꿀 수 없습니다" />
       {ai === null ? (
-        <p className={styles.lead}>AI 판단 서비스와 서버 정책 엔진 연결 전. 한도 판독과 변경 없음</p>
+        <p className={styles.lead}>관제센터 서버가 없어 한도를 읽거나 바꾸지 않습니다</p>
       ) : (
         <div className={styles.stack} style={{ gap: "var(--space-3)" }}>
           <table className={styles.thTable}>

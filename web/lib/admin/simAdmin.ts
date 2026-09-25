@@ -69,6 +69,8 @@ import type {
   AiActionKind,
   AiChatReply,
   AiChatTurn,
+  AiJudgment,
+  IncidentEvent,
   AiDecision,
   ControlCenter,
   OnCallEntry,
@@ -822,7 +824,7 @@ export class SimAdminApi implements AdminApi {
         this.closeMember(payload.externalId);
         break;
       case "ops.threshold.set":
-        this.ops.applyThreshold(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason,
+        this.ops.applyThreshold(payload.key, payload.from ?? payload.to, payload.to, actorOf(by), approvalId, payload.reason,
           payload.revertOf, payload.proposalId, Date.now());
         break;
       case "ops.ai.auto":
@@ -896,6 +898,21 @@ export class SimAdminApi implements AdminApi {
     }
     return Promise.resolve(c);
   }
+
+  /** 시뮬레이터 판은 판단 과정을 늘 싣는다. 판의 기록을 그대로 돌려준다 */
+  getAiJudgment(id: string): Promise<AiJudgment | null> {
+    this.auth("VIEW");
+    const c = this.ops.snapshot(Date.now());
+    return Promise.resolve(c.ai.state === "READY" ? c.ai.data.history.find((h) => h.id === id) ?? null : null);
+  }
+
+  /** 시뮬레이터 판은 모든 사건의 기록을 싣는다. 따로 읽을 것이 없다 */
+  getIncidentEvents(): Promise<IncidentEvent[] | null> {
+    return Promise.resolve(null);
+  }
+
+  /** 시뮬레이터 판은 세 범위의 추세를 늘 싣는다 */
+  wantTrends(): void {}
 
   /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 되돌린 수. 평상 AI 패널의 한 줄이 쓴다(디자인 시스템 §12-9) */
   private aiRecent(now: number): { runs: number; reverts: number } {
