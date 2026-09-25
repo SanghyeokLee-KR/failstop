@@ -1,6 +1,6 @@
 """Q1(E12) 교차 노드 이중 지출 실행기(ADR 0034 S7, docs/reference/architecture/마켓분할_리더_S7_설계.md 5-2 Q1, 하네스
-검증설계 §3 P3 실험). 폐기용 스택(compose 프로젝트 exchange-pml, 이미지 exchange-chaos-app:pml)에서만 돈다. 아직 스택에서 돌린 적이
-없다(NOT RUN). 판정은 s7_axes.py double-spend 가 이 파일의 출력으로 한다.
+검증설계 §3 P3 실험). 폐기용 스택(compose 프로젝트 exchange-pml, 이미지 exchange-chaos-app:pml)에서만 돈다. 첫 관문 주행 기록은
+harness/evidence/pml-S7-20260926-0300/ 이다. 판정은 s7_axes.py double-spend 가 이 파일의 출력으로 한다.
 
 회원 하나를 가입시키고(선택으로 KRW 를 더 입금하고) 가용 KRW X 를 읽는다. 회마다 장벽(threading.Barrier)으로 두 행위를 동시에
 푼다. 짝수 회는 KRW-BTC 지정가 매수(p0 소유 노드 api-1, 18080 직접)와 KRW-ETH 지정가 매수(p1 소유 노드 api-2, 28080 직접)이고,
@@ -343,6 +343,14 @@ def main(argv=None):
         start_balance = krw(member, PORTS['chaos-api-1'])
         if not start_balance:
             raise RuntimeError('KRW 잔고를 읽지 못했다')
+        # 두 노드가 같은 회원 토큰을 받아야 교차 노드 경합이 성립한다. 세션 서명 시드가 노드마다 다르면 api-2 가 401 을 내고
+        # 한쪽 행위가 인증에서 끝나 '성공 하나'가 경합 없이 채워진다(2026-09-26 첫 주행). 그러면 전제 불성립으로 멈춘다.
+        other = krw(member, PORTS['chaos-api-2'])
+        res['token_accepted_by'] = {'chaos-api-1': True, 'chaos-api-2': other is not None}
+        if other is None:
+            res['error'] = 'api-2 가 api-1 이 낸 회원 토큰을 받지 않는다(세션 서명 시드 불일치). 전제 불성립'
+            save()
+            return 2
         spend = spend_of(start_balance['balance'])
         terms = {m: order_terms(spend, rules[m]['tick_size'], rules[m]['qty_scale']) for m in MARKET_NODE}
         res.update(x_krw=start_balance['balance'], locked_start=start_balance['locked'], spend=format(spend, 'f'),

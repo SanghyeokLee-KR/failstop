@@ -1,6 +1,6 @@
 # ADR 0034 S7 관문 실행기(docs/reference/architecture/마켓분할_리더_S7_설계.md 5-2·5-3, 하네스 검증설계 §3 P3 실험). 실험 하나(Q1~Q16)를
-# 새 폐기용 스택에서 돌리고 판정 파일(gate.json)을 남긴다. 아직 돌린 적이 없다(NOT RUN). 판정 중요 순서와 실행 순서는 증거 초안
-# harness/evidence/pml-S7-gate-draft/README.md 에 있다.
+# 새 폐기용 스택에서 돌리고 판정 파일(gate.json)을 남긴다. 판정 규칙과 첫 관문 주행 기록은
+# harness/evidence/pml-S7-20260926-0300/README.md 에 있다.
 #
 # 공통 흐름. 시작 전에 가드(프로젝트 exchange-pml, 이미지 exchange-chaos-app:pml, harness/.env.chaos, 도커 데몬)와 chaos-* 컨테이너가
 # 없음을 본다. 스택을 새로 세우고 Q0 준비(전환 도구 --target 3 --latch-band, lib.ps1 Invoke-P3Preflight)를 한 뒤 실험을 하고, 봇을 멈춰
@@ -28,6 +28,8 @@ param(
     [switch] $NoWeb,
     [int] $Q4LoadSec = 300,
     [int] $Q13LoadSec = 600,
+    [int] $Q12WarmupSec = 240,
+    [int] $Q12DurationSec = 130,
     [int] $Q14Rows = 1000000,
     [int] $Q15LoadSec = 180,
     [int] $Q15Ops = 40
@@ -323,6 +325,28 @@ function Invoke-RunnerExperiment {
     return $res
 }
 
+# 생존 파티션(p0) 마켓만 치는 k6 개방 루프(설계 5-2 공통 판정의 ACK 간격 부하). 봇만으로는 p0 마켓마다 판정 창(약 20초)에 NEW 10건을
+# 채우지 못해 Q9·Q10 의 ACK 양성 축이 모자랐다(2026-09-26 첫 Q9). 실행기 실험의 -SurvivorLoadOps 와 같은 부하다. 반환은 기록이다.
+function Start-GateSurvivorLoad {
+    param([string] $Dir, [int] $DurationSec)
+    $split = Get-PartitionMarkets
+    $markets = $(if ($split) { @($split['matching-p0']) -join ',' } else { '' })
+    $keys = $(if ($markets) { Initialize-LoadKeys -Markets $markets } else { 0 })
+    if ($keys -lt 1) { return [ordered]@{ ok = $false; '사유' = '생존 파티션 부하 계정 발급 실패' } }
+    $k6 = Start-SurvivorLoad -Name "pml-s7-k6-$Experiment" -Markets $markets -Ops $SurvivorLoadOps -DurationSec $DurationSec -RunId "s7surv$Experiment"
+    Write-GateLog "K6 start $($k6.name) rc=$($k6.rc) markets=$markets ops=$SurvivorLoadOps"
+    $k6['ok'] = $k6.rc -eq 0
+    return $k6
+}
+
+function Stop-GateSurvivorLoad {
+    param($Load)
+    if ($Load -and $Load['name']) {
+        New-Item -ItemType Directory -Force -Path $localLogDir | Out-Null
+        Stop-SurvivorLoad -Name $Load['name'] -LogPath (Join-Path $localLogDir "$($Load['name']).log")
+        Write-GateLog "K6 stop $($Load['name'])"
+    }
+}
 function Get-JudgeVerdict {
     param([string] $Path)
     $j = Read-Json $Path
@@ -462,7 +486,7 @@ function Invoke-Q12 {
         $label = $cell[0]; $protocol = $cell[1]
         $extra = $(if ($protocol -eq 3) { "$relay;$p3" } else { $relay })
         $rc = Invoke-GatePy @('harness/scale/roundtrip_probe.py', '--label', $label, '--rate', '600', '--protocol-before-traffic', "$protocol",
-            '--out', (Get-Rel (Join-Path $Dir "$label.json"))) (Join-Path $Dir "$label.log") @{ CHAOS_EXTRA_COMPOSE = $extra; SCALE_LOAD_KEYS = '16' }
+            '--warmup', "$Q12WarmupSec", '--duration', "$Q12DurationSec", '--out', (Get-Rel (Join-Path $Dir "$label.json"))) (Join-Path $Dir "$label.log") @{ CHAOS_EXTRA_COMPOSE = $extra; SCALE_LOAD_KEYS = '16' }
         $res['cells'][$label] = [ordered]@{ rc = $rc; file = "$label.json" }
     }
     $res['verdict'] = $(if (@($res['cells'].Values | Where-Object { $_['rc'] -ne 0 }).Count -eq 0) { 'RECORD' } else { 'NOT RUN' })
@@ -522,13 +546,19 @@ try {
                     } else { $r['judge'] = $(if ($r['rc'] -eq 0) { 'RECORD' } else { 'NOT RUN' }) }
                 }
                 'Q9' {
-                    Start-Sleep -Seconds 150   # 생존 파티션 ACK 기준선(주입 전 120초)을 채운다
-                    $r['rc'] = Invoke-GatePy @('harness/scale/s7_axes.py', 'relocate', '--out', (Get-Rel (Join-Path $EvidenceDir 'relocate.json'))) (Join-Path $EvidenceDir 'relocate.log')
+                    $r['survivorLoad'] = Start-GateSurvivorLoad -Dir $EvidenceDir -DurationSec 600
+                    try {
+                        Start-Sleep -Seconds 150   # 생존 파티션 ACK 기준선(주입 전 120초)을 채운다
+                        $r['rc'] = Invoke-GatePy @('harness/scale/s7_axes.py', 'relocate', '--out', (Get-Rel (Join-Path $EvidenceDir 'relocate.json'))) (Join-Path $EvidenceDir 'relocate.log')
+                    } finally { Stop-GateSurvivorLoad $r['survivorLoad'] }
                     $r['judge'] = Get-JudgeVerdict (Join-Path $EvidenceDir 'relocate.json')
                 }
                 'Q10' {
-                    Start-Sleep -Seconds 150
-                    $r['rc'] = Invoke-GatePy @('harness/scale/s7_market_fatal.py', '--market', 'KRW-ETH', '--out', (Get-Rel (Join-Path $EvidenceDir 'fatal.json'))) (Join-Path $EvidenceDir 'fatal.log')
+                    $r['survivorLoad'] = Start-GateSurvivorLoad -Dir $EvidenceDir -DurationSec 600
+                    try {
+                        Start-Sleep -Seconds 150
+                        $r['rc'] = Invoke-GatePy @('harness/scale/s7_market_fatal.py', '--market', 'KRW-ETH', '--stop-before-post', "pml-s7-k6-$Experiment", '--out', (Get-Rel (Join-Path $EvidenceDir 'fatal.json'))) (Join-Path $EvidenceDir 'fatal.log')
+                    } finally { Stop-GateSurvivorLoad $r['survivorLoad'] }
                     Invoke-GatePy @('harness/scale/s7_axes.py', 'market-fatal', '--in', (Get-Rel (Join-Path $EvidenceDir 'fatal.json')), '--out', (Get-Rel (Join-Path $EvidenceDir 'fatal_verdict.json'))) (Join-Path $EvidenceDir 'fatal_verdict.log') | Out-Null
                     $r['judge'] = Get-JudgeVerdict (Join-Path $EvidenceDir 'fatal_verdict.json')
                 }
@@ -539,6 +569,14 @@ try {
                 'Q13' { $r = Invoke-Q13 -Dir $EvidenceDir; $r['judge'] = $r['verdict'] }
                 'Q15' { $r = Invoke-Q15 -Dir $EvidenceDir; $r['judge'] = $r['verdict'] }
                 'Q16' {
+                    # 회원 폐쇄는 관리 평면(chaos-admin, 루트 compose.yaml 의 admin 프로파일)이 한다. P3 스택 파일에는 이 서비스가 없어 첫 Q16
+                    # 이 '관리 세션 발급 실패'로 NOT RUN 이었다(2026-09-26). S5 설계 5절의 명령 그대로 같은 프로젝트에 --no-deps 로만 띄운다.
+                    # 스택을 내릴 때 down --remove-orphans 가 함께 지운다.
+                    $adminCmd = "docker compose -p $($Global:CHAOS.Project) -f `"$(Join-Path $repo 'compose.yaml')`" --env-file `"$($Global:CHAOS.EnvFile)`" --profile admin up -d --no-deps --wait chaos-admin"
+                    Write-GateLog "RUN $adminCmd"
+                    & cmd /c "$adminCmd >nul 2>nul"
+                    $r['adminUpRc'] = $LASTEXITCODE
+                    Write-GateLog "RC $($r['adminUpRc'])"
                     $r['rc'] = Invoke-GatePy @('harness/scale/s5_route_probe.py', 'q16', '--out', (Get-Rel (Join-Path $EvidenceDir 'q16.json'))) (Join-Path $EvidenceDir 'q16.log')
                     Invoke-GatePy @('harness/scale/s7_axes.py', 'handoff', '--in', (Get-Rel (Join-Path $EvidenceDir 'q16.json')), '--out', (Get-Rel (Join-Path $EvidenceDir 'handoff.json'))) (Join-Path $EvidenceDir 'handoff.log') | Out-Null
                     $r['judge'] = Get-JudgeVerdict (Join-Path $EvidenceDir 'handoff.json')

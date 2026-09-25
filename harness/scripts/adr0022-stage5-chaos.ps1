@@ -290,8 +290,17 @@ function Invoke-P3CommonAxes {
         } else {
             $survivorMarkets = (@($survivorRes | ForEach-Object { $split[$_] }) | ForEach-Object { $_ }) -join ','
             $affectedMarkets = @($split[$Resource]) -join ','
-            Invoke-Logged 'python' @('harness/scale/s7_axes.py', 'ack-interval', '--survivor-markets', $survivorMarkets,
-                '--affected-markets', $affectedMarkets, '--inject-at', $injectAt, '--out', (Get-RelPath (Join-Path $Dir 'ack_interval.json'))) `
+            # 기준선은 Q0 준비 시각 뒤로 자른다. 전환 도구의 정지 창(두 노드 재시작)이 주입 전 120초에 들면 그 간격이 기준선이 된다.
+            $pf = Read-JudgeFile (Join-Path $Dir 'p3-preflight.json')
+            $ackArgs = @('harness/scale/s7_axes.py', 'ack-interval', '--survivor-markets', $survivorMarkets,
+                '--affected-markets', $affectedMarkets, '--inject-at', $injectAt)
+            # ConvertFrom-Json 이 ISO 문자열을 DateTime 으로 바꾸므로 [string] 은 문화권 형식이 된다. ISO 로 다시 적는다.
+            if ($pf -and $pf['at']) {
+                $bf = $pf['at']
+                if ($bf -is [datetime]) { $bf = $bf.ToUniversalTime().ToString('o') }
+                $ackArgs += @('--baseline-from', [string]$bf)
+            }
+            Invoke-Logged 'python' ($ackArgs + @('--out', (Get-RelPath (Join-Path $Dir 'ack_interval.json')))) `
                 (Join-Path $Dir 'ack_interval.log') | Out-Null
             $judges['ackInterval'] = Read-JudgeFile (Join-Path $Dir 'ack_interval.json')
         }

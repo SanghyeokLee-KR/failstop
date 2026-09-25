@@ -1,5 +1,6 @@
 # ADR 0034 S7 데모 재현 스크립트(docs/reference/architecture/마켓분할_리더_S7_설계.md 4-12). 발표용 녹화 장면을 같은 결과로 다시
-# 만든다. 아직 돌린 적이 없다(NOT RUN). 녹화는 사람이 한다(Grafana 파티션 패널, 관리 화면 리스 표, 웹 거래 화면 KRW-BTC·KRW-ETH).
+# 만든다. 2026-09-26 관문 주행 끝에 -NoBuild -Down 으로 한 번 돌려 확인했다(harness/evidence/pml-S7-20260926-0300/Demo).
+# 녹화는 사람이 한다(Grafana 파티션 패널, 관리 화면 리스 표, 웹 거래 화면 KRW-BTC·KRW-ETH).
 #
 # 흐름. 가드(프로젝트 exchange-pml, 이미지 exchange-chaos-app:pml, 떠 있는 chaos-* 없음)를 확인하고 P3 스택을 세운다(up.ps1 -P3 -Obs,
 # -NoBuild 면 굽지 않고 compose 로만 세운다). 전환 도구로 P3 에 올리고(--target 3 --latch-band) Q0 준비 판정을 적은 뒤, 봇과 힌트를 실은
@@ -107,7 +108,8 @@ Write-Section 'p1 RTO, p0 ACK 간격, 권위 run'
 Invoke-DemoPy @('harness/scale/s7_axes.py', 'partition-rto', '--resource', 'matching-p1', '--old-epoch', "$p1EpochBefore", '--inject-at', $t0Iso,
     '--out', (Get-Rel (Join-Path $EvidenceDir 'rto_p1.json'))) (Join-Path $EvidenceDir 'rto_p1.log') | Out-Null
 Invoke-DemoPy @('harness/scale/s7_axes.py', 'ack-interval', '--survivor-markets', (@($split['matching-p0']) -join ','),
-    '--affected-markets', (@($split['matching-p1']) -join ','), '--inject-at', $t0Iso, '--out', (Get-Rel (Join-Path $EvidenceDir 'ack_p0.json'))) `
+    '--affected-markets', (@($split['matching-p1']) -join ','), '--inject-at', $t0Iso, '--baseline-from', [string]$pre['at'],
+    '--out', (Get-Rel (Join-Path $EvidenceDir 'ack_p0.json'))) `
     (Join-Path $EvidenceDir 'ack_p0.log') | Out-Null
 $rto = Get-Content (Join-Path $EvidenceDir 'rto_p1.json') -Raw -Encoding utf8 | ConvertFrom-Json
 $ack = Get-Content (Join-Path $EvidenceDir 'ack_p0.json') -Raw -Encoding utf8 | ConvertFrom-Json

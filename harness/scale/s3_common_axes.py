@@ -112,6 +112,10 @@ LOG_PATTERNS = {
     'replayNoVerdict': '재생이 판정 없이 끝났다', 'rebuildFailed': '파티션 재구성 실패',
     'clientGone': '클라이언트 연결이 끊겨', 'outageResponse': 'DB 연결 장애·리더 자격 거부 응답',
 }
+# 참여 끄기(POST /actuator/partitions)로 소유 노드가 스스로 내려놓은 강등은 '사유=PLANNED'로 찍힌다. 실험 준비(Q3b 의 두 파티션 모으기,
+# Q9 재배치, 전환 도구의 재배치)가 부르는 운영자 조작이라 '리더 노드 치명·강등 0' 축에서 뺀다. 종신 강등과 fail-fast 는 빼지 않는다.
+PLANNED_MARK = '사유=PLANNED'
+PLANNED_EXEMPT_KEYS = ('leadershipLost', 'partitionDemotion')
 API_NODES = ('chaos-api-1', 'chaos-api-2')
 # 주문 경로 500 의 대상(S4b 설계 4-7). 인증 단계에서 끝난 요청은 컨트롤러에 닿지 않아 uri 가 UNKNOWN 이다.
 ORDERS_500_SELECTOR = 'method=~"POST|DELETE",status="500",uri=~"/api/v1/orders.*|UNKNOWN"'
@@ -326,10 +330,17 @@ def log_counts(container):
     if p.returncode != 0:
         return {'ok': False}
     lines = (p.stdout + p.stderr).splitlines()
+    return count_log_lines(lines), lines
+
+
+def count_log_lines(lines):
+    """앱 로그 줄에서 LOG_PATTERNS 문구 수를 센다. 계획 강등(사유=PLANNED)은 강등 축에서 빼고 plannedDemotion 으로 적는다."""
     res = {'ok': True, 'lines': len(lines)}
     for k, pat in LOG_PATTERNS.items():
-        res[k] = sum(1 for x in lines if pat in x)
-    return res, lines
+        res[k] = sum(1 for x in lines if pat in x and not (k in PLANNED_EXEMPT_KEYS and PLANNED_MARK in x))
+    # 운영자 조작(참여 끄기)의 계획 강등은 따로 적는다. 판정의 강등 축은 치명·계획 밖 강등만 센다(2026-09-26 S7 Q3b).
+    res['plannedDemotion'] = sum(1 for x in lines if PLANNED_MARK in x and LOG_PATTERNS['partitionDemotion'] in x)
+    return res
 
 
 def run_summary():

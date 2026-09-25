@@ -1,7 +1,7 @@
 """S7 관문 실험의 판정 축(ADR 0034 S7, docs/reference/architecture/마켓분할_리더_S7_설계.md 4-13·5-2).
 
-폐기용 스택 실험 Q0~Q16 은 아직 돌리지 않았다(NOT RUN). 이 파일은 실행기(harness/scripts/s7-p3-gate.ps1, adr0022-stage5-chaos.ps1
--Protocol 3, protocol_latch.py)가 부를 채집기와 판정 규칙이다. 도커·DB 에 닿지 않는 판정 함수는 test_s7_axes.py 가 본다. 모든 판정은
+폐기용 스택 실험 Q0~Q16 의 첫 관문 주행 기록은 harness/evidence/pml-S7-20260926-0300/ 이다. 이 파일은 실행기
+(harness/scripts/s7-p3-gate.ps1, adr0022-stage5-chaos.ps1 -Protocol 3, protocol_latch.py)가 부를 채집기와 판정 규칙이다. 도커·DB 에 닿지 않는 판정 함수는 test_s7_axes.py 가 본다. 모든 판정은
 축마다 참·거짓을 적고, 읽지 못한 값은 참으로 세지 않는다. 양성 축(판정력의 전제)이 모자라면 verdict 가 NOT RUN 이다.
 
 하위 명령
@@ -36,7 +36,7 @@
   python harness/scale/s7_axes.py segment-count --out <json>
   python harness/scale/s7_axes.py segment-judge --pre <json> --post <json> --out <json>
   python harness/scale/s7_axes.py ack-interval --survivor-markets KRW-BTC,KRW-XRP --affected-markets KRW-ETH
-         --inject-at <ISO> [--end-at <ISO>] --out <json>
+         --inject-at <ISO> [--end-at <ISO>] [--baseline-from <ISO>] --out <json>
   python harness/scale/s7_axes.py p3-epoch --resource matching-p1 --old-epoch <n> --survivor chaos-api-1 [--until <T5 ISO>]
          --out <json>
   python harness/scale/s7_axes.py epoch-sampler --out <jsonl> --stop-file <경로> [--interval 1]
@@ -77,6 +77,7 @@ ACK_MIN_NEW_PER_MARKET = 10
 ACK_WINDOW_AFTER_FIRST_TRADE_S = 10.0
 RTO_LIMIT_S = 30.0
 COLD_FIRST_TRADE_S = 30.0
+COLD_TRADE_WAIT_S = 60.0
 TTL_S = 6.0
 EXIT_PASS, EXIT_FAIL, EXIT_COLLECT, EXIT_NOT_RUN = 0, 1, 2, 3
 NOT_RUN = 'NOT RUN'
@@ -144,21 +145,24 @@ def max_gap(times):
 
 
 def ack_interval_judge(rows_by_market, inject_at, end_at, baseline_s=ACK_BASELINE_S, margin_s=ACK_MARGIN_S,
-                       min_rows=ACK_MIN_NEW_PER_MARKET):
+                       min_rows=ACK_MIN_NEW_PER_MARKET, baseline_from=None):
     """생존 파티션 ACK 간격(설계 5-2, 결정 10). rows_by_market 은 {마켓: [NEW 행 created_at(초)]} 다.
     마켓마다 기준선(주입 전 baseline_s 초의 이웃 간격 최대)과 창(주입~end_at)의 최대를 비교한다. 창 경계를 넘는 간격은 창에 넣는다
-    (주입 직전 마지막 행과 창 첫 행 사이). 양성 축은 마켓마다 창 안 NEW 가 min_rows 건 이상이다."""
+    (주입 직전 마지막 행과 창 첫 행 사이). 양성 축은 마켓마다 창 안 NEW 가 min_rows 건 이상이다.
+    baseline_from(초)을 주면 기준선을 그 시각 뒤로 자른다. 모드 전환의 정지 창(두 노드 재시작)이 주입 전 120초에 들어가면 그 간격이
+    기준선 최대가 되어 판정이 헐거워진다(2026-09-26 관문 첫 Q2: 기준선 최대 21.8초). 실행기는 Q0 준비 시각을 넘긴다."""
     facts, axes = {}, {}
     if not rows_by_market:
         return {'error': '생존 파티션 마켓이 없다'}, {'markets_given': False}, ['markets_given']
     positive = []
     for market, times in sorted(rows_by_market.items()):
-        base = [t for t in times if inject_at - baseline_s <= t < inject_at]
+        lo = inject_at - baseline_s if baseline_from is None else max(inject_at - baseline_s, baseline_from)
+        base = [t for t in times if lo <= t < inject_at]
         window = [t for t in times if inject_at <= t <= end_at]
         last_before = max(base) if base else None
         window_span = ([last_before] if last_before is not None else []) + window
         b, w = max_gap(base), max_gap(window_span)
-        facts[market] = {'baseline_rows': len(base), 'window_rows': len(window), 'baseline_max_gap_s': b,
+        facts[market] = {'baseline_from_s': lo, 'baseline_rows': len(base), 'window_rows': len(window), 'baseline_max_gap_s': b,
                          'window_max_gap_s': w}
         axes['%s_window_new_ge_%d' % (market, min_rows)] = len(window) >= min_rows
         axes['%s_baseline_measured' % market] = b is not None
@@ -323,9 +327,14 @@ def double_spend_judge(res):
         'server_errors_0': r.get('server_errors') == 0,
         'balance_restore_failures_0': r.get('restore_failures') == 0,
     }
+    # 인증 거절(401·403)이 한 건이라도 있으면 그 회의 한쪽은 잔고 경합 전에 끝난 것이라 '성공 하나'가 경합의 결과가 아니다
+    # (2026-09-26 첫 주행: 세션 서명 시드가 노드마다 달라 api-2 행위가 모두 401). 판정력의 전제이므로 양성 축이다.
+    counts = r.get('status_counts')
+    axes['auth_rejections_0'] = isinstance(counts, dict) and bool(counts) and not any(
+        k.endswith(':401') or k.endswith(':403') for k in counts)
     for code in ('C01', 'C14', 'C31'):
         axes['post_%s_0' % code] = (r.get('post_invariants') or {}).get(code) == 0
-    return facts, axes, ['all_rounds_ran', 'order_insufficient_gt_0']
+    return facts, axes, ['all_rounds_ran', 'order_insufficient_gt_0', 'auth_rejections_0']
 
 
 def fee_coupling_judge(res):
@@ -359,7 +368,11 @@ def market_fatal_judge(res):
         'p0_ack_interval_ok': r.get('p0_ack_ok') is True,
         'post_invariants_pass': r.get('post_invariants_pass') is True,
     }
-    return {'reacquired_s': r.get('p1_reacquired_s')}, axes, ['injected_once']
+    # 생존 파티션 ACK 는 판정력의 전제다. 창 안 NEW 가 모자라 판정하지 못했으면(NOT RUN) FAIL 이 아니라 NOT RUN 이다(Q9 relocate
+    # 의 p0_ack_measured 와 같은 규칙). 판정 파일에 ack 판정이 없던 입력(p0_ack_ok 만 있는 입력)은 종전처럼 그 값을 따른다.
+    ack = (r.get('p0_ack') or {}).get('verdict') if isinstance(r.get('p0_ack'), dict) else None
+    axes['p0_ack_measured'] = ack in ('PASS', 'FAIL') if 'p0_ack' in r else r.get('p0_ack_ok') is not None
+    return {'reacquired_s': r.get('p1_reacquired_s')}, axes, ['injected_once', 'p0_ack_measured']
 
 
 def cold_assign_judge(res):
@@ -656,8 +669,9 @@ def cmd_ack_interval(a):
     rows, err = ack_rows(survivors, inject - ACK_BASELINE_S, end)
     if rows is None:
         return finish(a.out, 'ack-interval', {'error': err}, {'rows_read': False}, ['rows_read'])
-    facts, axes, positive = ack_interval_judge(rows, inject, end)
-    facts['window'] = {'inject_at': a.inject_at, 'end_at_epoch_s': end}
+    facts, axes, positive = ack_interval_judge(rows, inject, end,
+                                               baseline_from=ts(a.baseline_from) if a.baseline_from else None)
+    facts['window'] = {'inject_at': a.inject_at, 'end_at_epoch_s': end, 'baseline_from': a.baseline_from}
     return finish(a.out, 'ack-interval', facts, axes, positive)
 
 
@@ -794,8 +808,11 @@ def cmd_cold_assign(a):
     status = assignment(all_partitions())
     markets = partition_markets() or DEFAULT_PARTITION_MARKETS
     firsts = {}
+    # 배정만 보고 곧바로 첫 체결을 읽으면 아직 체결이 없어 늘 None 이다(2026-09-26 첫 Q11: 배정 10.7초 뒤 읽음). 파티션마다 첫 체결을
+    # 기동 뒤 60초까지 기다린다. 30초를 넘겨 온 값도 그대로 적어 판정이 늦음을 FAIL 로 본다.
     for res_name in RESOURCES:
-        t = first_trade_after(list(markets.get(res_name) or DEFAULT_PARTITION_MARKETS[res_name]), start)
+        mk = list(markets.get(res_name) or DEFAULT_PARTITION_MARKETS[res_name])
+        t, _ = wait_for(lambda: first_trade_after(mk, start), max(0.0, start + COLD_TRADE_WAIT_S - time.time()) or 0.1, 1.0)
         firsts[res_name] = round(t - start, 2) if t else None
     sql = ("SELECT json_build_object('n', count(*)) FROM lease_acquisitions a WHERE a.origin = 'ACQUIRE' "
            "AND a.acquired_at <= to_timestamp(%.3f) AND a.acquired_at >= to_timestamp(%.3f) "
@@ -843,6 +860,7 @@ def main(argv=None):
     s.add_argument('--affected-markets', default='')
     s.add_argument('--inject-at', required=True)
     s.add_argument('--end-at', default=None)
+    s.add_argument('--baseline-from', default=None, help='기준선을 이 시각(ISO) 뒤로 자른다. 모드 전환 정지 창을 빼려고 Q0 준비 시각을 준다')
     s.add_argument('--out', required=True)
     s = sub.add_parser('p3-epoch')
     s.add_argument('--resource', required=True, choices=RESOURCES)

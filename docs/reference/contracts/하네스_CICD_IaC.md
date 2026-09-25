@@ -525,6 +525,8 @@ enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SC
 
 (2026-09-25, ADR 0034 S6) WebSocket 중계 오버레이(§3-1)는 같은 파일의 `CHAOS_RELAY_PASSCODE`로 브로커 비밀 값을 받는다. `.env.chaos.example`에는 키만 더하고 값은 적지 않는다. 앱은 이 값을 `EXCHANGE_WS_RELAY_BROKER_PASSCODE` 환경 변수로만 받고, 배포 평면에서도 문서·로그·커밋에 넣지 않는다. 오버레이와 키는 코드 단계에서 만든다.
 
+(2026-09-26, ADR 0034 S7 관문) 기본 compose의 두 앱 노드는 같은 파일의 `CHAOS_MEMBER_SESSION_SEED_BASE64`·`CHAOS_MEMBER_PASSWORD_PEPPER_BASE64`(각 32바이트 base64)를 `EXCHANGE_MEMBER_SESSION_SEED_BASE64`·`EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64`로 받는다. 비우면 종전처럼 노드마다 프로세스 한정 임의 키라 한 노드가 낸 회원 토큰을 다른 노드가 `401`로 거절한다. 두 노드에 회원 요청을 나눠 보내는 실험(S7 Q1 교차 노드 이중 지출)은 값을 채운다. `.env.chaos.example`에는 키만 두고 값은 적지 않는다.
+
 **데모 PKI는 개인키를 포함한 PKCS12이고 저장소에 커밋돼 있다.** storepass가 `changeit`이다. 데모 전용이고 상시면 인증서와 별개다. 상시면에 그대로 쓰면 안 된다.
 
 `application.yml`의 dev datasource 자격증명이 평문 `exchange/exchange`다. dev 프로파일 전용이다.

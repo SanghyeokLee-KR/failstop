@@ -83,6 +83,14 @@ class LeaderAndDemotionsTest(unittest.TestCase):
         self.assertEqual({'matching-engine/STALL': 1.0, 'matching-engine/WRITER_FATAL': 2.0}, got['by'])
         self.assertIsNone(ax.demotions({'metrics': {'error': 'URLError'}}))
 
+    def test_planned_demotion_is_left_out_of_the_total(self):
+        # 참여 끄기의 계획 강등은 운영자 조작이다(S7 Q3b 의 두 파티션 모으기). 리더 노드 강등 합에서 빼고 따로 적는다.
+        node = {'metrics': {
+            'exchange_partition_demotions_total{partition="matching-p1",reason="PLANNED",}': 1.0,
+            'exchange_partition_demotions_total{partition="matching-p0",reason="LEASE_LOST_WHILE_ACCEPTING",}': 1.0}}
+        got = ax.demotions(node)
+        self.assertEqual((1.0, 1.0), (got['total'], got['planned']))
+
 
 class AlertsAndLbTest(unittest.TestCase):
 

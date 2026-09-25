@@ -302,7 +302,10 @@ function orderPayload() {
   const side = (exec.vu.iterationInInstance % 2 === 0) ? 'bid' : 'ask';
   const mk = MARKETS[(exec.vu.idInTest + exec.vu.iterationInInstance) % MARKETS.length];
   const rule = MARKET_RULES[mk] || MARKET_RULES['KRW-BTC'];
-  const price = side === 'bid' ? rule.bid : rule.ask;
+  // ORDER_CROSS=1 이면 매수를 매도 가격에, 매도를 매수 가격에 내 부하 계정끼리 체결을 만든다. 기본(0)은 호가만 쌓고 체결하지
+  // 않는다. 봇 없이 정산을 일으켜야 하는 주행(ADR 0034 S7 Q8 수수료 행 결합)만 켠다.
+  const cross = __ENV.ORDER_CROSS === '1';
+  const price = (side === 'bid') !== cross ? rule.bid : rule.ask;
   // VARCHAR(36) 상한. RUN_ID 16자 가드가 이 조립의 최악 길이를 36자 안에 묶는다(위 참조).
   const coid = `k6-${RUN_ID}-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
   return {

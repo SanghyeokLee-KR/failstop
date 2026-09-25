@@ -1,5 +1,5 @@
 """Q8 수수료 행 결합 실행기(ADR 0034 S7, docs/reference/architecture/마켓분할_리더_S7_설계.md 5-2 Q8, 결정 10). 폐기용
-스택(exchange-pml)에서만 돈다. 아직 스택에서 돌린 적이 없다(NOT RUN). 판정은 s7_axes.py fee-coupling 이 이 파일의 출력으로 한다.
+스택(exchange-pml)에서만 돈다. 첫 관문 주행 기록은 harness/evidence/pml-S7-20260926-0300/ 이다. 판정은 s7_axes.py fee-coupling 이 이 파일의 출력으로 한다.
 
 P3 에서 p0 마켓 수수료는 KRW FEE_INCOME 샤드 0, p1 마켓 수수료는 샤드 1 에 쌓인다. p0 소유 노드(api-1)가 샤드 0 행을 쥔 채 멈춰도
 p1 정산이 기다리지 않는지 본다.
@@ -12,7 +12,7 @@ p1 정산이 기다리지 않는지 본다.
      하고, 1초 뒤 한 번 더 떠서 같은 세션이 여전히 쥐고 있는지(양성 축) 본다. 쥐고 있지 않으면(배치가 먼저 끝났다) 풀고 10초 뒤 다시
      한다. 다섯 번 모두 못 잡으면 NOT RUN 이다. 잡았으면 멈춘 지 --pause-s(3초) 뒤 unpause 한다.
   4. 멈춘 창의 p1 마켓 체결 수, KRW 샤드 1 잔고의 증가, api-2 의 exchange_settlement_transient_exhausted_total 과 치명 강등 증분,
-     p1 마켓 정산 지연(명령 created_at 에서 체결 이벤트 created_at 까지)의 창 최대와 기준선(멈추기 전 60초) 최대, 창 안 리스 획득
+     p1 마켓 정산 지연(명령 created_at 에서 첫 방출 등록 created_at 까지, settle_lag_sql)의 창 최대와 기준선(멈추기 전 60초) 최대, 창 안 리스 획득
      (인계) 여부를 적는다.
 3초는 리스 TTL 6초에서 갱신 주기 2초를 뺀 4초보다 짧아 멈춘 동안 p0 리스가 만료되지 않고, 잠금 대기 상한 2초보다 길다.
 정리(finally): 토식 제거, k6 컨테이너 정지·삭제, 임시 키 폴더 삭제, 멈춘 노드 unpause. 봇은 멈춘 채 둔다(실행기가 스택을 내린다).
@@ -109,6 +109,8 @@ def start_loop(name, markets, key_dir, key_file, rate, duration_s, run_id):
     subprocess.run(['docker', 'rm', '-f', name], capture_output=True, timeout=60)
     args = ['docker', 'run', '-d', '--name', name, '--network', NETWORK, '-v', load + ':/load:ro', '-v', key_dir + ':/keys:ro',
             '-e', 'BASE_OPS=%d' % rate, '-e', 'MARKETS=' + markets, '-e', 'MARKET_HINT=1',
+            # 봇을 멈추므로 k6 주문이 서로 체결해야 정산(수수료 행 잠금)이 생긴다. 기본 order_flow 는 호가만 쌓는다(2026-09-26 첫 Q8).
+            '-e', 'ORDER_CROSS=1',
             '-e', 'CAL_DURATION=%ds' % duration_s, '-e', 'BASE_URL=http://chaos-lb:8080',
             '-e', 'K6_KEYS=/keys/' + key_file, '-e', 'CAL_OUT=/tmp/calibration.json', '-e', 'RUN_ID=' + run_id,
             K6_IMAGE, 'run', '--quiet', '--no-color', '/load/calibrate.js']
@@ -152,6 +154,7 @@ class LockSampler:
         """app 세션이 행을 쥔 첫 줄을 기다린다. 반환은 (호스트 초, pid, 본 표본 수) 나 None 이다."""
         end = time.monotonic() + limit_s
         ticks = 0
+        self.ticks = 0
         while time.monotonic() < end:
             try:
                 at, line = self.q.get(timeout=0.5)
@@ -159,6 +162,7 @@ class LockSampler:
                 continue
             if line.startswith('TICK|'):
                 ticks += 1
+                self.ticks = ticks
             got = parse_lock_line(line)
             if got and got[0] == app:
                 return at, got[1], ticks
@@ -181,13 +185,21 @@ def partition_symbols():
     return {r: list(rows.get(r) or []) for r in s7.RESOURCES}
 
 
-def settle_rows(markets, since_s, until_s):
+def settle_lag_sql(markets, since_s, until_s):
+    """정산 지연 표본. 주문 생성 명령마다 접수 트랜잭션 시작(command_journal.created_at, DB now())에서 그 명령의 첫 방출 등록
+    (event_emission_registry.created_at, 정산 트랜잭션의 DB now())까지다. 앞 판은 event_journal.created_at 을 썼는데 그 값은 명령의
+    engine_ts 파생이라 정산이 늦어도 늘지 않아(2026-09-26 Q8-r3: 기준선·창 모두 -0.0002초) 판정력이 없었다. 방출 등록 시각은
+    정산 트랜잭션 시작 시각이라 막힌 배치 자신의 대기는 보지 못하지만, 그 뒤에 줄 선 명령의 정산 시작이 막힌 만큼 늦어진다."""
     names = ','.join("'%s'" % m for m in markets)
-    sql = ("SELECT coalesce(json_agg(json_build_object('lag_s', EXTRACT(EPOCH FROM (e.created_at - c.created_at)))), '[]'::json) "
-           "FROM event_journal e JOIN command_journal c ON c.seq = e.source_cmd_seq JOIN markets m ON m.id = e.market_id "
-           "WHERE e.event_type = 'TRADE' AND m.symbol IN (%s) AND c.created_at >= to_timestamp(%.3f) "
-           "AND c.created_at <= to_timestamp(%.3f)" % (names, since_s, until_s))
-    rows, _ = psql_json(sql)
+    return ("SELECT coalesce(json_agg(json_build_object('lag_s', EXTRACT(EPOCH FROM (x.first_at - x.cmd_at)))), '[]'::json) "
+            "FROM (SELECT c.seq, c.created_at AS cmd_at, min(r.created_at) AS first_at FROM command_journal c "
+            "JOIN event_emission_registry r ON r.source_cmd_seq = c.seq JOIN markets m ON m.id = c.market_id "
+            "WHERE c.command_type = 'NEW' AND m.symbol IN (%s) AND c.created_at >= to_timestamp(%.3f) "
+            "AND c.created_at <= to_timestamp(%.3f) GROUP BY c.seq, c.created_at) x" % (names, since_s, until_s))
+
+
+def settle_rows(markets, since_s, until_s):
+    rows, _ = psql_json(settle_lag_sql(markets, since_s, until_s))
     return rows
 
 
@@ -253,7 +265,18 @@ def main(argv=None):
             n = issue_keys(p0 + ',' + p1, 4, os.path.join(key_dir, 'shared.json'))
             files = ('shared.json', 'shared.json')
         else:
-            n = issue_keys(p0, 4, os.path.join(key_dir, 'p0.json')) and issue_keys(p1, 4, os.path.join(key_dir, 'p1.json'))
+            # 부하 계정은 이메일이 k6-load-<번호>로 고정이라, 마켓 묶음마다 따로 발급하면 같은 사용자의 키를 다시 발급해 앞 묶음의 키가
+            # 401 이 된다(2026-09-26 Q8-r2: p0 루프 주문 전부 401). 여덟 계정을 한 번에 발급해 앞 넷은 p0, 뒤 넷은 p1 루프에 준다.
+            # 두 루프의 사용자 집합이 겹치지 않는다(설계 5-2 Q8).
+            both = os.path.join(key_dir, 'both.json')
+            n = issue_keys(p0 + ',' + p1, 8, both)
+            if n == 8:
+                keys = json.loads(Path(both).read_text(encoding='utf-8'))
+                Path(key_dir, 'p0.json').write_text(json.dumps(keys[:4]), encoding='utf-8')
+                Path(key_dir, 'p1.json').write_text(json.dumps(keys[4:]), encoding='utf-8')
+                os.remove(both)
+            else:
+                n = 0
             files = ('p0.json', 'p1.json')
         if not n:
             res['error'] = '부하 계정 발급 실패'
@@ -278,7 +301,8 @@ def main(argv=None):
             got = sampler.wait_lock('chaos-api-1', LOCK_WAIT_S)
             if not got:
                 sampler.close()
-                res.setdefault('misses', []).append({'attempt': attempt, 'reason': '%d초 안에 잠금 표본 없음' % LOCK_WAIT_S})
+                res.setdefault('misses', []).append({'attempt': attempt, 'reason': '%d초 안에 잠금 표본 없음' % LOCK_WAIT_S,
+                                                     'ticks': getattr(sampler, 'ticks', None)})
                 continue
             seen_at, pid, ticks = got
             subprocess.run(['docker', 'pause', 'chaos-api-1'], capture_output=True, timeout=30)

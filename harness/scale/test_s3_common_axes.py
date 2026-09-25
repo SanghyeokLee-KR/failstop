@@ -80,6 +80,16 @@ class S4AxesTest(unittest.TestCase):
         self.assertFalse(ax.demotion_logged(logs, 'chaos-api-1'))
         self.assertFalse(ax.demotion_logged({'chaos-api-1': {'ok': False}}, 'chaos-api-2'))
 
+    def test_planned_demotion_is_not_a_leader_demotion(self):
+        # 참여 끄기로 스스로 내려놓은 강등(S7 Q3b 의 두 파티션 모으기)은 리더 노드 강등 축에서 뺀다. 치명 강등은 그대로 센다.
+        lines = ['... LeaderLeaseService : 리더십 상실(재구성 전 재획득 없음): resource=matching-p1, epoch=9, 사유=PLANNED(PLANNED)',
+                 '... PartitionRuntime : 파티션 강등: resource=matching-p1, epoch=9, 사유=PLANNED(PLANNED), 차단기 0회/닫힘']
+        got = ax.count_log_lines(lines)
+        self.assertEqual((0, 0, 1), (got['leadershipLost'], got['partitionDemotion'], got['plannedDemotion']))
+        fatal = ['... PartitionRuntime : 파티션 강등: resource=matching-p1, epoch=9, 사유=WRITER_FATAL(x), 차단기 1회/닫힘']
+        got = ax.count_log_lines(fatal)
+        self.assertEqual((1, 0), (got['partitionDemotion'], got['plannedDemotion']))
+
 
 
 class Orders500Test(unittest.TestCase):

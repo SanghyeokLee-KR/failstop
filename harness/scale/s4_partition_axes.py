@@ -200,7 +200,10 @@ def demotions(node):
         partition = re.search(r'partition="([^"]+)"', key)
         reason = re.search(r'reason="([^"]+)"', key)
         by['%s/%s' % (partition.group(1) if partition else '?', reason.group(1) if reason else '?')] = value
-    return {'by': by, 'total': sum(by.values())}
+    # 참여 끄기로 스스로 내려놓은 계획 강등(reason=PLANNED)은 운영자 조작이라 합에서 빼고 따로 적는다(2026-09-26 S7 Q3b 의 두 파티션
+    # 모으기). 치명·리스 상실·정지 강등은 그대로 센다.
+    planned = sum(v for k, v in by.items() if k.endswith('/PLANNED'))
+    return {'by': by, 'total': sum(by.values()) - planned, 'planned': planned}
 
 
 def alerts_outside(samples, fault_from, fault_to):

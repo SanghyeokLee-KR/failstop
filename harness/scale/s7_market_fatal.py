@@ -1,5 +1,5 @@
 """Q10 한 마켓 치명 실행기(ADR 0034 S7, docs/reference/architecture/마켓분할_리더_S7_설계.md 5-2 Q10). 폐기용 스택(exchange-pml)
-에서만 돈다. 아직 스택에서 돌린 적이 없다(NOT RUN). 판정은 s7_axes.py market-fatal 이 이 파일의 출력으로 한다.
+에서만 돈다. 첫 관문 주행 기록은 harness/evidence/pml-S7-20260926-0300/ 이다. 판정은 s7_axes.py market-fatal 이 이 파일의 출력으로 한다.
 
 소유자 로그인으로 폐기용 DB 에 trades INSERT 트리거를 건다. 트리거는 NEW.market_id 가 --market(기본 KRW-ETH, p1)이고 비트랜잭션
 시퀀스의 nextval 이 1 일 때만 사용자 정의 SQLSTATE S7F01 로 실패한다. S7F01 은 정산의 재시도 대상(55P03·57014·40P01·40001), 연결
@@ -133,6 +133,8 @@ def partition_status(resource):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--market', default='KRW-ETH')
+    ap.add_argument('--stop-before-post', default=None,
+                    help='사후 드레인 전에 멈출 부하 컨테이너(pml-s7-k6-*). 돌고 있으면 새 NEW 가 들어와 드레인이 끝나지 않는다')
     ap.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     res = {'started': pgs.now_iso(), 'market': a.market, 'error': None, 'injected_failures': 0}
@@ -213,6 +215,9 @@ def main(argv=None):
             res['p0_ack_ok'] = res['p0_ack']['verdict'] == 'PASS'
         else:
             res['p0_ack_ok'] = None
+        if a.stop_before_post and re.match(r'^pml-s7-k6-[A-Za-z0-9_-]+$', a.stop_before_post):
+            res['stop_before_post_rc'] = subprocess.run(['docker', 'stop', '-t', '10', a.stop_before_post], capture_output=True,
+                                                        timeout=60).returncode
         post = ds.post_run('Q10-%s' % dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S'))
         res['post'] = {k: v for k, v in post.items() if k != 'all_checks'}
         res['post_invariants_pass'] = post['run_status'] == 200 and gated_clean(post.get('all_checks'))

@@ -73,6 +73,17 @@ class AckIntervalTest(unittest.TestCase):
         _, axes, positive = s7.ack_interval_judge({'KRW-BTC': base + window}, self.INJECT, self.INJECT + 30)
         self.assertFalse(axes['KRW-BTC_ack_gap_le_baseline_plus_1s'], '주입 직전 행과 창 첫 행 사이 멈춤을 놓쳤다')
 
+    def test_baseline_from_cuts_off_the_cutover_stop_window(self):
+        # 주입 60초 전 20초 멈춤(모드 전환의 정지 창)이 기준선에 들면 창의 3초 멈춤을 놓친다. baseline_from 이 그 창을 뺀다.
+        base = [self.INJECT - 100 + i * 0.5 for i in range(40)] + [self.INJECT - 60 + i * 0.5 for i in range(119)]
+        window = [self.INJECT + 0.2 + i * 0.5 for i in range(10)] + [self.INJECT + 8.0 + i * 0.5 for i in range(10)]
+        rows = {'KRW-BTC': sorted(base + window)}
+        _, axes, positive = s7.ack_interval_judge(rows, self.INJECT, self.INJECT + 30)
+        self.assertEqual('PASS', s7.verdict_of(axes, positive), '대조: 정지 창이 기준선이면 3초 멈춤이 통과한다')
+        facts, axes, positive = s7.ack_interval_judge(rows, self.INJECT, self.INJECT + 30, baseline_from=self.INJECT - 55)
+        self.assertEqual('FAIL', s7.verdict_of(axes, positive), axes)
+        self.assertEqual(self.INJECT - 55, facts['KRW-BTC']['baseline_from_s'])
+
     def test_too_few_rows_is_not_run(self):
         _, axes, positive = s7.ack_interval_judge({'KRW-BTC': self.rows(window_n=9)}, self.INJECT, self.INJECT + 30)
         self.assertEqual(s7.NOT_RUN, s7.verdict_of(axes, positive), '창 안 NEW 가 10건 미만이면 판정하지 않는다')
@@ -252,7 +263,8 @@ class DoubleSpendTest(unittest.TestCase):
     def good(self):
         return {'requested_rounds': 3, 'rounds': [{'successes': 1}] * 3, 'order_insufficient': 2,
                 'withdraw_insufficient': 1, 'settlement_insufficient_delta': 0, 'fatal_demotions_delta': 0,
-                'server_errors': 0, 'restore_failures': 0, 'post_invariants': {'C01': 0, 'C14': 0, 'C31': 0}}
+                'server_errors': 0, 'restore_failures': 0, 'post_invariants': {'C01': 0, 'C14': 0, 'C31': 0},
+                'status_counts': {'order:201': 2, 'order:400': 2, 'withdraw:201': 1, 'withdraw:422': 1}}
 
     def test_pass(self):
         _, axes, positive = s7.double_spend_judge(self.good())
@@ -262,7 +274,10 @@ class DoubleSpendTest(unittest.TestCase):
         for key, value, verdict in (('rounds', [{'successes': 1}, {'successes': 2}, {'successes': 1}], 'FAIL'),
                                     ('settlement_insufficient_delta', 1, 'FAIL'), ('server_errors', 1, 'FAIL'),
                                     ('fatal_demotions_delta', 1, 'FAIL'), ('order_insufficient', 0, s7.NOT_RUN),
-                                    ('rounds', [{'successes': 1}] * 2, s7.NOT_RUN)):
+                                    ('rounds', [{'successes': 1}] * 2, s7.NOT_RUN),
+                                    # 한쪽 노드가 회원 토큰을 401 로 거절하면 경합이 성립하지 않는다(2026-09-26 첫 주행)
+                                    ('status_counts', {'order:201': 2, 'order:401': 1, 'withdraw:201': 1}, s7.NOT_RUN),
+                                    ('status_counts', None, s7.NOT_RUN)):
             res = dict(self.good(), **{key: value})
             _, axes, positive = s7.double_spend_judge(res)
             self.assertEqual(verdict, s7.verdict_of(axes, positive), key)
@@ -303,6 +318,10 @@ class MarketFatalTest(unittest.TestCase):
         self.assertEqual('FAIL', s7.verdict_of(*s7.market_fatal_judge(slow)[1:]))
         none = dict(self.good(), injected_failures=0)
         self.assertEqual(s7.NOT_RUN, s7.verdict_of(*s7.market_fatal_judge(none)[1:]), '주입이 안 됐으면 NOT RUN')
+        unmeasured = dict(self.good(), p0_ack_ok=False, p0_ack={'verdict': s7.NOT_RUN})
+        self.assertEqual(s7.NOT_RUN, s7.verdict_of(*s7.market_fatal_judge(unmeasured)[1:]), 'p0 ACK 를 재지 못했으면 NOT RUN')
+        slow_ack = dict(self.good(), p0_ack_ok=False, p0_ack={'verdict': 'FAIL'})
+        self.assertEqual('FAIL', s7.verdict_of(*s7.market_fatal_judge(slow_ack)[1:]))
 
 
 class ColdAssignAndRelocateTest(unittest.TestCase):

@@ -488,6 +488,14 @@ def main():
     if a.protocol_before_traffic is not None:
         # 스택 기동 직후, 래치·키 발급·봇 예열보다 먼저 한다. 봇은 스택과 함께 떠 있으므로 전환 도구가 멈추고 드레인한 뒤 되살린다.
         if a.protocol_before_traffic == 3:
+            # reset_stack 은 기다리지 않고 올린다(up -d). api-2 가 아직 뜨는 중이면 전환 도구의 사전 확인이 최고 모드 게이지를 읽지
+            # 못해 BLOCKED 다(2026-09-26 S7 Q12 첫 P3 칸). 두 노드가 게이지를 낼 때까지 최대 180초 기다린다.
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline:
+                gauges = [pl.node_gauges(port) for _, port in pl.API]
+                if all(g.get('ok') and g['values'].get('exchange_leader_protocol_max') is not None for g in gauges):
+                    break
+                time.sleep(3)
             protocol = pl.transition_partition(3, latch_band=True)
         else:
             protocol = pl.transition(a.protocol_before_traffic)
