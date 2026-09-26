@@ -82,3 +82,6 @@ deploy/vm-lab/캡처/**/known_hosts
 # 개인키는 사용자 프로필의 ~/.ssh 아래에 두고 여기에는 .pub 만 놓는다.
 deploy/vm-lab/build/keys/*
 !deploy/vm-lab/build/keys/*.pub
+
+# S7 관문 실행기의 웹 빌드 출력. Next 빌드 로그의 기호가 문체 검사에 걸리고 실험 판정 자료가 아니다(빌드 결과 코드는 gate.json의 buildRc).
+harness/evidence/**/web_build.log

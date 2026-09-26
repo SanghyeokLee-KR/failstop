@@ -388,6 +388,20 @@ class W7Test(unittest.TestCase):
         self.assertFalse(ax.web_w7_axes(dict(web, restAfterSettle=2), ['KRW-BTC'], ['KRW-ETH'])[
             'web_rest_after_first_load_0'])
 
+    def test_web_rest_exempts_config_poll(self):
+        # 시작 1000ms, 첫 적재 15초. 적재 뒤 설정 폴링만 있으면 참이고, 시세 REST 가 하나라도 있으면 거짓이다.
+        started = '1970-01-01T00:00:01.000Z'
+        base = {'startedAt': started, 'settleSec': 15,
+                'ws': {'markets': {'KRW-BTC|orderbook': {'epochs': {'5': 1}}, 'KRW-ETH|ticker': {'epochs': {'6': 1}}}}}
+        polls = [{'at': 1000 + 15000 + 15000 * i, 'path': '/api/v1/exchange-config'} for i in range(3)]
+        early = [{'at': 1500, 'path': '/api/v1/orderbook'}]
+        web = dict(base, restAfterSettle=3, requests=early + polls)
+        self.assertEqual(ax.web_rest_after_settle(web), (0, 3))
+        self.assertTrue(ax.web_w7_axes(web, ['KRW-BTC'], ['KRW-ETH'])['web_rest_after_first_load_0'])
+        resync = dict(base, restAfterSettle=4, requests=early + polls + [{'at': 20000, 'path': '/api/v1/orderbook'}])
+        self.assertEqual(ax.web_rest_after_settle(resync), (1, 3))
+        self.assertFalse(ax.web_w7_axes(resync, ['KRW-BTC'], ['KRW-ETH'])['web_rest_after_first_load_0'])
+
 
 class JudgeCliTest(unittest.TestCase):
 

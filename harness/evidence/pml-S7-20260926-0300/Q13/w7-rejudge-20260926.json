@@ -1,0 +1,49 @@
+{
+  "experiment": "W7",
+  "started": "2026-09-26T11:57:41+09:00",
+  "window_from": "2026-09-25T19:17:50.4023508Z",
+  "fault_from": null,
+  "fault_to": null,
+  "verdict": "PASS",
+  "facts": {
+    "opens": 1,
+    "epochs": {
+      "KRW-BTC": [
+        9
+      ],
+      "KRW-XRP": [
+        9
+      ],
+      "KRW-ETH": [
+        8
+      ]
+    },
+    "node": "chaos-api-1",
+    "web_file": "harness\\evidence\\pml-S7-20260926-0300\\Q13\\web_resync.json",
+    "web_rest_after_settle_total": 39,
+    "web_rest_after_settle_counted": 0,
+    "web_rest_after_settle_exempt_config_poll": 39
+  },
+  "axes": {
+    "one_connection": true,
+    "KRW-BTC_book_ge_100": true,
+    "KRW-BTC_trades_ge_10": true,
+    "KRW-BTC_epoch_rise_0": true,
+    "KRW-BTC_dense_gaps_0": true,
+    "KRW-XRP_book_ge_100": true,
+    "KRW-XRP_trades_ge_10": true,
+    "KRW-XRP_epoch_rise_0": true,
+    "KRW-XRP_dense_gaps_0": true,
+    "KRW-ETH_book_ge_100": true,
+    "KRW-ETH_trades_ge_10": true,
+    "KRW-ETH_epoch_rise_0": true,
+    "KRW-ETH_dense_gaps_0": true,
+    "partition_epochs_differ": true,
+    "markets_given": true,
+    "web_observed": true,
+    "web_rest_after_first_load_0": true,
+    "web_partition_epochs_differ": true
+  },
+  "ok": true,
+  "finished": "2026-09-26T11:57:41+09:00"
+}

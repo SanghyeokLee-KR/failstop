@@ -511,9 +511,28 @@ def web_w6_axes(web, kill_ms, affected, unaffected):
     return axes
 
 
+# W7 의 '첫 적재 뒤 REST 0'에서 빼는 경로. 웹은 WS 상태와 상관없이 15초마다 거래소 설정을 다시 읽는다(API 설계 §4-A-6).
+# 이 축은 시세를 REST 로 다시 받지 않는지 보려는 것이라 계약된 설정 폴링은 세지 않는다. S7 관문(2026-09-26)에서 이 폴링
+# 39건만으로 축이 거짓이 된 뒤 사용자가 확정했다(2026-09-26).
+W7_REST_EXEMPT_PATHS = ('/api/v1/exchange-config',)
+
+
+def web_rest_after_settle(web):
+    """첫 적재(settleSec) 뒤 REST 를 (판정에 세는 수, 뺀 설정 폴링 수)로 돌려준다. 요청 목록이나 시작 시각이 없으면 나눌 수
+    없으므로 관찰기의 합계 restAfterSettle 을 그대로 센다."""
+    web = web or {}
+    if web.get('requests') is None or not web.get('startedAt'):
+        return web.get('restAfterSettle'), 0
+    settle_ms = parse_iso(web['startedAt']).timestamp() * 1000 + (web.get('settleSec') or 0) * 1000
+    after = web_requests_after(web, settle_ms)
+    exempt = sum(1 for r in after if r.get('path') in W7_REST_EXEMPT_PATHS)
+    return len(after) - exempt, exempt
+
+
 def web_w7_axes(web, p0_markets, p1_markets):
-    """W7 웹 관찰 판정. 첫 적재 뒤 REST 가 0 이고, 두 파티션 마켓의 WS epoch 가 한 개씩이며 서로 다르다."""
-    axes = {'web_rest_after_first_load_0': (web or {}).get('restAfterSettle') == 0}
+    """W7 웹 관찰 판정. 첫 적재 뒤 설정 폴링을 뺀 REST 가 0 이고, 두 파티션 마켓의 WS epoch 가 한 개씩이며 서로 다르다."""
+    counted, _exempt = web_rest_after_settle(web)
+    axes = {'web_rest_after_first_load_0': counted == 0}
     p0 = set()
     p1 = set()
     for market in p0_markets:
@@ -1054,6 +1073,10 @@ def judge_w7(ev, a, win_from, win_to):
     facts['web_file'] = a.web or str(Path(ev) / WEB_FILE)
     axes['web_observed'] = web is not None
     if web is not None:
+        counted, exempt = web_rest_after_settle(web)
+        facts['web_rest_after_settle_total'] = web.get('restAfterSettle')
+        facts['web_rest_after_settle_counted'] = counted
+        facts['web_rest_after_settle_exempt_config_poll'] = exempt
         axes.update(web_w7_axes(web, p0, p1))
     return facts, axes, web is not None
 
