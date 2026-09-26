@@ -211,5 +211,47 @@ class JudgeTest(unittest.TestCase):
         self.assertEqual(rp.judge(f, POST)['groups']['E_integrity']['verdict'], 'FAIL')
 
 
+class KeepAliveTest(unittest.TestCase):
+    def test_reuses_one_connection(self):
+        import http.server
+        import threading
+        conns = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def setup(self):
+                super().setup()
+                conns.append(1)
+
+            def do_GET(self):
+                body = b'{}'
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.ThreadingHTTPServer(('localhost', 0), H)
+        th = threading.Thread(target=srv.serve_forever, daemon=True)
+        th.start()
+        try:
+            c = rp.KeepAlive(srv.server_address[1], 5)
+            got = [c.get('/x', 'ua')[0] for _ in range(20)]
+            c.close()
+        finally:
+            srv.shutdown()
+        self.assertEqual(got, [200] * 20)
+        self.assertEqual(len(conns), 1)
+
+    def test_transport_failure_is_recorded_not_raised(self):
+        c = rp.KeepAlive(1, 1)
+        status, err, _ = c.get('/x', 'ua')
+        self.assertEqual(status, 0)
+        self.assertTrue(err)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -53,6 +53,10 @@ if (-not (Test-Path (Join-Path $repo 'harness\.env.chaos'))) { throw 'harness/.e
 $volStart = Get-KeepVolumes
 Save-Text 'volumes-start.txt' $volStart
 Save-Text 'host-start.txt' ((& docker ps -a --format '{{.Names}}|{{.Label "com.docker.compose.project"}}|{{.Status}}' | Out-String).Trim())
+# 첫 시도는 클라이언트 동적 포트가 TIME_WAIT 로 바닥나 멈췄다(README '첫 시도'). 시작 때 TIME_WAIT 수를 남기고 많으면 멈춘다.
+$tw = @(& netstat -an | Select-String 'TIME_WAIT').Count
+Save-Text 'tcp-timewait-start.txt' "$tw"
+if ($tw -gt 2000) { throw "TIME_WAIT 소켓이 $tw 개다. 줄어든 뒤 다시 시작한다" }
 $image = [ordered]@{
     image = 'exchange-chaos-app:pml'
     id = (& docker image inspect exchange-chaos-app:pml --format '{{.Id}}').Trim()
@@ -182,6 +186,7 @@ finally {
         pml_networks = @(& docker network ls --filter 'label=com.docker.compose.project=exchange-pml' --format '{{.Name}}')
     }
     Save-Text 'cleanup.json' ($left | ConvertTo-Json)
+    Save-Text 'tcp-timewait-end.txt' "$(@(& netstat -an | Select-String 'TIME_WAIT').Count)"
     $volEnd = Get-KeepVolumes
     Save-Text 'volumes-end.txt' $volEnd
     Save-Text 'host-end.txt' ((& docker ps -a --format '{{.Names}}|{{.Label "com.docker.compose.project"}}|{{.Status}}' | Out-String).Trim())

@@ -389,6 +389,39 @@ def err_name(body):
     return e.get('name') if isinstance(e, dict) else None
 
 
+class KeepAlive:
+    """작업자 하나의 지속 연결(HTTP/1.1 keep-alive). 요청마다 새 연결을 열면 이 PC(Windows, 동적 포트 16,384개)에서 초당 수백 건이
+    TIME_WAIT 로 쌓여 포트가 바닥난다(2026-09-26 첫 시도, WSAEADDRINUSE). 전송 실패 때만 연결을 닫고 다음 요청에서 새로 연다.
+    nginx 에서 앱으로 가는 연결은 요청마다 새로 열리므로(업스트림 keepalive 없음) least_conn 분배는 바뀌지 않는다."""
+
+    def __init__(self, port, timeout):
+        self.port, self.timeout, self.conn = port, timeout, None
+
+    def get(self, path, ua):
+        t0 = time.monotonic()
+        try:
+            if self.conn is None:
+                self.conn = http.client.HTTPConnection('localhost', self.port, timeout=self.timeout)
+            self.conn.request('GET', path, headers={'Accept': 'application/json', 'User-Agent': ua})
+            resp = self.conn.getresponse()
+            resp.read()
+            status = resp.status
+            if resp.getheader('Connection', '').lower() == 'close':
+                self.close()
+            return status, None, round((time.monotonic() - t0) * 1000, 2)
+        except Exception as e:  # noqa: BLE001 - 전송 실패도 값으로 남긴다
+            self.close()
+            return 0, type(e).__name__, round((time.monotonic() - t0) * 1000, 2)
+
+    def close(self):
+        if self.conn is not None:
+            try:
+                self.conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+        self.conn = None
+
+
 class LoadGen:
     """닫힌 루프 조회 부하. read-load.py 와 같은 세 경로를 돈다. 활성 작업자 수와 단계 표식을 실행 중에 바꾼다."""
 
@@ -403,6 +436,7 @@ class LoadGen:
 
     def _worker(self, k):
         i = k
+        client = KeepAlive(LB_PORT, self.timeout)
         while not self.stop.is_set():
             ph = self.phase
             if ph is None or k >= self.active:
@@ -410,9 +444,10 @@ class LoadGen:
                 continue
             path = LOAD_PATHS[i % len(LOAD_PATHS)]
             t = time.time()
-            status, body, ms = http_call(LB_PORT, 'GET', path, ua=UA_PREFIX + ph, timeout=self.timeout)
-            self.records.append((t, ph, i % len(LOAD_PATHS), status, ms, (body or {}).get('transport_error') if status == 0 else None))
+            status, err, ms = client.get(path, UA_PREFIX + ph)
+            self.records.append((t, ph, i % len(LOAD_PATHS), status, ms, err))
             i += 1
+        client.close()
 
     def start(self):
         for k in range(self.max_workers):
@@ -451,10 +486,12 @@ def split_window(run, name, uri, path, n):
     before = {node: prom_count(METRICS_PORTS[node], uri) for node in NODES}
     recs = []
     ua = UA_PREFIX + '%s-%s' % (run, name)
+    client = KeepAlive(LB_PORT, 8)
     for _ in range(n):
         t = time.time()
-        status, body, ms = http_call(LB_PORT, 'GET', path, ua=ua, timeout=8)
-        recs.append((t, '%s-%s' % (run, name), 0, status, ms, (body or {}).get('transport_error') if status == 0 else None))
+        status, err, ms = client.get(path, ua)
+        recs.append((t, '%s-%s' % (run, name), 0, status, ms, err))
+    client.close()
     after = {node: prom_count(METRICS_PORTS[node], uri) for node in NODES}
     delta = {node: (None if before[node] is None or after[node] is None else round(after[node] - before[node], 1)) for node in NODES}
     return recs, {'uri': uri, 'path': path, 'calls': n, 'prom_delta': delta}
