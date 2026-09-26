@@ -32,6 +32,8 @@ public class BotFleet {
     private final List<Thread> threads = new ArrayList<>();
     private Thread balancer;
     private String runNonce;
+    // 이번 기동의 거래 일시 중단 대기. 정지 때 닫아 다음 기동이 닫힌 게이트를 물려받지 않게 한다.
+    private TradingSuspensionWatch suspension;
 
     private volatile boolean running;
 
@@ -54,6 +56,8 @@ public class BotFleet {
         String nonce = nextRunNonce(props.seed(), ordinalSource.next());
         running = true;
         runNonce = nonce;
+        suspension = new TradingSuspensionWatch(
+                new BotApiClient(props.baseUrl(), new BotCredentials(0, "", "", ""), "status"));
         BigDecimal quoteFunding = new BigDecimal(props.funding().quote());
         List<SimProperties.MarketSpec> specs = resolveMarkets();
         int pool = fleet.poolPerType();
@@ -86,7 +90,7 @@ public class BotFleet {
                 MarketMakerBot bot = new MarketMakerBot(botId, runNonce,
                         new BotApiClient(per.baseUrl(), creds, botId),
                         per.seed() * 1_000_003L + marketSalt + i, per, tick, baseFunding,
-                        () -> running, governor, fleet, i);
+                        () -> running, governor, fleet, suspension, i);
                 threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
             }
             spawnTakers(BotType.TAKER, "tk-" + suffix, per, marketSalt, 2_000_003L,
@@ -114,7 +118,7 @@ public class BotFleet {
             TakerBot bot = new TakerBot(botId, runNonce,
                     new BotApiClient(per.baseUrl(), creds, botId),
                     per.seed() * seedMul + marketSalt + i, per, kDir, stepMul, () -> running,
-                    governor, fleet, type, i, ds);
+                    governor, fleet, type, i, ds, suspension);
             threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
         }
     }
@@ -212,6 +216,10 @@ public class BotFleet {
         running = false;
         // 정지 상태에 pause 잔류를 남기지 않는다. 다음 start는 항상 발행 가능 상태로 뜬다.
         governor.setPaused(false);
+        if (suspension != null) {
+            suspension.close();
+            suspension = null;
+        }
         if (balancer != null) {
             balancer.interrupt();
         }

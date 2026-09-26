@@ -20,6 +20,7 @@ import { compareDecimal } from "@/lib/decimal";
 import { formatKRW } from "@/lib/format";
 import { loginHref } from "@/lib/auth/nextPath";
 import { dest } from "@/lib/types";
+import { isSuspended, SAVE_BLOCKED_LABEL, SAVE_BLOCKED_SR } from "@/lib/tradingStatus";
 import type { TransferDirection, TransferRequest } from "@/lib/types";
 import { addQuickAmount } from "./quickAmount";
 import styles from "./page.module.css";
@@ -67,7 +68,11 @@ export default function TransfersPage() {
   const [touched, setTouched] = useState(false);
   /* 멱등 키는 제출 단위로 고정한다. 재시도마다 새로 만들면 서버 UNIQUE(user_id, idem_key)가
      중복 요청을 접지 못한다. 성공하면 비워 다음 요청이 새 키를 받는다(주문 orderKey 동형) */
+  /* Idempotency-Key 는 성공 전까지 유지한다. 423 을 받은 요청도 같은 키로 다시 낸다. 423 은 이 시도만 쓰지 않았다는
+     뜻이라 앞선 시도가 재개 뒤 커밋될 수 있고, 새 키면 출금이 두 번 잠긴다(API 설계 §2-5-e) */
   const idemRef = useRef<string | null>(null);
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
+  const loadTradingStatus = useExchangeStore((s) => s.loadTradingStatus);
 
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   /* 잔고를 구독하지 않으면 출금 가능액이 0으로 멈춘다. 입금 직후에도 안 바뀌어
@@ -127,7 +132,7 @@ export default function TransfersPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy) return;
+    if (busy || suspended) return;
     setTouched(true);
     if (amountError) return;
     setBusy(true);
@@ -150,6 +155,7 @@ export default function TransfersPage() {
     } catch (err) {
       // 서버가 코드를 주면 그걸 쓰고, 아니면 일반 문구로 떨어뜨린다. 서버 문장을 그대로
       // 띄우지 않는 이유는 화면 어휘와 어투가 갈리기 때문이다(3차 감사 결함)
+      if (err instanceof ApiError && err.status === 423) void loadTradingStatus();
       toast(transferErrorCopy(err), "error");
     } finally {
       setBusy(false);
@@ -157,6 +163,7 @@ export default function TransfersPage() {
   };
 
   const cancel = async (row: TransferRequest) => {
+    if (suspended) return;
     try {
       await getDataSource().cancelTransfer(row.external_id);
       toast("출금 요청 취소", "info");
@@ -279,10 +286,16 @@ export default function TransfersPage() {
                 : "출금 요청 시 금액이 잠기고 운영자 승인 후 빠져나감. 승인 전까지 취소 가능"}
             </p>
 
+            {suspended && (
+              <p className={styles.note} role="status">
+                <span aria-hidden="true">{SAVE_BLOCKED_LABEL}</span>
+                <span className="sr-only">{SAVE_BLOCKED_SR}</span>
+              </p>
+            )}
             <button
               type="submit"
               className="btn btn--primary btn--full btn--xl"
-              disabled={busy}
+              disabled={busy || suspended}
               aria-busy={busy}
             >
               {busy ? "처리 중" : direction === "DEPOSIT" ? "입금하기" : "출금 요청"}
@@ -331,7 +344,8 @@ export default function TransfersPage() {
                     {formatStamp(row.updated_at)}
                   </time>
                   {row.status === "REQUESTED" ? (
-                    <button type="button" className={styles.rowAction} onClick={() => void cancel(row)}>
+                    <button type="button" className={styles.rowAction} onClick={() => void cancel(row)}
+                            disabled={suspended}>
                       취소
                     </button>
                   ) : (
@@ -373,6 +387,8 @@ function transferErrorCopy(err: unknown): string {
       return "세션 만료. 다시 로그인 필요";
     case "too_many_requests":
       return "요청 과다. 잠시 후 다시 시도 필요";
+    case "trading_suspended":
+      return SAVE_BLOCKED_LABEL;
     default:
       return "요청 실패. 잠시 후 다시 시도 필요";
   }

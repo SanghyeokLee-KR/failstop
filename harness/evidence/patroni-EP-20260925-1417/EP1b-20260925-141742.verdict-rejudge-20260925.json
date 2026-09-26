@@ -1,0 +1,143 @@
+{
+  "scenario": "E-P1b",
+  "run_id": "EP1b-20260925-141742",
+  "verdict": "PASS",
+  "times": {
+    "T0": 1790345943.406,
+    "T_back": null,
+    "T_suspend": 1790345946.667,
+    "T_resume": 1790345953.677,
+    "T_promote": 1790345947.678,
+    "T_sync": null,
+    "T_down": null,
+    "T_reads": 1790345946.87,
+    "T5": null,
+    "T_first_trade_after_resume": 1790345956.582,
+    "T_sync_lost": 1790345946.174
+  },
+  "derived": {
+    "db_failover_s": 4.272,
+    "read_recovery_s": 3.464,
+    "resume_delay_s": null,
+    "trade_resume_delay_s": null,
+    "suspend_detect_s": 3.261,
+    "haproxy_down_s": null
+  },
+  "axes": [
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5449,
+    "post_resume_acked_30s": 5456,
+    "last_alive": {
+      "1": 1790346011.064,
+      "2": 1790346011.064,
+      "3": 1790346011.064,
+      "4": 1790346011.064
+    },
+    "not_acked_reasons": {
+      "unknown: connection_lost: consuming input failed:": 4,
+      "failed: ERROR 25006 cannot execute INSERT in a r": 4
+    },
+    "verify": {
+      "acked": 18497,
+      "failed": 4,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "10.159.1.9/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "10.159.1.9/32": [
+            1790345904.749,
+            1790346011.711
+          ]
+        }
+      },
+      "pass": true,
+      "present": 18497,
+      "server": "10.159.1.9/32",
+      "unknown": 4,
+      "unknown_present": 0
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": false,
+    "reasons": [],
+    "unknown_sources": []
+  },
+  "extra": {
+    "timeline_change": {
+      "pre": 1,
+      "post": 2,
+      "delta": 1
+    },
+    "patroni_leader_changed": false,
+    "definitive_deferred": 12.0,
+    "app_leader_changed": false
+  }
+}

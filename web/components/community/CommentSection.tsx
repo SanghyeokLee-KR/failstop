@@ -13,6 +13,8 @@ import { COMMENT_BODY_MAX } from "@/lib/community/types";
 import { getCommunityDataSource } from "@/lib/community/datasource";
 import { mapCommunityError } from "@/lib/community/errors";
 import { formatCount } from "@/lib/format";
+import { useExchangeStore } from "@/lib/store";
+import { isSuspended } from "@/lib/tradingStatus";
 import { formatRelativeTime, formatAbsoluteTime } from "@/lib/community/time";
 import { toast } from "@/components/Toast";
 import Skeleton from "@/components/Skeleton";
@@ -301,11 +303,13 @@ function CommentComposer({ postExternalId, parentId, onCreated, onRequireLogin, 
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const keyRef = useRef<string>("");
+  // 거래 일시 중단 동안 댓글 등록도 받지 않는다(API 설계 §2-5-e)
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = body.trim();
-    if (!text || busy) return;
+    if (!text || busy || suspended) return;
     setBusy(true);
     if (!keyRef.current) keyRef.current = crypto.randomUUID();
     try {
@@ -335,8 +339,9 @@ function CommentComposer({ postExternalId, parentId, onCreated, onRequireLogin, 
         onChange={(e) => setBody(e.target.value)}
       />
       <div className={styles.composerFoot}>
-        <button type="submit" className="btn btn--primary" disabled={!body.trim() || busy} aria-busy={busy}>
-          {busy ? "등록 중" : "등록"}
+        <button type="submit" className="btn btn--primary" disabled={!body.trim() || busy || suspended}
+                aria-busy={busy}>
+          {busy ? "등록 중" : suspended ? "등록 불가" : "등록"}
         </button>
       </div>
     </form>

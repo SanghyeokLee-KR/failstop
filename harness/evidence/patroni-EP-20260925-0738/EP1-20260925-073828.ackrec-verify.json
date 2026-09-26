@@ -1,0 +1,34 @@
+{
+  "acked": 23853,
+  "failed": 0,
+  "failed_present": [],
+  "failed_present_count": 0,
+  "interleaved": {
+    "returned_to": [],
+    "server_order": [
+      "10.159.1.8/32",
+      "10.159.1.9/32"
+    ]
+  },
+  "missing": [],
+  "missing_count": 0,
+  "never_attempted_present": [],
+  "overlap": {
+    "overlaps": [],
+    "spans": {
+      "10.159.1.8/32": [
+        1790321950.93,
+        1790321989.64
+      ],
+      "10.159.1.9/32": [
+        1790322668.529,
+        1790322761.885
+      ]
+    }
+  },
+  "pass": true,
+  "present": 23881,
+  "server": "10.159.1.9/32",
+  "unknown": 32,
+  "unknown_present": 28
+}

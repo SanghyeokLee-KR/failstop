@@ -12,6 +12,7 @@ import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.common.RetrySafeWrite;
 import kr.exchange.api.common.RoutingCounters;
+import kr.exchange.api.common.WriteGateFilter;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.BatchResponse;
 import kr.exchange.api.order.dto.CancelAllResponse;
@@ -96,7 +97,8 @@ public class OrderController {
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             byte[] body = readBoundedBody(request);
             JsonNode json = parse(body);
-            OrderGateway.Placement placement = gateway.place(principal.userId(), json, body, hint);
+            OrderGateway.Placement placement = gateway.place(principal.userId(), json, body, hint,
+                    WriteGateFilter.gateGeneration(request));
             OrderResponse view = orders.view(placement.row(), placement.epoch());
             if (placement.replayed()) {
                 return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(view);
@@ -142,7 +144,7 @@ public class OrderController {
                 // per-item 멱등 해시는 해당 원소 객체의 JCS 바이트 기준이다(§2-4).
                 byte[] itemBody = objectMapper.writeValueAsBytes(element);
                 OrderGateway.Placement placement =
-                        gateway.place(principal.userId(), element, itemBody);
+                        gateway.place(principal.userId(), element, itemBody, WriteGateFilter.gateGeneration(request));
                 OrderResponse order = orders.view(placement.row(), placement.epoch());
                 if (placement.replayed()) {
                     results.add(new BatchResponse.Item(i, clientOrderId, "replayed", true, order,
@@ -198,7 +200,8 @@ public class OrderController {
             } catch (IllegalArgumentException e) {
                 throw new ApiException(404, "order_not_found", "주문 없음");
             }
-            OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId, hint);
+            OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId, hint,
+                    WriteGateFilter.gateGeneration(request));
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
         } catch (ApiException e) {
             rejections.record(e);
@@ -216,7 +219,8 @@ public class OrderController {
             String hint = hint(request);
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             OrderGateway.Placement placement =
-                    gateway.cancelByClient(principal.userId(), clientOrderId, hint);
+                    gateway.cancelByClient(principal.userId(), clientOrderId, hint,
+                            WriteGateFilter.gateGeneration(request));
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
         } catch (ApiException e) {
             rejections.record(e);
@@ -245,7 +249,8 @@ public class OrderController {
             rejections.record(e);
             throw e;
         }
-        OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
+        OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market,
+                WriteGateFilter.gateGeneration(request));
         if (result.localSubmits() == 0 && !result.handoffInsertFailed()) {
             request.setAttribute(ApiException.DEMAND_NOT_LOCAL_ATTRIBUTE, Boolean.TRUE);
         }
@@ -268,19 +273,13 @@ public class OrderController {
         return orders.view(row, epochSource.epoch(row.marketId()));
     }
 
-    /** 재조회 계약(§4-B-4(a), §7-6): 판정 권위는 command_journal이다. */
+    /** 재조회 계약(§4-B-4(a), §7-6): 판정 권위는 command_journal이다. 거래 일시 중단의 규칙은 OrderGateway.requery 가 든다. */
     @GetMapping("/by-client/{clientOrderId}")
     public OrderResponse byClient(HttpServletRequest request,
                                   @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
-        if (!orders.commandJournaled(principal.userId(), clientOrderId)) {
-            // 저널에 없음 = 미접수. 클라이언트는 안전 재전송이 가능하다.
-            throw new ApiException(404, "order_not_found", "접수된 주문 없음");
-        }
-        return orders.byClientOrderId(principal.userId(), clientOrderId)
-                .map(row -> orders.view(row, epochSource.epoch(row.marketId())))
-                .orElseThrow(() -> new ApiException(409, "order_in_progress",
-                        "저널에는 있으나 프로젝션 미반영. 재조회 필요", null, 1));
+        OrderQueryService.OrderRow row = gateway.requery(principal.userId(), clientOrderId);
+        return orders.view(row, epochSource.epoch(row.marketId()));
     }
 
     @GetMapping("/open")

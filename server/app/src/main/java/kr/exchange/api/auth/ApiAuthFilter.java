@@ -62,7 +62,9 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/auth/")
                 // 공지 조회는 무인증 읽기다(§4-F). 시장 데이터가 아니라 PublicMarketPaths가
                 // 아니라 NoticeController가 자기 스로틀을 든다. 쓰기는 관리 평면 단독이다.
-                || path.equals("/api/v1/notices");
+                || path.equals("/api/v1/notices")
+                // 거래 상태 조회도 무인증 읽기이고 StatusController가 자기 스로틀을 든다(§4-A-7).
+                || path.equals("/api/v1/status");
     }
 
     @Override

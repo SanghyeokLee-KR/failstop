@@ -146,6 +146,20 @@ const wsEpochResyncFail = new Counter('ws_epoch_resync_fail');
 // 페일오버 창 접수 실패(5xx·타임아웃) 건수. 아래 가용성 임계에서 창을 제외하는 대신 이 축으로
 // 남겨 관측을 잃지 않는다. 창 실패는 페일오버의 정의상 결과라 정상 구간과 같은 분모로 재면 안 된다.
 const chaosWindow5xx = new Counter('chaos_window_5xx_total');
+// 거래 일시 중단(API 설계 §2-5-e, Patroni 설계 6-3). 423 trading_suspended 는 동기 복제가 없어 DB 가 커밋을 확인하지 못하는
+// 동안 쓰기 게이트가 내는 거절이고, 그 시도가 아무것도 쓰지 않았다는 뜻이다. 가용성 실패로 세지 않고 중단 구간의 거절로 따로
+// 센다. 423 을 받은 키는 재개 뒤 같은 키로 재조회해 결과를 정한다. 재개 뒤 커밋이 확인된 수(committed)는 좁힌 뜻 아래에서
+// 0 보다 클 수 있어 기록만 한다(Patroni 설계 14절 R2). k6 에는 재전송 경로가 없어 423 을 받은 키를 새 키로 다시 내는 일이
+// 구조상 없다. 그 수(0 이어야 한다)에 임계를 걸면 어떤 상태에서도 통과하므로 걸지 않는다(아래 C07' 주석과 같은 이유).
+// 결과를 정하지 못한 채 주행이 끝난 키 수는 trading_suspended_total - committed - absent 다.
+const tradingSuspendedTotal = new Counter('trading_suspended_total');
+const suspendedKeyCommitted = new Counter('suspended_key_committed_total');
+const suspendedKeyAbsent = new Counter('suspended_key_absent_total');
+// 423 을 받은 키. k6 VU 는 메모리를 나누지 않으므로 VU 마다 따로 든다. 재개는 이 VU 의 다음 주문이 423 이 아닌 응답을 받은
+// 것으로 안다. 상태 API 는 IP 당 분당 120회 상한이라 VU 마다 읽으면 429 가 된다.
+const pendingSuspended = [];
+// 한 반복에서 재조회하는 423 키 수 상한. 재개 직후 쌓인 키를 한꺼번에 물으면 계정 토큰버킷 429 가 된다.
+const SUSPENDED_REQUERY_PER_ITERATION = 5;
 
 // 정상 구간(phase:steady) 가용성 게이트. 창 안 5xx를 같은 분모에 넣으면 RTO가 0이 아닌 한
 // 구조적으로 통과 불가다. 창 판정은 아래 chaos 서브메트릭이 맡는다.
@@ -319,17 +333,45 @@ function orderPayload() {
 // 409 requery_deferred=판정 보류(재조회 버킷 백프레셔). 셋 다 규약상 정상 응답이다.
 // responseCallback을 이 요청에만 붙이는 이유: 전역 expectedStatuses에 409를 넣으면 POST /orders의
 // duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
-function lookupByClient(coid, c, ph) {
+function lookupByClient(coid, c, ph, name = 'lookup') {
   const path = `/api/v1/orders/by-client/${coid}`;
   const auth = signRequest('GET', path, '', c.access_key, c.secret);
   const res = http.get(BASE + path, {
     headers: { Authorization: auth },
-    tags: { name: 'lookup', phase: ph },
+    tags: { name, phase: ph },
     // 429를 빠뜨리면 안 된다. 이 경로는 수용 게이트 면제지만 계정 토큰버킷(API§2-5) 대상이라
     // 429가 온다. 전역 콜백이 429를 성공으로 두는 규약(§2-2)을 요청별 콜백이 덮어써서는 안 된다.
     responseCallback: http.expectedStatuses({ min: 200, max: 399 }, 404, 409, 429),
   });
   return res.status;
+}
+
+// 423 표준 오류 바디(API 설계 §2-3)의 error.name 이 trading_suspended 인가. 다른 423 은 이 계약의 거절이 아니다.
+function isTradingSuspended(res) {
+  try {
+    const body = JSON.parse(res.body);
+    return !!(body && body.error && body.error.name === 'trading_suspended');
+  } catch (e) {
+    return false;
+  }
+}
+
+// 재개 뒤 423 키의 결과를 정한다. 200 은 같은 키의 앞선 시도가 커밋된 것, 404 는 어느 시도도 커밋되지 않은 것이다. 409(결과
+// 확인 중)·429·5xx·시간 초과는 다음 반복에서 다시 묻는다(API 설계 §2-5-e). 재조회 태그를 따로 두어 정상 구간 재조회 임계와 섞지
+// 않는다.
+function settleSuspendedKeys(ph) {
+  for (let n = 0; n < SUSPENDED_REQUERY_PER_ITERATION && pendingSuspended.length > 0; n++) {
+    const key = pendingSuspended[0];
+    const look = lookupByClient(key.coid, key.cred, ph, 'lookup_suspended');
+    if (look === 200) {
+      suspendedKeyCommitted.add(1, { phase: ph });
+    } else if (look === 404) {
+      suspendedKeyAbsent.add(1, { phase: ph });
+    } else {
+      return;
+    }
+    pendingSuspended.shift();
+  }
 }
 
 export function placeOrder() {
@@ -346,7 +388,25 @@ export function placeOrder() {
   const res = http.post(BASE + path, body, {
     headers,
     tags: { name: 'placeOrder', phase: ph },
+    // 423 은 거래 일시 중단의 거절이라 가용성 실패 분자에서 뺀다. 요청별로만 선언한다. 전역 콜백에 넣으면 조회·재조회의 423
+    // 까지 성공으로 계상된다(조회는 게이트를 지나므로 423 이 오면 결함이다).
+    responseCallback: http.expectedStatuses({ min: 200, max: 399 }, 423, 429),
   });
+
+  if (res.status === 423) {
+    const suspended = isTradingSuspended(res);
+    check(res, { suspended_envelope: () => suspended });
+    tradingSuspendedTotal.add(1, { phase: ph });
+    pendingSuspended.push({ coid: o.clientOrderId, cred: c });
+    // 다시 내지 않는다. 재조회는 재개를 본 뒤에 한다.
+    check(res, { idempotent_safe: () => true });
+    return;
+  }
+  // 게이트를 지난 응답(2xx, 429 를 뺀 4xx)이면 쓰기가 다시 열렸다. 5xx·시간 초과는 재개가 아니다.
+  const writable = res.status >= 200 && res.status < 500 && res.status !== 429;
+  if (writable && pendingSuspended.length > 0) {
+    settleSuspendedKeys(ph);
+  }
 
   const contention = res.status === 429 && isMarketContention(res);
   marketContention.add(contention, { phase: ph });

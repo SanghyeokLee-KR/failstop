@@ -1,0 +1,24 @@
+{
+  "ackrec_jsonl": "f9f8618f001e3418d12562cbe61094fe9304ce201c3fdfca774f47544f2f6d5d",
+  "containers": {
+    "patroni-ackrec": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "patroni-bots": "a15f7f1b00d3d25a844d11d09d83f631100a66c2b447426ce1e51f691699eceb",
+    "patroni-lb": "5592e55ae4ad62cb403473fadbb5581dc6a59524bad5d6b457c8ee112fb2ff9b",
+    "patroni-api-2": "2ca882a57bf570dc59f94cd39e7bca582c476179d867073e443e578bec2c1eb0",
+    "patroni-api-1": "64f44aea9a38d78154f44186e66b3b12526e6d3545ab60d3def651eaad532eca",
+    "patroni-toxiproxy": "1a30acf17e51cb9d9736287959a3a7ce858d4ef25bcad15eb31e972133ba024b",
+    "patroni-toolbox": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "patroni-db-1": "3b7c3bdfaef507e2675a83b50960948dc5d3f5f907d910384a8de92350361cde",
+    "patroni-db-2": "b648050497b28e9bb855bae11084dcbb9ea88f5302597353aa0fd361bda0555c",
+    "patroni-pg-exporter-2": "70da31d82ace9249c2705de380bb627f01e73e9b6fd04ad098dac631108927f5",
+    "patroni-pg-exporter-1": "ec2a71e695772e1df4455903092a1a1d9198241b75bd5896600fbb7c247f2d0e",
+    "patroni-prometheus": "68f6553b611e9dca6200f191f6a53e9cc95723856fa7fced920f7af276067b62",
+    "patroni-haproxy-1": "84cf7211d169a3c55d27f7d9939cc5934688f700c44ff754f9ade396c94699cd",
+    "patroni-haproxy-2": "5b463247eb48c2743c5f79464fd19588cf82a827d320880d8530f8585a318121",
+    "patroni-haproxy-b": "4ef5b1b5e0abd2c5d3f5ce329e4ef02afd2c2e45793dfb0757de17cac1069b19",
+    "patroni-etcd-2": "654c19a09401905a6ac124d67c980bb61e371bbd8116ad6f6f85d3d4e97ec568",
+    "patroni-etcd-1": "4249aa530770c02dd51ba27d37600d8eddc6c005ed8a8abfd1b870f43659054e",
+    "patroni-etcd-3": "1229176497eabf74e615da103054a754320cf1969a6b29b6b45ee4fce38bc6f0"
+  },
+  "raw_dir_outside_repo": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\exchange-patroni-ep\\EP1-20260925-073828"
+}

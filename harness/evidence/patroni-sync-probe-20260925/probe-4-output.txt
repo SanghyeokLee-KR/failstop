@@ -1,0 +1,137 @@
+[04:47:39.887] 기동
+   Network exchange-patroni_probe Creating 
+   Network exchange-patroni_probe Created 
+   Container patroni-probe-pg1 Creating 
+   Container patroni-probe-pg1 Created 
+   Container patroni-probe-pg2 Creating 
+   Container patroni-probe-pg2 Created 
+   Container patroni-probe-pg1 Starting 
+   Container patroni-probe-pg1 Started 
+   Container patroni-probe-pg2 Starting 
+   Container patroni-probe-pg2 Started 
+[04:47:41.357] 확인: pg1 연결 수용
+[04:47:43.341] 확인: pg2 streaming
+[04:47:43.345] 단계 version
+  PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+[04:47:43.473] 단계 pid1
+  pid1: postgres -c hba_file=/probe/pg_hba.conf -c wal_level=replica -c max_wal_senders=4 -c synchronous_commit=on 
+[04:47:43.572] 단계 setup
+  CREATE TABLE
+  INSERT 0 1
+[04:47:43.690] 단계 star-on
+  ALTER SYSTEM
+[04:47:43.799] 단계 reload
+  t
+[04:47:44.007] 확인: '*' 아래 s1 동기
+[04:47:44.007] 단계 repl
+  repl|s1|streaming|1|sync|0/3024E70
+  repl-count|1
+  lsn|0/3024E70|000000010000000000000003|*
+[04:47:44.126] 대기 서버 정지(docker stop pg2)
+  patroni-probe-pg2
+[04:47:46.393] 단계 repl
+  repl-count|0
+  lsn|0/3024E70|000000010000000000000003|*
+[04:47:46.520] 사례 Q1: 커밋 대기 중에 다른 백엔드 하나가 SIGKILL 로 죽음
+[04:47:46.521] 백그라운드 hold 80
+[04:47:46.628] 백그라운드 sleeper
+[04:47:48.719] 단계 visible 80
+  visible|80|0
+  waiting|80|1
+[04:47:48.843] 단계 kill-sleeper
+  kill -9 backend pid=187
+[04:47:50.962] 단계 ready
+  ready after 1 tries
+[04:47:51.074] 단계 visible 80
+  visible|80|1
+  waiting|80|0
+[04:47:51.189] 단계 holdout 80
+  == /tmp/hold-80.out
+  WARNING:  57P02: terminating connection because of crash of another server process
+  DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
+  HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+  LOCATION:  quickdie, postgres.c:2960
+  server closed the connection unexpectedly
+  	This probably means the server terminated abnormally
+  	before or while processing the request.
+  connection to server was lost
+  hold 80 rc=2
+[04:47:51.288] 단계 repl
+  repl-count|0
+  lsn|0/3024F98|000000010000000000000003|*
+[04:47:51.415] pg1 로그(크래시·복구 관련 줄, 2026-09-25T04:47:48Z 이후)
+  2026-09-25 04:47:48.951 UTC [1] LOG:  server process (PID 187) was terminated by signal 9: Killed
+  2026-09-25 04:47:48.951 UTC [1] LOG:  terminating any other active server processes
+  2026-09-25 04:47:48.952 UTC [1] LOG:  all server processes terminated; reinitializing
+  2026-09-25 04:47:48.964 UTC [206] LOG:  database system was interrupted; last known up at 2026-09-25 04:47:41 UTC
+  2026-09-25 04:47:49.133 UTC [206] LOG:  database system was not properly shut down; automatic recovery in progress
+  2026-09-25 04:47:49.135 UTC [206] LOG:  redo starts at 0/2000028
+  2026-09-25 04:47:49.136 UTC [206] LOG:  redo done at 0/3024EF8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+  2026-09-25 04:47:49.153 UTC [207] LOG:  checkpoint complete: wrote 46 buffers (0.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.003 s, sync=0.008 s, total=0.016 s; sync files=37, longest=0.002 s, average=0.001 s; distance=16531 kB, estimate=16531 kB; lsn=0/3024F20, redo lsn=0/3024F20
+  2026-09-25 04:47:49.156 UTC [1] LOG:  database system is ready to accept connections
+[04:47:51.458] 사례 Q3(대조): 고아 프로세스가 정상 종료
+[04:47:51.458] 백그라운드 hold 82
+[04:47:53.577] 단계 visible 82
+  visible|82|0
+  waiting|82|1
+[04:47:53.692] 단계 orphan 3
+  orphan:   275     1 sleep 3
+[04:47:59.820] 단계 ready
+  ready after 1 tries
+[04:47:59.927] 단계 visible 82
+  visible|82|0
+  waiting|82|1
+[04:48:00.038] pg1 로그(크래시·복구 관련 줄, 2026-09-25T04:47:53Z 이후)
+[04:48:00.078] 사례 Q2: PID 1(postmaster)의 자식이 된 고아 프로세스가 SIGTERM 으로 끝남
+[04:48:00.079] 단계 visible 82
+  visible|82|0
+  waiting|82|1
+[04:48:00.196] 단계 orphan 300
+  orphan:   317     1 sleep 300
+[04:48:01.310] 단계 orphan-kill 300
+  orphan-kill sleep 300 rc=0
+[04:48:03.411] 단계 ready
+  ready after 1 tries
+[04:48:03.534] 단계 visible 82
+  visible|82|1
+  waiting|82|0
+[04:48:03.645] 단계 holdout 82
+  == /tmp/hold-82.out
+  WARNING:  57P02: terminating connection because of crash of another server process
+  DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
+  HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+  LOCATION:  quickdie, postgres.c:2960
+  server closed the connection unexpectedly
+  	This probably means the server terminated abnormally
+  	before or while processing the request.
+  connection to server was lost
+  hold 82 rc=2
+[04:48:03.760] pg1 로그(크래시·복구 관련 줄, 2026-09-25T04:48:00Z 이후)
+  2026-09-25 04:48:01.394 UTC [1] LOG:  server process (PID 317) was terminated by signal 15: Terminated
+  2026-09-25 04:48:01.394 UTC [1] LOG:  terminating any other active server processes
+  2026-09-25 04:48:01.395 UTC [1] LOG:  all server processes terminated; reinitializing
+  2026-09-25 04:48:01.407 UTC [330] LOG:  database system was interrupted; last known up at 2026-09-25 04:47:49 UTC
+  2026-09-25 04:48:01.578 UTC [330] LOG:  database system was not properly shut down; automatic recovery in progress
+  2026-09-25 04:48:01.579 UTC [330] LOG:  redo starts at 0/3024F98
+  2026-09-25 04:48:01.579 UTC [330] LOG:  redo done at 0/3025118 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+  2026-09-25 04:48:01.589 UTC [331] LOG:  checkpoint complete: wrote 5 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.002 s, total=0.009 s; sync files=4, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/3025140, redo lsn=0/3025140
+  2026-09-25 04:48:01.592 UTC [1] LOG:  database system is ready to accept connections
+[04:48:03.801] 행(대기 서버는 멈춘 채다)
+[04:48:03.801] 단계 rows
+  row|1|baseline async
+  row|80|hold 80
+  row|82|hold 82
+[04:48:03.896] 정리(down -v --remove-orphans)
+   Container patroni-probe-pg2 Stopping 
+   Container patroni-probe-pg2 Stopped 
+   Container patroni-probe-pg2 Removing 
+   Container patroni-probe-pg2 Removed 
+   Container patroni-probe-pg1 Stopping 
+   Container patroni-probe-pg1 Stopped 
+   Container patroni-probe-pg1 Removing 
+   Container patroni-probe-pg1 Removed 
+   Network exchange-patroni_probe Removing 
+   Network exchange-patroni_probe Removed 
+[04:48:04.536] 남은 컨테이너(이름 patroni-)
+[04:48:04.576] 남은 볼륨(compose 프로젝트 라벨 exchange-patroni)
+[04:48:04.613] 남은 망(exchange-patroni)

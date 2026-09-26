@@ -269,7 +269,7 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 
 정족수 설정은 `harness/scale/standby_up.sh`가 `ALTER SYSTEM SET`으로 직접 건다.
 
-Patroni, etcd, HAProxy는 쓰지 않는다. 정본 §4.2 선택표에도 §4.3 비채택표에도 없고 저장소 전역에 0건이다.
+상시면과 `deploy/`는 Patroni, etcd, HAProxy를 쓰지 않는다. 2026-09-25 사용자가 DB 자동 전환을 Patroni 엄격 동기 2노드(etcd 세 표, 노드별 HAProxy)로 정했다([ADR 0036](../adr/0036-patroni-strict-sync-db-failover.md)). 작업 브랜치 `claude/patroni`에 그 로컬 실험 스택이 있다. `harness/patroni/docker-compose.patroni.yml`(compose 프로젝트 `exchange-patroni`, 컨테이너 접두 `patroni-`, 루프백 호스트 포트 59xxx, 컨테이너별 자원 상한)이 PostgreSQL 17.11과 Patroni 4.1.5 두 노드(`init: true`), etcd v3.5.34 세 멤버, HAProxy 3.0.27 사이드카 셋, toxiproxy, 앱 두 대, LB, 봇, psql 도구, DB 수준 ACK 기록기(`harness/scale/ack_recorder.py`, `ep` 프로파일)를 띄운다. 관측(`obs` 프로파일)은 이 스택 전용 Prometheus와 postgres_exporter 둘이다. 스크레이프 설정, 경보 규칙 12개와 promtool 시험, 수집기 확장 질의는 카오스 스택이 읽지 않게 `harness/patroni/prometheus/`에 두고, 대시보드는 `harness/grafana/dashboards/db-ha-patroni.json`이다. 실행기는 `harness/scripts/ep-*.ps1`, 판정은 `harness/scale/patroni_axes.py`이고, 하네스 공용 스크립트(`lib.ps1`, `load-acks.ps1`)는 DB 대상을 환경 변수로 받는다(기본값은 `chaos-*` 그대로). 사용법과 회차 기록은 `harness/patroni/README.md`, 사전 확인 증거는 `harness/evidence/patroni-sync-probe-20260925/`다. AWS 배선은 §8-1 목표다.
 
 ---
 
@@ -337,6 +337,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17, 동작 계약은 API 설계 §5-1·§5-6(v2.58, S6 브랜치에서는 v2.57로 적었고 S5 병합 때 옮겼다)이다. 새 지표는 아홉이다. `exchange.ws.gate.open`(Gauge, 이 노드가 WS를 받으면 1)과 `exchange.ws.relay.handshake_refused{reason}`(FunctionCounter, `relay_unavailable`·`relay_required`)은 WS 게이트가 있는 모든 노드에서 두 모드 모두 등록한다(엔진을 끈 노드는 `gate.open`이 늘 0). `simple` 모드에서도 다른 노드가 유효한 리스를 쥔 노드는 WS를 거절하기 때문이다(API §5-6). 나머지 일곱은 중계 모드(`exchange.ws.relay.mode=broker`)인 노드만 등록한다. `exchange.ws.relay.connected{link}`(Gauge, `pub`·`sub` 연결이 붙었으면 1), `exchange.ws.relay.messages{direction,kind}`(FunctionCounter, `out`·`in`과 `topic`·`user`·`hb`), `exchange.ws.relay.dropped{reason}`(FunctionCounter, `queue_full`·`disconnected`·`write_timeout`·`stale`·`malformed`·`candle_overflow`), `exchange.ws.relay.queue.size`(Gauge), `exchange.ws.relay.degraded{cause}`(Gauge, 그 원인 `link_down`·`owner_silent`으로 중계 불능이면 1), `exchange.ws.relay.lag`(Timer, 봉투의 `x-sent-at`부터 받은 시각까지), `exchange.ws.mirror.fallback{kind,reason}`(FunctionCounter, 호가·티커 REST나 구독 스냅샷이 미러 대신 DB 집계로 간 수, `relay_down`·`owner_silent`·`behind`·`absent`·`epoch_mismatch`)다. 태그 조합은 기동 때 모두 미리 등록해 0부터 보이게 한다. 같은 날 설계 검토 지적을 반영해 게이트 지표와 `hb`·`stale`·`cause`·`owner_silent`·`behind`를 더했다(S6 설계 11절). 코드가 들어갈 때 위 개수와 참조 수를 다시 센다.
 
 2026-09-25 ADR 0034 S7(P3 전환과 파티션 실험)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-2·4-4다. 새 지표는 하나다. `exchange.leader.protocol.max`(Gauge)는 이 바이너리가 구현한 최고 리더 모드(`LeaseResources.MAX_PROTOCOL`, S7부터 3)다. 기동 모드 게이지 `exchange.leader.protocol.boot` 옆에 조회 역할이 아닌 노드에서만 등록한다. P2→P3 전환 도구가 전환 전에 두 앱 노드의 이 값이 3인지 보고 아니면 전환하지 않는다(DB 설계 §5.4-e). DB 전환 함수는 앱 노드의 바이너리를 볼 수 없으므로 이 확인은 도구 몫이고, 확인을 건너뛰어도 최고 모드 2의 옛 바이너리는 P3 DB에서 어떤 리스도 얻지 못한다(DB 설계 §5.4-c 13). 파티션 리더 축 지표의 `partition` 태그는 P3에서 `matching-p0`·`matching-p1` 두 값을 갖는다(S4 계약 그대로). 코드가 들어갈 때 위 개수를 다시 센다.
+
+2026-09-25 ADR 0036(Patroni 엄격 동기)의 지표가 작업 브랜치 `claude/patroni` 코드에 들어왔다. 새 고유 이름은 열이다. `exchange.write.availability.state{state}`(Gauge, 상태마다 하나), `exchange.write.generation`(Gauge), `exchange.write.probe`(Timer, 탐지 커밋 시간), `exchange.write.probe.outstanding`(Gauge), `exchange.write.probe.unconfirmed`(FunctionCounter), `exchange.write.gate.rejected{response}`(FunctionCounter, `423`·`503`), `exchange.trading.suspended{reason}`(FunctionCounter), `exchange.write.definitive.deferred{path}`(FunctionCounter, `requery`·`v47`), `exchange.lease.acquire.expired{partition}`(FunctionCounter), `exchange.admin.audit.skipped`(FunctionCounter)다. 동작 계약은 API 설계 §2-5-e 관측 항목과 Patroni 설계 7-1이다. 이 가운데 몇은 Patroni 스택 전용 경보(`TradingSuspended`, `SyncRepWaitersWhileActive`)와 대시보드 `harness/grafana/dashboards/db-ha-patroni.json`이 본다. 위 고유 이름 수와 참조 수는 이 지표를 넣어 다시 세지 않았다. 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 세는데 Patroni 경보는 `harness/patroni/prometheus/rules/`에 있어 세는 범위부터 정해야 한다.
 
 ### 5-3. Prometheus
 
@@ -566,6 +568,7 @@ Flyway 설정 파일도 Gradle 플러그인도 없다. Spring Boot 자동구성�
 | 상시면 관측 배선 | 배포 컴포즈의 관측 서비스 | 정의 0건. 정본 13.4 한계 13 |
 | E10 | 커널 계층 지연(tc netem) | 검증면 전용 |
 | 실험 오케스트레이터 | e1~e9 순차 실행 | 하나씩 부른다 |
+| `deploy/linux/patroni/` | AWS용 Patroni·etcd·HAProxy systemd 단위, 설정 템플릿, 설치 스크립트. 학교 Prometheus의 Patroni·etcd·HAProxy 스크레이프와 경보(로컬 실험 스택의 규칙 12개가 출발점, §3-5), MSP 대시보드(Patroni 설계 7-3). 함께 고칠 학교 도구: 예약 백업의 `--no-slot`, 보고 설정의 서비스 목록과 동적 역할, 관측 라벨, 수동 복구 도구의 Patroni 호스트 거부 | 학교·개인 AWS 적용(Patroni 설계 9절, 사용자 승인 뒤) |
 
 Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 종전 판이 확정 스택으로 실었으나 저장소에 없고 로드맵에도 없다. 채택도 비채택도 아닌 상태이므로 정본 §4.3 비채택표에 올리거나 이 표로 내려야 한다. 판단은 §8-2에 둔다.
 
@@ -579,6 +582,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 6. **배포 평면 검증.** `deploy/` 셋이 스스로 미검증이라 적고 `.env.example`로는 파싱도 안 된다.
 7. **`load/artifacts/` 102개.** `.gitignore`가 없어 결과가 계속 쌓인다.
 8. **E3.** Redis를 넣어 살릴지, 카탈로그에서 뺄지 정한다.
+9. **Patroni 적용 뒤의 연결 예산.** 머리말의 새 배포 연결 상한 188에 Patroni 자체 연결(노드당 superuser 1~2, 복제 1, 되감기·베이스백업 때 1)과 쓰기 가능 탐지 연결(엔진·관리 프로세스마다 2)을 더해 다시 센다. 학교 DB의 `max_connections = 100`과 함께 적용 전에 정한다(Patroni 설계 9-4).
 
 ---
 

@@ -1,0 +1,8 @@
+# 끝 시각(UTC) 2026-09-25T14:29:45.3980721Z
+exchange-chaos_chaos-pgdata created=2026-09-13T11:42:01Z mountpoint=/var/lib/docker/volumes/exchange-chaos_chaos-pgdata/_data
+failstop-keep-chaos-pgdata-20260924 created=2026-09-23T15:47:36Z mountpoint=/var/lib/docker/volumes/failstop-keep-chaos-pgdata-20260924/_data
+# exchange-patroni 프로젝트 컨테이너
+# exchange-patroni 프로젝트 볼륨
+# exchange-patroni 프로젝트 망
+# patroni- 로 시작하는 컨테이너(프로젝트 밖 포함)
+# (각 절 아래가 비었으면 0)

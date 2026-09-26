@@ -21,6 +21,7 @@ import kr.exchange.engine.PartitionPlan;
 import kr.exchange.engine.PartitionRuntime;
 import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.ShardSlot;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.engine.WriterRouter;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
@@ -72,9 +73,14 @@ public class EngineConfig {
     public NodeServiceHealth nodeServiceHealth(@Qualifier("dataSource") DataSource requestDataSource,
                                                LeaderWriteProgress leaderWriteProgress,
                                                EngineProperties props,
+                                               WriteAvailability writeAvailability,
                                                MeterRegistry meterRegistry) {
-        return LeaderStallDetector.node(requestDataSource, leaderWriteProgress,
+        LeaderStallDetector detector = LeaderStallDetector.node(requestDataSource, leaderWriteProgress,
                 props.leaseStanddownAfter(), meterRegistry);
+        if (writeAvailability.enabled()) {
+            detector.pauseWhileSuspended(writeAvailability);
+        }
+        return detector;
     }
 
     /**
@@ -139,7 +145,8 @@ public class EngineConfig {
     public PartitionLeases partitionLeases(PartitionPlan partitionPlan, LeaseStoreProvider leaseStores,
                                            FencingEpochPublisher fencingEpochPublisher, EngineProperties props,
                                            LeaderPartitionProperties partitionProps,
-                                           NodeServiceHealth nodeServiceHealth, MeterRegistry meterRegistry) {
+                                           NodeServiceHealth nodeServiceHealth, WriteAvailability writeAvailability,
+                                           MeterRegistry meterRegistry) {
         String holder = UUID.randomUUID().toString();
         java.util.concurrent.atomic.AtomicReference<PartitionLeases> built =
                 new java.util.concurrent.atomic.AtomicReference<>();
@@ -147,6 +154,9 @@ public class EngineConfig {
             LeaderWriteProgress partitionProgress = new LeaderWriteProgress();
             LeaderStallDetector partitionHealth = LeaderStallDetector.partition(resource, partitionProgress,
                     props.leaseStanddownAfter(), meterRegistry);
+            if (writeAvailability.enabled()) {
+                partitionHealth.pauseWhileSuspended(writeAvailability);
+            }
             NodeServiceHealth health = new NodeServiceHealth() {
                 @Override
                 public boolean serviceable() {
@@ -181,6 +191,15 @@ public class EngineConfig {
                             .tag("partition", resource)
                             .register(meterRegistry);
             lease.onRecoverableStandDown(recoverableStandDowns::increment);
+            if (writeAvailability.enabled()) {
+                // 획득은 ACTIVE 에서만 하고 얻은 리스가 이미 만료됐으면 버린다(DB 설계 §5.4-f 2). 탐지를 끈 스택의 조건은 그대로다.
+                lease.gateAcquisition(writeAvailability);
+            }
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.lease.acquire.expired", lease, LeaderLeaseService::expiredAcquisitions)
+                    .description("얻었으나 이미 만료돼 승격하지 않은 획득 수(커밋 대기 뒤 풀린 획득)")
+                    .tag("partition", resource)
+                    .register(meterRegistry);
             return lease;
         });
         built.set(leases);
@@ -393,7 +412,8 @@ public class EngineConfig {
                                          SnapshotStore snapshotStore,
                                          SnapshotProperties snapshotProps,
                                          MeterRegistry meterRegistry,
-                                         JdbcClient jdbcClient) {
+                                         JdbcClient jdbcClient,
+                                         WriteAvailability writeAvailability) {
         // 크래시 창 재적재는 라이브 sink와 동일한 append+정산 원자 경로를 쓰고 승격의 기간으로 쓴다(§5.5 ②, §5.4-c 6).
         // 스냅샷 활성 시 로드 후 tail 재생으로 복구·승격 재생량을 상한한다(§3-b).
         // 재생 명령 수 Counter(§5-2). 기동 복구·승격 재생·재구성 모두 recover를 거치므로 단일 관측점이다.
@@ -407,7 +427,10 @@ public class EngineConfig {
         // C17(재생 결정론) 원천. 이 기록자가 없으면 recovery_runs가 늘 0행이라 판정 SQL이
         // 빈 테이블 대조로 공허 통과한다. 검증은 ReplayService가 이미 하고 여기서는 그
         // 결과를 표로 남길 뿐이다.
-        recovery.setRecoveryRecorder(new kr.exchange.harness.RecoveryRunRecorder(jdbcClient));
+        kr.exchange.harness.RecoveryRunRecorder recoveryRecorder = new kr.exchange.harness.RecoveryRunRecorder(jdbcClient);
+        // 거래 일시 중단 동안 재기동한 노드의 기동 재생이 이 기록의 커밋 대기에 걸리지 않게 행을 재개 뒤로 미룬다.
+        recoveryRecorder.setWriteAvailability(writeAvailability);
+        recovery.setRecoveryRecorder(recoveryRecorder);
         io.micrometer.core.instrument.FunctionCounter
                 .builder("exchange.recovery.reinject.created_at_inversions", recovery,
                         EngineRecovery::reinjectCreatedAtInversions)
@@ -423,8 +446,10 @@ public class EngineConfig {
     // 주기 스냅샷 영속화 워커. 캡처는 라이터 팩토리가 마켓마다 걸고 이 워커 하나가 적재한다(§3-b).
     // 비활성이면 훅을 배선하지 않아 받을 캡처가 없다.
     @Bean(destroyMethod = "close")
-    public SnapshotPersister snapshotPersister(SnapshotStore snapshotStore) {
-        return new SnapshotPersister(snapshotStore);
+    public SnapshotPersister snapshotPersister(SnapshotStore snapshotStore, WriteAvailability writeAvailability) {
+        SnapshotPersister persister = new SnapshotPersister(snapshotStore);
+        persister.setWriteAvailability(writeAvailability);
+        return persister;
     }
 
     /**
@@ -637,8 +662,11 @@ public class EngineConfig {
                                                  CommandJournalReader commandJournalReader,
                                                  LeaderPartitionProperties partitionProps,
                                                  JdbcClient jdbcClient,
+                                                 WriteAvailability writeAvailability,
                                                  MeterRegistry meterRegistry) {
         PartitionPlan plan = partitionLeases.plan();
+        catchUpOnResume(writeAvailability, partitionLeases, commandJournalReader::maxSeqByMarket,
+                router::requestCatchUp);
         // 두 파티션을 한꺼번에 얻은 노드가 재생 두 벌을 동시에 돌려 요청 풀을 채우지 않게 승격을 줄 세운다.
         ExecutorService promotionWorker = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "engine-promotion");
@@ -714,5 +742,39 @@ public class EngineConfig {
                 return running;
             }
         };
+    }
+
+    /**
+     * 재개 때 쥔 파티션의 마켓마다 저널 머리까지 따라잡기를 라이터에 요청하게 건다(DB 설계 §5.4-f 6). 중단 동안 소켓 제한으로
+     * 끊긴 append 가 재개 뒤 커밋되면 그 명령은 저널에만 있고 라이터 큐에는 없다. 탐지 스레드를 막지 않게 다른 스레드에서 읽는다.
+     */
+    static void catchUpOnResume(WriteAvailability availability, PartitionLeases leases,
+                                java.util.function.Supplier<Map<Integer, Long>> journalHeads,
+                                java.util.function.ObjLongConsumer<Integer> catchUp) {
+        availability.onResume(() -> java.util.concurrent.CompletableFuture
+                .runAsync(() -> requestResumeCatchUp(leases, journalHeads, catchUp))
+                .exceptionally(e -> {
+                    log.warn("재개 따라잡기 요청 실패. 다음 명령이나 승격 재생이 회수한다: {}", e.toString());
+                    return null;
+                }));
+    }
+
+    /** 이 노드가 쥔 파티션의 마켓마다 저널 머리까지 따라잡기를 요청한다. 쥔 파티션이 없으면 저널을 읽지 않는다. */
+    static void requestResumeCatchUp(PartitionLeases leases, java.util.function.Supplier<Map<Integer, Long>> journalHeads,
+                                     java.util.function.ObjLongConsumer<Integer> catchUp) {
+        List<LeaderLeaseService> held = leases.all().stream().filter(LeaderLeaseService::isLeader).toList();
+        if (held.isEmpty()) {
+            return;
+        }
+        Map<Integer, Long> heads = journalHeads.get();
+        for (LeaderLeaseService lease : held) {
+            java.util.function.IntPredicate scope = leases.plan().scope(lease.resource());
+            heads.forEach((marketId, seq) -> {
+                if (scope.test(marketId)) {
+                    catchUp.accept(marketId, seq);
+                }
+            });
+        }
+        log.info("재개 따라잡기 요청: 파티션 {}", held.stream().map(LeaderLeaseService::resource).toList());
     }
 }

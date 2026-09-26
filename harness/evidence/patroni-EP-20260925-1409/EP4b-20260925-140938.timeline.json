@@ -1,0 +1,38 @@
+{
+  "scenario": "E-P4b",
+  "run_id": "EP4b-20260925-140938",
+  "db_ips": {
+    "patroni-db-1": "10.159.1.9/32",
+    "patroni-db-2": "10.159.1.8/32"
+  },
+  "haproxy_server": {
+    "patroni-db-1": "db-1",
+    "patroni-db-2": "db-2"
+  },
+  "pre": {
+    "patroni_leader": "patroni-db-2",
+    "timeline": 1,
+    "sync": [
+      "patroni-db-1"
+    ],
+    "epoch": 1,
+    "app_leader": "patroni-api-1"
+  },
+  "t0": 1790345470.106,
+  "hold_s": 60,
+  "role_injected": "etcd",
+  "sync_member": null,
+  "injected": "patroni-etcd-1,patroni-etcd-2",
+  "t_back": 1790345530.613,
+  "t_resume_hint": 1790345533.425,
+  "post": {
+    "patroni_leader": "patroni-db-2",
+    "timeline": 1,
+    "sync": [
+      "patroni-db-1"
+    ],
+    "epoch": 1,
+    "app_leader": "patroni-api-1"
+  },
+  "t_end": 1790345589.709
+}

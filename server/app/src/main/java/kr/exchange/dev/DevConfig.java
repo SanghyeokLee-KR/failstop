@@ -1,6 +1,7 @@
 package kr.exchange.dev;
 
 import kr.exchange.api.auth.DemoUserProvisioner;
+import kr.exchange.engine.WriteAvailability;
 import kr.exchange.ledger.AccountBootstrap;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.SmartLifecycle;
@@ -11,6 +12,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -21,6 +23,9 @@ import java.util.List;
 @Configuration
 @Conditional(DevProfileActiveCondition.class)
 public class DevConfig {
+
+    // 기동 직후 탐지기가 첫 확인 탐지를 마치는 시간(두 탐지 주기)보다 넉넉하다. 이보다 길면 거래 일시 중단으로 보고 재개 뒤로 미룬다.
+    private static final Duration STARTUP_WRITE_WAIT = Duration.ofSeconds(15);
 
     /**
      * 브라우저 localhost:3000 → API 8080 허용(dev 한정). web authPost가 rt 쿠키를
@@ -68,16 +73,26 @@ public class DevConfig {
      * 끝나야 한다. 봇 플릿 start가 마켓 메타(GET /markets)를 읽고 계정을 시드하기 때문이다.
      * phase 0으로 두면 상위 phase 라이프사이클 전에 시작하고, start는 Flyway 이행 완료
      * 후(finishRefresh) 실행된다.
+     *
+     * 시드는 쓰기라 탐지기를 먼저 본다(Patroni 설계 12절 '기동 중 쓰기'). 거래 일시 중단 동안 재기동하면 재개 뒤로 미룬다. 기다리면
+     * 웹 서버(더 높은 phase)가 뜨지 않아 이 노드가 조회도 내지 못한다. 시드는 멱등이라 이미 시드된 DB 에서는 미뤄도 잃는 것이 없다.
      */
     @Bean
     public SmartLifecycle devDataSeederLifecycle(AccountBootstrap bootstrap,
-                                                 DemoUserProvisioner demoUsers) {
+                                                 DemoUserProvisioner demoUsers,
+                                                 WriteAvailability writes) {
         return new SmartLifecycle() {
             private volatile boolean running;
 
             @Override
             public void start() {
-                DevDataSeeder.seed(bootstrap, demoUsers);
+                try {
+                    writes.runWhenActive("dev 시드", STARTUP_WRITE_WAIT,
+                            () -> DevDataSeeder.seed(bootstrap, demoUsers));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("dev 시드가 쓰기 재개를 기다리다 인터럽트됨", e);
+                }
                 running = true;
             }
 

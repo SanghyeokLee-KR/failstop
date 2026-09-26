@@ -56,16 +56,19 @@ public class TakerBot implements Runnable {
     private final int index;
     private final DirectionSource directionSource;
     private final double reactionFactor;
+    private final TradingSuspensionWatch suspension;
     private final ObjectMapper mapper = new ObjectMapper();
 
     private long coidSeq;
     private long signalCycle;
     private double cachedSignal;
+    // 423 을 받은 주문 본문(같은 client_order_id). 재개 뒤 첫 발행에서 새 주문 대신 한 번 더 낸다.
+    private String suspendedBody;
 
     public TakerBot(String botId, String runNonce, BotApiClient client, long seed,
                     SimProperties props, double kDir, int stepMultiplier, BooleanSupplier running,
                     OpsGovernor governor, BotFleetGovernor fleet, BotType type, int index,
-                    DirectionSource directionSource) {
+                    DirectionSource directionSource, TradingSuspensionWatch suspension) {
         this.botId = botId;
         this.runNonce = runNonce;
         this.client = client;
@@ -80,6 +83,7 @@ public class TakerBot implements Runnable {
         this.index = index;
         this.directionSource = directionSource == null ? DirectionSource.STATIC : directionSource;
         this.reactionFactor = BotReaction.reactionJitter(seed);
+        this.suspension = suspension;
     }
 
     /**
@@ -330,23 +334,50 @@ public class TakerBot implements Runnable {
     }
 
     private void submitLimit(String side, String price, BigDecimal qty) {
-        if (!governor.acquire(running)) {
+        if (!acquire()) {
+            return;
+        }
+        if (resendSuspended()) {
             return;
         }
         String body = "{\"market\":\"" + props.market() + "\",\"side\":\"" + side
                 + "\",\"ord_type\":\"limit\",\"price\":\"" + price + "\",\"volume\":\""
                 + qty.toPlainString() + "\",\"client_order_id\":\"" + coid() + "\"}";
-        report(client.placeOrder(props.market(), body));
+        report(body, client.placeOrder(props.market(), body));
     }
 
     private void submitMarketSell(BigDecimal qty) {
-        if (!governor.acquire(running)) {
+        if (!acquire()) {
+            return;
+        }
+        if (resendSuspended()) {
             return;
         }
         String body = "{\"market\":\"" + props.market()
                 + "\",\"side\":\"ask\",\"ord_type\":\"market\",\"volume\":\"" + qty.toPlainString()
                 + "\",\"client_order_id\":\"" + coid() + "\"}";
-        report(client.placeOrder(props.market(), body));
+        report(body, client.placeOrder(props.market(), body));
+    }
+
+    /** 이 마켓이 거래 일시 중단이면 재개까지 기다린 뒤 토큰을 얻는다. 플릿이 멈추면 false. */
+    private boolean acquire() {
+        return (suspension == null || suspension.awaitOpen(props.market(), running))
+                && governor.acquire(running);
+    }
+
+    /**
+     * 423 을 받은 주문을 재개 뒤 같은 키로 한 번 더 낸다. 423 은 이 시도가 아무것도 쓰지 않았다는 뜻일 뿐이다. 같은 키의 앞선
+     * 시도가 재개 뒤 커밋될 수 있으므로 새 키로 바꿔 내지 않는다(API 설계 §2-5-e, Patroni 설계 6-3). 같은 키면 서버가 한 주문으로
+     * 모은다. 재전송은 이번 주기에 뽑은 새 주문을 대신하고 새 난수를 쓰지 않는다.
+     */
+    private boolean resendSuspended() {
+        String body = suspendedBody;
+        if (body == null) {
+            return false;
+        }
+        suspendedBody = null;
+        report(body, client.placeOrder(props.market(), body));
+        return true;
     }
 
     /**
@@ -364,7 +395,12 @@ public class TakerBot implements Runnable {
         }
     }
 
-    private void report(BotApiClient.Response response) {
+    private void report(String body, BotApiClient.Response response) {
+        if (response.status() == 423 && suspension != null) {
+            suspendedBody = body;
+            suspension.onSuspended(props.market());
+            return;
+        }
         if (response.status() == 201 || response.status() == 200) {
             if (fleet != null) {
                 fleet.recordFill(props.market());

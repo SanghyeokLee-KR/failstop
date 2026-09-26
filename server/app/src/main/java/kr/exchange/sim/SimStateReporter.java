@@ -2,6 +2,7 @@ package kr.exchange.sim;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.exchange.engine.WriteAvailability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -44,15 +45,18 @@ public class SimStateReporter {
     private final BotFleet lifecycle;
     private final ObjectMapper objectMapper;
     private final String nodeId;
+    private final WriteAvailability writeAvailability;
 
     public SimStateReporter(JdbcClient jdbc, OpsGovernor governor, BotFleetGovernor fleet,
-                            BotFleet lifecycle, ObjectMapper objectMapper, String nodeId) {
+                            BotFleet lifecycle, ObjectMapper objectMapper, String nodeId,
+                            WriteAvailability writeAvailability) {
         this.jdbc = jdbc;
         this.governor = governor;
         this.fleet = fleet;
         this.lifecycle = lifecycle;
         this.objectMapper = objectMapper;
         this.nodeId = nodeId;
+        this.writeAvailability = writeAvailability;
     }
 
     /**
@@ -61,6 +65,11 @@ public class SimStateReporter {
      */
     @Scheduled(fixedDelayString = "${exchange.sim.state-publish-ms:1000}")
     public void publish() {
+        if (!writeAvailability.isActive()) {
+            // 거래 일시 중단 동안 발행이 커밋 대기에 걸리면 이 스케줄러의 명령 폴링까지 재개까지 멈춘다(DB 설계 §5.4-f 6).
+            // 관리 평면은 observed_at 이 늙는 것으로 이 구간을 본다.
+            return;
+        }
         try {
             jdbc.sql(UPSERT)
                     .params(nodeId, lifecycle.isRunning(), lifecycle.isPaused(),

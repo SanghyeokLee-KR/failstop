@@ -9,6 +9,8 @@ import { useId, useState } from "react";
 import TextField from "@/components/TextField";
 import { POST_BODY_MAX, POST_TITLE_MAX } from "@/lib/community/types";
 import { formatCount } from "@/lib/format";
+import { useExchangeStore } from "@/lib/store";
+import { isSuspended, SAVE_BLOCKED_LABEL, SAVE_BLOCKED_SR } from "@/lib/tradingStatus";
 import styles from "./PostComposer.module.css";
 
 interface Props {
@@ -37,7 +39,9 @@ export default function PostComposer({
   const [body, setBody] = useState(initialBody);
   const [busy, setBusy] = useState(false);
 
-  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !busy;
+  // 거래 일시 중단 동안 게시판 쓰기도 받지 않는다(API 설계 §2-5-e). 입력은 그대로 둔다
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
+  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !busy && !suspended;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +97,12 @@ export default function PostComposer({
         )}
       </div>
 
+      {suspended && (
+        <p role="status">
+          <span aria-hidden="true">{SAVE_BLOCKED_LABEL}</span>
+          <span className="sr-only">{SAVE_BLOCKED_SR}</span>
+        </p>
+      )}
       <div className={styles.actions}>
         {onCancel && (
           <button type="button" className="btn btn--secondary" onClick={onCancel} disabled={busy}>

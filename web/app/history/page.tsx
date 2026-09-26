@@ -17,6 +17,7 @@ import SymbolChip from "@/components/SymbolChip";
 import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
 import { dest, type Order } from "@/lib/types";
+import { isSuspended } from "@/lib/tradingStatus";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
 import { formatHistoryTime, formatPrice, formatQty, toNum } from "@/lib/format";
@@ -53,6 +54,8 @@ export default function HistoryPage() {
   const markets = useMarketSpecs();
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const upsertOrder = useExchangeStore((s) => s.upsertOrder);
+  // 거래 일시 중단 동안 취소도 쓰기라 받지 않는다(§2-5-e). 목록은 그대로 보인다
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
 
   const [tab, setTab] = useState<HistoryTab>("open");
   const [marketFilter, setMarketFilter] = useState("all");
@@ -115,7 +118,7 @@ export default function HistoryPage() {
   }, [tab, loadClosed]);
 
   const cancel = async (order: Order) => {
-    if (canceling.has(order.id)) return;
+    if (canceling.has(order.id) || suspended) return;
     setCanceling((s) => new Set(s).add(order.id));
     try {
       // 마켓 힌트로 그 마켓을 접수하는 노드에 보낸다(API 설계 §2-5-d)
@@ -256,7 +259,7 @@ export default function HistoryPage() {
               type="button"
               className={styles.cancelBtn}
               onClick={() => void cancel(o)}
-              disabled={busy}
+              disabled={busy || suspended}
               aria-busy={busy}
             >
               {busy ? "취소 중" : "취소"}
@@ -266,9 +269,9 @@ export default function HistoryPage() {
       });
     }
     return cols;
-    // canceling 변경 시 취소 버튼 상태를 다시 그려야 하므로 의존성에 포함한다.
+    // canceling·suspended 변경 시 취소 버튼 상태를 다시 그려야 하므로 의존성에 포함한다.
     // markets 로딩 후 표시 자리수를 재유도하도록 의존성에 포함한다
-  }, [tab, canceling, markets]);
+  }, [tab, canceling, markets, suspended]);
 
   return (
     <main className={styles.page} aria-busy={!loaded}>

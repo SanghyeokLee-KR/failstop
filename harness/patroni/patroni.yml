@@ -1,0 +1,101 @@
+# Patroni 노드 설정(Patroni 설계 3-2). 두 노드가 같은 파일을 쓰고 노드마다 다른 값은 compose 의 PATRONI_* 환경 변수로 준다
+# (이름, 연결 주소, 비밀번호). 환경 변수가 이 파일의 같은 키를 덮는다.
+#
+# bootstrap.dcs 는 클러스터를 처음 만들 때만 etcd 에 쓴다. 그 뒤의 변경은 patronictl edit-config 로 한다.
+scope: exchange-patroni
+namespace: /service/
+
+restapi:
+  listen: 0.0.0.0:8008
+  # 인증은 변경 메서드(POST·PUT·PATCH·DELETE)에만 걸린다. 조회(GET·OPTIONS)는 HAProxy 확인과 관측이 쓴다.
+  # 사용자·비밀번호는 PATRONI_RESTAPI_USERNAME·PATRONI_RESTAPI_PASSWORD 로 받는다.
+
+etcd3:
+  # 세 멤버(db-1, db-2, bot-1 역할). 과반은 둘이다. PATRONI_ETCD3_HOSTS 로 덮을 수 있다.
+  hosts: patroni-etcd-1:2379,patroni-etcd-2:2379,patroni-etcd-3:2379
+
+bootstrap:
+  dcs:
+    # loop_wait + 2 x retry_timeout <= ttl. 로컬은 실험 시간을 줄이려고 기본값(30·10·10)보다 짧다(AWS 는 기본값).
+    ttl: 20
+    loop_wait: 5
+    retry_timeout: 5
+    maximum_lag_on_failover: 1048576
+    # 사용자 결정: 엄격 동기. 동기 후보가 없으면 synchronous_standby_names = '*' 로 두어 쓰기를 멈춘다.
+    synchronous_mode: true
+    synchronous_mode_strict: true
+    synchronous_node_count: 1
+    # etcd 과반을 잃어도 Primary 가 REST 로 모든 멤버에 닿으면 Primary 를 유지한다. 닿지 못하면 강등한다(E-P4).
+    failsafe_mode: true
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        wal_log_hints: "on"
+        synchronous_commit: "on"
+        max_wal_senders: 4
+        max_replication_slots: 4
+        # 멤버 슬롯이 WAL 을 붙잡는 상한. 로컬은 디스크가 작다(AWS 4GB).
+        max_slot_wal_keep_size: 1GB
+        # ADR 0025 는 0 이지만 Patroni 4.1.5 는 16MB 아래를 받지 않고 128MB 로 되돌린다(설정 검증). 받는 가장 작은 값이다.
+        wal_keep_size: 16MB
+        archive_mode: "off"
+        idle_in_transaction_session_timeout: 10s
+        # 클라이언트가 먼저 끊은 잠금 대기를 정리한다. 0 이면 그 대기가 재개 뒤 실행돼 아무도 모르는 쓰기가 커밋된다(사전 확인 K).
+        client_connection_check_interval: 2s
+        tcp_keepalives_idle: 5
+        tcp_keepalives_interval: 2
+        tcp_keepalives_count: 3
+        # 카오스 산식(API 2 x (32+2+14) + 봇 26 + 표본기 6)에 Patroni 연결과 탐지 연결(노드마다 2)을 더한 몫이다.
+        max_connections: 200
+        superuser_reserved_connections: 3
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+  # 클러스터를 처음 만든 뒤 앱 계정·앱 DB·수집기 계정·ACK 기록기 DB 를 만든다.
+  post_bootstrap: /patroni/post_bootstrap.sh
+
+postgresql:
+  listen: 0.0.0.0:5432
+  data_dir: /var/lib/postgresql/data/pgdata
+  bin_dir: /usr/lib/postgresql/17/bin
+  pgpass: /tmp/pgpass
+  # Patroni 자신의 로컬 연결(복제 연결 포함)은 유닉스 소켓으로 한다. pg_hba 의 TCP 줄은 망 단위로만 연다.
+  use_unix_socket: true
+  use_unix_socket_repl: true
+  authentication:
+    superuser:
+      username: postgres
+    replication:
+      username: replicator
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+  # 옛 Primary 를 되감아 붙이고, 되감기가 실패하면 새 베이스백업으로 다시 만든다(ADR 0025 가 본 되감기 실패의 자동 회수).
+  remove_data_directory_on_rewind_failure: true
+  create_replica_methods:
+    - basebackup
+  # 기본 임시 슬롯이면 '*' 아래에서 백업 WAL 스트림이 동기 대기 서버가 되어, 새 Standby 가 다 만들어지기 전에
+  # 한 사본만으로 커밋이 확인된다(사전 확인 M). --no-slot 스트림은 flush 위치를 보고하지 않아 대상이 아니다(사전 확인 N).
+  basebackup:
+    - no-slot
+    - checkpoint: fast
+  # 복제·되감기는 DB 망(patroni-db)에서만, 앱·HAProxy·수집기·도구는 앱 망(patroni-app)에서만 받는다.
+  # 멤버가 아닌 복제 클라이언트는 받지 않는다. '*' 아래에서 한 사본만으로 커밋을 확인해 준다(사전 확인 P).
+  pg_hba:
+    - local all all trust
+    - local replication all trust
+    - host replication replicator 10.159.0.0/24 scram-sha-256
+    - host all all 10.159.0.0/24 scram-sha-256
+    - host all all 10.159.1.0/24 scram-sha-256
+
+watchdog:
+  # Docker Desktop 에는 /dev/watchdog 이 없다. AWS 는 softdog 과 required 다(설계 9-1).
+  mode: "off"
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

@@ -1,0 +1,52 @@
+# 엄격 동기 복제에서 커밋 대기가 어떻게 끝나는지 보는 폐기용 두 노드(Patroni 설계 사전 확인).
+# 이름 규칙은 작업 지시를 따른다. compose 프로젝트 exchange-patroni, 컨테이너 접두 patroni-, 호스트 포트 없음.
+# 데이터는 컨테이너 안에만 두고 끝나면 -p exchange-patroni down -v --remove-orphans 로 지운다.
+# 보존 볼륨(exchange-chaos_chaos-pgdata, failstop-keep-*)은 어디에도 마운트하지 않는다.
+name: exchange-patroni
+
+services:
+  patroni-probe-pg1:
+    image: postgres:17-alpine
+    container_name: patroni-probe-pg1
+    environment:
+      # 이 확인에서만 쓰는 값이고 접속은 아래 hba 의 trust 로 한다. 실제 비밀이 아니다.
+      POSTGRES_PASSWORD: probe-only
+    # synchronous_standby_names 는 여기서 걸지 않는다. 이미지의 초기화 단계가 같은 인자로 임시 서버를 띄워
+    # 쓰기를 하므로, 처음부터 걸면 대기 서버가 없어 초기화가 멈춘다. 대기 서버가 붙은 뒤 ALTER SYSTEM 으로 건다.
+    command:
+      - postgres
+      - -c
+      - hba_file=/probe/pg_hba.conf
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=4
+      - -c
+      - synchronous_commit=on
+    volumes:
+      - ./:/probe:ro
+    networks: [probe]
+
+  patroni-probe-pg2:
+    image: postgres:17-alpine
+    container_name: patroni-probe-pg2
+    user: postgres
+    entrypoint: ["sh", "-c"]
+    # 데이터 디렉터리는 컨테이너의 /tmp 에 둔다. docker stop 과 start 사이에는 남고 컨테이너를 지우면 사라진다.
+    # 처음 한 번만 베이스백업을 받고, 다시 시작하면 그 디렉터리로 곧바로 대기 서버를 띄운다.
+    command:
+      - |
+        if [ ! -s /tmp/pgdata/PG_VERSION ]; then
+          until pg_basebackup -h patroni-probe-pg1 -U postgres -D /tmp/pgdata -X stream; do sleep 1; done
+          touch /tmp/pgdata/standby.signal
+          echo "primary_conninfo = 'host=patroni-probe-pg1 user=postgres application_name=s1'" >> /tmp/pgdata/postgresql.auto.conf
+          chmod 700 /tmp/pgdata
+        fi
+        exec postgres -D /tmp/pgdata -c hot_standby=on -c hba_file=/probe/pg_hba.conf
+    volumes:
+      - ./:/probe:ro
+    depends_on: [patroni-probe-pg1]
+    networks: [probe]
+
+networks:
+  probe: {}

@@ -18,6 +18,7 @@ import type {
   PublicNotice,
   TickerMessage,
   TradeMessage,
+  TradingStatus,
   WsMessage,
 } from "./types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "./types";
@@ -25,6 +26,7 @@ import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
 import { ApiError } from "./api/httpDatasource";
 import { judgeAssetUpdate, mergeAccounts } from "./api/assetVersions";
+import { dueForRequery, requeryVerdict, trackPending, type PendingOrder, type RequeryVerdict } from "./tradingStatus";
 
 /**
  * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사. 느린 REST 스냅샷·재전달이
@@ -227,6 +229,11 @@ interface ExchangeState {
   effectConfig: EffectConfig;
   /** 회원 세션(§4-5). null이면 미로그인·데모 둘러보기. DataSource가 유일 갱신 주체 */
   session: MemberSession | null;
+  /* 거래 상태(§4-A-7). null은 아직 못 읽음이다. 못 읽은 화면은 막지 않는다. 서버가 쓰기를 받지 않으면
+     그 요청이 423 으로 돌아오고 그때 다시 읽는다 */
+  tradingStatus: TradingStatus | null;
+  /** 결과를 모르는 주문(Patroni 설계 6-2). 키를 버리지 않고 같은 키로 재조회해 결과를 정한다 */
+  pendingOrders: PendingOrder[];
 
   apply(msg: WsMessage): void;
   /** 효과 강도 재조회. 폴링 훅이 호출한다(실시간 push 아님, §4-A-6) */
@@ -249,6 +256,11 @@ interface ExchangeState {
   /** REST 주문 응답 1건 반영(POST /orders 201, DELETE /orders 200).
    * 재조회 왕복을 기다리지 않고 목록을 확정한다. 상태 단조 가드로 역행 응답은 드롭한다 */
   upsertOrder(order: Order): void;
+  /** 거래 상태 재조회. 실패하면 직전 상태를 유지하고 그 상태를 돌려준다(§4-A-7 클라이언트 규약) */
+  loadTradingStatus(): Promise<TradingStatus | null>;
+  trackPendingOrder(pending: PendingOrder): void;
+  /** 재조회할 차례인 키를 같은 키로 재조회한다. 접수됐으면 목록에 반영하고, 미접수가 확정되면 목록에서 뺀다 */
+  resolvePendingOrders(): Promise<void>;
 }
 
 /**
@@ -326,6 +338,9 @@ function requestVersionRefetch(run: () => Promise<void>): void {
   else versionRefetchTimer = setTimeout(fire, wait);
 }
 
+// 결과 재조회 한 바퀴 단일화. 폴링 주기가 짧아도 같은 키를 겹쳐 묻지 않는다
+let pendingInFlight = false;
+
 /**
  * 전역이 드는 공지 수. 배너는 이 안에서 최신 경보 한 건을 고른다.
  * 활성 경보보다 새 공지가 이 수를 넘게 쌓이면 배너가 그 경보를 놓치는데, 그 상황은 공지 운영이 먼저 깨진 상태다.
@@ -354,6 +369,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   connected: true,
   effectConfig: DEFAULT_EFFECT_CONFIG,
   session: null,
+  tradingStatus: null,
+  pendingOrders: [],
 
   apply(msg) {
     switch (msg.type) {
@@ -493,6 +510,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         assets: [],
         openOrders: [],
         closedOrders: [],
+        pendingOrders: [],
         accountsHealth: { state: "idle" as const, lastUpdatedAt: null, retryAfterSec: null },
       };
     });
@@ -635,6 +653,47 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
 
   upsertOrder(order) {
     set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [order])));
+  },
+
+  async loadTradingStatus() {
+    try {
+      const status = await withQueryTimeout((signal) => getDataSource().getTradingStatus(signal));
+      set({ tradingStatus: status });
+      return status;
+    } catch {
+      /* 5xx·시간 초과는 상태를 바꾸지 않는다. 중단 중에 한 번 못 읽었다고 버튼을 열면 안 되고,
+         정상 중에 못 읽었다고 막으면 상태 조회 하나가 거래를 멈춘다 */
+      return get().tradingStatus;
+    }
+  },
+
+  trackPendingOrder(pending) {
+    set((s) => ({ pendingOrders: trackPending(s.pendingOrders, pending) }));
+  },
+
+  async resolvePendingOrders() {
+    if (pendingInFlight) return;
+    const due = dueForRequery(get().pendingOrders, get().tradingStatus);
+    if (due.length === 0) return;
+    pendingInFlight = true;
+    const fired = get().session?.user.external_id ?? null;
+    try {
+      for (const p of due) {
+        let verdict: RequeryVerdict;
+        try {
+          const order = await withQueryTimeout((signal) => getDataSource().getOrderByClientId(p.clientOrderId, signal));
+          if ((get().session?.user.external_id ?? null) !== fired) return;
+          get().upsertOrder(order);
+          verdict = requeryVerdict(200);
+        } catch (e) {
+          verdict = requeryVerdict(e instanceof ApiError ? e.status : 0);
+        }
+        if (verdict === "retry") continue;
+        set((s) => ({ pendingOrders: s.pendingOrders.filter((q) => q.clientOrderId !== p.clientOrderId) }));
+      }
+    } finally {
+      pendingInFlight = false;
+    }
   },
 }));
 

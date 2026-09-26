@@ -21,6 +21,8 @@ import PostComposer from "@/components/community/PostComposer";
 import LikeButton from "@/components/community/LikeButton";
 import ReportDialog from "@/components/community/ReportDialog";
 import CommentSection from "@/components/community/CommentSection";
+import { useExchangeStore } from "@/lib/store";
+import { isSuspended } from "@/lib/tradingStatus";
 import styles from "./community.module.css";
 
 interface Props {
@@ -34,6 +36,8 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
   const ds = getCommunityDataSource();
   const router = useRouter();
   const [post, setPost] = useState<CommunityPost | null>(null);
+  // 거래 일시 중단 동안 좋아요도 쓰기라 받지 않는다(API 설계 §2-5-e)
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
   const [phase, setPhase] = useState<"loading" | "ready" | "notfound" | "error">("loading");
   const [editing, setEditing] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -205,7 +209,8 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
               <p className={styles.postBody}>{post.body}</p>
 
               <div className={styles.postActions}>
-                <LikeButton liked={post.liked} count={post.like_count} onToggle={() => void toggleLike()} />
+                <LikeButton liked={post.liked} count={post.like_count} onToggle={() => void toggleLike()}
+                            disabled={suspended} />
                 <div className={styles.postActionsRight}>
                   {post.mine ? (
                     <>

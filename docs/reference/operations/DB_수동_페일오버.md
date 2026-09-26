@@ -4,6 +4,8 @@
 정본 관계: 복제 정책은 `docs/reference/adr/0024-async-two-node-replication.md`. 배선은
 `deploy/compose.node-data.yml`.
 
+2026-09-25 사용자 결정으로 DB 자동 전환을 Patroni 엄격 동기 2노드로 하기로 했다([ADR 0036](../adr/0036-patroni-strict-sync-db-failover.md)). 이 문서는 Patroni를 적용하지 않은 환경(지금의 학교 DB와 `deploy/compose.node-data.yml`)의 절차로 남는다. Patroni를 적용한 환경에서는 사람이 `pg_promote()`를 부르거나 옛 노드를 베이스백업으로 다시 만들지 않는다. 전환과 재합류는 Patroni가 하고, 계획 전환만 운영자가 `patronictl switchover`로 한다([Patroni 설계](../architecture/DB_자동전환_Patroni_설계.md) 5·9절). 두 방식을 한 클러스터에 섞지 않는다.
+
 사람이 장애와 격리를 판단하고 수동으로 승격한다. 실습 도구가 명시적으로 실행하는 `pg_promote()`를 운영 자동 페일오버 정책으로 해석하지 않는다.
 
 앱 리더 페일오버(`leader_lease`, `assert_current_leader` fencing)와 혼동하지 않는다. 그것은

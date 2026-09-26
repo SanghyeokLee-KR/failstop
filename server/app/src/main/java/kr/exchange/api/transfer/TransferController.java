@@ -8,6 +8,7 @@ import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.RetrySafeWrite;
+import kr.exchange.api.common.WriteGateFilter;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,7 +62,8 @@ public class TransferController {
                 text(body, "direction"),
                 text(body, "asset"),
                 text(body, "amount"),
-                idemKey);
+                idemKey,
+                WriteGateFilter.gateGeneration(request));
         Map<String, Object> payload = envelope(result.view());
         if (result.replayed()) {
             return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(payload);

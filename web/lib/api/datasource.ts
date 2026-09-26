@@ -22,6 +22,7 @@ import type {
   PublicNotice,
   SupportInput,
   SupportInquiry,
+  TradingStatus,
   TransferInput,
   TransferRequest,
   WsMessage,
@@ -29,6 +30,7 @@ import type {
 import { SimEngine } from "../sim/engine";
 import { emailError, passwordError } from "../auth/memberInputs";
 import { compareDecimal } from "../decimal";
+import { ACTIVE_TRADING } from "../tradingStatus";
 import { ApiError, HttpStompDataSource } from "./httpDatasource";
 
 export interface DataSource {
@@ -58,6 +60,14 @@ export interface DataSource {
    * §2-5-d). 인그레스가 그 마켓을 접수하는 노드로 보낸다. 모르면 비워 둔다. 서버가 대상 주문을 읽어 판정한다.
    */
   cancelOrder(idOrClientId: string, market?: string): Promise<Order>;
+  /**
+   * by-client 재조회(§4-B-4 (a)). 결과를 모르는 주문을 같은 키로 판정한다. 200 은 접수됨, 404 는 미접수 확정,
+   * 409 는 판정 보류다. 판정은 ApiError 의 status 로 한다.
+   */
+  getOrderByClientId(clientOrderId: string, signal?: AbortSignal): Promise<Order>;
+
+  /** 거래 상태(§4-A-7). 무인증. 실패하면 호출자가 직전 상태를 유지한다 */
+  getTradingStatus(signal?: AbortSignal): Promise<TradingStatus>;
 
   /**
    * 공지 한 쪽(§4-F). 무인증 읽기, active만, 최신순. 커서는 §2-6 opaque.
@@ -441,6 +451,14 @@ export class SimDataSource implements DataSource {
   async placeOrder(req: OrderRequest): Promise<Order> { return this.engine.placeOrder(req); }
   // 가짜 어댑터는 한 엔진이라 라우팅이 없다. 마켓 힌트는 쓰지 않는다.
   async cancelOrder(idOrClientId: string, _market?: string): Promise<Order> { return this.engine.cancelOrder(idOrClientId); }
+  async getOrderByClientId(clientOrderId: string): Promise<Order> {
+    const found = [...this.engine.getOrders(true), ...this.engine.getOrders(false)]
+      .find((o) => o.client_order_id === clientOrderId);
+    if (!found) throw new ApiError(404, "order_not_found", "접수된 주문 없음");
+    return found;
+  }
+  /* 시뮬레이터에는 DB 가 없어 쓰기가 멈추지 않는다. 늘 탐지를 끈 노드와 같은 답이다 */
+  async getTradingStatus(): Promise<TradingStatus> { return { ...ACTIVE_TRADING, checked_at: Date.now() }; }
   async getEffectConfig(): Promise<EffectConfig> { return this.engine.getEffectConfig(); }
 
   subscribe(destination: string, cb: (msg: WsMessage) => void): () => void {

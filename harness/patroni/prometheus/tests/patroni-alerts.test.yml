@@ -1,0 +1,265 @@
+# patroni-alerts.yml 의 장면 시험(Patroni 설계 7-2·7-3). promtool test rules 로 돈다(README).
+# 장면은 etcd 전부 정지, 한 멤버 정지, 타임라인 증가, ACTIVE 인데 커밋 대기, 중단 중 커밋 대기, 중단 중 탐지 백엔드만
+# 기다림, 멤버가 아닌 복제 연결, 동기 Standby 없음, Primary 둘, HAProxy 백엔드 없음, failsafe·잦은 리더 교체다.
+# 기대 설명문은 규칙 파일의 annotations 와 글자까지 같아야 한다. 규칙 문구를 바꾸면 여기도 바꾼다.
+rule_files:
+- ../rules/patroni-alerts.yml
+evaluation_interval: 5s
+tests:
+- interval: 5s
+  input_series:
+  - series: up{job="etcd", instance="etcd-1"}
+    values: '0x24'
+  - series: up{job="etcd", instance="etcd-2"}
+    values: '0x24'
+  - series: up{job="etcd", instance="etcd-3"}
+    values: '0x24'
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: EtcdQuorumLost
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: etcd 과반 상실. 리더 키를 갱신하지 못하고 새 선출이 없다
+  - eval_time: 1m
+    alertname: EtcdMemberDown
+    exp_alerts:
+    - exp_labels:
+        job: etcd
+        instance: etcd-1
+        severity: warning
+      exp_annotations: &id001
+        summary: etcd 멤버 하나가 응답하지 않는다. 한 표만 더 잃으면 과반을 잃는다
+    - exp_labels:
+        job: etcd
+        instance: etcd-2
+        severity: warning
+      exp_annotations: *id001
+    - exp_labels:
+        job: etcd
+        instance: etcd-3
+        severity: warning
+      exp_annotations: *id001
+  - eval_time: 1m
+    alertname: PatroniPrimaryAbsent
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: Patroni Primary 없음. 조회와 쓰기 모두 멈춘다
+- interval: 5s
+  input_series:
+  - series: up{job="etcd", instance="etcd-1"}
+    values: 1x24
+  - series: up{job="etcd", instance="etcd-2"}
+    values: 1x24
+  - series: up{job="etcd", instance="etcd-3"}
+    values: '0x24'
+  - series: etcd_server_has_leader{instance="etcd-1"}
+    values: 1x24
+  - series: etcd_server_has_leader{instance="etcd-2"}
+    values: 1x24
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: EtcdQuorumLost
+    exp_alerts: []
+  - eval_time: 1m
+    alertname: EtcdMemberDown
+    exp_alerts:
+    - exp_labels:
+        job: etcd
+        instance: etcd-3
+        severity: warning
+      exp_annotations: *id001
+- interval: 5s
+  input_series:
+  - series: patroni_postgres_timeline{instance="db-1"}
+    values: 1x10 2x10
+  - series: patroni_postgres_timeline{instance="db-2"}
+    values: 1x10 2x10
+  - series: patroni_primary{instance="db-1"}
+    values: 1x10 0x10
+  - series: patroni_primary{instance="db-2"}
+    values: 0x10 1x10
+  alert_rule_test:
+  - eval_time: 90s
+    alertname: PatroniFailoverOccurred
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: DB 타임라인이 올랐다(자동 전환이나 계획 전환)
+  - eval_time: 90s
+    alertname: PatroniPrimaryAbsent
+    exp_alerts: []
+  - eval_time: 90s
+    alertname: PatroniMultiplePrimaries
+    exp_alerts: []
+- interval: 5s
+  input_series:
+  - series: pg_syncrep_waiters_count{instance="db-1"}
+    values: 1x12
+  - series: exchange_write_availability_state{instance="api-1", state="ACTIVE"}
+    values: 1x12
+  - series: exchange_write_availability_state{instance="api-2", state="ACTIVE"}
+    values: 1x12
+  alert_rule_test:
+  - eval_time: 55s
+    alertname: SyncRepWaitersWhileActive
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: 커밋 대기가 있는데 탐지기는 모두 ACTIVE 라고 한다
+  - eval_time: 55s
+    alertname: TradingSuspended
+    exp_alerts: []
+- interval: 5s
+  input_series:
+  - series: pg_syncrep_waiters_count{instance="db-1"}
+    values: 3x12
+  - &id002
+    series: exchange_write_availability_state{instance="api-1", state="ACTIVE"}
+    values: '0x12'
+  - &id003
+    series: exchange_write_availability_state{instance="api-1", state="SUSPENDED"}
+    values: 1x12
+  - &id004
+    series: exchange_write_availability_state{instance="api-2", state="ACTIVE"}
+    values: '0x12'
+  - &id005
+    series: exchange_write_availability_state{instance="api-2", state="SUSPENDED"}
+    values: 1x12
+  alert_rule_test:
+  - eval_time: 55s
+    alertname: SyncRepWaitersWhileActive
+    exp_alerts: []
+  - eval_time: 55s
+    alertname: TradingSuspended
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations: &id006
+        summary: 거래 일시 중단(쓰기 가능 상태가 ACTIVE 아님)
+        description: Primary 에서 SyncRep 을 기다리는 백엔드를 pg_cancel_backend·pg_terminate_backend 로 취소·종료하지 않는다. 취소는 복제되지 않은 커밋을 성공으로 돌려준다(설계 4-2). Standby 가 돌아오면 사람 조작 없이 재개된다.
+- interval: 5s
+  input_series:
+  - series: pg_syncrep_waiters_count{instance="db-1"}
+    values: '0x12'
+  - *id002
+  - *id003
+  - *id004
+  - *id005
+  alert_rule_test:
+  - eval_time: 55s
+    alertname: SyncRepWaitersWhileActive
+    exp_alerts: []
+  - eval_time: 55s
+    alertname: TradingSuspended
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations: *id006
+- interval: 5s
+  input_series:
+  - series: pg_nonmember_walsenders_count{instance="db-1"}
+    values: 0 0 1 1 1
+  - series: pg_nonmember_walsenders_count{instance="db-2"}
+    values: 0 0 0 0 0
+  alert_rule_test:
+  - eval_time: 5s
+    alertname: NonMemberWalSender
+    exp_alerts: []
+  - eval_time: 15s
+    alertname: NonMemberWalSender
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: Patroni 멤버가 아닌 복제 연결이 flush 위치를 보고한다
+        description: synchronous_standby_names 가 '*' 인 동안 이 연결은 동기 대기 서버가 되어 한 사본만으로 커밋을 확인해 준다 (설계 3-2). 백업은 --no-slot 으로 받거나 Standby 에서 받는다.
+- interval: 5s
+  input_series:
+  - series: patroni_primary{instance="db-1"}
+    values: 1x12
+  - series: patroni_primary{instance="db-2"}
+    values: '0x12'
+  - series: patroni_sync_standby{instance="db-1"}
+    values: '0x12'
+  - series: patroni_sync_standby{instance="db-2"}
+    values: 1 1 0 0 0 0 0 0 0 0 0 0 0
+  alert_rule_test:
+  - eval_time: 15s
+    alertname: PatroniSyncStandbyMissing
+    exp_alerts: []
+  - eval_time: 40s
+    alertname: PatroniSyncStandbyMissing
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: 동기 Standby 없음. 엄격 모드라 커밋이 확인되지 않아 거래가 멈춘다
+        description: Standby 를 되살리거나 새 멤버를 붙이면 자동 재개된다(설계 9-5). 비상 비동기 전환은 사람의 결정이다.
+  - eval_time: 40s
+    alertname: PatroniMultiplePrimaries
+    exp_alerts: []
+- interval: 5s
+  input_series:
+  - series: patroni_primary{instance="db-1"}
+    values: 1 1 1
+  - series: patroni_primary{instance="db-2"}
+    values: 0 1 1
+  alert_rule_test:
+  - eval_time: 0s
+    alertname: PatroniMultiplePrimaries
+    exp_alerts: []
+  - eval_time: 10s
+    alertname: PatroniMultiplePrimaries
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: Primary 가 둘 이상으로 보인다
+        description: 엄격 동기 두 노드에서는 두 노드가 같은 구간에 확인 커밋을 가질 수 없다(설계 3-5). 옛 Primary 가 DCS 를 retry_timeout 넘게 못 보고 강등하기 전의 짧은 겹침인지 먼저 본다.
+- interval: 5s
+  input_series:
+  - series: haproxy_backend_active_servers{instance="patroni-haproxy-1:8404", proxy="pg_write"}
+    values: 1 0 0 0
+  - series: haproxy_backend_active_servers{instance="patroni-haproxy-1:8404", proxy="stats"}
+    values: 0 0 0 0
+  alert_rule_test:
+  - eval_time: 15s
+    alertname: HAProxyPrimaryBackendMissing
+    exp_alerts:
+    - exp_labels:
+        instance: patroni-haproxy-1:8404
+        proxy: pg_write
+        severity: critical
+      exp_annotations:
+        summary: 앱 노드 HAProxy 에 살아 있는 Primary 백엔드가 없다
+- interval: 1m
+  input_series:
+  - series: patroni_failsafe_mode_is_active{instance="db-1"}
+    values: 0 1 1
+  - series: etcd_server_leader_changes_seen_total{instance="etcd-1"}
+    values: 0 1 2 3 4 5 6
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: PatroniFailsafeActive
+    exp_alerts: []
+  - eval_time: 1m
+    alertname: PatroniFailsafeActive
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: etcd 과반 없이 failsafe 로 Primary 를 유지하는 중. 새 선출은 일어나지 않는다
+  - eval_time: 6m
+    alertname: EtcdLeaderChangesFrequent
+    exp_alerts:
+    - exp_labels:
+        instance: etcd-1
+        severity: warning
+      exp_annotations:
+        summary: etcd 리더가 자주 바뀐다(자원 부족·fsync 지연 의심). 시간 판정 회차는 무효다(설계 8-1)

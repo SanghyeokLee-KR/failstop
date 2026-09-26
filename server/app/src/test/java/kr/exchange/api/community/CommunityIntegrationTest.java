@@ -112,6 +112,40 @@ class CommunityIntegrationTest {
         operatorSeeder.ensureOperator("op-view", "뷰어", Set.of(AdminRole.VIEWER));
     }
 
+    @Autowired
+    CommunityService community;
+
+    /**
+     * 인기순 첫 조회는 순위 스냅샷을 INSERT 한다. 거래 일시 중단 동안 그 조회가 커밋 대기에 걸리지 않게 쓰기가 ACTIVE 가 아니면
+     * 스냅샷을 만들지 않고 빈 목록을 낸다(Patroni 설계 12절 '조회 안의 쓰기').
+     */
+    @Test
+    void popularListDoesNotWriteTheRankSnapshotWhileWritesAreNotActive() throws Exception {
+        Member author = signup();
+        long authorId = jdbc.sql("SELECT id FROM users WHERE email = ?").param(author.email())
+                .query(Long.class).single();
+        community.createPost(authorId, "KRW-ETH", "중단 중 인기순", "본문", null);
+        jdbc.sql("DELETE FROM post_rank_snapshot WHERE market_symbol = 'KRW-ETH'").update();
+
+        // 켠 탐지기는 첫 확인 탐지 전이라 ACTIVE 가 아니다.
+        community.attachWriteAvailability(kr.exchange.engine.WriteAvailability.enabled(
+                kr.exchange.engine.WriteAvailability.Settings.DEFAULTS));
+        try {
+            CommunityService.Page page = community.listPosts("KRW-ETH", "popular", null, null, null);
+            assertTrue(page.rows().isEmpty());
+            assertEquals(null, page.nextCursor());
+            assertEquals(0L, jdbc.sql("SELECT count(*) FROM post_rank_snapshot WHERE market_symbol = 'KRW-ETH'")
+                    .query(Long.class).single(), "스냅샷을 쓰지 않았다");
+        } finally {
+            community.attachWriteAvailability(kr.exchange.engine.WriteAvailability.disabled());
+        }
+
+        CommunityService.Page resumed = community.listPosts("KRW-ETH", "popular", null, null, null);
+        assertFalse(resumed.rows().isEmpty(), "재개 뒤 첫 조회가 스냅샷을 만든다");
+        assertTrue(jdbc.sql("SELECT count(*) FROM post_rank_snapshot WHERE market_symbol = 'KRW-ETH'")
+                .query(Long.class).single() > 0);
+    }
+
     @Test
     void postLifecycleAndOwnershipEnforced() throws Exception {
         Member alice = signup();

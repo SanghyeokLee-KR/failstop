@@ -32,11 +32,13 @@ import type {
   PublicNotice,
   SupportInput,
   SupportInquiry,
+  TradingStatus,
   TransferInput,
   TransferRequest,
 } from "../types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "../types";
 import { decimalsOf, fromScaledInt, scaledIntTrunc } from "../decimal";
+import { coerceTradingStatus } from "../tradingStatus";
 import type { DataSource } from "./datasource";
 import { MarketEpochs } from "./marketEpochs";
 
@@ -652,6 +654,17 @@ export class HttpStompDataSource implements DataSource {
       { method: "POST", body: JSON.stringify(req), headers: { [MARKET_HINT_HEADER]: req.market } },
       true,
     );
+  }
+
+  async getOrderByClientId(clientOrderId: string, signal?: AbortSignal): Promise<Order> {
+    return this.http<Order>(`/api/v1/orders/by-client/${encodeURIComponent(clientOrderId)}`, { signal }, true);
+  }
+
+  /** 거래 상태(§4-A-7). 무인증 공개 경로라 Bearer 를 붙이지 않는다. 모양이 틀리면 직전 상태를 유지하도록 실패로 올린다 */
+  async getTradingStatus(signal?: AbortSignal): Promise<TradingStatus> {
+    const status = coerceTradingStatus(await this.http<unknown>("/api/v1/status", { signal, cache: "no-store" }));
+    if (!status) throw new ApiError(0, "invalid_envelope", "거래 상태 응답 형식 오류");
+    return status;
   }
 
   async cancelOrder(idOrClientId: string, market?: string): Promise<Order> {

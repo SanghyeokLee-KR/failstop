@@ -13,7 +13,7 @@ import java.util.List;
  * 일괄 취소 결과를 모으는 곳(API 설계 §4-B-3, DB 설계 §5.4-d 2·3). 이 노드가 직접 취소한 주문, 소유 노드가 인계받아 처리한 행의
  * 결과, 인계 작업자의 행 결과가 같은 사유 이름과 사유별 수를 쓴다.
  *
- * 사유별 수는 사유 이름으로 센다. service_unavailable 은 unsubmitted, too_many_requests 는 contended, market_suspended 는
+ * 사유별 수는 사유 이름으로 센다. service_unavailable 과 trading_suspended 는 unsubmitted, too_many_requests 는 contended, market_suspended 는
  * suspended, server_error 는 errored, partition_not_started 와 partition_pending 은 그 이름의 수다. 모두 '그 주문이 아직 열려
  * 있을 수 있다'는 뜻이고 회원 폐쇄가 미완료로 센다(§6-E). 먼저 종결된 주문의 상태, order_not_found, 취소 저널 뒤 반영 대기의
  * order_in_progress 는 세지 않는다.
@@ -21,6 +21,7 @@ import java.util.List;
 final class BulkCancelTally {
 
     static final String SERVICE_UNAVAILABLE = "service_unavailable";
+    static final String TRADING_SUSPENDED = "trading_suspended";
     static final String TOO_MANY_REQUESTS = "too_many_requests";
     static final String MARKET_SUSPENDED = "market_suspended";
     static final String SERVER_ERROR = "server_error";
@@ -75,7 +76,8 @@ final class BulkCancelTally {
 
     private void count(String reason, int n) {
         switch (reason) {
-            case SERVICE_UNAVAILABLE -> unsubmitted += n;
+            // 423 은 거래 일시 중단으로 저널에 닿지 않은 취소다. 주문이 열려 있어 재개 뒤 다시 불러야 한다.
+            case SERVICE_UNAVAILABLE, TRADING_SUSPENDED -> unsubmitted += n;
             case TOO_MANY_REQUESTS -> contended += n;
             case MARKET_SUSPENDED -> suspended += n;
             case SERVER_ERROR -> errored += n;

@@ -87,7 +87,8 @@ class HarnessStatusResourceTest {
                 "harness-test", new PostgresLeaderLeaseStore(ds, resource, (short) maxProtocol, Duration.ofSeconds(1)),
                 FencingEpochPublisher.NONE, Duration.ofSeconds(10), Duration.ofSeconds(3),
                 NodeServiceHealth.ALWAYS_SERVICEABLE, PartitionAcquirePolicy.ALWAYS, new LeaderWriteProgress()));
-        return new HarnessController(jdbc, null, new FailoverRecorder(jdbc, new ObjectMapper()), null, leases);
+        return new HarnessController(jdbc, null, new FailoverRecorder(jdbc, new ObjectMapper()), null, leases,
+                kr.exchange.engine.WriteAvailability.disabled());
     }
 
     private static HarnessController.FailoverRequest request(String experiment, String resource) {

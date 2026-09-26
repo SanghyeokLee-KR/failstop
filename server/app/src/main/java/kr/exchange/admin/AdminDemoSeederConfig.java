@@ -1,5 +1,6 @@
 package kr.exchange.admin;
 
+import kr.exchange.engine.WriteAvailability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
@@ -8,6 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Set;
 
 /**
@@ -22,18 +24,27 @@ import java.util.Set;
 public class AdminDemoSeederConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDemoSeederConfig.class);
+    // DevConfig 와 같다. 거래 일시 중단 동안 재기동하면 시드를 재개 뒤로 미룬다(Patroni 설계 12절 '기동 중 쓰기').
+    private static final Duration STARTUP_WRITE_WAIT = Duration.ofSeconds(15);
 
     @Bean
-    public SmartLifecycle adminDemoSeederLifecycle(AdminOperatorSeeder seeder) {
+    public SmartLifecycle adminDemoSeederLifecycle(AdminOperatorSeeder seeder, WriteAvailability writes) {
         return new SmartLifecycle() {
             private volatile boolean running;
 
             @Override
             public void start() {
-                seeder.ensureOperator("op-01", "데모 운영자 1", Set.of(AdminRole.SUPER));
-                seeder.ensureOperator("op-02", "데모 운영자 2", Set.of(AdminRole.SUPER));
+                try {
+                    writes.runWhenActive("관리 데모 운영자 시드", STARTUP_WRITE_WAIT, () -> {
+                        seeder.ensureOperator("op-01", "데모 운영자 1", Set.of(AdminRole.SUPER));
+                        seeder.ensureOperator("op-02", "데모 운영자 2", Set.of(AdminRole.SUPER));
+                        log.info("관리 데모 운영자 시드 완료: op-01, op-02 (mTLS CN 정합)");
+                    });
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("관리 데모 운영자 시드가 쓰기 재개를 기다리다 인터럽트됨", e);
+                }
                 running = true;
-                log.info("관리 데모 운영자 시드 완료: op-01, op-02 (mTLS CN 정합)");
             }
 
             @Override

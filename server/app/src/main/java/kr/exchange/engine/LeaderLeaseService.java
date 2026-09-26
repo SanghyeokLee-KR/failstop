@@ -18,6 +18,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 
 /**
@@ -91,6 +92,10 @@ public class LeaderLeaseService implements AutoCloseable {
     private final Object leadershipLock = new Object();
     // 연달아 잠금 대기 상한으로 끝난 획득 수. 리스 틱 스레드만 쓴다.
     private int lockTimeoutStreak;
+    // 쓰기 가능 상태(DB 설계 §5.4-f 2). null 이면 탐지를 끈 노드라 획득 규칙 둘을 적용하지 않는다.
+    private volatile WriteAvailability writeAvailability;
+    // 얻었으나 이미 만료돼 버린 획득 수(exchange.lease.acquire.expired).
+    private final LongAdder expiredAcquisitions = new LongAdder();
     private final List<Runnable> lossListeners = new CopyOnWriteArrayList<>();
     private final List<TermLossListener> termLossListeners = new CopyOnWriteArrayList<>();
     // 사유 불문 '리더십을 놓았다' 통지. 강등과 회복 가능 반납 모두에서 발화한다. 관측 전용(is_leader 게이지)이다.
@@ -179,6 +184,19 @@ public class LeaderLeaseService implements AutoCloseable {
 
     LeaderWriteProgress partitionProgress() {
         return partitionProgress;
+    }
+
+    /**
+     * 쓰기 가능 탐지를 켠 노드의 획득 규칙 둘을 건다(DB 설계 §5.4-f 2). 획득은 ACTIVE 일 때만 시도하고, 얻은 리스가 이미
+     * 만료됐으면 승격하지 않는다. 탐지를 끈 노드는 부르지 않아 다른 스택의 관문 조건이 바뀌지 않는다.
+     */
+    public void gateAcquisition(WriteAvailability availability) {
+        this.writeAvailability = availability;
+    }
+
+    /** 얻었으나 이미 만료돼 버린 획득 수. */
+    public long expiredAcquisitions() {
+        return expiredAcquisitions.sum();
     }
 
     /**
@@ -484,6 +502,11 @@ public class LeaderLeaseService implements AutoCloseable {
         if (demoted || !armed) {
             return false;
         }
+        WriteAvailability writes = writeAvailability;
+        if (writes != null && !writes.isActive()) {
+            // 커밋이 확인되지 않는 동안 획득하면 커밋 대기에 걸려 리스 스레드가 매달리고, 풀리는 순간 만료된 리스를 받는다.
+            return false;
+        }
         if (!acquirePolicy.mayAttempt(store)) {
             return false;
         }
@@ -505,6 +528,14 @@ public class LeaderLeaseService implements AutoCloseable {
         }
         lockTimeoutStreak = 0;
         if (acquired == null) {
+            return false;
+        }
+        if (writes != null && !store.holdsUnexpired(holder, acquired)) {
+            // 획득 게이트 직전에 시작한 획득이 커밋 대기를 지나 풀렸다. lease_until 은 커밋 전에 정해져 이미 지났으므로 승격하면
+            // 첫 쓰기와 첫 갱신에서 거부돼 곧바로 강등한다. 강등이 아니라 획득 실패로 두고, 다음 획득이 epoch 을 한 번 더 올린다.
+            expiredAcquisitions.increment();
+            log.warn("얻은 리스가 이미 만료돼 승격하지 않는다(커밋 대기 뒤 풀린 획득): resource={}, holder={}, epoch={}",
+                    resource, holder, acquired);
             return false;
         }
         // 쓰기 경로가 볼 자리에 epoch을 먼저 올린다. 게시 전에 리더가 되면 구 리더의 epoch이

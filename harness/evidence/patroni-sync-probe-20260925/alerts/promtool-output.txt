@@ -1,0 +1,32 @@
+[04:49:48.923] promtool --version
+  promtool, version 3.13.0 (branch: HEAD, revision: 40af9c2cdc0eda00f3622e867a27f6359f7295f3)
+    build user:       root@4525cbec08c1
+    build date:       20260701-10:57:01
+    go version:       go1.26.4
+    platform:         linux/amd64
+    tags:             netgo,builtinassets
+  rc=0
+[04:49:49.366] promtool check rules original-failover.yml
+  Checking original-failover.yml
+    FAILED:
+  original-failover.yml: 6:15: group "patroni-original-failover", rule 1, "PatroniFailoverOccurred": could not parse expression: 1:39: parse error: ranges only allowed for vector selectors
+  rc=1
+[04:49:49.653] promtool check rules original-quorum.yml
+  Checking original-quorum.yml
+    SUCCESS: 1 rules found
+  
+  rc=0
+[04:49:49.938] promtool test rules original-quorum.test.yml
+    SUCCESS
+  
+  rc=0
+[04:49:50.257] promtool check rules patroni-alerts-draft.yml
+  Checking patroni-alerts-draft.yml
+    SUCCESS: 12 rules found
+  
+  rc=0
+[04:49:50.601] promtool test rules patroni-alerts-draft.test.yml
+    SUCCESS
+  
+  rc=0
+남은 컨테이너(이름 patroni-)

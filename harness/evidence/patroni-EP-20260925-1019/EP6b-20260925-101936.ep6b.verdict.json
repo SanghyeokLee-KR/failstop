@@ -1,0 +1,64 @@
+{
+  "scenario": "E-P6b",
+  "run_id": "EP6b-20260925-101936",
+  "verdict": "PASS",
+  "node": "patroni-db-1",
+  "volume": "exchange-patroni_patroni-db-1-data",
+  "times": {
+    "T0": 1790331652.591,
+    "reinit_start": 1790331713.244,
+    "member_walsender_start": 1790331715.784364,
+    "T_sync": 1790331723.75,
+    "streaming_seen_by_runner": 1790331716.7
+  },
+  "derived": {
+    "reinit_to_member_s": 2.54,
+    "reinit_to_sync_s": 10.506
+  },
+  "axes": [
+    {
+      "id": "active_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "재초기화 시작부터 새 멤버 walsender(backend_start 1790331715.784364)까지"
+    },
+    {
+      "id": "acked_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "basebackup_sync_samples",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "멤버가 아닌 walsender 표본 0(sync 0)"
+    },
+    {
+      "id": "no_slot_passed",
+      "value": [
+        "/usr/lib/postgresql/17/bin/pg_basebackup --pgdata=/var/lib/postgresql/data/pgdata -X stream --dbname=dbname=postgres user=replicator host=db-2-repl port=5432 --no-slot --checkpoint=fast"
+      ],
+      "limit": "contains --no-slot",
+      "pass": true,
+      "time_axis": false,
+      "note": "실행 중 /proc 에서 잡은 pg_basebackup 명령줄"
+    }
+  ],
+  "record": {
+    "active_before_cluster_sync": 3,
+    "nonmember_walsender_samples": [],
+    "patroni_log_lines": [
+      "2026-09-25 10:21:54,460 INFO: trying to bootstrap from leader 'patroni-db-2'",
+      "2026-09-25 10:21:54,548 INFO: bootstrap from leader 'patroni-db-2' in progress",
+      "2026-09-25 10:21:55,135 INFO: replica has been created using basebackup",
+      "2026-09-25 10:21:55,135 INFO: bootstrapped from leader 'patroni-db-2'"
+    ]
+  }
+}

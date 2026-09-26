@@ -9,8 +9,10 @@ import { useMemo, useState } from "react";
 import PanelCard from "@/components/PanelCard";
 import { toast } from "@/components/Toast";
 import { useExchangeStore } from "@/lib/store";
+import { isSuspended } from "@/lib/tradingStatus";
 import type { Order } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
+import { ApiError } from "@/lib/api/httpDatasource";
 import { formatPrice, formatQty } from "@/lib/format";
 import styles from "./OpenOrdersMini.module.css";
 
@@ -23,6 +25,9 @@ export default function OpenOrdersMini({ market }: { market: string }) {
   const markets = useExchangeStore((s) => s.markets);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const upsertOrder = useExchangeStore((s) => s.upsertOrder);
+  // 거래 일시 중단 동안 취소도 쓰기라 받지 않는다(§2-5-e). 목록은 그대로 보인다
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
+  const loadTradingStatus = useExchangeStore((s) => s.loadTradingStatus);
   const [canceling, setCanceling] = useState<Set<string>>(new Set());
 
   const spec = markets.find((m) => m.market === market);
@@ -41,7 +46,7 @@ export default function OpenOrdersMini({ market }: { market: string }) {
 
   // 즉시 취소(가역 액션). 확인 다이얼로그 없음, 거래내역 화면 관례와 동일
   const cancel = async (order: Order) => {
-    if (canceling.has(order.id)) return;
+    if (canceling.has(order.id) || suspended) return;
     setCanceling((s) => new Set(s).add(order.id));
     try {
       // 마켓 힌트로 그 마켓을 접수하는 노드에 보낸다(API 설계 §2-5-d)
@@ -51,6 +56,7 @@ export default function OpenOrdersMini({ market }: { market: string }) {
       toast("주문 취소 완료", "info");
       void loadOrders();
     } catch (e) {
+      if (e instanceof ApiError && e.status === 423) void loadTradingStatus();
       toast(e instanceof Error ? e.message : "취소 실패. 잠시 후 다시 시도 필요", "error");
     } finally {
       setCanceling((s) => {
@@ -98,9 +104,10 @@ export default function OpenOrdersMini({ market }: { market: string }) {
                   type="button"
                   className={styles.cancelBtn}
                   onClick={() => void cancel(o)}
-                  disabled={busy}
+                  disabled={busy || suspended}
                   aria-busy={busy}
-                  aria-label={`${sideLabel(o.side)} ${priceText} 주문 취소`}
+                  aria-label={suspended ? `${sideLabel(o.side)} ${priceText} 주문 취소 불가(거래 일시 중단)`
+                    : `${sideLabel(o.side)} ${priceText} 주문 취소`}
                 >
                   {busy ? "취소 중" : "취소"}
                 </button>

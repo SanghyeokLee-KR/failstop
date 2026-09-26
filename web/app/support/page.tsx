@@ -16,7 +16,8 @@ import { toast } from "@/components/Toast";
 import { usePageTitle } from "@/components/PageTitle";
 import { getDataSource } from "@/lib/api/datasource";
 import { ApiError } from "@/lib/api/httpDatasource";
-import { useMemberSession } from "@/lib/store";
+import { useExchangeStore, useMemberSession } from "@/lib/store";
+import { isSuspended, SAVE_BLOCKED_LABEL, SAVE_BLOCKED_SR } from "@/lib/tradingStatus";
 import { loginHref } from "@/lib/auth/nextPath";
 import type { SupportCategory, SupportInquiry } from "@/lib/types";
 import styles from "./page.module.css";
@@ -58,6 +59,8 @@ export default function SupportPage() {
   const [body, setBody] = useState("");
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 거래 일시 중단 동안 문의 등록도 쓰기라 받지 않는다(API 설계 §2-5-e). 목록은 그대로 읽는다
+  const suspended = useExchangeStore((s) => isSuspended(s.tradingStatus));
   const [rows, setRows] = useState<SupportInquiry[] | null>(null);
   const [listFailed, setListFailed] = useState(false);
   const [page, setPage] = useState(0);
@@ -125,7 +128,7 @@ export default function SupportPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy) return;
+    if (busy || suspended) return;
     setTouched(true);
     if (titleError || bodyError) return;
     setBusy(true);
@@ -242,10 +245,16 @@ export default function SupportPage() {
               운영자가 확인 후 답변. 별도 알림 없이 이 화면에 표시
             </p>
 
+            {suspended && (
+              <p className={styles.note} role="status">
+                <span aria-hidden="true">{SAVE_BLOCKED_LABEL}</span>
+                <span className="sr-only">{SAVE_BLOCKED_SR}</span>
+              </p>
+            )}
             <button
               type="submit"
               className="btn btn--primary btn--full btn--xl"
-              disabled={busy}
+              disabled={busy || suspended}
               aria-busy={busy}
             >
               {busy ? "접수 중" : "문의 등록"}
@@ -347,6 +356,8 @@ function supportErrorCopy(err: unknown): string {
     case "out_of_scope":
     case "session_expired":
       return "세션 만료. 다시 로그인 필요";
+    case "trading_suspended":
+      return SAVE_BLOCKED_LABEL;
     default:
       return "등록 실패. 잠시 후 다시 시도 필요";
   }

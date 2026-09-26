@@ -1,0 +1,133 @@
+{
+  "scenario": "E-P4a",
+  "run_id": "EP4a-20260925-133551",
+  "verdict": "PASS",
+  "times": {
+    "T0": 1790343439.44,
+    "T_back": 1790343500.056,
+    "T_suspend": null,
+    "T_resume": null,
+    "T_promote": null,
+    "T_sync": null,
+    "T_down": null,
+    "T_reads": 1790343440.053,
+    "T5": null,
+    "T_first_trade_after_resume": 1790343497.953,
+    "T_sync_lost": null
+  },
+  "derived": {
+    "db_failover_s": null,
+    "read_recovery_s": 0.613,
+    "resume_delay_s": null,
+    "trade_resume_delay_s": null,
+    "suspend_detect_s": null,
+    "haproxy_down_s": null
+  },
+  "axes": [
+    {
+      "id": "no_suspension",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "n=152"
+    },
+    {
+      "id": "etcd_member_down_fired",
+      "value": true,
+      "limit": "== True",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5332,
+    "post_resume_acked_30s": 5339,
+    "last_alive": {
+      "1": 1790343559.271,
+      "2": 1790343559.271,
+      "3": 1790343559.271,
+      "4": 1790343559.271
+    },
+    "not_acked_reasons": {},
+    "verify": {
+      "acked": 29293,
+      "failed": 0,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "10.159.1.10/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "10.159.1.10/32": [
+            1790343395.108,
+            1790343559.856
+          ]
+        }
+      },
+      "pass": true,
+      "present": 29293,
+      "server": "10.159.1.10/32",
+      "unknown": 0,
+      "unknown_present": 0
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": true,
+    "reasons": [
+      "실험 밖 부하 도구 ['container:pml-s6-watch-W2', 'java-gradle(pid 11156, 219ms/2s)']"
+    ],
+    "unknown_sources": []
+  },
+  "extra": {}
+}

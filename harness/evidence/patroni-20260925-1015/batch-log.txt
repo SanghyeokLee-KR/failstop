@@ -1,0 +1,106 @@
+10:19:36-10:23:43 ep-p6b-reinit exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1019\EP6b-20260925-101936.verdict.json)
+BATCH-END
+10:23:55-10:23:55 ep-p2a-standby-stop,ep-p2b-standby-pause,ep-p3a-primary-isolate,ep-p3b-asymmetric-isolate,ep-p4-etcdSystem.Object[] exit=64 chaos=[] NO-VERDICT
+BATCH-END
+10:48:52-10:53:09 ep-p2a-standby-stop exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1048\EP2a-20260925-104852.verdict.json)
+10:53:09-10:56:46 ep-p2b-standby-pause exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1053\EP2b-20260925-105309.verdict.json)
+10:56:46-11:01:10 ep-p3a-primary-isolate exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1056\EP3a-20260925-105647.verdict.json)
+11:01:10 WAIT ep-p3b-asymmetric-isolate chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-prometheus,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-cstats,chaos-dynamodb
+11:03:10 WAIT ep-p3b-asymmetric-isolate chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:05:10 WAIT ep-p3b-asymmetric-isolate chaos 컨테이너 chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:07:10 WAIT ep-p3b-asymmetric-isolate chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:09:10 WAIT ep-p3b-asymmetric-isolate chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:11:11-11:15:38 ep-p3b-asymmetric-isolate exit=2 chaos=[] 판정 INCONCLUSIVE (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1111\EP3b-20260925-111111.verdict.json)
+11:15:38 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:17:38 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-blackbox,chaos-broker,chaos-cstats,chaos-dynamodb
+11:19:38 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:21:38 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:23:38 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:25:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:27:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:29:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+11:31:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-broker,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:33:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-broker,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:35:39 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-broker,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:37:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-cstats,chaos-pg,chaos-broker,chaos-alertmanager,chaos-dynamodb,chaos-blackbox
+11:39:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-cstats,chaos-pg,chaos-broker,chaos-alertmanager,chaos-dynamodb,chaos-blackbox
+11:41:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-grafana,chaos-prometheus,chaos-pg,chaos-alertmanager,chaos-broker,chaos-dynamodb,chaos-cstats,chaos-blackbox
+11:43:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-grafana,chaos-api-1,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-pg,chaos-alertmanager,chaos-broker,chaos-dynamodb,chaos-cstats,chaos-blackbox
+11:45:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:47:40 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:49:41 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+11:51:41 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-ee2df669-4779-4126-8511-0743efc17365,gradle-worker:23184
+11:53:41 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+11:55:41 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+11:57:41 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+11:59:41 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:01:42 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:03:42 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:05:42 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:07:42 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:09:43 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:11:43 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:13:43 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:15:43 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-198f5709-3422-4d3e-b7f7-177a8e6a5ffc,gradle-worker:4104
+12:17:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-prometheus,chaos-toxiproxy,chaos-pg,chaos-cstats,chaos-alertmanager,chaos-dynamodb,chaos-blackbox
+12:19:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+12:21:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-broker,chaos-blackbox,chaos-cstats,chaos-dynamodb
+12:23:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-grafana,chaos-prometheus,chaos-pg,chaos-broker,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:25:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-broker,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:27:44 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-broker,chaos-alertmanager,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:29:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:31:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:33:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:35:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:37:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:39:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-blackbox,chaos-alertmanager,chaos-broker,chaos-cstats,chaos-dynamodb
+12:41:45 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-broker,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:43:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:45:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-broker,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:47:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-broker,chaos-pg,chaos-blackbox,chaos-cstats,chaos-alertmanager,chaos-dynamodb
+12:49:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-alertmanager,chaos-pg,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:51:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-alertmanager,chaos-pg,chaos-cstats,chaos-dynamodb,chaos-blackbox
+12:53:46 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-cstats,chaos-dynamodb,chaos-alertmanager,chaos-blackbox
+12:55:47 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+12:57:47 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+12:59:47 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+13:01:47 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+13:03:47 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+13:05:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc,gradle-worker:38044
+13:07:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-c62db667-0768-4b3e-99b6-d3662feda9cc
+13:09:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-6efdca64-c780-49f2-bb90-72606700923b,gradle-worker:30324
+13:11:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-6efdca64-c780-49f2-bb90-72606700923b,gradle-worker:30324
+13:13:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:15:48 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:17:49 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:19:49 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:21:49 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:23:49 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:25:49 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:27:50 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:29:50 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:31:50 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952
+13:33:50 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-b6558c01-0eb3-4a83-bf60-513767dc3f26,testcontainers-ryuk-50e04c3d-25e5-4ed1-9d60-7444d4bf3054,gradle-worker:2952,gradle-worker:39668
+13:35:51-13:39:35 ep-p4-etcda exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1335\EP4a-20260925-133551.verdict.json)
+13:39:35 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-dynamodb,chaos-pg,chaos-cstats,chaos-alertmanager,chaos-blackbox
+13:41:35 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-broker,chaos-dynamodb,chaos-pg,chaos-cstats,chaos-alertmanager,chaos-blackbox
+13:43:35 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-broker,chaos-dynamodb,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-blackbox
+13:45:35 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-broker,chaos-dynamodb,chaos-pg,chaos-alertmanager,chaos-cstats,chaos-blackbox
+13:47:36 WAIT ep-p4-etcd chaos 컨테이너 testcontainers-ryuk-7694caf5-42f1-4f29-aca9-943d3c9a30bd,gradle-worker:11136
+13:49:36 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-broker,chaos-cstats,chaos-pg,chaos-alertmanager,chaos-dynamodb,chaos-blackbox
+13:51:36 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-alertmanager,chaos-blackbox
+13:53:36 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-alertmanager,chaos-blackbox
+13:55:36 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-pg-exporter,chaos-toxiproxy,chaos-prometheus,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-alertmanager,chaos-blackbox
+13:57:36 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+13:59:37 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+14:01:37 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+14:03:37 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+14:05:37 WAIT ep-p4-etcd chaos 컨테이너 chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+14:07:37 WAIT ep-p4-etcd chaos 컨테이너 chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-alertmanager,chaos-pg,chaos-dynamodb,chaos-broker,chaos-cstats,chaos-blackbox
+14:09:37-14:13:22 ep-p4-etcdb exit=0 chaos=[chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-toxiproxy,chaos-pg-exporter,chaos-alertmanager,chaos-pg,chaos-cstats,chaos-dynamodb,chaos-blackbox] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1409\EP4b-20260925-140938.verdict.json)
+14:13:22-14:17:41 ep-p5-load-failover exit=0 chaos=[chaos-bots,chaos-lb,chaos-api-2,chaos-api-1,chaos-grafana,chaos-prometheus,chaos-pg-exporter,chaos-toxiproxy,chaos-cstats,chaos-pg,chaos-alertmanager,chaos-dynamodb,chaos-blackbox] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1413\EP5-20260925-141322.verdict.json)
+14:17:42-14:20:26 ep-p1b-primary-restart exit=1 chaos=[] 판정 FAIL (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1417\EP1b-20260925-141742.verdict.json)
+BATCH-END
+14:20:59-14:25:12 ep-p3b-asymmetric-isolate exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1420\EP3b-20260925-142059.verdict.json)
+14:25:12-14:29:21 ep-p5-load-failover exit=0 chaos=[] 판정 PASS (C:\dev\exchange-patroni\harness\evidence\patroni-EP-20260925-1425\EP5-20260925-142512.verdict.json)
+BATCH-END

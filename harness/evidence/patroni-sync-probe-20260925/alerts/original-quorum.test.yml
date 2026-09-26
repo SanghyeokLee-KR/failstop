@@ -1,0 +1,17 @@
+# etcd 세 멤버가 모두 죽어 up 이 0 이고 etcd_server_has_leader 표본이 없는 경우. 첫 판 식은 발화하지 않는다(기대 경보 없음).
+rule_files:
+  - original-quorum.yml
+evaluation_interval: 5s
+tests:
+  - interval: 5s
+    input_series:
+      - series: 'up{job="etcd", instance="etcd-1"}'
+        values: '0x24'
+      - series: 'up{job="etcd", instance="etcd-2"}'
+        values: '0x24'
+      - series: 'up{job="etcd", instance="etcd-3"}'
+        values: '0x24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EtcdQuorumLost
+        exp_alerts: []

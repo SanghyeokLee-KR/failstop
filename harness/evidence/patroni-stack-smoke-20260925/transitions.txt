@@ -1,0 +1,190 @@
+# 컨테이너 로그에서 전이·리스·재합류 줄만 옮겼다. 원문은 저장소 밖에 두고 해시를 log-sha256.txt 에 적었다.
+## patroni-api-1
+2026-09-25T06:19:58.484Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: UNREACHABLE -> ACTIVE (세대 0, 재확인 전 false)
+2026-09-25T06:19:58.963Z INFO [matching-engine] kr.exchange.engine.LeaderLeaseService: 리더 승격: resource=matching-engine, holder=184d6f7f-877e-4df8-93aa-685670a6db23, epoch=1, 세대=1
+2026-09-25T06:21:00.536Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> SUSPENDED (이유 replication_unavailable, 세대 1)
+2026-09-25T06:22:02.530Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=66): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:22:02.541Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=166
+2026-09-25T06:22:20.643Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 1, 재확인 전 false)
+2026-09-25T06:22:20.647Z INFO [Thread-1] kr.exchange.config.EngineConfig: 재개 따라잡기 요청: 파티션 [matching-engine]
+2026-09-25T06:23:44.152Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=158): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:23:49.703Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> UNREACHABLE (이유 database_unavailable, 세대 2)
+2026-09-25T06:23:50.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=159): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=160): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.158Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=161): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:51.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=162): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:52.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=163): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:53.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=164): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:54.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=165): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:55.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=166): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:56.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=167): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:57.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=168): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:58.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=169): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:59.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=170): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:00.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=171): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:01.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=172): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:02.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=173): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:03.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=174): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:04.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=175): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:05.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=176): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:06.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=177): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:07.164Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=178): org.postgresql.util.PSQLException: ERROR: cannot assign TransactionIds during recovery
+2026-09-25T06:24:08.745Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단 이유 변경: UNREACHABLE -> SUSPENDED (이유 replication_unavailable)
+2026-09-25T06:24:10.409Z WARN [matching-engine] kr.exchange.engine.LeaderLeaseService: 리더십 상실(재구성 전 재획득 없음): resource=matching-engine, holder=184d6f7f-877e-4df8-93aa-685670a6db23, epoch=1, 사유=LEASE_LOST_WHILE_ACCEPTING(renew 거부(만료 또는 탈취됨))
+2026-09-25T06:24:10.410Z WARN [matching-engine] kr.exchange.engine.PartitionRuntime: 파티션 강등: resource=matching-engine, epoch=1, 사유=LEASE_LOST_WHILE_ACCEPTING(renew 거부(만료 또는 탈취됨)), 차단기 1회/닫힘
+2026-09-25T06:25:08.219Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=179): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:25:08.227Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=301
+2026-09-25T06:26:08.287Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=180): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:26:08.296Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=454
+2026-09-25T06:26:39.938Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 2, 재확인 전 false)
+## patroni-api-2
+2026-09-25T06:20:13.554Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: UNREACHABLE -> ACTIVE (세대 0, 재확인 전 false)
+2026-09-25T06:21:00.591Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> SUSPENDED (이유 replication_unavailable, 세대 1)
+2026-09-25T06:22:02.590Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=51): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:22:02.600Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=217
+2026-09-25T06:22:20.706Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 1, 재확인 전 false)
+2026-09-25T06:23:44.152Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=143): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:23:49.772Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> UNREACHABLE (이유 database_unavailable, 세대 2)
+2026-09-25T06:23:50.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=144): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=145): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.158Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=146): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:51.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=147): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:52.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=148): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:53.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=149): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:54.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=150): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:55.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=151): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:56.158Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=152): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:57.157Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=153): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:58.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=154): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:59.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=155): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:00.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=156): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:01.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=157): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:02.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=158): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:03.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=159): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:04.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=160): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:05.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=161): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:06.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=162): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:07.165Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=163): org.postgresql.util.PSQLException: ERROR: cannot assign TransactionIds during recovery
+2026-09-25T06:24:08.813Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단 이유 변경: UNREACHABLE -> SUSPENDED (이유 replication_unavailable)
+2026-09-25T06:25:08.222Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=164): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:25:08.230Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=302
+2026-09-25T06:26:08.281Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=165): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:26:08.290Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=455
+2026-09-25T06:26:39.024Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 2, 재확인 전 false)
+2026-09-25T06:26:39.124Z INFO [matching-engine] kr.exchange.engine.LeaderLeaseService: 리더 승격: resource=matching-engine, holder=2fd9d636-6330-4e0a-827e-c5b87812de23, epoch=2, 세대=1
+## patroni-bots
+2026-09-25T06:20:13.800Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: UNREACHABLE -> ACTIVE (세대 0, 재확인 전 false)
+2026-09-25T06:21:00.827Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> SUSPENDED (이유 replication_unavailable, 세대 1)
+2026-09-25T06:22:02.763Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=51): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:22:02.771Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=218
+2026-09-25T06:22:20.912Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 1, 재확인 전 false)
+2026-09-25T06:23:44.151Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=143): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:23:47.964Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단: ACTIVE -> UNREACHABLE (이유 database_unavailable, 세대 2)
+2026-09-25T06:23:50.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=144): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=145): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:50.156Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=146): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:51.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=147): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:52.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=148): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:53.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=149): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:54.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=150): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:55.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=151): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:56.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=152): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:57.155Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=153): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:58.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=154): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:23:59.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=155): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:00.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=156): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:01.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=157): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:02.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=158): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:03.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=159): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:04.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=160): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:05.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=161): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:06.154Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=162): org.postgresql.util.PSQLException: The connection attempt failed.
+2026-09-25T06:24:07.162Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=163): org.postgresql.util.PSQLException: ERROR: cannot assign TransactionIds during recovery
+2026-09-25T06:24:08.992Z WARN [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 일시 중단 이유 변경: UNREACHABLE -> SUSPENDED (이유 replication_unavailable)
+2026-09-25T06:25:08.213Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=164): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:25:08.220Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=300
+2026-09-25T06:26:08.277Z WARN [write-probe] kr.exchange.engine.WriteProbe: 쓰기 가능 탐지 실패(probe=165): org.postgresql.util.PSQLException: An I/O error occurred while sending to the backend.
+2026-09-25T06:26:08.286Z WARN [write-probe] kr.exchange.engine.WriteProbe: 커밋을 기다리던 이전 탐지 백엔드를 끝냈다: pid=453
+2026-09-25T06:26:39.137Z INFO [ite-probe-check] kr.exchange.engine.WriteAvailability: 거래 재개: SUSPENDED -> ACTIVE (세대 2, 재확인 전 false)
+## patroni-db-1
+2026-09-25 06:19:15,051 WARNING: No standbys available!
+2026-09-25 06:19:15,051 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:19:19,966 INFO: Assigning synchronous standby status to ['patroni-db-2']
+2026-09-25 06:19:22,114 INFO: Synchronous standby status assigned to ['patroni-db-2']
+2026-09-25 06:21:00,005 WARNING: No standbys available!
+2026-09-25 06:21:00,005 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:04,962 WARNING: No standbys available!
+2026-09-25 06:21:04,962 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:09,968 WARNING: No standbys available!
+2026-09-25 06:21:09,968 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:14,960 WARNING: No standbys available!
+2026-09-25 06:21:14,960 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:19,962 WARNING: No standbys available!
+2026-09-25 06:21:19,962 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:25,005 WARNING: No standbys available!
+2026-09-25 06:21:25,005 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:29,958 WARNING: No standbys available!
+2026-09-25 06:21:29,958 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:34,958 WARNING: No standbys available!
+2026-09-25 06:21:34,958 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:39,958 WARNING: No standbys available!
+2026-09-25 06:21:39,958 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:44,959 WARNING: No standbys available!
+2026-09-25 06:21:44,959 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:49,958 WARNING: No standbys available!
+2026-09-25 06:21:49,958 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:54,962 WARNING: No standbys available!
+2026-09-25 06:21:54,962 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:21:59,966 WARNING: No standbys available!
+2026-09-25 06:21:59,966 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:22:04,958 WARNING: No standbys available!
+2026-09-25 06:22:04,958 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:22:09,961 WARNING: No standbys available!
+2026-09-25 06:22:09,961 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:22:15,008 WARNING: No standbys available!
+2026-09-25 06:22:15,008 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:22:19,958 INFO: Assigning synchronous standby status to ['patroni-db-2']
+2026-09-25 06:22:22,106 INFO: Synchronous standby status assigned to ['patroni-db-2']
+2026-09-25 06:26:36,093 INFO: running pg_rewind from patroni-db-2
+2026-09-25 06:26:36,122 INFO: running pg_rewind from dbname=postgres user=postgres host=db-2-repl port=5432 target_session_attrs=read-write
+## patroni-db-2
+2026-09-25 06:19:16.405 UTC [39] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-25 06:22:15.136 UTC [42] LOG:  started streaming WAL from primary at 0/3000000 on timeline 1
+2026-09-25 06:24:04,566 INFO: promoted self to leader by acquiring session lock
+2026-09-25 06:24:08,669 WARNING: No standbys available!
+2026-09-25 06:24:08,669 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:08,939 WARNING: No standbys available!
+2026-09-25 06:24:08,939 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:13,939 WARNING: No standbys available!
+2026-09-25 06:24:13,939 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:18,939 WARNING: No standbys available!
+2026-09-25 06:24:18,939 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:23,897 WARNING: No standbys available!
+2026-09-25 06:24:23,897 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:28,896 WARNING: No standbys available!
+2026-09-25 06:24:28,897 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:33,946 WARNING: No standbys available!
+2026-09-25 06:24:33,946 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:38,938 WARNING: No standbys available!
+2026-09-25 06:24:38,938 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:43,897 WARNING: No standbys available!
+2026-09-25 06:24:43,897 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:48,897 WARNING: No standbys available!
+2026-09-25 06:24:48,897 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:53,937 WARNING: No standbys available!
+2026-09-25 06:24:53,938 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:24:58,896 WARNING: No standbys available!
+2026-09-25 06:24:58,896 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:03,896 WARNING: No standbys available!
+2026-09-25 06:25:03,896 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:08,942 WARNING: No standbys available!
+2026-09-25 06:25:08,942 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:13,896 WARNING: No standbys available!
+2026-09-25 06:25:13,896 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:18,900 WARNING: No standbys available!
+2026-09-25 06:25:18,900 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:23,896 WARNING: No standbys available!
+2026-09-25 06:25:23,896 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:28,895 WARNING: No standbys available!
+2026-09-25 06:25:28,895 INFO: Assigning synchronous standby status to ['*']
+2026-09-25 06:25:33,895 WARNING: No standbys available!
