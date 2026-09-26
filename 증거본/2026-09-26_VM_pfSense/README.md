@@ -31,11 +31,15 @@
 | 21 | `21-시험-외부발신.png` | DB01: `nslookup`은 pfSense(192.168.10.1)를 거쳐 응답, `curl -m 5 -I https://dl.rockylinux.org`는 시간 초과(pfSense LAN 기본 거절), `chronyc sources`는 `^* pfsense-fw.lab` | 허용·차단 확인. 첫 `nslookup`의 `communications error ... timed out` 한 줄은 아래 관찰 참고 |
 | 22 | `22-pfSense-차단로그.png` | Status › System Logs › Firewall, 시험 시각(21:23~21:39)과 목적지 포트 5432·8080·443으로 거른 화면: OPT1에서 작업 PC → DB 5432·앱 8080, LAN에서 DB01 → 146.75.94.132:443(21:30:22) 거절 | 차단 기록 확인 |
 | 23 | `23-OPS01-원격로그-수신.png` | OPS01 `/var/log/pfsense/firewall.log`에서 같은 세 종류의 차단 기록 확인. rsyslog 192.168.10.41:514 대기 | 수신 확인(21:34 기준 424줄, nftables 514 카운터 331패킷) |
+| 24 | `24-LAN-규칙-Teams443.png` | LAN 규칙에 `OPS → TEAMS_WEBHOOK TCP 443` 추가(22:1x). `TEAMS_WEBHOOK`은 Teams Workflows 웹훅의 호스트 이름 하나를 넣은 FQDN 별칭이다 | 적용. 시험 연결 1건이 규칙 상태에 잡힘 |
+| 25 | `25-TEAMS_WEBHOOK-해석주소.png` | Diagnostics › Tables: pfSense가 호스트 이름을 해석해 넣은 주소(IPv4 1개, IPv6 1개) | 확인 |
+| 26 | `26-OPS01-외부발신-정리.png` | OPS01: Teams 주소 443 `Connected`, grafana.com 443 `TIMEOUT`, Databasus `anonymous telemetry is disabled`(로그 시각은 UTC, 22:04:30 KST), Grafana 외부 확인 설정 | 허용·차단 확인 |
 
 관찰:
 
 - pfSense DNS Resolver는 전달(forwarding) 없이 루트부터 재귀 조회한다. 캐시에 없는 이름은 0.6~1.6초가 걸렸고(`dig` 측정, 21:3x), CNAME이 긴 `dl.rockylinux.org`는 `nslookup`의 짧은 첫 시도 제한을 넘겨 한 번 시간 초과한 뒤 재시도에서 응답했다. 캐시된 이름은 즉시 응답한다. 경계 차단 때문이 아니다.
-- 차단 기록에는 OPS01(192.168.10.41)의 외부 443 시도가 계속 보인다. Grafana가 grafana.com 플러그인·업데이트 확인을 보내는 것이며(journal의 `plugin.backgroundinstaller` 오류), 알림 웹훅이 아니다. LAN 기본 거절이 의도대로 막고 있다.
+- 차단 기록에 OPS01(192.168.10.41)의 외부 443 시도가 계속 보였다. 하나는 Grafana의 grafana.com 플러그인·업데이트 확인(journal의 `plugin.backgroundinstaller` 오류), 다른 하나는 Databasus의 사용 통계 전송(`metrics.databasus.com`)이었고 알림 웹훅은 아니었다. 21:48에 Grafana 설정을, 22:04에 Databasus의 `IS_DISABLE_ANONYMOUS_TELEMETRY`를 바꿨다. 이후 두 발신의 차단 기록은 나오지 않았다(22:10 확인).
+- Teams 웹훅 호스트는 사용자가 작업 PC에 둔 링크 파일에서 호스트 부분만 뽑아 pfSense 별칭에 넣었다. 전체 주소와 호스트 이름은 이 기록과 저장소에 남기지 않는다. 이 호스트는 Azure Traffic Manager를 거치는 CNAME이라 가리키는 주소가 바뀔 수 있다. pfSense가 별칭을 다시 해석하기 전에 바뀌면 그 사이 전송이 막힐 수 있다. VM 실습망의 Alertmanager는 아직 Teams로 보내지 않으며(수신자 `hold`), 이번에는 443 연결만 확인하고 웹훅 요청은 보내지 않았다.
 - 웹 진입 주소는 `https://192.168.56.11`에서 `https://192.168.56.10`(pfSense 포워딩)으로 바뀌었다. 저장소의 VM 실습 문서는 아직 이전 주소를 적고 있다.
 
-남은 일: OPS01 → Teams 443 규칙(웹훅 호스트 확인 필요, 전체 주소는 기록하지 않음), Grafana 외부 확인 끄기 여부 결정, 저장소 VM 실습 문서(주소계획·방화벽 실습 계획·배포 안내)의 경계형·새 진입 주소 반영. 이 항목들은 아직 실행하지 않았다.
+남은 일: 저장소 VM 실습 문서 반영과 커밋은 같은 날 했다. VM 실습망 Alertmanager를 Teams로 연결할지, 규칙을 끈 직후와 pfSense 재부팅 뒤 재시험은 아직 하지 않았다.

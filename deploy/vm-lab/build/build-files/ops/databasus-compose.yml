@@ -29,6 +29,10 @@ services:
       - "127.0.0.1:4005:4005"
     volumes:
       - ./databasus-data:/databasus-data
+    environment:
+      # 익명 사용 통계를 끈다. 상류 기본값은 켜짐(false)이고 metrics.databasus.com 으로 443 을 보낸다.
+      # pfSense 경계형에서는 OPS01 의 외부 443 이 막혀 8~16분마다 실패하고 차단 로그를 채웠다(2026-09-26).
+      IS_DISABLE_ANONYMOUS_TELEMETRY: "true"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "databasus", "healthcheck"]
