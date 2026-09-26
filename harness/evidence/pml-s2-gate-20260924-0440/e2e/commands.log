@@ -1,0 +1,15 @@
+2026-09-24T04:52:53+09:00 PHASE E2E project=exchange-pml repo=C:\dev\exchange-pml
+2026-09-24T04:52:53+09:00 down -v rc=0
+2026-09-24T04:53:25+09:00 up (owner login, Flyway V1..V48 by api-1) rc=0
+2026-09-24T04:53:26+09:00 RUN provision-runtime-roles.sql (docker exec -i chaos-pg psql -U exchange, 로그인 pml_app·pml_bot·pml_read)
+2026-09-24T04:53:26+09:00 provision rc=0
+2026-09-24T04:53:26+09:00 APP-ROLE B-app-role image=exchange-chaos-app:pml epoch0=1 since=2026-09-23 19:53:26.787
+2026-09-24T04:53:26+09:00 COMPOSE exchange-pml overlays=[override-app-login.yml] up -d --no-deps --force-recreate chaos-api-1 chaos-api-2 chaos-bots image=exchange-chaos-app:pml
+2026-09-24T04:53:39+09:00 COMPOSE rc=0
+2026-09-24T04:53:39+09:00 leader holder=7a0795fc-71e5-41e9-9c44-3cc0457674e7 epoch=2
+2026-09-24T04:54:42+09:00 docker stop chaos-bots rc=0
+2026-09-24T04:54:44+09:00 drain=True
+2026-09-24T04:54:45+09:00 SUMMARY summary-B-app-role rc=0 checks=31 fail=[] skip=[] C29=PASS
+2026-09-24T04:54:45+09:00 APP-ROLE B-app-role verdict=PASS imagesOk=True loginOk=True writesOk=True invariantsZero=True
+2026-09-24T04:54:48+09:00 down -v rc=0
+2026-09-24T04:54:48+09:00 E2E verdict=PASS

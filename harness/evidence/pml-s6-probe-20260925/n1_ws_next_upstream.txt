@@ -1,0 +1,23 @@
+== N1 /ws/ 업그레이드 요청 10건(a는 503, b는 200) 03:41:30Z
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+HTTP/1.1 200 OK X-Backend: b
+-- lb 접근 로그
+200 up=172.18.0.2:8080, 172.18.0.3:8080 ups=503, 200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.3:8080 ups=200
+200 up=172.18.0.2:8080, 172.18.0.3:8080 ups=503, 200
+200 up=172.18.0.3:8080 ups=200
+nginx version: nginx/1.29.8

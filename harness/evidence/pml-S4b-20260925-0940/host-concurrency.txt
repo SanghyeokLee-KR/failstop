@@ -1,0 +1,30 @@
+2026-09-25T09:40:39+09:00 Prep before testcontainers=0 containers=0 cpu=16
+2026-09-25T09:41:32+09:00 Prep after rc=0 testcontainers=0 containers=0 cpu=22
+2026-09-25T09:42:05+09:00 X1 before testcontainers=0 containers=0 cpu=3
+2026-09-25T10:01:36+09:00 X1 after rc=0 testcontainers=0 containers=0 cpu=2
+2026-09-25T10:01:38+09:00 B1 before testcontainers=0 containers=0 cpu=8
+2026-09-25T10:08:38+09:00 B1 after rc=0 testcontainers=0 containers=0 cpu=2
+2026-09-25T10:08:40+09:00 E2-r1 before testcontainers=0 containers=0 cpu=0
+2026-09-25T10:12:00+09:00 E2-r1 after rc=0 testcontainers=0 containers=0 cpu=4
+2026-09-25T10:12:01+09:00 E2-r2 before testcontainers=0 containers=0 cpu=2
+2026-09-25T10:15:26+09:00 E2-r2 after rc=0 testcontainers=0 containers=0 cpu=3
+2026-09-25T10:15:28+09:00 E2-r3 before testcontainers=0 containers=0 cpu=0
+2026-09-25T10:18:48+09:00 E2-r3 after rc=0 testcontainers=0 containers=0 cpu=3
+2026-09-25T10:18:50+09:00 E2-r4 before testcontainers=0 containers=0 cpu=1
+2026-09-25T10:22:09+09:00 E2-r4 after rc=0 testcontainers=0 containers=0 cpu=1
+2026-09-25T10:22:10+09:00 E2-r5 before testcontainers=0 containers=0 cpu=2
+2026-09-25T10:25:23+09:00 E2-r5 after rc=0 testcontainers=0 containers=0 cpu=13
+2026-09-25T10:25:25+09:00 E1-r1 before testcontainers=0 containers=0 cpu=17
+2026-09-25T10:31:36+09:00 E1-r1 after rc=0 testcontainers=0 containers=0 cpu=4
+2026-09-25T10:31:37+09:00 E1-r2 before testcontainers=0 containers=0 cpu=2
+2026-09-25T10:37:49+09:00 E1-r2 after rc=0 testcontainers=0 containers=0 cpu=52
+2026-09-25T10:37:50+09:00 E1-r3 before testcontainers=0 containers=0 cpu=15
+2026-09-25T10:43:59+09:00 E1-r3 after rc=0 testcontainers=0 containers=0 cpu=42
+2026-09-25T10:44:00+09:00 E1-r4 before testcontainers=0 containers=0 cpu=15
+2026-09-25T10:50:06+09:00 E1-r4 after rc=0 testcontainers=0 containers=0 cpu=45
+2026-09-25T10:50:08+09:00 E1-r5 before testcontainers=0 containers=0 cpu=23
+2026-09-25T10:56:24+09:00 E1-r5 after rc=0 testcontainers=0 containers=0 cpu=67
+2026-09-25T10:56:26+09:00 regress before testcontainers=0 containers=0 cpu=74
+2026-09-25T11:12:55+09:00 regress after rc=0 testcontainers=0 containers=0 cpu=18
+2026-09-25T11:12:57+09:00 Final before testcontainers=0 containers=0 cpu=17
+2026-09-25T11:12:59+09:00 Final after rc=0 testcontainers=0 containers=0 cpu=15

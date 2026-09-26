@@ -1,0 +1,58 @@
+{
+  "experiment": "W2",
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+  "botOps": 300,
+  "faultSec": 60,
+  "volumesBefore": {
+    "exchange-chaos_chaos-pgdata": "2026-09-13T11:42:01Z",
+    "failstop-keep-chaos-pgdata-20260924": "2026-09-23T15:47:36Z"
+  },
+  "relayPreflight": {
+    "at": "2026-09-25T11:05:54.1317623Z",
+    "brokerHealthy": true,
+    "appModes": {
+      "chaos-api-1": "broker",
+      "chaos-api-2": "broker"
+    },
+    "lbConfSource": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.relay.conf",
+    "lbRelayConf": true,
+    "ok": true
+  },
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "relayWatch": {
+    "name": "pml-s6-watch-W2",
+    "rc": 0,
+    "id": "fc231a1b6629263af31213a0b07e2755859b1da440872620eb9db90cbcb5f8a0",
+    "startedAt": "2026-09-25T11:06:01.7923893Z"
+  },
+  "restoreRc": 0,
+  "window": {
+    "stackFrom": "2026-09-25T11:04:52.8804596+00:00",
+    "from": "2026-09-25T11:06:01.8264708+00:00",
+    "faultFrom": "2026-09-25T11:07:01.8342963+00:00",
+    "faultTo": "2026-09-25T11:08:03.3992347+00:00",
+    "to": "2026-09-25T11:09:33.4117979+00:00"
+  },
+  "relayAxes": {
+    "rc": 1,
+    "ok": false,
+    "failed": [
+      "append_p99_le_1_5x",
+      "follower_watch_1013",
+      "leader_watch_kept_connection"
+    ]
+  },
+  "s3Common": {
+    "rc": 0,
+    "ok": true,
+    "failed": null
+  },
+  "판정": "FAIL(중계 축)",
+  "volumesAfter": {
+    "exchange-chaos_chaos-pgdata": "2026-09-13T11:42:01Z",
+    "failstop-keep-chaos-pgdata-20260924": "2026-09-23T15:47:36Z"
+  },
+  "volumesUnchanged": true
+}

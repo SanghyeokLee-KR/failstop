@@ -1,0 +1,247 @@
+{
+  "phase": "Z2",
+  "at": "2026-09-25T09:34:48.083+00:00",
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "states": {
+    "chaos-api-1": "ACCEPTING",
+    "chaos-api-2": "FOLLOWER"
+  },
+  "user_id": 726,
+  "rows": [
+    {
+      "shape": "create_hinted",
+      "coids": [
+        "z2f-7bfaef2c-0"
+      ],
+      "response": {
+        "status": 503,
+        "ms": 26.1,
+        "retry_after": "1",
+        "route_header": "not-owner",
+        "ratelimit_account_header": false,
+        "error": "service_unavailable",
+        "constraint": null,
+        "detail_route": "not_owner"
+      }
+    },
+    {
+      "shape": "create_unhinted",
+      "coids": [
+        "z2f-4ccd2b5f-1"
+      ],
+      "response": {
+        "status": 503,
+        "ms": 2.5,
+        "retry_after": "1",
+        "route_header": "not-owner",
+        "ratelimit_account_header": false,
+        "error": "service_unavailable",
+        "constraint": null,
+        "detail_route": "not_owner"
+      }
+    },
+    {
+      "shape": "batch",
+      "coids": [
+        "z2f-114851e2-2",
+        "z2f-29c43089-3"
+      ],
+      "response": {
+        "status": 503,
+        "ms": 2.2,
+        "retry_after": "1",
+        "route_header": "not-owner",
+        "ratelimit_account_header": false,
+        "error": "service_unavailable",
+        "constraint": null,
+        "detail_route": "not_owner"
+      }
+    },
+    {
+      "shape": "batch_first_without_market",
+      "coids": [
+        "z2f-82065a70-4",
+        "z2f-9774f3f7-5"
+      ],
+      "response": {
+        "status": 503,
+        "ms": 2.1,
+        "retry_after": "1",
+        "route_header": "not-owner",
+        "ratelimit_account_header": false,
+        "error": "service_unavailable",
+        "constraint": null,
+        "detail_route": "not_owner"
+      }
+    },
+    {
+      "shape": "cancel_all_with_market",
+      "coids": [],
+      "response": {
+        "status": 503,
+        "ms": 2.2,
+        "retry_after": "1",
+        "route_header": "not-owner",
+        "ratelimit_account_header": false,
+        "error": "service_unavailable",
+        "constraint": null,
+        "detail_route": "not_owner"
+      }
+    }
+  ],
+  "side_effects": {
+    "idempotency_keys": 0,
+    "journal_rows": 0,
+    "reservations": 0
+  },
+  "follower_not_owner_delta": 5.0,
+  "counters_delta": {
+    "chaos-api-1": {},
+    "chaos-api-2": {
+      "exchange_routing_precheck_total{result=not_owner}": 5.0
+    }
+  },
+  "leader_retry": {
+    "status": 201,
+    "ms": 30.3,
+    "retry_after": null,
+    "route_header": null,
+    "ratelimit_account_header": true,
+    "error": null,
+    "constraint": null,
+    "detail_route": null,
+    "body_id": "ca7c2244-963a-46ce-9f12-d7e8ec6b2486",
+    "body_status": "OPEN",
+    "body_client_order_id": "z2f-7bfaef2c-0"
+  },
+  "leader_new_rows": 1,
+  "cleanup": {
+    "status": 200,
+    "ms": 29.0,
+    "retry_after": null,
+    "route_header": null,
+    "ratelimit_account_header": true,
+    "error": null,
+    "constraint": null,
+    "detail_route": null,
+    "body_id": "ca7c2244-963a-46ce-9f12-d7e8ec6b2486",
+    "body_status": "CANCELED",
+    "body_client_order_id": "z2f-7bfaef2c-0"
+  },
+  "api3": {
+    "rows": [
+      {
+        "shape": "create_hinted",
+        "coids": [
+          "z2r-4b13c354-0"
+        ],
+        "response": {
+          "status": 503,
+          "ms": 38.8,
+          "retry_after": "1",
+          "route_header": "not-owner",
+          "ratelimit_account_header": false,
+          "error": "service_unavailable",
+          "constraint": null,
+          "detail_route": "not_owner"
+        }
+      },
+      {
+        "shape": "create_unhinted",
+        "coids": [
+          "z2r-22f69940-1"
+        ],
+        "response": {
+          "status": 503,
+          "ms": 3.1,
+          "retry_after": "1",
+          "route_header": "not-owner",
+          "ratelimit_account_header": false,
+          "error": "service_unavailable",
+          "constraint": null,
+          "detail_route": "not_owner"
+        }
+      },
+      {
+        "shape": "batch",
+        "coids": [
+          "z2r-0d7d8101-2",
+          "z2r-711611c4-3"
+        ],
+        "response": {
+          "status": 503,
+          "ms": 14.8,
+          "retry_after": "1",
+          "route_header": "not-owner",
+          "ratelimit_account_header": false,
+          "error": "service_unavailable",
+          "constraint": null,
+          "detail_route": "not_owner"
+        }
+      },
+      {
+        "shape": "batch_first_without_market",
+        "coids": [
+          "z2r-f17e1f45-4",
+          "z2r-df4ffc8c-5"
+        ],
+        "response": {
+          "status": 503,
+          "ms": 3.0,
+          "retry_after": "1",
+          "route_header": "not-owner",
+          "ratelimit_account_header": false,
+          "error": "service_unavailable",
+          "constraint": null,
+          "detail_route": "not_owner"
+        }
+      },
+      {
+        "shape": "cancel_all_with_market",
+        "coids": [],
+        "response": {
+          "status": 503,
+          "ms": 2.7,
+          "retry_after": "1",
+          "route_header": "not-owner",
+          "ratelimit_account_header": false,
+          "error": "service_unavailable",
+          "constraint": null,
+          "detail_route": "not_owner"
+        }
+      }
+    ],
+    "side_effects": {
+      "idempotency_keys": 0,
+      "journal_rows": 0,
+      "reservations": 1
+    },
+    "not_owner_delta": 5.0,
+    "counters_delta": {
+      "exchange_routing_precheck_total{result=not_owner}": 5.0
+    }
+  },
+  "lease": {
+    "before": {
+      "holder": "286c73ff-5338-4c65-9f1f-aeb66593ef12",
+      "epoch": 5,
+      "alive": true
+    },
+    "after": {
+      "holder": "286c73ff-5338-4c65-9f1f-aeb66593ef12",
+      "epoch": 5,
+      "alive": true
+    }
+  },
+  "axes": {
+    "follower_all_503_not_owner_shape": true,
+    "no_idempotency_journal_reservation": true,
+    "follower_not_owner_plus_5": true,
+    "leader_same_key_201_one_new": true,
+    "api3_all_503_not_owner_shape": true,
+    "api3_no_side_effects": true,
+    "lease_unchanged": true
+  },
+  "ok": true
+}

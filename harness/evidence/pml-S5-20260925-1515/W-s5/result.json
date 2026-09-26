@@ -1,0 +1,270 @@
+{
+  "phase": "WsRace",
+  "sub": "W-s5",
+  "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+  "raceRef": "",
+  "k6Rc": 0,
+  "summary": {
+    "race_subscriptions": 1600,
+    "race_snapshot_first": 1600,
+    "race_realtime_first": 0,
+    "race_start_gap": 0,
+    "race_later_gap": 0,
+    "race_stale": 0,
+    "race_no_snapshot": 0,
+    "ws_sessions": 1600,
+    "ws_msgs_received": 32218
+  },
+  "lb": {
+    "lbConf": "default",
+    "file": "harness/nginx/nginx.conf",
+    "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+    "nginxTRc": 0,
+    "sha256Inside": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "sha256Repo": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "same": true,
+    "envChaosLbConf": ""
+  },
+  "tailAxes": {
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "orders_500_0": true,
+    "drained_and_unsettled_0": true,
+    "recovery_runs_mismatch_0": true,
+    "api_logs_no_unhandled_or_auth_500": true,
+    "no_permission_function_errors": true
+  },
+  "tail": {
+    "axes": {
+      "invariants_summary": true,
+      "invariants_authoritative": true,
+      "orders_500_0": true,
+      "drained_and_unsettled_0": true,
+      "recovery_runs_mismatch_0": true,
+      "api_logs_no_unhandled_or_auth_500": true,
+      "no_permission_function_errors": true
+    },
+    "orders500": {
+      "rc": 0,
+      "ok": true,
+      "readable": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "zero": {
+        "lb": true,
+        "prom": true,
+        "nodes": true
+      },
+      "file": "orders500.json"
+    },
+    "drained": true,
+    "state": {
+      "ok": true,
+      "error": null,
+      "ts": "2026-09-25T16:29:27+09:00",
+      "protocol": 2,
+      "changed_at": "2026-09-25T16:25:48.606746+09:00",
+      "history": [
+        {
+          "id": 1,
+          "protocol": 1,
+          "prev_protocol": null,
+          "epoch_floor": 0,
+          "changed_at": "2026-09-25T16:25:24.201935+09:00",
+          "changed_by": "exchange"
+        },
+        {
+          "id": 2,
+          "protocol": 2,
+          "prev_protocol": 1,
+          "epoch_floor": 1,
+          "changed_at": "2026-09-25T16:25:48.606746+09:00",
+          "changed_by": "exchange"
+        }
+      ],
+      "lease": [
+        {
+          "resource": "matching-engine",
+          "holder": "0e428a16-6442-4d78-a7fb-f5413f1cf146",
+          "epoch": 5,
+          "alive": true
+        },
+        {
+          "resource": "matching-p0",
+          "holder": "",
+          "epoch": 2,
+          "alive": false
+        },
+        {
+          "resource": "matching-p1",
+          "holder": "",
+          "epoch": 3,
+          "alive": false
+        }
+      ],
+      "retired": [
+        {
+          "epoch": 2,
+          "resource": "matching-p0",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T16:25:48.608903+09:00"
+        },
+        {
+          "epoch": 3,
+          "resource": "matching-p1",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T16:25:48.609122+09:00"
+        },
+        {
+          "epoch": 4,
+          "resource": "matching-engine",
+          "protocol": 2,
+          "acquired_at": "2026-09-25T16:25:48.609225+09:00"
+        }
+      ],
+      "acquisitions_by_protocol": {
+        "2": 4,
+        "1": 1
+      },
+      "reservations": 4644,
+      "unsettled_new": 0,
+      "unsettled_reservations": 0,
+      "oldest_unsettled_reservation_s": null,
+      "db_now": "2026-09-25T16:29:27.455394+09:00",
+      "code": 0
+    },
+    "authoritative": {
+      "port": 18080,
+      "verdict": "PASS",
+      "checks": 31,
+      "notOk": [],
+      "ok": true
+    },
+    "summary": {
+      "rc": 0,
+      "rows": 32,
+      "gateRows": 29,
+      "notPass": [],
+      "ok": true
+    },
+    "logs": {
+      "chaos-api-1": {
+        "lines": 282,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 2,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      },
+      "chaos-api-2": {
+        "lines": 200,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      },
+      "chaos-bots": {
+        "lines": 98,
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "writerFailFast": 0,
+        "terminalDemotion": 0,
+        "partitionDemotion": 0,
+        "leadershipLost": 0,
+        "promotions": 0,
+        "insufficientAtSettlement": 0,
+        "deadlock": 0,
+        "errorLines": 0,
+        "unhandledException": 0,
+        "authFailure500": 0,
+        "handoffLeaderRejection": 0,
+        "handoffAppendOutage": 0,
+        "partitionControl": 0
+      }
+    },
+    "recoveryRuns": {
+      "success": 4,
+      "mismatch": 0
+    },
+    "botsStopRc": 0
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=true"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+      "project": "exchange-pml",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots",
+      "engineEnabled": "EXCHANGE_ENGINE_ENABLED=false"
+    }
+  },
+  "stack": "2026-09-25T07:25:09.7588055+00:00",
+  "k6Log": {
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s5-logs\\W-s5-k6\\k6.log",
+    "sha256": "21a793af294d2ec8f2f272ed10acb17afddf04ddb4b5b54597ad3e2cb4e27ea4"
+  },
+  "host": {
+    "before": {
+      "at": "2026-09-25T07:25:09.7567460Z",
+      "cpuTotalPct": [
+        3.8,
+        8.0,
+        9.5,
+        4.9,
+        6.5
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 36
+    },
+    "after": {
+      "at": "2026-09-25T07:29:56.9407495Z",
+      "cpuTotalPct": [
+        24.1,
+        29.1,
+        53.4,
+        21.9,
+        40.7
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0,
+      "otherContainers": 53
+    }
+  }
+}

@@ -49,6 +49,7 @@ public class InvariantVerifier {
     // C26 의 정적 바닥과 짝인 소진 속도 축(ADR 0022 3-2). 같은 이유로 등록을 직렬화한다.
     private final MultiGauge bandRemaining;
     private final Object bandRemainingGaugeLock = new Object();
+    private volatile String lastAuthoritativeJit;
 
     public InvariantVerifier(JdbcClient jdbc,
                              TransactionTemplate transactionTemplate,
@@ -92,6 +93,11 @@ public class InvariantVerifier {
     public AuthoritativeRun runAuthoritative(String runId, String window) {
         // 읽기 단계: 단일 스냅샷에서 워터마크 + 전 체크 위반 수를 확정한다.
         AuthoritativeRun snapshot = readOnlyRepeatableRead.execute(status -> {
+            // 감사 문장들은 계획 비용 추정이 커서 PostgreSQL 기본 JIT 가 붙는다. 합성 100만 행 DB 에서 JIT 컴파일이 0.2~0.9초로
+            // 실행보다 길었다(ADR 0034 S3, S3 설계 3절 P8, 4-12). 결과를 바꾸지 않는 성능 설정이고 트랜잭션 한정(LOCAL)이라
+            // 풀 커넥션에 남지 않는다. 스냅숏을 잡는 첫 조회보다 먼저 건다. 문장 시간 상한(운영 풀 3초)은 그대로다.
+            jdbc.sql("SET LOCAL jit = off").update();
+            lastAuthoritativeJit = jdbc.sql("SELECT current_setting('jit')").query(String.class).single();
             long cmdWm = count("SELECT COALESCE(max(seq), 0) FROM command_journal");
             long evtWm = count("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
             List<InvariantResult> results = new ArrayList<>();
@@ -111,6 +117,11 @@ public class InvariantVerifier {
         log.info("권위 run 완료: run_id={}, window={}, verdict={}, 위반합={}",
                 runId, window, snapshot.pass() ? "PASS" : "FAIL", snapshot.totalViolations());
         return snapshot;
+    }
+
+    /** 마지막 권위 run 트랜잭션 안에서 읽은 jit 설정. 시험이 SET LOCAL jit = off 를 확인한다. */
+    String lastAuthoritativeJit() {
+        return lastAuthoritativeJit;
     }
 
     // ── 내부 ────────────────────────────────────────────────────────────

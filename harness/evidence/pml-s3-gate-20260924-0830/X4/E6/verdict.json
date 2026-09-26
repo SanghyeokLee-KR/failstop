@@ -1,0 +1,696 @@
+{
+  "experimentId": "E6",
+  "runId": "E6-20260924-100511",
+  "verdict": "PASS",
+  "writtenAt": "2026-09-24T01:06:35.0900585Z",
+  "code": {
+    "commit": "909af8975e7eae4d99f7fb0dd542a24b0c00b12d",
+    "uncommittedPaths": 69,
+    "image": "exchange-chaos-app:pml",
+    "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334"
+  },
+  "metrics": {
+    "failoverVerdict": "PASS",
+    "spikeViolations": 0,
+    "spikeScans": 31.0,
+    "spikeClean": true
+  },
+  "invariantRows": 93,
+  "invariants": [
+    {
+      "window": "pre",
+      "check": "C01_ASSET_CONSERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.126186+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C02_BAL_VS_LEDGER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.12756+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C03_TXN_UNSEALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.128357+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C05_CMD_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.129122+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C06_EVT_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.129941+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C07_DUP_ORDER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.130743+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C07P_DUP_ORDER_JOURNAL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.131537+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C08_DUP_FILL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.132315+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C09_TRADE_SEQ_EVENT_MATCH",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.133108+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C10_ORDER_FILL_AGG",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.133859+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C11_TRADE_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.134718+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C12_EVENT_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.135589+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C13A_ORDER_MATERIALIZED",
+      "ok": false,
+      "violatedRows": 1,
+      "checkedAt": "2026-09-24T10:05:49.136395+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C13B_ORDER_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.137211+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C14_LOCKED_RESERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.138137+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C20_ORDER_FEE_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.138875+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C17_REPLAY_DETERMINISM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.139603+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C18_FILL_PRICE_MAKER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.140416+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C15_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.141139+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C26_CMD_BAND_HEADROOM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.141897+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C27_CMD_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.142643+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C28_CMD_LEGACY_AFTER_CUTOVER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.143568+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C29_MARKET_PARTITION_MAP",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.14426+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C31_RESERVATION_LINK",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.144982+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C16_ACK_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.14578+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C19_ORDERBOOK_NONCROSS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.146716+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C21_EVENT_EMISSION_REGISTRY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.147447+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C22_FENCING_MONOTONIC",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.148183+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C23_COUNTER_SEQ_CONSISTENCY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.148916+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C24_POSITION_COST_QTY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.149634+09:00"
+    },
+    {
+      "window": "pre",
+      "check": "C25_POSITION_COST_SANITY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:05:49.150398+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C01_ASSET_CONSERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.351055+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C02_BAL_VS_LEDGER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.351949+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C03_TXN_UNSEALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.354594+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C05_CMD_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.355388+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C06_EVT_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.356125+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C07_DUP_ORDER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.35686+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C07P_DUP_ORDER_JOURNAL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.357616+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C08_DUP_FILL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.358297+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C09_TRADE_SEQ_EVENT_MATCH",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.358956+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C10_ORDER_FILL_AGG",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.359636+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C11_TRADE_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.360345+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C12_EVENT_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.36105+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C13A_ORDER_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.361727+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C13B_ORDER_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.362717+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C14_LOCKED_RESERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.363551+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C20_ORDER_FEE_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.364426+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C17_REPLAY_DETERMINISM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.365106+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C18_FILL_PRICE_MAKER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.365837+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C15_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.366564+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C26_CMD_BAND_HEADROOM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.367362+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C27_CMD_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.368091+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C28_CMD_LEGACY_AFTER_CUTOVER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.368809+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C29_MARKET_PARTITION_MAP",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.369562+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C31_RESERVATION_LINK",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.370294+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C16_ACK_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.371007+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C19_ORDERBOOK_NONCROSS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.371689+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C21_EVENT_EMISSION_REGISTRY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.372435+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C22_FENCING_MONOTONIC",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.373116+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C23_COUNTER_SEQ_CONSISTENCY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.373778+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C24_POSITION_COST_QTY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.374451+09:00"
+    },
+    {
+      "window": "spike",
+      "check": "C25_POSITION_COST_SANITY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:20.37513+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C01_ASSET_CONSERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.048109+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C02_BAL_VS_LEDGER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.049932+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C03_TXN_UNSEALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.050806+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C05_CMD_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.051676+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C06_EVT_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.052551+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C07_DUP_ORDER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.053331+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C07P_DUP_ORDER_JOURNAL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.05408+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C08_DUP_FILL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.054805+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C09_TRADE_SEQ_EVENT_MATCH",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.055543+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C10_ORDER_FILL_AGG",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.056371+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C11_TRADE_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.057096+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C12_EVENT_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.057808+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C13A_ORDER_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.058535+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C13B_ORDER_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.059346+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C14_LOCKED_RESERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.06009+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C20_ORDER_FEE_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.060892+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C17_REPLAY_DETERMINISM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.061609+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C18_FILL_PRICE_MAKER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.062308+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C15_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.063037+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C26_CMD_BAND_HEADROOM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.063762+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C27_CMD_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.064516+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C28_CMD_LEGACY_AFTER_CUTOVER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.065207+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C29_MARKET_PARTITION_MAP",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.065966+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C31_RESERVATION_LINK",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.066778+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C16_ACK_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.067532+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C19_ORDERBOOK_NONCROSS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.068263+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C21_EVENT_EMISSION_REGISTRY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.068964+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C22_FENCING_MONOTONIC",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.069682+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C23_COUNTER_SEQ_CONSISTENCY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.07039+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C24_POSITION_COST_QTY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.071108+09:00"
+    },
+    {
+      "window": "post",
+      "check": "C25_POSITION_COST_SANITY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-24T10:06:34.071832+09:00"
+    }
+  ],
+  "failover": {
+    "details": {
+      "assetSum": "0",
+      "tradesAfter": "993",
+      "evtGap": "0",
+      "tradesBefore": "951",
+      "drainValid": "True",
+      "cmdGap": "0",
+      "dupOrder": "0",
+      "runId": "E6-20260924-100511",
+      "dupFill": "0"
+    },
+    "firstTradeTs": "2026-09-24T01:06:26.92Z",
+    "newEpoch": 6,
+    "rtoSeconds": 6.263,
+    "rpoRecords": 0,
+    "experimentId": "E6",
+    "downtimeSeconds": 6.512,
+    "newLeader": "75f31a5e-fc4d-4ca3-a444-630e307cc4f8",
+    "verdict": "PASS",
+    "oldLeader": "0a5e895e-044c-465b-bf5e-60aac2b8fc33",
+    "oldEpoch": 5
+  },
+  "failoverRunId": 1
+}

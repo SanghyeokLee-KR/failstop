@@ -1,0 +1,20 @@
+2026-09-24T14:22:08+09:00 [X5] PHASE X5 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-24T14:22:08+09:00 [X5] volumes before unchanged
+2026-09-24T14:22:09+09:00 [X5] PROBE P1a measure=600 rate=600 mode=P1 keys=16 markets=
+2026-09-24T14:22:09+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P1a --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P1a-600.json
+2026-09-24T14:28:00+09:00 [X5] RC 0
+2026-09-24T14:28:13+09:00 [X5] SUMMARY summary-P1a-600 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:28:20+09:00 [X5] PROBE P2a measure=600 rate=600 mode=P2 keys=16 markets=
+2026-09-24T14:28:20+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P2a --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P2a-600.json --protocol-before-traffic 2
+2026-09-24T14:34:37+09:00 [X5] RC 0
+2026-09-24T14:34:50+09:00 [X5] SUMMARY summary-P2a-600 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:34:55+09:00 [X5] PROBE P1b measure=600 rate=600 mode=P1 keys=16 markets=
+2026-09-24T14:34:55+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P1b --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P1b-600.json
+2026-09-24T14:41:01+09:00 [X5] RC 0
+2026-09-24T14:41:14+09:00 [X5] SUMMARY summary-P1b-600 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:41:21+09:00 [X5] PROBE P2b measure=600 rate=600 mode=P2 keys=16 markets=
+2026-09-24T14:41:21+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P2b --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P2b-600.json --protocol-before-traffic 2
+2026-09-24T14:47:53+09:00 [X5] RC 0
+2026-09-24T14:48:07+09:00 [X5] SUMMARY summary-P2b-600 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:48:13+09:00 [X5] down -v (exchange-pml) rc=0 after X5 600
+2026-09-24T14:48:13+09:00 [X5] volumes after unchanged

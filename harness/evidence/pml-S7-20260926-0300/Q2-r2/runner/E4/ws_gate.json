@@ -1,0 +1,608 @@
+{
+  "started": "2026-09-26T03:20:44+09:00",
+  "mode": "broker",
+  "market": "KRW-BTC",
+  "leader": "chaos-api-1",
+  "lease_epoch": 7,
+  "leases": [
+    {
+      "resource": "matching-engine",
+      "holder": "",
+      "epoch": 7,
+      "alive": false
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "68e0c8fb-e364-4d7a-a550-bfcabcca5a16",
+      "epoch": 9,
+      "alive": true
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "68e0c8fb-e364-4d7a-a550-bfcabcca5a16",
+      "epoch": 10,
+      "alive": true
+    }
+  ],
+  "partitions": {
+    "chaos-api-1": {
+      "plan": [
+        "matching-p0",
+        "matching-p1"
+      ],
+      "partitioned": true,
+      "partitions": [
+        {
+          "resource": "matching-p0",
+          "state": "ACCEPTING",
+          "epoch": 9,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4,
+            5,
+            7,
+            9,
+            11
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "ACCEPTING",
+          "epoch": 10,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    },
+    "chaos-api-2": {
+      "plan": [
+        "matching-p0",
+        "matching-p1"
+      ],
+      "partitioned": true,
+      "partitions": [
+        {
+          "resource": "matching-p0",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4,
+            5,
+            7,
+            9,
+            11
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": {
+    "chaos-api-1": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        }
+      ],
+      "handshake": {
+        "status": 101,
+        "retry_after": null,
+        "at": "2026-09-26T03:20:44+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 3.0,
+        "exchange_ws_gate_open": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"absent\"}": 2.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"owner_silent\"}": 54.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"absent\"}": 13.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"owner_silent\"}": 6.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_relay_connected{link=\"pub\"}": 1.0,
+        "exchange_ws_relay_connected{link=\"sub\"}": 1.0,
+        "exchange_ws_relay_degraded{cause=\"link_down\"}": 0.0,
+        "exchange_ws_relay_degraded{cause=\"owner_silent\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"candle_overflow\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"disconnected\"}": 1.0,
+        "exchange_ws_relay_dropped_total{reason=\"malformed\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"queue_full\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"stale\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"write_timeout\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001\"}": 1598.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001048576\"}": 1598.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001398101\"}": 1598.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001747626\"}": 1598.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002097151\"}": 1667.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002446676\"}": 1667.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002796201\"}": 1667.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003145726\"}": 1695.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003495251\"}": 1695.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003844776\"}": 1695.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.004194304\"}": 1707.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.005592405\"}": 1712.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.006990506\"}": 1714.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.008388607\"}": 1722.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.009786708\"}": 1726.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.011184809\"}": 1731.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.01258291\"}": 1735.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.013981011\"}": 1738.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.015379112\"}": 1742.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.016777216\"}": 1743.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.022369621\"}": 1751.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.027962026\"}": 1757.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.033554431\"}": 1760.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.039146836\"}": 1766.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.044739241\"}": 1769.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.050331646\"}": 1769.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.055924051\"}": 1769.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.061516456\"}": 1769.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.067108864\"}": 1769.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.089478485\"}": 1777.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.111848106\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.134217727\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.156587348\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.178956969\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.20132659\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.223696211\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.246065832\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.268435456\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.357913941\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.447392426\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.536870911\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.626349396\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.715827881\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.805306366\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.894784851\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.984263336\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.073741824\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.431655765\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.789569706\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.147483647\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.505397588\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.863311529\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.22122547\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.579139411\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.937053352\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"4.294967296\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"5.726623061\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"7.158278826\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"8.589934591\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"10.021590356\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"11.453246121\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"12.884901886\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"14.316557651\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"15.748213416\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"17.179869184\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"22.906492245\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"28.633115306\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"30.0\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"+Inf\"}": 1778.0,
+        "exchange_ws_relay_lag_seconds_count": 1778.0,
+        "exchange_ws_relay_lag_seconds_sum": 3.019,
+        "exchange_ws_relay_lag_seconds_max": 0.09,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"hb\"}": 226.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"topic\"}": 560.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"user\"}": 992.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"hb\"}": 867.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"topic\"}": 5437.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"user\"}": 10026.0,
+        "exchange_ws_relay_queue_size": 0.0
+      }
+    },
+    "chaos-api-2": {
+      "book": [
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 982
+        }
+      ],
+      "ticker": [
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        },
+        {
+          "status": 200,
+          "epoch": 9,
+          "seq": 640
+        }
+      ],
+      "handshake": {
+        "status": 101,
+        "retry_after": null,
+        "at": "2026-09-26T03:20:45+09:00"
+      },
+      "metrics": {
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p0\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"LEASE_LOST_WHILE_ACCEPTING\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"NODE_FATAL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PLANNED\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"PROMOTION_LOOP_DOWN\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"STALL\"}": 0.0,
+        "exchange_partition_demotions_total{partition=\"matching-p1\",reason=\"WRITER_FATAL\"}": 0.0,
+        "exchange_ws_clients{channel=\"stomp\"}": 0.0,
+        "exchange_ws_gate_open": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"absent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"owner_silent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"orderbook\",reason=\"relay_down\"}": 1.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"absent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"behind\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"epoch_mismatch\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"owner_silent\"}": 0.0,
+        "exchange_ws_mirror_fallback_total{kind=\"ticker\",reason=\"relay_down\"}": 0.0,
+        "exchange_ws_relay_connected{link=\"pub\"}": 1.0,
+        "exchange_ws_relay_connected{link=\"sub\"}": 1.0,
+        "exchange_ws_relay_degraded{cause=\"link_down\"}": 0.0,
+        "exchange_ws_relay_degraded{cause=\"owner_silent\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"candle_overflow\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"disconnected\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"malformed\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"queue_full\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"stale\"}": 0.0,
+        "exchange_ws_relay_dropped_total{reason=\"write_timeout\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_required\"}": 0.0,
+        "exchange_ws_relay_handshake_refused_total{reason=\"relay_unavailable\"}": 0.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001\"}": 861.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001048576\"}": 861.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001398101\"}": 861.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.001747626\"}": 861.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002097151\"}": 903.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002446676\"}": 903.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.002796201\"}": 903.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003145726\"}": 914.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003495251\"}": 914.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.003844776\"}": 914.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.004194304\"}": 918.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.005592405\"}": 920.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.006990506\"}": 921.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.008388607\"}": 923.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.009786708\"}": 925.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.011184809\"}": 926.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.01258291\"}": 928.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.013981011\"}": 930.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.015379112\"}": 931.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.016777216\"}": 931.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.022369621\"}": 940.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.027962026\"}": 943.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.033554431\"}": 950.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.039146836\"}": 950.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.044739241\"}": 956.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.050331646\"}": 973.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.055924051\"}": 981.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.061516456\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.067108864\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.089478485\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.111848106\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.134217727\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.156587348\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.178956969\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.20132659\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.223696211\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.246065832\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.268435456\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.357913941\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.447392426\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.536870911\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.626349396\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.715827881\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.805306366\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.894784851\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"0.984263336\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.073741824\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.431655765\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"1.789569706\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.147483647\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.505397588\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"2.863311529\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.22122547\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.579139411\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"3.937053352\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"4.294967296\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"5.726623061\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"7.158278826\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"8.589934591\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"10.021590356\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"11.453246121\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"12.884901886\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"14.316557651\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"15.748213416\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"17.179869184\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"22.906492245\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"28.633115306\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"30.0\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_bucket{le=\"+Inf\"}": 983.0,
+        "exchange_ws_relay_lag_seconds_count": 983.0,
+        "exchange_ws_relay_lag_seconds_sum": 2.959,
+        "exchange_ws_relay_lag_seconds_max": 0.06,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"hb\"}": 348.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"topic\"}": 231.0,
+        "exchange_ws_relay_messages_total{direction=\"in\",kind=\"user\"}": 404.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"hb\"}": 0.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"topic\"}": 0.0,
+        "exchange_ws_relay_messages_total{direction=\"out\",kind=\"user\"}": 0.0,
+        "exchange_ws_relay_queue_size": 0.0
+      }
+    }
+  },
+  "lb_handshake": {
+    "status": 101,
+    "retry_after": null,
+    "at": "2026-09-26T03:20:45+09:00"
+  },
+  "lb_log": {
+    "error": null,
+    "ws_retry_seen": false
+  },
+  "lb_refused": {
+    "before": {
+      "chaos-api-1": 0.0,
+      "chaos-api-2": 0.0
+    },
+    "after": {
+      "chaos-api-1": 0.0,
+      "chaos-api-2": 0.0
+    },
+    "follower_delta": 0.0
+  },
+  "axes": {
+    "chaos-api-1_gate_open": true,
+    "chaos-api-1_handshake_101": true,
+    "chaos-api-2_gate_open": true,
+    "chaos-api-2_handshake_101": true,
+    "lb_handshake_101": true
+  },
+  "ok": true,
+  "finished": "2026-09-26T03:20:46+09:00"
+}

@@ -1,0 +1,120 @@
+{
+  "groups": {
+    "A_read_split": {
+      "axes": {
+        "R1_markets_api3_share_ge_0.25": true,
+        "R1_markets_all_200": true,
+        "R1_markets_three_nodes_served": true,
+        "R3_markets_api3_share_ge_0.25": true,
+        "R3_markets_all_200": true,
+        "R3_markets_three_nodes_served": true,
+        "R1_trades_api3_share_ge_0.25": true,
+        "R1_trades_all_200": true,
+        "R1_trades_three_nodes_served": true,
+        "R3_trades_api3_share_ge_0.25": true,
+        "R3_trades_all_200": true,
+        "R3_trades_three_nodes_served": true,
+        "R1_orderbook_api3_tried_0": true,
+        "R2_errors_0": false,
+        "R2_api3_share_ge_0.15": true,
+        "R2b_errors_0": true,
+        "R2b_api3_share_ge_0.15": true
+      },
+      "positive": {
+        "R1_markets_lines_eq_calls": true,
+        "R3_markets_lines_eq_calls": true,
+        "R1_trades_lines_eq_calls": true,
+        "R3_trades_lines_eq_calls": true,
+        "R1_orderbook_lines_gt_0": true,
+        "R2_requests_ge_5000": true,
+        "R2b_requests_ge_1000": true
+      },
+      "verdict": "FAIL"
+    },
+    "B_writes": {
+      "axes": {
+        "lb_writes_tried_api3_0": true,
+        "probe_no_404_5xx_transport": true,
+        "probe_no_exceptions": true,
+        "direct_order_create_404_not_found": true,
+        "direct_order_cancel_404_not_found": true,
+        "direct_withdraw_create_404_not_found": true,
+        "direct_withdraw_cancel_404_not_found": true,
+        "direct_writes_no_side_effect": true
+      },
+      "positive": {
+        "lb_POST_/api/v1/orders_ge_50": true,
+        "lb_DELETE_/api/v1/orders_ge_10": true,
+        "lb_POST_/api/v1/transfers_ge_10": true,
+        "lb_DELETE_/api/v1/transfers_ge_10": true,
+        "probe_order_create_2xx_ge_10": true,
+        "probe_order_cancel_2xx_ge_10": true,
+        "probe_withdraw_create_2xx_ge_10": true,
+        "probe_withdraw_cancel_2xx_ge_10": true,
+        "direct_targets_prepared": true
+      },
+      "verdict": "PASS"
+    },
+    "C_stop_return": {
+      "axes": {
+        "C1_errors_0": false,
+        "C1_out_api3_served_0": false,
+        "C1_post_api3_share_ge_0.15": true,
+        "C1_api3_healthy_again": true,
+        "C2_errors_0": true,
+        "C2_out_api3_served_0": true,
+        "C2_post_api3_share_ge_0.15": true,
+        "C2_api3_healthy_again": true
+      },
+      "positive": {
+        "C1_ran": true,
+        "C1_requests_ge_1000": true,
+        "C1_out_lines_ge_200": true,
+        "C1_post_lines_ge_500": true,
+        "C2_ran": true,
+        "C2_requests_ge_1000": true,
+        "C2_out_lines_ge_200": true,
+        "C2_post_lines_ge_500": true
+      },
+      "verdict": "FAIL"
+    },
+    "D_ws": {
+      "axes": {
+        "lb_ws_upstream_is_api1_api2": true,
+        "lb_orderbook_ticker_upstream_is_api1_api2": true,
+        "lb_api3_only_in_exchange_read": true,
+        "lb_ws_location_to_exchange_ws": true,
+        "direct_api3_ws_upgrade_404": true,
+        "direct_api3_orderbook_404": true,
+        "direct_api3_ticker_404": true,
+        "lb_handshakes_all_101": true,
+        "lb_ws_tried_api3_0": true,
+        "lb_orderbook_ticker_tried_api3_0": true
+      },
+      "positive": {
+        "lb_handshakes_eq_30": true,
+        "lb_ws_lines_ge_30": true
+      },
+      "verdict": "PASS"
+    },
+    "E_integrity": {
+      "axes": {
+        "lb_api3_5xx_0": true,
+        "post_run_gated_clean": true,
+        "post_summary_ok": true
+      },
+      "positive": {
+        "post_run_present": true
+      },
+      "verdict": "PASS"
+    }
+  },
+  "records": {},
+  "verdict": "FAIL",
+  "failed_axes": [
+    "A_read_split.R2_errors_0",
+    "C_stop_return.C1_errors_0",
+    "C_stop_return.C1_out_api3_served_0"
+  ],
+  "missing_positive": []
+}

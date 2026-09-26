@@ -1,0 +1,32 @@
+[
+  {
+    "container": "chaos-api-1",
+    "bytes": 73103,
+    "sha256": "91496ae80526e2f02da9ea3febd7c0cfa920c3469a9da791618318b7ec2e1718"
+  },
+  {
+    "container": "chaos-api-2",
+    "bytes": 59641,
+    "sha256": "35454e957e7095c08d848dd2b8023acda6045d465a101315dc55a6c8880a7128"
+  },
+  {
+    "container": "chaos-bots",
+    "bytes": 14973,
+    "sha256": "913ba6ae55f090128ee5cd0ff89e914345931bc586b82b8ce900655ecea74ee7"
+  },
+  {
+    "container": "chaos-pg",
+    "bytes": 3232,
+    "sha256": "378d0eda4d88e3473f453a8cc60b879b6669b0895f1cd9ab303d08f85a47af8c"
+  },
+  {
+    "container": "chaos-lb",
+    "bytes": 2707479,
+    "sha256": "ffcd292e70398abe4c35b89c3a9efce85f0b4b6076218cf6bb48409f32fdfb8f"
+  },
+  {
+    "container": "chaos-broker",
+    "bytes": 1772,
+    "sha256": "2c4d5a40689f25ed56ffbc30f6737767aade8bdcaad84b3ac080c14d836b5126"
+  }
+]

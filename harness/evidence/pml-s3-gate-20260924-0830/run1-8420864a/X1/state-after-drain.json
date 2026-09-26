@@ -1,0 +1,75 @@
+{
+  "ok": true,
+  "error": null,
+  "ts": "2026-09-24T08:53:06+09:00",
+  "protocol": 2,
+  "changed_at": "2026-09-23T23:42:31.829208+00:00",
+  "history": [
+    {
+      "id": 1,
+      "protocol": 1,
+      "prev_protocol": null,
+      "epoch_floor": 0,
+      "changed_at": "2026-09-23T23:41:29.476723+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 2,
+      "protocol": 2,
+      "prev_protocol": 1,
+      "epoch_floor": 2,
+      "changed_at": "2026-09-23T23:42:31.829208+00:00",
+      "changed_by": "exchange"
+    }
+  ],
+  "lease": [
+    {
+      "resource": "matching-engine",
+      "holder": "0ac097aa-7345-43d9-a97c-8c8cc79b93ea",
+      "epoch": 6,
+      "alive": true
+    },
+    {
+      "resource": "matching-p0",
+      "holder": "",
+      "epoch": 3,
+      "alive": false
+    },
+    {
+      "resource": "matching-p1",
+      "holder": "",
+      "epoch": 4,
+      "alive": false
+    }
+  ],
+  "retired": [
+    {
+      "epoch": 3,
+      "resource": "matching-p0",
+      "protocol": 2,
+      "acquired_at": "2026-09-23T23:42:31.831149+00:00"
+    },
+    {
+      "epoch": 4,
+      "resource": "matching-p1",
+      "protocol": 2,
+      "acquired_at": "2026-09-23T23:42:31.831379+00:00"
+    },
+    {
+      "epoch": 5,
+      "resource": "matching-engine",
+      "protocol": 2,
+      "acquired_at": "2026-09-23T23:42:31.831484+00:00"
+    }
+  ],
+  "acquisitions_by_protocol": {
+    "2": 4,
+    "1": 2
+  },
+  "reservations": 16405,
+  "unsettled_new": 0,
+  "unsettled_reservations": 0,
+  "oldest_unsettled_reservation_s": null,
+  "db_now": "2026-09-23T23:53:06.37436+00:00",
+  "code": 0
+}

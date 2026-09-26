@@ -1,0 +1,295 @@
+{
+  "started": "2026-09-25T00:36:51+09:00",
+  "windows": {
+    "outside": [
+      [
+        "2026-09-24T15:34:09.839451Z",
+        "2026-09-24T15:35:16.286859Z"
+      ],
+      [
+        "2026-09-24T15:36:40.072888Z",
+        "2026-09-24T15:36:51.461397Z"
+      ]
+    ],
+    "inside": [
+      "2026-09-24T15:35:16.286859Z",
+      "2026-09-24T15:36:40.072888Z"
+    ]
+  },
+  "contention": {
+    "outside": 0.0,
+    "appends_outside": 127.92849837496307,
+    "cap": 0.001,
+    "inside_by_cause_response": [
+      {
+        "labels": {
+          "cause": "40001",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40001",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40P01",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40P01",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "55P03",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "55P03",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "57014",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "57014",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait_stuck",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait_stuck",
+          "response": "429"
+        },
+        "value": 0.0
+      }
+    ],
+    "acquire_lock_timeouts": 0.0
+  },
+  "partition_alerts": {
+    "samples": 0,
+    "firing_outside": 0,
+    "error": null
+  },
+  "leader_node": "chaos-api-2",
+  "demotions": {
+    "chaos-api-1": {
+      "by": {
+        "matching-engine/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-engine/NODE_FATAL": 0.0,
+        "matching-engine/PLANNED": 0.0,
+        "matching-engine/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-engine/STALL": 0.0,
+        "matching-engine/WRITER_FATAL": 0.0
+      },
+      "total": 0.0
+    },
+    "chaos-api-2": {
+      "by": {
+        "matching-engine/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-engine/NODE_FATAL": 0.0,
+        "matching-engine/PLANNED": 0.0,
+        "matching-engine/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-engine/STALL": 0.0,
+        "matching-engine/WRITER_FATAL": 0.0
+      },
+      "total": 0.0
+    }
+  },
+  "partitions": {
+    "pre": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "post": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 6,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "leader_lease": {
+    "pre": [
+      {
+        "resource": "matching-engine",
+        "holder": "b7c23122-63ce-4e56-a366-c3bcd20af9cd",
+        "epoch": 5,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 2,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 3,
+        "alive": false
+      }
+    ],
+    "post": [
+      {
+        "resource": "matching-engine",
+        "holder": "31918f14-1485-4e89-839d-724354fc6efa",
+        "epoch": 6,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 2,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 3,
+        "alive": false
+      }
+    ]
+  },
+  "lb": {
+    "outside": [
+      {
+        "ok": true,
+        "no_live_upstreams": 0,
+        "status_502": 0
+      },
+      {
+        "ok": true,
+        "no_live_upstreams": 0,
+        "status_502": 0
+      }
+    ],
+    "inside": {
+      "ok": true,
+      "no_live_upstreams": 193,
+      "status_502": 193
+    }
+  },
+  "axes": {
+    "contention_cap_outside_window": true,
+    "partition_alerts_outside_window_0": true,
+    "leader_node_demotions_0": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T00:36:51+09:00"
+}

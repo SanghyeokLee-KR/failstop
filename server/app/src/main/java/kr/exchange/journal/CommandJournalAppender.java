@@ -5,47 +5,54 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Types;
 
 /**
- * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4).
+ * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4, §5.4-b, §3.5).
  *
- * 한 트랜잭션 안에서 [append_command_prologue(V44 6인자 판: 리더 검증, NEW 멱등, 채번) →
- * leader_lease FOR KEY SHARE 참조 INSERT...SELECT]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
- * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5).
+ * 한 트랜잭션 안에서 [append_command_prologue(10인자 판: 리스 행 KEY SHARE 와 판정, NEW 멱등, P2 이상이면 예약, 채번,
+ * 예약 행) → append_command_journal_row(리스 행 FOR KEY SHARE 참조 INSERT...SELECT, P2 NEW 는 예약 행 대조)]를 원자
+ * 수행한다. COMMIT 성공이 곧 ACK다. 롤백되면 카운터 증가와 예약도 함께 되돌아가 결번과 고아 예약이 없다(P0-5).
+ * 두 함수 모두 기록할 행의 마켓에서 리스 행을 찾는다(V48).
+ *
+ * 모드는 DB 가 정한다(leader_protocol). P1 이면 머리말이 예약을 건너뛰어 V48 과 같은 행을 쓰고, P2 이상이면 주문 생성
+ * 명령의 자금을 이 트랜잭션에서 reserve_funds 로 잠근다(ADR 0034 S3). 잔고가 모자라면 23514(chk_balance_nonneg)로
+ * 트랜잭션 전체가 롤백되고 예외가 그대로 올라간다. 게이트웨이가 400 insufficient_funds 로 바꾼다.
  */
 public class CommandJournalAppender {
 
-    // V44 6인자 판. 리더 검증과 NEW 멱등 판정과 채번을 한 왕복으로 묶는다. 전역 채번과 마켓 대역 채번은
-    // 앱 설정이 아니라 DB 래치가 가른다(ADR 0022 6단계). 5인자 판은 래치 뒤에 접수를 거부한다.
-    private static final String PROLOGUE_SQL =
-            "SELECT out_seq, out_replayed, out_fencing, out_order_id"
-            + " FROM append_command_prologue(?, ?, ?, ?, ?, ?::smallint)";
+    // V50 10인자 판(소유자 권한). 리스 행 KEY SHARE 와 판정, NEW 멱등 판정, P2 이상 NEW 의 예약, 채번, 예약 행을 한 왕복으로
+    // 묶는다. 전역 채번과 마켓 대역 채번은 앱 설정이 아니라 DB 래치가 가른다(ADR 0022 6단계). 옛 5·6인자 판은 P2 이상에서
+    // 주문 생성 명령을 55000 으로 거부한다(DB 설계 §3.5). 대조값 둘은 취소 명령과 P1 에서 쓰이지 않는다.
+    static final String PROLOGUE_SQL =
+            "SELECT out_seq, out_replayed, out_fencing, out_order_id, out_reserved"
+            + " FROM append_command_prologue(?, ?, ?, ?, ?, ?::smallint, ?, ?::jsonb, ?::smallint, ?::numeric)";
 
-    /** 머리말 한 왕복의 결과. replayed 면 seq 가 기존 명령의 것이다. */
-    private record Prologue(long seq, boolean replayed, long fencing, long orderId) {
+    /** 머리말 한 왕복의 결과. replayed 면 seq 가 기존 명령의 것이다. reserved 면 이 트랜잭션이 예약했다. */
+    private record Prologue(long seq, boolean replayed, long fencing, long orderId, boolean reserved) {
     }
 
-    // FOR KEY SHARE 는 holder·epoch 를 바꾸는 승격·게시만 커밋까지 막고 lease_until 갱신은 막지 않는다.
-    // 그 구분은 V41 의 uq_leader_lease_fencing_key 가 있어야 성립한다(ADR 0026).
-    static final String INSERT_SQL = """
-            INSERT INTO command_journal
-              (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
-               engine_ts, tie_break, payload, fencing_token, checksum)
-            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, l.epoch, ?
-            FROM leader_lease l
-            WHERE l.resource = 'matching-engine'
-              AND l.holder = ? AND l.epoch = ? AND l.lease_until > clock_timestamp()
-            FOR KEY SHARE OF l
-            """;
+    // 소유자 권한 함수(V48)가 market_id 로 리스 행을 찾아 FOR KEY SHARE 로 잡으며 넣고, 넣은 행 수를 돌려준다.
+    // 행 잠금 절은 UPDATE 권한을 요구하므로 앱이 직접 INSERT...SELECT 하면 V49 뒤 권한 오류다(DB 설계 §5.4-b).
+    static final String INSERT_SQL =
+            "SELECT append_command_journal_row(?, ?::smallint, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)";
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
+    // 기간 없는 종전 경로(append 두 인자)만 쓴다. 파티션 배선은 접수 게이트의 기간으로 쓴다.
     private final LeaderLeaseService lease;
+    // 접수 트랜잭션의 잠금 대기 상한("200ms" 꼴). null 이면 걸지 않는다(setLockTimeout).
+    private volatile String lockTimeout;
+    // 이 노드가 기동 때 P2 이상을 읽었는가(setRequireReservation). 참이면 게이트웨이가 in-flight 누계를 쓰지 않으므로
+    // 예약 없이 커밋되는 주문 생성 명령을 받지 않는다.
+    private volatile boolean requireReservation;
     // §5-2 계약 메트릭. requireLeader 이후 tx 커밋(=fsync=ACK) 완료까지의 지연을 잰다(RPO=0 비용).
     private final Timer appendTimer;
     // 좀비 리더 판정의 진행 축(§5.4). appendTimer는 실패한 시도도 세므로 진행성 신호로 못 쓴다.
@@ -84,7 +91,7 @@ public class CommandJournalAppender {
         return inTxNanos.sum();
     }
 
-    /** 머리말 한 왕복(V44 6인자 판). 리더 검증과 NEW 멱등 판정과 채번을 합친다. */
+    /** 머리말 한 왕복(V50 10인자 판). 리더 검증과 NEW 멱등 판정, P2 이상의 예약, 채번을 합친다. */
     public long prologueNanos() {
         return prologueNanos.sum();
     }
@@ -135,8 +142,55 @@ public class CommandJournalAppender {
                 .register(meterRegistry);
     }
 
+    /**
+     * 접수 트랜잭션에 DB lock_timeout 을 건다(ADR 0034 S1). 0 이나 null 이면 걸지 않고 풀 세션 값을 따른다.
+     *
+     * 걸면 트랜잭션마다 첫 문장으로 한 왕복이 는다. 초과는 55P03 으로 트랜잭션 전체를 롤백하므로 저널 행과 채번이
+     * 남지 않고, 리스 행에 쓰지 않으므로 강등하지 않는다. 호출자에게는 그 예외가 그대로 올라간다. 게이트웨이는 아직
+     * 55P03 을 503 으로 바꾸지 않는다(API 설계 v2.52). 1밀리초보다 작은 값은 1밀리초로 올린다. 0 밀리초는
+     * PostgreSQL 에서 상한 없음이라 켠 설정이 조용히 꺼지기 때문이다.
+     */
+    public void setLockTimeout(java.time.Duration timeout) {
+        this.lockTimeout = timeout == null || timeout.isZero() || timeout.isNegative()
+                ? null : Math.max(1, timeout.toMillis()) + "ms";
+    }
+
+    /**
+     * 기동 모드가 P2 이상인 노드에서 켠다(ADR 0034 S3, S3 설계 4-9). 켜면 재전송이 아닌 주문 생성 명령을 DB 가 예약하지
+     * 않았을 때(P2 로 뜬 노드가 2->1 뒤의 P1 DB 에서 도는 경우) 커밋 전에 IllegalStateException 으로 롤백한다. 그 노드의
+     * 게이트웨이는 in-flight 누계를 쓰지 않으므로 그대로 커밋하면 예약도 사전 가드도 없는 주문이 생긴다. 게이트웨이가
+     * 503 으로 돌려준다. 재기동이 필요하다는 뜻이고 자금은 안전 쪽이다.
+     */
+    public void setRequireReservation(boolean require) {
+        this.requireReservation = require;
+    }
+
+    /** 대조값 없는 append. 취소 명령과 예약을 모르는 호출부가 쓴다. P2 의 주문 생성 명령은 머리말이 대조 실패로 거부한다. */
     public AppendResult append(CommandDraft draft) {
-        LeaderIdentity leader = lease.requireLeader();
+        return append(draft, null);
+    }
+
+    /**
+     * 명령 하나를 저널에 적는다. check 는 게이트웨이가 계산한 예약 자산과 금액이고 P2 이상의 주문 생성 명령에서만
+     * 머리말이 DB 계산값과 대조한다(DB 설계 §3.5). 다르거나 없으면 트랜잭션 전체가 롤백된다. 리스 서비스가 지금 쥔 epoch 로
+     * 쓴다(기간 없는 종전 경로).
+     */
+    public AppendResult append(CommandDraft draft, ReserveCheck check) {
+        if (lease == null) {
+            throw new IllegalStateException("파티션 배선의 append 는 접수 게이트의 기간을 받는다");
+        }
+        return append(lease.requireLeader(), null, draft, check);
+    }
+
+    /**
+     * 기간을 쥔 append(DB 설계 §5.4-c 6). 그 기간의 epoch 로 DB 판정을 받고, 기간이 이미 끝났으면 DB 왕복 없이 거부한다.
+     * fencing 거부 뒤의 재확인도 이 기간만 강등한다.
+     */
+    public AppendResult append(LeaderTerm term, CommandDraft draft, ReserveCheck check) {
+        return append(term.requireCurrent(), term, draft, check);
+    }
+
+    private AppendResult append(LeaderIdentity leader, LeaderTerm term, CommandDraft draft, ReserveCheck check) {
         try {
             // 트랜잭션 경계 분해(ADR 0022 0단계 (b) 후속).
             //
@@ -162,7 +216,7 @@ public class CommandJournalAppender {
                                     }
                                 });
                 try {
-                    return appendInTx(leader, draft);
+                    return appendInTx(leader, draft, check);
                 } finally {
                     marks[1] = System.nanoTime();
                 }
@@ -180,24 +234,35 @@ public class CommandJournalAppender {
             }
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
+            if (term != null) {
+                term.progress().recordCompletion();
+            }
             return result;
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류).
-            lease.demoteUnlessStillLeader(e.getMessage());
+            demoteUnlessStillLeader(term, e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demoteUnlessStillLeader(
+                demoteUnlessStillLeader(term,
                         "assert_current_leader 거부: " + FencingErrors.rejectionDetail(e));
             }
             throw e;
         }
     }
 
-    private AppendResult appendInTx(LeaderIdentity leader, CommandDraft draft) {
+    private void demoteUnlessStillLeader(LeaderTerm term, String reason) {
+        if (term != null) {
+            term.demoteUnlessStillLeader(reason);
+        } else {
+            lease.demoteUnlessStillLeader(reason);
+        }
+    }
+
+    private AppendResult appendInTx(LeaderIdentity leader, CommandDraft draft, ReserveCheck check) {
         long tx0 = System.nanoTime();
         try {
-            return appendInTxTimed(leader, draft);
+            return appendInTxTimed(leader, draft, check);
         } finally {
             // 예외 경로도 센다. 거부로 끝난 append 도 커넥션을 잡고 있었다.
             inTxNanos.add(System.nanoTime() - tx0);
@@ -205,27 +270,47 @@ public class CommandJournalAppender {
         }
     }
 
-    private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft) {
-        // 머리말 한 왕복(V44 6인자 판). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
-        // 네 문장으로 보냈다. 넷 다 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다.
-        // 판정 순서와 예외와 락 키는 그 함수가 종전 그대로 정한다.
+    private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft, ReserveCheck check) {
+        String timeout = lockTimeout;
+        if (timeout != null) {
+            // 트랜잭션 한정(is_local)이라 커밋·롤백 뒤 풀 커넥션에 남지 않는다. 머리말보다 먼저 걸어야 머리말의
+            // 어드바이저리 락 대기와 append 함수의 리스 행 FOR KEY SHARE 대기에도 상한이 걸린다.
+            jdbc.sql("SELECT set_config('lock_timeout', ?, true)")
+                    .params(timeout)
+                    .query(String.class)
+                    .single();
+        }
+        // 머리말 한 왕복(V50 10인자 판). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
+        // 네 문장으로 보냈다. 모두 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다. P2 이상의 예약도 여기서 한다.
+        // 판정 순서와 예외와 락 키는 그 함수가 정한다(ADR 0034 결정 5). 예약 시간은 prologueNanos 에 들어간다.
         //
         // 삽입을 여기 안 넣는 이유는 체크섬이다. seq 를 받아야 계산할 수 있고 그 산식이
         // Jackson 정규화에 걸려 있어 plpgsql 로 옮기면 같은 계약이 두 언어에 생긴다.
+        boolean isNew = draft.type() == CommandDraft.CommandType.NEW;
         long t = System.nanoTime();
         Prologue p = jdbc.sql(PROLOGUE_SQL)
-                .params(leader.holder(), leader.epoch(),
-                        draft.type() == CommandDraft.CommandType.NEW,
-                        draft.userId(), draft.clientOrderId(), draft.marketId())
+                // 비어 있을 수 있는 셋은 형을 붙여 넘긴다. 형 없는 null 은 드라이버가 매개변수 형을 따로 물어볼 수 있다.
+                .params(leader.holder(), leader.epoch(), isNew,
+                        draft.userId(), new SqlParameterValue(Types.VARCHAR, draft.clientOrderId()),
+                        draft.marketId(), draft.assignedOrderId(), draft.payloadJson(),
+                        new SqlParameterValue(Types.SMALLINT, check == null ? null : check.assetId()),
+                        new SqlParameterValue(Types.NUMERIC, check == null ? null : check.amount()))
                 .query((rs, rowNum) -> new Prologue(
                         rs.getLong("out_seq"), rs.getBoolean("out_replayed"),
-                        rs.getLong("out_fencing"), rs.getLong("out_order_id")))
+                        rs.getLong("out_fencing"), rs.getLong("out_order_id"),
+                        rs.getBoolean("out_reserved")))
                 .single();
         prologueNanos.add(System.nanoTime() - t);
 
         if (p.replayed()) {
-            // 원본 명령이 이미 저널에 있다. 종전 findExistingNew 가 돌려주던 것과 같은 값이다.
-            return new AppendResult(p.seq(), p.fencing(), true, p.orderId());
+            // 원본 명령이 이미 저널에 있다. 종전 findExistingNew 가 돌려주던 것과 같은 값이다. 재전송은 예약하지 않는다.
+            return new AppendResult(p.seq(), p.fencing(), true, p.orderId(), false);
+        }
+        if (isNew && requireReservation && !p.reserved()) {
+            // P2 로 뜬 노드가 P1 DB 에서 돌고 있다(2->1 전환 뒤 재기동하지 않음). 이 노드의 게이트웨이는 in-flight 누계를
+            // 쓰지 않으므로 여기서 커밋하면 사전 가드도 DB 예약도 없는 주문이 된다. 커밋 전에 롤백하고 503 으로 돌려보낸다.
+            throw new IllegalStateException("P2 모드로 기동한 노드인데 DB 가 이 주문을 예약하지 않았다(leader_protocol 이 "
+                    + "P1). 노드를 재기동해야 한다: market=" + draft.marketId() + ", order=" + draft.assignedOrderId());
         }
         long seq = p.seq();
 
@@ -236,14 +321,15 @@ public class CommandJournalAppender {
                         draft.engineTs(), draft.tieBreak(), draft.payloadJson(),
                         JournalChecksum.of(seq, draft),
                         leader.holder(), leader.epoch())
-                .update();
+                .query(Integer.class)
+                .single();
         insertNanos.add(System.nanoTime() - tIns);
         if (inserted == 0) {
             // 내 epoch가 밀렸거나 리스 만료. 예외로 롤백해 채번도 함께 되돌린다.
             throw new StaleLeaderException(
                     "stale 리더 append 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
         }
-        return new AppendResult(seq, leader.epoch(), false, draft.assignedOrderId());
+        return new AppendResult(seq, leader.epoch(), false, draft.assignedOrderId(), p.reserved());
     }
 
 }

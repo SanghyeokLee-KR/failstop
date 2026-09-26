@@ -1,0 +1,12 @@
+# 관문 실행기 실험의 앱 로그 검사(2026-09-26). 로그는 저장소 밖(%TEMP%\pml-s7-gate-<실험>)에 두었고 해시는 각 폴더의 container_logs.json 이다.
+# 같은 실험을 다시 잰 경우 로그는 마지막 회차의 것이다(Q1=Q1-r2, Q8=Q8-r4, Q9=Q9-r2, Q10=Q10-r2, Q11=Q11-r2, Q16=Q16-r2).
+# 23514 = chk_balance_nonneg 또는 23514 를 담은 줄 수, fatal = WRITER_FATAL·NODE_FATAL·종신 강등 줄 수, unhandled = 처리되지 않은 예외 줄 수
+Q1 chaos-api-1 sha256=0e2c6e047b120391… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=8d341b3479f89e89… 23514=0 fatal=0 unhandled=0
+Q4 chaos-api-1 sha256=64e81803f858ca10… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=29bd7a82df0b1ab2… 23514=0 fatal=0 unhandled=0
+Q8 chaos-api-1 sha256=5d6ed264ee63beb0… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=8c2a3fedd3605d64… 23514=0 fatal=0 unhandled=0
+Q9 chaos-api-1 sha256=91496ae80526e2f0… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=35454e957e7095c0… 23514=0 fatal=0 unhandled=0
+Q10 chaos-api-1 sha256=96b0107967032515… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=0c91cfa2e4dc1c33… 23514=0 fatal=2 unhandled=0
+Q11 chaos-api-1 sha256=9f1c8520b500df64… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=69c4cb03ee1cc1af… 23514=0 fatal=0 unhandled=0
+Q13 chaos-api-1 sha256=0b313959b536f40f… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=aa16c77fa2a75af1… 23514=0 fatal=0 unhandled=0
+Q15 chaos-api-1 sha256=02b9a03e200f260a… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=09106fe9276632ad… 23514=0 fatal=0 unhandled=0
+Q16 chaos-api-1 sha256=4bbde61062956ecd… 23514=0 fatal=0 unhandled=0 | chaos-api-2 sha256=4eef180df414b041… 23514=0 fatal=0 unhandled=0

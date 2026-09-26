@@ -1,0 +1,168 @@
+2026-09-25T19:57:04+09:00 [Prep] VOLUMES start exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T19:57:09+09:00 [Prep] IMAGE before sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T19:57:09+09:00 [Prep] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\up.ps1 -Obs
+2026-09-25T19:57:57+09:00 [Prep] RC 0
+2026-09-25T19:57:57+09:00 [Prep] IMAGE after sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3 (up rc=0)
+2026-09-25T19:58:03+09:00 [Prep] DOWN rc=0
+2026-09-25T19:58:04+09:00 [Prep] PREP done app=sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3
+2026-09-25T19:58:04+09:00 [Prep] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T19:58:15+09:00 [W0] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T19:58:21+09:00 [W0] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4,E7 -Protocol 2 -PartitionAxes -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W0 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W0
+2026-09-25T20:04:28+09:00 [W0] RC 1
+2026-09-25T20:04:33+09:00 [W0] HOST before cpuAvg=10.4 patroni=19 after cpuAvg=9 patroni=0
+2026-09-25T20:04:33+09:00 [W0] LEFT chaos- containers: 0
+2026-09-25T20:04:33+09:00 [W0] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:04:33+09:00 [W0] DONE rc=1
+2026-09-25T20:04:46+09:00 [W2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:04:51+09:00 [W2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W2
+2026-09-25T20:10:12+09:00 [W2] RC 1
+2026-09-25T20:10:17+09:00 [W2] HOST before cpuAvg=13.1 patroni=0 after cpuAvg=10.5 patroni=0
+2026-09-25T20:10:17+09:00 [W2] LEFT chaos- containers: 0
+2026-09-25T20:10:17+09:00 [W2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:10:17+09:00 [W2] DONE rc=1
+2026-09-25T20:12:52+09:00 [W2-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:12:57+09:00 [W2-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W2-r2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W2-r2
+2026-09-25T20:18:26+09:00 [W2-r2] RC 0
+2026-09-25T20:18:31+09:00 [W2-r2] HOST before cpuAvg=9.9 patroni=19 after cpuAvg=20.4 patroni=0
+2026-09-25T20:18:31+09:00 [W2-r2] LEFT chaos- containers: 0
+2026-09-25T20:18:31+09:00 [W2-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:18:31+09:00 [W2-r2] DONE rc=0
+2026-09-25T20:18:54+09:00 [W1] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:19:00+09:00 [W1] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W1 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W1
+2026-09-25T20:30:59+09:00 [W1] RC 0
+2026-09-25T20:31:04+09:00 [W1] HOST before cpuAvg=31.9 patroni=0 after cpuAvg=9.8 patroni=0
+2026-09-25T20:31:04+09:00 [W1] LEFT chaos- containers: 0
+2026-09-25T20:31:04+09:00 [W1] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:31:04+09:00 [W1] DONE rc=0
+2026-09-25T20:31:05+09:00 [W3] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:31:10+09:00 [W3] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W3 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W3 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W3
+2026-09-25T20:36:19+09:00 [W3] RC 1
+2026-09-25T20:36:24+09:00 [W3] HOST before cpuAvg=5.8 patroni=0 after cpuAvg=4.8 patroni=0
+2026-09-25T20:36:24+09:00 [W3] LEFT chaos- containers: 0
+2026-09-25T20:36:24+09:00 [W3] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:36:24+09:00 [W3] DONE rc=1
+2026-09-25T20:36:25+09:00 [W4] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:36:30+09:00 [W4] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W4 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W4 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W4
+2026-09-25T20:41:25+09:00 [W4] RC 1
+2026-09-25T20:41:30+09:00 [W4] HOST before cpuAvg=3.1 patroni=0 after cpuAvg=5.2 patroni=0
+2026-09-25T20:41:30+09:00 [W4] LEFT chaos- containers: 0
+2026-09-25T20:41:31+09:00 [W4] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:41:31+09:00 [W4] DONE rc=1
+2026-09-25T20:41:31+09:00 [W5] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:41:37+09:00 [W5] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4 -Protocol 2 -PartitionAxes -Relay -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W5 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W5
+2026-09-25T20:44:25+09:00 [W5] RC 0
+2026-09-25T20:44:30+09:00 [W5] HOST before cpuAvg=7.3 patroni=0 after cpuAvg=3.8 patroni=0
+2026-09-25T20:44:30+09:00 [W5] LEFT chaos- containers: 0
+2026-09-25T20:44:30+09:00 [W5] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:44:30+09:00 [W5] DONE rc=0
+2026-09-25T20:44:31+09:00 [W0-r2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:44:36+09:00 [W0-r2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4,E7 -Protocol 2 -PartitionAxes -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W0-r2 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W0-r2
+2026-09-25T20:50:28+09:00 [W0-r2] RC 0
+2026-09-25T20:50:33+09:00 [W0-r2] HOST before cpuAvg=2.2 patroni=0 after cpuAvg=6 patroni=0
+2026-09-25T20:50:33+09:00 [W0-r2] LEFT chaos- containers: 0
+2026-09-25T20:50:33+09:00 [W0-r2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T20:50:33+09:00 [W0-r2] DONE rc=0
+2026-09-25T21:17:17+09:00 [Prep-fix] VOLUMES start exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:17:23+09:00 [Prep-fix] IMAGE before sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3
+2026-09-25T21:17:23+09:00 [Prep-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\up.ps1 -Obs
+2026-09-25T21:18:11+09:00 [Prep-fix] RC 0
+2026-09-25T21:18:11+09:00 [Prep-fix] IMAGE after sha256:d5981fc5b9be0ba6f561653a8bb6d869e27308ff9d65f0bba8189cfce4994aa2 (up rc=0)
+2026-09-25T21:18:17+09:00 [Prep-fix] DOWN rc=0
+2026-09-25T21:18:17+09:00 [Prep-fix] PREP done app=sha256:d5981fc5b9be0ba6f561653a8bb6d869e27308ff9d65f0bba8189cfce4994aa2
+2026-09-25T21:18:17+09:00 [Prep-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:18:18+09:00 [W3-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:18:23+09:00 [W3-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W3 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W3-fix -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W3-fix
+2026-09-25T21:23:27+09:00 [W3-fix] RC 0
+2026-09-25T21:23:33+09:00 [W3-fix] HOST before cpuAvg=10.4 patroni=0 after cpuAvg=10 patroni=0
+2026-09-25T21:23:33+09:00 [W3-fix] LEFT chaos- containers: 0
+2026-09-25T21:23:33+09:00 [W3-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:23:33+09:00 [W3-fix] DONE rc=0
+2026-09-25T21:23:33+09:00 [W4-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:23:39+09:00 [W4-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W4 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W4-fix -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W4-fix
+2026-09-25T21:28:30+09:00 [W4-fix] RC 1
+2026-09-25T21:28:35+09:00 [W4-fix] HOST before cpuAvg=4.8 patroni=0 after cpuAvg=6.4 patroni=0
+2026-09-25T21:28:35+09:00 [W4-fix] LEFT chaos- containers: 0
+2026-09-25T21:28:35+09:00 [W4-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:28:35+09:00 [W4-fix] DONE rc=1
+2026-09-25T21:28:36+09:00 [W1-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:28:41+09:00 [W1-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W1-fix -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W1-fix
+2026-09-25T21:40:40+09:00 [W1-fix] RC 0
+2026-09-25T21:40:45+09:00 [W1-fix] HOST before cpuAvg=4 patroni=0 after cpuAvg=23.1 patroni=0
+2026-09-25T21:40:45+09:00 [W1-fix] LEFT chaos- containers: 0
+2026-09-25T21:40:45+09:00 [W1-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:40:45+09:00 [W1-fix] DONE rc=0
+2026-09-25T21:40:46+09:00 [W2-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:40:51+09:00 [W2-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W2-fix -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W2-fix
+2026-09-25T21:46:10+09:00 [W2-fix] RC 1
+2026-09-25T21:46:15+09:00 [W2-fix] HOST before cpuAvg=6 patroni=0 after cpuAvg=10 patroni=0
+2026-09-25T21:46:16+09:00 [W2-fix] LEFT chaos- containers: 0
+2026-09-25T21:46:16+09:00 [W2-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:46:16+09:00 [W2-fix] DONE rc=1
+2026-09-25T21:46:16+09:00 [W5-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:46:22+09:00 [W5-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4 -Protocol 2 -PartitionAxes -Relay -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W5-fix -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W5-fix
+2026-09-25T21:49:08+09:00 [W5-fix] RC 1
+2026-09-25T21:49:13+09:00 [W5-fix] HOST before cpuAvg=3.9 patroni=0 after cpuAvg=3 patroni=0
+2026-09-25T21:49:13+09:00 [W5-fix] LEFT chaos- containers: 0
+2026-09-25T21:49:13+09:00 [W5-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:49:13+09:00 [W5-fix] DONE rc=1
+2026-09-25T21:49:14+09:00 [W0-fix] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:49:19+09:00 [W0-fix] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4,E7 -Protocol 2 -PartitionAxes -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W0-fix -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W0-fix
+2026-09-25T21:55:11+09:00 [W0-fix] RC 0
+2026-09-25T21:55:16+09:00 [W0-fix] HOST before cpuAvg=3.1 patroni=0 after cpuAvg=5.2 patroni=0
+2026-09-25T21:55:16+09:00 [W0-fix] LEFT chaos- containers: 0
+2026-09-25T21:55:16+09:00 [W0-fix] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T21:55:16+09:00 [W0-fix] DONE rc=0
+2026-09-25T22:35:53+09:00 [Prep-fix2] VOLUMES start exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:35:59+09:00 [Prep-fix2] IMAGE before sha256:d5981fc5b9be0ba6f561653a8bb6d869e27308ff9d65f0bba8189cfce4994aa2
+2026-09-25T22:35:59+09:00 [Prep-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\up.ps1 -Obs
+2026-09-25T22:36:48+09:00 [Prep-fix2] RC 0
+2026-09-25T22:36:48+09:00 [Prep-fix2] IMAGE after sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196 (up rc=0)
+2026-09-25T22:36:54+09:00 [Prep-fix2] DOWN rc=0
+2026-09-25T22:36:55+09:00 [Prep-fix2] PREP done app=sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196
+2026-09-25T22:36:55+09:00 [Prep-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:36:56+09:00 [W2-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:37:01+09:00 [W2-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W2 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W2-fix2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W2-fix2
+2026-09-25T22:42:31+09:00 [W2-fix2] RC 0
+2026-09-25T22:42:36+09:00 [W2-fix2] HOST before cpuAvg=21.9 patroni=19 after cpuAvg=10.1 patroni=0
+2026-09-25T22:42:37+09:00 [W2-fix2] LEFT chaos- containers: 0
+2026-09-25T22:42:37+09:00 [W2-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:42:37+09:00 [W2-fix2] DONE rc=0
+2026-09-25T22:42:37+09:00 [W4-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:42:43+09:00 [W4-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W4 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W4-fix2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W4-fix2
+2026-09-25T22:47:34+09:00 [W4-fix2] RC 0
+2026-09-25T22:47:39+09:00 [W4-fix2] HOST before cpuAvg=19.1 patroni=0 after cpuAvg=10.3 patroni=0
+2026-09-25T22:47:39+09:00 [W4-fix2] LEFT chaos- containers: 0
+2026-09-25T22:47:40+09:00 [W4-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:47:40+09:00 [W4-fix2] DONE rc=0
+2026-09-25T22:47:40+09:00 [W5-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:47:46+09:00 [W5-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4 -Protocol 2 -PartitionAxes -Relay -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W5-fix2 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W5-fix2
+2026-09-25T22:50:46+09:00 [W5-fix2] RC 0
+2026-09-25T22:50:51+09:00 [W5-fix2] HOST before cpuAvg=10.4 patroni=0 after cpuAvg=4.2 patroni=0
+2026-09-25T22:50:51+09:00 [W5-fix2] LEFT chaos- containers: 0
+2026-09-25T22:50:51+09:00 [W5-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:50:51+09:00 [W5-fix2] DONE rc=0
+2026-09-25T22:50:52+09:00 [W3-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:50:57+09:00 [W3-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W3 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W3-fix2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W3-fix2
+2026-09-25T22:55:54+09:00 [W3-fix2] RC 0
+2026-09-25T22:55:59+09:00 [W3-fix2] HOST before cpuAvg=5.5 patroni=0 after cpuAvg=6.2 patroni=0
+2026-09-25T22:55:59+09:00 [W3-fix2] LEFT chaos- containers: 0
+2026-09-25T22:56:00+09:00 [W3-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:56:00+09:00 [W3-fix2] DONE rc=0
+2026-09-25T22:56:00+09:00 [W1-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T22:56:06+09:00 [W1-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\s6-relay-outage.ps1 -Image exchange-chaos-app:pml -Experiment W1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W1-fix2 -W1Sec 600 -PreSec 60 -PostSec 90 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W1-fix2
+2026-09-25T23:08:03+09:00 [W1-fix2] RC 0
+2026-09-25T23:08:08+09:00 [W1-fix2] HOST before cpuAvg=1.2 patroni=0 after cpuAvg=8.5 patroni=0
+2026-09-25T23:08:08+09:00 [W1-fix2] LEFT chaos- containers: 0
+2026-09-25T23:08:08+09:00 [W1-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T23:08:08+09:00 [W1-fix2] DONE rc=0
+2026-09-25T23:08:09+09:00 [W0-fix2] VOLUMES before exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T23:08:14+09:00 [W0-fix2] RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E4,E7 -Protocol 2 -PartitionAxes -WsGateAxes -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S6-20260925-1954\W0-fix2 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s6-logs\W0-fix2
+2026-09-25T23:14:26+09:00 [W0-fix2] RC 0
+2026-09-25T23:14:32+09:00 [W0-fix2] HOST before cpuAvg=3.3 patroni=0 after cpuAvg=44.8 patroni=19
+2026-09-25T23:14:32+09:00 [W0-fix2] LEFT chaos- containers: 0
+2026-09-25T23:14:32+09:00 [W0-fix2] VOLUMES after exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z
+2026-09-25T23:14:32+09:00 [W0-fix2] DONE rc=0
+2026-09-25T23:14:46+09:00 [Final] DOWN rc=0
+2026-09-25T23:14:46+09:00 [Final] FINAL chaos-=0 watch=0 exchange-pml volumes=0 networks=0
+2026-09-25T23:14:46+09:00 [Final] TAGS pml=sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196 s6ref=sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196 s5ref=sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095 local=sha256:611169b8bf40413b858d7052b602942a8eed0917fe2da4f18cbdb91ba3f96a91
+2026-09-25T23:14:46+09:00 [Final] VOLUMES end exchange-chaos_chaos-pgdata=2026-09-13T11:42:01Z failstop-keep-chaos-pgdata-20260924=2026-09-23T15:47:36Z

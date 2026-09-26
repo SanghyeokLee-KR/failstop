@@ -1,0 +1,124 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b",
+  "imageRevision": null,
+  "harnessCommit": "48629d5d02ae61b2de7ae12a082fb689a1ce2eee",
+  "latchBeforeTraffic": false,
+  "protocol": 2,
+  "partitionAxes": true,
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b-logs\\E2-r5",
+  "experiments": [
+    {
+      "experiment": "E2",
+      "script": "harness/scripts/e2-db-cut.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b",
+      "containerImages": {
+        "chaos-api-1": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b",
+        "chaos-api-2": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b",
+        "chaos-bots": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 63,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 148,
+        "PgEpochMs": 1790284005875,
+        "HostEpochMs": 1790284005812
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-24T21:06:46.3304562+00:00",
+        "to": "2026-09-24T21:08:16.0882317+00:00"
+      },
+      "runId": "E2-20260925-060646",
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 1404,
+        "reservedSettledByLaterEpoch": 1,
+        "file": "s3_common.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 40,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 97,
+        "PgEpochMs": 1790284125980,
+        "HostEpochMs": 1790284125940
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "PASS",
+      "rpoAxis": {
+        "rpoRecords": 0,
+        "postC13A": 0
+      },
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [],
+          "빠진 사건": [],
+          "사건": [],
+          "확인": "간접",
+          "주": "Toxiproxy 프록시 계층 주입이다. 커널 주입이 아니고 도커 사건이 없어 리스 상실 뒤 승격(epoch 증가)으로 간접 확인한다"
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "0556403f-5699-46c6-91f6-979beb0b8801",
+          "newLeader": "4c2e0ec8-a561-4e3e-a640-96a16bc3cfa1",
+          "metrics": {
+            "promotionStable": true,
+            "epochRegressions": 0,
+            "standdownScrapeOk": true,
+            "standdownDelta": 0.0,
+            "deadLeaseSamples": 0,
+            "finalEpoch": 6
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 12.114,
+          "downtimeSeconds": 12.854,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1647,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "promotionStable": true,
+          "standdownDelta": 0.0
+        }
+      }
+    }
+  ]
+}

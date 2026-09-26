@@ -74,7 +74,10 @@ class AppendPrologueCreatedAtOrderIntegrationTest {
                 assertEquals("v", rs.getString(2), rs.getString(1));
                 overloads.add(rs.getString(1));
             }
-            assertEquals(2, overloads.size(), "append_command_prologue 가 5인자와 6인자 두 판이 아니다: " + overloads);
+            // 5인자(V39·V43·V44), 6인자(V44·V48), 10인자(V50 접수 예약) 세 판이다(ADR 0034 S3).
+            assertEquals(3, overloads.size(), "append_command_prologue 가 5·6·10인자 세 판이 아니다: " + overloads);
+            assertTrue(overloads.get(2).endsWith("p_check_asset smallint, p_check_amount numeric"),
+                    "가장 긴 판이 V50 10인자 머리말이 아니다: " + overloads.get(2));
         }
     }
 

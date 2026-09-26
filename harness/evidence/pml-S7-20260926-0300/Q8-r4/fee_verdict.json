@@ -1,0 +1,25 @@
+{
+  "judge": "fee-coupling",
+  "at": "2026-09-26T05:21:16+09:00",
+  "facts": {
+    "attempts": 1,
+    "baseline_s": 0.020977,
+    "during_s": 0.005079
+  },
+  "axes": {
+    "fee_row_held_by_paused_session": true,
+    "p1_trades_during_pause_ge_1": true,
+    "krw_shard1_increased": true,
+    "api2_transient_exhausted_delta_0": true,
+    "api2_fatal_demotions_0": true,
+    "p1_settle_max_le_baseline_plus_1s": true,
+    "no_lease_handover": true
+  },
+  "positive": [
+    "fee_row_held_by_paused_session",
+    "p1_trades_during_pause_ge_1"
+  ],
+  "verdict": "PASS",
+  "failed": [],
+  "input": "harness\\evidence\\pml-S7-20260926-0300\\Q8-r4\\fee.json"
+}

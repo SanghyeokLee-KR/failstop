@@ -1,0 +1,9 @@
+after-R1-settle pml-probe-rabbit 140.9MiB / 15.18GiB
+reserved_unallocated: 43.5241 mb (32.93%)
+other_system: 26.675 mb (20.18%)
+code: 19.4054 mb (14.68%)
+allocated_unused: 16.9008 mb (12.79%)
+other_proc: 15.9243 mb (12.05%)
+binary: 5.6841 mb (4.3%)
+metrics: 1.9733 mb (1.49%)
+atom: 0.9997 mb (0.76%)

@@ -1,0 +1,32 @@
+{
+  "experiment": "Q9",
+  "started": "2026-09-25T19:05:40.6254363Z",
+  "image": "exchange-chaos-app:pml",
+  "project": "exchange-pml",
+  "harnessCommit": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "stack": {
+    "ok": true,
+    "upRc": 0,
+    "transitionRc": 0,
+    "preflight": {
+      "ok": true,
+      "failed": [],
+      "relocated": false
+    }
+  },
+  "result": {
+    "rc": 3,
+    "judge": "NOT RUN",
+    "post": {
+      "botsStopped": true,
+      "drained": true,
+      "integrity": true,
+      "summaryOk": true,
+      "segment": "PASS",
+      "ok": true
+    },
+    "verdict": "NOT RUN"
+  },
+  "finished": "2026-09-25T19:10:15.5491715Z",
+  "verdict": "NOT RUN"
+}

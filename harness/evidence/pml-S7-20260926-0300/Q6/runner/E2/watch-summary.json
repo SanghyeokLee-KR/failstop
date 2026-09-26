@@ -1,0 +1,85 @@
+{
+  "urls": [
+    "ws://chaos-api-1:8080/ws/v1",
+    "ws://chaos-api-2:8080/ws/v1",
+    "ws://chaos-lb:8080/ws/v1"
+  ],
+  "markets": [
+    "KRW-BTC",
+    "KRW-ETH",
+    "KRW-XRP"
+  ],
+  "durationSec": 1200,
+  "metrics": {
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      }
+    },
+    "vus_max": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      }
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 2991,
+        "rate": 23.466504740898564
+      }
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 11546845,
+        "rate": 90593.1437428689
+      }
+    },
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 3,
+        "rate": 0.02353711608916606
+      }
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 21.852159666666665,
+        "min": 21.589108,
+        "med": 21.907062,
+        "max": 22.060309,
+        "p(90)": 22.0296596,
+        "p(95)": 22.0449843
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 105,
+        "rate": 0.8237990631208122
+      }
+    },
+    "ws_msgs_received": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "rate": 142.56431215207883,
+        "count": 18171
+      }
+    }
+  }
+}

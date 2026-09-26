@@ -12,10 +12,11 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
 import { check, sleep } from 'k6';
-import { Trend, Counter } from 'k6/metrics';
+import { Trend, Counter, Rate } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { signRequest, orderCanonicalBody } from './lib/sign.js';
 import { WebSocket, connectFrame, subscribeFrame, parseFrames, topicOrderbook, topicTrade } from './lib/stomp.js';
+import { newBaseline, judgeSeq } from './lib/seq_baseline.js';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:58080';
 const WS_URL = __ENV.WS_URL || BASE.replace(/^http/, 'ws') + '/ws/v1';
@@ -28,6 +29,9 @@ const MARKET = __ENV.MARKET || 'KRW-BTC';
 // 라이터도 하나만 돌아 이득이 0으로 나오는데, 그것은 코드가 아니라 부하 형태의 결과다.
 // 그 둘을 갈라야 이번 변경을 실제로 잰 것이 된다.
 const MARKETS = (__ENV.MARKETS || MARKET).split(',').map((m) => m.trim()).filter((m) => m);
+// 주문 생성의 마켓 힌트 헤더(API 설계 §2-5-d, ADR 0034 S5). 서명 밖이라 canonical 을 바꾸지 않고 인그레스가 그 마켓을 접수하는
+// 노드로 보낸다. 기본 1(싣는다), 0 이면 힌트 없는 클라이언트를 흉내 낸다(S7 P3 관문의 힌트 없는 부하).
+const MARKET_HINT = String(__ENV.MARKET_HINT || '1') !== '0';
 
 // 마켓마다 호가 단위와 가격대가 다르다. 같은 가격과 수량을 전 마켓에 보내면 시장 규칙에
 // 걸려 400 이 된다(2026-09-10 실측: 다른 마켓 주문 20,826건이 전량 400). tick 배수와
@@ -110,6 +114,11 @@ const KEYS = new SharedArray('keys', () => {
 // 수용(2xx) 요청 전용 지연 Trend. 429는 여기 넣지 않아 가용성 지표 오염을 막는다(§2-2).
 const acceptedReqDuration = new Trend('accepted_req_duration', true);
 const rateLimitedTotal = new Counter('rate_limited_total');
+// 마켓 접수 경합(API 설계 §2-5-b, S4 설계 4-18). 429 바디의 error.detail.bucket 이 market 이면 레이트리밋이 아니라 접수 락 대기
+// 초과나 append 잠금 경합이다. 429 는 실패로 세지 않으므로(아래 expectedStatuses) 이 비율이 없으면 경합이 가용성 판정에서
+// 사라진다. 분모는 주문 접수 요청 전부다.
+const marketContention = new Rate('market_contention');
+const marketContentionTotal = new Counter('market_contention_total');
 // 접수 건수. 주문 축의 양성 증거다. accepted_req_duration은 Trend라 count 임계를 못 걸고
 // (k6: unsupported aggregation method count on metric of type trend) 지연 임계도
 // http_req_failed도 표본 0에서 통과한다. 별도 Counter로 하한을 건다.
@@ -160,6 +169,9 @@ const thresholds = {
   // 하한은 STEADY_RATE와 주행 길이에서 유도한다(데모 프로파일 9,000건의 10%).
   'accepted_total{phase:steady,replay:false}': ['count>900'], // 수용 요청 SLO(API§7-4)
   'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
+  // 정상 구간 마켓 접수 경합 상한(하네스 검증설계 §2-2, S4 설계 4-21). 경합 429 는 가용성 분자에서 빠지므로 이 비율이 대신 본다.
+  // 창 안의 값은 기록만 한다.
+  'market_contention{phase:steady}': ['rate<0.001'],
   // API§5-2가 seq 도메인의 두 실현을 나눈다. orderbook은 채널별 조밀 카운터라 결번이 곧
   // 유실이고, trade는 전역 event_seq라 단일 마켓 구독자에게 결번이 정상이다.
   // 그래서 결번 0은 orderbook 채널만 요구한다.
@@ -247,6 +259,18 @@ export const options = {
 // k6 기본은 429=실패다. 이 선언이 없으면 가용성 지표가 오염된다(§2-2). init 단계 의무.
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 429));
 
+// 마켓 접수 경합 429 인가(API 설계 §2-5-b). 표준 오류 바디(§2-3)의 error.detail.bucket 이 market 이다. 계정 토큰버킷 429 는
+// bucket 이 다르다.
+function isMarketContention(res) {
+  try {
+    const body = JSON.parse(res.body);
+    const detail = body && body.error && body.error.detail;
+    return !!(detail && detail.bucket === 'market');
+  } catch (e) {
+    return false;
+  }
+}
+
 function phase() {
   const s = exec.instance.currentTestRunDuration / 1000;
   return (s >= T0 && s <= T1) ? 'chaos' : 'steady';
@@ -278,7 +302,10 @@ function orderPayload() {
   const side = (exec.vu.iterationInInstance % 2 === 0) ? 'bid' : 'ask';
   const mk = MARKETS[(exec.vu.idInTest + exec.vu.iterationInInstance) % MARKETS.length];
   const rule = MARKET_RULES[mk] || MARKET_RULES['KRW-BTC'];
-  const price = side === 'bid' ? rule.bid : rule.ask;
+  // ORDER_CROSS=1 이면 매수를 매도 가격에, 매도를 매수 가격에 내 부하 계정끼리 체결을 만든다. 기본(0)은 호가만 쌓고 체결하지
+  // 않는다. 봇 없이 정산을 일으켜야 하는 주행(ADR 0034 S7 Q8 수수료 행 결합)만 켠다.
+  const cross = __ENV.ORDER_CROSS === '1';
+  const price = (side === 'bid') !== cross ? rule.bid : rule.ask;
   // VARCHAR(36) 상한. RUN_ID 16자 가드가 이 조립의 최악 길이를 36자 안에 묶는다(위 참조).
   const coid = `k6-${RUN_ID}-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
   return {
@@ -312,11 +339,17 @@ export function placeOrder() {
   const path = '/api/v1/orders';
   const auth = signRequest('POST', path, body, c.access_key, c.secret);
   const ph = phase();
+  const headers = { 'Content-Type': 'application/json', Authorization: auth };
+  if (MARKET_HINT) {
+    headers['X-Exchange-Market'] = o.market;
+  }
   const res = http.post(BASE + path, body, {
-    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    headers,
     tags: { name: 'placeOrder', phase: ph },
   });
 
+  const contention = res.status === 429 && isMarketContention(res);
+  marketContention.add(contention, { phase: ph });
   if (res.status >= 200 && res.status < 300) {
     acceptedReqDuration.add(res.timings.duration, { phase: ph });
     // 멱등 replay(200 + X-Idempotent-Replay)는 신규 접수가 아니므로 dup 계상 제외.
@@ -336,7 +369,11 @@ export function placeOrder() {
   }
 
   if (res.status === 429) {
-    rateLimitedTotal.add(1);
+    if (contention) {
+      marketContentionTotal.add(1, { phase: ph });
+    } else {
+      rateLimitedTotal.add(1);
+    }
     // 토큰버킷 증거는 Retry-After 100% 동반이어야 정상(§2-3).
     check(res, { retry_after_present: (r) => r.headers['Retry-After'] !== undefined });
     return;
@@ -369,9 +406,11 @@ export function readMarket() {
 
 // STOMP 공개 채널 구독 후 seq 결번·epoch 변화를 계측한다. 카오스 창 gap은 재동기화로
 // 흡수(ws_epoch_resync_fail==0으로 판정), steady 창 결번은 orderbook 채널만 0이어야 한다(§2-2, API§5-2 seq 도메인 두 실현).
+// 기준점 판정은 lib/seq_baseline.js 가 한다(API§5-2 v2.58, S6 설계 6-4). 이 시나리오는 마켓 하나만 구독하므로 마켓별 epoch
+// 비교가 종전의 전역 비교와 같다. 달라진 것은 둘이다. seq 0 스냅샷(소유하지 않은 노드의 DB 집계)은 기준점을 비우고 양성
+// 계수에 넣지 않는다. 같은 마켓의 작은 epoch(옛 리더가 늦게 보낸 메시지)는 기준점을 건드리지 않고 폐기로 센다.
 export function wsSubscribe() {
-  const seen = {};
-  let lastEpoch = null;
+  const baseline = newBaseline();
   const ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
@@ -390,46 +429,32 @@ export function wsSubscribe() {
       try { msg = JSON.parse(f.body); } catch (err) { continue; }
       const dest = f.headers.destination || 'unknown';
       const ph = phase();
-
-      // epoch 변화(리더 교대) 감지 → 재동기화 기대. 실패 카운트는 전역 0이어야 한다.
-      if (msg.epoch !== undefined) {
-        if (lastEpoch !== null && msg.epoch !== lastEpoch) {
-          // 재동기화 규약(API§5-2): epoch 변화 시 seq 기준선을 리셋한다. 리셋 실패(음수 점프
-          // 지속)만 fail로 계상. 여기서는 기준선 재설정으로 정상 흡수한다.
-          for (const k in seen) { delete seen[k]; }
-        }
-        lastEpoch = msg.epoch;
+      // 구독 즉시 계약(API§5-2). 기준점은 마지막으로 채택한 seq이고 epoch 가 오르면 비운다.
+      // 스냅샷과 realtime의 순서 역전은 계약상 정상이라 낮은 seq는 채택하지 않는다.
+      // 채택하면 표시 상태가 되돌아가고 이어지는 realtime이 전부 결번으로 보인다.
+      const kind = destKind(dest);
+      const r = judgeSeq(baseline, dest, MARKET, msg.epoch, msg.seq);
+      if (r.verdict === 'no_seq' || r.verdict === 'snapshot_reset') {
+        continue;
       }
-
-      if (msg.seq !== undefined) {
-        const prev = seen[dest];
-        // 구독 즉시 계약(API§5-2). 기준점은 마지막으로 채택한 seq이고 epoch 변화 시 비운다.
-        // 스냅샷과 realtime의 순서 역전은 계약상 정상이라 낮은 seq는 채택하지 않는다.
-        // 채택하면 표시 상태가 되돌아가고 이어지는 realtime이 전부 결번으로 보인다.
-        const kind = destKind(dest);
-        if (prev !== undefined && msg.seq <= prev) {
-          // 계약이 두 채널 모두에 폐기를 지시한다(API§5-2). 기준점을 전진시키지 않는 것도
-          // 계약이다. 뒤처진 값을 기준으로 삼으면 이후 메시지가 전부 결번으로 보인다.
-          // 실패로 계상하면 정상 거동이 실패가 되고 재정렬 이후가 통째로 실패로 번진다.
-          wsStaleDiscarded.add(1, { phase: ph, stream: msg.stream || 'unknown', dest: kind });
-          continue;
-        }
-        if (prev !== undefined && msg.seq > prev + 1) {
-          if (ph === 'chaos') {
-            // 카오스 창 gap은 무계상이다. 기준선만 전진시킨다. 그 창의 WS 판정 축은
-            // 없다(검증설계 §2-4 미해소 항). ws_epoch_resync_fail은 재동기화를 재지 않는다.
-          } else {
-            // destination 태그가 있어야 채널별 판정이 선다. orderbook seq는 채널별 연속이라
-            // 결번이 곧 유실이지만, trade seq는 전역 체결 번호라 다른 마켓 체결이 번호를
-            // 소비한다. 단일 마켓 구독자에게 그 결번은 정상이고 한 축으로 세면 상시 실패한다.
-            wsSeqGap.add(1, { phase: ph, dest: kind });
-          }
-        }
-        seen[dest] = msg.seq;
-        // stream 태그가 있어야 양성 증거를 realtime 한정으로 셀 수 있다. 스냅샷까지 세면
-        // realtime 발행이 죽어도 구독 수만큼 하한이 채워진다.
-        wsSeqObserved.add(1, { phase: ph, dest: kind, stream: msg.stream || 'realtime' });
+      if (r.verdict === 'stale' || r.verdict === 'old_epoch') {
+        // 계약이 두 채널 모두에 폐기를 지시한다(API§5-2). 기준점을 전진시키지 않는 것도
+        // 계약이다. 뒤처진 값을 기준으로 삼으면 이후 메시지가 전부 결번으로 보인다.
+        // 실패로 계상하면 정상 거동이 실패가 되고 재정렬 이후가 통째로 실패로 번진다.
+        wsStaleDiscarded.add(1, { phase: ph, stream: msg.stream || 'unknown', dest: kind });
+        continue;
       }
+      if (r.verdict === 'gap' && ph !== 'chaos') {
+        // 카오스 창 gap은 무계상이다. 기준선만 전진시킨다. 그 창의 WS 판정 축은
+        // 없다(검증설계 §2-4 미해소 항). ws_epoch_resync_fail은 재동기화를 재지 않는다.
+        // destination 태그가 있어야 채널별 판정이 선다. orderbook seq는 채널별 연속이라
+        // 결번이 곧 유실이지만, trade seq는 전역 체결 번호라 다른 마켓 체결이 번호를
+        // 소비한다. 단일 마켓 구독자에게 그 결번은 정상이고 한 축으로 세면 상시 실패한다.
+        wsSeqGap.add(1, { phase: ph, dest: kind });
+      }
+      // stream 태그가 있어야 양성 증거를 realtime 한정으로 셀 수 있다. 스냅샷까지 세면
+      // realtime 발행이 죽어도 구독 수만큼 하한이 채워진다.
+      wsSeqObserved.add(1, { phase: ph, dest: kind, stream: msg.stream || 'realtime' });
     }
   };
 

@@ -112,12 +112,14 @@ compose.yaml         카오스 스택 진입점
 
 | 워크플로 | 트리거 | 잡 | paths |
 |---|---|---|---|
-| `ci-backend` | PR + push (main, develop) | build-test, observability | `server/**`, `harness/prometheus/**`, `harness/grafana/dashboards/**`, 자기 파일 |
+| `ci-backend` | PR + push (main, develop) | build-test, observability | `server/**`, `deploy/provision-runtime-roles.sql`, `deploy/vm-lab/build/build-files/db/summary.sql`, `harness/sql/**`, `harness/relay/**`, `docs/reference/contracts/**`, `harness/prometheus/**`, `harness/grafana/dashboards/**`, 자기 파일 |
 | `ci-web` | PR + push (main, develop) | build-test | `web/**`, `scripts/prune-admin-bundle.mjs`, 자기 파일 |
 | `image` | `workflow_run`(ci-backend 성공, main) + 수동 | build-push | 없음 |
 | `style` | PR (main, develop) | style, doclinks, tokens, browser | 없음 |
 
 `image`는 `ci-backend` 성공에 물려 있다. 백엔드가 깨지면 이미지가 나가지 않는다.
+
+`ci-backend`의 paths는 `server/**` 밖에서 서버 시험이 읽는 파일도 싣는다. 목록은 `server/app/build.gradle.kts`의 `test` 작업이 입력으로 선언한 파일과 같다. 런타임 역할 스크립트, VM 실습망의 `summary.sql` 사본, 하네스 SQL, 중계 설정, 계약 문서 폴더가 여기에 든다. 계약 문서 폴더가 드는 이유는 `V55ContractBlockTest`와 판정 목록 판 시험(`S7Audit`)이 DB 설계의 SQL 블록을 뽑아 V55·앱 enum과 대조하기 때문이다(ADR 0034 S7). 문서만 고친 PR이 그 블록을 어긋나게 해도 백엔드 CI가 돈다. 시험 입력을 더하면 두 목록을 함께 고친다.
 
 `style.yml`만 `permissions`도 `concurrency`도 `timeout-minutes`도 없다. 나머지 셋은 앞의 둘을 갖는다. `image.yml`에 `timeout-minutes`가 없다.
 
@@ -222,6 +224,10 @@ digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열
 
 `container_name` 16개가 전부 고정이라 같은 호스트에서 두 스택을 동시에 띄울 수 없다.
 
+(2026-09-25, ADR 0034 S6) WebSocket 중계 실험용 오버레이 `harness/docker-compose.relay.yml`을 코드 단계에서 더한다. `chaos-broker`(`rabbitmq:4.3.6-alpine`, STOMP 61613, 호스트 포트 없음, `deploy.resources` 320MiB·CPU 1, Erlang `+S 2:2`, 헬스체크 `rabbitmq-diagnostics -q check_port_listener 61613`, 설정 `harness/relay/enabled_plugins`·`harness/relay/rabbitmq.conf`)를 더하고, api-1·api-2를 `EXCHANGE_WS_RELAY_MODE=broker`로 띄우며, chaos-lb에 `harness/nginx/nginx.relay.conf`를 마운트한다. `harness/scripts/up.ps1 -Relay`가 겹친다. 기본 기동과 위 표의 서비스 수는 바뀌지 않는다. 실험 실행기가 실험마다 스택을 다시 세울 때도 오버레이가 빠지지 않도록 `harness/scripts/lib.ps1`의 `Invoke-Compose`·`Invoke-ComposeQuiet`이 환경 변수 `CHAOS_COMPOSE_OVERLAYS`(`harness/` 아래 파일 경로, 세미콜론 구분)를 읽어 기본 파일 뒤에 `-f`로 겹친다. 목록의 파일이 없거나 `harness/` 밖이면 멈춘다. `up.ps1 -Relay`와 `adr0022-stage5-chaos.ps1 -Relay`가 이 변수를 채우고, 뒤의 것은 스택을 세운 뒤 오버레이가 실제로 걸렸는지(`chaos-broker` 헬스, 두 앱 컨테이너의 모드, LB 설정 마운트) 확인해 아니면 그 실험을 BLOCKED로 끝낸다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-19다.
+
+(2026-09-25, ADR 0034 S7) 파티션 리더 모드(P3) 실험용 오버레이 `harness/docker-compose.p3.yml`을 코드 단계에서 더한다. 서비스를 더하지 않는다. api-1·api-2에 선호 파티션(`EXCHANGE_LEADER_PARTITION_PREFERRED`, 각각 `matching-p0`·`matching-p1`)과 JDBC 주소(`SPRING_DATASOURCE_URL`)를 주고 chaos-lb에 `harness/nginx/nginx.partition-relay.conf`를 마운트한다. JDBC 주소는 기본 파일의 Toxiproxy 주소(api-1 `chaos-toxiproxy:15432`, api-2 `:25432`)를 지키고 `?ApplicationName=chaos-api-1`·`chaos-api-2`만 붙인다. P3 실험 Q8의 행 잠금 표본이 연결 이름으로 노드를 가르기 때문이다. 중계 오버레이 뒤에 겹쳐야 한다. compose는 같은 컨테이너 경로의 마운트를 뒤 파일 것으로 바꾸므로 순서가 뒤집히면 chaos-lb가 `nginx.relay.conf`로 뜨고, 중계 오버레이가 마운트를 덮은 뒤에는 `CHAOS_LB_CONF`가 효과가 없다(2026-09-25 `docker compose config` 해석, `harness/evidence/pml-s7-probe-20260925/README.md` C7). 그래서 `up.ps1 -P3`와 실험 실행기의 `-P3`는 `CHAOS_COMPOSE_OVERLAYS`를 `docker-compose.relay.yml;docker-compose.p3.yml` 순서로 채우고(`-P3`는 `-Relay`를 함께 켠다), 스택을 세운 뒤 chaos-lb 마운트 원본, 두 앱 컨테이너의 선호 파티션과 중계 모드와 JDBC 주소, `leader_protocol` 값을 확인해 하나라도 어긋나면 그 실험을 BLOCKED로 끝낸다. 환경은 변수 한 줄만 고르는 템플릿으로 읽어 비밀 값 줄을 가져오지 않는다. P3 전환 자체는 오버레이가 하지 않는다. 소유자가 `harness/scale/protocol_latch.py transition --target 3`으로 정지 창에서 한다(하네스 검증설계 §3 P3 실험 문단). 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-9다.
+
 ### 3-2. Toxiproxy 배선
 
 `harness/toxiproxy/populate.json`이 프록시 2개를 정의한다. `pg-api1`과 `pg-api2`다. 노드별로 DB 경로를 따로 끊을 수 있어야 리더만 겨냥한 실험이 성립한다.
@@ -233,6 +239,10 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 ### 3-3. 진입 배선
 
 `harness/nginx/nginx.conf`가 API 로드밸런서이고 `harness/nginx/web.conf`가 웹 서빙과 동일 출처 프록시다.
+
+2026-09-25 ADR 0034 S5부터 `chaos-lb`는 compose 변수 `CHAOS_LB_CONF`가 가리키는 파일을 쓴다. 기본값은 `./nginx/nginx.conf`라 종전 스택과 같다. `harness/nginx/nginx.partition.conf`는 종전 블록을 줄 단위로 그대로 두고 파티션 쓰기 업스트림 둘(`exchange_p0`·`exchange_p1`)과 마켓 힌트 헤더(`X-Exchange-Market`) 맵, 주문 쓰기 location을 더한 파일이고 S5 관문 실행기가 고를 때만 쓴다. 계약은 하네스 검증설계 §3 LB 배선의 2026-09-25 S5 항목, 응답은 API 설계 §2-5-d다. 두 파일의 보존 블록과 맵은 `harness/scale/test_nginx_partition_conf.py`가 대조한다.
+
+2026-09-25 ADR 0034 S7은 두 파일을 합친 `harness/nginx/nginx.partition-relay.conf`를 코드 단계에서 더한다. `nginx.relay.conf`의 블록 전부(`exchange_write`·`exchange_read`·`exchange_any`·`exchange_ws`와 그 location들)에 `nginx.partition.conf`의 파티션 업스트림 둘, 두 맵, 주문 쓰기 location을 더하고 두 원본은 바꾸지 않는다. 접근 로그는 파티션 형식(`ups`=시도한 업스트림 주소, `ust`=상태 목록) 하나다. 블록이 원본과 줄 단위로 같은지는 `harness/scale/test_nginx_p3_conf.py`가 대조한다. 이 파일은 P3 오버레이(§3-1)만 마운트하고 `CHAOS_LB_CONF`로 고르지 않는다. 폐기용 nginx 1.29.8에서 초안의 `nginx -t`와 라우팅을 확인했다(`harness/evidence/pml-s7-probe-20260925/README.md` N7).
 
 `web.conf`는 `^/(admin/v1|harness|actuator)/`를 404로 막는다. 관리 API와 하네스 API는 공개 진입으로 나가지 않는다. 관리 화면 자체(`/admin`)는 막지 않는다.
 
@@ -304,11 +314,11 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 ### 5-2. 커스텀 메트릭
 
-고유 이름 48개다. 등록 호출 지점은 51개다. 고유 이름 기준 타입 분포는 Counter 10, FunctionCounter 16, Timer 2, `Gauge.builder` 16, `MeterRegistry.gauge` 2, MultiGauge 2이다. 2026-09-14 ADR 0022 7단계 판에서 셌다.
+고유 이름 69개다. 등록 호출 지점은 74개다. 고유 이름 기준 타입 분포는 Counter 13, FunctionCounter 29, Timer 3, `Gauge.builder` 20, `MeterRegistry.gauge` 2, MultiGauge 2이다. 2026-09-24 ADR 0034 S4 코드 판에서 S1~S3가 더한 것까지 다시 셌다. 2026-09-14 ADR 0022 7단계 판은 고유 이름 48개, 등록 호출 지점 51개였다.
 
-세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다. 타입은 등록 호출 바로 앞의 미터 타입 이름으로 가른다.
+세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다. 타입은 등록 호출 바로 앞의 미터 타입 이름으로 가른다. 이름을 문자열 조합으로 만드는 등록은 이 방법에 잡히지 않는다. 7단계 판부터 있던 `EngineConfig`의 append 분해 계수 일곱(`exchange.journal.intx.nanos` 등)과, S4부터 노드 층과 파티션 층이 같은 코드로 이름을 만드는 좀비 판정 게이지 넷(`exchange.node.serviceable`·`exchange.node.write_completion_ratio`와 `exchange.partition`의 같은 두 이름)이다. 뒤의 넷을 더하면 고유 이름은 73개다.
 
-**규칙이나 대시보드가 실제로 참조하는 것은 19개다.** 29개가 방출만 되고 아무도 보지 않는다. 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 노출 이름(점을 밑줄로 바꾸고 카운터는 `_total`, 타이머는 `_seconds_*` 접미)을 찾아 센다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 29개의 처분은 §8-2에 미결로 둔다.
+**규칙이나 대시보드가 실제로 참조하는 것은 26개다.** 위 73개 가운데 47개가 방출만 되고 아무도 보지 않는다(7단계 판은 19개와 29개). 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 노출 이름(점을 밑줄로 바꾸고 카운터는 `_total`, 타이머는 `_seconds_*` 접미)을 찾아 센다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 47개의 처분은 §8-2에 미결로 둔다.
 
 `AdmissionControl`의 scope는 4개다(order, query, requery, ws).
 
@@ -317,6 +327,16 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 2026-09-14 ADR 0022 6단계가 `exchange.journal.band.latched`(1 대역 채번, 0 전역 채번)를 더했다. 기동 때 한 번 읽는 값이라 운영 중 래치 뒤에는 재기동 전까지 0 이다. 같은 단계에서 `exchange.follower.catchup.lag_commands.max`·`exchange.follower.catchup.lag_commands.sum_of_markets` 의 격차를 마켓 head 에서 엔진 커서와 물질화 경계 중 큰 쪽을 뺀 값으로 바꿨다. 커서가 대역 시작 아래에 있으면 대역 폭이 격차로 읽히기 때문이다. 경계를 아직 읽지 않은 새 마켓은 다음 틱에 잰다.
 
 2026-09-14 ADR 0022 7단계가 `exchange.journal.band.remaining{name,market}`(채번 대역에 남은 배정 가능 번호 수, `v_journal_band_headroom.remaining`)을 더했다. `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 갱신하므로 하네스를 켠 리더 노드에서 5분 주기로 바뀐다. 줄어드는 속도가 소진 속도다. 같은 단계에서 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)이 샤드마다 `market` 태그로 등록되고, `exchange.recovery.snapshot_fallback`(스냅샷 시작 복구를 버리고 전량 재생한 횟수)이 더해졌다. `SnapshotStalled` 규칙의 `and` 는 양쪽이 같은 `market` 태그를 가져 마켓마다 짝지어진다. 새 노출 이름 `exchange_journal_band_remaining` 과 `exchange_recovery_snapshot_fallback_total` 은 규칙과 대시보드가 보지 않아 위 29개에 든다. 7단계 판정기 `harness/scale/stage7_judge.py` 는 승격 노드의 `exchange_recovery_snapshot_fallback_total` 과 `exchange_journal_replay_commands_total` 증분을 판정에 쓴다(`docs/reference/contracts/하네스_검증설계.md` §2-4).
+
+2026-09-24 ADR 0034 S4(파티션 단위 리더)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S4_설계.md` 4-16, 동작 계약은 DB 설계 §5.4-c다. 코드가 들어갈 때 위 개수와 참조 수를 다시 센다. 리더 축 지표는 모두 `partition` 태그(리스 자원 이름, P1·P2에서는 `matching-engine` 하나)를 갖는다. 대상은 `exchange_leader_epoch`, `exchange_leader_is_leader`, `exchange_failover_downtime_seconds`, `exchange.leader.lease.acquire{outcome}`, `exchange.leader.lease.renew{outcome}`, `exchange.leader.lease.last_renew_age_seconds`, `exchange.leader.lease.fencing_token`, `exchange.leader.recoverable_standdown`, `exchange.leader.standdown`, `exchange.follower.catchup.*`다. 획득·갱신 계수기의 기존 태그 이름은 `outcome`(`granted`·`denied`, `ok`·`rejected`·`error`)이고 그대로 둔다(`MeteredLeaderLeaseStore`, E1 스크립트가 이 이름으로 읽는다). 태그 없는 시계열은 남기지 않는다. `max(...)`·`absent(...)`로 읽는 기존 규칙은 P2에서 결과가 같다. `exchange.follower.catchup.state{partition}`의 값은 종전 뜻 그대로다(1 따라잡는 중, 2 리더라 쉬는 중, 0 정지·재구성 중, -1 어긋남). 새 지표는 여덟이다. `exchange.partition.state{partition}`(0 FOLLOWER, 1 PROMOTING, 2 ACCEPTING, 3 REBUILDING, 4 BLOCKED, 5 DEMOTED(노드 치명, 재기동 전용)), `exchange.partition.demotions{partition,reason}`(강등 사유별 카운터, 사유는 DB 설계 §5.4-c 5의 이름), `exchange.partition.breaker.open{partition}`(차단 1), `exchange.partition.rebuild{partition,outcome}`(재구성 시간 타이머), `exchange.partition.serviceable{partition}`·`exchange.partition.write_completion_ratio{partition}`(파티션 층 좀비 판정, 노드 층의 `exchange.node.*`와 같은 뜻), `exchange.leader.lease.acquire.lock_timeouts{partition}`(획득 트랜잭션의 `lock_timeout` 초과), `exchange.order.intake.contention{cause,response}`(마켓 접수 경합 응답 수, `cause`는 `lock_wait`·`lock_wait_stuck`·`55P03`·`57014`·`40P01`·`40001`, `response`는 `429`·`409`, API 설계 §2-5-b)다. 새 게이지에는 `node` 태그를 달지 않는다. 노드는 스크레이프 대상 라벨 `instance`로 가른다. `exchange.order.append.transient{sqlstate}`는 40P01·40001에 더해 55P03·57014도 센다. 2026-09-24 설계 검토에서 첫 판의 `{result}`를 실제 태그 이름 `{outcome}`으로 고치고, 상태 값 5와 경합 계수기의 `response` 태그를 더했다(S4 설계 11절 R15). 같은 날 S4 코드가 이 여덟을 등록했고 위 개수와 참조 수를 다시 셌다. `exchange.partition.serviceable`·`write_completion_ratio`는 노드 층과 같은 코드가 이름을 조합해 등록한다. 같은 날 구현 검토에서 팔로워 따라잡기 틱이 따라잡지 않는 파티션(이 노드가 쥐었거나 재구성 중·어긋남)의 물질화 경계를 읽지 않게 했다. 인계한 마켓의 커서가 인계 시점에 멈춰 그 경계 질의가 그 뒤 커밋된 명령을 매 틱 훑었기 때문이다. 그 파티션의 `exchange.follower.catchup.lag_commands.max`·`sum_of_markets`는 0이고, 모든 파티션을 쥔 노드의 틱은 DB에 가지 않는다(S4 설계 13절).
+
+2026-09-25 ADR 0034 S4b(S4 관문 결함 보정)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S4b_설계.md` 4-3, 응답 계약은 API 설계 §2-5-c다. 새 지표는 하나다. `exchange.order.intake.unavailable{cause,response}`(FunctionCounter)는 주문 생성·취소가 DB 연결 장애나 fencing 거부로 끝나 낸 응답 수다. `cause`는 `connection`(DB 연결 장애)·`fencing`(리더 자격 거부: fencing 거부와 기간 종료), `response`는 `503`·`429`·`409`이고, 여섯 조합을 모두 `ApiConfig`가 경합 계수기 옆에 미리 등록한다. `fencing`의 `503`은 그 마켓의 게이트를 닫은 노드의 응답이고 `429`·`409`는 게이트를 연 노드의 응답이다. 연결 장애의 `429`·`409`는 저널 확인(V47)이나 취소 재조회가 DB에 닿은 경우이고 응답 모양이 마켓 접수 경합과 같지만 `exchange.order.intake.contention`에는 세지 않는다. 미리 등록해야 프로메테우스 `increase()`가 첫 증가를 센다. 규칙과 대시보드는 이 이름을 보지 않으므로 위 참조 수는 그대로이고, 코드가 들어가면 고유 이름 수를 다시 센다. 하네스의 S4b 실행기가 노출 이름 `exchange_order_intake_unavailable_total`을 X1·E2·E1의 기록 축으로 읽는다(하네스 검증설계의 2026-09-25 패치 노트). 기존 `exchange.order.intake.unresolved`와 `exchange.order.intake.commit_recovered`의 뜻은 그대로다. 인증 필터와 컨트롤러의 DB 연결 장애 `503`은 이 계수기가 아니라 `http_server_requests_seconds_count`의 `status="503"`으로 센다. 파티션 강등 계수(`exchange.partition.demotions{partition,reason}`)의 태그는 바꾸지 않는다. 라이터 치명의 SQLSTATE는 강등 기록의 `detail`(`/actuator/partitions`, API 설계 §6-C)과 로그에만 싣는다. 태그로 넣으면 시계열 수가 오류 종류만큼 늘어난다.
+
+2026-09-25 ADR 0034 S5(REST 라우팅과 요청 경계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-1·4-4·4-6, 응답 계약은 API 설계 §2-5-d·§4-B-3, 인계 규칙은 DB 설계 §5.4-d다. 새 지표는 여섯이고 모두 Counter다. `exchange.routing.precheck{result}`는 소유권 선검사 필터의 결과 수다(`accepted` 이 노드가 그 마켓을 접수함, `not_owner` 선검사 `503`, `unresolved` 마켓을 찾지 못해 뒤 단계로 넘김). 필터 밖의 소유 아님 `503`은 세지 않는다. `exchange.routing.cancel_not_owner`는 게이트웨이가 힌트 없는 단건 취소에 낸 소유 아님 `503`(`route=not_owner`, 대상 주문을 읽은 뒤 채번 전) 수다. 설계 검토 대응(2026-09-25)에서 첫 판의 '게이트웨이의 `503`도 `not_owner`로 센다'를 이렇게 나눴다. 그래야 선검사 계수를 인그레스 접근 로그의 첫 시도 `503` 줄 수와 대조할 수 있다(S5 설계 7-2 Z1). `exchange.routing.hint.rejected{reason}`은 힌트와 배치 규칙의 `400` 수다(`market_hint_mismatch`·`market_hint_duplicate`·`batch_single_market`). `exchange.db.read_retry{site,outcome}`은 연결 끊김 뒤 한 번 더 읽은 수다(`site` = `auth`·`order`, `outcome` = `recovered`·`unreachable`). `exchange.order.cancel_handoff.requests{outcome}`은 요청자가 넣은 인계 행의 결말 수(`done`·`pending`·`not_started`·`insert_failed`), `exchange.order.cancel_handoff.worker{outcome}`은 작업자의 처리 수(`claimed`·`reclaimed`·`completed`·`complete_lost`·`stopped`·`resumed`·`expired`·`error`)다. `resumed`는 같은 기간 안에서 멈춘 행을 이어 한 수, `expired`는 만료로 닫은 행 수, `error`는 주문 단위 `server_error`와 행 단위 예외 수다(DB 설계 §5.4-d 3·6). 태그 값을 모두 기동 때 미리 등록해 프로메테우스 `increase()`가 첫 증가를 센다. 규칙과 대시보드는 이 이름들을 보지 않으므로 위 참조 수는 그대로이고, 코드가 들어가면 고유 이름 개수를 다시 센다. S5 관문 판정기가 앞의 넷과 인계 계수를 실험 앞뒤로 읽는다(하네스 검증설계 S5 패치 노트 (4)).
+
+2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17, 동작 계약은 API 설계 §5-1·§5-6(v2.58, S6 브랜치에서는 v2.57로 적었고 S5 병합 때 옮겼다)이다. 새 지표는 아홉이다. `exchange.ws.gate.open`(Gauge, 이 노드가 WS를 받으면 1)과 `exchange.ws.relay.handshake_refused{reason}`(FunctionCounter, `relay_unavailable`·`relay_required`)은 WS 게이트가 있는 모든 노드에서 두 모드 모두 등록한다(엔진을 끈 노드는 `gate.open`이 늘 0). `simple` 모드에서도 다른 노드가 유효한 리스를 쥔 노드는 WS를 거절하기 때문이다(API §5-6). 나머지 일곱은 중계 모드(`exchange.ws.relay.mode=broker`)인 노드만 등록한다. `exchange.ws.relay.connected{link}`(Gauge, `pub`·`sub` 연결이 붙었으면 1), `exchange.ws.relay.messages{direction,kind}`(FunctionCounter, `out`·`in`과 `topic`·`user`·`hb`), `exchange.ws.relay.dropped{reason}`(FunctionCounter, `queue_full`·`disconnected`·`write_timeout`·`stale`·`malformed`·`candle_overflow`), `exchange.ws.relay.queue.size`(Gauge), `exchange.ws.relay.degraded{cause}`(Gauge, 그 원인 `link_down`·`owner_silent`으로 중계 불능이면 1), `exchange.ws.relay.lag`(Timer, 봉투의 `x-sent-at`부터 받은 시각까지), `exchange.ws.mirror.fallback{kind,reason}`(FunctionCounter, 호가·티커 REST나 구독 스냅샷이 미러 대신 DB 집계로 간 수, `relay_down`·`owner_silent`·`behind`·`absent`·`epoch_mismatch`)다. 태그 조합은 기동 때 모두 미리 등록해 0부터 보이게 한다. 같은 날 설계 검토 지적을 반영해 게이트 지표와 `hb`·`stale`·`cause`·`owner_silent`·`behind`를 더했다(S6 설계 11절). 코드가 들어갈 때 위 개수와 참조 수를 다시 센다.
+
+2026-09-25 ADR 0034 S7(P3 전환과 파티션 실험)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-2·4-4다. 새 지표는 하나다. `exchange.leader.protocol.max`(Gauge)는 이 바이너리가 구현한 최고 리더 모드(`LeaseResources.MAX_PROTOCOL`, S7부터 3)다. 기동 모드 게이지 `exchange.leader.protocol.boot` 옆에 조회 역할이 아닌 노드에서만 등록한다. P2→P3 전환 도구가 전환 전에 두 앱 노드의 이 값이 3인지 보고 아니면 전환하지 않는다(DB 설계 §5.4-e). DB 전환 함수는 앱 노드의 바이너리를 볼 수 없으므로 이 확인은 도구 몫이고, 확인을 건너뛰어도 최고 모드 2의 옛 바이너리는 P3 DB에서 어떤 리스도 얻지 못한다(DB 설계 §5.4-c 13). 파티션 리더 축 지표의 `partition` 태그는 P3에서 `matching-p0`·`matching-p1` 두 값을 갖는다(S4 계약 그대로). 코드가 들어갈 때 위 개수를 다시 센다.
 
 ### 5-3. Prometheus
 
@@ -366,9 +386,9 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 22개
+### 5-6. 알람 32개
 
-severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
+severity는 critical 10, warning 21, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
@@ -377,9 +397,16 @@ severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | FailoverRtoExceeded | critical |
 | LeaderAbsent | critical |
 | RecoverableStandDownRepeating | critical |
+| PartitionBreakerOpen | critical |
+| PartitionLeaderAbsent | critical |
+| SettlementTransientRetryExhausted | critical |
+| SettlementInsufficientFunds | critical |
 | WsConnectionsRejected | critical |
 | EdgeProbeDown | critical |
 | OrderP99SloBreach | warning |
+| PartitionRebuildFailing | warning |
+| ReservationUnsettledStale | warning |
+| OrderIntakeDeadlock | warning |
 | SnapshotPersistFailed | warning |
 | SnapshotDropped | warning |
 | SnapshotStalled | warning |
@@ -394,8 +421,15 @@ severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | ProbeL7Failed | warning |
 | ReplicationNotStreaming | warning |
 | ReplicationSyncStateUnexpected | warning |
+| WsRelayDisconnected | warning |
+| WsRelayDegraded | warning |
+| WsRelayDropping | warning |
 
-`for` 분포는 0s 3개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다.
+`for` 분포는 0s 9개, 15s 2개, 30s 6개, 1m 8개, 2m 7개다. `component` 라벨은 leader 3, settlement 3, snapshot 3, bots 2, ws 5, edge 2, db 2, intake 1, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다. `SettlementInsufficientFunds`·`ReservationUnsettledStale`·`OrderIntakeDeadlock`은 S3가 규칙 파일에 더한 경보인데 이 표에 빠져 있어 S4 코드 단계에서 함께 적었다.
+
+2026-09-24 ADR 0034 S4 코드에서 셋을 규칙 파일에 넣고 위 표와 개수를 고쳤다. `PartitionBreakerOpen`(critical, `max by (instance, partition) (exchange_partition_breaker_open) == 1`, for 0s)은 한 노드에서 파티션이 차단돼 그 노드가 그 파티션의 후보에서 빠졌다는 뜻이다. 차단 게이지에는 `node` 태그가 없으므로 스크레이프 대상 라벨 `instance`로 노드를 가른다(첫 판의 `by (node, partition)`은 노드를 가르지 못했다). 운영자가 원인을 본 뒤 `/actuator/partitions`로 풀거나 재기동한다. `PartitionLeaderAbsent`(critical, `max by (partition) (exchange_leader_is_leader) == 0`, for 15s)는 모든 노드가 그 파티션을 쥐지 않은 상태다. 노드가 모두 죽어 시계열이 없는 경우는 기존 `LeaderAbsent`가 잡는다. `PartitionRebuildFailing`(warning, `increase(exchange_partition_rebuild_seconds_count{outcome="failure"}[5m]) > 3`, for 0s)은 재구성이 되풀이해 실패하는 상태다. P2에서는 파티션이 하나라 `PartitionLeaderAbsent`가 `LeaderAbsent`와 함께 뜬다. 규칙 시험 `harness/prometheus/tests/exchange-alerts.test.yml`에 세 경보의 발화·미발화 사례를 더한다. `PartitionBreakerOpen`은 두 인스턴스 가운데 하나만 차단된 시계열에서 그 인스턴스로만 발화하는지 본다. `promtool check config`·`check rules`·`test rules`(`.github/workflows/ci-backend.yml`의 observability 잡과 같은 이미지 `prom/prometheus:v3.13.0`)는 코드 단계에서 통과했다.
+
+2026-09-25 ADR 0034 S6(WebSocket 외부 브로커 중계)의 경보 셋을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md` 4-17이다. `WsRelayDisconnected`(warning, 중계 모드 노드의 `min by (instance) (exchange_ws_relay_connected)`가 1분 동안 0), `WsRelayDegraded`(warning, `max by (instance) (exchange_ws_relay_degraded)`가 1분 동안 1, 그 노드가 WS를 닫고 거절하는 중), `WsRelayDropping`(warning, `increase(exchange_ws_relay_dropped_total[5m]) > 100`)이다. 셋 다 `component="ws"`다. 브로커가 멈춰도 REST는 그대로라 critical로 두지 않는다. `exchange_ws_gate_open`에는 경보를 걸지 않는다. `simple` 모드 두 노드 배치의 팔로워는 늘 0이 정상이기 때문이다. 같은 날 코드 단계에서 규칙 파일에 넣고 위 표와 개수를 고쳤다(`WsRelayDropping`은 for 0s, 나머지 둘은 1m). 중계 지표는 broker 모드 노드만 등록하므로 기본 스택에서는 시계열이 없어 뜨지 않는다. 규칙 시험 `harness/prometheus/tests/exchange-alerts.test.yml`에 끊긴 인스턴스·불능 인스턴스·버림이 100을 넘은 인스턴스와 사유로만 발화하고 정상 인스턴스와 증가가 100 이하인 계열은 조용한 사례를 더했다. `promtool check rules`(32개)와 `test rules`는 `prom/prometheus:v3.13.0`으로 통과했다. 스택에서 발화를 본 적은 아직 없다(W2~W4 NOT RUN).
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
@@ -452,15 +486,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **30** | 판정 블록. `\echo '== C` 32행에서 C24·C25의 분기 중복 2행을 뺀다 |
-| `InvariantCheck.java` enum | 29 | 30에서 C04가 빠진다 |
-| 카탈로그 코드 | 28 | C01~C28 |
+| `harness/sql/invariants.sql` | **32** | 판정 블록. `\echo '== C` 39행에서 스키마 조건 분기의 중복 7행(C14 1, C29 2, C31 2, C24·C25 각 1)을 뺀다. S7 코드 뒤 **33**(C30 블록 하나, 중복은 C30 2·C22 종전 판 1이 더해진다) |
+| `InvariantCheck.java` enum | 31 | 32에서 C04가 빠진다. S7 코드 뒤 32 |
+| 카탈로그 코드 | 31 | C01~C31(C30은 2026-09-25 ADR 0034 S7 계약이 등재했고 코드는 S7) |
 
 C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 17, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 22, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 8이다. S7 코드가 C30(CRITICAL·AUTHORITATIVE_ONLY)을 넣으면 CRITICAL 20, AUTHORITATIVE_ONLY 9가 된다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
 
-개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다.
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다. 같은 날 ADR 0034 S3 계약이 C31(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 먼저 등재하고 C14 술어를 C14'로 개정했다. C31은 첫 등재 때 SCHEDULED였으나 같은 날 설계 검토 뒤 비용 때문에 권위 run 한정으로 옮겼다(`하네스_검증설계.md` §4-1 C31, §4-2 ④). 같은 날 같은 브랜치의 S3 코드가 C31을 `InvariantCheck.java`(권위 run 한정의 최근 창 판)와 `invariants.sql`·`summary.sql`(전수 판)에 넣고 C14'의 예약 표 유무 분기와 C29·C31의 N/A·FAIL 분기를 더해 위 값으로 다시 셌다. `summary.sql`의 판정 어휘에 N/A가 더해졌다(`하네스_검증설계.md` §4-1 판정 어휘). 2026-09-25 ADR 0034 S7 계약이 C30(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 등재하고 C22 술어를 C22'로 개정했다. 표의 S7 뒤 값은 계약으로 센 예정 값이고 코드가 들어갈 때 다시 센다.
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 
@@ -488,6 +522,10 @@ enum의 Severity 분포는 CRITICAL 17, HIGH 9, WARN 3이다. Scope 분포는 SC
 | 데모 PKI | `server/config/admin-demo/*.p12` | 예. 데모 전용 |
 
 `harness/.env.chaos`에 유효 키가 7개다. 컴포즈가 참조하는 `CHAOS_LEASE_PROVIDER` 등은 기본값으로 해소된다.
+
+(2026-09-25, ADR 0034 S6) WebSocket 중계 오버레이(§3-1)는 같은 파일의 `CHAOS_RELAY_PASSCODE`로 브로커 비밀 값을 받는다. `.env.chaos.example`에는 키만 더하고 값은 적지 않는다. 앱은 이 값을 `EXCHANGE_WS_RELAY_BROKER_PASSCODE` 환경 변수로만 받고, 배포 평면에서도 문서·로그·커밋에 넣지 않는다. 오버레이와 키는 코드 단계에서 만든다.
+
+(2026-09-26, ADR 0034 S7 관문) 기본 compose의 두 앱 노드는 같은 파일의 `CHAOS_MEMBER_SESSION_SEED_BASE64`·`CHAOS_MEMBER_PASSWORD_PEPPER_BASE64`(각 32바이트 base64)를 `EXCHANGE_MEMBER_SESSION_SEED_BASE64`·`EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64`로 받는다. 비우면 종전처럼 노드마다 프로세스 한정 임의 키라 한 노드가 낸 회원 토큰을 다른 노드가 `401`로 거절한다. 두 노드에 회원 요청을 나눠 보내는 실험(S7 Q1 교차 노드 이중 지출)은 값을 채운다. `.env.chaos.example`에는 키만 두고 값은 적지 않는다.
 
 **데모 PKI는 개인키를 포함한 PKCS12이고 저장소에 커밋돼 있다.** storepass가 `changeit`이다. 데모 전용이고 상시면 인증서와 별개다. 상시면에 그대로 쓰면 안 된다.
 
@@ -533,7 +571,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 
 ### 8-2. 결정이 필요한 것
 
-1. **미참조 메트릭 29개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다.
+1. **미참조 메트릭 47개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다. 2026-09-24 ADR 0034 S4 코드 판에서 다시 셌다(§5-2, 7단계 판은 29개).
 2. **`app_role`·`harness_role` 미배선.** 스키마의 롤 경계를 런타임에 세울지, 스키마에서 뺄지 정한다.
 3. **브로커 지위.** Kafka·RabbitMQ를 정본 비채택표에 올릴지 로드맵에 둘지 정한다. `outbox` 테이블은 실재하고 발행기만 없다.
 4. **`develop` 브랜치.** 네 워크플로가 트리거에 적는데 원격에 없다. 만들거나 트리거에서 뺀다.

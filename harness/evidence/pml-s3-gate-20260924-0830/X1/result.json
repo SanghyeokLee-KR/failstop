@@ -1,0 +1,522 @@
+{
+  "phase": "X1",
+  "verdict": "PASS",
+  "axes": {
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "settlement_insufficient_funds_0": true,
+    "writer_fatal_demotion_logs_0": true,
+    "reservations_in_window_gt_0": true,
+    "unsettled_reservations_after_drain_0": true,
+    "leader_500_0": true,
+    "append_40P01_0": true,
+    "pg_deadlocks_0": true,
+    "lock_plan_miss_0": true,
+    "p2_new_eq_reservations_ge_1000": true,
+    "leader_epoch_unchanged": true,
+    "logins_app_role": true,
+    "no_permission_function_errors": true,
+    "v49_privileges_revoked": true,
+    "snapshots_3_markets_new_epoch": true,
+    "protocol_transition": true
+  },
+  "pre": {
+    "flyway": {
+      "rows": 53,
+      "max_version": 52,
+      "failed": 0
+    },
+    "protocol": "1",
+    "v49": {
+      "lease_update": false,
+      "journal_insert": false,
+      "reservations_select": true,
+      "reservations_insert": false,
+      "set_protocol_execute": false
+    },
+    "containers": {
+      "chaos-api-1": {
+        "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=true",
+        "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+      },
+      "chaos-api-2": {
+        "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=false",
+        "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+      },
+      "chaos-bots": {
+        "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+        "project": "exchange-pml",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=false",
+        "profiles": "SPRING_PROFILES_ACTIVE=bots"
+      }
+    }
+  },
+  "roles": [
+    {
+      "role": "pml_app",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_bot",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_read",
+      "super": false,
+      "login": true,
+      "member_of": null
+    }
+  ],
+  "p1Leader": {
+    "holder": "ac033fc7-619d-46c9-9390-4d6d51129af5",
+    "epoch": 2,
+    "alive": true
+  },
+  "protocol": {
+    "ok": true,
+    "retired": [
+      {
+        "resource": "matching-p0",
+        "retired_epoch": 3,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-p1",
+        "retired_epoch": 4,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-engine",
+        "retired_epoch": 5,
+        "protocol": 2
+      }
+    ],
+    "durationMs": 18.3,
+    "newLeaderEpoch": 6,
+    "expectedLeaderEpoch": 6,
+    "drainSeconds": 2.2,
+    "checks": {
+      "leader": true,
+      "leader_epoch_is_last_retired_plus_1": true,
+      "api2_liveness": true,
+      "gauges": true,
+      "mode_after": true,
+      "retire_order": true
+    },
+    "history": [
+      {
+        "id": 1,
+        "protocol": 1,
+        "prev_protocol": null,
+        "epoch_floor": 0,
+        "changed_at": "2026-09-24T09:39:12.195333+09:00",
+        "changed_by": "exchange"
+      },
+      {
+        "id": 2,
+        "protocol": 2,
+        "prev_protocol": 1,
+        "epoch_floor": 2,
+        "changed_at": "2026-09-24T09:40:14.743256+09:00",
+        "changed_by": "exchange"
+      }
+    ]
+  },
+  "lease": {
+    "afterTransition": {
+      "holder": "8a9b0a8b-c35e-4e3f-bb06-cc0a0c71a9b0",
+      "epoch": 6,
+      "alive": true
+    },
+    "end": {
+      "holder": "8a9b0a8b-c35e-4e3f-bb06-cc0a0c71a9b0",
+      "epoch": 6,
+      "alive": true
+    },
+    "sampledEpochs": [
+      6
+    ]
+  },
+  "window": {
+    "from": "2026-09-24 00:40:37.212",
+    "to": "2026-09-24 00:50:47.756",
+    "minutes": 10,
+    "botOps": 300
+  },
+  "counts": {
+    "p2_new": 16505,
+    "reservations": 16505,
+    "reservations_in_window": 16505,
+    "reserve_txn_total": 16779,
+    "release_txn_total": 7290,
+    "snapshot_markets_epoch": 3,
+    "cmd_epoch": 18785,
+    "trades_since": 9632,
+    "orders_since": 16505
+  },
+  "v49": {
+    "lease_update": false,
+    "journal_insert": false,
+    "reservations_select": true,
+    "reservations_insert": false,
+    "set_protocol_execute": false
+  },
+  "connections": {
+    "ips": {
+      "chaos-toxiproxy": "172.18.0.10",
+      "chaos-bots": "172.18.0.14"
+    },
+    "rows": [
+      {
+        "usename": "exchange",
+        "client_addr": "172.18.0.9",
+        "n": 1
+      },
+      {
+        "usename": "exchange",
+        "client_addr": null,
+        "n": 1
+      },
+      {
+        "usename": "pml_app",
+        "client_addr": "172.18.0.10",
+        "n": 25
+      },
+      {
+        "usename": "pml_bot",
+        "client_addr": "172.18.0.14",
+        "n": 10
+      }
+    ],
+    "apiLogins": [
+      "pml_app"
+    ],
+    "botLogins": [
+      "pml_bot"
+    ]
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+      "flyway": "SPRING_FLYWAY_ENABLED=false",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+      "flyway": "SPRING_FLYWAY_ENABLED=false",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_bot",
+      "flyway": "SPRING_FLYWAY_ENABLED=false",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 203,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-api-2": {
+      "lines": 200,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-bots": {
+      "lines": 96,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    }
+  },
+  "pg": {
+    "before": {
+      "xact_commit": 18890,
+      "deadlocks": 0,
+      "at": "2026-09-24T09:40:37.106612+09:00"
+    },
+    "after": {
+      "xact_commit": 393837,
+      "deadlocks": 0,
+      "at": "2026-09-24T09:50:47.628943+09:00"
+    },
+    "deadlocksDelta": 0
+  },
+  "metricsWindow": {
+    "18080": {
+      "exchange_leader_protocol_boot": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 0.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 12072.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_422": 41.0,
+      "orders_post_201": 16435.0
+    },
+    "28080": {
+      "exchange_leader_protocol_boot": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 1.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0
+    }
+  },
+  "metricsTotal": {
+    "18080": {
+      "exchange_leader_protocol_boot": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 0.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 12090.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_422": 41.0,
+      "orders_post_201": 16464.0
+    },
+    "28080": {
+      "exchange_leader_protocol_boot": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 0.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0
+    }
+  },
+  "leaderPortGuess": "18080",
+  "bots": {
+    "ordersPost": 16476.0,
+    "status400": 0.0,
+    "ratio400": 0.0
+  },
+  "gauge": {
+    "oldestMaxSeconds": 0.0,
+    "countMax": 2.0
+  },
+  "drain": {
+    "botsStopRc": 0,
+    "drained": true,
+    "state": {
+      "ok": true,
+      "error": null,
+      "ts": "2026-09-24T09:50:51+09:00",
+      "protocol": 2,
+      "changed_at": "2026-09-24T09:40:14.743256+09:00",
+      "history": [
+        {
+          "id": 1,
+          "protocol": 1,
+          "prev_protocol": null,
+          "epoch_floor": 0,
+          "changed_at": "2026-09-24T09:39:12.195333+09:00",
+          "changed_by": "exchange"
+        },
+        {
+          "id": 2,
+          "protocol": 2,
+          "prev_protocol": 1,
+          "epoch_floor": 2,
+          "changed_at": "2026-09-24T09:40:14.743256+09:00",
+          "changed_by": "exchange"
+        }
+      ],
+      "lease": [
+        {
+          "resource": "matching-engine",
+          "holder": "8a9b0a8b-c35e-4e3f-bb06-cc0a0c71a9b0",
+          "epoch": 6,
+          "alive": true
+        },
+        {
+          "resource": "matching-p0",
+          "holder": "",
+          "epoch": 3,
+          "alive": false
+        },
+        {
+          "resource": "matching-p1",
+          "holder": "",
+          "epoch": 4,
+          "alive": false
+        }
+      ],
+      "retired": [
+        {
+          "epoch": 3,
+          "resource": "matching-p0",
+          "protocol": 2,
+          "acquired_at": "2026-09-24T09:40:14.745148+09:00"
+        },
+        {
+          "epoch": 4,
+          "resource": "matching-p1",
+          "protocol": 2,
+          "acquired_at": "2026-09-24T09:40:14.745353+09:00"
+        },
+        {
+          "epoch": 5,
+          "resource": "matching-engine",
+          "protocol": 2,
+          "acquired_at": "2026-09-24T09:40:14.745449+09:00"
+        }
+      ],
+      "acquisitions_by_protocol": {
+        "2": 4,
+        "1": 2
+      },
+      "reservations": 16505,
+      "unsettled_new": 0,
+      "unsettled_reservations": 0,
+      "oldest_unsettled_reservation_s": null,
+      "db_now": "2026-09-24T09:50:51.862823+09:00",
+      "code": 0
+    }
+  },
+  "authoritative": {
+    "port": 18080,
+    "verdict": "PASS",
+    "checks": 31,
+    "notOk": [],
+    "c31Present": true,
+    "ok": true
+  },
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "warn": [
+      "C15=PASS",
+      "C24=PASS",
+      "C25=PASS"
+    ],
+    "c29": "PASS",
+    "c31": "PASS",
+    "ok": true
+  },
+  "timingsRc": 0,
+  "alertsDuringRun": [
+    {
+      "name": "EdgeProbeDown",
+      "state": "firing",
+      "activeAt": "2026-09-24T00:39:12.748511023Z"
+    },
+    {
+      "name": "EdgeProbeSlow",
+      "state": "firing",
+      "activeAt": "2026-09-24T00:39:12.748511023Z"
+    }
+  ],
+  "alertsAfterDrain": [
+    {
+      "name": "BotFleetDown",
+      "state": "pending",
+      "activeAt": "2026-09-24T00:51:02.748511023Z"
+    },
+    {
+      "name": "EdgeProbeDown",
+      "state": "firing",
+      "activeAt": "2026-09-24T00:39:12.748511023Z"
+    },
+    {
+      "name": "EdgeProbeSlow",
+      "state": "firing",
+      "activeAt": "2026-09-24T00:39:12.748511023Z"
+    }
+  ]
+}

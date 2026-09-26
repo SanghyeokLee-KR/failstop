@@ -1,0 +1,4 @@
+# 이 주행 전용. chaos-lb 에 LB 설정 사본을 마운트한다(P3 오버레이의 같은 대상 마운트를 대신한다).
+services:
+  chaos-lb:
+    volumes: ["C:/dev/exchange-pml/harness/evidence/pml-app3-read-20260926-1220/smoke/lb/nginx.partition-relay.conf:/etc/nginx/nginx.conf:ro"]

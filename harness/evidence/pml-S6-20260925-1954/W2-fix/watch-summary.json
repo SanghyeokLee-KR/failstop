@@ -1,0 +1,198 @@
+{
+  "urls": [
+    "ws://chaos-api-1:8080/ws/v1",
+    "ws://chaos-api-2:8080/ws/v1",
+    "ws://chaos-lb:8080/ws/v1"
+  ],
+  "markets": [
+    "KRW-BTC",
+    "KRW-ETH",
+    "KRW-XRP"
+  ],
+  "durationSec": 270,
+  "metrics": {
+    "http_req_failed": {
+      "values": {
+        "fails": 0,
+        "rate": 1,
+        "passes": 11
+      },
+      "type": "rate",
+      "contains": "default"
+    },
+    "http_req_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 0.103492,
+        "med": 0.12731,
+        "max": 0.148582,
+        "p(90)": 0.140005,
+        "p(95)": 0.1442935,
+        "avg": 0.12247272727272727
+      }
+    },
+    "http_req_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 0.464934,
+        "max": 0.549119,
+        "p(90)": 0.534752,
+        "p(95)": 0.5419355,
+        "avg": 0.4480088181818182,
+        "min": 0.330348
+      }
+    },
+    "http_req_sending": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 0.038165,
+        "max": 0.056551,
+        "p(90)": 0.045629,
+        "p(95)": 0.051089999999999997,
+        "avg": 0.03736345454545455,
+        "min": 0.025901
+      }
+    },
+    "http_req_receiving": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 0.085783,
+        "avg": 0.05988127272727273,
+        "min": 0.04651,
+        "med": 0.056278,
+        "max": 0.094445,
+        "p(90)": 0.077121
+      }
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 20659345,
+        "rate": 97329.03607275878
+      }
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      }
+    },
+    "http_req_blocked": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 0.145404,
+        "med": 0.176106,
+        "max": 0.203469,
+        "p(90)": 0.202307,
+        "p(95)": 0.202888,
+        "avg": 0.17480927272727273
+      }
+    },
+    "http_req_tls_handshaking": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 0,
+        "max": 0,
+        "p(90)": 0,
+        "p(95)": 0,
+        "avg": 0,
+        "min": 0
+      }
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 5.833320750000001,
+        "min": 0.724971,
+        "med": 0.9651495,
+        "max": 73.586314,
+        "p(90)": 1.912827,
+        "p(95)": 41.7686535
+      }
+    },
+    "http_reqs": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 11,
+        "rate": 0.05182252374411418
+      }
+    },
+    "vus_max": {
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      },
+      "type": "gauge",
+      "contains": "default"
+    },
+    "ws_session_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "max": 65561.901825,
+        "p(90)": 65561.901825,
+        "p(95)": 65561.901825,
+        "avg": 65561.901825,
+        "min": 65561.901825,
+        "med": 65561.901825
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 153,
+        "rate": 0.7208041938954064
+      }
+    },
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "rate": 0.16960098679891913,
+        "count": 36
+      }
+    },
+    "ws_msgs_received": {
+      "values": {
+        "count": 35666,
+        "rate": 168.02746653250693
+      },
+      "type": "counter",
+      "contains": "default"
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 12295,
+        "rate": 57.92344813035308
+      }
+    },
+    "http_req_waiting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 0.241215,
+        "med": 0.367562,
+        "max": 0.459852,
+        "p(90)": 0.44142,
+        "p(95)": 0.450636,
+        "avg": 0.3507640909090909
+      }
+    }
+  }
+}

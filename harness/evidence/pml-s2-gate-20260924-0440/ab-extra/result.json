@@ -1,0 +1,260 @@
+{
+  "phase": "AB",
+  "rate": 600,
+  "overlay": {
+    "path": "override-append-histogram.yml",
+    "sha256": "06485c72ead81d9d81215729d9c38744bfc7cfd625c7207410e37bd9900e1bc2"
+  },
+  "cells": [
+    {
+      "label": "B2",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+      "probeRc": 0,
+      "window": {
+        "from": "2026-09-23 20:22:02.18745+00",
+        "to": "2026-09-23 20:24:13.777152+00"
+      },
+      "prom": {
+        "from": "2026-09-23 20:22:02.18745+00",
+        "to": "2026-09-23 20:24:13.777152+00",
+        "seconds": 132,
+        "evalAt": 1790195053,
+        "appendMeanMs": 11.357597696679177,
+        "appendP95Ms": 50.17713057142856,
+        "appendP99Ms": 80.29689688669392,
+        "appendCount": 24890.63942396455,
+        "http5xx": 3673.4714883387514,
+        "httpAll": 215900.31422347281,
+        "orders201": 24851.036986891497,
+        "writerApplyPerSec": 187.70972960398674,
+        "tradesPerSec": 12.139208566681024,
+        "sinkMsPerApply": 20.81744325128727,
+        "prologueMsPerTx": 8.009919023580288,
+        "insertMsPerTx": 1.2323405657229112,
+        "queries": {
+          "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendCount": "sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "http5xx": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[132s])) or vector(0)",
+          "httpAll": "sum(increase(http_server_requests_seconds_count[132s]))",
+          "orders201": "sum(increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\",status=\"201\"}[132s]))",
+          "writerApplyPerSec": "sum(increase(exchange_writer_apply_count_total[132s])) / 132",
+          "tradesPerSec": "sum(increase(exchange_trades_total[132s])) / 132",
+          "sinkMsPerApply": "1000 * sum(increase(exchange_writer_sink_nanos_total[132s])) / 1e9 / sum(increase(exchange_writer_apply_count_total[132s]))",
+          "prologueMsPerTx": "1000 * sum(increase(exchange_journal_prologue_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))",
+          "insertMsPerTx": "1000 * sum(increase(exchange_journal_insert_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))"
+        }
+      },
+      "probe": {
+        "acceptPerSec": 137.972653757953,
+        "tradesPerSec": 9.32806869320827,
+        "p95OrderMs": 317.3774758257575,
+        "p99OrderMs": 399.7699878722219,
+        "appendMs": 12.979518853682896,
+        "prologueMs": 9.083899931219575,
+        "insertMs": 1.4989235114217954,
+        "commitMs": 2.3545926660841343,
+        "lockHoldMs": 9.064889686632913,
+        "applyPerSec": 138.0933496560167,
+        "sinkMs": 24.15848028530403,
+        "k6Rc": 0,
+        "fsyncMs": 0.41,
+        "deadlocks": 0,
+        "connection": {
+          "상태": "고갈 없음",
+          "표본 한도 도달": false,
+          "로그 고갈 줄": 0,
+          "로그 확인": true
+        },
+        "containerImages": {
+          "chaos-api-1": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          },
+          "chaos-api-2": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          },
+          "chaos-bots": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          }
+        }
+      },
+      "node5xxCumulative": {
+        "18080": 0.0,
+        "28080": 3664.0
+      },
+      "drain": {
+        "botsStopped": true,
+        "drained": true
+      },
+      "summary": {
+        "rc": 0,
+        "checks": 31,
+        "fail": [],
+        "skip": [],
+        "c29": "PASS",
+        "allZero": true
+      },
+      "flyway": {
+        "rows": 49,
+        "max_version": 48,
+        "failed": 0,
+        "last": {
+          "version": "48",
+          "installed_by": "exchange",
+          "installed_on": "2026-09-23T20:19:06.509485"
+        }
+      },
+      "logErrors": {
+        "chaos-api-1": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-api-2": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-bots": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        }
+      }
+    },
+    {
+      "label": "A3",
+      "image": "exchange-chaos-app:mainref",
+      "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+      "probeRc": 0,
+      "window": {
+        "from": "2026-09-23 20:28:07.381965+00",
+        "to": "2026-09-23 20:30:19.001218+00"
+      },
+      "prom": {
+        "from": "2026-09-23 20:28:07.381965+00",
+        "to": "2026-09-23 20:30:19.001218+00",
+        "seconds": 132,
+        "evalAt": 1790195419,
+        "appendMeanMs": 10.120840076149479,
+        "appendP95Ms": 49.76257356434597,
+        "appendP99Ms": 79.06402832318743,
+        "appendCount": 27362.832130713723,
+        "http5xx": 2493.169387506737,
+        "httpAll": 215772.00237071014,
+        "orders201": 27330.338323307227,
+        "writerApplyPerSec": 206.67059305795573,
+        "tradesPerSec": 10.269704755604105,
+        "sinkMsPerApply": 20.104673859671983,
+        "prologueMsPerTx": 7.0670518521968235,
+        "insertMsPerTx": 1.0864534794789966,
+        "queries": {
+          "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendCount": "sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "http5xx": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[132s])) or vector(0)",
+          "httpAll": "sum(increase(http_server_requests_seconds_count[132s]))",
+          "orders201": "sum(increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\",status=\"201\"}[132s]))",
+          "writerApplyPerSec": "sum(increase(exchange_writer_apply_count_total[132s])) / 132",
+          "tradesPerSec": "sum(increase(exchange_trades_total[132s])) / 132",
+          "sinkMsPerApply": "1000 * sum(increase(exchange_writer_sink_nanos_total[132s])) / 1e9 / sum(increase(exchange_writer_apply_count_total[132s]))",
+          "prologueMsPerTx": "1000 * sum(increase(exchange_journal_prologue_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))",
+          "insertMsPerTx": "1000 * sum(increase(exchange_journal_insert_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))"
+        }
+      },
+      "probe": {
+        "acceptPerSec": 160.00551743163555,
+        "tradesPerSec": 8.77616469533432,
+        "p95OrderMs": 216.45898067647067,
+        "p99OrderMs": 351.2030546250009,
+        "appendMs": 11.451382525465705,
+        "prologueMs": 7.8483763434202025,
+        "insertMs": 1.3351470334912774,
+        "commitMs": 2.2382040886280428,
+        "lockHoldMs": 9.192518938409194,
+        "applyPerSec": 160.12621124866374,
+        "sinkMs": 23.765421486917194,
+        "k6Rc": 0,
+        "fsyncMs": 0.428,
+        "deadlocks": 0,
+        "connection": {
+          "상태": "고갈 없음",
+          "표본 한도 도달": false,
+          "로그 고갈 줄": 0,
+          "로그 확인": true
+        },
+        "containerImages": {
+          "chaos-api-1": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-api-2": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-bots": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          }
+        }
+      },
+      "node5xxCumulative": {
+        "18080": 0.0,
+        "28080": 2553.0
+      },
+      "drain": {
+        "botsStopped": true,
+        "drained": true
+      },
+      "summary": {
+        "rc": 0,
+        "checks": 31,
+        "fail": [],
+        "skip": [
+          "C29"
+        ],
+        "c29": "SKIP",
+        "allZero": false
+      },
+      "flyway": {
+        "rows": 48,
+        "max_version": 47,
+        "failed": 0,
+        "last": {
+          "version": "47",
+          "installed_by": "exchange",
+          "installed_on": "2026-09-23T20:25:22.238939"
+        }
+      },
+      "logErrors": {
+        "chaos-api-1": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-api-2": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-bots": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        }
+      }
+    }
+  ]
+}

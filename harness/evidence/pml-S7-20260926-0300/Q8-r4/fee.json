@@ -1,0 +1,60 @@
+{
+  "started": "2026-09-26T05:19:58+09:00",
+  "control": false,
+  "pause_s": 3.0,
+  "latency_ms": 100,
+  "attempts": 1,
+  "error": null,
+  "partition_markets": {
+    "matching-p0": [
+      "KRW-BTC",
+      "KRW-XRP",
+      "KRW-DOGE",
+      "KRW-TRX",
+      "KRW-DOT",
+      "KRW-AVAX"
+    ],
+    "matching-p1": [
+      "KRW-ETH",
+      "KRW-SOL",
+      "KRW-ADA",
+      "KRW-LINK",
+      "KRW-MATIC",
+      "KRW-ATOM"
+    ]
+  },
+  "bots_stop_rc": 0,
+  "toxic_add": 200,
+  "caught": {
+    "attempt": 1,
+    "seen_at": 1790367662.0499527,
+    "pause_at": 1790367662.0957925,
+    "pid": 419,
+    "ticks_before": 0,
+    "holders_after_1s": [
+      [
+        "chaos-api-1",
+        419
+      ]
+    ],
+    "held": true,
+    "unpause_at": 1790367665.2022383,
+    "shard1_at_pause": "6990.000000000000000000",
+    "shard1_at_unpause": "7319.000000000000000000"
+  },
+  "lock_seen_after_pause": true,
+  "p1_trades_during": 30,
+  "krw_shard1_increased": true,
+  "krw_shard1": {
+    "at_pause": "6990.000000000000000000",
+    "at_unpause": "7319.000000000000000000"
+  },
+  "api2_transient_exhausted_delta": 0.0,
+  "api2_fatal_demotions_delta": 0.0,
+  "p1_settle_baseline_max_s": 0.020977,
+  "p1_settle_during_max_s": 0.005079,
+  "lease_acquires_in_window": 0,
+  "lease_handover": false,
+  "toxic_remove": 204,
+  "finished": "2026-09-26T05:21:16+09:00"
+}

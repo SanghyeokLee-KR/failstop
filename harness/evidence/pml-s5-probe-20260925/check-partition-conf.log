@@ -1,0 +1,8 @@
+preserved map \$http_upgrade                       SAME (6 lines)
+preserved ^\s*resolver                             SAME (1 lines)
+preserved upstream exchange_write                  SAME (12 lines)
+preserved upstream exchange_read                   SAME (14 lines)
+preserved location ~ \^/api/v1/\(markets           SAME (12 lines)
+preserved location / \{                            SAME (15 lines)
+market map 12 entries SAME as V48 seed
+RESULT OK

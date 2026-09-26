@@ -1,0 +1,478 @@
+{
+  "started": "2026-09-24T20:55:40+09:00",
+  "window_from": "2026-09-24T11:53:12.6045168+00:00",
+  "fault_from": "2026-09-24T11:54:12.7735322+00:00",
+  "fault_to": "2026-09-24T11:55:37.2536655+00:00",
+  "bots_stop_rc": 0,
+  "drain": {
+    "ok": true,
+    "seconds": 2.2
+  },
+  "prom": {
+    "settlement_insufficient_funds": 0.0,
+    "lock_plan_miss": 0.0,
+    "lock_plan_taken": 1292.0307350277023,
+    "append_40P01": 0.0,
+    "orders_500_by_instance": 0.0,
+    "orders_by_status": [
+      {
+        "metric": {
+          "status": "201"
+        },
+        "value": 1424.4852509771104
+      },
+      {
+        "metric": {
+          "status": "503"
+        },
+        "value": 24.98626910215944
+      },
+      {
+        "metric": {
+          "status": "422"
+        },
+        "value": 0.0
+      }
+    ],
+    "settlement_retries_by_state": [
+      {
+        "metric": {
+          "sqlstate": "40001"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "40P01"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "55P03"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "57014"
+        },
+        "value": 0.0
+      }
+    ],
+    "settlement_transient_exhausted": 0.0,
+    "reserve_rejected_by_source": [
+      {
+        "metric": {
+          "source": "db"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "source": "precheck"
+        },
+        "value": 0.0
+      }
+    ],
+    "gauge_oldest_max_s": 0.0,
+    "gauge_count_max": 1.0,
+    "protocol_boot": [
+      {
+        "metric": {
+          "instance": "chaos-api-1:8080"
+        },
+        "value": 2.0
+      },
+      {
+        "metric": {
+          "instance": "chaos-api-2:8080"
+        },
+        "value": 2.0
+      }
+    ]
+  },
+  "prom_window_s": 201,
+  "stale_alert": {
+    "samples": 0,
+    "firing": 0,
+    "firing_outside_fault_window": 0,
+    "error": null
+  },
+  "nodes": {
+    "chaos-api-1": {
+      "ok": true,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0
+    },
+    "chaos-api-2": {
+      "ok": true,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0
+    }
+  },
+  "state": {
+    "deadlocks": 0,
+    "reservations": 1347,
+    "unsettled_new": 0,
+    "unsettled_reservations": 0,
+    "reserved_settled_by_later_epoch": 0,
+    "protocol": 2,
+    "leader": {
+      "holder": "b3232238-02ae-47f0-a42d-e65096b3115d",
+      "epoch": 6,
+      "alive": true
+    }
+  },
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gate_rows": 29,
+    "not_pass": [],
+    "ok": true,
+    "table": [
+      {
+        "code": "C01",
+        "check": "ASSET_CONSERVATION",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C02",
+        "check": "BAL_VS_LEDGER",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C04",
+        "check": "TXN_SEALED_UNBALANCED",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C05",
+        "check": "CMD_JOURNAL_GAPLESS",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C06",
+        "check": "EVENT_JOURNAL_GAPLESS",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C07",
+        "check": "DUP_CLIENT_ORDER",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C07P",
+        "check": "DUP_CLIENT_ORDER_JOURNAL",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C08",
+        "check": "TRADE_SEQ_DUP",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C13A",
+        "check": "EVENT_ORDER_MATERIALIZED",
+        "severity": "CRITICAL",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C13B",
+        "check": "ORDER_JOURNALED",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C16",
+        "check": "BOT_ACK_SUBSET",
+        "severity": "CRITICAL",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C17",
+        "check": "REPLAY_DETERMINISM",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C18",
+        "check": "FILL_PRICE_MAKER",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C21",
+        "check": "EVENT_EMISSION_REGISTRY",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C22",
+        "check": "FENCING_MONOTONIC",
+        "severity": "CRITICAL",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C23",
+        "check": "COUNTER_SEQ_CONSISTENCY",
+        "severity": "CRITICAL",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C27",
+        "check": "CMD_DEFAULT_PARTITION",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C28",
+        "check": "CMD_LEGACY_AFTER_CUTOVER",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C29",
+        "check": "MARKET_PARTITION_MAP",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C31",
+        "check": "RESERVATION_LINK",
+        "severity": "CRITICAL",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C03",
+        "check": "TXN_UNSEALED",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C09",
+        "check": "TRADE_SEQ_EVENT_MATCH",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C10",
+        "check": "ORDER_FILL_AGG",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C11",
+        "check": "TRADE_ORPHAN",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C12",
+        "check": "EVENT_ORPHAN",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C14",
+        "check": "LOCKED_RESERVATION",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C19",
+        "check": "ORDERBOOK_NONCROSS",
+        "severity": "HIGH",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C20",
+        "check": "ORDER_FEE_MATERIALIZED",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C26",
+        "check": "CMD_BAND_HEADROOM",
+        "severity": "HIGH",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C15",
+        "check": "DEFAULT_PARTITION",
+        "severity": "WARN",
+        "scope": "ALWAYS",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C24",
+        "check": "POSITION_COST_QTY",
+        "severity": "WARN",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      },
+      {
+        "code": "C25",
+        "check": "POSITION_COST_SANITY",
+        "severity": "WARN",
+        "scope": "CONDITIONAL",
+        "violated_rows": 0,
+        "verdict": "PASS"
+      }
+    ]
+  },
+  "logs": {
+    "chaos-api-1": {
+      "ok": true,
+      "lines": 3483,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 1,
+      "partitionDemotion": 1,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "deadlock40P01": 0,
+      "deadlockDetected": 0,
+      "settlementInsufficient": 0
+    },
+    "chaos-api-2": {
+      "ok": true,
+      "lines": 202,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "partitionDemotion": 0,
+      "leadershipReleased": 0,
+      "promotions": 1,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "deadlock40P01": 0,
+      "deadlockDetected": 0,
+      "settlementInsufficient": 0
+    },
+    "chaos-bots": {
+      "ok": true,
+      "lines": 48,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "partitionDemotion": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "deadlock40P01": 0,
+      "deadlockDetected": 0,
+      "settlementInsufficient": 0
+    }
+  },
+  "leader_node": "chaos-api-2",
+  "balance_samples": {
+    "samples": 41,
+    "errors": 0,
+    "max_lock_waiters": 0,
+    "balance_row_waits": {}
+  },
+  "axes": {
+    "invariants_summary": true,
+    "settlement_insufficient_funds_0": true,
+    "lock_plan_miss_0": true,
+    "append_40P01_0": true,
+    "orders_500_0": true,
+    "pg_deadlocks_0": true,
+    "reservations_gt_0": true,
+    "unsettled_reservations_after_drain_0": true,
+    "leader_node_no_fatal_or_demotion": true,
+    "no_permission_errors": true,
+    "stale_alert_outside_fault_window_0": true,
+    "protocol_2": true
+  },
+  "ok": true,
+  "finished": "2026-09-24T20:56:04+09:00"
+}

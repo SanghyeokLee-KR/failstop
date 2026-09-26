@@ -1,0 +1,9 @@
+봇 OPS=20 적용(chaos-bots 재기동, settle 10s)
+X6a: PASS
+봇 OPS=20 적용(chaos-bots 재기동, settle 10s)
+X6b: PASS
+봇 OPS=20 적용(chaos-bots 재기동, settle 10s)
+X6c: PASS
+봇 OPS=0 적용(chaos-bots 재기동, settle 10s)
+X6d: PASS
+봇 OPS=20 적용(chaos-bots 재기동, settle 5s)

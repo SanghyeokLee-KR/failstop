@@ -1,0 +1,10 @@
+# S2 관문 6-4 A/B 주행 오버레이(폐기용 스택 exchange-pml 전용).
+# exchange.journal.append 타이머는 코드에서 히스토그램을 켜지 않아 평균(sum/count)과 최대만 나온다. p95 를 재려고
+# Spring Boot 의 계측 분포 설정으로 버킷을 켠다. 코드는 바꾸지 않으며 A(main ec8ef8e)와 B(S2) 두 이미지에 똑같이 건다.
+services:
+  chaos-api-1:
+    environment:
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.exchange.journal.append":true}'
+  chaos-api-2:
+    environment:
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.exchange.journal.append":true}'

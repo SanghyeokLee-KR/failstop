@@ -1,0 +1,1 @@
+[{"role" : "pml_read", "login" : true, "super" : false, "read_only_default" : "default_transaction_read_only=on,TimeZone=UTC", "select_trades" : true, "select_orders" : false, "insert_trades" : false, "insert_command_journal" : false}]

@@ -48,10 +48,26 @@ public class ReadRoleConfig {
     static final class ReadRoleCondition implements Condition {
         @Override
         public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-            Environment environment = context.getEnvironment();
-            return environment.acceptsProfiles(Profiles.of("read"))
-                    || "read".equals(environment.getProperty("exchange.node.role"));
+            return isReadRole(context.getEnvironment());
         }
+    }
+
+    /**
+     * 조회 역할이 아닌 노드. 조회 로그인이 읽지 못하는 표를 주기적으로 읽는 빈에 건다(EngineConfig.reservationBacklogMonitor).
+     * 조회 로그인은 assets·markets·trades 만 읽으므로(deploy/provision-runtime-roles.sql) 그런 빈이 조회 노드에서 돌면 매번 권한
+     * 오류로 끝난다.
+     */
+    static final class NotReadRoleCondition implements Condition {
+        @Override
+        public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+            return !isReadRole(context.getEnvironment());
+        }
+    }
+
+    /** 조회 역할 노드인가. read 프로파일이거나 exchange.node.role 이 read 다. 기동 검사(validate)는 그 뒤에 따로 한다. */
+    static boolean isReadRole(Environment environment) {
+        return environment.acceptsProfiles(Profiles.of("read"))
+                || "read".equals(environment.getProperty("exchange.node.role"));
     }
 
     private static void require(Environment environment, String key, String expected) {

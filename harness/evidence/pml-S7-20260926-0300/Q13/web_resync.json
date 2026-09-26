@@ -1,0 +1,476 @@
+{
+  "url": "http://localhost:3000/exchange/KRW-BTC",
+  "browser": "chrome",
+  "startedAt": "2026-09-25T19:17:20.627Z",
+  "durationSec": 600,
+  "settleSec": 15,
+  "mark": null,
+  "restAfterSettle": 39,
+  "tickerRequestsAfterSettle": [],
+  "accountsAfterSettle": 0,
+  "openOrdersAfterSettle": 0,
+  "closedOrdersAfterSettle": 0,
+  "orderbookAfterSettle": [],
+  "ws": {
+    "frames": 6413,
+    "markets": {
+      "KRW-BTC|orderbook": {
+        "count": 2128,
+        "epochs": {
+          "9": 1790363841191
+        },
+        "gaps": 0,
+        "lastSeq": 2183,
+        "lastEpoch": 9
+      },
+      "KRW-BTC|trade": {
+        "count": 1275,
+        "epochs": {
+          "9": 1790363841303
+        },
+        "gaps": 0,
+        "lastSeq": null,
+        "lastEpoch": null
+      },
+      "KRW-BTC|ticker": {
+        "count": 1229,
+        "epochs": {
+          "9": 1790363841305
+        },
+        "gaps": 0,
+        "lastSeq": 1265,
+        "lastEpoch": 9
+      },
+      "KRW-ETH|ticker": {
+        "count": 911,
+        "epochs": {
+          "8": 1790363841861
+        },
+        "gaps": 0,
+        "lastSeq": 934,
+        "lastEpoch": 8
+      },
+      "KRW-XRP|ticker": {
+        "count": 865,
+        "epochs": {
+          "9": 1790363842264
+        },
+        "gaps": 0,
+        "lastSeq": 875,
+        "lastEpoch": 9
+      }
+    }
+  },
+  "requests": [
+    {
+      "at": 1790363841060,
+      "method": "GET",
+      "path": "/api/v1/notices",
+      "query": {
+        "limit": "50"
+      }
+    },
+    {
+      "at": 1790363841061,
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "query": {}
+    },
+    {
+      "at": 1790363841062,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790363841062,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790363841063,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363841063,
+      "method": "GET",
+      "path": "/api/v1/markets",
+      "query": {}
+    },
+    {
+      "at": 1790363841063,
+      "method": "POST",
+      "path": "/api/v1/demo/session",
+      "query": {}
+    },
+    {
+      "at": 1790363841067,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790363841115,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790363841115,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790363841115,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790363841129,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790363841182,
+      "method": "GET",
+      "path": "/api/v1/candles/15m",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "200"
+      }
+    },
+    {
+      "at": 1790363841238,
+      "method": "GET",
+      "path": "/api/v1/orderbook",
+      "query": {
+        "market": "KRW-BTC"
+      }
+    },
+    {
+      "at": 1790363841238,
+      "method": "GET",
+      "path": "/api/v1/trades",
+      "query": {
+        "market": "KRW-BTC",
+        "count": "60"
+      }
+    },
+    {
+      "at": 1790363841240,
+      "method": "GET",
+      "path": "/api/v1/ticker",
+      "query": {
+        "markets": "KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM"
+      }
+    },
+    {
+      "at": 1790363841240,
+      "method": "GET",
+      "path": "/api/v1/accounts",
+      "query": {}
+    },
+    {
+      "at": 1790363841240,
+      "method": "GET",
+      "path": "/api/v1/orders/open",
+      "query": {}
+    },
+    {
+      "at": 1790363841240,
+      "method": "GET",
+      "path": "/api/v1/orders/closed",
+      "query": {}
+    },
+    {
+      "at": 1790363856045,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363871053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363886048,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363901051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363916053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363931053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363946053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363961051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363976051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790363991057,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364006060,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364021062,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364036052,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364051054,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364066057,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364081052,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364096055,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364111056,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364126053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364141053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364156067,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364171055,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364186066,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364201052,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364216065,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364231062,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364246051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364261051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364276066,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364291056,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364306065,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364321053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364336051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364351054,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364366053,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364381059,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364396054,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364411051,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    },
+    {
+      "at": 1790364426069,
+      "method": "GET",
+      "path": "/api/v1/exchange-config",
+      "query": {}
+    }
+  ]
+}

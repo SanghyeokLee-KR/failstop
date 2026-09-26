@@ -1,0 +1,199 @@
+container=pml-probe-s2review-192332197 image=postgres:17-alpine port=127.0.0.1:51534
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0..V47: 48 files
+applied contract seed + contract V48 (V47 baseline copied to database v47)
+
+== R1a [검토 1] 소유자 권한 함수의 실행 권한(계약 V48 뒤). 열: 함수, 종류, rdr, app_role
+secdef|append_command_journal_row(bigint,smallint,character varying,bigint,character varying,bigint,bigint,bigint,jsonb,bigint,text,bigint)|call|f|t
+secdef|apply_position_cost(bigint)|call|f|f
+secdef|assert_and_lock_leader(text,bigint)|call|f|t
+secdef|assert_and_lock_market_leader(smallint,text,bigint)|call|f|t
+secdef|create_balance_for_account()|trigger|t|t
+secdef|ensure_command_band_partition(smallint)|call|f|f
+secdef|ensure_event_band_partition(smallint)|call|f|f
+secdef|expire_leader_lease_now()|call|f|t
+secdef|post_ledger_transaction(character varying,bigint,jsonb)|call|f|t
+secdef|publish_leader_epoch(text,bigint)|call|f|t
+secdef|rebuild_position_cost(bigint)|call|f|f
+secdef|register_event_emission()|trigger|t|t
+secdef|register_trade_seq()|trigger|t|t
+secdef|release_funds(bigint,bigint,bigint,smallint,numeric)|call|f|t
+secdef|release_lease(text,text,bigint)|call|f|t
+secdef|renew_leader_lease(text,bigint,interval)|call|f|t
+secdef|renew_lease(text,text,bigint,interval)|call|f|t
+secdef|reserve_funds(bigint,bigint,bigint,smallint,numeric)|call|f|t
+secdef|seed_market_journal_counters()|trigger|t|t
+secdef|seed_market_lease_partition()|trigger|f|f
+secdef|try_acquire_leader(text,interval)|call|f|t
+secdef|try_acquire_lease(text,text,interval)|call|f|t
+rdr TEMP on database|t
+
+== R1b [검토 1] 수정 전 권한 재현: seed_market_lease_partition 에 PUBLIC EXECUTE 를 잠시 되돌린다
+GRANT
+SET
+INSERT 0 1
+SET
+market 4 mapped before|0
+rdr INSERT on mapping|f
+SET
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+market 4 mapped after|4|matching-p0|rdr
+
+== R1c [검토 1] 수정 뒤(계약대로 PUBLIC 회수): 임시 표 트리거는 42501, app_role 의 마켓 생성은 대응을 만든다
+REVOKE
+SET
+INSERT 0 1
+SET
+SET
+CREATE TABLE
+ERROR:  42501: permission denied for function public.seed_market_lease_partition
+LOCATION:  aclcheck_error, aclchk.c:2843
+CREATE TABLE
+ERROR:  42501: permission denied for function public.seed_market_lease_partition
+LOCATION:  aclcheck_error, aclchk.c:2843
+INSERT 0 1
+markets 5,6 mapping|6:matching-p1:appu
+
+== R1d [검토 1 부수, S2 범위 밖] 기존 소유자 권한 트리거 함수(V1 register_event_emission)의 같은 경로: rdr, botu
+SET
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+botu INSERT on registry|f
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+planted registry rows|987654321|0
+planted registry rows|987654322|0
+
+== R2a [검토 2] 명령 저널 잎의 app_role INSERT 권한(잎은 부모 권한을 물려받지 않는다)
+leaf|command_journal_b1|f
+leaf|command_journal_b2|f
+leaf|command_journal_b3|f
+leaf|command_journal_b6|f
+leaf|command_journal_default|f
+leaf|command_journal_p0|f
+leaf|command_journal_p100000000|f
+leaf|command_journal_p200000000|f
+
+== R2b [검토 2] V48 뒤 V49 앞: app_role 로그인의 command_journal 직접 INSERT(롤백)
+BEGIN
+INSERT 0 1
+ROLLBACK
+applied contract V49
+
+== R2c [검토 2] V49 뒤: 명령 저널 직접 INSERT 는 42501. 봇 로그인에 남는 경로
+app_role INSERT after V49|command_journal|f
+app_role INSERT after V49|event_journal|t
+app_role INSERT after V49|snapshots|t
+app_role INSERT after V49|orders|t
+app_role INSERT after V49|trades|t
+lease before|old-node|41|t
+ERROR:  42501: permission denied for table command_journal
+LOCATION:  aclcheck_error, aclchk.c:2843
+BEGIN
+INSERT 0 1
+snapshots direct insert (rolled back)|1
+ROLLBACK
+append as current leader|1
+renew current holder 1000y|t
+publish over live lease|1000
+lease after publish|bot-login|1000|t
+pg store takeover blocked|t
+bot expires lease|
+bot acquires for 100y|1001
+journal rows|999997|bot-as-leader|41
+acquisitions (audit)|1000|matching-engine|bot-login|PUBLISH
+acquisitions (audit)|1001|matching-engine|bot-login|ACQUIRE
+
+== R4 [검토 4] 파티션 자원을 획득한 DB 를 P1 로 되돌리면 matching-engine 다음 epoch 가 뛴다
+
+P1 acquire|42
+UPDATE 1
+P3 p0|43
+P3 p1|44
+UPDATE 1
+
+P1 acquire after P3|45
+
+== R6 [검토 6·3] S2 이전 SQL 을 app_role 로그인으로: V47 기준선, V48 DB, V49 DB, 되돌리기 GRANT 뒤
+-- (0) V47 DB(기준선). 기대 epoch 42
+legacy acquire|42
+legacy renew|t
+INSERT 0 1
+INSERT 0 0
+legacy settle prologue|42|0|1|1|42
+legacy snapshot lock|42
+ERROR:  P0001: fencing 위반: 현재 리더(holder=legacy, epoch=42)가 아님(요청 holder=legacy, epoch=41)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+UPDATE 1
+lease after legacy release|legacy|42|t
+-- (a) V48 만 적용한 DB. 기대 epoch 42
+legacy acquire|42
+legacy renew|t
+INSERT 0 1
+INSERT 0 0
+legacy settle prologue|42|0|1|1|42
+legacy snapshot lock|42
+ERROR:  P0001: fencing 위반: 현재 리더(holder=legacy, epoch=42)가 아님(요청 holder=legacy, epoch=41)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+UPDATE 1
+lease after legacy release|legacy|42|t
+-- (b) 계약 V49 적용. 기대 epoch 43
+legacy acquire|43
+legacy renew|t
+ERROR:  42501: permission denied for table command_journal
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for table command_journal
+LOCATION:  aclcheck_error, aclchk.c:2843
+legacy settle prologue|43|0|||
+legacy snapshot lock|43
+ERROR:  P0001: fencing 위반: 현재 리더(holder=legacy, epoch=43)가 아님(요청 holder=legacy, epoch=42)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  42501: permission denied for table leader_lease
+LOCATION:  aclcheck_error, aclchk.c:2843
+lease after legacy release|legacy|43|f
+-- (c) 되돌리기 GRANT 두 줄 뒤. 기대 epoch 44
+GRANT
+GRANT
+
+legacy acquire|44
+legacy renew|t
+INSERT 0 1
+INSERT 0 0
+legacy settle prologue|44|0|3|1|44
+legacy snapshot lock|44
+ERROR:  P0001: fencing 위반: 현재 리더(holder=legacy, epoch=44)가 아님(요청 holder=legacy, epoch=43)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+UPDATE 1
+lease after legacy release|legacy|44|t
+legacy journal rows|1|L42|42
+legacy journal rows|3|L44|44
+
+== R7 [검토 7] 동시 배정. 앞 획득이 커밋 전 프로토콜 행을 쥐면 뒤 획득은 기다렸다가 롤백이면 같은 번호, 커밋이면 +1
+max epoch before|41
+B start|17:28:56.160
+B p1|42|17:28:58.368
+BEGIN
+A p0 (uncommitted)|42|17:28:55.362
+
+ROLLBACK
+A rolled back|17:28:58.366
+
+B waits|Lock|transactionid|leader_protocol|1
+D start|17:28:59.183
+D p1|44|17:29:01.390
+BEGIN
+C p0 (uncommitted)|43|17:28:58.385
+
+COMMIT
+C committed|17:29:01.388
+
+D waits|Lock|transactionid|leader_protocol|1
+acquisitions|42|matching-p1|b
+acquisitions|43|matching-p0|c
+acquisitions|44|matching-p1|d
+
+== done

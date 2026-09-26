@@ -104,6 +104,8 @@ export interface Ticker {
   best_ask: string | null;
   seq: number;
   timestamp: string;
+  /** 그 마켓 파티션의 리더 기간(§4-A-4 v2.58). 서버가 이미 내던 값이다. 없으면(종전 서버) 마켓 기준 epoch 를 쓴다 */
+  epoch?: number;
 }
 
 /** 체결 (REST GET /trades 원소) */
@@ -178,6 +180,11 @@ export interface Asset {
   cost_basis_qty: string;
   /** 원가 확보 금액. 총매수는 이 값이며 수량×평단가로 재계산하지 않는다 (v2.21 additive) */
   cost_basis_amount: string;
+  /**
+   * 잔고 판(§4-C-1 v2.58). AVAILABLE·LOCKED 잔고 행 version 의 합이라 줄지 않고, 같으면 잔고·잠금도 같다.
+   * myAsset 순서 판정에 쓴다(lib/api/assetVersions). 없으면 종전 서버다
+   */
+  version?: number;
 }
 
 /* ===== WS(STOMP) 메시지 (§5-4, §5-5) ===== */
@@ -190,7 +197,7 @@ interface WsBase {
 }
 
 /** /topic/ticker.{market} */
-export interface TickerMessage extends WsBase, Omit<Ticker, "seq" | "timestamp"> {
+export interface TickerMessage extends WsBase, Omit<Ticker, "seq" | "timestamp" | "epoch"> {
   type: "ticker";
   stream?: "snapshot" | "realtime";
 }
@@ -237,9 +244,13 @@ export interface MyOrderTrade {
   fee: string;
 }
 
-/** /user/queue/myOrder. seq 도메인은 user×type 독립 (§5-2) */
+/**
+ * /user/queue/myOrder. seq 도메인은 user×type 독립 (§5-2). seq_domain 이 "user_market" 이면(중계 모드, v2.58)
+ * user×type×market 이라 마켓마다 따로 조밀하다
+ */
 export interface MyOrderMessage extends WsBase {
   type: "myOrder";
+  seq_domain?: "user_market";
   id: string;
   client_order_id: string;
   market: string;
@@ -256,9 +267,13 @@ export interface MyOrderMessage extends WsBase {
 /** /user/queue/myAsset. 접촉 자산만 싣는 델타 (§5-5) */
 export interface MyAssetMessage extends WsBase {
   type: "myAsset";
+  /** 이 게시를 만든 마켓(v2.58). epoch 는 이 마켓 파티션의 기간이다. 없으면(종전 서버) epoch 를 보지 않는다 */
+  market?: string;
+  /** "user_market" 이면 seq 가 마켓마다 따로 조밀하다(중계 모드, v2.58) */
+  seq_domain?: "user_market";
   /** 원가 필드는 부가가 아니라 계약이다(v2.21 K5). 없으면 매수마다 낡은 평단가가 화면에 남는다 */
   assets: Array<
-    Pick<Asset, "currency" | "balance" | "locked" | "avg_buy_price" | "cost_basis_qty" | "cost_basis_amount">
+    Pick<Asset, "currency" | "balance" | "locked" | "avg_buy_price" | "cost_basis_qty" | "cost_basis_amount" | "version">
   >;
 }
 

@@ -1,0 +1,34 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+  "created": "2026-09-25T06:19:09.001685735Z",
+  "refTag": "exchange-chaos-app:s5ref",
+  "rebuiltSameAsPrevious": true,
+  "previousImageId": "sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095",
+  "previousCreated": "2026-09-25T06:19:09.001685735Z",
+  "previousRefTag": "exchange-chaos-app:s5ref",
+  "baseRefForZ1base": "exchange-chaos-app:s4b3ref",
+  "baseImageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "9a6d24746664181c2d6843f0a2ec8f98e021d93c",
+  "trackedDiffSha256": "0daa6d97592c3b13870798f1ff99a9ee2e29a9fc4be9c80a90c23f395bdded5b",
+  "changedPaths": 90,
+  "jarSha256": "d57b3790da9ba9f5eb842714375eb76c865c617e1c10d77d3ca15a0b6dde0f66",
+  "jarWritten": "2026-09-25T14:50:38.0171054+09:00",
+  "flyway": {
+    "rows": 55,
+    "max_version": 54,
+    "failed": 0
+  },
+  "lbAtPrep": {
+    "lbConf": "default",
+    "file": "harness/nginx/nginx.conf",
+    "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+    "nginxTRc": 0,
+    "sha256Inside": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "sha256Repo": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+    "same": true,
+    "envChaosLbConf": ""
+  },
+  "note": "S5 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD 위 작업 트리 변경(S5 코드·시험·하네스·문서)을 담는다"
+}

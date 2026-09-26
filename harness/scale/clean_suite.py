@@ -36,7 +36,45 @@ from k6_ceiling import run_k6, duration_fill, markets  # noqa: E402
 CHAOS = str(ROOT / 'harness/docker-compose.chaos.yml')
 SCALE = str(ROOT / 'harness/docker-compose.scale.yml')
 ENVF = str(ROOT / 'harness/.env.chaos')
+# compose 프로젝트. 기본은 compose 파일의 name 과 같고, 폐기용 스택은 CHAOS_PROJECT 로 가른다(harness/scripts/lib.ps1 과 같은 규칙).
+PROJECT = os.environ.get('CHAOS_PROJECT') or 'exchange-chaos'
+# 추가 오버레이. CHAOS_EXTRA_COMPOSE 에 세미콜론으로 이은 파일 경로를 주면 두 파일 뒤에 겹친다(비우면 종전과 같다).
+EXTRA = [a for f in (os.environ.get('CHAOS_EXTRA_COMPOSE') or '').split(';') if f.strip() for a in ('-f', f.strip())]
 WRITE_SHARE = 0.40
+
+# 보존 스택 가드(하네스 검증설계 §2-4, 마켓분할_리더_S3_설계 7-0). 이 러너는 칸마다 down -v 를 한다. 환경 변수가 빠지면
+# 프로젝트가 exchange-chaos 가 되어 보존 볼륨(exchange-chaos_chaos-pgdata)을 지운다. 그래서 스택을 지우거나 세우기 전에
+# 프로젝트가 보존 스택이 아닌지 보고, 보존 스택이면 아무것도 하지 않는다. 이미지 태그는 절차마다 달라(ADR 0022 단계 절차는
+# 자기가 구운 태그를 쓴다) 공용 가드에서 묶지 않는다. ADR 0034 S3 경로(모드 전환)만 폐기용 프로젝트와 태그를 함께 요구한다.
+PRESERVED_PROJECT = 'exchange-chaos'
+DISPOSABLE_PROJECT = 'exchange-pml'
+DISPOSABLE_IMAGE = 'exchange-chaos-app:pml'
+
+
+def disposable_problems(env=None, protocol=False):
+    """스택을 지우고 세우면 안 되는 이유. 비었으면 해도 된다. protocol 이 참이면 S3 모드 전환 경로의 조건까지 본다."""
+    env = os.environ if env is None else env
+    problems = []
+    project = env.get('CHAOS_PROJECT') or PRESERVED_PROJECT
+    if project == PRESERVED_PROJECT:
+        problems.append('CHAOS_PROJECT=%r 이다. 보존 스택 %s 는 지우지 않는다. 폐기용 이름(예: %s)을 준다'
+                        % (env.get('CHAOS_PROJECT'), PRESERVED_PROJECT, DISPOSABLE_PROJECT))
+    if protocol:
+        if project != DISPOSABLE_PROJECT and project != PRESERVED_PROJECT:
+            problems.append('모드 전환 경로는 CHAOS_PROJECT=%s 에서만 돈다(%r)' % (DISPOSABLE_PROJECT, project))
+        if env.get('CHAOS_APP_IMAGE') != DISPOSABLE_IMAGE:
+            problems.append('모드 전환 경로는 CHAOS_APP_IMAGE=%s 에서만 돈다(%r)'
+                            % (DISPOSABLE_IMAGE, env.get('CHAOS_APP_IMAGE')))
+    return problems
+
+
+def load_keys(env=None):
+    """부하 계정 수. SCALE_LOAD_KEYS 가 없으면 종전 값 4 다. 서버가 50 에서 자르므로 1~50 만 받는다."""
+    env = os.environ if env is None else env
+    raw = (env.get('SCALE_LOAD_KEYS') or '4').strip()
+    if not re.fullmatch(r'[0-9]{1,2}', raw) or not 1 <= int(raw) <= 50:
+        raise ValueError('SCALE_LOAD_KEYS 는 1~50 의 정수여야 한다: %r' % raw)
+    return int(raw)
 
 
 # 마지막 compose 실패의 출력. 종료코드만 남기면 '초기화 실패' 네 글자로 끝나
@@ -49,7 +87,7 @@ def compose(args, env=None, timeout=900):
     if env:
         e.update(env)
     p = subprocess.run(
-        ['docker', 'compose', '-f', CHAOS, '-f', SCALE, '--env-file', ENVF] + args,
+        ['docker', 'compose', '-p', PROJECT, '-f', CHAOS, '-f', SCALE] + EXTRA + ['--env-file', ENVF] + args,
         cwd=str(ROOT / 'harness'), env=e, capture_output=True, text=True, timeout=timeout)
     if p.returncode != 0:
         LAST_ERR[0] = ((p.stderr or '') + (p.stdout or ''))[-700:]
@@ -64,15 +102,23 @@ def daemon_alive():
 
 def reset_stack(env):
     """볼륨까지 파기하고 다시 세운다. 이 함수가 이 러너의 존재 이유다."""
+    # 보존 스택이면 아무것도 하지 않고 거짓이다(하네스 검증설계 §2-4 보존 스택 가드). 호출자는 초기화 실패로 다룬다.
+    # 판정은 아래 compose 가 실제로 쓰는 값(가져올 때 정한 PROJECT)으로 한다.
+    problems = disposable_problems(dict(os.environ, CHAOS_PROJECT=PROJECT))
+    if problems:
+        LAST_ERR[0] = '보존 스택 가드: ' + '; '.join(problems)
+        return False
     compose(['--profile', 'obs', '--profile', 'admin', '--profile', 'load',
              'down', '-v', '--remove-orphans'], env)
     # 반복 파기 뒤 데몬이 지운 컨테이너를 참조하는 상태가 된다(2026-09-09 실측:
     # `No such container`). 그러면 다음 기동이 통째로 실패한다. 매 칸 정리한다.
+    # 정리 대상은 이 프로젝트 라벨이 붙은 멈춘 컨테이너로 한정한다. 호스트의 다른 멈춘 컨테이너는 이 러너의 것이 아니다.
     #
     # TRUNCATE 로 대신할 수 없다. 원장 표에 append-only 트리거가 걸려 있어
     # `append-only 위반: ledger_entries.TRUNCATE` 로 막힌다. 그 트리거는 계약이므로
     # 우회하지 않는다. 초기화 수단은 볼륨 파기뿐이다.
-    subprocess.run(['docker', 'container', 'prune', '-f'],
+    subprocess.run(['docker', 'container', 'prune', '-f',
+                    '--filter', 'label=com.docker.compose.project=' + PROJECT],
                    capture_output=True, text=True, timeout=120)
     time.sleep(10)
     if compose(['--profile', 'obs', 'up', '-d'], env) != 0:
@@ -123,6 +169,9 @@ LOAD_QUOTE_FUNDING = '1000000000'
 
 def reissue_keys():
     """볼륨을 파기했으므로 부하 계정이 사라진다. 이 재발급이 없으면 k6 가 전량 401 이다."""
+    # 계정 수는 SCALE_LOAD_KEYS(기본 4)다. S3 관문 X5 는 단계 계획대로 16 을 준다(S3 설계 7-3).
+    # 형식 오류는 아래 재시도에 삼켜지지 않게 먼저 낸다.
+    count = load_keys()
     for _ in range(6):
         try:
             req = urllib.request.Request(
@@ -130,7 +179,7 @@ def reissue_keys():
                 # 없으면 매도 주문이 접수를 통과한 뒤 정산에서 라이터를 죽인다(한계 40).
                 'http://localhost:18080/harness/v1/loadtest-keys?market='
                 + urllib.parse.quote(markets())
-                + '&count=4'
+                + '&count=%d' % count
                 + '&base=' + LOAD_BASE_FUNDING
                 + '&quote=' + LOAD_QUOTE_FUNDING,
                 method='POST')
@@ -347,6 +396,10 @@ def main():
                     help='봇 안정화 대기 상한 초. 고정 대기가 아니라 상한이다')
     ap.add_argument('--out', default=None)
     a = ap.parse_args()
+    problems = disposable_problems()
+    if problems:
+        print('보존 스택 가드로 시작하지 않는다: %s' % '; '.join(problems), flush=True)
+        return 2
 
     cells = SUITES[a.suite]
     out_path = a.out or str(ROOT / ('harness/evidence/clean-%s.json' % a.suite))

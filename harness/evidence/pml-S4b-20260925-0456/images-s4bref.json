@@ -1,0 +1,23 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:c19e0d0e335be972b69b98a3de7e0d9817335e5f38b78f3bac4b2be48d9c228b",
+  "created": "2026-09-24T20:14:51.229319558Z",
+  "refTag": "exchange-chaos-app:s4bref",
+  "previousImageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+  "previousCreated": "2026-09-24T15:13:41.884163252Z",
+  "previousRefTag": "exchange-chaos-app:s4r1ref",
+  "s3RefImageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "s3RefTag": "exchange-chaos-app:s3ref",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "48629d5d02ae61b2de7ae12a082fb689a1ce2eee",
+  "trackedDiffSha256": "70bbaccb7c1a4f962a609545de8f550330df593465b7ac4b16394d743f48ffac",
+  "changedPaths": 46,
+  "jarSha256": "c8e2eb8f6061e5239cd8188772a63ab3b3691ef8fa1bba25e42c0102e11c785b",
+  "jarWritten": "2026-09-25T04:56:28.8204215+09:00",
+  "flyway": {
+    "rows": 54,
+    "max_version": 53,
+    "failed": 0
+  },
+  "note": "S4b 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD(48629d5d) 위 작업 트리 변경(S4b 코드와 문서)을 담는다"
+}

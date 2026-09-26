@@ -1,0 +1,1068 @@
+N=3000000 PENDING=300
+7c757c86aa1a4a794b161c89481852477785c62849ae66517cb1f93e98fc7640 *v50.sql
+3230e09a50c1869e075a614a79eb2bc8ce33be1e1acc244b291abd0311dad631 *c14p.sql
+6edb187a55570c159828cd0703047bac5dedc017d9050c00b175d395382ee613 *c31.sql
+310f0686476302cdc384ff50793bf8c95cd1ae1a91c7e2e6b73e553b3d712ae6 *c31app.sql
+container=pml-probe-s3scale-1287974 image=postgres:17-alpine port=127.0.0.1:53020
+nproc=16
+MemTotal:       15917136 kB
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+jit=on
+max_parallel_workers_per_gather=2
+shared_buffers=163848kB
+work_mem=4096kB
+== 적용: 저장소 49개 파일(V0..V48), 시드, 계약 V49·V50
+== P2 전환 뒤 획득 epoch=46
+SET
+SET
+SET
+SELECT 3000000
+INSERT 0 3000000
+INSERT 0 3000000
+INSERT 0 6000000
+INSERT 0 3000000
+INSERT 0 2999700
+INSERT 0 2999700
+INSERT 0 2999700
+DROP TABLE
+SET
+== 합성 적재와 VACUUM ANALYZE: 123초
+rows|3000000|3000000|2999700|6000008|2999700
+size|5837 MB
+
+== 결과값(판정용이 아니라 두 판이 같은 값을 내는지 본다)
+u full: 4|0.300000000000000000
+u cursor: 4|0.300000000000000000
+precondition unsettled NEW: 300
+gauge pending|oldest_s: 300|125
+C31 app window(5000 x 3 markets): 0
+
+== C14' 정산 전 예약 항, 개정 전 전수 판
+1회차 Execution Time: 480.874 ms
+Aggregate  (cost=144514.18..144514.19 rows=1 width=40) (actual time=405.985..445.604 rows=1 loops=1)
+  Buffers: shared hit=985 read=72891, temp read=26156 written=26404
+  ->  Finalize GroupAggregate  (cost=144512.21..144514.12 rows=4 width=40) (actual time=405.966..445.594 rows=4 loops=1)
+        Group Key: r.locked_account_id
+        Buffers: shared hit=985 read=72891, temp read=26156 written=26404
+        ->  Gather Merge  (cost=144512.21..144514.01 rows=8 width=40) (actual time=405.946..445.573 rows=12 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=985 read=72891, temp read=26156 written=26404
+              ->  Partial GroupAggregate  (cost=143512.19..143513.06 rows=4 width=40) (actual time=395.590..395.600 rows=4 loops=3)
+                    Group Key: r.locked_account_id
+                    Buffers: shared hit=985 read=72891, temp read=26156 written=26404
+                    ->  Sort  (cost=143512.19..143512.46 rows=110 width=13) (actual time=395.557..395.562 rows=100 loops=3)
+                          Sort Key: r.locked_account_id
+                          Sort Method: quicksort  Memory: 28kB
+                          Buffers: shared hit=985 read=72891, temp read=26156 written=26404
+                          Worker 0:  Sort Method: quicksort  Memory: 28kB
+                          Worker 1:  Sort Method: quicksort  Memory: 27kB
+                          ->  Parallel Hash Anti Join  (cost=55062.19..143508.46 rows=110 width=13) (actual time=300.550..395.399 rows=100 loops=3)
+                                Hash Cond: (r.command_seq = e.source_cmd_seq)
+                                Buffers: shared hit=909 read=72891, temp read=26156 written=26404
+                                ->  Parallel Seq Scan on order_reservations r  (cost=0.00..64224.85 rows=1249985 width=21) (actual time=0.041..55.163 rows=1000000 loops=3)
+                                      Buffers: shared hit=507 read=51218
+                                ->  Parallel Hash  (cost=34555.75..34555.75 rows=1249875 width=8) (actual time=130.783..130.784 rows=999900 loops=3)
+                                      Buckets: 262144  Batches: 32  Memory Usage: 5760kB
+                                      Buffers: shared hit=384 read=21673, temp written=10052
+                                      ->  Parallel Seq Scan on event_emission_registry e  (cost=0.00..34555.75 rows=1249875 width=8) (actual time=5.211..46.823 rows=999900 loops=3)
+                                            Buffers: shared hit=384 read=21673
+Planning:
+  Buffers: shared hit=178
+Planning Time: 1.182 ms
+JIT:
+  Functions: 47
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 2.028 ms (Deform 0.757 ms), Inlining 0.000 ms, Optimization 0.761 ms, Emission 15.011 ms, Total 17.799 ms
+Execution Time: 457.899 ms
+
+== C14' 정산 전 예약 항, 커서 판
+1회차 Execution Time: 214.079 ms
+Aggregate  (cost=2417841.70..2417841.71 rows=1 width=40) (actual time=200.315..200.318 rows=1 loops=1)
+  Buffers: shared hit=2486
+  ->  HashAggregate  (cost=2417841.67..2417841.68 rows=1 width=40) (actual time=200.309..200.313 rows=4 loops=1)
+        Group Key: r.locked_account_id
+        Batches: 1  Memory Usage: 24kB
+        Buffers: shared hit=2486
+        ->  Nested Loop  (cost=3.35..2416341.67 rows=300000 width=13) (actual time=199.577..200.266 rows=300 loops=1)
+              Buffers: shared hit=2486
+              ->  Nested Loop  (cost=2.48..469680.72 rows=300000 width=8) (actual time=198.221..198.387 rows=300 loops=1)
+                    Buffers: shared hit=386
+                    ->  Nested Loop  (cost=1.20..4.69 rows=3 width=10) (actual time=198.126..198.149 rows=3 loops=1)
+                          Buffers: shared hit=41
+                          ->  Seq Scan on markets m  (cost=0.00..1.03 rows=3 width=2) (actual time=0.008..0.010 rows=3 loops=1)
+                                Buffers: shared hit=1
+                          ->  Result  (cost=1.20..1.21 rows=1 width=8) (actual time=66.045..66.045 rows=1 loops=3)
+                                Buffers: shared hit=40
+                                InitPlan 1
+                                  ->  Limit  (cost=1.13..1.20 rows=1 width=8) (actual time=0.049..0.049 rows=1 loops=3)
+                                        Buffers: shared hit=40
+                                        ->  Merge Append  (cost=1.13..69058.44 rows=999901 width=8) (actual time=0.048..0.048 rows=1 loops=3)
+                                              Sort Key: e_1.source_cmd_seq DESC
+                                              Buffers: shared hit=40
+                                              ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_2  (cost=0.43..51094.61 rows=999896 width=8) (actual time=0.023..0.023 rows=1 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=10
+                                              ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_3  (cost=0.12..8.14 rows=1 width=8) (actual time=0.003..0.004 rows=0 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=6
+                                              ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_4  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=6
+                                              ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_5  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=6
+                                              ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_6  (cost=0.12..8.14 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=6
+                                              ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_7  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                                    Index Cond: (market_id = m.id)
+                                                    Heap Fetches: 0
+                                                    Buffers: shared hit=6
+                    ->  Limit  (cost=1.28..155558.68 rows=100000 width=8) (actual time=0.038..0.073 rows=100 loops=3)
+                          Buffers: shared hit=345
+                          ->  Merge Append  (cost=1.28..518523.86 rows=333332 width=8) (actual time=0.037..0.069 rows=100 loops=3)
+                                Sort Key: c.seq
+                                Buffers: shared hit=345
+                                ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1  (cost=0.43..512129.32 rows=333326 width=8) (actual time=0.011..0.037 rows=100 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=309
+                                ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+                                ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+                                ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+                                ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+                                ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.12..8.15 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+                                ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_7  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                      Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared hit=6
+              ->  Memoize  (cost=0.87..12.91 rows=1 width=13) (actual time=0.006..0.006 rows=1 loops=300)
+                    Cache Key: c.seq
+                    Cache Mode: binary
+                    Hits: 0  Misses: 300  Evictions: 0  Overflows: 0  Memory Usage: 35kB
+                    Buffers: shared hit=2100
+                    ->  Limit  (cost=0.86..12.90 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=300)
+                          Buffers: shared hit=2100
+                          ->  Nested Loop Anti Join  (cost=0.86..12.90 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=300)
+                                Buffers: shared hit=2100
+                                ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.43..8.45 rows=1 width=21) (actual time=0.001..0.001 rows=1 loops=300)
+                                      Index Cond: (command_seq = c.seq)
+                                      Buffers: shared hit=1200
+                                ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e  (cost=0.43..4.45 rows=1 width=8) (actual time=0.000..0.000 rows=0 loops=300)
+                                      Index Cond: (source_cmd_seq = c.seq)
+                                      Heap Fetches: 0
+                                      Buffers: shared hit=900
+Planning:
+  Buffers: shared hit=1567
+Planning Time: 7.718 ms
+JIT:
+  Functions: 100
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 2.533 ms (Deform 0.733 ms), Inlining 33.830 ms, Optimization 82.261 ms, Emission 81.923 ms, Total 200.547 ms
+Execution Time: 214.994 ms
+
+== C14' 전체 문장(문서 원문, 커서 판)
+1회차 Execution Time: 382.639 ms
+Hash Left Join  (cost=2417845.99..2417850.17 rows=8 width=107) (actual time=378.806..378.816 rows=4 loops=1)
+  Hash Cond: (a.id = u.account_id)
+  Filter: (b.balance <> ((COALESCE((sum(orders.locked_amount)), '0'::numeric) + COALESCE(u.amt, '0'::numeric)) + COALESCE((sum(t.amount)), '0'::numeric)))
+  Rows Removed by Filter: 4
+  Buffers: shared hit=2489
+  ->  Merge Left Join  (cost=4.29..8.45 rows=8 width=75) (actual time=376.389..376.396 rows=8 loops=1)
+        Merge Cond: (a.id = la.id)
+        Buffers: shared hit=3
+        ->  Merge Left Join  (cost=2.86..6.95 rows=8 width=43) (actual time=376.360..376.364 rows=8 loops=1)
+              Merge Cond: (a.id = orders.locked_account_id)
+              Buffers: shared hit=3
+              ->  Sort  (cost=2.73..2.75 rows=8 width=11) (actual time=376.340..376.342 rows=8 loops=1)
+                    Sort Key: a.id
+                    Sort Method: quicksort  Memory: 25kB
+                    Buffers: shared hit=2
+                    ->  Hash Join  (cost=1.35..2.61 rows=8 width=11) (actual time=376.318..376.322 rows=8 loops=1)
+                          Hash Cond: (b.account_id = a.id)
+                          Buffers: shared hit=2
+                          ->  Seq Scan on balances b  (cost=0.00..1.20 rows=20 width=11) (actual time=0.006..0.008 rows=20 loops=1)
+                                Buffers: shared hit=1
+                          ->  Hash  (cost=1.25..1.25 rows=8 width=8) (actual time=376.293..376.293 rows=8 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                Buffers: shared hit=1
+                                ->  Seq Scan on accounts a  (cost=0.00..1.25 rows=8 width=8) (actual time=376.278..376.280 rows=8 loops=1)
+                                      Filter: ((purpose)::text = 'LOCKED'::text)
+                                      Rows Removed by Filter: 12
+                                      Buffers: shared hit=1
+              ->  GroupAggregate  (cost=0.12..4.16 rows=1 width=40) (actual time=0.016..0.017 rows=0 loops=1)
+                    Group Key: orders.locked_account_id
+                    Buffers: shared hit=1
+                    ->  Index Scan using idx_orders_locked_account_open on orders  (cost=0.12..4.14 rows=1 width=11) (actual time=0.015..0.015 rows=0 loops=1)
+                          Buffers: shared hit=1
+        ->  GroupAggregate  (cost=1.43..1.45 rows=1 width=40) (actual time=0.025..0.027 rows=0 loops=1)
+              Group Key: la.id
+              ->  Sort  (cost=1.43..1.43 rows=1 width=38) (actual time=0.025..0.026 rows=0 loops=1)
+                    Sort Key: la.id
+                    Sort Method: quicksort  Memory: 25kB
+                    ->  Hash Join  (cost=0.01..1.42 rows=1 width=38) (actual time=0.015..0.016 rows=0 loops=1)
+                          Hash Cond: ((la.owner_id = t.user_id) AND (la.asset_id = t.asset_id))
+                          ->  Seq Scan on accounts la  (cost=0.00..1.35 rows=6 width=18) (never executed)
+                                Filter: (((owner_type)::text = 'USER'::text) AND ((purpose)::text = 'LOCKED'::text) AND (shard = 0))
+                          ->  Hash  (cost=0.00..0.00 rows=1 width=40) (actual time=0.010..0.010 rows=0 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                                ->  Seq Scan on transfer_requests t  (cost=0.00..0.00 rows=1 width=40) (actual time=0.010..0.010 rows=0 loops=1)
+                                      Filter: (((direction)::text = 'WITHDRAW'::text) AND ((status)::text = 'REQUESTED'::text))
+  ->  Hash  (cost=2417841.69..2417841.69 rows=1 width=40) (actual time=2.405..2.408 rows=4 loops=1)
+        Buckets: 1024  Batches: 1  Memory Usage: 9kB
+        Buffers: shared hit=2486
+        ->  Subquery Scan on u  (cost=2417841.67..2417841.69 rows=1 width=40) (actual time=2.395..2.399 rows=4 loops=1)
+              Buffers: shared hit=2486
+              ->  HashAggregate  (cost=2417841.67..2417841.68 rows=1 width=40) (actual time=2.393..2.397 rows=4 loops=1)
+                    Group Key: r.locked_account_id
+                    Batches: 1  Memory Usage: 24kB
+                    Buffers: shared hit=2486
+                    ->  Nested Loop  (cost=3.35..2416341.67 rows=300000 width=13) (actual time=1.656..2.354 rows=300 loops=1)
+                          Buffers: shared hit=2486
+                          ->  Nested Loop  (cost=2.48..469680.72 rows=300000 width=8) (actual time=0.239..0.423 rows=300 loops=1)
+                                Buffers: shared hit=386
+                                ->  Nested Loop  (cost=1.20..4.69 rows=3 width=10) (actual time=0.141..0.169 rows=3 loops=1)
+                                      Buffers: shared hit=41
+                                      ->  Seq Scan on markets m  (cost=0.00..1.03 rows=3 width=2) (actual time=0.006..0.007 rows=3 loops=1)
+                                            Buffers: shared hit=1
+                                      ->  Result  (cost=1.20..1.21 rows=1 width=8) (actual time=0.052..0.052 rows=1 loops=3)
+                                            Buffers: shared hit=40
+                                            InitPlan 1
+                                              ->  Limit  (cost=1.13..1.20 rows=1 width=8) (actual time=0.050..0.050 rows=1 loops=3)
+                                                    Buffers: shared hit=40
+                                                    ->  Merge Append  (cost=1.13..69058.44 rows=999901 width=8) (actual time=0.049..0.050 rows=1 loops=3)
+                                                          Sort Key: e_1.source_cmd_seq DESC
+                                                          Buffers: shared hit=40
+                                                          ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_2  (cost=0.43..51094.61 rows=999896 width=8) (actual time=0.019..0.019 rows=1 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=10
+                                                          ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_3  (cost=0.12..8.14 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=6
+                                                          ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_4  (cost=0.12..8.14 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=6
+                                                          ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_5  (cost=0.12..8.14 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=6
+                                                          ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_6  (cost=0.12..8.14 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=6
+                                                          ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_7  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                                                Index Cond: (market_id = m.id)
+                                                                Heap Fetches: 0
+                                                                Buffers: shared hit=6
+                                ->  Limit  (cost=1.28..155558.68 rows=100000 width=8) (actual time=0.041..0.078 rows=100 loops=3)
+                                      Buffers: shared hit=345
+                                      ->  Merge Append  (cost=1.28..518523.86 rows=333332 width=8) (actual time=0.040..0.074 rows=100 loops=3)
+                                            Sort Key: c.seq
+                                            Buffers: shared hit=345
+                                            ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1  (cost=0.43..512129.32 rows=333326 width=8) (actual time=0.012..0.039 rows=100 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=309
+                                            ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                                            ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.004 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                                            ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                                            ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.12..8.15 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                                            ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                                            ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_7  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                                  Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                  Filter: ((command_type)::text = 'NEW'::text)
+                                                  Buffers: shared hit=6
+                          ->  Memoize  (cost=0.87..12.91 rows=1 width=13) (actual time=0.006..0.006 rows=1 loops=300)
+                                Cache Key: c.seq
+                                Cache Mode: binary
+                                Hits: 0  Misses: 300  Evictions: 0  Overflows: 0  Memory Usage: 35kB
+                                Buffers: shared hit=2100
+                                ->  Limit  (cost=0.86..12.90 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=300)
+                                      Buffers: shared hit=2100
+                                      ->  Nested Loop Anti Join  (cost=0.86..12.90 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=300)
+                                            Buffers: shared hit=2100
+                                            ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.43..8.45 rows=1 width=21) (actual time=0.001..0.001 rows=1 loops=300)
+                                                  Index Cond: (command_seq = c.seq)
+                                                  Buffers: shared hit=1200
+                                            ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e  (cost=0.43..4.45 rows=1 width=8) (actual time=0.000..0.000 rows=0 loops=300)
+                                                  Index Cond: (source_cmd_seq = c.seq)
+                                                  Heap Fetches: 0
+                                                  Buffers: shared hit=900
+Planning:
+  Buffers: shared hit=2140
+Planning Time: 11.532 ms
+JIT:
+  Functions: 156
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 4.208 ms (Deform 1.707 ms), Inlining 33.651 ms, Optimization 176.942 ms, Emission 165.720 ms, Total 380.521 ms
+Execution Time: 395.946 ms
+
+== C31 전체 문장(문서 원문, 전수)
+1회차 Execution Time: 18097.200 ms
+Append  (cost=0.00..29753835.44 rows=4124717 width=40) (actual time=18036.439..18261.202 rows=0 loops=1)
+  Buffers: shared hit=41789844 read=626491, temp read=154505 written=155268
+  ->  Seq Scan on order_reservations r  (cost=0.00..28933378.42 rows=2624706 width=40) (actual time=13603.305..13603.327 rows=0 loops=1)
+        Filter: ((created_at >= (now() - '90 days'::interval)) AND ((NOT EXISTS(SubPlan 1)) OR (NOT EXISTS(SubPlan 2)) OR (NOT EXISTS(SubPlan 3))))
+        Rows Removed by Filter: 3000000
+        Buffers: shared hit=41789314 read=262411
+        SubPlan 1
+          ->  Index Scan using uq_ledger_business_event on ledger_transactions t  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=3000000)
+                Index Cond: (((business_event_type)::text = 'RESERVE'::text) AND (business_event_id = r.order_id))
+                Filter: ((id = r.ledger_txn_id) AND ((status)::text = 'SEALED'::text))
+                Buffers: shared hit=11910354 read=89646
+        SubPlan 2
+          ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=3000000)
+                Buffers: shared hit=14939479 read=60521
+                ->  Seq Scan on ledger_entries_p2026_07 e_1  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2026_08 e_2  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_3  (cost=0.56..8.58 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=3000000)
+                      Index Cond: ((account_id = r.locked_account_id) AND (created_at = r.created_at))
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                      Buffers: shared hit=14939479 read=60521
+                ->  Seq Scan on ledger_entries_p2026_10 e_4  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2026_11 e_5  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2026_12 e_6  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_01 e_7  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_02 e_8  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_03 e_9  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_04 e_10  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_05 e_11  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_06 e_12  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_07 e_13  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_p2027_08 e_14  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                ->  Seq Scan on ledger_entries_default e_15  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+        SubPlan 3
+          ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=3000000)
+                Buffers: shared hit=14939481 read=60519
+                ->  Seq Scan on ledger_entries_p2026_07 e_17  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2026_08 e_18  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_19  (cost=0.56..8.59 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=3000000)
+                      Index Cond: ((account_id = r.available_account_id) AND (created_at = r.created_at))
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                      Buffers: shared hit=14939481 read=60519
+                ->  Seq Scan on ledger_entries_p2026_10 e_20  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2026_11 e_21  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2026_12 e_22  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_01 e_23  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_02 e_24  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_03 e_25  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_04 e_26  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_05 e_27  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_06 e_28  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_07 e_29  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_p2027_08 e_30  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                ->  Seq Scan on ledger_entries_default e_31  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                      Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+  ->  Nested Loop  (cost=85732.80..259819.83 rows=1 width=40) (actual time=602.216..639.144 rows=0 loops=1)
+        Buffers: shared hit=143 read=182140, temp read=23216 written=23440
+        ->  Gather  (cost=85732.66..259819.67 rows=1 width=16) (actual time=602.215..639.141 rows=0 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=143 read=182140, temp read=23216 written=23440
+              ->  Parallel Hash Anti Join  (cost=84732.66..258819.57 rows=1 width=16) (actual time=587.287..587.349 rows=0 loops=3)
+                    Hash Cond: (c.seq = r_1.command_seq)
+                    Buffers: shared hit=143 read=182140, temp read=23216 written=23440
+                    ->  Parallel Append  (cost=0.00..152308.50 rows=1249977 width=16) (actual time=0.067..137.905 rows=1000000 loops=3)
+                          Buffers: shared read=130434
+                          ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=16) (actual time=0.024..0.024 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=16) (actual time=0.021..0.021 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=16) (actual time=0.017..0.017 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=16) (actual time=0.017..0.017 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_default c_7  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..146058.64 rows=1249971 width=16) (actual time=0.036..95.392 rows=1000000 loops=3)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared read=130434
+                    ->  Parallel Hash  (cost=64224.85..64224.85 rows=1249985 width=8) (actual time=233.409..233.410 rows=1000000 loops=3)
+                          Buckets: 262144  Batches: 32  Memory Usage: 5760kB
+                          Buffers: shared hit=32 read=51693, temp written=10076
+                          ->  Parallel Seq Scan on order_reservations r_1  (cost=0.00..64224.85 rows=1249985 width=8) (actual time=87.660..135.922 rows=1000000 loops=3)
+                                Buffers: shared hit=32 read=51693
+        ->  Index Scan using lease_acquisitions_pkey on lease_acquisitions a  (cost=0.13..0.15 rows=1 width=8) (never executed)
+              Index Cond: (epoch = c.fencing_token)
+              Filter: (protocol >= 2)
+  ->  Gather  (cost=106777.51..540013.61 rows=1500010 width=40) (actual time=3830.900..4018.710 rows=0 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=387 read=181940, temp read=131289 written=131828
+        ->  Parallel Hash Right Anti Join  (cost=105777.51..389012.61 rows=625004 width=40) (actual time=3816.702..3816.753 rows=0 loops=3)
+              Hash Cond: ((c_8.seq = r_2.command_seq) AND (c_8.assigned_order_id = r_2.order_id) AND (c_8.user_id = r_2.user_id) AND (c_8.market_id = r_2.market_id) AND (sha256(convert_to((c_8.payload)::text, 'UTF8'::name)) = r_2.payload_sha256))
+              Buffers: shared hit=387 read=181940, temp read=131289 written=131828
+              ->  Parallel Append  (cost=0.00..152308.50 rows=1249977 width=257) (actual time=0.063..181.501 rows=1000000 loops=3)
+                    Buffers: shared hit=96 read=130338
+                    ->  Seq Scan on command_journal_p100000000 c_10  (cost=0.00..0.00 rows=1 width=58) (actual time=0.026..0.026 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Seq Scan on command_journal_p200000000 c_11  (cost=0.00..0.00 rows=1 width=58) (actual time=0.016..0.016 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Seq Scan on command_journal_b1 c_12  (cost=0.00..0.00 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Seq Scan on command_journal_b2 c_13  (cost=0.00..0.00 rows=1 width=58) (actual time=0.009..0.009 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Seq Scan on command_journal_b3 c_14  (cost=0.00..0.00 rows=1 width=58) (actual time=0.006..0.006 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Seq Scan on command_journal_default c_15  (cost=0.00..0.00 rows=1 width=58) (actual time=0.005..0.005 rows=0 loops=1)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                    ->  Parallel Seq Scan on command_journal_p0 c_9  (cost=0.00..146058.64 rows=1249971 width=257) (actual time=0.037..134.183 rows=1000000 loops=3)
+                          Filter: ((command_type)::text = 'NEW'::text)
+                          Buffers: shared hit=96 read=130338
+              ->  Parallel Hash  (cost=64224.85..64224.85 rows=1249985 width=59) (actual time=395.917..395.918 rows=1000000 loops=3)
+                    Buckets: 131072  Batches: 64  Memory Usage: 5504kB
+                    Buffers: shared hit=128 read=51597, temp written=28884
+                    ->  Parallel Seq Scan on order_reservations r_2  (cost=0.00..64224.85 rows=1249985 width=59) (actual time=103.871..164.621 rows=1000000 loops=3)
+                          Buffers: shared hit=128 read=51597
+Planning:
+  Buffers: shared hit=2618 read=161
+Planning Time: 14.512 ms
+JIT:
+  Functions: 378
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 18.788 ms (Deform 8.706 ms), Inlining 176.928 ms, Optimization 535.029 ms, Emission 503.915 ms, Total 1234.660 ms
+Execution Time: 18282.996 ms
+
+== C31 앱 판(문서 원문, 마켓마다 최근 5,000건 x 3마켓 = 15,000행)
+1회차 Execution Time: 231.979 ms
+Result  (cost=281144.87..281144.89 rows=1 width=8) (actual time=197.428..197.440 rows=1 loops=1)
+  Buffers: shared hit=285213 read=3, temp read=1444 written=1236
+  CTE w
+    ->  Nested Loop  (cost=1.28..8563.40 rows=15000 width=265) (actual time=0.141..7.624 rows=15000 loops=1)
+          Buffers: shared hit=15213 read=3
+          ->  Seq Scan on markets m  (cost=0.00..1.03 rows=3 width=2) (actual time=0.022..0.026 rows=3 loops=1)
+                Buffers: shared hit=1
+          ->  Limit  (cost=1.28..2804.12 rows=5000 width=265) (actual time=0.052..2.266 rows=5000 loops=3)
+                Buffers: shared hit=15212 read=3
+                ->  Merge Append  (cost=1.28..560560.89 rows=999983 width=265) (actual time=0.051..2.050 rows=5000 loops=3)
+                      Sort Key: c.seq DESC
+                      Buffers: shared hit=15212 read=3
+                      ->  Index Scan Backward using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1  (cost=0.43..541475.47 rows=999977 width=265) (actual time=0.021..1.768 rows=5000 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=15176 read=3
+                      ->  Index Scan Backward using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_default_market_id_seq_idx on command_journal_default c_7  (cost=0.12..8.14 rows=1 width=66) (actual time=0.003..0.003 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+  CTE wr
+    ->  Nested Loop Left Join  (cost=0.43..127162.50 rows=15000 width=164) (actual time=0.166..31.786 rows=15000 loops=1)
+          Buffers: shared hit=75213 read=3, temp written=514
+          ->  CTE Scan on w  (cost=0.00..300.00 rows=15000 width=66) (actual time=0.143..16.739 rows=15000 loops=1)
+                Buffers: shared hit=15213 read=3, temp written=514
+          ->  Limit  (cost=0.43..8.45 rows=1 width=98) (actual time=0.001..0.001 rows=1 loops=15000)
+                Buffers: shared hit=60000
+                ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.43..8.45 rows=1 width=98) (actual time=0.001..0.001 rows=1 loops=15000)
+                      Index Cond: (command_seq = w.seq)
+                      Buffers: shared hit=60000
+  InitPlan 6
+    ->  Aggregate  (cost=144480.31..144480.32 rows=1 width=8) (actual time=109.841..109.845 rows=1 loops=1)
+          Buffers: shared hit=285213 read=3, temp written=1235
+          ->  CTE Scan on wr  (cost=0.00..144447.50 rows=13125 width=0) (actual time=109.803..109.807 rows=0 loops=1)
+                Filter: ((r_seq IS NOT NULL) AND ((NOT EXISTS(SubPlan 3)) OR (NOT EXISTS(SubPlan 4)) OR (NOT EXISTS(SubPlan 5))))
+                Rows Removed by Filter: 15000
+                Buffers: shared hit=285213 read=3, temp written=1235
+                SubPlan 3
+                  ->  Index Scan using uq_ledger_business_event on ledger_transactions t  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=15000)
+                        Index Cond: (((business_event_type)::text = 'RESERVE'::text) AND (business_event_id = wr.r_order))
+                        Filter: ((id = wr.ledger_txn_id) AND ((status)::text = 'SEALED'::text))
+                        Buffers: shared hit=60000
+                SubPlan 4
+                  ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=15000)
+                        Buffers: shared hit=75000
+                        ->  Seq Scan on ledger_entries_p2026_07 e_1  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_08 e_2  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_3  (cost=0.56..8.58 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=15000)
+                              Index Cond: ((account_id = wr.locked_account_id) AND (created_at = wr.r_created))
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                              Buffers: shared hit=75000
+                        ->  Seq Scan on ledger_entries_p2026_10 e_4  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_11 e_5  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_12 e_6  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_01 e_7  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_02 e_8  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_03 e_9  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_04 e_10  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_05 e_11  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_06 e_12  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_07 e_13  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_08 e_14  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_default e_15  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                SubPlan 5
+                  ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=15000)
+                        Buffers: shared hit=75000
+                        ->  Seq Scan on ledger_entries_p2026_07 e_17  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_08 e_18  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_19  (cost=0.56..8.59 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=15000)
+                              Index Cond: ((account_id = wr.available_account_id) AND (created_at = wr.r_created))
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                              Buffers: shared hit=75000
+                        ->  Seq Scan on ledger_entries_p2026_10 e_20  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_11 e_21  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_12 e_22  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_01 e_23  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_02 e_24  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_03 e_25  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_04 e_26  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_05 e_27  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_06 e_28  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_07 e_29  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_08 e_30  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_default e_31  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+  InitPlan 7
+    ->  Aggregate  (cost=301.13..301.14 rows=1 width=8) (actual time=1.585..1.586 rows=1 loops=1)
+          Buffers: temp read=722 written=1
+          ->  Nested Loop  (cost=0.00..301.12 rows=1 width=0) (actual time=1.581..1.582 rows=0 loops=1)
+                Join Filter: (a.epoch = wr_1.fencing_token)
+                Buffers: temp read=722 written=1
+                ->  CTE Scan on wr wr_1  (cost=0.00..300.00 rows=1 width=8) (actual time=1.581..1.581 rows=0 loops=1)
+                      Filter: (r_seq IS NULL)
+                      Rows Removed by Filter: 15000
+                      Buffers: temp read=722 written=1
+                ->  Seq Scan on lease_acquisitions a  (cost=0.00..1.06 rows=5 width=8) (never executed)
+                      Filter: (protocol >= 2)
+  InitPlan 8
+    ->  Aggregate  (cost=637.50..637.51 rows=1 width=8) (actual time=19.179..19.179 rows=1 loops=1)
+          Buffers: temp read=722
+          ->  CTE Scan on wr wr_2  (cost=0.00..600.00 rows=15000 width=0) (actual time=19.172..19.172 rows=0 loops=1)
+                Filter: ((r_seq IS NOT NULL) AND ((r_order <> assigned_order_id) OR (r_user <> user_id) OR (r_market <> market_id) OR (payload_sha256 <> sha256(convert_to((payload)::text, 'UTF8'::name)))))
+                Rows Removed by Filter: 15000
+                Buffers: temp read=722
+Planning:
+  Buffers: shared hit=2591 read=62
+Planning Time: 15.046 ms
+JIT:
+  Functions: 207
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 9.545 ms (Deform 4.170 ms), Inlining 0.000 ms, Optimization 2.377 ms, Emission 64.513 ms, Total 76.436 ms
+Execution Time: 221.366 ms
+
+== C31 앱 판을 마켓마다 20,000건으로 늘린 판(3마켓 x 20,000 = 60,000행, 12마켓 x 5,000 의 대리)
+1회차 Execution Time: 1416.700 ms
+Result  (cost=1124561.42..1124561.44 rows=1 width=8) (actual time=1371.020..1371.033 rows=1 loops=1)
+  Buffers: shared hit=1140734, temp read=5772 written=4944
+  CTE w
+    ->  Nested Loop  (cost=1.28..34239.01 rows=60000 width=265) (actual time=0.132..27.821 rows=60000 loops=1)
+          Buffers: shared hit=60734
+          ->  Seq Scan on markets m  (cost=0.00..1.03 rows=3 width=2) (actual time=0.023..0.027 rows=3 loops=1)
+                Buffers: shared hit=1
+          ->  Limit  (cost=1.28..11212.66 rows=20000 width=265) (actual time=0.047..8.157 rows=20000 loops=3)
+                Buffers: shared hit=60733
+                ->  Merge Append  (cost=1.28..560560.89 rows=999983 width=265) (actual time=0.046..7.282 rows=20000 loops=3)
+                      Sort Key: c.seq DESC
+                      Buffers: shared hit=60733
+                      ->  Index Scan Backward using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1  (cost=0.43..541475.47 rows=999977 width=265) (actual time=0.015..6.299 rows=20000 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=60697
+                      ->  Index Scan Backward using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.12..8.14 rows=1 width=66) (actual time=0.005..0.005 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+                      ->  Index Scan Backward using command_journal_default_market_id_seq_idx on command_journal_default c_7  (cost=0.12..8.14 rows=1 width=66) (actual time=0.004..0.004 rows=0 loops=3)
+                            Index Cond: (market_id = m.id)
+                            Filter: ((command_type)::text = 'NEW'::text)
+                            Buffers: shared hit=6
+  CTE wr
+    ->  Nested Loop Left Join  (cost=0.43..508650.00 rows=60000 width=164) (actual time=0.158..112.979 rows=60000 loops=1)
+          Buffers: shared hit=300734, temp written=2058
+          ->  CTE Scan on w  (cost=0.00..1200.00 rows=60000 width=66) (actual time=0.134..56.798 rows=60000 loops=1)
+                Buffers: shared hit=60734, temp written=2058
+          ->  Limit  (cost=0.43..8.45 rows=1 width=98) (actual time=0.001..0.001 rows=1 loops=60000)
+                Buffers: shared hit=240000
+                ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.43..8.45 rows=1 width=98) (actual time=0.001..0.001 rows=1 loops=60000)
+                      Index Cond: (command_seq = w.seq)
+                      Buffers: shared hit=240000
+  InitPlan 6
+    ->  Aggregate  (cost=577921.25..577921.26 rows=1 width=8) (actual time=410.165..410.171 rows=1 loops=1)
+          Buffers: shared hit=1140734, temp written=4943
+          ->  CTE Scan on wr  (cost=0.00..577790.00 rows=52500 width=0) (actual time=410.138..410.143 rows=0 loops=1)
+                Filter: ((r_seq IS NOT NULL) AND ((NOT EXISTS(SubPlan 3)) OR (NOT EXISTS(SubPlan 4)) OR (NOT EXISTS(SubPlan 5))))
+                Rows Removed by Filter: 60000
+                Buffers: shared hit=1140734, temp written=4943
+                SubPlan 3
+                  ->  Index Scan using uq_ledger_business_event on ledger_transactions t  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=60000)
+                        Index Cond: (((business_event_type)::text = 'RESERVE'::text) AND (business_event_id = wr.r_order))
+                        Filter: ((id = wr.ledger_txn_id) AND ((status)::text = 'SEALED'::text))
+                        Buffers: shared hit=240000
+                SubPlan 4
+                  ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=60000)
+                        Buffers: shared hit=300000
+                        ->  Seq Scan on ledger_entries_p2026_07 e_1  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_08 e_2  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_3  (cost=0.56..8.58 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=60000)
+                              Index Cond: ((account_id = wr.locked_account_id) AND (created_at = wr.r_created))
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                              Buffers: shared hit=300000
+                        ->  Seq Scan on ledger_entries_p2026_10 e_4  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_11 e_5  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2026_12 e_6  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_01 e_7  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_02 e_8  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_03 e_9  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_04 e_10  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_05 e_11  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_06 e_12  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_07 e_13  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_p2027_08 e_14  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                        ->  Seq Scan on ledger_entries_default e_15  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.locked_account_id) AND (asset_id = wr.asset_id) AND (amount = wr.amount))
+                SubPlan 5
+                  ->  Append  (cost=0.00..8.66 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=60000)
+                        Buffers: shared hit=300000
+                        ->  Seq Scan on ledger_entries_p2026_07 e_17  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_08 e_18  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_19  (cost=0.56..8.59 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=60000)
+                              Index Cond: ((account_id = wr.available_account_id) AND (created_at = wr.r_created))
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                              Buffers: shared hit=300000
+                        ->  Seq Scan on ledger_entries_p2026_10 e_20  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_11 e_21  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2026_12 e_22  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_01 e_23  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_02 e_24  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_03 e_25  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_04 e_26  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_05 e_27  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_06 e_28  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_07 e_29  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_p2027_08 e_30  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+                        ->  Seq Scan on ledger_entries_default e_31  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                              Filter: ((transaction_id = wr.ledger_txn_id) AND (created_at = wr.r_created) AND (account_id = wr.available_account_id) AND (asset_id = wr.asset_id) AND (amount = (- wr.amount)))
+  InitPlan 7
+    ->  Aggregate  (cost=1201.13..1201.14 rows=1 width=8) (actual time=5.601..5.601 rows=1 loops=1)
+          Buffers: temp read=2886 written=1
+          ->  Nested Loop  (cost=0.00..1201.12 rows=1 width=0) (actual time=5.593..5.593 rows=0 loops=1)
+                Join Filter: (a.epoch = wr_1.fencing_token)
+                Buffers: temp read=2886 written=1
+                ->  CTE Scan on wr wr_1  (cost=0.00..1200.00 rows=1 width=8) (actual time=5.592..5.592 rows=0 loops=1)
+                      Filter: (r_seq IS NULL)
+                      Rows Removed by Filter: 60000
+                      Buffers: temp read=2886 written=1
+                ->  Seq Scan on lease_acquisitions a  (cost=0.00..1.06 rows=5 width=8) (never executed)
+                      Filter: (protocol >= 2)
+  InitPlan 8
+    ->  Aggregate  (cost=2550.00..2550.01 rows=1 width=8) (actual time=73.861..73.861 rows=1 loops=1)
+          Buffers: temp read=2886
+          ->  CTE Scan on wr wr_2  (cost=0.00..2400.00 rows=60000 width=0) (actual time=73.844..73.844 rows=0 loops=1)
+                Filter: ((r_seq IS NOT NULL) AND ((r_order <> assigned_order_id) OR (r_user <> user_id) OR (r_market <> market_id) OR (payload_sha256 <> sha256(convert_to((payload)::text, 'UTF8'::name)))))
+                Rows Removed by Filter: 60000
+                Buffers: temp read=2886
+Planning:
+  Buffers: shared hit=2653
+Planning Time: 14.948 ms
+JIT:
+  Functions: 207
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 10.224 ms (Deform 4.180 ms), Inlining 36.528 ms, Optimization 455.460 ms, Emission 389.474 ms, Total 891.687 ms
+Execution Time: 1399.756 ms
+
+== 전환 선행 조건(정산 안 된 NEW 수, 전수)
+1회차 Execution Time: 534.715 ms
+Finalize Aggregate  (cost=227708.43..227708.44 rows=1 width=8) (actual time=480.656..511.705 rows=1 loops=1)
+  Buffers: shared hit=2929 read=149686, temp read=20284 written=20520
+  ->  Gather  (cost=227708.21..227708.42 rows=2 width=8) (actual time=479.641..511.691 rows=3 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=2929 read=149686, temp read=20284 written=20520
+        ->  Partial Aggregate  (cost=226708.21..226708.22 rows=1 width=8) (actual time=468.103..468.159 rows=1 loops=3)
+              Buffers: shared hit=2929 read=149686, temp read=20284 written=20520
+              ->  Parallel Hash Anti Join  (cost=55062.19..226707.97 rows=98 width=0) (actual time=378.899..468.120 rows=100 loops=3)
+                    Hash Cond: (c.seq = e.source_cmd_seq)
+                    Buffers: shared hit=2929 read=149686, temp read=20284 written=20520
+                    ->  Parallel Append  (cost=0.00..152308.50 rows=1249977 width=8) (actual time=0.077..136.843 rows=1000000 loops=3)
+                          Buffers: shared hit=2709 read=127725
+                          ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=8) (actual time=0.028..0.028 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=8) (actual time=0.026..0.026 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=8) (actual time=0.019..0.019 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=8) (actual time=0.018..0.018 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_default c_7  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..146058.64 rows=1249971 width=8) (actual time=0.040..95.028 rows=1000000 loops=3)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=2709 read=127725
+                    ->  Parallel Hash  (cost=34555.75..34555.75 rows=1249875 width=8) (actual time=145.747..145.748 rows=999900 loops=3)
+                          Buckets: 262144  Batches: 32  Memory Usage: 5760kB
+                          Buffers: shared hit=96 read=21961, temp written=10132
+                          ->  Parallel Seq Scan on event_emission_registry e  (cost=0.00..34555.75 rows=1249875 width=8) (actual time=10.233..55.031 rows=999900 loops=3)
+                                Buffers: shared hit=96 read=21961
+Planning:
+  Buffers: shared hit=850
+Planning Time: 4.527 ms
+JIT:
+  Functions: 113
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 3.995 ms (Deform 1.618 ms), Inlining 0.000 ms, Optimization 1.158 ms, Emission 29.651 ms, Total 34.804 ms
+Execution Time: 524.398 ms
+
+== 게이지 질의(커서 판)
+1회차 Execution Time: 210.217 ms
+Aggregate  (cost=2268973.60..2268973.62 rows=1 width=40) (actual time=193.824..193.827 rows=1 loops=1)
+  Buffers: shared hit=2486
+  ->  Nested Loop  (cost=3.35..2267473.60 rows=300000 width=8) (actual time=193.117..193.801 rows=300 loops=1)
+        Buffers: shared hit=2486
+        ->  Nested Loop  (cost=2.48..469680.72 rows=300000 width=8) (actual time=191.722..191.907 rows=300 loops=1)
+              Buffers: shared hit=386
+              ->  Nested Loop  (cost=1.20..4.69 rows=3 width=10) (actual time=191.602..191.627 rows=3 loops=1)
+                    Buffers: shared hit=41
+                    ->  Seq Scan on markets m  (cost=0.00..1.03 rows=3 width=2) (actual time=0.014..0.016 rows=3 loops=1)
+                          Buffers: shared hit=1
+                    ->  Result  (cost=1.20..1.21 rows=1 width=8) (actual time=63.869..63.869 rows=1 loops=3)
+                          Buffers: shared hit=40
+                          InitPlan 1
+                            ->  Limit  (cost=1.13..1.20 rows=1 width=8) (actual time=0.048..0.048 rows=1 loops=3)
+                                  Buffers: shared hit=40
+                                  ->  Merge Append  (cost=1.13..69058.44 rows=999901 width=8) (actual time=0.047..0.048 rows=1 loops=3)
+                                        Sort Key: e_1.source_cmd_seq DESC
+                                        Buffers: shared hit=40
+                                        ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_2  (cost=0.43..51094.61 rows=999896 width=8) (actual time=0.022..0.022 rows=1 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=10
+                                        ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_3  (cost=0.12..8.14 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=6
+                                        ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_4  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=6
+                                        ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_5  (cost=0.12..8.14 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=6
+                                        ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_6  (cost=0.12..8.14 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=6
+                                        ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_7  (cost=0.12..8.14 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                              Index Cond: (market_id = m.id)
+                                              Heap Fetches: 0
+                                              Buffers: shared hit=6
+              ->  Limit  (cost=1.28..155558.68 rows=100000 width=8) (actual time=0.048..0.087 rows=100 loops=3)
+                    Buffers: shared hit=345
+                    ->  Merge Append  (cost=1.28..518523.86 rows=333332 width=8) (actual time=0.048..0.082 rows=100 loops=3)
+                          Sort Key: c.seq
+                          Buffers: shared hit=345
+                          ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1  (cost=0.43..512129.32 rows=333326 width=8) (actual time=0.020..0.050 rows=100 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=309
+                          ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.12..8.15 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+                          ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+                          ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+                          ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+                          ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+                          ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_7  (cost=0.12..8.15 rows=1 width=8) (actual time=0.003..0.003 rows=0 loops=3)
+                                Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=6
+        ->  Memoize  (cost=0.87..12.91 rows=1 width=8) (actual time=0.006..0.006 rows=1 loops=300)
+              Cache Key: c.seq
+              Cache Mode: binary
+              Hits: 0  Misses: 300  Evictions: 0  Overflows: 0  Memory Usage: 33kB
+              Buffers: shared hit=2100
+              ->  Limit  (cost=0.86..12.90 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=300)
+                    Buffers: shared hit=2100
+                    ->  Nested Loop Anti Join  (cost=0.86..12.90 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=300)
+                          Buffers: shared hit=2100
+                          ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.43..8.45 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=300)
+                                Index Cond: (command_seq = c.seq)
+                                Buffers: shared hit=1200
+                          ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e  (cost=0.43..4.45 rows=1 width=8) (actual time=0.000..0.000 rows=0 loops=300)
+                                Index Cond: (source_cmd_seq = c.seq)
+                                Heap Fetches: 0
+                                Buffers: shared hit=900
+Planning:
+  Buffers: shared hit=1558
+Planning Time: 7.799 ms
+JIT:
+  Functions: 96
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 2.501 ms (Deform 0.700 ms), Inlining 34.088 ms, Optimization 77.939 ms, Emission 79.459 ms, Total 193.987 ms
+Execution Time: 209.149 ms
+
+== 참고: 기존 C05(앱 enum 원문, 전수)
+1회차 Execution Time: 323.686 ms
+Result  (cost=135861.77..135861.79 rows=1 width=32) (actual time=285.369..289.644 rows=1 loops=1)
+  Buffers: shared hit=2994250 read=10932
+  CTE s
+    ->  Seq Scan on journal_band_spec  (cost=0.00..1.02 rows=1 width=8) (actual time=0.032..0.033 rows=1 loops=1)
+          Filter: (name = 'command_seq'::text)
+          Rows Removed by Filter: 1
+          Buffers: shared read=1
+  InitPlan 2
+    ->  Aggregate  (cost=0.02..0.04 rows=1 width=4) (actual time=0.039..0.040 rows=1 loops=1)
+          Buffers: shared read=1
+          ->  CTE Scan on s  (cost=0.00..0.02 rows=1 width=0) (actual time=0.034..0.035 rows=1 loops=1)
+                Buffers: shared read=1
+  InitPlan 4
+    ->  Finalize Aggregate  (cost=32515.34..32515.35 rows=1 width=8) (actual time=231.058..231.238 rows=1 loops=1)
+          Buffers: shared hit=2994236 read=10931
+          InitPlan 3
+            ->  CTE Scan on s s_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.001 rows=1 loops=1)
+          ->  Gather  (cost=32515.09..32515.30 rows=2 width=24) (actual time=230.885..231.221 rows=3 loops=1)
+                Workers Planned: 2
+                Workers Launched: 2
+                Buffers: shared hit=2994236 read=10931
+                ->  Partial Aggregate  (cost=31515.09..31515.10 rows=1 width=24) (actual time=218.852..218.855 rows=1 loops=3)
+                      Buffers: shared hit=2994236 read=10931
+                      ->  Parallel Append  (cost=0.00..28390.12 rows=416663 width=8) (actual time=11.406..185.712 rows=1000000 loops=3)
+                            Buffers: shared hit=2994236 read=10931
+                            ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=8) (actual time=0.128..0.128 rows=0 loops=1)
+                                  Filter: (seq < (InitPlan 3).col1)
+                                  Buffers: shared hit=21
+                            ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=8) (actual time=0.164..0.165 rows=0 loops=1)
+                                  Filter: (seq < (InitPlan 3).col1)
+                                  Buffers: shared hit=21
+                            ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=8) (never executed)
+                                  Filter: (seq < (InitPlan 3).col1)
+                            ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=8) (never executed)
+                                  Filter: (seq < (InitPlan 3).col1)
+                            ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=8) (never executed)
+                                  Filter: (seq < (InitPlan 3).col1)
+                            ->  Seq Scan on command_journal_default c_7  (cost=0.00..0.00 rows=1 width=8) (actual time=0.017..0.017 rows=0 loops=1)
+                                  Filter: (seq < (InitPlan 3).col1)
+                            ->  Parallel Index Only Scan using command_journal_p0_pkey on command_journal_p0 c_1  (cost=0.43..26306.83 rows=416657 width=8) (actual time=0.065..134.802 rows=1000000 loops=3)
+                                  Index Cond: (seq < (InitPlan 3).col1)
+                                  Heap Fetches: 0
+                                  Buffers: shared hit=2994194 read=10931
+  InitPlan 6
+    ->  Aggregate  (cost=103345.35..103345.36 rows=1 width=32) (actual time=37.151..41.243 rows=1 loops=1)
+          Buffers: shared hit=14
+          ->  Finalize GroupAggregate  (cost=103344.49..103345.31 rows=3 width=10) (actual time=37.132..41.224 rows=0 loops=1)
+                Group Key: c_8.market_id
+                Buffers: shared hit=14
+                InitPlan 5
+                  ->  CTE Scan on s s_2  (cost=0.00..0.02 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=1)
+                ->  Gather Merge  (cost=103344.47..103345.17 rows=6 width=26) (actual time=37.131..41.222 rows=0 loops=1)
+                      Workers Planned: 2
+                      Workers Launched: 2
+                      Buffers: shared hit=14
+                      ->  Sort  (cost=102344.45..102344.46 rows=3 width=26) (actual time=9.526..9.528 rows=0 loops=3)
+                            Sort Key: c_8.market_id
+                            Sort Method: quicksort  Memory: 25kB
+                            Buffers: shared hit=14
+                            Worker 0:  Sort Method: quicksort  Memory: 25kB
+                            Worker 1:  Sort Method: quicksort  Memory: 25kB
+                            ->  Partial HashAggregate  (cost=102344.40..102344.43 rows=3 width=26) (actual time=9.488..9.490 rows=0 loops=3)
+                                  Group Key: c_8.market_id
+                                  Batches: 1  Memory Usage: 24kB
+                                  Worker 0:  Batches: 1  Memory Usage: 24kB
+                                  Worker 1:  Batches: 1  Memory Usage: 24kB
+                                  ->  Parallel Append  (cost=0.00..98177.77 rows=416663 width=10) (actual time=9.487..9.488 rows=0 loops=3)
+                                        ->  Seq Scan on command_journal_p100000000 c_10  (cost=0.00..0.00 rows=1 width=10) (never executed)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Seq Scan on command_journal_p200000000 c_11  (cost=0.00..0.00 rows=1 width=10) (never executed)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Seq Scan on command_journal_b1 c_12  (cost=0.00..0.00 rows=1 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Seq Scan on command_journal_b2 c_13  (cost=0.00..0.00 rows=1 width=10) (actual time=0.002..0.002 rows=0 loops=1)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Seq Scan on command_journal_b3 c_14  (cost=0.00..0.00 rows=1 width=10) (actual time=0.004..0.004 rows=0 loops=1)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Seq Scan on command_journal_default c_15  (cost=0.00..0.00 rows=1 width=10) (actual time=0.007..0.007 rows=0 loops=1)
+                                              Filter: (seq >= (InitPlan 5).col1)
+                                        ->  Parallel Index Only Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_9  (cost=0.43..96094.48 rows=416657 width=10) (never executed)
+                                              Index Cond: (seq >= (InitPlan 5).col1)
+                                              Heap Fetches: 0
+Planning:
+  Buffers: shared hit=756 read=1
+Planning Time: 4.024 ms
+JIT:
+  Functions: 210
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 6.679 ms (Deform 2.018 ms), Inlining 0.000 ms, Optimization 1.956 ms, Emission 51.316 ms, Total 59.951 ms
+Execution Time: 304.440 ms
+
+== JIT 을 끈 실행 시간(2회차 값만)
+C14' 정산 전 예약 항, 개정 전 전수 판 jit=off Execution Time: 459.096 ms
+C14' 정산 전 예약 항, 커서 판 jit=off Execution Time: 3.166 ms
+C14' 전체 문장(커서 판) jit=off Execution Time: 3.597 ms
+C31 전체 문장(전수) jit=off Execution Time: 17263.527 ms
+C31 앱 판(15,000행) jit=off Execution Time: 135.867 ms
+C31 앱 판(60,000행, 12마켓 대리) jit=off Execution Time: 521.581 ms
+전환 선행 조건 jit=off Execution Time: 476.649 ms
+게이지 질의 jit=off Execution Time: 3.074 ms
+기존 C05 jit=off Execution Time: 228.511 ms
+
+== 끝

@@ -3,7 +3,7 @@ package kr.exchange.config;
 import com.zaxxer.hikari.HikariDataSource;
 import kr.exchange.api.common.AdmissionControl;
 import kr.exchange.api.common.AdmissionLimits;
-import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.PartitionLeases;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +56,7 @@ class LeaseDataSourceWiringIntegrationTest {
     @Qualifier("leaseDataSource")
     HikariDataSource leasePool;
     @Autowired
-    LeaderLeaseService appLease;
+    PartitionLeases leases;
     @Autowired
     AdmissionLimits limits;
     @Autowired
@@ -78,8 +78,10 @@ class LeaseDataSourceWiringIntegrationTest {
         assertEquals(2, leasePool.getMaximumPoolSize(), "리스 풀은 소형이어야 한다");
         assertEquals(2000, leasePool.getConnectionTimeout(), "리스 풀 커넥션 타임아웃 미적용");
 
-        // 배선된 리스 서비스가 전용 풀로 정상 승격하는지 확인(단일 노드는 시드 만료 리스를 탈취).
-        Awaitility.await().atMost(Duration.ofSeconds(15)).until(appLease::isLeader);
+        // 배선된 리스 서비스가 전용 풀로 정상 승격하는지 확인(단일 노드는 시드 만료 리스를 탈취). P2 이하라 파티션은
+        // matching-engine 하나다.
+        assertEquals(java.util.List.of("matching-engine"), leases.plan().partitions());
+        Awaitility.await().atMost(Duration.ofSeconds(15)).until(leases.first()::isLeader);
     }
 
     /**

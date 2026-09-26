@@ -1,0 +1,15 @@
+{
+  "app": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+  "appBefore": "sha256:40a87f4aae14b2b315acde3e34281af23b88242ed3b05427d6d821cd60761196",
+  "tags": [
+    "exchange-chaos-app:pml",
+    "exchange-chaos-app:s7ref"
+  ],
+  "head": "58469ef9e2ca52c95f75d6c55afebb332a49d904",
+  "workingTreeClean": true,
+  "jarSha256": "b70488badba1c711fe22204e81fd0187aa6424a9612468e235cf77ffc52567c5",
+  "jarTime": "2026-09-25T17:30:12.3604589Z",
+  "broker": "sha256:2531fe16e1cb4ec4086d3eaa63118c8f074dd98620d55f022f453a397b18f037",
+  "k6": "sha256:6a3ee54ac0e9ff5527923f6295257453dd88012f32f40dadf0eb1b638cbb21c7",
+  "localTag": "sha256:611169b8bf40413b858d7052b602942a8eed0917fe2da4f18cbdb91ba3f96a91"
+}

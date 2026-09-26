@@ -1,0 +1,292 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+  "imageRevision": null,
+  "harnessCommit": "d46d50738c99503fb912c950d51b1d0ed77a42a5",
+  "latchBeforeTraffic": false,
+  "protocol": 2,
+  "partitionAxes": true,
+  "relay": false,
+  "wsGateAxes": true,
+  "composeOverlays": null,
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W0",
+  "experiments": [
+    {
+      "experiment": "E4",
+      "script": "harness/scripts/e4-leader-kill.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+      "containerImages": {
+        "chaos-api-1": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+        "chaos-api-2": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+        "chaos-bots": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 47,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 118,
+        "PgEpochMs": 1790333968539,
+        "HostEpochMs": 1790333968492
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-25T10:59:29.0150861+00:00",
+        "to": "2026-09-25T11:00:21.7939778+00:00"
+      },
+      "runId": "E4-20260925-195929",
+      "rejoin": {
+        "ok": true,
+        "node": "chaos-api-1",
+        "startRc": 0,
+        "joinedAt": "2026-09-25T11:00:37.8773944Z",
+        "joinSeconds": 12.8,
+        "promotionLines": 0,
+        "followerBootLines": 1,
+        "leaseBefore": "[{\"resource\" : \"matching-engine\", \"holder\" : \"cfa3db03-4e6a-4660-9d4b-eff67f507ff4\", \"epoch\" : 6}, {\"resource\" : \"matching-p0\", \"holder\" : \"\", \"epoch\" : 2}, {\"resource\" : \"matching-p1\", \"holder\" : \"\", \"epoch\" : 3}]",
+        "leaseAfter": "[{\"resource\" : \"matching-engine\", \"holder\" : \"cfa3db03-4e6a-4660-9d4b-eff67f507ff4\", \"epoch\" : 6}, {\"resource\" : \"matching-p0\", \"holder\" : \"\", \"epoch\" : 2}, {\"resource\" : \"matching-p1\", \"holder\" : \"\", \"epoch\" : 3}]",
+        "demotions": 0.0
+      },
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 1092,
+        "reservedSettledByLaterEpoch": 2,
+        "file": "s3_common.json"
+      },
+      "wsGate": {
+        "rc": 1,
+        "mode": "simple",
+        "ok": false,
+        "failed": "lb_log_503_then_101",
+        "file": "ws_gate.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 47,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 114,
+        "PgEpochMs": 1790334068368,
+        "HostEpochMs": 1790334068321
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "FAIL(WS 게이트 축)",
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "kill",
+            "die"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-25T11:00:09.0000000+00:00",
+              "type": "container",
+              "action": "kill",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-25T11:00:09.0000000+00:00",
+              "type": "network",
+              "action": "disconnect",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-25T11:00:09.0000000+00:00",
+              "type": "container",
+              "action": "die",
+              "container": "chaos-api-1"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "d39f6267-34cb-4f56-995c-7e9b90666f97",
+          "newLeader": "cfa3db03-4e6a-4660-9d4b-eff67f507ff4",
+          "metrics": {
+            "c16LoadtestAcksRows": 0.0,
+            "c17RecoveryRunsRows": 5.0
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 6.302,
+          "downtimeSeconds": 6.991,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1327,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "firstTradeTs": "2026-09-25T11:00:15.695Z",
+          "주": "docker kill 은 재기동 정책을 건너뛰어 구 리더가 돌아오지 않는다. 자력 복구는 스탠바이 체결 재개로 본다"
+        }
+      }
+    },
+    {
+      "experiment": "E7",
+      "script": "harness/scripts/e7-gray-pause.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+      "containerImages": {
+        "chaos-api-1": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+        "chaos-api-2": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3",
+        "chaos-bots": "sha256:267fc6de31821c6ce4124d54492469d67829646dbf94f0a389e6b58a9737a1d3"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 46,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 113,
+        "PgEpochMs": 1790334134042,
+        "HostEpochMs": 1790334133996
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-25T11:02:14.4467294+00:00",
+        "to": "2026-09-25T11:03:45.1558572+00:00"
+      },
+      "runId": "E7-20260925-200214",
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 1688,
+        "reservedSettledByLaterEpoch": 1,
+        "file": "s3_common.json"
+      },
+      "wsGate": {
+        "rc": 0,
+        "mode": "simple",
+        "ok": true,
+        "failed": null,
+        "file": "ws_gate.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 52,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 121,
+        "PgEpochMs": 1790334263100,
+        "HostEpochMs": 1790334263048
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "PASS",
+      "rpoAxis": {
+        "rpoRecords": 0,
+        "postC13A": 0
+      },
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "pause",
+            "unpause"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-25T11:02:54.0000000+00:00",
+              "type": "container",
+              "action": "pause",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-25T11:03:39.0000000+00:00",
+              "type": "container",
+              "action": "unpause",
+              "container": "chaos-api-1"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "e05aee30-aa9e-4056-b6f2-6955a21bd6ab",
+          "newLeader": "57d1d26c-38e3-4df3-b748-a5b75cdb0c98",
+          "metrics": {
+            "rtoOk": true,
+            "staleWrites": 0,
+            "epochOk": true,
+            "holderChanged": true,
+            "postClean": true,
+            "zombieShutdown": true
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 11.467,
+          "downtimeSeconds": 12.505,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1993,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "firstTradeTs": "2026-09-25T11:03:05.826Z",
+          "zombieShutdown": true
+        }
+      }
+    }
+  ]
+}

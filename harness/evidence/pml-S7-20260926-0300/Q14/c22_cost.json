@@ -1,0 +1,32 @@
+{
+  "started": "2026-09-26T04:37:16+09:00",
+  "container": "pml-probe-s7q14-3d90b8fb",
+  "image": "postgres:17-alpine",
+  "rows_requested": 1000000,
+  "error": null,
+  "host": "16|16299143168|29.5.2|Docker Desktop",
+  "version": "PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "migrations_applied": 56,
+  "rows": 1000000,
+  "leaves": 16,
+  "runs_ms": [
+    1483.518,
+    1442.231,
+    1448.875
+  ],
+  "plan_tail": "=180\n                            ->  Index Scan using command_journal_b9_market_id_seq_idx on command_journal_b9 c_29  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.019..9.511 rows=83333 loops=1)\n                                  Buffers: shared hit=929 read=676\n                            ->  Index Scan using command_journal_b10_market_id_seq_idx on command_journal_b10 c_30  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.018..9.868 rows=83333 loops=1)\n                                  Buffers: shared hit=490 read=1115\n                            ->  Index Scan using command_journal_b11_market_id_seq_idx on command_journal_b11 c_31  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.017..10.718 rows=83333 loops=1)\n                                  Buffers: shared hit=5 read=1600\n                            ->  Index Scan using command_journal_b12_market_id_seq_idx on command_journal_b12 c_32  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.020..10.676 rows=83333 loops=1)\n                                  Buffers: shared hit=1 read=1604\n                            ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_33  (cost=0.12..8.14 rows=1 width=18) (actual time=0.007..0.007 rows=0 loops=1)\n                                  Buffers: shared hit=1\n  InitPlan 7\n    ->  Aggregate  (cost=15.69..15.70 rows=1 width=8) (actual time=0.015..0.015 rows=1 loops=1)\n          ->  Nested Loop  (cost=0.00..15.52 rows=67 width=0) (actual time=0.014..0.014 rows=0 loops=1)\n                Join Filter: (n.created_at >= s_1.ended[GREATEST(width_bucket(n.fencing_epoch, s_1.lb), 1)])\n                ->  CTE Scan on seg s_1  (cost=0.00..0.02 rows=1 width=64) (actual time=0.001..0.001 rows=1 loops=1)\n                ->  Seq Scan on snapshots n  (cost=0.00..12.00 rows=200 width=16) (actual time=0.011..0.011 rows=0 loops=1)\nPlanning:\n  Buffers: shared hit=1665 read=81\nPlanning Time: 9.469 ms\nExecution Time: 1448.875 ms\n",
+  "axes": {
+    "rows_ge_1m": true,
+    "runs_measured": true,
+    "all_runs_le_1500ms": true
+  },
+  "positive": [
+    "rows_ge_1m",
+    "runs_measured"
+  ],
+  "verdict": "PASS",
+  "threshold_ms": 1500.0,
+  "min_rows": 1000000,
+  "failed": [],
+  "finished": "2026-09-26T04:37:36+09:00"
+}

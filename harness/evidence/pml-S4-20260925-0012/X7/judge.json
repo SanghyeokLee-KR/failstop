@@ -1,0 +1,399 @@
+{
+  "cells": {
+    "S3a": {
+      "file": "S3a-600.json",
+      "rate": 600,
+      "value": 71.53818300946601,
+      "k6_rc": 0,
+      "probe_rc": 0,
+      "image": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "status400_ratio": 0.0,
+      "serial_ms_per_cmd": 27.66369244084312,
+      "lock_hold_ms": 32.874875636235586,
+      "lock_wait_ms": 12.577265910761293,
+      "append_ms": 51.81953980766449,
+      "active_connections": 1.6666666666666667,
+      "admission_reject_per_s": 488.73217580219665,
+      "deadlocks": 0,
+      "api1_cpu": 100.189,
+      "db_cpu": 104.3,
+      "nodes": {
+        "18080": {
+          "statuses": {
+            "422": 3.0,
+            "201": 16909.0
+          },
+          "contention": {},
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 55329.0,
+            "exchange_admission_rejected_total{scope=query}": 2.0,
+            "exchange_admission_rejected_total{scope=requery}": 866.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        },
+        "28080": {
+          "statuses": {
+            "503": 2521.0
+          },
+          "contention": {},
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 7702.0,
+            "exchange_admission_rejected_total{scope=query}": 6718.0,
+            "exchange_admission_rejected_total{scope=requery}": 1298.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        }
+      },
+      "lb": {
+        "lines": 231427,
+        "status502": 5424,
+        "status503": 55,
+        "status504": 2,
+        "noLiveUpstreams": 5424
+      },
+      "host": {
+        "before": {
+          "at": "2026-09-24T15:54:05.9526398Z",
+          "cpuTotalPct": [
+            37.4,
+            38.0,
+            26.4,
+            44.9,
+            44.4
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        },
+        "after": {
+          "at": "2026-09-24T16:00:50.6984355Z",
+          "cpuTotalPct": [
+            43.0,
+            43.5,
+            40.2,
+            30.8,
+            34.4
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        }
+      },
+      "summary_ok": true,
+      "summary_notPass": [],
+      "drained": true
+    },
+    "S3b": {
+      "file": "S3b-600.json",
+      "rate": 600,
+      "value": 72.12566383888544,
+      "k6_rc": 0,
+      "probe_rc": 0,
+      "image": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "status400_ratio": 0.0,
+      "serial_ms_per_cmd": 27.660746483064763,
+      "lock_hold_ms": 29.506057960841357,
+      "lock_wait_ms": 11.924911311562779,
+      "append_ms": 48.15963156341056,
+      "active_connections": 1.6666666666666667,
+      "admission_reject_per_s": 486.77280496954336,
+      "deadlocks": 0,
+      "api1_cpu": 101.641,
+      "db_cpu": 226.077,
+      "nodes": {
+        "18080": {
+          "statuses": {
+            "422": 2.0,
+            "201": 15055.0
+          },
+          "contention": {},
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 53408.0,
+            "exchange_admission_rejected_total{scope=query}": 1.0,
+            "exchange_admission_rejected_total{scope=requery}": 994.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        },
+        "28080": {
+          "statuses": {
+            "503": 3657.0
+          },
+          "contention": {},
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 10327.0,
+            "exchange_admission_rejected_total{scope=query}": 9121.0,
+            "exchange_admission_rejected_total{scope=requery}": 1672.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        }
+      },
+      "lb": {
+        "lines": 233217,
+        "status502": 6356,
+        "status503": 66,
+        "status504": 90,
+        "noLiveUpstreams": 6356
+      },
+      "host": {
+        "before": {
+          "at": "2026-09-24T16:08:16.4707091Z",
+          "cpuTotalPct": [
+            40.9,
+            30.1,
+            30.8,
+            41.6,
+            32.9
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        },
+        "after": {
+          "at": "2026-09-24T16:14:55.5654283Z",
+          "cpuTotalPct": [
+            61.5,
+            33.1,
+            27.6,
+            47.8,
+            36.6
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        }
+      },
+      "summary_ok": true,
+      "summary_notPass": [],
+      "drained": true
+    },
+    "S4a": {
+      "file": "S4a-600.json",
+      "rate": 600,
+      "value": 54.67618456445273,
+      "k6_rc": 0,
+      "probe_rc": 0,
+      "image": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+      "status400_ratio": 0.0,
+      "serial_ms_per_cmd": 28.940306148711567,
+      "lock_hold_ms": 24.18971061671142,
+      "lock_wait_ms": 8.508366123792761,
+      "append_ms": 53.857785918867926,
+      "active_connections": 1.75,
+      "admission_reject_per_s": 478.98473200071635,
+      "deadlocks": 0,
+      "api1_cpu": 23.26,
+      "db_cpu": 38.4496,
+      "nodes": {
+        "18080": {
+          "statuses": {
+            "422": 3.0,
+            "429": 26.0,
+            "201": 16717.0
+          },
+          "contention": {
+            "40001|409": 0.0,
+            "40001|429": 0.0,
+            "40P01|409": 0.0,
+            "40P01|429": 0.0,
+            "55P03|409": 0.0,
+            "55P03|429": 18.0,
+            "57014|409": 0.0,
+            "57014|429": 0.0,
+            "lock_wait|409": 0.0,
+            "lock_wait|429": 12.0,
+            "lock_wait_stuck|409": 0.0,
+            "lock_wait_stuck|429": 0.0
+          },
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 46764.0,
+            "exchange_admission_rejected_total{scope=query}": 2.0,
+            "exchange_admission_rejected_total{scope=requery}": 1193.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        },
+        "28080": {
+          "statuses": {
+            "503": 4594.0
+          },
+          "contention": {
+            "40001|409": 0.0,
+            "40001|429": 0.0,
+            "40P01|409": 0.0,
+            "40P01|429": 0.0,
+            "55P03|409": 0.0,
+            "55P03|429": 0.0,
+            "57014|409": 0.0,
+            "57014|429": 0.0,
+            "lock_wait|409": 0.0,
+            "lock_wait|429": 0.0,
+            "lock_wait_stuck|409": 0.0,
+            "lock_wait_stuck|429": 0.0
+          },
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 13476.0,
+            "exchange_admission_rejected_total{scope=query}": 11939.0,
+            "exchange_admission_rejected_total{scope=requery}": 2411.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        }
+      },
+      "lb": {
+        "lines": 238198,
+        "status502": 8762,
+        "status503": 77,
+        "status504": 68,
+        "noLiveUpstreams": 8762
+      },
+      "host": {
+        "before": {
+          "at": "2026-09-24T16:01:20.9175088Z",
+          "cpuTotalPct": [
+            40.1,
+            36.8,
+            56.4,
+            33.1,
+            42.1
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 0
+        },
+        "after": {
+          "at": "2026-09-24T16:07:47.1647425Z",
+          "cpuTotalPct": [
+            29.9,
+            32.5,
+            33.6,
+            31.8,
+            40.4
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        }
+      },
+      "summary_ok": true,
+      "summary_notPass": [],
+      "drained": true
+    },
+    "S4b": {
+      "file": "S4b-600.json",
+      "rate": 600,
+      "value": 59.93620139667212,
+      "k6_rc": 0,
+      "probe_rc": 0,
+      "image": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+      "status400_ratio": 0.0,
+      "serial_ms_per_cmd": 28.057983944135785,
+      "lock_hold_ms": 27.006620604865656,
+      "lock_wait_ms": 10.176735358512675,
+      "append_ms": 53.460386587812586,
+      "active_connections": 1.9166666666666667,
+      "admission_reject_per_s": 476.83701358785936,
+      "deadlocks": 0,
+      "api1_cpu": 19.0541,
+      "db_cpu": 125.112,
+      "nodes": {
+        "18080": {
+          "statuses": {
+            "422": 1.0,
+            "429": 30.0,
+            "201": 14897.0
+          },
+          "contention": {
+            "40001|409": 0.0,
+            "40001|429": 0.0,
+            "40P01|409": 0.0,
+            "40P01|429": 0.0,
+            "55P03|409": 0.0,
+            "55P03|429": 18.0,
+            "57014|409": 0.0,
+            "57014|429": 0.0,
+            "lock_wait|409": 0.0,
+            "lock_wait|429": 16.0,
+            "lock_wait_stuck|409": 0.0,
+            "lock_wait_stuck|429": 0.0
+          },
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 50440.0,
+            "exchange_admission_rejected_total{scope=query}": 6.0,
+            "exchange_admission_rejected_total{scope=requery}": 1313.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        },
+        "28080": {
+          "statuses": {
+            "503": 4338.0
+          },
+          "contention": {
+            "40001|409": 0.0,
+            "40001|429": 0.0,
+            "40P01|409": 0.0,
+            "40P01|429": 0.0,
+            "55P03|409": 0.0,
+            "55P03|429": 0.0,
+            "57014|409": 0.0,
+            "57014|429": 0.0,
+            "lock_wait|409": 0.0,
+            "lock_wait|429": 0.0,
+            "lock_wait_stuck|409": 0.0,
+            "lock_wait_stuck|429": 0.0
+          },
+          "admission": {
+            "exchange_admission_rejected_total{scope=order}": 12125.0,
+            "exchange_admission_rejected_total{scope=query}": 10291.0,
+            "exchange_admission_rejected_total{scope=requery}": 2261.0,
+            "exchange_admission_rejected_total{scope=ws}": 0.0
+          }
+        }
+      },
+      "lb": {
+        "lines": 238549,
+        "status502": 8603,
+        "status503": 67,
+        "status504": 60,
+        "noLiveUpstreams": 8602
+      },
+      "host": {
+        "before": {
+          "at": "2026-09-24T16:15:24.2607010Z",
+          "cpuTotalPct": [
+            56.2,
+            56.4,
+            62.9,
+            53.8,
+            82.7
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        },
+        "after": {
+          "at": "2026-09-24T16:22:05.5841103Z",
+          "cpuTotalPct": [
+            39.6,
+            40.2,
+            28.5,
+            42.8,
+            34.2
+          ],
+          "logicalCores": 16,
+          "otherBusyProcesses": 1
+        }
+      },
+      "summary_ok": true,
+      "summary_notPass": [],
+      "drained": true
+    }
+  },
+  "not_run_cells": [],
+  "s3_values": [
+    71.53818300946601,
+    72.12566383888544
+  ],
+  "s4_values": [
+    54.67618456445273,
+    59.93620139667212
+  ],
+  "s3_center": 71.83192342417573,
+  "s4_center": 57.30619298056243,
+  "noise": 0.008178547941007959,
+  "loss": 0.20221831396379575,
+  "noise_over_0_10": false,
+  "loss_over_0_10": true,
+  "s4_range_over_center": 0.09178793004106066,
+  "record": "손실 > 0.10"
+}

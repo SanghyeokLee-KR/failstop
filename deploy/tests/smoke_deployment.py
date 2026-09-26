@@ -118,9 +118,14 @@ def main():
         run(*compose, "run", "--rm", "--no-deps", "catalog-seed")
         checks["catalog_only"] = sql("SELECT (SELECT count(*) FROM assets), (SELECT count(*) FROM markets),"
                                      " (SELECT count(*) FROM users), (SELECT count(*) FROM ledger_transactions)") == "13|12|0|0"
-        checks["empty_system_accounts"] = sql("SELECT (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM'),"
+        # 시스템 계정은 자산마다 샤드 0 셋(FEE_INCOME·GENESIS·GATEWAY)과 V55 가 더한 FEE_INCOME 샤드 1 하나다(ADR 0034 S7,
+        # DB 설계 §3.10). 13자산이면 샤드 0 39개, 샤드 1 13개다. 샤드별로 세어 V55 누락과 샤드 0 누락을 따로 드러낸다.
+        checks["empty_system_accounts"] = sql("SELECT (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM' AND shard=0),"
+                                              " (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM' AND shard=1"
+                                              " AND purpose='FEE_INCOME'),"
+                                              " (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM'),"
                                               " (SELECT count(*) FROM accounts WHERE owner_type='USER'),"
-                                              " (SELECT count(*) FROM balances WHERE balance<>0)") == "39|0|0"
+                                              " (SELECT count(*) FROM balances WHERE balance<>0)") == "39|13|52|0|0"
         run(*compose, "run", "--rm", "--no-deps", "provision")
         checks["provision"] = sql("SELECT count(*) FROM pg_roles WHERE rolname IN "
                                    "('smoke_app','smoke_read','smoke_bot') AND NOT rolsuper AND NOT rolcreaterole") == "3"
@@ -136,7 +141,9 @@ def main():
         checks["forbidden_routes"] = all(http(api_port, path, method)[0] == 404
             for path in ("/api/v1/orders", "/api/v1/ticker", "/api/v1/orderbook", "/ws/v1", "/admin/v1/sim")
             for method in ("GET", "POST"))
-        checks["no_leader"] = sql("SELECT count(*) FROM leader_lease WHERE holder = '' AND epoch = 0") == "1"
+        # V48 부터 파티션 행 둘(matching-p0, matching-p1)도 빈 보유자·epoch 0 이라 단일 리더 행만 센다(ADR 0034 S2).
+        checks["no_leader"] = sql("SELECT count(*) FROM leader_lease "
+                                  "WHERE resource = 'matching-engine' AND holder = '' AND epoch = 0") == "1"
         run(*compose, "stop", "db")
         wait(lambda: http(management_port, "/actuator/health/read")[0] == 503, seconds=45)
         checks["db_outage_read_503_liveness_200"] = http(management_port, "/actuator/health/liveness")[0] == 200

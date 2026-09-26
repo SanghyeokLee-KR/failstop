@@ -1,0 +1,30 @@
+2026-09-25T18:20:14+09:00 [Z1base/default] PHASE Z1base project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T18:20:15+09:00 [Z1base/default] volumes before unchanged
+2026-09-25T18:20:20+09:00 [Z1base/default] down -v (exchange-pml) rc=0 before Z1base
+2026-09-25T18:20:20+09:00 [Z1base/default] TAG exchange-chaos-app:pml -> sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24
+2026-09-25T18:20:21+09:00 [Z1base/default] down -v (exchange-pml) rc=0
+2026-09-25T18:20:53+09:00 [Z1base/default] up --profile obs rc=0 (profiles=dev,chaos-monkey,prod-timeouts lb=nginx.conf)
+2026-09-25T18:20:53+09:00 [Z1base/default] LB conf=nginx.conf nginx-t rc=0 sameSha=True
+2026-09-25T18:20:53+09:00 [Z1base/default] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z1base\protocol.json
+2026-09-25T18:21:20+09:00 [Z1base/default] RC 0
+2026-09-25T18:21:30+09:00 [Z1base/default] RUN python harness/scale/s5_route_probe.py keys --markets KRW-BTC,KRW-ETH,KRW-XRP --count 4 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z1base\keys.json
+2026-09-25T18:21:30+09:00 [Z1base/default] RC 0
+2026-09-25T18:21:30+09:00 [Z1base/default] Z1base image=sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24 baseRef=exchange-chaos-app:s4b3ref leader=chaos-api-1 bots target_ops=300 warmup 60s
+2026-09-25T18:22:30+09:00 [Z1base/default] RUN docker run k6 order_flow.js RUN_ID=z1b1182230 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T18:24:31+09:00 [Z1base/default] k6 z1b1182230 rc=0 failedThresholds=0 ws_gap_orderbook=0 ws_stale_orderbook=0
+2026-09-25T18:24:31+09:00 [Z1base/default] RUN docker run k6 order_flow.js RUN_ID=z1b2182431 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T18:26:32+09:00 [Z1base/default] k6 z1b2182431 rc=0 failedThresholds=0 ws_gap_orderbook=0 ws_stale_orderbook=0
+2026-09-25T18:26:32+09:00 [Z1base/default] RUN docker run k6 order_flow.js RUN_ID=z1b3182632 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T18:28:33+09:00 [Z1base/default] k6 z1b3182632 rc=0 failedThresholds=0 ws_gap_orderbook=0 ws_stale_orderbook=0
+2026-09-25T18:28:33+09:00 [Z1base/default] RUN docker run k6 order_flow.js RUN_ID=z1b4182833 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T18:30:34+09:00 [Z1base/default] k6 z1b4182833 rc=0 failedThresholds=0 ws_gap_orderbook=0 ws_stale_orderbook=0
+2026-09-25T18:30:36+09:00 [Z1base/default] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T09:20:20.6493685+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z1base\orders500.json
+2026-09-25T18:30:37+09:00 [Z1base/default] RC 0
+2026-09-25T18:30:40+09:00 [Z1base/default] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z1base\state-after-drain.json
+2026-09-25T18:30:40+09:00 [Z1base/default] RC 0
+2026-09-25T18:30:57+09:00 [Z1base/default] AUTHORITATIVE Z1base-post ok=True notOk=[] 
+2026-09-25T18:31:07+09:00 [Z1base/default] SUMMARY summary-Z1base rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T18:31:14+09:00 [Z1base/default] Z1base RECORD safetyOk=True fails=[] k6Failed=[] wsTotals={"ws_epoch_resync_fail":0,"ws_seq_gap{phase:steady,dest:orderbook}":0,"ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}":76630,"ws_seq_observed{phase:steady,dest:trade}":53920,"ws_stale_discarded{phase:steady,dest:orderbook}":0,"ws_stale_discarded{phase:steady,dest:trade}":0}
+2026-09-25T18:31:20+09:00 [Z1base/default] down -v (exchange-pml) rc=0 after Z1base
+2026-09-25T18:31:20+09:00 [Z1base/default] TAG exchange-chaos-app:pml -> sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T18:31:20+09:00 [Z1base/default] volumes after unchanged

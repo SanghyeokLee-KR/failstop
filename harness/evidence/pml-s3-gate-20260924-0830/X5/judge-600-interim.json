@@ -1,0 +1,117 @@
+{
+  "hot_rate": 300,
+  "600": {
+    "cells": {
+      "P1a": {
+        "file": "P1a-600.json",
+        "rate": 600,
+        "value": 138.07848817159802,
+        "k6_rc": 0,
+        "status400_ratio": 0.0,
+        "oversaturated": null,
+        "lock_hold_ms_per_cmd": 8.111473885269854,
+        "serial_ms_per_cmd": 25.19659622475654,
+        "append_ms": 11.773658063505927,
+        "prologue_ms": 8.139959933000624,
+        "insert_ms": 1.3947889362445414,
+        "commit_ms": 2.21119510555209,
+        "deadlocks": 0,
+        "api1_cpu": 103.766,
+        "db_cpu": 123.343,
+        "mode_after": 1,
+        "reservations": 0,
+        "summary_ok": true,
+        "summary_notPass": []
+      },
+      "P1b": {
+        "file": "P1b-600.json",
+        "rate": 600,
+        "value": 153.59415142162524,
+        "k6_rc": 0,
+        "status400_ratio": 0.0,
+        "oversaturated": null,
+        "lock_hold_ms_per_cmd": 8.849895848152041,
+        "serial_ms_per_cmd": 24.423255916455783,
+        "append_ms": 11.564102960951526,
+        "prologue_ms": 8.120786046005387,
+        "insert_ms": 1.2713854849640935,
+        "commit_ms": 2.151351113779174,
+        "deadlocks": 0,
+        "api1_cpu": 99.6285,
+        "db_cpu": 231.486,
+        "mode_after": 1,
+        "reservations": 0,
+        "summary_ok": true,
+        "summary_notPass": []
+      },
+      "P2a": {
+        "file": "P2a-600.json",
+        "rate": 600,
+        "value": 146.95587702812213,
+        "k6_rc": 0,
+        "status400_ratio": 0.0,
+        "oversaturated": null,
+        "lock_hold_ms_per_cmd": 20.505017311006235,
+        "serial_ms_per_cmd": 13.595841873084186,
+        "append_ms": 26.830432951894874,
+        "prologue_ms": 22.2105165053385,
+        "insert_ms": 1.4984543853103367,
+        "commit_ms": 3.082469385310337,
+        "deadlocks": 0,
+        "api1_cpu": 101.08,
+        "db_cpu": 203.825,
+        "mode_after": 2,
+        "reservations": 29365,
+        "summary_ok": true,
+        "summary_notPass": []
+      },
+      "P2b": {
+        "file": "P2b-600.json",
+        "rate": 600,
+        "value": 120.05793403107057,
+        "k6_rc": 0,
+        "status400_ratio": 0.0,
+        "oversaturated": null,
+        "lock_hold_ms_per_cmd": 19.187654428770962,
+        "serial_ms_per_cmd": 15.156222072681324,
+        "append_ms": 29.333909780025827,
+        "prologue_ms": 24.44551471703257,
+        "insert_ms": 1.7446357078490458,
+        "commit_ms": 3.110911035442675,
+        "deadlocks": 0,
+        "api1_cpu": 101.749,
+        "db_cpu": 102.494,
+        "mode_after": 2,
+        "reservations": 26401,
+        "summary_ok": true,
+        "summary_notPass": []
+      }
+    },
+    "not_run_cells": [],
+    "P1": [
+      138.07848817159802,
+      153.59415142162524
+    ],
+    "P2": [
+      146.95587702812213,
+      120.05793403107057
+    ],
+    "center_P1": 145.83631979661163,
+    "center_P2": 133.50690552959634,
+    "noise_n": 0.10639094069067223,
+    "loss_L": 0.08454282365469945,
+    "interval": [
+      -0.02184811703597278,
+      0.19093376434537168
+    ],
+    "verdict": "NEED_MORE",
+    "reason": "잡음 n 이 0.10 을 넘는다",
+    "boundary": false,
+    "lock_hold_ratio": 0.5726825887503962
+  },
+  "hot": {
+    "verdict": "NOT RUN",
+    "reason": "칸 파일 없음"
+  },
+  "decision5": "NOT JUDGED"
+}

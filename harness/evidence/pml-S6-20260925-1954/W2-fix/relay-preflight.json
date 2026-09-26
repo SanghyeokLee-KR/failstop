@@ -1,0 +1,11 @@
+{
+  "at": "2026-09-25T12:41:53.8821468Z",
+  "brokerHealthy": true,
+  "appModes": {
+    "chaos-api-1": "broker",
+    "chaos-api-2": "broker"
+  },
+  "lbConfSource": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.relay.conf",
+  "lbRelayConf": true,
+  "ok": true
+}

@@ -1,0 +1,23 @@
+2026-09-26T03:34:45+09:00 START Q4
+2026-09-26T03:35:26+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q4\protocol.json
+2026-09-26T03:35:45+09:00 RC 0
+2026-09-26T03:35:46+09:00 Q4 P3 봇 부하 300 초
+2026-09-26T03:40:46+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --allow-downgrade --out harness\evidence\pml-S7-20260926-0300\Q4\protocol_down.json
+2026-09-26T03:41:15+09:00 RC 0
+2026-09-26T03:41:15+09:00 Q4 P2 봇 부하 300 초
+2026-09-26T03:46:19+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T03:46:25+09:00 RC 0
+2026-09-26T03:46:25+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q4\segment_post.json
+2026-09-26T03:46:26+09:00 RC 0
+2026-09-26T03:46:26+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q4\protocol.json --pre harness\evidence\pml-S7-20260926-0300\Q4\protocol_down.json --post harness\evidence\pml-S7-20260926-0300\Q4\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q4\segment.json
+2026-09-26T03:46:26+09:00 RC 0
+2026-09-26T03:46:26+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --out harness\evidence\pml-S7-20260926-0300\Q4\protocol_reentry.json
+2026-09-26T03:46:46+09:00 RC 0
+2026-09-26T03:46:49+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T03:46:55+09:00 RC 0
+2026-09-26T03:46:55+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q4\reentry\segment_post.json
+2026-09-26T03:46:56+09:00 RC 0
+2026-09-26T03:46:56+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q4\protocol.json --pre harness\evidence\pml-S7-20260926-0300\Q4\protocol_down.json --pre harness\evidence\pml-S7-20260926-0300\Q4\protocol_reentry.json --post harness\evidence\pml-S7-20260926-0300\Q4\reentry\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q4\reentry\segment.json
+2026-09-26T03:46:56+09:00 RC 0
+2026-09-26T03:47:01+09:00 DOWN rc=0
+2026-09-26T03:47:01+09:00 END Q4 verdict=PASS

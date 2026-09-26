@@ -1,0 +1,3 @@
+2026-09-26T04:27:51+09:00 START Q3b
+2026-09-26T04:27:51+09:00 RUN pwsh -NoProfile -File C:\dev\exchange-pml\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E7 -Protocol 3 -P3 -Resource matching-p1 -EvidenceDir C:\dev\exchange-pml\harness\evidence\pml-S7-20260926-0300\Q3b\runner -SurvivorLoadOps 20 -PartitionAxes -ConsolidateOn chaos-api-1
+2026-09-26T04:31:18+09:00 END Q3b verdict=FAIL(공통 판정)

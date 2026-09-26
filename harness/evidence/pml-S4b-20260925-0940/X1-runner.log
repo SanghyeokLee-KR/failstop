@@ -1,0 +1,31 @@
+2026-09-25T09:42:05+09:00 [X1] PHASE X1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T09:42:06+09:00 [X1] volumes before unchanged
+2026-09-25T09:42:11+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-25T09:42:49+09:00 [X1] up --profile obs (owner login, Flyway by api-1, profiles=dev,chaos-monkey,prod-timeouts) rc=0
+2026-09-25T09:42:50+09:00 [X1] RUN provision-runtime-roles.sql (docker exec -i chaos-pg psql -U exchange, 로그인 pml_app·pml_bot·pml_read)
+2026-09-25T09:42:50+09:00 [X1] provision rc=0
+2026-09-25T09:42:50+09:00 [X1] COMPOSE exchange-pml overlays=[override-app-login.yml] up -d --no-deps --force-recreate chaos-api-1 chaos-api-2 chaos-bots image=exchange-chaos-app:pml
+2026-09-25T09:43:08+09:00 [X1] COMPOSE rc=0
+2026-09-25T09:43:08+09:00 [X1] P1 app-login leader epoch=2
+2026-09-25T09:43:28+09:00 [X1] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\protocol.json
+2026-09-25T09:44:00+09:00 [X1] RC 0
+2026-09-25T09:44:00+09:00 [X1] P2 leader epoch=6 (expected 6)
+2026-09-25T09:44:10+09:00 [X1] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_pre.json
+2026-09-25T09:44:11+09:00 [X1] RC 0
+2026-09-25T09:44:11+09:00 [X1] bots target_ops=300, run 10min from 2026-09-25 00:44:11.589
+2026-09-25T09:54:13+09:00 [X1] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_post.json
+2026-09-25T09:54:14+09:00 [X1] RC 0
+2026-09-25T09:54:14+09:00 [X1] RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T00:44:10.7173463+00:00 --lb-gate --pre C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_pre.json --post C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_post.json --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\partition_axes.json
+2026-09-25T09:54:14+09:00 [X1] RC 0
+2026-09-25T09:54:14+09:00 [X1] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T00:42:11.6431185+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\orders500.json
+2026-09-25T09:54:15+09:00 [X1] RC 0
+2026-09-25T09:54:15+09:00 [X1] RUN pwsh -NoProfile -File harness\scripts\s4-intake-contention.ps1 -OutDir C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X6 -Variants a,b,c,d
+2026-09-25T10:00:50+09:00 [X1] RC 0
+2026-09-25T10:00:50+09:00 [X1] X6 rc=0
+2026-09-25T10:00:53+09:00 [X1] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0940\X1\state-after-drain.json
+2026-09-25T10:00:54+09:00 [X1] RC 0
+2026-09-25T10:01:11+09:00 [X1] AUTHORITATIVE X1-post ok=True notOk=[] 
+2026-09-25T10:01:24+09:00 [X1] SUMMARY summary-X1 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T10:01:30+09:00 [X1] X1 verdict=PASS fails=[]
+2026-09-25T10:01:35+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-25T10:01:35+09:00 [X1] volumes after unchanged

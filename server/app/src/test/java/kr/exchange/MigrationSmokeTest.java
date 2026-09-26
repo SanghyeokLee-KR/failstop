@@ -17,6 +17,7 @@ import java.sql.Statement;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,7 +47,9 @@ class MigrationSmokeTest {
             "admin_audit_log", "system_config", "notices",
             "user_credentials", "user_profiles", "auth_sessions", "user_provisioning",
             "posts", "comments", "post_likes", "comment_likes", "post_rank_snapshot",
-            "reports", "community_moderation_log");
+            "reports", "community_moderation_log",
+            "leader_protocol", "leader_protocol_history", "lease_acquisitions", "market_lease_partition",
+            "order_reservations");
 
     @BeforeAll
     static void migrateAndSeed() throws Exception {
@@ -73,7 +76,13 @@ class MigrationSmokeTest {
             for (String table : CORE_TABLES) {
                 assertTrue(tableExists(conn, table), "missing table: " + table);
             }
-            assertEquals(1, countRows(conn, "leader_lease"), "leader_lease bootstrap seed missing");
+            // matching-engine(V1)과 파티션 행 둘(V48). P1 에서는 파티션 행을 아무도 획득하지 않는다.
+            assertEquals(3, countRows(conn, "leader_lease"), "leader_lease bootstrap seed missing");
+            assertEquals(2, queryLong(conn, "SELECT count(*) FROM leader_lease "
+                    + "WHERE resource IN ('matching-p0', 'matching-p1') AND holder = '' AND epoch = 0"),
+                    "파티션 리스 행이 V1 시드 모양이 아니다");
+            assertEquals(1, queryLong(conn, "SELECT protocol FROM leader_protocol"), "모드 래치 시드가 P1 이 아니다");
+            assertEquals(1, countRows(conn, "leader_protocol"), "leader_protocol 은 한 행이다");
             assertEquals(3, countRows(conn, "journal_counters"), "journal_counters seeds missing");
             assertTrue(tableExists(conn, "trades_default"), "trades DEFAULT partition missing");
             assertTrue(tableExists(conn, "command_journal_default"), "command_journal DEFAULT partition missing");
@@ -96,6 +105,75 @@ class MigrationSmokeTest {
                     SELECT has_function_privilege('app_role',
                         'post_ledger_transaction(character varying, bigint, jsonb)', 'EXECUTE')
                     """), "app_role must EXECUTE post_ledger_transaction");
+
+            // V48 표는 앱·하네스 롤이 읽기만 한다. 쓰기는 소유자 권한 함수와 트리거가 한다.
+            for (String t : List.of("leader_protocol", "leader_protocol_history", "lease_acquisitions",
+                    "market_lease_partition")) {
+                for (String role : List.of("app_role", "harness_role")) {
+                    assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', '" + t + "', 'SELECT')"),
+                            role + " must SELECT " + t);
+                    for (String priv : List.of("INSERT", "UPDATE", "DELETE")) {
+                        assertTrue(!queryBool(conn,
+                                        "SELECT has_table_privilege('" + role + "', '" + t + "', '" + priv + "')"),
+                                role + " must not " + priv + " on " + t);
+                    }
+                }
+            }
+            // V49(S3 의 첫 이미지, S3 설계 4-1)가 두 권한을 회수한다. 리스 행은 소유자 권한 함수로만 바꾸고, 명령 저널은
+            // append_command_journal_row 로만 쓴다. S2 이전 바이너리로 되돌리려면 소유자가 두 권한을 먼저 다시 준다.
+            assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'UPDATE')"),
+                    "V49 뒤에도 app_role 이 leader_lease 를 UPDATE 할 수 있다");
+            assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', 'command_journal', 'INSERT')"),
+                    "V49 뒤에도 app_role 이 command_journal 에 INSERT 할 수 있다");
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'SELECT')"),
+                    "V49 가 leader_lease SELECT 까지 회수했다");
+
+            // V51: 검증기 C15·C27 이 직접 세는 DEFAULT 잎은 부모 권한을 물려받지 않는다. 앱 롤은 읽기만 받고 쓰기는 부모를 거친다.
+            for (String leaf : List.of("ledger_entries_default", "event_journal_default", "trades_default",
+                    "outbox_default", "command_journal_default")) {
+                for (String role : List.of("app_role", "harness_role")) {
+                    assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', '" + leaf + "', 'SELECT')"),
+                            role + " must SELECT " + leaf);
+                }
+                for (String priv : List.of("INSERT", "UPDATE", "DELETE")) {
+                    assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', '" + leaf + "', '" + priv + "')"),
+                            "app_role must not " + priv + " on " + leaf);
+                }
+            }
+
+            // V50 예약 행은 소유자 권한 머리말만 쓴다. 앱·하네스 롤은 읽기만 한다.
+            for (String role : List.of("app_role", "harness_role")) {
+                assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', 'order_reservations', 'SELECT')"),
+                        role + " must SELECT order_reservations");
+                for (String priv : List.of("INSERT", "UPDATE", "DELETE", "TRUNCATE")) {
+                    assertFalse(queryBool(conn,
+                                    "SELECT has_table_privilege('" + role + "', 'order_reservations', '" + priv + "')"),
+                            role + " must not " + priv + " on order_reservations");
+                }
+            }
+            // V50 함수. 앱이 부르는 것은 EXECUTE 가 있고, 전환 함수는 앱과 PUBLIC 모두 없다(소유자 전용).
+            for (String fn : List.of(
+                    "append_command_prologue(text, bigint, boolean, bigint, character varying, smallint, bigint, jsonb,"
+                            + " smallint, numeric)",
+                    "try_acquire_lease(text, text, interval, smallint)",
+                    "publish_leader_epoch(text, bigint, smallint)",
+                    "lock_balance_rows(bigint[])",
+                    "order_reserve_amount(smallint, jsonb)")) {
+                assertTrue(queryBool(conn, "SELECT has_function_privilege('app_role', '" + fn + "', 'EXECUTE')"),
+                        "app_role must EXECUTE " + fn);
+            }
+            assertFalse(queryBool(conn,
+                            "SELECT has_function_privilege('app_role', 'set_leader_protocol(smallint, boolean)', 'EXECUTE')"),
+                    "app_role 이 모드 전환 함수를 부를 수 있다");
+            assertFalse(queryBool(conn, """
+                    SELECT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+                                    WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure
+                                      AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+                    """), "PUBLIC 이 모드 전환 함수를 부를 수 있다");
+            assertTrue(queryBool(conn, """
+                    SELECT p.proacl IS NOT NULL FROM pg_proc p
+                     WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure
+                    """), "모드 전환 함수의 기본 PUBLIC EXECUTE 가 회수되지 않았다");
 
             // 롤을 분리하면 GRANT 누락이 권한 오류로만 드러나 원인 추적이 한 단계 멀어진다.
             for (String t : List.of("sim_commands", "chaos_commands", "sim_fleet_state")) {
@@ -543,6 +621,193 @@ class MigrationSmokeTest {
     }
 
     /**
+     * V53(ADR 0034 S4, DB 설계 §3.8). 페일오버 측정 이력의 리스 자원 열. 널 허용이고 기본값이 없으며, 세 자원 이름만 받는다.
+     * 표 수준 권한이 새 열에도 걸려 app_role 이 그 열로 적재할 수 있다.
+     */
+    @Test
+    void v53FailoverRunsResourceColumn() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            try (ResultSet rs = st.executeQuery("""
+                    SELECT data_type, is_nullable, column_default
+                    FROM information_schema.columns
+                    WHERE table_schema = 'harness' AND table_name = 'failover_runs' AND column_name = 'resource'
+                    """)) {
+                assertTrue(rs.next(), "harness.failover_runs.resource 열이 없다");
+                assertEquals("text", rs.getString(1));
+                assertEquals("YES", rs.getString(2), "resource 는 널 허용이어야 한다");
+                assertEquals(null, rs.getString(3), "resource 에 기본값이 있으면 표를 다시 쓴다");
+            }
+            assertTrue(queryBool(conn, """
+                    SELECT col_description('harness.failover_runs'::regclass,
+                        (SELECT attnum FROM pg_attribute WHERE attrelid = 'harness.failover_runs'::regclass
+                           AND attname = 'resource')) LIKE '%ADR 0034 S4%'
+                    """), "resource 열 주석이 없다");
+            assertTrue(queryBool(conn,
+                            "SELECT has_column_privilege('app_role', 'harness.failover_runs', 'resource', 'INSERT')"),
+                    "app_role 이 resource 로 적재하지 못한다");
+            for (String resource : new String[] {"matching-engine", "matching-p0", "matching-p1"}) {
+                st.execute("""
+                        INSERT INTO harness.failover_runs (experiment_id, verdict, resource)
+                        VALUES ('V53', 'PASS', '%s')
+                        """.formatted(resource));
+            }
+            st.execute("INSERT INTO harness.failover_runs (experiment_id, verdict) VALUES ('V53', 'PASS')");
+            SQLException bad = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO harness.failover_runs (experiment_id, verdict, resource)
+                    VALUES ('V53', 'PASS', 'matching-p2')
+                    """));
+            assertEquals("23514", bad.getSQLState(), "모르는 자원이 CHECK 에 걸리지 않았다: " + bad.getMessage());
+            assertEquals(4, queryInt(conn, "SELECT count(*) FROM harness.failover_runs WHERE experiment_id = 'V53'"));
+        }
+    }
+
+    /**
+     * V54(ADR 0034 S5, DB 설계 §3.9). 파티션 밖 취소 인계 표. 자원 이름, 주문 목록 1~500개와 NULL 원소 없음, 출처, 상태 다섯과
+     * 상태별 열 제약(점유 열은 CLAIMED·DONE·EXPIRED 에만, finished_at 은 DONE·ABANDONED·EXPIRED 에만, result 는 DONE 에만),
+     * 끝나지 않은 행의 부분 색인, app_role 의 SELECT·INSERT·UPDATE(DELETE 없음), harness_role 의 SELECT 다.
+     */
+    @Test
+    void v54OrderCancelRequests() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            assertTrue(tableExists(conn, "order_cancel_requests"), "order_cancel_requests 가 없다");
+            for (String column : new String[] {"request_id", "resource", "user_id", "order_ids", "origin", "state",
+                    "created_at", "claimed_by", "claimed_epoch", "claimed_at", "finished_at", "result"}) {
+                assertTrue(columnExists(conn, "public", "order_cancel_requests", column), column + " 열이 없다");
+            }
+            assertTrue(queryBool(conn, """
+                    SELECT pg_get_indexdef('idx_ocr_open'::regclass) LIKE '%WHERE%PENDING%CLAIMED%'
+                    """), "끝나지 않은 행의 부분 색인이 아니다");
+            for (String privilege : new String[] {"SELECT", "INSERT", "UPDATE"}) {
+                assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'order_cancel_requests', '"
+                        + privilege + "')"), "app_role 에 " + privilege + " 가 없다");
+            }
+            assertFalse(queryBool(conn,
+                    "SELECT has_table_privilege('app_role', 'order_cancel_requests', 'DELETE')"), "app_role 이 지울 수 있다");
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('harness_role', 'order_cancel_requests', 'SELECT')"));
+            assertFalse(queryBool(conn,
+                    "SELECT has_table_privilege('harness_role', 'order_cancel_requests', 'INSERT')"));
+
+            long user = queryLong(conn, "INSERT INTO users (email) VALUES ('v54@smoke.test') RETURNING id");
+            String ok = """
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin, state,
+                                                       claimed_by, claimed_epoch, claimed_at, finished_at, result)
+                    VALUES (gen_random_uuid(), '%s', %d, ARRAY[gen_random_uuid()], 'cancel_all', '%s',
+                            %s, %s, %s, %s, %s)
+                    """;
+            st.execute(ok.formatted("matching-engine", user, "PENDING", "NULL", "NULL", "NULL", "NULL", "NULL"));
+            st.execute(ok.formatted("matching-p0", user, "CLAIMED", "'h'", "1", "now()", "NULL", "NULL"));
+            st.execute(ok.formatted("matching-p1", user, "DONE", "'h'", "1", "now()", "now()", "'{}'"));
+            st.execute(ok.formatted("matching-p1", user, "ABANDONED", "NULL", "NULL", "NULL", "now()", "NULL"));
+            st.execute(ok.formatted("matching-p1", user, "EXPIRED", "'h'", "1", "now()", "now()", "NULL"));
+            String[][] rejected = {
+                    {"matching-p2", "PENDING", "NULL", "NULL", "NULL", "NULL", "NULL"},
+                    {"matching-p0", "CLAIMED", "NULL", "NULL", "NULL", "NULL", "NULL"},
+                    {"matching-p0", "DONE", "'h'", "1", "now()", "now()", "NULL"},
+                    {"matching-p0", "EXPIRED", "NULL", "NULL", "NULL", "now()", "NULL"},
+                    {"matching-p0", "EXPIRED", "'h'", "1", "now()", "NULL", "NULL"},
+                    {"matching-p0", "EXPIRED", "'h'", "1", "now()", "now()", "'{}'"},
+                    {"matching-p0", "ABANDONED", "'h'", "1", "now()", "now()", "NULL"},
+                    {"matching-p0", "LOST", "NULL", "NULL", "NULL", "NULL", "NULL"}};
+            for (String[] row : rejected) {
+                SQLException bad = assertThrows(SQLException.class, () -> st.execute(ok.formatted(row[0], user, row[1],
+                        row[2], row[3], row[4], row[5], row[6])), String.join(",", row));
+                assertEquals("23514", bad.getSQLState(), String.join(",", row) + ": " + bad.getMessage());
+            }
+            for (String orders : new String[] {"ARRAY[]::uuid[]", "ARRAY[NULL::uuid]",
+                    "(SELECT array_agg(gen_random_uuid()) FROM generate_series(1, 501))"}) {
+                SQLException bad = assertThrows(SQLException.class, () -> st.execute("""
+                        INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                        VALUES (gen_random_uuid(), 'matching-p0', %d, %s, 'member_close')
+                        """.formatted(user, orders)), orders);
+                assertEquals("23514", bad.getSQLState(), orders);
+            }
+            SQLException origin = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                    VALUES (gen_random_uuid(), 'matching-p0', %d, ARRAY[gen_random_uuid()], 'suspend')
+                    """.formatted(user)));
+            assertEquals("23514", origin.getSQLState());
+            SQLException missingUser = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO order_cancel_requests (request_id, resource, user_id, order_ids, origin)
+                    VALUES (gen_random_uuid(), 'matching-p0', -1, ARRAY[gen_random_uuid()], 'cancel_all')
+                    """));
+            assertEquals("23503", missingUser.getSQLState());
+            assertEquals(5, queryInt(conn, "SELECT count(*) FROM order_cancel_requests WHERE user_id = " + user));
+        }
+    }
+
+    /**
+     * V55(ADR 0034 S7, DB 설계 §3.10). 모드 전환 함수의 2<->3, 선행 조건 함수, FEE_INCOME 샤드 1 트리거의 객체와 권한이다.
+     * 트리거 함수는 소유자 권한(SECURITY DEFINER, search_path 고정)이고 PUBLIC EXECUTE 가 없다. 선행 조건 함수는 하네스 조회
+     * 역할만 부른다. 전환 함수는 V50 그대로 앱과 PUBLIC 모두 부르지 못한다(CREATE OR REPLACE 는 권한을 바꾸지 않는다).
+     * 마이그레이션은 저장소 파일 수만큼 모두 성공했고 마지막 판이 55 다. V47.1 처럼 점이 든 판이 있어 판은 numeric 으로 비교하고
+     * 파일 이름은 V47_1__ 꼴까지 센다.
+     */
+    @Test
+    void v55PartitionProtocolCutoverObjectsAndPrivileges() throws Exception {
+        try (Connection conn = open()) {
+            assertEquals(55, queryInt(conn, "SELECT max(version::numeric)::int FROM flyway_schema_history WHERE success"));
+            assertEquals(migrationFiles(), queryInt(conn,
+                    "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"),
+                    "성공한 마이그레이션 수가 저장소 파일 수와 다르다");
+            for (String fn : List.of("seed_fee_income_shard()", "leader_protocol_blockers(smallint)",
+                    "set_leader_protocol(smallint, boolean)")) {
+                assertTrue(queryBool(conn, "SELECT to_regprocedure('" + fn + "') IS NOT NULL"), fn + " 이 없다");
+                assertFalse(queryBool(conn, """
+                        SELECT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+                                        WHERE p.oid = '%s'::regprocedure AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+                        """.formatted(fn)), "PUBLIC 이 " + fn + " 을 부를 수 있다");
+                assertTrue(queryBool(conn, "SELECT proacl IS NOT NULL FROM pg_proc WHERE oid = '" + fn + "'::regprocedure"),
+                        fn + " 의 기본 PUBLIC EXECUTE 가 회수되지 않았다");
+            }
+            assertTrue(queryBool(conn, "SELECT prosecdef FROM pg_proc WHERE oid = 'seed_fee_income_shard()'::regprocedure"),
+                    "트리거 함수가 소유자 권한이 아니다");
+            assertTrue(queryBool(conn, """
+                    SELECT 'search_path=public, pg_temp' = ANY (proconfig)
+                      FROM pg_proc WHERE oid = 'seed_fee_income_shard()'::regprocedure
+                    """), "트리거 함수의 search_path 가 고정되지 않았다");
+            assertFalse(queryBool(conn,
+                    "SELECT prosecdef FROM pg_proc WHERE oid = 'leader_protocol_blockers(smallint)'::regprocedure"),
+                    "선행 조건 함수는 호출자 권한이어야 한다(읽기 전용)");
+            assertEquals("s", queryString(conn,
+                    "SELECT provolatile::text FROM pg_proc WHERE oid = 'leader_protocol_blockers(smallint)'::regprocedure"),
+                    "선행 조건 함수가 STABLE 이 아니다");
+            assertTrue(queryBool(conn,
+                    "SELECT has_function_privilege('harness_role', 'leader_protocol_blockers(smallint)', 'EXECUTE')"),
+                    "harness_role 이 선행 조건 함수를 부르지 못한다");
+            for (String fn : List.of("leader_protocol_blockers(smallint)", "seed_fee_income_shard()",
+                    "set_leader_protocol(smallint, boolean)")) {
+                assertFalse(queryBool(conn, "SELECT has_function_privilege('app_role', '" + fn + "', 'EXECUTE')"),
+                        "app_role 이 " + fn + " 을 부를 수 있다");
+            }
+            assertEquals("5s", queryString(conn, """
+                    SELECT split_part(c, '=', 2) FROM pg_proc p, unnest(p.proconfig) c
+                     WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure AND c LIKE 'lock_timeout=%'
+                    """), "전환 함수의 잠금 대기 상한이 5초가 아니다");
+            try (ResultSet rs = conn.createStatement().executeQuery("""
+                    SELECT t.tgenabled, pg_get_triggerdef(t.oid)
+                      FROM pg_trigger t WHERE t.tgrelid = 'accounts'::regclass
+                       AND t.tgname = 'trg_accounts_fee_income_shard' AND NOT t.tgisinternal
+                    """)) {
+                assertTrue(rs.next(), "샤드 1 트리거가 없다");
+                assertEquals("O", rs.getString(1), "샤드 1 트리거가 켜져 있지 않다");
+                String def = rs.getString(2);
+                assertTrue(def.contains("AFTER INSERT ON public.accounts") && def.contains("FOR EACH ROW"), def);
+                assertTrue(def.contains("'SYSTEM'") && def.contains("'FEE_INCOME'") && def.contains("shard = 0"), def);
+            }
+            // V55 는 모드를 바꾸지 않는다.
+            assertEquals(1, queryLong(conn, "SELECT protocol FROM leader_protocol"), "V55 가 모드를 바꿨다");
+        }
+    }
+
+    private static int migrationFiles() throws Exception {
+        java.net.URL dir = MigrationSmokeTest.class.getClassLoader().getResource("db/migration");
+        assertNotNull(dir, "classpath db/migration 없음");
+        try (var files = java.nio.file.Files.list(java.nio.file.Path.of(dir.toURI()))) {
+            return (int) files.filter(p -> p.getFileName().toString().matches("V\\d+(_\\d+)*__.+\\.sql")).count();
+        }
+    }
+
+    /**
      * 소유자 권한 트리거 함수는 남의 임시 표에 걸 수 없고(V47.1), 제 트리거로는 그대로 발화한다.
      * EXECUTE 는 CREATE TRIGGER 때만 검사되므로 PUBLIC 에 열려 있으면 레지스트리 선점 봉쇄가 우회된다.
      */
@@ -741,6 +1006,13 @@ class MigrationSmokeTest {
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             rs.next();
             return rs.getBoolean(1);
+        }
+    }
+
+    private String queryString(Connection conn, String sql) throws SQLException {
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            assertTrue(rs.next(), "결과 없음: " + sql);
+            return rs.getString(1);
         }
     }
 }

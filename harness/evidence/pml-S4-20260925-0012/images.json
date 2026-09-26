@@ -1,0 +1,23 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+  "created": "2026-09-24T15:13:41.884163252Z",
+  "refTag": "exchange-chaos-app:s4r1ref",
+  "previousS4ImageId": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea",
+  "previousS4Created": "2026-09-24T11:20:45.668773823Z",
+  "previousS4RefTag": "exchange-chaos-app:s4ref",
+  "s3RefImageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "s3RefTag": "exchange-chaos-app:s3ref",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "91813dd58e24500e0700c532d17a772d7b7ec76f",
+  "trackedDiffSha256": "e1c5f20d3310a0a3a0b4a492705f30a684e626cf7eae4228305ebf0349b0153f",
+  "changedPaths": 149,
+  "jarSha256": "b64eaa642e3cebe2968c4242f96186d4a208839ead3ae51e75bc6234518245aa",
+  "jarWritten": "2026-09-24T23:32:03.0149296+09:00",
+  "flyway": {
+    "rows": 54,
+    "max_version": 53,
+    "failed": 0
+  },
+  "note": "S4 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD 위 작업 트리 변경(구현 검토 라운드 1 수정 포함)을 담는다. X7 의 S3 칸은 s3ref(S3 커밋 60be79e0 을 다시 구운 이미지)다"
+}

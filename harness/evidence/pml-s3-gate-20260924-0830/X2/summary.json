@@ -1,0 +1,129 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+  "imageRevision": null,
+  "harnessCommit": "909af8975e7eae4d99f7fb0dd542a24b0c00b12d",
+  "latchBeforeTraffic": false,
+  "protocol": 2,
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2",
+  "experiments": [
+    {
+      "experiment": "E4",
+      "script": "harness/scripts/e4-leader-kill.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+      "containerImages": {
+        "chaos-api-1": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+        "chaos-api-2": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334",
+        "chaos-bots": "sha256:b14db943acc64611a17ff65e2ea1aeddd9b5b0ecf9bfb2c3681f352f5b41e334"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 46,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 112,
+        "PgEpochMs": 1790211161390,
+        "HostEpochMs": 1790211161344
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-24T00:52:41.4410776+00:00",
+        "to": "2026-09-24T00:53:34.6883781+00:00"
+      },
+      "runId": "E4-20260924-095241",
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 981,
+        "reservedSettledByLaterEpoch": 0,
+        "file": "s3_common.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 46,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 108,
+        "PgEpochMs": 1790211248560,
+        "HostEpochMs": 1790211248514
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "PASS",
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "kill",
+            "die"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-24T00:53:22.0000000+00:00",
+              "type": "container",
+              "action": "kill",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T00:53:22.0000000+00:00",
+              "type": "network",
+              "action": "disconnect",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T00:53:22.0000000+00:00",
+              "type": "container",
+              "action": "die",
+              "container": "chaos-api-1"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "62cace1b-996d-44b3-b29f-a0ebdd37b4ad",
+          "newLeader": "3d6794a0-65e1-49a4-a335-26eaae16fd19",
+          "metrics": {
+            "c16LoadtestAcksRows": 0.0,
+            "c17RecoveryRunsRows": 4.0
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 6.381,
+          "downtimeSeconds": 8.673,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1232,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "firstTradeTs": "2026-09-24T00:53:28.803Z",
+          "주": "docker kill 은 재기동 정책을 건너뛰어 구 리더가 돌아오지 않는다. 자력 복구는 스탠바이 체결 재개로 본다"
+        }
+      }
+    }
+  ]
+}

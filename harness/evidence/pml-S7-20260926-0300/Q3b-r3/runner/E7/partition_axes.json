@@ -1,0 +1,401 @@
+{
+  "started": "2026-09-26T05:07:23+09:00",
+  "windows": {
+    "outside": [
+      [
+        "2026-09-25T20:04:08.822639Z",
+        "2026-09-25T20:05:18.265255Z"
+      ],
+      [
+        "2026-09-25T20:07:18.452987Z",
+        "2026-09-25T20:07:23.637242Z"
+      ]
+    ],
+    "inside": [
+      "2026-09-25T20:05:18.265255Z",
+      "2026-09-25T20:07:18.452987Z"
+    ]
+  },
+  "contention": {
+    "outside": 0.0,
+    "appends_outside": 177.10405248629837,
+    "cap": 0.001,
+    "inside_by_cause_response": [
+      {
+        "labels": {
+          "cause": "40001",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40001",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40P01",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "40P01",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "55P03",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "55P03",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "57014",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "57014",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait",
+          "response": "429"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait_stuck",
+          "response": "409"
+        },
+        "value": 0.0
+      },
+      {
+        "labels": {
+          "cause": "lock_wait_stuck",
+          "response": "429"
+        },
+        "value": 0.0
+      }
+    ],
+    "acquire_lock_timeouts": 0.0
+  },
+  "partition_alerts": {
+    "samples": 0,
+    "firing_outside": 0,
+    "error": null
+  },
+  "leader_node": "chaos-api-2",
+  "demotions": {
+    "chaos-api-1": {
+      "by": {
+        "matching-p0/LEASE_LOST_WHILE_ACCEPTING": 1.0,
+        "matching-p0/NODE_FATAL": 0.0,
+        "matching-p0/PLANNED": 0.0,
+        "matching-p0/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-p0/STALL": 0.0,
+        "matching-p0/WRITER_FATAL": 0.0,
+        "matching-p1/LEASE_LOST_WHILE_ACCEPTING": 1.0,
+        "matching-p1/NODE_FATAL": 0.0,
+        "matching-p1/PLANNED": 0.0,
+        "matching-p1/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-p1/STALL": 0.0,
+        "matching-p1/WRITER_FATAL": 0.0
+      },
+      "total": 2.0,
+      "planned": 0.0
+    },
+    "chaos-api-2": {
+      "by": {
+        "matching-p0/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-p0/NODE_FATAL": 0.0,
+        "matching-p0/PLANNED": 0.0,
+        "matching-p0/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-p0/STALL": 0.0,
+        "matching-p0/WRITER_FATAL": 0.0,
+        "matching-p1/LEASE_LOST_WHILE_ACCEPTING": 0.0,
+        "matching-p1/NODE_FATAL": 0.0,
+        "matching-p1/PLANNED": 1.0,
+        "matching-p1/PROMOTION_LOOP_DOWN": 0.0,
+        "matching-p1/STALL": 0.0,
+        "matching-p1/WRITER_FATAL": 0.0
+      },
+      "total": 0.0,
+      "planned": 1.0
+    }
+  },
+  "partitions": {
+    "pre": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-p0",
+          "state": "ACCEPTING",
+          "epoch": 9,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "ACCEPTING",
+          "epoch": 10,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            2
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-p0",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [
+            {
+              "reason": "PLANNED",
+              "detail": "PLANNED",
+              "at": "2026-09-25T20:05:01.916829904Z"
+            }
+          ],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    },
+    "post": {
+      "chaos-api-1": [
+        {
+          "resource": "matching-p0",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 1
+          },
+          "demotions": [
+            {
+              "reason": "LEASE_LOST_WHILE_ACCEPTING",
+              "detail": "renew 거부(만료 또는 탈취됨)",
+              "at": "2026-09-25T20:06:42.622502575Z"
+            }
+          ],
+          "markets": [
+            1,
+            4,
+            5,
+            7,
+            9,
+            11
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 1
+          },
+          "demotions": [
+            {
+              "reason": "LEASE_LOST_WHILE_ACCEPTING",
+              "detail": "renew 거부(만료 또는 탈취됨)",
+              "at": "2026-09-25T20:06:42.621543947Z"
+            }
+          ],
+          "markets": [
+            2
+          ]
+        }
+      ],
+      "chaos-api-2": [
+        {
+          "resource": "matching-p0",
+          "state": "ACCEPTING",
+          "epoch": 12,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            4,
+            5,
+            7,
+            9,
+            11
+          ]
+        },
+        {
+          "resource": "matching-p1",
+          "state": "ACCEPTING",
+          "epoch": 11,
+          "participate": true,
+          "preferred": true,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [
+            {
+              "reason": "PLANNED",
+              "detail": "PLANNED",
+              "at": "2026-09-25T20:05:01.916829904Z"
+            }
+          ],
+          "markets": [
+            2
+          ]
+        }
+      ]
+    }
+  },
+  "leader_lease": {
+    "pre": [
+      {
+        "resource": "matching-engine",
+        "holder": "",
+        "epoch": 7,
+        "alive": false
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "9f086de3-b26f-40f8-b97d-70ffa29ce5cc",
+        "epoch": 9,
+        "alive": true
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "9f086de3-b26f-40f8-b97d-70ffa29ce5cc",
+        "epoch": 10,
+        "alive": true
+      }
+    ],
+    "post": [
+      {
+        "resource": "matching-engine",
+        "holder": "",
+        "epoch": 7,
+        "alive": false
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "a80dacab-b688-4fd0-acff-7142a2bc7d29",
+        "epoch": 12,
+        "alive": true
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "a80dacab-b688-4fd0-acff-7142a2bc7d29",
+        "epoch": 11,
+        "alive": true
+      }
+    ]
+  },
+  "lb": {
+    "outside": [
+      {
+        "ok": true,
+        "no_live_upstreams": 33,
+        "status_502": 35
+      },
+      {
+        "ok": true,
+        "no_live_upstreams": 0,
+        "status_502": 0
+      }
+    ],
+    "inside": {
+      "ok": true,
+      "no_live_upstreams": 80,
+      "status_502": 80
+    }
+  },
+  "axes": {
+    "contention_cap_outside_window": true,
+    "partition_alerts_outside_window_0": true,
+    "leader_node_demotions_0": true
+  },
+  "ok": true,
+  "finished": "2026-09-26T05:07:23+09:00"
+}

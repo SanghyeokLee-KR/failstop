@@ -1,0 +1,6 @@
+== R4 small idle 03:13:58Z
+pml-probe-rabbit 79.84MiB / 320MiB
+Erlang configuration: Erlang/OTP 27 [erts-15.2.7.13] [source] [64-bit] [smp:2:2] [ds:2:2:10] [async-threads:1] [jit:ns]
+Total memory used: 0.101 gb
+Memory high watermark setting: 0.2013 gb, computed to: 0.2013 gb
+Low free disk space watermark: 0.2684 gb

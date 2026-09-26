@@ -1,0 +1,6 @@
+Picked up JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+20:15:26.828 [main] INFO org.flywaydb.core.FlywayExecutor -- Database: jdbc:postgresql://chaos-pg:5432/exchange (PostgreSQL 17.10)
+20:15:26.904 [main] INFO org.flywaydb.core.internal.command.DbValidate -- Successfully validated 49 migrations (execution time 00:00.050s)
+20:15:26.925 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Current version of schema "public": 48
+20:15:26.926 [main] WARN org.flywaydb.core.internal.command.DbMigrate -- Schema "public" has a version (48) that is newer than the latest available migration (47) !
+20:15:26.928 [main] INFO org.flywaydb.core.internal.command.DbMigrate -- Schema "public" is up to date. No migration necessary.

@@ -1,0 +1,245 @@
+[2026-09-25T04:33:26Z] == S6 review probe start
+[2026-09-25T04:33:26Z] > docker ps -a --filter name=chaos- --format {{.Names}}
+[2026-09-25T04:33:26Z] exit=0
+[2026-09-25T04:33:26Z] > docker network create pml-probe-net3
+  0b4d0ad71315aeb89090171e2cdc230044c2eba8386885e1064eb937ba909579
+[2026-09-25T04:33:26Z] exit=0
+[2026-09-25T04:33:26Z] > docker rm -f pml-probe-rmq3
+  Error response from daemon: No such container: pml-probe-rmq3
+[2026-09-25T04:33:26Z] exit=0
+[2026-09-25T04:33:26Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  34c7e9ccd3391ca7121a7e587172bbbcff75efb9fcc228cb0a94168f9d3e8a9a
+[2026-09-25T04:33:26Z] exit=0
+[2026-09-25T04:36:00Z] == S6 review probe start
+[2026-09-25T04:36:00Z] > docker ps -a --filter name=chaos- --format {{.Names}}
+[2026-09-25T04:36:00Z] exit=0
+[2026-09-25T04:36:00Z] > docker network create pml-probe-net3
+  Error response from daemon: network with name pml-probe-net3 already exists
+[2026-09-25T04:36:00Z] exit=1
+[2026-09-25T04:36:00Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:36:00Z] exit=0
+[2026-09-25T04:36:00Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  37e8e0bf1e5adbed8d5f837f80bbe8e7760cd8d7f1be56f66cf4cb58fcfaf27d
+[2026-09-25T04:36:00Z] exit=0
+[2026-09-25T04:36:07Z] broker ready after ~0s
+[2026-09-25T04:36:07Z] == R9a adopted subscription, paced 2 publishers x 20000
+[2026-09-25T04:36:07Z] > docker run --rm --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py bus --count 20000 --rate 2000 --wait 60 --sub-ack client --sub-prefetch 1000 --sub-max-length 20000 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  {"mode": "bus", "count_per_publisher": 20000, "rate_per_publisher": 2000.0, "subscribe": {"id": "bus-n", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "20000", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "publish_seconds": 30.356, "subscribers": [{"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 30.354, "acks_sent": 200}, {"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 30.353, "acks_sent": 200}]}
+[2026-09-25T04:36:39Z] exit=0
+[2026-09-25T04:36:39Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+[2026-09-25T04:36:40Z] exit=0
+[2026-09-25T04:36:40Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 120.6MiB / 320MiB
+[2026-09-25T04:36:42Z] exit=0
+[2026-09-25T04:36:42Z] == R9b adopted subscription, burst 2 publishers x 20000
+[2026-09-25T04:36:42Z] > docker run --rm --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py bus --count 20000 --rate 0 --wait 60 --sub-ack client --sub-prefetch 1000 --sub-max-length 20000 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  {"mode": "bus", "count_per_publisher": 20000, "rate_per_publisher": 0.0, "subscribe": {"id": "bus-n", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "20000", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "publish_seconds": 0.457, "subscribers": [{"received": {"node-0": 14531, "node-1": 15310}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 29841, "sample_missing_headers": [], "receive_span_seconds": 2.023, "acks_sent": 150}, {"received": {"node-0": 14790, "node-1": 15360}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 30150, "sample_missing_headers": [], "receive_span_seconds": 2.077, "acks_sent": 151}]}
+[2026-09-25T04:37:44Z] exit=0
+[2026-09-25T04:37:44Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+[2026-09-25T04:37:44Z] exit=0
+[2026-09-25T04:37:44Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 96.48MiB / 320MiB
+[2026-09-25T04:37:45Z] exit=0
+[2026-09-25T04:37:58Z] == R10 stalled subscriber with adopted subscription
+[2026-09-25T04:37:58Z] > docker rm -f pml-probe-stall3
+  Error response from daemon: No such container: pml-probe-stall3
+[2026-09-25T04:37:58Z] exit=0
+[2026-09-25T04:37:58Z] > docker run -d --name pml-probe-stall3 --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py stall --ack client --prefetch 1000 --max-length 20000 --ttl-ms 10000 --count 30000 --hold 30 --host broker --login probe --passcode probe
+  f01310b50a634cf9f2a363a71cd5c6aa1e3a2d6ea105bb7f01b37c8fdb1cbd72
+[2026-09-25T04:37:59Z] exit=0
+[2026-09-25T04:38:01Z] > docker logs pml-probe-stall3
+  {"mode": "stall", "published": 30000, "x-max-length": 20000, "x-message-ttl": 10000, "heartbeat": "0,0", "ack": "client", "prefetch": 1000}
+[2026-09-25T04:38:01Z] exit=0
+[2026-09-25T04:38:01Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged arguments
+  name	messages	messages_ready	messages_unacknowledged	arguments
+  stomp-subscription-ni2rIKKqw06dWA4IuozjMQ	21000	20000	1000	[{"x-max-length",20000},{"x-message-ttl",10000},{"x-queue-type","classic"}]
+[2026-09-25T04:38:02Z] exit=0
+[2026-09-25T04:38:02Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 169.2MiB / 320MiB
+[2026-09-25T04:38:03Z] exit=0
+[2026-09-25T04:38:16Z] -- 13s later (TTL 10s passed)
+[2026-09-25T04:38:16Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+  name	messages	messages_ready	messages_unacknowledged
+  stomp-subscription-ni2rIKKqw06dWA4IuozjMQ	1000	0	1000
+[2026-09-25T04:38:17Z] exit=0
+[2026-09-25T04:38:17Z] > docker wait pml-probe-stall3
+  0
+[2026-09-25T04:38:31Z] exit=0
+[2026-09-25T04:38:31Z] > docker logs pml-probe-stall3
+  {"mode": "stall", "published": 30000, "x-max-length": 20000, "x-message-ttl": 10000, "heartbeat": "0,0", "ack": "client", "prefetch": 1000}
+  {"broker_closed_after_seconds": null, "held": 30.0}
+[2026-09-25T04:38:31Z] exit=0
+[2026-09-25T04:38:31Z] > docker rm -f pml-probe-stall3
+  pml-probe-stall3
+[2026-09-25T04:38:31Z] exit=0
+[2026-09-25T04:39:21Z] == R10b stalled subscriber, x-max-length 5000 + x-max-length-bytes 4MiB, body pad 1400 (fresh broker)
+[2026-09-25T04:39:21Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:39:22Z] exit=0
+[2026-09-25T04:39:22Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  7be778ccd0b0cbe3af7c4b10d01ba7cc886b91010e52865342b6f79928cd18dc
+[2026-09-25T04:39:22Z] exit=0
+[2026-09-25T04:39:29Z] broker ready after ~0s
+[2026-09-25T04:39:34Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 109.5MiB / 320MiB
+[2026-09-25T04:39:35Z] exit=0
+[2026-09-25T04:39:35Z] > docker rm -f pml-probe-stall3b
+  Error response from daemon: No such container: pml-probe-stall3b
+[2026-09-25T04:39:35Z] exit=0
+[2026-09-25T04:39:35Z] > docker run -d --name pml-probe-stall3b --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py stall --ack client --prefetch 1000 --max-length 5000 --max-length-bytes 4194304 --ttl-ms 10000 --stall-pad 1400 --count 30000 --hold 30 --host broker --login probe --passcode probe
+  15f9cbff85d318f45c0cb4a7c0e3d2cff911efe1c5223d3fa0a125d73cadb7cf
+[2026-09-25T04:39:35Z] exit=0
+[2026-09-25T04:39:37Z] > docker logs pml-probe-stall3b
+  {"mode": "stall", "published": 30000, "x-max-length": 5000, "x-max-length-bytes": 4194304, "x-message-ttl": 10000, "heartbeat": "0,0", "ack": "client", "prefetch": 1000, "pad": 1400}
+[2026-09-25T04:39:37Z] exit=0
+[2026-09-25T04:39:37Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged message_bytes arguments
+  name	messages	messages_ready	messages_unacknowledged	message_bytes	arguments
+  stomp-subscription-GWuZPuD1Xhn3NyczddQbUg	3900	2900	1000	5637613	[{"x-max-length",5000},{"x-max-length-bytes",4194304},{"x-message-ttl",10000},{"x-queue-type","classic"}]
+[2026-09-25T04:39:38Z] exit=0
+[2026-09-25T04:39:38Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 168.9MiB / 320MiB
+[2026-09-25T04:39:39Z] exit=0
+[2026-09-25T04:39:52Z] -- 13s later (TTL 10s passed)
+[2026-09-25T04:39:52Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+  name	messages	messages_ready	messages_unacknowledged
+  stomp-subscription-GWuZPuD1Xhn3NyczddQbUg	1000	0	1000
+[2026-09-25T04:39:53Z] exit=0
+[2026-09-25T04:39:53Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 140.2MiB / 320MiB
+[2026-09-25T04:39:54Z] exit=0
+[2026-09-25T04:39:54Z] > docker wait pml-probe-stall3b
+  0
+[2026-09-25T04:40:07Z] exit=0
+[2026-09-25T04:40:07Z] > docker rm -f pml-probe-stall3b
+  pml-probe-stall3b
+[2026-09-25T04:40:07Z] exit=0
+[2026-09-25T04:40:35Z] == R11a memory alarm, publisher closes with RST on write timeout
+[2026-09-25T04:40:35Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:40:36Z] exit=0
+[2026-09-25T04:40:36Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  c49bdc6858ca2503b35c84a73bc857bafc2fe723634c056dd8734718f84fabf2
+[2026-09-25T04:40:36Z] exit=0
+[2026-09-25T04:40:43Z] broker ready after ~0s
+[2026-09-25T04:40:43Z] > docker rm -f pml-probe-alarm-rst
+  Error response from daemon: No such container: pml-probe-alarm-rst
+[2026-09-25T04:40:43Z] exit=0
+[2026-09-25T04:40:43Z] > docker run -d --name pml-probe-alarm-rst --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py alarm --rate 1000 --body-bytes 1000 --hb 5000 --hb-interval 1.0 --write-timeout 1.0 --close-mode rst --duration 75 --sub-ack client --sub-prefetch 1000 --sub-max-length 20000 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  56a7e8eb9b3379b01f6f6ce3791d5865b9b10729e66afafebc243b6cca3c59c4
+[2026-09-25T04:40:43Z] exit=0
+[2026-09-25T04:40:43Z] > docker exec -d -u rabbitmq pml-probe-rmq3 sh -c "sleep 15; date -u +%s > /tmp/alarm.log; rabbitmqctl -q set_vm_memory_high_watermark absolute 1MiB >> /tmp/alarm.log 2>&1; date -u +%s >> /tmp/alarm.log; sleep 25; date -u +%s >> /tmp/alarm.log; rabbitmqctl -q set_vm_memory_high_watermark absolute 192MiB >> /tmp/alarm.log 2>&1; date -u +%s >> /tmp/alarm.log"
+[2026-09-25T04:40:43Z] exit=0
+[2026-09-25T04:41:08Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_connections name state recv_cnt send_cnt send_pend
+[2026-09-25T04:41:09Z] exit=0
+[2026-09-25T04:41:09Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+  name	messages	messages_ready	messages_unacknowledged
+  stomp-subscription-DBMTXOd6mKHlrakG4Igsig	0	0	0
+[2026-09-25T04:41:09Z] exit=0
+[2026-09-25T04:41:09Z] > docker wait pml-probe-alarm-rst
+  0
+[2026-09-25T04:41:59Z] exit=0
+[2026-09-25T04:41:59Z] > docker logs pml-probe-alarm-rst
+  {"mode": "alarm", "started_wall": 1790311243.777, "heartbeat": "5000,5000", "rate": 1000.0, "body_bytes": 1000, "hb_interval": 1.0, "write_timeout": 1.0, "close_mode": "rst", "subscribe": {"id": "bus", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "20000", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "duration": 75.0, "sub": {"max_gen_seen": 6, "inversions": 0, "sub_closed_after": null, "sub_error": null, "acks": 207, "sub_write_blocked": 0}, "pub_gens": {"1": {"connected": 0.03, "sent": 15802, "first_seq": 1, "last_seq": 15802, "closed": 16.967, "reason": "write_timeout", "unsent_bytes": 401}, "2": {"connected": 17.971, "sent": 706, "first_seq": 15804, "last_seq": 16509, "closed": 19.904, "reason": "write_timeout", "unsent_bytes": 81}, "3": {"connected": 21.907, "sent": 706, "first_seq": 16511, "last_seq": 17216, "closed": 23.833, "reason": "write_timeout", "unsent_bytes": 958}, "4": {"connected": 27.837, "sent": 710, "first_seq": 17218, "last_seq": 17927, "closed": 29.76, "reason": "write_timeout", "unsent_bytes": 446}, "5": {"connected": 37.764, "sent": 706, "first_seq": 17929, "last_seq": 18634, "closed": 39.684, "reason": "write_timeout", "unsent_bytes": 958}, "6": {"connected": 49.686, "sent": 25195, "first_seq": 18636, "last_seq": 43830, "closed": 75.024, "reason": "stop", "unsent_bytes": 0}}, "recv_per_gen": {"1": {"received": 15103, "hb": 15, "first_recv": 0.036, "last_recv": 15.229, "max_age": 0.001, "min_seq": 6, "max_seq": 15108}, "2": {"received": 1, "hb": 1, "first_recv": 17.971, "last_recv": 17.971, "max_age": 0.0, "min_seq": 15804, "max_seq": 15804}, "3": {"received": 1, "hb": 1, "first_recv": 21.908, "last_recv": 21.908, "max_age": 0.001, "min_seq": 16511, "max_seq": 16511}, "4": {"received": 1, "hb": 1, "first_recv": 27.837, "last_recv": 27.837, "max_age": 0.0, "min_seq": 17218, "max_seq": 17218}, "5": {"received": 1, "hb": 1, "first_recv": 37.764, "last_recv": 37.764, "max_age": 0.001, "min_seq": 17929, "max_seq": 17929}, "6": {"received": 25195, "hb": 26, "first_recv": 49.687, "last_recv": 75.023, "max_age": 0.002, "min_seq": 18636, "max_seq": 43830}}, "received_after_close": {}, "hb_gaps_top": [{"from": 37.764, "to": 49.687, "gap": 11.923, "gen_next": 6, "age_next": 0.0}, {"from": 27.837, "to": 37.764, "gap": 9.927, "gen_next": 5, "age_next": 0.001}, {"from": 21.908, "to": 27.837, "gap": 5.929, "gen_next": 4, "age_next": -0.0}, {"from": 17.971, "to": 21.908, "gap": 3.937, "gen_next": 3, "age_next": 0.001}, {"from": 15.043, "to": 17.971, "gap": 2.928, "gen_next": 2, "age_next": 0.0}], "per_second": [[0, 960, 0], [1, 990, 1], [2, 992, 1], [3, 994, 1], [4, 992, 1], [5, 995, 1], [6, 993, 1], [7, 995, 1], [8, 994, 1], [9, 993, 1], [10, 994, 1], [11, 992, 1], [12, 992, 1], [13, 994, 1], [14, 992, 1], [15, 226, 1], [17, 0, 1], [21, 0, 1], [27, 0, 1], [37, 0, 1], [49, 311, 1], [50, 994, 1], [51, 995, 1], [52, 993, 1], [53, 992, 1], [54, 994, 1], [55, 994, 1], [56, 992, 1], [57, 994, 1], [58, 994, 1], [59, 993, 1], [60, 994, 1], [61, 994, 1], [62, 994, 1], [63, 994, 1], [64, 993, 1], [65, 994, 1], [66, 991, 1], [67, 995, 1], [68, 993, 1], [69, 991, 1], [70, 993, 1], [71, 994, 1], [72, 993, 1], [73, 993, 1], [74, 993, 1], [75, 24, 0]], "events": [{"t": 0.027, "wall": 1790311243.803, "event": "sub_subscribed"}, {"t": 0.03, "wall": 1790311243.806, "event": "pub_connected", "gen": 1}, {"t": 16.967, "wall": 1790311260.744, "event": "pub_write_timeout", "gen": 1, "seq": 15803}, {"t": 16.967, "wall": 1790311260.744, "event": "pub_closed", "gen": 1, "reason": "write_timeout", "mode": "rst"}, {"t": 16.967, "wall": 1790311260.744, "event": "pub_backoff", "gen": 1, "seconds": 1.0}, {"t": 17.971, "wall": 1790311261.748, "event": "pub_connected", "gen": 2}, {"t": 19.904, "wall": 1790311263.681, "event": "pub_write_timeout", "gen": 2, "seq": 16510}, {"t": 19.904, "wall": 1790311263.681, "event": "pub_closed", "gen": 2, "reason": "write_timeout", "mode": "rst"}, {"t": 19.904, "wall": 1790311263.681, "event": "pub_backoff", "gen": 2, "seconds": 2.0}, {"t": 21.907, "wall": 1790311265.684, "event": "pub_connected", "gen": 3}, {"t": 23.833, "wall": 1790311267.61, "event": "pub_write_timeout", "gen": 3, "seq": 17217}, {"t": 23.833, "wall": 1790311267.61, "event": "pub_closed", "gen": 3, "reason": "write_timeout", "mode": "rst"}, {"t": 23.833, "wall": 1790311267.61, "event": "pub_backoff", "gen": 3, "seconds": 4.0}, {"t": 27.837, "wall": 1790311271.614, "event": "pub_connected", "gen": 4}, {"t": 29.76, "wall": 1790311273.537, "event": "pub_write_timeout", "gen": 4, "seq": 17928}, {"t": 29.76, "wall": 1790311273.537, "event": "pub_closed", "gen": 4, "reason": "write_timeout", "mode": "rst"}, {"t": 29.76, "wall": 1790311273.537, "event": "pub_backoff", "gen": 4, "seconds": 8.0}, {"t": 37.764, "wall": 1790311281.54, "event": "pub_connected", "gen": 5}, {"t": 39.684, "wall": 1790311283.461, "event": "pub_write_timeout", "gen": 5, "seq": 18635}, {"t": 39.684, "wall": 1790311283.461, "event": "pub_closed", "gen": 5, "reason": "write_timeout", "mode": "rst"}, {"t": 39.684, "wall": 1790311283.461, "event": "pub_backoff", "gen": 5, "seconds": 10.0}, {"t": 49.686, "wall": 1790311293.463, "event": "pub_connected", "gen": 6}, {"t": 75.024, "wall": 1790311318.801, "event": "pub_closed", "gen": 6, "reason": "stop", "mode": "rst"}]}
+[2026-09-25T04:41:59Z] exit=0
+[2026-09-25T04:41:59Z] > docker exec -u rabbitmq pml-probe-rmq3 cat /tmp/alarm.log
+  1790311258
+  1790311259
+  1790311284
+  1790311284
+[2026-09-25T04:41:59Z] exit=0
+[2026-09-25T04:41:59Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+[2026-09-25T04:41:59Z] exit=0
+[2026-09-25T04:41:59Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmq-diagnostics -q alarms
+  Node rabbit@c49bdc6858ca reported no alarms, local or clusterwide
+[2026-09-25T04:42:00Z] exit=0
+[2026-09-25T04:42:00Z] > docker rm -f pml-probe-alarm-rst
+  pml-probe-alarm-rst
+[2026-09-25T04:42:00Z] exit=0
+[2026-09-25T04:42:00Z] == R11b memory alarm, publisher closes gracefully on write timeout
+[2026-09-25T04:42:00Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:42:00Z] exit=0
+[2026-09-25T04:42:00Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  ed4347cca2dcf42c3f6d2a56966705eca0723bf1c039fb78b19e1645241d8f6c
+[2026-09-25T04:42:01Z] exit=0
+[2026-09-25T04:42:07Z] broker ready after ~0s
+[2026-09-25T04:42:07Z] > docker rm -f pml-probe-alarm-graceful
+  Error response from daemon: No such container: pml-probe-alarm-graceful
+[2026-09-25T04:42:07Z] exit=0
+[2026-09-25T04:42:07Z] > docker run -d --name pml-probe-alarm-graceful --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py alarm --rate 1000 --body-bytes 1000 --hb 5000 --hb-interval 1.0 --write-timeout 1.0 --close-mode graceful --duration 75 --sub-ack client --sub-prefetch 1000 --sub-max-length 20000 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  0381b15a2382d87c9a7424754675397c2537f7878f01e8d1eece73fd7dfbbd51
+[2026-09-25T04:42:08Z] exit=0
+[2026-09-25T04:42:08Z] > docker exec -d -u rabbitmq pml-probe-rmq3 sh -c "sleep 15; date -u +%s > /tmp/alarm.log; rabbitmqctl -q set_vm_memory_high_watermark absolute 1MiB >> /tmp/alarm.log 2>&1; date -u +%s >> /tmp/alarm.log; sleep 25; date -u +%s >> /tmp/alarm.log; rabbitmqctl -q set_vm_memory_high_watermark absolute 192MiB >> /tmp/alarm.log 2>&1; date -u +%s >> /tmp/alarm.log"
+[2026-09-25T04:42:08Z] exit=0
+[2026-09-25T04:42:33Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_connections name state recv_cnt send_cnt send_pend
+[2026-09-25T04:42:33Z] exit=0
+[2026-09-25T04:42:33Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+  name	messages	messages_ready	messages_unacknowledged
+  stomp-subscription-42GRUBBoSE0TI1qyGDnpVw	0	0	0
+[2026-09-25T04:42:34Z] exit=0
+[2026-09-25T04:42:34Z] > docker wait pml-probe-alarm-graceful
+  0
+[2026-09-25T04:43:23Z] exit=0
+[2026-09-25T04:43:23Z] > docker logs pml-probe-alarm-graceful
+  {"mode": "alarm", "started_wall": 1790311328.444, "heartbeat": "5000,5000", "rate": 1000.0, "body_bytes": 1000, "hb_interval": 1.0, "write_timeout": 1.0, "close_mode": "graceful", "subscribe": {"id": "bus", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "20000", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "duration": 75.0, "sub": {"max_gen_seen": 6, "inversions": 2396, "sub_closed_after": null, "sub_error": null, "acks": 226, "sub_write_blocked": 0}, "pub_gens": {"1": {"connected": 0.025, "sent": 15848, "first_seq": 1, "last_seq": 15848, "closed": 17.007, "reason": "write_timeout", "unsent_bytes": 401}, "2": {"connected": 18.011, "sent": 708, "first_seq": 15850, "last_seq": 16557, "closed": 19.929, "reason": "write_timeout", "unsent_bytes": 702}, "3": {"connected": 21.933, "sent": 706, "first_seq": 16559, "last_seq": 17264, "closed": 23.85, "reason": "write_timeout", "unsent_bytes": 958}, "4": {"connected": 27.855, "sent": 706, "first_seq": 17266, "last_seq": 17971, "closed": 29.773, "reason": "write_timeout", "unsent_bytes": 81}, "5": {"connected": 37.775, "sent": 709, "first_seq": 17973, "last_seq": 18681, "closed": 39.71, "reason": "write_timeout", "unsent_bytes": 958}, "6": {"connected": 49.712, "sent": 25101, "first_seq": 18683, "last_seq": 43783, "closed": 75.02, "reason": "stop", "unsent_bytes": 0}}, "recv_per_gen": {"1": {"received": 15843, "hb": 15, "first_recv": 0.032, "last_recv": 40.971, "max_age": 25.566, "min_seq": 7, "max_seq": 15849}, "2": {"received": 709, "hb": 1, "first_recv": 18.011, "last_recv": 40.94, "max_age": 22.827, "min_seq": 15850, "max_seq": 16558}, "3": {"received": 476, "hb": 1, "first_recv": 21.933, "last_recv": 40.894, "max_age": 18.905, "min_seq": 16559, "max_seq": 17034}, "4": {"received": 519, "hb": 1, "first_recv": 27.855, "last_recv": 40.963, "max_age": 12.983, "min_seq": 17266, "max_seq": 17784}, "5": {"received": 710, "hb": 1, "first_recv": 37.776, "last_recv": 40.865, "max_age": 3.025, "min_seq": 17973, "max_seq": 18682}, "6": {"received": 25101, "hb": 26, "first_recv": 49.713, "last_recv": 75.019, "max_age": 0.002, "min_seq": 18683, "max_seq": 43783}}, "received_after_close": {"3": 475, "1": 695, "4": 518, "2": 708, "5": 709}, "hb_gaps_top": [{"from": 37.776, "to": 49.713, "gap": 11.937, "gen_next": 6, "age_next": 0.0}, {"from": 27.855, "to": 37.776, "gap": 9.921, "gen_next": 5, "age_next": 0.0}, {"from": 21.933, "to": 27.855, "gap": 5.922, "gen_next": 4, "age_next": 0.001}, {"from": 18.011, "to": 21.933, "gap": 3.922, "gen_next": 3, "age_next": 0.001}, {"from": 15.035, "to": 18.011, "gap": 2.976, "gen_next": 2, "age_next": 0.001}], "per_second": [[0, 963, 0], [1, 991, 1], [2, 994, 1], [3, 989, 1], [4, 993, 1], [5, 993, 1], [6, 993, 1], [7, 993, 1], [8, 995, 1], [9, 992, 1], [10, 994, 1], [11, 994, 1], [12, 993, 1], [13, 994, 1], [14, 993, 1], [15, 269, 1], [18, 0, 1], [21, 0, 1], [27, 0, 1], [37, 0, 1], [40, 3105, 0], [49, 284, 1], [50, 989, 1], [51, 994, 1], [52, 990, 1], [53, 992, 1], [54, 992, 1], [55, 991, 1], [56, 989, 1], [57, 993, 1], [58, 990, 1], [59, 991, 1], [60, 992, 1], [61, 991, 1], [62, 992, 1], [63, 991, 1], [64, 991, 1], [65, 993, 1], [66, 989, 1], [67, 991, 1], [68, 988, 1], [69, 992, 1], [70, 990, 1], [71, 990, 1], [72, 990, 1], [73, 989, 1], [74, 991, 1], [75, 20, 0]], "events": [{"t": 0.023, "wall": 1790311328.466, "event": "sub_subscribed"}, {"t": 0.025, "wall": 1790311328.468, "event": "pub_connected", "gen": 1}, {"t": 17.007, "wall": 1790311345.451, "event": "pub_write_timeout", "gen": 1, "seq": 15849}, {"t": 17.007, "wall": 1790311345.451, "event": "pub_closed", "gen": 1, "reason": "write_timeout", "mode": "graceful"}, {"t": 17.007, "wall": 1790311345.451, "event": "pub_backoff", "gen": 1, "seconds": 1.0}, {"t": 18.011, "wall": 1790311346.454, "event": "pub_connected", "gen": 2}, {"t": 19.929, "wall": 1790311348.373, "event": "pub_write_timeout", "gen": 2, "seq": 16558}, {"t": 19.929, "wall": 1790311348.373, "event": "pub_closed", "gen": 2, "reason": "write_timeout", "mode": "graceful"}, {"t": 19.929, "wall": 1790311348.373, "event": "pub_backoff", "gen": 2, "seconds": 2.0}, {"t": 21.933, "wall": 1790311350.376, "event": "pub_connected", "gen": 3}, {"t": 23.85, "wall": 1790311352.293, "event": "pub_write_timeout", "gen": 3, "seq": 17265}, {"t": 23.85, "wall": 1790311352.293, "event": "pub_closed", "gen": 3, "reason": "write_timeout", "mode": "graceful"}, {"t": 23.85, "wall": 1790311352.293, "event": "pub_backoff", "gen": 3, "seconds": 4.0}, {"t": 27.855, "wall": 1790311356.298, "event": "pub_connected", "gen": 4}, {"t": 29.773, "wall": 1790311358.216, "event": "pub_write_timeout", "gen": 4, "seq": 17972}, {"t": 29.773, "wall": 1790311358.216, "event": "pub_closed", "gen": 4, "reason": "write_timeout", "mode": "graceful"}, {"t": 29.773, "wall": 1790311358.216, "event": "pub_backoff", "gen": 4, "seconds": 8.0}, {"t": 37.775, "wall": 1790311366.219, "event": "pub_connected", "gen": 5}, {"t": 39.71, "wall": 1790311368.153, "event": "pub_write_timeout", "gen": 5, "seq": 18682}, {"t": 39.71, "wall": 1790311368.154, "event": "pub_closed", "gen": 5, "reason": "write_timeout", "mode": "graceful"}, {"t": 39.71, "wall": 1790311368.154, "event": "pub_backoff", "gen": 5, "seconds": 10.0}, {"t": 49.712, "wall": 1790311378.156, "event": "pub_connected", "gen": 6}, {"t": 75.02, "wall": 1790311403.464, "event": "pub_closed", "gen": 6, "reason": "stop", "mode": "graceful"}]}
+[2026-09-25T04:43:23Z] exit=0
+[2026-09-25T04:43:23Z] > docker exec -u rabbitmq pml-probe-rmq3 cat /tmp/alarm.log
+  1790311343
+  1790311343
+  1790311368
+  1790311369
+[2026-09-25T04:43:24Z] exit=0
+[2026-09-25T04:43:24Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmqctl -q list_queues name messages messages_ready messages_unacknowledged
+[2026-09-25T04:43:24Z] exit=0
+[2026-09-25T04:43:24Z] > docker exec -u rabbitmq pml-probe-rmq3 rabbitmq-diagnostics -q alarms
+  Node rabbit@ed4347cca2dc reported no alarms, local or clusterwide
+[2026-09-25T04:43:25Z] exit=0
+[2026-09-25T04:43:25Z] > docker rm -f pml-probe-alarm-graceful
+  pml-probe-alarm-graceful
+[2026-09-25T04:43:25Z] exit=0
+[2026-09-25T04:45:24Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:45:24Z] exit=0
+[2026-09-25T04:45:24Z] > docker network rm pml-probe-net3
+  pml-probe-net3
+[2026-09-25T04:45:24Z] exit=0
+[2026-09-25T04:45:24Z] > docker ps -a --filter name=pml-probe --format {{.Names}}
+[2026-09-25T04:45:24Z] exit=0
+[2026-09-25T04:45:24Z] == S6 review probe end
+[2026-09-25T04:46:04Z] == S6 review probe start
+[2026-09-25T04:46:04Z] > docker ps -a --filter name=chaos- --format {{.Names}}
+[2026-09-25T04:46:04Z] exit=0
+[2026-09-25T04:46:04Z] > docker network create pml-probe-net3
+  797578c349edb5152c279b514a62484a1a16d1615fe63a16fb5131f158e5ba41
+[2026-09-25T04:46:04Z] exit=0
+[2026-09-25T04:46:04Z] > docker rm -f pml-probe-rmq3
+  Error response from daemon: No such container: pml-probe-rmq3
+[2026-09-25T04:46:04Z] exit=0
+[2026-09-25T04:46:04Z] > docker run -d --name pml-probe-rmq3 --network pml-probe-net3 --network-alias broker --memory 320m --cpus 2 -e RABBITMQ_DEFAULT_USER=probe -e RABBITMQ_DEFAULT_PASS=probe -e "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2" -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\enabled_plugins:/etc/rabbitmq/enabled_plugins:ro -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925\rabbit\rabbitmq-small.conf:/etc/rabbitmq/rabbitmq.conf:ro rabbitmq:4.3.6-alpine
+  81a8caf2549af617cd299a45f75eef8d42411088fe922e4599cf52df441baa26
+[2026-09-25T04:46:04Z] exit=0
+[2026-09-25T04:46:11Z] broker ready after ~0s
+[2026-09-25T04:46:11Z] == R9c final subscription (x-max-length 5000, x-max-length-bytes 4MiB), paced 2 publishers x 20000
+[2026-09-25T04:46:11Z] > docker run --rm --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py bus --count 20000 --rate 2000 --wait 60 --sub-ack client --sub-prefetch 1000 --sub-max-length 5000 --sub-max-length-bytes 4194304 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  {"mode": "bus", "count_per_publisher": 20000, "rate_per_publisher": 2000.0, "subscribe": {"id": "bus-n", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "5000", "x-max-length-bytes": "4194304", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "publish_seconds": 30.537, "subscribers": [{"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 30.534, "acks_sent": 200}, {"received": {"node-0": 20000, "node-1": 20000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 40000, "sample_missing_headers": [], "receive_span_seconds": 30.535, "acks_sent": 200}]}
+[2026-09-25T04:46:44Z] exit=0
+[2026-09-25T04:46:44Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 96.32MiB / 320MiB
+[2026-09-25T04:46:45Z] exit=0
+[2026-09-25T04:46:45Z] == R9d final subscription, burst 2 publishers x 20000
+[2026-09-25T04:46:45Z] > docker run --rm --network pml-probe-net3 -v C:\dev\exchange-pml6\harness\evidence\pml-s6-probe-20260925:/probe:ro python:3.12-alpine python -B /probe/stomp_probe.py bus --count 20000 --rate 0 --wait 60 --sub-ack client --sub-prefetch 1000 --sub-max-length 5000 --sub-max-length-bytes 4194304 --sub-ttl-ms 10000 --ack-every 200 --ack-ms 200 --host broker --login probe --passcode probe
+  {"mode": "bus", "count_per_publisher": 20000, "rate_per_publisher": 0.0, "subscribe": {"id": "bus-n", "destination": "/topic/exch.bus.v1", "ack": "client", "prefetch-count": "1000", "x-max-length": "5000", "x-max-length-bytes": "4194304", "x-message-ttl": "10000"}, "ack_every": 200, "ack_ms": 200.0, "publish_seconds": 0.496, "subscribers": [{"received": {"node-0": 5351, "node-1": 11203}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 16554, "sample_missing_headers": [], "receive_span_seconds": 1.975, "acks_sent": 84}, {"received": {"node-0": 6178, "node-1": 10606}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 16784, "sample_missing_headers": [], "receive_span_seconds": 1.992, "acks_sent": 84}]}
+[2026-09-25T04:47:47Z] exit=0
+[2026-09-25T04:47:47Z] > docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" pml-probe-rmq3
+  pml-probe-rmq3 86.11MiB / 320MiB
+[2026-09-25T04:47:49Z] exit=0
+[2026-09-25T04:47:49Z] > docker rm -f pml-probe-rmq3
+  pml-probe-rmq3
+[2026-09-25T04:47:49Z] exit=0
+[2026-09-25T04:47:49Z] > docker network rm pml-probe-net3
+  pml-probe-net3
+[2026-09-25T04:47:50Z] exit=0
+[2026-09-25T04:47:50Z] > docker ps -a --filter name=pml-probe --format {{.Names}}
+[2026-09-25T04:47:50Z] exit=0
+[2026-09-25T04:47:50Z] == S6 review probe end

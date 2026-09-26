@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "node": "chaos-api-1",
+  "startRc": 0,
+  "joinedAt": "2026-09-24T11:47:51.0370670Z",
+  "joinSeconds": 13.0,
+  "promotionLines": 0,
+  "followerBootLines": 1,
+  "leaseBefore": "[{\"resource\" : \"matching-engine\", \"holder\" : \"b1a949df-921c-46ec-8839-12fe3a7bc5d0\", \"epoch\" : 6}, {\"resource\" : \"matching-p0\", \"holder\" : \"\", \"epoch\" : 2}, {\"resource\" : \"matching-p1\", \"holder\" : \"\", \"epoch\" : 3}]",
+  "leaseAfter": "[{\"resource\" : \"matching-engine\", \"holder\" : \"b1a949df-921c-46ec-8839-12fe3a7bc5d0\", \"epoch\" : 6}, {\"resource\" : \"matching-p0\", \"holder\" : \"\", \"epoch\" : 2}, {\"resource\" : \"matching-p1\", \"holder\" : \"\", \"epoch\" : 3}]",
+  "demotions": 0.0
+}

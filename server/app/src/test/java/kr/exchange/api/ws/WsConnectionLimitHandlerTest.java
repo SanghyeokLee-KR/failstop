@@ -208,6 +208,44 @@ class WsConnectionLimitHandlerTest {
         assertEquals(0, h.trackedSessions());
     }
 
+    /**
+     * WS 게이트 데코레이터가 바깥에 들어가도(WebSocketConfig 의 사슬) 거절·반납 계수가 같다. 게이트가 닫히며 닫은 세션은 안쪽 반납
+     * 경로를 그대로 탄다(S6 설계 6-4).
+     */
+    @Test
+    void gateDecoratorOutsideKeepsAdmissionAccounting() throws Exception {
+        RecordingHandler inner = new RecordingHandler();
+        AdmissionControl admission = bucket(2);
+        java.util.concurrent.atomic.AtomicReference<java.util.Optional<Map<String, WsGate.LeaseRow>>> leases =
+                new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.of(Map.of()));
+        WsGate gate = new WsGate(true, "me", List.of("matching-engine"), p -> null, leases::get, null,
+                java.time.Duration.ofSeconds(5), java.time.Duration.ofSeconds(13), java.time.Duration.ofSeconds(10),
+                () -> 0L);
+        WebSocketHandler chain = gate.decorate(handler(inner, new AdmissionGate(true), admission));
+
+        FakeSession a = new FakeSession("a");
+        FakeSession b = new FakeSession("b");
+        FakeSession c = new FakeSession("c");
+        chain.afterConnectionEstablished(a);
+        chain.afterConnectionEstablished(b);
+        chain.afterConnectionEstablished(c);
+        assertEquals(List.of("a", "b"), inner.established);
+        assertEquals(CloseStatus.SERVICE_OVERLOAD.getCode(), c.closedWith().getCode());
+        chain.afterConnectionClosed(c, c.closedWith());
+        assertEquals(2, admission.inFlight(), "게이트가 끼어도 거절된 세션의 종료가 자리를 만들면 안 된다");
+
+        // 다른 노드가 유효한 리스를 쥐었다. 게이트가 닫히며 열린 세션을 1013 으로 닫고, 닫힌 세션은 자리를 돌려준다.
+        leases.set(java.util.Optional.of(Map.of("matching-engine", new WsGate.LeaseRow("other", 9, true))));
+        gate.evaluate();
+        assertEquals("relay_required", a.closedWith().getReason());
+        assertEquals("relay_required", b.closedWith().getReason());
+        chain.afterConnectionClosed(a, a.closedWith());
+        chain.afterConnectionClosed(b, b.closedWith());
+        assertEquals(0, admission.inFlight(), "게이트가 닫은 세션의 자리가 돌아오지 않았다");
+        assertEquals(List.of("a", "b"), inner.closed);
+        assertEquals(0, gate.trackedSessions(), "게이트가 닫힌 세션을 계속 기록한다");
+    }
+
     /** 안쪽이 세션을 세우다 실패하면 컨테이너가 종료를 안 부를 수 있다. 그때도 자리는 돌려준다. */
     @Test
     void slotIsReturnedWhenInnerHandlerFails() {

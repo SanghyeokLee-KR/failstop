@@ -1,0 +1,678 @@
+{
+  "phase": "B1",
+  "verdict": "PASS",
+  "axes": {
+    "invariants_summary": true,
+    "invariants_authoritative": true,
+    "orders_500_0": true,
+    "api_logs_no_unhandled_or_auth_500": true,
+    "leader_epoch_unchanged": true,
+    "drained": true
+  },
+  "measuredRounds": 3,
+  "rounds": [
+    {
+      "round": 1,
+      "status": "measured",
+      "reason": null,
+      "leader": "chaos-api-1",
+      "proxy": "pg-api1",
+      "inject": {
+        "from": "2026-09-25T01:04:55.0062728+00:00",
+        "to": "2026-09-25T01:04:55.5618356+00:00",
+        "ms": 500
+      },
+      "lease": {
+        "before": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        },
+        "after": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        }
+      },
+      "metricsDelta": {
+        "18080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_GET_503_/api/v1/trades": 1.0,
+          "orders_post_422": 0.0,
+          "http_POST_503_UNKNOWN": 2.0,
+          "orders_post_201": 1632.0
+        },
+        "28080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_DELETE_503_/api/v1/orders/{id}": 9.0,
+          "http_POST_503_/api/v1/orders": 98.0,
+          "orders_post_503": 98.0
+        }
+      },
+      "lb": {
+        "access": 3784,
+        "status500": 0,
+        "status502": 105,
+        "status503": 2,
+        "status504": 0,
+        "noLiveUpstreams": 105,
+        "first5xx": "2026-09-25T01:04:55.0000000+00:00",
+        "last5xx": "2026-09-25T01:04:57.0000000+00:00"
+      }
+    },
+    {
+      "round": 2,
+      "status": "measured",
+      "reason": null,
+      "leader": "chaos-api-1",
+      "proxy": "pg-api1",
+      "inject": {
+        "from": "2026-09-25T01:05:56.3748248+00:00",
+        "to": "2026-09-25T01:05:56.8898898+00:00",
+        "ms": 500
+      },
+      "lease": {
+        "before": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        },
+        "after": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        }
+      },
+      "metricsDelta": {
+        "18080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_GET_503_/api/v1/trades": 0.0,
+          "orders_post_422": 1.0,
+          "http_POST_503_UNKNOWN": 1.0,
+          "orders_post_201": 1514.0
+        },
+        "28080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_DELETE_503_/api/v1/orders/{id}": 11.0,
+          "http_POST_503_/api/v1/orders": 70.0,
+          "orders_post_503": 70.0
+        }
+      },
+      "lb": {
+        "access": 3466,
+        "status500": 0,
+        "status502": 80,
+        "status503": 1,
+        "status504": 0,
+        "noLiveUpstreams": 80,
+        "first5xx": "2026-09-25T01:05:56.0000000+00:00",
+        "last5xx": "2026-09-25T01:05:58.0000000+00:00"
+      }
+    },
+    {
+      "round": 3,
+      "status": "measured",
+      "reason": null,
+      "leader": "chaos-api-1",
+      "proxy": "pg-api1",
+      "inject": {
+        "from": "2026-09-25T01:06:57.6897251+00:00",
+        "to": "2026-09-25T01:06:58.2132641+00:00",
+        "ms": 500
+      },
+      "lease": {
+        "before": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        },
+        "after": {
+          "holder": "cf525dba-a07c-4059-bb96-7be09b1d7871",
+          "epoch": 5,
+          "alive": true
+        }
+      },
+      "metricsDelta": {
+        "18080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_DELETE_503_/api/v1/orders/{id}": 1.0,
+          "http_GET_503_/api/v1/trades": 1.0,
+          "orders_post_422": 1.0,
+          "http_POST_503_UNKNOWN": 0.0,
+          "orders_post_201": 1437.0
+        },
+        "28080": {
+          "exchange_admission_rejected_total{scope=order}": 0.0,
+          "exchange_admission_rejected_total{scope=query}": 0.0,
+          "exchange_admission_rejected_total{scope=requery}": 0.0,
+          "exchange_admission_rejected_total{scope=ws}": 0.0,
+          "exchange_leader_lease_acquire_lock_timeouts_total": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=55P03}": 0.0,
+          "exchange_order_append_transient_total{sqlstate=57014}": 0.0,
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_contention_total{40001|409}": 0.0,
+          "exchange_order_intake_contention_total{40001|429}": 0.0,
+          "exchange_order_intake_contention_total{40P01|409}": 0.0,
+          "exchange_order_intake_contention_total{40P01|429}": 0.0,
+          "exchange_order_intake_contention_total{55P03|409}": 0.0,
+          "exchange_order_intake_contention_total{55P03|429}": 0.0,
+          "exchange_order_intake_contention_total{57014|409}": 0.0,
+          "exchange_order_intake_contention_total{57014|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait|429}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|409}": 0.0,
+          "exchange_order_intake_contention_total{lock_wait_stuck|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0,
+          "exchange_order_reserve_rejected_total{source=db}": 0.0,
+          "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+          "exchange_partition_demotions_total{reason=LEASE_LOST_WHILE_ACCEPTING}": 0.0,
+          "exchange_partition_demotions_total{reason=NODE_FATAL}": 0.0,
+          "exchange_partition_demotions_total{reason=PLANNED}": 0.0,
+          "exchange_partition_demotions_total{reason=PROMOTION_LOOP_DOWN}": 0.0,
+          "exchange_partition_demotions_total{reason=STALL}": 0.0,
+          "exchange_partition_demotions_total{reason=WRITER_FATAL}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=failure}": 0.0,
+          "exchange_partition_rebuild_seconds_count{outcome=success}": 0.0,
+          "exchange_partition_state": 0.0,
+          "exchange_settlement_insufficient_funds_total": 0.0,
+          "exchange_settlement_lock_plan_miss_total": 0.0,
+          "exchange_settlement_transient_exhausted_total": 0.0,
+          "exchange_settlement_transient_retries_total": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+          "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+          "http_DELETE_503_/api/v1/orders/{id}": 6.0,
+          "http_POST_503_/api/v1/orders": 48.0,
+          "orders_post_503": 48.0
+        }
+      },
+      "lb": {
+        "access": 3347,
+        "status500": 0,
+        "status502": 54,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 54,
+        "first5xx": "2026-09-25T01:06:57.0000000+00:00",
+        "last5xx": "2026-09-25T01:06:59.0000000+00:00"
+      }
+    }
+  ],
+  "orders500": {
+    "rc": 0,
+    "ok": true,
+    "readable": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "zero": {
+      "lb": true,
+      "prom": true,
+      "nodes": true
+    },
+    "file": "orders500.json"
+  },
+  "recoveryRuns": {
+    "success": 4,
+    "mismatch": 0
+  },
+  "authoritative": {
+    "port": 18080,
+    "verdict": "PASS",
+    "checks": 31,
+    "notOk": [],
+    "ok": true
+  },
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "ok": true
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 932,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 10,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-api-2": {
+      "lines": 203,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-bots": {
+      "lines": 98,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    }
+  },
+  "partitions": {
+    "18080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "28080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  },
+  "stack": "2026-09-25T01:01:44.7134307+00:00",
+  "host": {
+    "before": {
+      "at": "2026-09-25T01:01:44.7110406Z",
+      "cpuTotalPct": [
+        11.3,
+        37.3,
+        41.8,
+        40.0,
+        38.0
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-25T01:08:30.6179153Z",
+      "cpuTotalPct": [
+        5.9,
+        4.8,
+        4.2,
+        4.2,
+        4.2
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    }
+  },
+  "containerLogs": {
+    "chaos-api-1": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\B1\\chaos-api-1.log",
+      "sha256": "f0badf3616ad7241803084f064ad2c32aa1abef6e405875c4ead4225b6a96df4",
+      "bytes": 148963
+    },
+    "chaos-api-2": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\B1\\chaos-api-2.log",
+      "sha256": "a7836eaed88ab2ccdffea3811155f1cdc604008430fce432ea494ab25ea2b747",
+      "bytes": 56019
+    },
+    "chaos-bots": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\B1\\chaos-bots.log",
+      "sha256": "a716d8be215a377e57c268fc998093e450e7e50c83cf310cc2825d7e86e65f11",
+      "bytes": 15134
+    },
+    "chaos-lb": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4b3-logs\\B1\\chaos-lb.log",
+      "sha256": "454a801642ca7cb1cba401f4158b7653ec091a27af27a823502f77ec92a6bbae",
+      "bytes": 2314324
+    }
+  }
+}

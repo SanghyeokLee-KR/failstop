@@ -1,0 +1,7 @@
+== R5 small perclient N=200 auto-delete 03:15:06Z
+{"mode": "perclient", "requested": 200, "open": 200, "errors": 0, "setup_seconds": 1.45, "hold_seconds": 40.0, "auto_delete": true}
+pml-probe-rabbit 218.4MiB / 320MiB
+Memory alarm on node rabbit@3c41a67cbe6d
+stomp conns: 201
+queues: 2801
+after-close pml-probe-rabbit 152.4MiB / 320MiB

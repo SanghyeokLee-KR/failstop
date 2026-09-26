@@ -1,0 +1,19 @@
+patroni-k6|grafana/k6:1.4.0|Up 34 seconds
+patroni-ackrec|exchange-patroni-db:local|Up 35 seconds
+patroni-bots|exchange-chaos-app:patroni|Up 35 seconds
+patroni-lb|nginx:1.29|Up 48 seconds
+patroni-api-2|exchange-chaos-app:patroni|Up 48 seconds (healthy)
+patroni-api-1|exchange-chaos-app:patroni|Up About a minute (healthy)
+patroni-toolbox|exchange-patroni-db:local|Up About a minute
+patroni-db-2|exchange-patroni-db:local|Up About a minute (healthy)
+patroni-db-1|exchange-patroni-db:local|Up About a minute (healthy)
+patroni-toxiproxy|ghcr.io/shopify/toxiproxy:2.12.0|Up About a minute
+patroni-haproxy-b|haproxy:3.0.27-alpine|Up About a minute
+patroni-prometheus|prom/prometheus:v3.13.0|Up About a minute
+patroni-etcd-2|quay.io/coreos/etcd:v3.5.34|Up About a minute
+patroni-haproxy-2|haproxy:3.0.27-alpine|Up About a minute
+patroni-haproxy-1|haproxy:3.0.27-alpine|Up About a minute
+patroni-etcd-3|quay.io/coreos/etcd:v3.5.34|Up About a minute
+patroni-etcd-1|quay.io/coreos/etcd:v3.5.34|Up About a minute
+patroni-pg-exporter-1|quay.io/prometheuscommunity/postgres-exporter:v0.17.1|Up About a minute
+patroni-pg-exporter-2|quay.io/prometheuscommunity/postgres-exporter:v0.17.1|Up About a minute

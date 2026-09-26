@@ -8,6 +8,15 @@ import { signRequest, orderCanonicalBody } from './lib/sign.js';
 
 const BASE = __ENV.BASE_URL || 'http://localhost:58080';
 const MARKET = __ENV.MARKET || 'KRW-BTC';
+// 주문 생성과 by-client 취소의 마켓 힌트 헤더(API 설계 §2-5-d, ADR 0034 S5). 기본 1, 0 이면 싣지 않는다. order_flow.js 와 같다.
+const MARKET_HINT = String(__ENV.MARKET_HINT || '1') !== '0';
+
+function hinted(headers) {
+  if (MARKET_HINT) {
+    headers['X-Exchange-Market'] = MARKET;
+  }
+  return headers;
+}
 const KEYS = JSON.parse(open(__ENV.K6_KEYS || './secrets/k6_keys.json'));
 
 // 마켓 심볼은 quote-base 순이다(markets 뷰 실측: KRW-BTC = quote KRW, base BTC).
@@ -157,7 +166,7 @@ function cancelByClient(coid, c) {
   let last = null;
   for (let a = 0; a < CANCEL_ATTEMPTS; a++) {
     const res = http.del(BASE + path, null, {
-      headers: { Authorization: signRequest('DELETE', path, '', c.access_key, c.secret) },
+      headers: hinted({ Authorization: signRequest('DELETE', path, '', c.access_key, c.secret) }),
       tags: { name: 'cancel' },
     });
     last = res;
@@ -249,10 +258,10 @@ export default function () {
     const body = orderCanonicalBody(o);
     const path = '/api/v1/orders';
     const res = http.post(BASE + path, body, {
-      headers: {
+      headers: hinted({
         'Content-Type': 'application/json',
         Authorization: signRequest('POST', path, body, c.access_key, c.secret),
-      },
+      }),
       tags: { name: 'placeOrder' },
     });
     // 429는 정상이다. 수용 게이트가 살아 있다는 뜻이지 설정 오류가 아니다.

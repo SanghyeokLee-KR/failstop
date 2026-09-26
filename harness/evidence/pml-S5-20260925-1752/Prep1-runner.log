@@ -1,0 +1,11 @@
+2026-09-25T17:54:09+09:00 [Prep/default] PHASE Prep project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T17:54:09+09:00 [Prep/default] volumes before unchanged
+2026-09-25T17:54:10+09:00 [Prep/default] previous :pml sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095 created 2026-09-25T06:19:09.001685735Z; exchange-chaos-app:s5ref=sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095 newRefIfChanged=exchange-chaos-app:s5r2ref
+2026-09-25T17:54:10+09:00 [Prep/default] RUN pwsh -NoProfile -File harness\scripts\up.ps1 -Obs
+2026-09-25T17:54:29+09:00 [Prep/default] RC 1
+2026-09-25T17:54:29+09:00 [Prep/default] volumes after unchanged
+Exception: C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\run-s5-gate.ps1:1015
+Line |
+1015 |              if ($urc -ne 0) { throw "up.ps1 실패(rc=$urc)" }
+     |                                ~~~~~~~~~~~~~~~~~~~~~~~~~~에서
+     | up.ps1 실패(rc=1)

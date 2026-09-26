@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.OrderCommand;
@@ -14,6 +15,7 @@ import kr.exchange.journal.EventPayloads;
 import kr.exchange.journal.EventSeqBlock;
 import kr.exchange.journal.FencingErrors;
 import kr.exchange.journal.JournalEntry;
+import kr.exchange.journal.SqlErrors;
 import kr.exchange.journal.StaleLeaderException;
 import kr.exchange.journal.TransientDbErrors;
 import org.slf4j.Logger;
@@ -46,10 +48,18 @@ import java.util.concurrent.atomic.LongAdder;
  * 정산도 이미 커밋된 것이므로 통째로 스킵한다. 레지스트리 23505는 동시 stale 라이터에
  * 대한 최후 안전망으로 남는다(트랜잭션 abort 후 fencing 경로로 수렴).
  *
- * ACCEPTED 예약 실패(잔고 부족 23514)는 배치 전체 롤백 + fail-fast다. 정본(§5.1)은
- * 잔고 부족을 접수 트랜잭션에서 REJECTED로 종결하지만, 그 판정은 게이트웨이 사전 예약
- * 검증(M1-4)의 몫이다. 엔진이 이미 수락·매칭한 뒤의 사후 거절은 오더북과 저널의
- * disposition을 가르므로 여기서는 무결성 위반으로 취급해 루프를 세운다.
+ * 예약은 리더 모드에 따라 두 갈래다(DB 설계 §5.1 v2.54, ADR 0034 S3). P2 이상에서 접수한 주문 생성 명령은 접수
+ * 트랜잭션이 이미 예약했고 order_reservations 에 한 행을 남겼다. 정산은 그 행을 권위로 써 reserve_funds 를 다시 부르지
+ * 않고, 거부된 주문은 조기 반환보다 먼저 그 예약을 푼다. 예약 행이 없는 명령(P1 에서 접수)은 종전처럼 정산 시점에
+ * 예약한다. 두 갈래는 영구히 함께 남는다.
+ *
+ * 정산 시점 예약 실패(잔고 부족 23514)는 배치 전체 롤백 + fail-fast다. P1 에서 그 판정은 게이트웨이 사전 가드의
+ * 몫이고, P2 에서는 접수 예약이 먼저 걸러 버그가 없는 한 도달하지 않는다. 어느 쪽이든 엔진이 이미 수락·매칭한 뒤의
+ * 사후 거절은 오더북과 저널의 disposition을 가르므로 무결성 위반으로 취급해 루프를 세우고 지표로 경보한다.
+ *
+ * 잔고 행 잠금(DB 설계 §5.0 v2.54 트랜잭션 단위 규칙). 배치는 원장 게시를 여러 번 한다(P1 예약, TRADE 마다 한 번, 해제).
+ * 게시 하나 안의 account_id 오름차순만으로는 배치 전체의 순서가 어긋나 P2 접수 예약과 순환이 생긴다(S3 설계 11절 R6).
+ * 그래서 첫 게시 직전에 배치가 게시할 수 있는 잔고 행 전체(잠금 계획)를 lock_balance_rows 로 오름차순 한 번에 잡는다.
  *
  * 일시 DB 오류(잠금 대기 초과, 문장 취소, 교착, 직렬화 실패)는 배치 전체를 제한 안에서 다시 돌린다. 실패한
  * 시도는 커밋 전에 롤백되고 다음 시도는 위 레지스트리 멱등 판정부터 다시 하므로 이중 정산이 생기지 않는다.
@@ -61,22 +71,22 @@ public class SettlementService {
     private static final Logger log = LoggerFactory.getLogger(SettlementService.class);
 
     private static final short PAYLOAD_SCHEMA_VERSION = 1;
-    // 일시 DB 오류의 재시도 제한. 시도 수(첫 시도 포함)와 경과 시간 중 먼저 닿는 쪽에서 멈춘다.
+    // 일시 DB 오류의 재시도 제한(DB 설계 §5.4 v2.56). 시도 수(첫 시도 포함)와 경과 시간 중 먼저 닿는 쪽에서 멈춘다.
     //
-    // 대기 상한은 시도마다 두 배(100, 200, 400밀리초)이고 실제 대기는 그 절반에서 상한 사이의 무작위 값이다. 여러 마켓
+    // 대기 상한은 100, 200밀리초 뒤로 400밀리초이고 실제 대기는 그 절반에서 상한 사이의 무작위 값이다. 여러 마켓
     // 라이터가 같은 DB 정체에서 한꺼번에 실패해도 같은 순간에 다시 몰리지 않게 흩는다.
     //
     // 시도 수만으로는 시간이 묶이지 않는다. 한 시도는 여러 문장을 보내고 문장마다 prod 기본 풀의 lock_timeout 2초나
-    // statement_timeout 3초까지 기다릴 수 있다. 57014 도 재시도하므로 네 시도가 모두 3초 문장 취소로 끝나면 대기까지
-    // 약 12.7초다. 그래서 첫 시도 시작부터 RETRY_DEADLINE 이 지나면 새 시도를 열지 않는다. 최악은 대략 이 기한에 마지막
-    // 한 시도의 길이를 더한 값이다. 잠금 대기 초과는 그 문장에서 시도를 끝내므로 흔한 경우는 기한 + 2초 안쪽이고,
-    // 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길 수 있다. 이 시간만큼 라이터 한 마켓이 멈추고, 승격 재생의
-    // 크래시 창 재정산도 같은 경로라 그만큼 길어진다(좀비 판정 창 45초, in-flight 예약 TTL 30초와 비교할 값이다).
-    private static final int MAX_ATTEMPTS = 4;
+    // statement_timeout 3초까지 기다릴 수 있다. 그래서 첫 시도 시작부터 RETRY_DEADLINE 이 지나면 새 시도를 열지 않는다.
+    // 최악은 대략 이 기한에 마지막 한 시도의 길이를 더한 값이다. 잠금 대기 초과는 그 문장에서 시도를 끝내므로 흔한 경우는
+    // 기한 + 2초 안쪽이고, 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길 수 있다. 이 시간만큼 라이터 한 마켓이 멈추고,
+    // 승격 재생의 크래시 창 재정산도 같은 경로라 그만큼 길어진다(좀비 판정 창 45초, in-flight 예약 TTL 30초보다 짧아야 한다).
+    // 15초는 멈춘 트랜잭션을 끊는 idle_in_transaction_session_timeout(카오스 10초)에 잠금 대기 초과 2초와 여유를 더한 값이다.
+    private static final int MAX_ATTEMPTS = 8;
     private static final long RETRY_BACKOFF_MS = 100;
-    private static final long DEFAULT_RETRY_DEADLINE_MS = 5_000;
-    /** 수수료 샤드 수 K=1 박제. K 변경은 재생·catch-up의 샤드 배정 동일성을 깬다(DB 설계 §1.2). */
-    private static final int FEE_SHARD = 0;
+    private static final long MAX_RETRY_BACKOFF_MS = 400;
+    private static final long DEFAULT_RETRY_DEADLINE_MS = 15_000;
+
     /** notional(quote 지정) 매수의 quote 소진 scale. 엔진 소진액 규약과 동일해야 이벤트
      * 합산 재구성과 어긋나지 않는다(DB 설계 §5.2). 게이트 가드 아닌 산식 상수로 박제한다. */
     private static final int NOTIONAL_SOAK_SCALE = 18;
@@ -88,9 +98,9 @@ public class SettlementService {
      * 적재됐는지 세는 멱등 탐침, (3) 정산 대상 명령 읽기다. 셋 다 cmdSeq 하나로 정해지는
      * 조회이고 서로의 결과를 입력으로 쓰지 않는다. 그래서 한 문장에 담을 수 있다.
      *
-     * (1) 은 V30 이 이미 두 문장을 하나로 합쳐 둔 것이다. assert_current_leader 호출과
-     * FOR SHARE 조회를 따로 보내던 것을 함수 하나가 겸한다. 거부 시 예외 메시지가 종전과
-     * 같아 FencingErrors 의 강등 분류가 바뀌지 않는다. 그 성질은 여기서도 그대로다.
+     * (1) 은 assert_and_lock_market_leader(V48) 한 함수가 판정과 잠금을 겸한다. 리스 행은 정산할 명령 행의 마켓에서
+     * 찾고, 명령 행이 없을 때만 배치 마켓을 쓴다(DB 설계 §5.4-b). P1 에서는 matching-engine 행이라 판정·잠금·거부
+     * 문구가 V41 의 assert_and_lock_leader 와 같고 FencingErrors 의 강등 분류가 바뀌지 않는다.
      *
      * 왜 하는가. 2026-09-10 실측에서 명령 하나의 직렬 시간 21.36밀리초 중 매칭이 0.02 이고
      * 나머지가 전부 정산이었다. 대기 사유는 행 잠금이 3.8퍼센트뿐이라 경합이 아니었다.
@@ -98,22 +108,54 @@ public class SettlementService {
      * 이번은 그 자리에 (2) 와 (3) 을 마저 붙인다.
      *
      * 왜 이 모양인가. 한 행짜리 원천에 command_journal 을 LEFT JOIN 한다. 안쪽 조인으로 두면
-     * 명령 행이 없을 때 결과가 0행이 되고, 그러면 assert_and_lock_leader 가 아예 실행되지
-     * 않아 fencing 거부와 명령 부재를 가릴 수 없게 된다. LEFT JOIN 이면 언제나 한 행이고
-     * 판정 순서를 종전과 같이 유지할 수 있다.
+     * 명령 행이 없을 때 결과가 0행이 되고, 그러면 판정 함수가 아예 실행되지
+     * 않아 fencing 거부와 명령 부재를 가릴 수 없게 된다. LEFT JOIN 이면 언제나 한 행이다.
      *
-     * 판정 순서는 바뀌지 않는다. 리스 거부, 멱등 스킵, 부분 적재, 명령 부재 순이다.
+     * 판정 순서는 리스 거부, 마켓 불일치, 멱등 스킵, 부분 적재, 명령 부재다.
+     *
+     * (4) 예약 행(V50 order_reservations)도 같은 왕복에 싣는다(ADR 0034 S3, S3 설계 4-8). 열 이름이 명령 행과 겹치므로
+     * (market_id, user_id) 별칭을 단 파생 표로 붙인다. 왕복 수는 그대로다.
      */
     private static final String PROLOGUE_SQL =
-            "SELECT assert_and_lock_leader(?, ?) AS epoch,"
+            "SELECT assert_and_lock_market_leader(COALESCE(market_id, ?::smallint), ?, ?) AS epoch,"
             + " (SELECT count(*) FROM event_emission_registry"
             + "   WHERE source_cmd_seq = ?) AS registered,"
-            + " " + CommandJournalReader.ENTRY_COLUMNS
+            + " " + CommandJournalReader.ENTRY_COLUMNS + ","
+            + " res.res_order_id, res.res_user_id, res.res_market_id, res.res_asset_id,"
+            + " res.res_available_account_id, res.res_locked_account_id, res.res_amount"
             + " FROM (VALUES (1)) AS one(x)"
-            + " LEFT JOIN command_journal ON seq = ?";
+            + " LEFT JOIN command_journal ON seq = ?"
+            + " LEFT JOIN (SELECT r.order_id AS res_order_id, r.user_id AS res_user_id, r.market_id AS res_market_id,"
+            + "                   r.asset_id AS res_asset_id, r.available_account_id AS res_available_account_id,"
+            + "                   r.locked_account_id AS res_locked_account_id, r.amount AS res_amount"
+            + "              FROM order_reservations r WHERE r.command_seq = ?) res ON true";
 
-    /** 머리말 한 왕복의 결과. entry 는 명령 행이 없으면 null 이다. */
-    private record Prologue(Long epoch, long registered, JournalEntry entry) {
+    /** 머리말 한 왕복의 결과. entry 는 명령 행이 없으면 null 이고 reservation 은 예약 행이 없으면 null 이다. */
+    private record Prologue(Long epoch, long registered, JournalEntry entry, Reservation reservation) {
+    }
+
+    /** 접수 트랜잭션이 남긴 예약 행(V50). 정산은 이 금액과 계정을 권위로 쓴다. */
+    private record Reservation(long orderId, long userId, int marketId, short assetId, long availableAccountId,
+                               long lockedAccountId, BigDecimal amount) {
+    }
+
+    /**
+     * 배치 하나의 정산 상태. 잠금 계획은 배치가 게시할 수 있는 잔고 행 계정 id 의 오름차순 목록이고 첫 게시 직전에 한 번
+     * 잡는다. 계획이 꺼져 있으면(시험 주입점) plan 이 null 이다.
+     */
+    private static final class Batch {
+        final long cmdSeq;
+        final Reservation reservation;
+        final long[] plan;
+        final java.util.Set<Long> planned;
+        boolean locked;
+
+        Batch(long cmdSeq, Reservation reservation, java.util.SortedSet<Long> plan) {
+            this.cmdSeq = cmdSeq;
+            this.reservation = reservation;
+            this.plan = plan == null ? null : plan.stream().mapToLong(Long::longValue).toArray();
+            this.planned = plan;
+        }
     }
 
     private static final String INSERT_EVENT_SQL = """
@@ -147,7 +189,10 @@ public class SettlementService {
     private final TransactionTemplate tx;
     // 접수 경로를 깨우는 신호. 없으면(구 생성자) 신호를 보내지 않고 접수는 폴링으로 돈다.
     private ProjectionSignal projectionSignal;
+    // 기간 없는 종전 경로(appendAndSettle 한 인자)만 쓴다. 파티션 배선은 루프의 기간으로 쓴다.
     private final LeaderLeaseService lease;
+    // 수수료 샤드를 정하는 계획. null 이면 샤드 0 하나다(P1·P2 와 같다).
+    private volatile kr.exchange.engine.PartitionPlan partitionPlan;
     private final ObjectMapper objectMapper;
     private final MarketCatalog catalog;
     private final CommandPayloadMapper payloadMapper;
@@ -156,13 +201,33 @@ public class SettlementService {
     private final LeaderWriteProgress progress;
     // 계정 id는 계정 생성 시점에 확정되고 (owner, purpose, asset, shard)당 불변이라 캐시한다.
     // 체결마다 5~6회 왕복하던 매핑 조회를 제거한다. 성공 조회만 저장하고 미스는 캐시하지 않는다.
-    private final Map<Short, Long> feeAccountCache = new ConcurrentHashMap<>();
+    private final Map<FeeAccountKey, Long> feeAccountCache = new ConcurrentHashMap<>();
     private final Map<UserAccountKey, Long> userAccountCache = new ConcurrentHashMap<>();
     private final LongAdder transientRetries = new LongAdder();
+    private final Map<String, LongAdder> transientRetriesByState = new ConcurrentHashMap<>();
     private final LongAdder transientExhausted = new LongAdder();
+    // 정산이 잔고 부족(23514 chk_balance_nonneg)으로 끝난 수. P2 에서는 버그 신호다(S3 설계 4-8, 4-16).
+    private final LongAdder insufficientFunds = new LongAdder();
+    // 정산 게시가 잠금 계획 밖의 계정을 쓴 수. 0 이어야 한다(S3 설계 4-13).
+    private final LongAdder lockPlanMisses = new LongAdder();
+    // 잠금 계획을 잡은 배치 수. 시험이 계획이 실제로 돌았음을 보이는 양성 축이다.
+    private final LongAdder lockPlansTaken = new LongAdder();
     private volatile long retryDeadlineNanos = TimeUnit.MILLISECONDS.toNanos(DEFAULT_RETRY_DEADLINE_MS);
+    // 시험 주입점 셋. 운영 배선은 계획을 늘 켜고 훅과 계획 줄이기를 두지 않는다.
+    private volatile boolean lockPlanEnabled = true;
+    private volatile PostHook postHook;
+    private volatile java.util.function.LongPredicate lockPlanTrim;
+
+    /** 원장 게시 하나가 끝난 직후 부르는 시험 훅. kind 는 RESERVE·RELEASE·TRADE 다. 트랜잭션 안에서 돈다. */
+    @FunctionalInterface
+    interface PostHook {
+        void afterPost(String kind, long cmdSeq);
+    }
 
     private record UserAccountKey(long userId, String purpose, short assetId) {
+    }
+
+    private record FeeAccountKey(short assetId, int shard) {
     }
 
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
@@ -185,6 +250,28 @@ public class SettlementService {
         this.progress = progress;
     }
 
+    /** 수수료 샤드를 정할 파티션 계획을 붙인다. 붙이지 않으면 샤드 0 하나다. */
+    public void setPartitionPlan(kr.exchange.engine.PartitionPlan plan) {
+        this.partitionPlan = plan;
+    }
+
+    /**
+     * 체결 수수료를 게시할 FEE_INCOME 계정의 샤드(DB 설계 §1.2, §5.4-c 11, ADR 0034 결정 10). P1·P2 는 0 하나이고, 파티션
+     * 리더 모드(P3)는 그 마켓 파티션의 번호다. 두 파티션의 정산이 같은 수수료 잔고 행을 다투지 않게 하려는 것이다. 값은
+     * 마켓에서만 정해지므로 재생·재정산이 같은 샤드를 고른다.
+     */
+    int feeShard(int marketId) {
+        kr.exchange.engine.PartitionPlan plan = partitionPlan;
+        if (plan == null || !plan.partitioned()) {
+            return 0;
+        }
+        String resource = plan.partitionOf(marketId);
+        if (resource == null) {
+            throw new IllegalStateException("마켓의 리스 파티션 대응이 없다: market=" + marketId);
+        }
+        return plan.index(resource);
+    }
+
     /**
      * 접수 경로 깨우기 신호를 붙인다. 선택 배선이다. 붙이지 않으면 정산은 신호를 보내지 않고
      * 접수는 종전 폴링으로 돈다. 생성자를 늘리지 않는 이유는 기존 호출부와 테스트가 여섯 곳이라
@@ -204,16 +291,67 @@ public class SettlementService {
         return transientExhausted.sum();
     }
 
+    /** 그 SQLSTATE 의 일시 DB 오류로 배치를 다시 돌린 횟수. 40P01 몫은 잠금 계획 뒤 결함 신호다(S3 설계 4-14). */
+    public long transientRetries(String sqlState) {
+        LongAdder n = transientRetriesByState.get(sqlState);
+        return n == null ? 0 : n.sum();
+    }
+
+    /** 정산이 잔고 부족(23514 chk_balance_nonneg)으로 끝난 수. 1 이상이면 경보 대상이다(SettlementInsufficientFunds). */
+    public long insufficientFunds() {
+        return insufficientFunds.sum();
+    }
+
+    /** 정산 게시가 잠금 계획 밖 계정을 쓴 수. 교착 가능성 신호이고 0 이어야 한다. */
+    public long lockPlanMisses() {
+        return lockPlanMisses.sum();
+    }
+
+    /** 잠금 계획을 잡은 배치 수. */
+    public long lockPlansTaken() {
+        return lockPlansTaken.sum();
+    }
+
+    /** 잠금 계획을 끈다. 교착 재현 시험의 양성 축 전용이다(SettlementLockPlanTest). */
+    void setLockPlanEnabled(boolean enabled) {
+        this.lockPlanEnabled = enabled;
+    }
+
+    /** 게시 직후 훅을 건다. 시험 전용이다. */
+    void setPostHook(PostHook hook) {
+        this.postHook = hook;
+    }
+
     /**
-     * 재시도 경과 기한을 바꾼다. 첫 시도 시작부터 이 시간이 지나면 새 시도를 열지 않는다. 기본 5초다.
+     * 계획을 만든 뒤 조건에 맞는 계정을 뺀다. 시험 전용이다. 계획 밖 게시를 세는 계수(lock_plan.miss)가 실제로 오르는지 보이는
+     * 양성 축에 쓴다(SettlementLockPlanTest). 운영 코드에는 계획이 게시 계정을 빠뜨리는 경로가 없어 이것 없이는 그 계수를 올릴
+     * 수 없다.
+     */
+    void setLockPlanTrim(java.util.function.LongPredicate trim) {
+        this.lockPlanTrim = trim;
+    }
+
+    /**
+     * 재시도 경과 기한을 바꾼다. 첫 시도 시작부터 이 시간이 지나면 새 시도를 열지 않는다. 기본 15초다.
      * 운영 배선은 기본값을 쓴다. 시험이 시도 수보다 기한이 먼저 닿는 경로를 만들 때 쓴다.
      */
     public void setRetryDeadline(java.time.Duration deadline) {
         this.retryDeadlineNanos = deadline.toNanos();
     }
 
-    /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. */
+    /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. 리스 서비스가 지금 쥔 epoch 로 쓴다. */
     public List<EngineEvent> appendAndSettle(List<EngineEvent> events) {
+        if (lease == null) {
+            throw new IllegalStateException("파티션 배선의 정산은 루프의 기간을 받는다");
+        }
+        return appendAndSettle(null, events);
+    }
+
+    /**
+     * 기간을 쥔 정산(DB 설계 §5.4-c 6). 재시도의 시도마다 기간이 여전히 현재인지 보고, 그 기간의 epoch 로 판정을 받는다. 강등
+     * 전 루프의 재시도가 재승격 뒤에 깨어나도 새 epoch 를 빌리지 못한다.
+     */
+    public List<EngineEvent> appendAndSettle(LeaderTerm term, List<EngineEvent> events) {
         if (events.isEmpty()) {
             return List.of();
         }
@@ -228,7 +366,7 @@ public class SettlementService {
         long startedAt = System.nanoTime();
         for (int attempt = 1; ; attempt++) {
             try {
-                return settleOnce(cmdSeq, events);
+                return settleOnce(term, cmdSeq, events);
             } catch (DataAccessException e) {
                 if (!TransientDbErrors.isRetryable(e)) {
                     throw e;
@@ -245,6 +383,8 @@ public class SettlementService {
                     throw e;
                 }
                 transientRetries.increment();
+                transientRetriesByState.computeIfAbsent(String.valueOf(TransientDbErrors.sqlState(e)),
+                        k -> new LongAdder()).increment();
                 log.warn("정산 일시 DB 오류, 배치를 다시 돌린다: cmd_seq={}, sqlstate={}, 시도={}/{}, 대기_ms={}, 원인={}",
                         cmdSeq, TransientDbErrors.sqlState(e), attempt, MAX_ATTEMPTS, backoffMs,
                         e.getMostSpecificCause().getMessage());
@@ -259,19 +399,22 @@ public class SettlementService {
         }
     }
 
-    /** attempt 번째 실패 뒤의 대기. 상한의 절반에서 상한 사이 무작위 값이다(50~100, 100~200, 200~400밀리초). */
+    /** attempt 번째 실패 뒤의 대기. 상한의 절반에서 상한 사이 무작위 값이다(50~100, 100~200, 그 뒤 200~400밀리초). */
     private static long backoffMs(int attempt) {
-        long cap = RETRY_BACKOFF_MS << (attempt - 1);
+        long cap = Math.min(MAX_RETRY_BACKOFF_MS, RETRY_BACKOFF_MS << (attempt - 1));
         return cap / 2 + ThreadLocalRandom.current().nextLong(cap / 2 + 1);
     }
 
-    private List<EngineEvent> settleOnce(long cmdSeq, List<EngineEvent> events) {
-        // 시도마다 로컬 리더십을 다시 본다. 대기 중에 강등됐으면 DB 왕복 없이 멈춘다.
-        LeaderIdentity leader = lease.requireLeader();
+    private List<EngineEvent> settleOnce(LeaderTerm term, long cmdSeq, List<EngineEvent> events) {
+        // 시도마다 로컬 리더십을 다시 본다. 대기 중에 강등됐으면 DB 왕복 없이 멈춘다. 기간을 쥐었으면 그 기간이어야 한다.
+        LeaderIdentity leader = term == null ? lease.requireLeader() : term.requireCurrent();
         try {
             List<EngineEvent> settled = tx.execute(status -> settleInTx(leader, cmdSeq, events));
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
+            if (term != null) {
+                term.progress().recordCompletion();
+            }
             // 커밋 뒤에만 깨운다. 커밋 전에 깨우면 접수가 조회해도 행이 아직 안 보인다.
             // 신호 실패가 정산 결과를 바꾸면 안 되므로 예외를 삼킨다. 놓친 접수는 폴링으로 간다.
             if (projectionSignal != null) {
@@ -290,33 +433,64 @@ public class SettlementService {
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류). 거부
             // 즉시 강등하면 정당한 현재 리더가 일시 원인으로 영구 후보에서 빠진다.
-            lease.demoteUnlessStillLeader(e.getMessage());
+            demoteUnlessStillLeader(term, e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demoteUnlessStillLeader(
+                demoteUnlessStillLeader(term,
                         "assert_current_leader 거부(정산): " + FencingErrors.rejectionDetail(e));
+            }
+            if (SqlErrors.isInsufficientFunds(e)) {
+                // 정산 시점 잔고 부족. P1 에서는 사전 가드를 통과한 명령의 무결성 위반이고 P2 에서는 버그 신호다. 분류는
+                // 바꾸지 않는다(재시도 대상이 아니고 라이터가 멈춘다). 경보 SettlementInsufficientFunds 가 이 계수를 본다.
+                insufficientFunds.increment();
+                log.error("정산이 잔고 부족(23514 chk_balance_nonneg)으로 끝났다. 라이터가 멈춘다: cmd_seq={}, 원인={}",
+                        cmdSeq, e.getMostSpecificCause().getMessage());
             }
             throw e;
         }
     }
 
+    private void demoteUnlessStillLeader(LeaderTerm term, String reason) {
+        if (term != null) {
+            term.demoteUnlessStillLeader(reason);
+        } else {
+            lease.demoteUnlessStillLeader(reason);
+        }
+    }
+
     private List<EngineEvent> settleInTx(LeaderIdentity leader, long cmdSeq, List<EngineEvent> events) {
-        // 머리말 한 왕복. fencing 검증과 FOR KEY SHARE 잠금(V41)에 멱등 탐침과 명령 읽기를
-        // 함께 실어 세 왕복을 하나로 줄인다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
-        // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
+        // 머리말 한 왕복. fencing 검증과 FOR KEY SHARE 잠금에 멱등 탐침과 명령 읽기를
+        // 함께 실어 세 왕복을 하나로 줄인다. 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
+        int batchMarket = events.get(0).marketId();
         Prologue prologue = jdbc.sql(PROLOGUE_SQL)
-                .params(leader.holder(), leader.epoch(), cmdSeq, cmdSeq)
+                .params(batchMarket, leader.holder(), leader.epoch(), cmdSeq, cmdSeq, cmdSeq)
                 .query((rs, rowNum) -> new Prologue(
                         (Long) rs.getObject("epoch"),
                         rs.getLong("registered"),
-                        rs.getObject("seq") == null ? null : CommandJournalReader.mapEntry(rs)))
+                        rs.getObject("seq") == null ? null : CommandJournalReader.mapEntry(rs),
+                        rs.getObject("res_order_id") == null ? null : new Reservation(
+                                rs.getLong("res_order_id"), rs.getLong("res_user_id"), rs.getInt("res_market_id"),
+                                rs.getShort("res_asset_id"), rs.getLong("res_available_account_id"),
+                                rs.getLong("res_locked_account_id"), rs.getBigDecimal("res_amount"))))
                 .single();
 
         Long epoch = prologue.epoch();
         if (epoch == null) {
             throw new StaleLeaderException(
                     "stale 리더 정산 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
+        }
+
+        // 잠근 리스는 명령 행의 마켓에서 찾았다. 기록할 행이 다른 마켓이면 그 마켓의 리스 판정 없이 쓰게 된다.
+        for (EngineEvent event : events) {
+            if (event.marketId() != batchMarket) {
+                throw new IllegalStateException("정산 배치가 한 마켓이 아니다: cmd_seq=" + cmdSeq
+                        + ", 마켓 " + batchMarket + " vs " + event.marketId());
+            }
+        }
+        if (prologue.entry() != null && prologue.entry().marketId() != batchMarket) {
+            throw new IllegalStateException("정산 배치 마켓이 명령 행 마켓과 다르다: cmd_seq=" + cmdSeq
+                    + ", 명령 마켓=" + prologue.entry().marketId() + ", 배치 마켓=" + batchMarket);
         }
 
         long registered = prologue.registered();
@@ -336,10 +510,17 @@ public class SettlementService {
         }
         OrderCommand command = payloadMapper.toCommand(entry);
         CommandPayloadMapper.Extras extras = payloadMapper.extras(entry);
+        Reservation reservation = prologue.reservation();
+        if (reservation != null && command.type() != OrderCommand.CommandType.NEW) {
+            // 머리말은 주문 생성 명령에만 예약한다(DB 설계 §3.5). 연결 손상이라 재시도로 풀리지 않는다.
+            throw new IllegalStateException("예약 행이 주문 생성이 아닌 명령에 붙어 있다: cmd_seq=" + cmdSeq);
+        }
 
         // 마켓별 채번(ADR 0021). 한 정산 배치는 명령 하나의 방출분이고 명령은 마켓 하나에 속하므로
         // 배치 전체가 같은 마켓이다. 그래서 채번이 배치당 한 번이다. event_seq 파생은 DB 가 한다(V46).
         int marketId = command.marketId();
+        Batch batch = new Batch(cmdSeq, reservation,
+                lockPlanEnabled ? lockPlan(command, catalog.meta(marketId), events) : null);
         EventSeqBlock start = EventSeqBlock.allocate(jdbc, marketId, events.size());
 
         List<EngineEvent> assigned = new ArrayList<>(events.size());
@@ -352,10 +533,10 @@ public class SettlementService {
                     : null;
             insertEvent(epoch, event, fees, marketId, marketSeq);
             switch (event.type()) {
-                case ACCEPTED -> settleAccepted(command, extras);
-                case REJECTED -> settleRejected(command, extras, event);
-                case TRADE -> settleTrade(event, fees, epoch);
-                case CANCELED -> settleCanceled(event);
+                case ACCEPTED -> settleAccepted(batch, command, extras);
+                case REJECTED -> settleRejected(batch, command, extras, event);
+                case TRADE -> settleTrade(batch, event, fees, epoch);
+                case CANCELED -> settleCanceled(batch, event);
             }
             assigned.add(event);
         }
@@ -363,10 +544,100 @@ public class SettlementService {
     }
 
     // ------------------------------------------------------------------
+    // 잔고 행 잠금 계획(DB 설계 §5.0 v2.54, ADR 0034 S3, S3 설계 4-13)
+    // ------------------------------------------------------------------
+
+    /**
+     * 배치가 게시할 수 있는 잔고 행의 계정 id. 명령 사용자(taker 이자 취소되는 주문의 주인)의 그 마켓 base·quote 자산
+     * AVAILABLE·LOCKED 네 행, 배치의 TRADE 마다 maker 사용자의 같은 네 행, TRADE 가 있으면 두 자산의 FEE_INCOME 행이다.
+     *
+     * 이 합집합이 정산 게시를 모두 덮는 근거는 코드다. ACCEPTED 예약(P1)과 REJECTED 해제(P2)는 명령 사용자의 예약 자산
+     * AVAILABLE·LOCKED 만 쓴다. TRADE 분개는 매수자·매도자의 AVAILABLE·LOCKED 와 두 FEE_INCOME 만 쓰고 매수자·매도자는
+     * taker 와 maker 뿐이다. CANCELED 해제는 취소되는 주문 주인의 두 행만 쓰는데, 엔진은 CANCEL 을 소유자 대조로만 처리하고
+     * STP 도 같은 사용자 주문만 건드린다(OrderBookImpl). 계정은 캐시된 조회로 풀고 없는 계정은 뺀다. 그 계정을 실제로 쓰는
+     * 게시는 종전처럼 게시 단계에서 멈춘다.
+     *
+     * 계획은 조금 넓다. 배치가 쓰지 않을 자산의 두 행과 maker 의 쓰지 않을 두 행도 잡으므로 같은 사용자의 다른 접수·출금이
+     * 이 배치 커밋까지 기다리는 일이 는다. 교착과 달리 유계다. 수수료 행을 빼면 시스템 계정(id 가 작다)을 사용자 행 뒤에
+     * 잡게 되어 순서가 다시 깨지므로 빼지 않는다.
+     */
+    private java.util.SortedSet<Long> lockPlan(OrderCommand command, MarketCatalog.MarketMeta meta,
+                                               List<EngineEvent> events) {
+        java.util.SortedSet<Long> plan = new java.util.TreeSet<>();
+        addUserRows(plan, command.userId(), meta);
+        boolean trades = false;
+        for (EngineEvent event : events) {
+            if (event.type() == EngineEvent.EventType.TRADE) {
+                trades = true;
+                if (event.makerUserId() != null) {
+                    addUserRows(plan, event.makerUserId(), meta);
+                }
+            }
+        }
+        if (trades) {
+            int shard = feeShard(command.marketId());
+            addIfPresent(plan, optionalFeeAccount(meta.baseAssetId(), shard));
+            addIfPresent(plan, optionalFeeAccount(meta.quoteAssetId(), shard));
+        }
+        java.util.function.LongPredicate trim = lockPlanTrim;
+        if (trim != null) {
+            plan.removeIf(trim::test);
+        }
+        return plan;
+    }
+
+    private void addUserRows(java.util.SortedSet<Long> plan, long userId, MarketCatalog.MarketMeta meta) {
+        for (short asset : new short[] {meta.baseAssetId(), meta.quoteAssetId()}) {
+            addIfPresent(plan, optionalUserAccount(userId, "AVAILABLE", asset));
+            addIfPresent(plan, optionalUserAccount(userId, "LOCKED", asset));
+        }
+    }
+
+    private static void addIfPresent(java.util.SortedSet<Long> plan, Long accountId) {
+        if (accountId != null) {
+            plan.add(accountId);
+        }
+    }
+
+    /**
+     * 원장 게시 하나 직전. 배치의 첫 게시면 잠금 계획 전체를 오름차순 한 번에 잡고, 게시할 계정이 계획 안인지 본다. 벗어나면
+     * 교착 가능성일 뿐 자금 안전과는 무관하므로 라이터를 멈추지 않고 지표와 경고로 드러낸다.
+     */
+    private void beforePost(Batch batch, String kind, long... accounts) {
+        if (batch.plan == null) {
+            return;
+        }
+        if (!batch.locked) {
+            // 소유자 권한 함수다. app_role 에는 balances UPDATE 권한이 없어 행 잠금 절을 직접 쓸 수 없다(V50).
+            jdbc.sql("SELECT lock_balance_rows(?::bigint[])")
+                    .param(batch.plan)
+                    .query(Integer.class)
+                    .single();
+            batch.locked = true;
+            lockPlansTaken.increment();
+        }
+        for (long account : accounts) {
+            if (!batch.planned.contains(account)) {
+                lockPlanMisses.increment();
+                log.warn("정산 게시가 잠금 계획 밖 계정을 쓴다(교착 가능성): cmd_seq={}, 게시={}, account_id={}, 계획={}",
+                        batch.cmdSeq, kind, account, batch.planned);
+            }
+        }
+    }
+
+    /** 원장 게시 하나 직후. 시험 훅이 있으면 부른다. */
+    private void afterPost(Batch batch, String kind) {
+        PostHook hook = postHook;
+        if (hook != null) {
+            hook.afterPost(kind, batch.cmdSeq);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // ACCEPTED: 예약(§5.1) + orders 생성
     // ------------------------------------------------------------------
 
-    private void settleAccepted(OrderCommand command, CommandPayloadMapper.Extras extras) {
+    private void settleAccepted(Batch batch, OrderCommand command, CommandPayloadMapper.Extras extras) {
         if (extras.externalId() == null) {
             // external_id는 접수 전 사전 발급 박제 계약(P0-4)이다. 없으면 재생마다 값이 달라진다.
             throw new IllegalStateException("external_id 미박제 명령: seq=" + command.seq());
@@ -374,28 +645,39 @@ public class SettlementService {
         MarketCatalog.MarketMeta meta = catalog.meta(command.marketId());
         boolean notional = command.ordType() == OrderCommand.OrdType.MARKET
                 && command.side() == OrderCommand.Side.BUY;
-        short assetId;
+        short assetId = command.side() == OrderCommand.Side.BUY ? meta.quoteAssetId() : meta.baseAssetId();
+        long locked;
         BigDecimal reserve;
-        if (command.side() == OrderCommand.Side.BUY) {
-            assetId = meta.quoteAssetId();
-            // LIMIT 매수 예약은 UP 양자화. 체결별 차감이 DOWN 절사라 예약이 모자라면 중간
-            // 체결이 락 잔여를 초과한다. 초과 예약 잔차는 최종 체결의 실잔여 소비가 환급
-            // 분개로 되돌린다(§5.2 (6), API §4-B-5).
-            reserve = notional
-                    ? command.quoteOrderQty()
-                    : Fees.quantize(command.price().multiply(command.quantity()),
-                                    meta.quoteScale(), RoundingMode.UP);
+        Reservation reservation = batch.reservation;
+        if (reservation != null) {
+            // P2 접수 예약(ADR 0034 S3). 접수 트랜잭션이 이미 reserve_funds 로 잠갔다. 다시 부르면 원장 멱등 키(주문 id)
+            // 23505 로 라이터가 멈춘다. 예약 행의 금액과 계정이 권위다. 예약액의 산식 동일성은 접수 때 머리말이 대조했다.
+            requireLinked(reservation, command, assetId);
+            locked = reservation.lockedAccountId();
+            reserve = reservation.amount();
         } else {
-            assetId = meta.baseAssetId();
-            reserve = command.quantity();
+            if (command.side() == OrderCommand.Side.BUY) {
+                // LIMIT 매수 예약은 UP 양자화. 체결별 차감이 DOWN 절사라 예약이 모자라면 중간
+                // 체결이 락 잔여를 초과한다. 초과 예약 잔차는 최종 체결의 실잔여 소비가 환급
+                // 분개로 되돌린다(§5.2 (6), API §4-B-5).
+                reserve = notional
+                        ? command.quoteOrderQty()
+                        : Fees.quantize(command.price().multiply(command.quantity()),
+                                        meta.quoteScale(), RoundingMode.UP);
+            } else {
+                reserve = command.quantity();
+            }
+            long avail = userAccount(command.userId(), "AVAILABLE", assetId);
+            locked = userAccount(command.userId(), "LOCKED", assetId);
+            // 예약 행이 없는 명령(P1 에서 접수)은 정산 시점에 예약한다. 잔고 부족(23514)은 여기서 배치 전체를 롤백시킨다.
+            // 클래스 주석의 fail-fast 계약.
+            beforePost(batch, "RESERVE", avail, locked);
+            jdbc.sql("SELECT reserve_funds(?, ?, ?, ?, ?)")
+                    .params(command.assignedOrderId(), avail, locked, assetId, reserve)
+                    .query(Long.class)
+                    .single();
+            afterPost(batch, "RESERVE");
         }
-        long avail = userAccount(command.userId(), "AVAILABLE", assetId);
-        long locked = userAccount(command.userId(), "LOCKED", assetId);
-        // 잔고 부족(23514)은 여기서 배치 전체를 롤백시킨다. 클래스 주석의 fail-fast 계약.
-        jdbc.sql("SELECT reserve_funds(?, ?, ?, ?, ?)")
-                .params(command.assignedOrderId(), avail, locked, assetId, reserve)
-                .query(Long.class)
-                .single();
         jdbc.sql("""
                         INSERT INTO orders
                           (id, external_id, user_id, market_id, client_order_id, side, ord_type,
@@ -418,11 +700,26 @@ public class SettlementService {
     // REJECTED: orders 기록만(원장 무변경, §5.1 (a') 거절 경로 준용)
     // ------------------------------------------------------------------
 
-    private void settleRejected(OrderCommand command, CommandPayloadMapper.Extras extras,
+    private void settleRejected(Batch batch, OrderCommand command, CommandPayloadMapper.Extras extras,
                                 EngineEvent event) {
         if (command.type() != OrderCommand.CommandType.NEW) {
             // CANCEL 거절(order_not_found)은 대상 주문 상태를 바꾸지 않는다. 저널 disposition으로 충분.
             return;
+        }
+        Reservation reservation = batch.reservation;
+        if (reservation != null) {
+            // P2 접수 예약의 해제(ADR 0034 S3, DB 설계 §5.1 P2 정산 규칙). 아래 조기 반환(중복 주문 id, 넣을 수 없는 모양)보다
+            // 먼저 한다. 뒤에 두면 그 반환이 해제를 건너뛰어 예약이 LOCKED 에 영영 남는다. 예약 행은 이 명령의 것이라 다른
+            // 주문의 자금을 풀 수 없다(같은 주문 id 의 RESERVE 거래는 원장 멱등 키가 하나만 허용한다). business_event_id 는
+            // 이 REJECTED 이벤트의 event_seq 로 CANCELED 해제와 같은 축이다. 재정산은 레지스트리가 배치째 건너뛰어 한 번뿐이다.
+            requireLinked(reservation, command, null);
+            beforePost(batch, "RELEASE", reservation.lockedAccountId(), reservation.availableAccountId());
+            jdbc.sql("SELECT release_funds(?, ?, ?, ?, ?)")
+                    .params(event.eventSeq(), reservation.lockedAccountId(), reservation.availableAccountId(),
+                            reservation.assetId(), reservation.amount())
+                    .query(Long.class)
+                    .single();
+            afterPost(batch, "RELEASE");
         }
         if (orderExists(command.assignedOrderId())) {
             // duplicate_order_id 거절. 원 주문 행이 정본이므로 덮지 않는다.
@@ -475,7 +772,7 @@ public class SettlementService {
     // TRADE: §5.2 전문
     // ------------------------------------------------------------------
 
-    private void settleTrade(EngineEvent event, Fees.TradeFees fees, long epoch) {
+    private void settleTrade(Batch batch, EngineEvent event, Fees.TradeFees fees, long epoch) {
         long makerOid = event.counterOrderId();
         long takerOid = event.orderId();
         List<OrderRow> rows = lockOrders(makerOid, takerOid);
@@ -533,21 +830,28 @@ public class SettlementService {
             throw new IllegalStateException("체결 분개 부호 위반: event_seq=" + event.eventSeq());
         }
 
+        int shard = feeShard(event.marketId());
         ArrayNode legs = objectMapper.createArrayNode();
         addLeg(legs, seller.lockedAccountId(), meta.baseAssetId(), baseOut.negate(), "TRADE");
         addLeg(legs, userAccount(buyer.userId(), "AVAILABLE", meta.baseAssetId()),
                 meta.baseAssetId(), buyerBaseIn, "TRADE");
-        addLeg(legs, feeAccount(meta.baseAssetId()), meta.baseAssetId(), baseFeeLeg, "FEE");
+        addLeg(legs, feeAccount(meta.baseAssetId(), shard), meta.baseAssetId(), baseFeeLeg, "FEE");
         addLeg(legs, buyer.lockedAccountId(), meta.quoteAssetId(), quoteOut.negate(), "TRADE");
         addLeg(legs, userAccount(buyer.userId(), "AVAILABLE", meta.quoteAssetId()),
                 meta.quoteAssetId(), refund, "TRADE");
         addLeg(legs, userAccount(seller.userId(), "AVAILABLE", meta.quoteAssetId()),
                 meta.quoteAssetId(), sellerQuoteIn, "TRADE");
-        addLeg(legs, feeAccount(meta.quoteAssetId()), meta.quoteAssetId(), quoteFeeLeg, "FEE");
+        addLeg(legs, feeAccount(meta.quoteAssetId(), shard), meta.quoteAssetId(), quoteFeeLeg, "FEE");
+        long[] legAccounts = new long[legs.size()];
+        for (int i = 0; i < legs.size(); i++) {
+            legAccounts[i] = legs.get(i).get("account_id").asLong();
+        }
+        beforePost(batch, "TRADE", legAccounts);
         jdbc.sql("SELECT post_ledger_transaction('TRADE', ?, ?::jsonb)")
                 .params(event.eventSeq(), legs.toString())
                 .query(Long.class)
                 .single();
+        afterPost(batch, "TRADE");
 
         // trade_id = event_seq(P0-4). executed_at/created_at은 engine_ts 파생 명시 삽입.
         OffsetDateTime ts = toUtc(event.engineTs());
@@ -622,7 +926,7 @@ public class SettlementService {
     // CANCELED: RELEASE 정산(§5.3)
     // ------------------------------------------------------------------
 
-    private void settleCanceled(EngineEvent event) {
+    private void settleCanceled(Batch batch, EngineEvent event) {
         BigDecimal qty = event.quantity();
         if (qty.signum() == 0) {
             // 0수량 무시 규약. 엔진은 방출하지 않지만 재정산 방어선으로 둔다.
@@ -634,7 +938,7 @@ public class SettlementService {
         if (row.notional()) {
             // 시장가 매수: qty는 quote 금액 단위다(§5.3 (0) v2.8 정정 계약).
             boolean terminal = row.lockedAmount().compareTo(qty) == 0;
-            releaseFunds(event.eventSeq(), row, meta.quoteAssetId(), qty);
+            releaseFunds(batch, event.eventSeq(), row, meta.quoteAssetId(), qty);
             int updated = jdbc.sql("""
                             UPDATE orders
                             SET locked_amount = locked_amount - ?, status = ?, version = version + 1
@@ -658,7 +962,7 @@ public class SettlementService {
                         ? Fees.quantize(qty.multiply(row.price()), meta.quoteScale(), RoundingMode.DOWN)
                         : qty);
         if (release.signum() > 0) {
-            releaseFunds(event.eventSeq(), row, assetId, release);
+            releaseFunds(batch, event.eventSeq(), row, assetId, release);
         }
         int updated = jdbc.sql("""
                         UPDATE orders
@@ -673,13 +977,29 @@ public class SettlementService {
         assertUpdated(updated, row.id());
     }
 
-    private void releaseFunds(long eventSeq, OrderRow row, short assetId, BigDecimal amount) {
+    private void releaseFunds(Batch batch, long eventSeq, OrderRow row, short assetId, BigDecimal amount) {
         long avail = userAccount(row.userId(), "AVAILABLE", assetId);
         // business_event_id는 해제를 유발한 이벤트의 event_seq. 예약(order_id)과 구분한다(§5.3).
+        beforePost(batch, "RELEASE", row.lockedAccountId(), avail);
         jdbc.sql("SELECT release_funds(?, ?, ?, ?, ?)")
                 .params(eventSeq, row.lockedAccountId(), avail, assetId, amount)
                 .query(Long.class)
                 .single();
+        afterPost(batch, "RELEASE");
+    }
+
+    /**
+     * 예약 행이 이 명령의 것인지 본다(S3 설계 4-8). 주문 id·사용자·마켓이 명령과 같고, assetId 가 주어지면 side 에서 나온
+     * 자산과 같아야 한다. 어긋나면 연결 손상이라 재시도로 풀리지 않으므로 라이터를 멈춘다.
+     */
+    private static void requireLinked(Reservation r, OrderCommand command, Short assetId) {
+        if (r.orderId() != command.assignedOrderId() || r.userId() != command.userId()
+                || r.marketId() != command.marketId() || (assetId != null && r.assetId() != assetId)) {
+            throw new IllegalStateException("예약 행이 명령과 맞지 않는다(연결 손상): cmd_seq=" + command.seq()
+                    + ", 예약 행(order=" + r.orderId() + ", user=" + r.userId() + ", market=" + r.marketId()
+                    + ", asset=" + r.assetId() + "), 명령(order=" + command.assignedOrderId() + ", user="
+                    + command.userId() + ", market=" + command.marketId() + ", asset=" + assetId + ")");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -779,17 +1099,61 @@ public class SettlementService {
                                 + ", purpose=" + k.purpose() + ", asset=" + k.assetId())));
     }
 
-    private long feeAccount(short assetId) {
-        return feeAccountCache.computeIfAbsent(assetId, k ->
+    /** 잠금 계획용 조회. 계정이 없으면 null 이다. 성공 조회만 캐시에 남는다(userAccount 와 같은 캐시). */
+    private Long optionalUserAccount(long userId, String purpose, short assetId) {
+        UserAccountKey key = new UserAccountKey(userId, purpose, assetId);
+        Long cached = userAccountCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        Long id = jdbc.sql("""
+                        SELECT id FROM accounts
+                        WHERE owner_type = 'USER' AND owner_id = ? AND purpose = ?
+                          AND asset_id = ? AND shard = 0
+                        """)
+                .params(userId, purpose, assetId)
+                .query(Long.class)
+                .optional()
+                .orElse(null);
+        if (id != null) {
+            userAccountCache.putIfAbsent(key, id);
+        }
+        return id;
+    }
+
+    private Long optionalFeeAccount(short assetId, int shard) {
+        FeeAccountKey key = new FeeAccountKey(assetId, shard);
+        Long cached = feeAccountCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        Long id = jdbc.sql("""
+                        SELECT id FROM accounts
+                        WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
+                          AND asset_id = ? AND shard = ?
+                        """)
+                .params(assetId, shard)
+                .query(Long.class)
+                .optional()
+                .orElse(null);
+        if (id != null) {
+            feeAccountCache.putIfAbsent(key, id);
+        }
+        return id;
+    }
+
+    private long feeAccount(short assetId, int shard) {
+        return feeAccountCache.computeIfAbsent(new FeeAccountKey(assetId, shard), k ->
                 jdbc.sql("""
                                 SELECT id FROM accounts
                                 WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
                                   AND asset_id = ? AND shard = ?
                                 """)
-                        .params(k, FEE_SHARD)
+                        .params(k.assetId(), k.shard())
                         .query(Long.class)
                         .optional()
-                        .orElseThrow(() -> new IllegalStateException("수수료 계정 없음: asset=" + k)));
+                        .orElseThrow(() -> new IllegalStateException(
+                                "수수료 계정 없음: asset=" + k.assetId() + ", shard=" + k.shard())));
     }
 
     private boolean orderExists(long orderId) {

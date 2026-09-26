@@ -1,0 +1,3 @@
+Memory alarm on node rabbit@4c959b96b6e5
+exit=124
+Node rabbit@4c959b96b6e5 reported no alarms, local or clusterwide

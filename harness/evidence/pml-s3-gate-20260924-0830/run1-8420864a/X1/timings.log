@@ -1,0 +1,6 @@
+c14p     value=0 jit_on=484.097 jit_off=20.028
+c31app   value=0 jit_on=956.18 jit_off=172.009
+gauge    value=0|0 jit_on=317.381 jit_off=19.433
+c31full  value=0 jit_on=217.659 jit_off=140.83
+precond  value=0 jit_on=7.849 jit_off=7.506
+c05      value=0 jit_on=2.622 jit_off=2.519

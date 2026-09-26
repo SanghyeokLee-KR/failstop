@@ -23,6 +23,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class BotApiClient {
 
+    /** 마켓 힌트 헤더 이름(API 설계 §2-5-d). 서버의 kr.exchange.api.order.MarketHint.HEADER 와 같다. */
+    static final String MARKET_HINT = "X-Exchange-Market";
+
     public record Response(int status, String body) {
     }
 
@@ -41,7 +44,11 @@ public class BotApiClient {
         this.noncePrefix = noncePrefix;
     }
 
-    public Response placeOrder(String jsonBody) {
+    /**
+     * 주문 생성. market 은 바디의 market 과 같은 값이고 마켓 힌트 헤더로 싣는다(API 설계 §2-5-d). 힌트는 서명 밖이라 canonical 을
+     * 바꾸지 않는다. 인그레스가 그 마켓 파티션의 소유 노드로 보낸다.
+     */
+    public Response placeOrder(String market, String jsonBody) {
         byte[] body = jsonBody.getBytes(StandardCharsets.UTF_8);
         String bearer = bearer("POST", "/api/v1/orders",
                 CanonicalRequests.sha512Hex(
@@ -50,17 +57,20 @@ public class BotApiClient {
                 .timeout(Duration.ofSeconds(10))
                 .header("Authorization", bearer)
                 .header("Content-Type", "application/json")
+                .header(MARKET_HINT, market)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
         return send(request);
     }
 
-    public Response cancelOrder(String externalOrderId) {
+    /** 단건 취소. market 은 대상 주문의 마켓이고 마켓 힌트 헤더로 싣는다(서명 밖). */
+    public Response cancelOrder(String market, String externalOrderId) {
         String path = "/api/v1/orders/" + externalOrderId;
         String bearer = bearer("DELETE", path, queryHash("DELETE", path, Map.of()));
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .timeout(Duration.ofSeconds(10))
                 .header("Authorization", bearer)
+                .header(MARKET_HINT, market)
                 .DELETE()
                 .build();
         return send(request);

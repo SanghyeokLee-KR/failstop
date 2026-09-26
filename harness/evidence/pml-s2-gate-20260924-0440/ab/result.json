@@ -1,0 +1,386 @@
+{
+  "phase": "AB",
+  "rate": 600,
+  "overlay": {
+    "path": "override-append-histogram.yml",
+    "sha256": "06485c72ead81d9d81215729d9c38744bfc7cfd625c7207410e37bd9900e1bc2"
+  },
+  "cells": [
+    {
+      "label": "A1",
+      "image": "exchange-chaos-app:mainref",
+      "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+      "probeRc": 0,
+      "window": {
+        "from": "2026-09-23 19:58:11.141222+00",
+        "to": "2026-09-23 20:00:22.743416+00"
+      },
+      "prom": {
+        "from": "2026-09-23 19:58:11.141222+00",
+        "to": "2026-09-23 20:00:22.743416+00",
+        "seconds": 132,
+        "evalAt": 1790193622,
+        "appendMeanMs": 11.096257141670275,
+        "appendP95Ms": 51.762378989436634,
+        "appendP99Ms": 80.09757182981409,
+        "appendCount": 25788.71495057502,
+        "http5xx": 3309.389675810396,
+        "httpAll": 215411.71476452614,
+        "orders201": 25756.2213931305,
+        "writerApplyPerSec": 193.35824607048357,
+        "tradesPerSec": 10.12346628716489,
+        "sinkMsPerApply": 20.42449927518969,
+        "prologueMsPerTx": 7.822035115013584,
+        "insertMsPerTx": 1.1586484953734693,
+        "queries": {
+          "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendCount": "sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "http5xx": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[132s])) or vector(0)",
+          "httpAll": "sum(increase(http_server_requests_seconds_count[132s]))",
+          "orders201": "sum(increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\",status=\"201\"}[132s]))",
+          "writerApplyPerSec": "sum(increase(exchange_writer_apply_count_total[132s])) / 132",
+          "tradesPerSec": "sum(increase(exchange_trades_total[132s])) / 132",
+          "sinkMsPerApply": "1000 * sum(increase(exchange_writer_sink_nanos_total[132s])) / 1e9 / sum(increase(exchange_writer_apply_count_total[132s]))",
+          "prologueMsPerTx": "1000 * sum(increase(exchange_journal_prologue_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))",
+          "insertMsPerTx": "1000 * sum(increase(exchange_journal_insert_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))"
+        }
+      },
+      "probe": {
+        "acceptPerSec": 146.71448523199476,
+        "tradesPerSec": 8.534924220218286,
+        "p95OrderMs": 348.45769201704553,
+        "p99OrderMs": 420.87425680909115,
+        "appendMs": 12.022608194704777,
+        "prologueMs": 8.33544065288191,
+        "insertMs": 1.2525186989222117,
+        "commitMs": 2.4060700399484536,
+        "lockHoldMs": 8.827952326455238,
+        "applyPerSec": 147.0275068825399,
+        "sinkMs": 24.225956592134615,
+        "k6Rc": 0,
+        "fsyncMs": 0.413,
+        "deadlocks": 0,
+        "connection": {
+          "상태": "고갈 없음",
+          "표본 한도 도달": false,
+          "로그 고갈 줄": 0,
+          "로그 확인": true
+        },
+        "containerImages": {
+          "chaos-api-1": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-api-2": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-bots": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          }
+        }
+      },
+      "node5xxCumulative": {
+        "18080": 0.0,
+        "28080": 3279.0
+      },
+      "drain": {
+        "botsStopped": true,
+        "drained": true
+      },
+      "summary": {
+        "rc": 0,
+        "checks": 31,
+        "fail": [],
+        "skip": [
+          "C29"
+        ],
+        "c29": "SKIP",
+        "allZero": false
+      },
+      "flyway": {
+        "rows": 48,
+        "max_version": 47,
+        "failed": 0,
+        "last": {
+          "version": "47",
+          "installed_by": "exchange",
+          "installed_on": "2026-09-23T19:55:30.617103"
+        }
+      },
+      "logErrors": {
+        "chaos-api-1": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-api-2": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-bots": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        }
+      }
+    },
+    {
+      "label": "A2",
+      "image": "exchange-chaos-app:mainref",
+      "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+      "probeRc": 0,
+      "window": {
+        "from": "2026-09-23 20:04:29.71492+00",
+        "to": "2026-09-23 20:06:41.266692+00"
+      },
+      "prom": {
+        "from": "2026-09-23 20:04:29.71492+00",
+        "to": "2026-09-23 20:06:41.266692+00",
+        "seconds": 132,
+        "evalAt": 1790194001,
+        "appendMeanMs": 10.247289621128777,
+        "appendP95Ms": 50.09849559097422,
+        "appendP99Ms": 79.04149883613313,
+        "appendCount": 26951.375052886648,
+        "http5xx": 2726.2134088843286,
+        "httpAll": 213619.7880112991,
+        "orders201": 26912.788953421285,
+        "writerApplyPerSec": 203.28985439919475,
+        "tradesPerSec": 9.461902380860801,
+        "sinkMsPerApply": 19.996958859291645,
+        "prologueMsPerTx": 7.109630423743501,
+        "insertMsPerTx": 1.1177546583527993,
+        "queries": {
+          "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendCount": "sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "http5xx": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[132s])) or vector(0)",
+          "httpAll": "sum(increase(http_server_requests_seconds_count[132s]))",
+          "orders201": "sum(increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\",status=\"201\"}[132s]))",
+          "writerApplyPerSec": "sum(increase(exchange_writer_apply_count_total[132s])) / 132",
+          "tradesPerSec": "sum(increase(exchange_trades_total[132s])) / 132",
+          "sinkMsPerApply": "1000 * sum(increase(exchange_writer_sink_nanos_total[132s])) / 1e9 / sum(increase(exchange_writer_apply_count_total[132s]))",
+          "prologueMsPerTx": "1000 * sum(increase(exchange_journal_prologue_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))",
+          "insertMsPerTx": "1000 * sum(increase(exchange_journal_insert_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))"
+        }
+      },
+      "probe": {
+        "acceptPerSec": 162.9711369357564,
+        "tradesPerSec": 9.06927825097417,
+        "p95OrderMs": 334.8379106578947,
+        "p99OrderMs": 434.1496102199991,
+        "appendMs": 11.187547563113977,
+        "prologueMs": 7.789612021126018,
+        "insertMs": 1.2306678515897327,
+        "commitMs": 2.141380979190874,
+        "lockHoldMs": 8.82949406513792,
+        "applyPerSec": 163.14355667436806,
+        "sinkMs": 22.621011914288736,
+        "k6Rc": 0,
+        "fsyncMs": 0.411,
+        "deadlocks": 0,
+        "connection": {
+          "상태": "고갈 없음",
+          "표본 한도 도달": false,
+          "로그 고갈 줄": 0,
+          "로그 확인": true
+        },
+        "containerImages": {
+          "chaos-api-1": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-api-2": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          },
+          "chaos-bots": {
+            "image_id": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+            "config_image": "exchange-chaos-app:mainref"
+          }
+        }
+      },
+      "node5xxCumulative": {
+        "18080": 0.0,
+        "28080": 2738.0
+      },
+      "drain": {
+        "botsStopped": true,
+        "drained": true
+      },
+      "summary": {
+        "rc": 0,
+        "checks": 31,
+        "fail": [],
+        "skip": [
+          "C29"
+        ],
+        "c29": "SKIP",
+        "allZero": false
+      },
+      "flyway": {
+        "rows": 48,
+        "max_version": 47,
+        "failed": 0,
+        "last": {
+          "version": "47",
+          "installed_by": "exchange",
+          "installed_on": "2026-09-23T20:01:29.350946"
+        }
+      },
+      "logErrors": {
+        "chaos-api-1": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-api-2": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-bots": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        }
+      }
+    },
+    {
+      "label": "B",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+      "probeRc": 0,
+      "window": {
+        "from": "2026-09-23 20:10:47.40941+00",
+        "to": "2026-09-23 20:12:58.86853+00"
+      },
+      "prom": {
+        "from": "2026-09-23 20:10:47.40941+00",
+        "to": "2026-09-23 20:12:58.86853+00",
+        "seconds": 132,
+        "evalAt": 1790194378,
+        "appendMeanMs": 10.981650570281285,
+        "appendP95Ms": 52.49527363254714,
+        "appendP99Ms": 80.71925998166347,
+        "appendCount": 25161.183122427785,
+        "http5xx": 4136.863934095496,
+        "httpAll": 214403.63327469787,
+        "orders201": 25127.674141313124,
+        "writerApplyPerSec": 189.98050537502485,
+        "tradesPerSec": 8.523404746336396,
+        "sinkMsPerApply": 20.303967439784262,
+        "prologueMsPerTx": 7.6512707491424194,
+        "insertMsPerTx": 1.201484943137334,
+        "queries": {
+          "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+          "appendCount": "sum(increase(exchange_journal_append_seconds_count[132s]))",
+          "http5xx": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[132s])) or vector(0)",
+          "httpAll": "sum(increase(http_server_requests_seconds_count[132s]))",
+          "orders201": "sum(increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\",status=\"201\"}[132s]))",
+          "writerApplyPerSec": "sum(increase(exchange_writer_apply_count_total[132s])) / 132",
+          "tradesPerSec": "sum(increase(exchange_trades_total[132s])) / 132",
+          "sinkMsPerApply": "1000 * sum(increase(exchange_writer_sink_nanos_total[132s])) / 1e9 / sum(increase(exchange_writer_apply_count_total[132s]))",
+          "prologueMsPerTx": "1000 * sum(increase(exchange_journal_prologue_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))",
+          "insertMsPerTx": "1000 * sum(increase(exchange_journal_insert_nanos_total[132s])) / 1e9 / sum(increase(exchange_journal_intx_count_total[132s]))"
+        }
+      },
+      "probe": {
+        "acceptPerSec": 136.88639067537974,
+        "tradesPerSec": 8.052140627963515,
+        "p95OrderMs": 409.8802919038461,
+        "p99OrderMs": 445.39636748846146,
+        "appendMs": 12.184799746257392,
+        "prologueMs": 8.14152997169455,
+        "insertMs": 1.4449244779217512,
+        "commitMs": 2.554727266322808,
+        "lockHoldMs": 8.19651027316203,
+        "applyPerSec": 132.98630879035187,
+        "sinkMs": 24.014679375198117,
+        "k6Rc": 0,
+        "fsyncMs": 0.411,
+        "deadlocks": 0,
+        "connection": {
+          "상태": "고갈 없음",
+          "표본 한도 도달": false,
+          "로그 고갈 줄": 0,
+          "로그 확인": true
+        },
+        "containerImages": {
+          "chaos-api-1": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          },
+          "chaos-api-2": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          },
+          "chaos-bots": {
+            "image_id": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+            "config_image": "exchange-chaos-app:pml"
+          }
+        }
+      },
+      "node5xxCumulative": {
+        "18080": 0.0,
+        "28080": 4150.0
+      },
+      "drain": {
+        "botsStopped": true,
+        "drained": true
+      },
+      "summary": {
+        "rc": 0,
+        "checks": 31,
+        "fail": [],
+        "skip": [],
+        "c29": "PASS",
+        "allZero": true
+      },
+      "flyway": {
+        "rows": 49,
+        "max_version": 48,
+        "failed": 0,
+        "last": {
+          "version": "48",
+          "installed_by": "exchange",
+          "installed_on": "2026-09-23T20:07:47.051372"
+        }
+      },
+      "logErrors": {
+        "chaos-api-1": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-api-2": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        },
+        "chaos-bots": {
+          "permissionDenied": 0,
+          "sqlstate42501": 0,
+          "undefinedFunction": 0,
+          "errorLines": 0
+        }
+      }
+    }
+  ]
+}

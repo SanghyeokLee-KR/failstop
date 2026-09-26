@@ -72,3 +72,234 @@ tests:
               duration: "30s"
               dashboard: "① 체결 무결성 증명 (proof-integrity)"
               runbook: "기획안 §10.2 무결 판정 · 검증설계 §4-1 체크 카탈로그"
+
+  # ADR 0034 S3 경보 셋(S3 설계 4-16). 정산 23514 와 접수 40P01 은 증가 한 번에 바로, 정산 전 예약 나이는 60초를 넘은 상태가
+  # 2분 이어질 때 발화한다. 나이가 60초 이하이거나 2분이 차지 않으면 발화하지 않는다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange_settlement_insufficient_funds_total{instance="chaos-api-1:8080"}'
+        values: "0 0 1 1 1 1"
+      - series: 'exchange_order_append_transient_total{instance="chaos-api-1:8080", sqlstate="40P01"}'
+        values: "0 0 0 2 2 2"
+      - series: 'exchange_order_append_transient_total{instance="chaos-api-1:8080", sqlstate="40001"}'
+        values: "0 0 5 5 5 5"
+    alert_rule_test:
+      - eval_time: 50s
+        alertname: SettlementInsufficientFunds
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              severity: critical
+              component: settlement
+            exp_annotations:
+              summary: "정산 시점 잔고 부족(23514) · 라이터 정지"
+              metric: "settlement_insufficient_funds"
+              value: "1"
+              threshold: "증가 > 0"
+              duration: "0s"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "DB 설계 §5.1 P2 정산 규칙 · S3 설계 4-8 · P2 에서는 버그 신호"
+      - eval_time: 50s
+        alertname: OrderIntakeDeadlock
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              sqlstate: "40P01"
+              severity: warning
+              component: intake
+            exp_annotations:
+              summary: "접수 append 교착(40P01) · 정산 잠금 계획 뒤에는 결함 신호"
+              metric: "order_append_transient_40P01"
+              value: "2"
+              threshold: "증가 > 0"
+              duration: "0s"
+              dashboard: "④ 시스템 (proof-system)"
+              runbook: "DB 설계 §5.0 v2.54 잠금 계획 · S3 설계 4-13·4-14"
+
+  - interval: 30s
+    input_series:
+      - series: 'exchange_reservation_unsettled_oldest_seconds{instance="chaos-api-1:8080"}'
+        values: "0 30 90 120 150 180 210"
+      - series: 'exchange_reservation_unsettled_oldest_seconds{instance="chaos-api-2:8080"}'
+        values: "0 0 0 0 0 0 0"
+    alert_rule_test:
+      # 60초를 넘은 첫 표본(60s) 뒤 2분이 차기 전에는 대기 상태다.
+      - eval_time: 150s
+        alertname: ReservationUnsettledStale
+        exp_alerts: []
+      - eval_time: 180s
+        alertname: ReservationUnsettledStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: settlement
+            exp_annotations:
+              summary: "정산 전 예약이 60초 넘게 정산되지 않음(정산 정체·재적재 막힘)"
+              metric: "reservation_unsettled_oldest"
+              value: "210s"
+              threshold: "> 60s"
+              duration: "2m"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "S3 설계 4-16 · 하네스 검증설계 §4-1 C14 정산 전 예약 항"
+
+  # ADR 0034 S4 파티션 경보 셋(하네스 CI/CD §5-6, S4 설계 6-4). PartitionBreakerOpen 은 두 인스턴스 가운데 하나만 차단된
+  # 시계열에서 그 인스턴스로만 발화한다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange_partition_breaker_open{instance="chaos-api-1:8080", partition="matching-engine"}'
+        values: "0 0 1 1 1 1"
+      - series: 'exchange_partition_breaker_open{instance="chaos-api-2:8080", partition="matching-engine"}'
+        values: "0 0 0 0 0 0"
+      - series: 'exchange_leader_is_leader{instance="chaos-api-1:8080", node="api-1", partition="matching-engine"}'
+        values: "1 1 0 0 0 0 0"
+      - series: 'exchange_leader_is_leader{instance="chaos-api-2:8080", node="api-2", partition="matching-engine"}'
+        values: "0 0 0 0 0 1 1"
+      - series: 'exchange_partition_rebuild_seconds_count{instance="chaos-api-1:8080", partition="matching-engine", outcome="failure"}'
+        values: "0 1 2 3 4 5"
+      - series: 'exchange_partition_rebuild_seconds_count{instance="chaos-api-2:8080", partition="matching-engine", outcome="failure"}'
+        values: "0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: PartitionBreakerOpen
+        exp_alerts: []
+      - eval_time: 30s
+        alertname: PartitionBreakerOpen
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              partition: matching-engine
+              severity: critical
+              component: leader
+            exp_annotations:
+              summary: "파티션 차단: chaos-api-1:8080 가 matching-engine 의 후보에서 빠짐"
+              metric: "partition_breaker_open"
+              value: "1"
+              threshold: "== 1"
+              duration: "0s"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "DB 설계 §5.4-c 10 차단기 · S4 설계 4-7 · /actuator/partitions reset_breaker"
+      # 두 노드 모두 리더가 아닌 첫 표본(20s) 뒤 15초가 차기 전에는 대기 상태다.
+      - eval_time: 30s
+        alertname: PartitionLeaderAbsent
+        exp_alerts: []
+      - eval_time: 40s
+        alertname: PartitionLeaderAbsent
+        exp_alerts:
+          - exp_labels:
+              partition: matching-engine
+              severity: critical
+              component: leader
+            exp_annotations:
+              summary: "파티션 리더 부재: matching-engine"
+              metric: "leader_is_leader"
+              value: "0"
+              threshold: "== 0"
+              duration: "15s"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "DB 설계 §5.4-c · 차단기로 두 노드가 모두 빠졌는지 PartitionBreakerOpen 과 함께 본다"
+      # 다른 노드가 리더가 되면 꺼진다.
+      - eval_time: 60s
+        alertname: PartitionLeaderAbsent
+        exp_alerts: []
+      # 5분 창 안의 실패 증가가 3 이하이면 뜨지 않는다.
+      - eval_time: 30s
+        alertname: PartitionRebuildFailing
+        exp_alerts: []
+      - eval_time: 50s
+        alertname: PartitionRebuildFailing
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              partition: matching-engine
+              outcome: failure
+              severity: warning
+              component: leader
+            exp_annotations:
+              summary: "파티션 재구성 반복 실패: chaos-api-1:8080 matching-engine"
+              metric: "partition_rebuild_failure 5m"
+              value: "5"
+              threshold: "> 3"
+              duration: "0s"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "DB 설계 §5.4-c 5 fresh 재구성 · S4 설계 4-6"
+
+  # ADR 0034 S6 WebSocket 중계 경보 셋(하네스 CI/CD §5-6, S6 설계 4-17). 끊긴 인스턴스·불능 인스턴스·버림이 100 을 넘은
+  # 인스턴스·사유로만 발화하고, 정상 인스턴스와 창 안 증가가 100 이하인 계열은 조용한지 본다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-1:8080", link="pub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-1:8080", link="sub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-2:8080", link="pub"}'
+        values: "1 1 1 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_connected{instance="chaos-api-2:8080", link="sub"}'
+        values: "1 1 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-2:8080", cause="link_down"}'
+        values: "0 0 0 1 1 1 1 1 1 1"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-2:8080", cause="owner_silent"}'
+        values: "0 0 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_degraded{instance="chaos-api-1:8080", cause="link_down"}'
+        values: "0 0 0 0 0 0 0 0 0 0"
+      - series: 'exchange_ws_relay_dropped_total{instance="chaos-api-1:8080", reason="queue_full"}'
+        values: "0 0 50 150 250 250"
+      - series: 'exchange_ws_relay_dropped_total{instance="chaos-api-1:8080", reason="stale"}'
+        values: "0 10 20 30 40 50"
+    alert_rule_test:
+      # 첫 0 표본(20s) 뒤 1분이 차기 전에는 대기 상태다.
+      - eval_time: 70s
+        alertname: WsRelayDisconnected
+        exp_alerts: []
+      - eval_time: 80s
+        alertname: WsRelayDisconnected
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-2:8080"
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 연결 끊김: chaos-api-2:8080"
+              metric: "ws_relay_connected(pub·sub 최솟값)"
+              value: "0"
+              threshold: "== 0"
+              duration: "1m"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "S6 설계 4-11·9절. 브로커 생존과 계정을 본다. 모든 마켓을 쥐지 않은 노드는 5초 뒤부터 WS 를 거절한다"
+      - eval_time: 80s
+        alertname: WsRelayDegraded
+        exp_alerts: []
+      - eval_time: 90s
+        alertname: WsRelayDegraded
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-2:8080"
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 불능으로 WS 수용 중단: chaos-api-2:8080"
+              metric: "ws_relay_degraded(link_down·owner_silent 최댓값)"
+              value: "1"
+              threshold: "== 1"
+              duration: "1m"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "API 설계 §5-6 · S6 설계 4-11. cause 태그로 구독 연결과 소유 노드 발행을 가른다"
+      # 5분 창 안의 증가가 100 이하이면 뜨지 않는다(stale 계열은 끝까지 50).
+      - eval_time: 20s
+        alertname: WsRelayDropping
+        exp_alerts: []
+      - eval_time: 40s
+        alertname: WsRelayDropping
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              reason: queue_full
+              severity: warning
+              component: ws
+            exp_annotations:
+              summary: "WS 중계 봉투 버림: chaos-api-1:8080 queue_full"
+              metric: "ws_relay_dropped 5m"
+              value: "250"
+              threshold: "> 100"
+              duration: "0s"
+              dashboard: "인프라 상세 (msp-infra)"
+              runbook: "S6 설계 4-4·9절. queue_full·write_timeout 은 브로커 쪽 막힘, stale 은 발행 지연, malformed 는 위조나 판 불일치다"

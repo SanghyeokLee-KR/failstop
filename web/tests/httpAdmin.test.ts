@@ -570,3 +570,43 @@ test("종합: TTL이 지난 발급분은 대기 승인으로 세지 않는다", 
     },
   );
 });
+
+test("HA 리스 표: leases 가 있으면 자원별 행을 그대로 옮긴다(API 설계 §6-C)", async () => {
+  const res = fakeRes({
+    status: 200,
+    body: {
+      leader_protocol: 3,
+      lease: { holder: "node-a-uuid", epoch: 21, leader_alive: true, lease_remaining_ms: 8400 },
+      leases: [
+        { resource: "matching-p0", holder: "node-a-uuid", epoch: 21, lease_until: "2026-09-24T01:00:00Z",
+          leader_alive: true, lease_remaining_ms: 8400, markets: ["KRW-BTC", "KRW-XRP"] },
+        { resource: "matching-p1", holder: "node-b-uuid", epoch: 22, lease_until: "2026-09-24T00:59:00Z",
+          leader_alive: false, lease_remaining_ms: 0, markets: ["KRW-ETH"] },
+      ],
+      command_watermark: 10,
+      trades_count: 3,
+    },
+  });
+  await withFetch(res, async () => {
+    const ha = await new HttpAdminApi("http://admin.test").getHaStatus();
+    assert.equal(ha.epoch, 21, "기존 epoch 는 lease(첫 자원) 값 그대로다");
+    assert.deepEqual(ha.leases, [
+      { resource: "matching-p0", holder: "node-a-uuid", epoch: 21, leaseUntil: "2026-09-24T01:00:00Z",
+        leaderAlive: true, leaseRemainingMs: 8400, markets: ["KRW-BTC", "KRW-XRP"] },
+      { resource: "matching-p1", holder: "node-b-uuid", epoch: 22, leaseUntil: "2026-09-24T00:59:00Z",
+        leaderAlive: false, leaseRemainingMs: 0, markets: ["KRW-ETH"] },
+    ]);
+  });
+});
+
+test("HA 리스 표: leases 가 없는 옛 응답은 lease 한 행을 matching-engine 으로 만든다", async () => {
+  const res = fakeRes({ status: 200, body: { lease: { holder: "app-1", epoch: 7, leader_alive: true }, trades_count: 3 } });
+  await withFetch(res, async () => {
+    const ha = await new HttpAdminApi("http://admin.test").getHaStatus();
+    assert.deepEqual(ha.leases, [
+      // 옛 응답은 남은 시간·만료 시각·마켓을 주지 않는다. 0 으로 채우지 않는다
+      { resource: "matching-engine", holder: "app-1", epoch: 7, leaseUntil: null, leaderAlive: true,
+        leaseRemainingMs: null, markets: [] },
+    ]);
+  });
+});

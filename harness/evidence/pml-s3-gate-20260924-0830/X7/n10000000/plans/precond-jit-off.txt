@@ -1,0 +1,113 @@
+BEGIN
+SET
+Finalize Aggregate  (cost=772275.47..772275.48 rows=1 width=8) (actual time=1781.539..1898.840 rows=1 loops=1)
+  Buffers: shared hit=898 read=507517, temp read=68473 written=69452
+  ->  Gather  (cost=772275.26..772275.47 rows=2 width=8) (actual time=1780.389..1898.835 rows=3 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=898 read=507517, temp read=68473 written=69452
+        ->  Partial Aggregate  (cost=771275.26..771275.27 rows=1 width=8) (actual time=1776.275..1776.525 rows=1 loops=3)
+              Buffers: shared hit=898 read=507517, temp read=68473 written=69452
+              ->  Parallel Hash Anti Join  (cost=183490.14..771271.50 rows=1505 width=0) (actual time=1421.232..1776.361 rows=1200 loops=3)
+                    Hash Cond: (c.seq = e.source_cmd_seq)
+                    Buffers: shared hit=898 read=507517, temp read=68473 written=69452
+                    ->  Parallel Append  (cost=0.00..507698.57 rows=4166676 width=8) (actual time=0.065..561.709 rows=3333333 loops=3)
+                          Buffers: shared hit=480 read=434302
+                          ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=8) (actual time=0.033..0.033 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=8) (actual time=0.021..0.021 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..0.00 rows=1 width=8) (actual time=0.004..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..0.00 rows=1 width=8) (actual time=0.004..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..0.00 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_default c_16  (cost=0.00..0.00 rows=1 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..486865.26 rows=4166661 width=8) (actual time=0.020..386.542 rows=3333333 loops=3)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=480 read=434302
+                    ->  Parallel Hash  (cost=115154.62..115154.62 rows=4165162 width=8) (actual time=517.989..517.990 rows=3332133 loops=3)
+                          Buckets: 262144  Batches: 128  Memory Usage: 5184kB
+                          Buffers: shared hit=288 read=73215, temp written=34560
+                          ->  Parallel Seq Scan on event_emission_registry e  (cost=0.00..115154.62 rows=4165162 width=8) (actual time=0.032..195.335 rows=3332133 loops=3)
+                                Buffers: shared hit=288 read=73215
+Planning:
+  Buffers: shared hit=1546
+Planning Time: 8.348 ms
+Execution Time: 1899.047 ms
+Finalize Aggregate  (cost=772275.47..772275.48 rows=1 width=8) (actual time=1754.668..1874.396 rows=1 loops=1)
+  Buffers: shared hit=1090 read=507325, temp read=68485 written=70144
+  ->  Gather  (cost=772275.26..772275.47 rows=2 width=8) (actual time=1753.667..1874.389 rows=3 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=1090 read=507325, temp read=68485 written=70144
+        ->  Partial Aggregate  (cost=771275.26..771275.27 rows=1 width=8) (actual time=1749.822..1750.050 rows=1 loops=3)
+              Buffers: shared hit=1090 read=507325, temp read=68485 written=70144
+              ->  Parallel Hash Anti Join  (cost=183490.14..771271.50 rows=1505 width=0) (actual time=1416.191..1749.900 rows=1200 loops=3)
+                    Hash Cond: (c.seq = e.source_cmd_seq)
+                    Buffers: shared hit=1090 read=507325, temp read=68485 written=70144
+                    ->  Parallel Append  (cost=0.00..507698.57 rows=4166676 width=8) (actual time=0.071..557.454 rows=3333333 loops=3)
+                          Buffers: shared hit=576 read=434206
+                          ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=8) (actual time=0.036..0.036 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=8) (actual time=0.023..0.023 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..0.00 rows=1 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..0.00 rows=1 width=8) (actual time=0.004..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..0.00 rows=1 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Seq Scan on command_journal_default c_16  (cost=0.00..0.00 rows=1 width=8) (actual time=0.006..0.006 rows=0 loops=1)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                          ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..486865.26 rows=4166661 width=8) (actual time=0.023..383.106 rows=3333333 loops=3)
+                                Filter: ((command_type)::text = 'NEW'::text)
+                                Buffers: shared hit=576 read=434206
+                    ->  Parallel Hash  (cost=115154.62..115154.62 rows=4165162 width=8) (actual time=519.250..519.251 rows=3332133 loops=3)
+                          Buckets: 262144  Batches: 128  Memory Usage: 5152kB
+                          Buffers: shared hit=384 read=73119, temp written=34964
+                          ->  Parallel Seq Scan on event_emission_registry e  (cost=0.00..115154.62 rows=4165162 width=8) (actual time=0.029..196.021 rows=3332133 loops=3)
+                                Buffers: shared hit=384 read=73119
+Planning:
+  Buffers: shared hit=53
+Planning Time: 0.524 ms
+Execution Time: 1874.524 ms
+COMMIT

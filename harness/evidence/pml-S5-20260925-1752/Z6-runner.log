@@ -1,0 +1,20 @@
+2026-09-25T18:48:49+09:00 [B1/partition] PHASE B1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.partition.conf
+2026-09-25T18:48:50+09:00 [B1/partition] volumes before unchanged
+2026-09-25T18:48:55+09:00 [B1/partition] down -v (exchange-pml) rc=0
+2026-09-25T18:49:28+09:00 [B1/partition] up --profile obs rc=0 (profiles=dev,chaos-monkey,prod-timeouts lb=nginx.partition.conf)
+2026-09-25T18:49:28+09:00 [B1/partition] LB conf=nginx.partition.conf nginx-t rc=0 sameSha=True
+2026-09-25T18:49:28+09:00 [B1/partition] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z6\protocol.json
+2026-09-25T18:49:54+09:00 [B1/partition] RC 0
+2026-09-25T18:50:04+09:00 [B1/partition] B1 bots target_ops=300, warmup 120s
+2026-09-25T18:52:06+09:00 [B1/partition] B1 round 1 reset_peer pg-api1 (chaos-api-1) 2026-09-25T09:52:05.6023182+00:00 -> 2026-09-25T09:52:06.1563958+00:00
+2026-09-25T18:53:07+09:00 [B1/partition] B1 round 2 reset_peer pg-api1 (chaos-api-1) 2026-09-25T09:53:07.0972724+00:00 -> 2026-09-25T09:53:07.6061270+00:00
+2026-09-25T18:54:08+09:00 [B1/partition] B1 round 3 reset_peer pg-api1 (chaos-api-1) 2026-09-25T09:54:08.4563184+00:00 -> 2026-09-25T09:54:08.9721069+00:00
+2026-09-25T18:55:09+09:00 [B1/partition] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T09:48:55.5234586+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z6\orders500.json
+2026-09-25T18:55:10+09:00 [B1/partition] RC 0
+2026-09-25T18:55:13+09:00 [B1/partition] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1752\Z6\state-after-drain.json
+2026-09-25T18:55:13+09:00 [B1/partition] RC 0
+2026-09-25T18:55:30+09:00 [B1/partition] AUTHORITATIVE Z6-post ok=True notOk=[] 
+2026-09-25T18:55:36+09:00 [B1/partition] SUMMARY summary-Z6 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T18:55:43+09:00 [B1/partition] Z6 verdict=N/A measured=2/3 fails=[leader_epoch_unchanged]
+2026-09-25T18:55:48+09:00 [B1/partition] down -v (exchange-pml) rc=0 after Z6
+2026-09-25T18:55:48+09:00 [B1/partition] volumes after unchanged

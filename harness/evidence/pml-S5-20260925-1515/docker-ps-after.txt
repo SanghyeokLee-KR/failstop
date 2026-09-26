@@ -1,0 +1,19 @@
+patroni-k6 grafana/k6:1.4.0 Up 7 minutes 
+patroni-ackrec exchange-patroni-db:local Up 7 minutes exchange-patroni
+patroni-bots exchange-chaos-app:patroni Up 7 minutes exchange-patroni
+patroni-lb nginx:1.29 Up 7 minutes exchange-patroni
+patroni-api-2 exchange-chaos-app:patroni Up 7 minutes (healthy) exchange-patroni
+patroni-api-1 exchange-chaos-app:patroni Up 8 minutes (unhealthy) exchange-patroni
+patroni-toxiproxy ghcr.io/shopify/toxiproxy:2.12.0 Up 8 minutes exchange-patroni
+patroni-toolbox exchange-patroni-db:local Up 8 minutes exchange-patroni
+patroni-db-1 exchange-patroni-db:local Up 8 minutes (healthy) exchange-patroni
+patroni-db-2 exchange-patroni-db:local Exited (137) 6 minutes ago exchange-patroni
+patroni-pg-exporter-2 quay.io/prometheuscommunity/postgres-exporter:v0.17.1 Up 8 minutes exchange-patroni
+patroni-pg-exporter-1 quay.io/prometheuscommunity/postgres-exporter:v0.17.1 Up 8 minutes exchange-patroni
+patroni-prometheus prom/prometheus:v3.13.0 Up 8 minutes exchange-patroni
+patroni-haproxy-1 haproxy:3.0.27-alpine Up 8 minutes exchange-patroni
+patroni-haproxy-2 haproxy:3.0.27-alpine Up 8 minutes exchange-patroni
+patroni-haproxy-b haproxy:3.0.27-alpine Up 8 minutes exchange-patroni
+patroni-etcd-2 quay.io/coreos/etcd:v3.5.34 Up 8 minutes exchange-patroni
+patroni-etcd-1 quay.io/coreos/etcd:v3.5.34 Up 8 minutes exchange-patroni
+patroni-etcd-3 quay.io/coreos/etcd:v3.5.34 Up 8 minutes exchange-patroni

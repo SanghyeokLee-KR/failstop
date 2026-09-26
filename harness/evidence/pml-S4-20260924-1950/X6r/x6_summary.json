@@ -1,0 +1,30 @@
+{
+  "b": {
+    "variant": "b",
+    "driverRc": 0,
+    "driver": {
+      "ok": true,
+      "failed": [],
+      "record": {
+        "M_429": 20,
+        "M_429_by_bucket": {
+          "market": 18,
+          "node": 2
+        },
+        "M_201": 30,
+        "M_201_latency_max_ms": 1850.5,
+        "admission_rejected_order_delta": 30.0
+      },
+      "contentionDelta": {
+        "55P03|429": 22.0,
+        "lock_wait|429": 33.0
+      }
+    },
+    "common": {
+      "lbZero": true,
+      "leaderDemotionsZero": true,
+      "settlementExhaustedDelta": 0.0
+    },
+    "판정": "PASS"
+  }
+}

@@ -1,0 +1,17 @@
+2026-09-26T04:59:39+09:00 START Q16
+2026-09-26T05:00:12+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q16-r2\protocol.json
+2026-09-26T05:00:31+09:00 RC 0
+2026-09-26T05:00:32+09:00 RUN docker compose -p exchange-pml -f "C:\dev\exchange-pml\compose.yaml" --env-file "C:\dev\exchange-pml\harness\scripts\..\.env.chaos" --profile admin up -d --no-deps --wait chaos-admin
+2026-09-26T05:00:38+09:00 RC 0
+2026-09-26T05:00:38+09:00 RUN python harness/scale/s5_route_probe.py q16 --out harness\evidence\pml-S7-20260926-0300\Q16-r2\q16.json
+2026-09-26T05:00:52+09:00 RC 0
+2026-09-26T05:00:52+09:00 RUN python harness/scale/s7_axes.py handoff --in harness\evidence\pml-S7-20260926-0300\Q16-r2\q16.json --out harness\evidence\pml-S7-20260926-0300\Q16-r2\handoff.json
+2026-09-26T05:00:53+09:00 RC 0
+2026-09-26T05:00:56+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T05:00:57+09:00 RC 0
+2026-09-26T05:00:57+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q16-r2\segment_post.json
+2026-09-26T05:00:57+09:00 RC 0
+2026-09-26T05:00:57+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q16-r2\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q16-r2\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q16-r2\segment.json
+2026-09-26T05:00:57+09:00 RC 0
+2026-09-26T05:01:03+09:00 DOWN rc=0
+2026-09-26T05:01:03+09:00 END Q16 verdict=PASS

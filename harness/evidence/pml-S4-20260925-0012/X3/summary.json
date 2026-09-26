@@ -1,0 +1,140 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+  "imageRevision": null,
+  "harnessCommit": "91813dd58e24500e0700c532d17a772d7b7ec76f",
+  "latchBeforeTraffic": false,
+  "protocol": 2,
+  "partitionAxes": true,
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X3",
+  "experiments": [
+    {
+      "experiment": "E7",
+      "script": "harness/scripts/e7-gray-pause.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+      "containerImages": {
+        "chaos-api-1": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+        "chaos-api-2": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+        "chaos-bots": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 45,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 110,
+        "PgEpochMs": 1790264281519,
+        "HostEpochMs": 1790264281474
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-24T15:38:01.9892628+00:00",
+        "to": "2026-09-24T15:39:32.8309608+00:00"
+      },
+      "runId": "E7-20260925-003802",
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 1277,
+        "reservedSettledByLaterEpoch": 0,
+        "file": "s3_common.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 47,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 114,
+        "PgEpochMs": 1790264404070,
+        "HostEpochMs": 1790264404023
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "PASS",
+      "rpoAxis": {
+        "rpoRecords": 0,
+        "postC13A": 0
+      },
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "pause",
+            "unpause"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-24T15:38:42.0000000+00:00",
+              "type": "container",
+              "action": "pause",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:39:26.0000000+00:00",
+              "type": "container",
+              "action": "unpause",
+              "container": "chaos-api-1"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "f3072276-ed31-4e69-bb96-00ae72df61aa",
+          "newLeader": "010c7cec-3ce9-465e-b667-b913e96bb677",
+          "metrics": {
+            "postClean": true,
+            "rtoOk": true,
+            "zombieShutdown": true,
+            "epochOk": true,
+            "holderChanged": true,
+            "staleWrites": 0
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 11.86,
+          "downtimeSeconds": 12.409,
+          "목표(초)": 30
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1534,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null
+        },
+        "5 자력 복구": {
+          "firstTradeTs": "2026-09-24T15:38:53.912Z",
+          "zombieShutdown": true
+        }
+      }
+    }
+  ]
+}

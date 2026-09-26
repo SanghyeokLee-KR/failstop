@@ -1,0 +1,475 @@
+BEGIN
+SET
+Aggregate  (cost=7396016.07..7396016.08 rows=1 width=8) (actual time=533.299..533.312 rows=1 loops=1)
+  Buffers: shared hit=118643
+  ->  Hash Left Join  (cost=7395975.46..7396014.25 rows=729 width=0) (actual time=533.294..533.307 rows=0 loops=1)
+        Hash Cond: (a.id = u.account_id)
+        Filter: (b.balance <> ((COALESCE(o.amt, '0'::numeric) + COALESCE(u.amt, '0'::numeric)) + COALESCE(w.amt, '0'::numeric)))
+        Rows Removed by Filter: 733
+        Buffers: shared hit=118643
+        ->  Hash Left Join  (cost=203.75..240.61 rows=733 width=76) (actual time=510.014..510.332 rows=733 loops=1)
+              Hash Cond: (a.id = w.account_id)
+              Buffers: shared hit=190
+              ->  Hash Left Join  (cost=187.22..222.16 rows=733 width=44) (actual time=509.987..510.252 rows=733 loops=1)
+                    Hash Cond: (a.id = o.account_id)
+                    Buffers: shared hit=188
+                    ->  Hash Join  (cost=42.98..75.99 rows=733 width=12) (actual time=509.239..509.445 rows=733 loops=1)
+                          Hash Cond: (b.account_id = a.id)
+                          Buffers: shared hit=29
+                          ->  Seq Scan on balances b  (cost=0.00..29.05 rows=1505 width=12) (actual time=0.009..0.099 rows=1505 loops=1)
+                                Buffers: shared hit=14
+                          ->  Hash  (cost=33.81..33.81 rows=733 width=8) (actual time=509.203..509.204 rows=733 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 37kB
+                                Buffers: shared hit=15
+                                ->  Seq Scan on accounts a  (cost=0.00..33.81 rows=733 width=8) (actual time=509.045..509.141 rows=733 loops=1)
+                                      Filter: ((purpose)::text = 'LOCKED'::text)
+                                      Rows Removed by Filter: 772
+                                      Buffers: shared hit=15
+                    ->  Hash  (cost=143.97..143.97 rows=22 width=40) (actual time=0.738..0.740 rows=17 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=159
+                          ->  Subquery Scan on o  (cost=143.15..143.97 rows=22 width=40) (actual time=0.718..0.727 rows=17 loops=1)
+                                Buffers: shared hit=159
+                                ->  GroupAggregate  (cost=143.15..143.75 rows=22 width=40) (actual time=0.716..0.724 rows=17 loops=1)
+                                      Group Key: orders.locked_account_id
+                                      Buffers: shared hit=159
+                                      ->  Sort  (cost=143.15..143.26 rows=44 width=11) (actual time=0.702..0.704 rows=38 loops=1)
+                                            Sort Key: orders.locked_account_id
+                                            Sort Method: quicksort  Memory: 26kB
+                                            Buffers: shared hit=159
+                                            ->  Bitmap Heap Scan on orders  (cost=8.36..141.95 rows=44 width=11) (actual time=0.203..0.689 rows=38 loops=1)
+                                                  Recheck Cond: ((status)::text = ANY ('{PENDING,OPEN,PARTIAL}'::text[]))
+                                                  Heap Blocks: exact=158
+                                                  Buffers: shared hit=159
+                                                  ->  Bitmap Index Scan on idx_orders_locked_account_open  (cost=0.00..8.35 rows=44 width=0) (actual time=0.026..0.027 rows=1212 loops=1)
+                                                        Buffers: shared hit=1
+              ->  Hash  (cost=16.51..16.51 rows=1 width=40) (actual time=0.021..0.023 rows=0 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                    Buffers: shared hit=2
+                    ->  Subquery Scan on w  (cost=16.48..16.51 rows=1 width=40) (actual time=0.021..0.023 rows=0 loops=1)
+                          Buffers: shared hit=2
+                          ->  GroupAggregate  (cost=16.48..16.50 rows=1 width=40) (actual time=0.021..0.022 rows=0 loops=1)
+                                Group Key: la.id
+                                Buffers: shared hit=2
+                                ->  Sort  (cost=16.48..16.49 rows=1 width=38) (actual time=0.020..0.021 rows=0 loops=1)
+                                      Sort Key: la.id
+                                      Sort Method: quicksort  Memory: 25kB
+                                      Buffers: shared hit=2
+                                      ->  Nested Loop  (cost=0.40..16.47 rows=1 width=38) (actual time=0.012..0.013 rows=0 loops=1)
+                                            Buffers: shared hit=2
+                                            ->  Index Scan using idx_transfer_pending on transfer_requests t  (cost=0.12..8.14 rows=1 width=40) (actual time=0.012..0.012 rows=0 loops=1)
+                                                  Index Cond: ((status)::text = 'REQUESTED'::text)
+                                                  Filter: ((direction)::text = 'WITHDRAW'::text)
+                                                  Buffers: shared hit=2
+                                            ->  Index Scan using accounts_owner_type_owner_id_purpose_asset_id_shard_key on accounts la  (cost=0.28..8.30 rows=1 width=18) (never executed)
+                                                  Index Cond: (((owner_type)::text = 'USER'::text) AND (owner_id = t.user_id) AND ((purpose)::text = 'LOCKED'::text) AND (asset_id = t.asset_id) AND (shard = 0))
+        ->  Hash  (cost=7395771.70..7395771.70 rows=1 width=40) (actual time=22.822..22.829 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              Buffers: shared hit=118453
+              ->  Subquery Scan on u  (cost=7392539.03..7395771.70 rows=1 width=40) (actual time=22.821..22.828 rows=0 loops=1)
+                    Buffers: shared hit=118453
+                    ->  GroupAggregate  (cost=7392539.03..7395771.69 rows=1 width=40) (actual time=22.821..22.827 rows=0 loops=1)
+                          Group Key: r.locked_account_id
+                          Buffers: shared hit=118453
+                          ->  Sort  (cost=7392539.03..7393616.58 rows=431020 width=13) (actual time=22.820..22.826 rows=0 loops=1)
+                                Sort Key: r.locked_account_id
+                                Sort Method: quicksort  Memory: 25kB
+                                Buffers: shared hit=118453
+                                ->  Nested Loop  (cost=6.39..7344833.67 rows=431020 width=13) (actual time=22.806..22.812 rows=0 loops=1)
+                                      Buffers: shared hit=118453
+                                      ->  Nested Loop  (cost=5.81..166913.93 rows=431020 width=8) (actual time=22.805..22.811 rows=0 loops=1)
+                                            Buffers: shared hit=118453
+                                            ->  Nested Loop  (cost=2.99..704.81 rows=230 width=10) (actual time=0.285..0.473 rows=12 loops=1)
+                                                  Buffers: shared hit=367
+                                                  ->  Seq Scan on markets m  (cost=0.00..12.30 rows=230 width=2) (actual time=0.006..0.011 rows=12 loops=1)
+                                                        Buffers: shared hit=1
+                                                  ->  Result  (cost=2.99..3.00 rows=1 width=8) (actual time=0.037..0.038 rows=1 loops=12)
+                                                        Buffers: shared hit=366
+                                                        InitPlan 1
+                                                          ->  Limit  (cost=2.92..2.99 rows=1 width=8) (actual time=0.036..0.036 rows=0 loops=12)
+                                                                Buffers: shared hit=366
+                                                                ->  Merge Append  (cost=2.92..2472.14 rows=33866 width=8) (actual time=0.036..0.036 rows=0 loops=12)
+                                                                      Sort Key: e_1.source_cmd_seq DESC
+                                                                      Buffers: shared hit=366
+                                                                      ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_2  (cost=0.15..16.20 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_3  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_4  (cost=0.29..619.97 rows=13464 width=8) (actual time=0.005..0.005 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_5  (cost=0.29..369.35 rows=9061 width=8) (actual time=0.004..0.004 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_6  (cost=0.15..16.20 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_7  (cost=0.29..457.25 rows=11305 width=8) (actual time=0.006..0.006 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_8  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_9  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_10  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_11  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_12  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_13  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_14  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_15  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_16  (cost=0.15..16.20 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                            ->  Limit  (cost=2.82..703.91 rows=1874 width=8) (actual time=1.861..1.861 rows=0 loops=12)
+                                                  Buffers: shared hit=118086
+                                                  ->  Merge Append  (cost=2.82..703.91 rows=1874 width=8) (actual time=1.860..1.860 rows=0 loops=12)
+                                                        Sort Key: c.seq
+                                                        Buffers: shared hit=118086
+                                                        ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_1  (cost=0.29..534.19 rows=1859 width=8) (actual time=1.835..1.835 rows=0 loops=12)
+                                                              Index Cond: (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint))
+                                                              Filter: ((market_id = m.id) AND ((command_type)::text = 'NEW'::text))
+                                                              Rows Removed by Filter: 14320
+                                                              Buffers: shared hit=117726
+                                                        ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.15..8.17 rows=1 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b4_market_id_seq_idx on command_journal_b4 c_7  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b5_market_id_seq_idx on command_journal_b5 c_8  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b6_market_id_seq_idx on command_journal_b6 c_9  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b7_market_id_seq_idx on command_journal_b7 c_10  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b8_market_id_seq_idx on command_journal_b8 c_11  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b9_market_id_seq_idx on command_journal_b9 c_12  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b10_market_id_seq_idx on command_journal_b10 c_13  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b11_market_id_seq_idx on command_journal_b11 c_14  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b12_market_id_seq_idx on command_journal_b12 c_15  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_16  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                      ->  Limit  (cost=0.58..16.64 rows=1 width=13) (never executed)
+                                            ->  Nested Loop Anti Join  (cost=0.58..16.64 rows=1 width=13) (never executed)
+                                                  ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.29..8.30 rows=1 width=21) (never executed)
+                                                        Index Cond: (command_seq = c.seq)
+                                                  ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e  (cost=0.29..8.32 rows=2 width=8) (never executed)
+                                                        Index Cond: (source_cmd_seq = c.seq)
+                                                        Heap Fetches: 0
+Planning:
+  Buffers: shared hit=4173
+Planning Time: 21.587 ms
+JIT:
+  Functions: 255
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 7.245 ms (Deform 2.481 ms), Inlining 35.679 ms, Optimization 248.059 ms, Emission 225.428 ms, Total 516.411 ms
+Execution Time: 553.726 ms
+Aggregate  (cost=7396016.07..7396016.08 rows=1 width=8) (actual time=504.164..504.176 rows=1 loops=1)
+  Buffers: shared hit=118643
+  ->  Hash Left Join  (cost=7395975.46..7396014.25 rows=729 width=0) (actual time=504.160..504.171 rows=0 loops=1)
+        Hash Cond: (a.id = u.account_id)
+        Filter: (b.balance <> ((COALESCE(o.amt, '0'::numeric) + COALESCE(u.amt, '0'::numeric)) + COALESCE(w.amt, '0'::numeric)))
+        Rows Removed by Filter: 733
+        Buffers: shared hit=118643
+        ->  Hash Left Join  (cost=203.75..240.61 rows=733 width=76) (actual time=480.649..480.951 rows=733 loops=1)
+              Hash Cond: (a.id = w.account_id)
+              Buffers: shared hit=190
+              ->  Hash Left Join  (cost=187.22..222.16 rows=733 width=44) (actual time=480.601..480.852 rows=733 loops=1)
+                    Hash Cond: (a.id = o.account_id)
+                    Buffers: shared hit=188
+                    ->  Hash Join  (cost=42.98..75.99 rows=733 width=12) (actual time=480.317..480.508 rows=733 loops=1)
+                          Hash Cond: (b.account_id = a.id)
+                          Buffers: shared hit=29
+                          ->  Seq Scan on balances b  (cost=0.00..29.05 rows=1505 width=12) (actual time=0.011..0.081 rows=1505 loops=1)
+                                Buffers: shared hit=14
+                          ->  Hash  (cost=33.81..33.81 rows=733 width=8) (actual time=480.280..480.281 rows=733 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 37kB
+                                Buffers: shared hit=15
+                                ->  Seq Scan on accounts a  (cost=0.00..33.81 rows=733 width=8) (actual time=480.156..480.216 rows=733 loops=1)
+                                      Filter: ((purpose)::text = 'LOCKED'::text)
+                                      Rows Removed by Filter: 772
+                                      Buffers: shared hit=15
+                    ->  Hash  (cost=143.97..143.97 rows=22 width=40) (actual time=0.262..0.263 rows=17 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                          Buffers: shared hit=159
+                          ->  Subquery Scan on o  (cost=143.15..143.97 rows=22 width=40) (actual time=0.213..0.223 rows=17 loops=1)
+                                Buffers: shared hit=159
+                                ->  GroupAggregate  (cost=143.15..143.75 rows=22 width=40) (actual time=0.211..0.219 rows=17 loops=1)
+                                      Group Key: orders.locked_account_id
+                                      Buffers: shared hit=159
+                                      ->  Sort  (cost=143.15..143.26 rows=44 width=11) (actual time=0.197..0.199 rows=38 loops=1)
+                                            Sort Key: orders.locked_account_id
+                                            Sort Method: quicksort  Memory: 26kB
+                                            Buffers: shared hit=159
+                                            ->  Bitmap Heap Scan on orders  (cost=8.36..141.95 rows=44 width=11) (actual time=0.078..0.177 rows=38 loops=1)
+                                                  Recheck Cond: ((status)::text = ANY ('{PENDING,OPEN,PARTIAL}'::text[]))
+                                                  Heap Blocks: exact=158
+                                                  Buffers: shared hit=159
+                                                  ->  Bitmap Index Scan on idx_orders_locked_account_open  (cost=0.00..8.35 rows=44 width=0) (actual time=0.031..0.031 rows=1212 loops=1)
+                                                        Buffers: shared hit=1
+              ->  Hash  (cost=16.51..16.51 rows=1 width=40) (actual time=0.025..0.028 rows=0 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 8kB
+                    Buffers: shared hit=2
+                    ->  Subquery Scan on w  (cost=16.48..16.51 rows=1 width=40) (actual time=0.025..0.027 rows=0 loops=1)
+                          Buffers: shared hit=2
+                          ->  GroupAggregate  (cost=16.48..16.50 rows=1 width=40) (actual time=0.025..0.026 rows=0 loops=1)
+                                Group Key: la.id
+                                Buffers: shared hit=2
+                                ->  Sort  (cost=16.48..16.49 rows=1 width=38) (actual time=0.024..0.025 rows=0 loops=1)
+                                      Sort Key: la.id
+                                      Sort Method: quicksort  Memory: 25kB
+                                      Buffers: shared hit=2
+                                      ->  Nested Loop  (cost=0.40..16.47 rows=1 width=38) (actual time=0.012..0.013 rows=0 loops=1)
+                                            Buffers: shared hit=2
+                                            ->  Index Scan using idx_transfer_pending on transfer_requests t  (cost=0.12..8.14 rows=1 width=40) (actual time=0.012..0.012 rows=0 loops=1)
+                                                  Index Cond: ((status)::text = 'REQUESTED'::text)
+                                                  Filter: ((direction)::text = 'WITHDRAW'::text)
+                                                  Buffers: shared hit=2
+                                            ->  Index Scan using accounts_owner_type_owner_id_purpose_asset_id_shard_key on accounts la  (cost=0.28..8.30 rows=1 width=18) (never executed)
+                                                  Index Cond: (((owner_type)::text = 'USER'::text) AND (owner_id = t.user_id) AND ((purpose)::text = 'LOCKED'::text) AND (asset_id = t.asset_id) AND (shard = 0))
+        ->  Hash  (cost=7395771.70..7395771.70 rows=1 width=40) (actual time=23.101..23.106 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              Buffers: shared hit=118453
+              ->  Subquery Scan on u  (cost=7392539.03..7395771.70 rows=1 width=40) (actual time=23.100..23.105 rows=0 loops=1)
+                    Buffers: shared hit=118453
+                    ->  GroupAggregate  (cost=7392539.03..7395771.69 rows=1 width=40) (actual time=23.100..23.105 rows=0 loops=1)
+                          Group Key: r.locked_account_id
+                          Buffers: shared hit=118453
+                          ->  Sort  (cost=7392539.03..7393616.58 rows=431020 width=13) (actual time=23.099..23.104 rows=0 loops=1)
+                                Sort Key: r.locked_account_id
+                                Sort Method: quicksort  Memory: 25kB
+                                Buffers: shared hit=118453
+                                ->  Nested Loop  (cost=6.39..7344833.67 rows=431020 width=13) (actual time=23.086..23.091 rows=0 loops=1)
+                                      Buffers: shared hit=118453
+                                      ->  Nested Loop  (cost=5.81..166913.93 rows=431020 width=8) (actual time=23.086..23.090 rows=0 loops=1)
+                                            Buffers: shared hit=118453
+                                            ->  Nested Loop  (cost=2.99..704.81 rows=230 width=10) (actual time=0.231..0.396 rows=12 loops=1)
+                                                  Buffers: shared hit=367
+                                                  ->  Seq Scan on markets m  (cost=0.00..12.30 rows=230 width=2) (actual time=0.007..0.011 rows=12 loops=1)
+                                                        Buffers: shared hit=1
+                                                  ->  Result  (cost=2.99..3.00 rows=1 width=8) (actual time=0.031..0.031 rows=1 loops=12)
+                                                        Buffers: shared hit=366
+                                                        InitPlan 1
+                                                          ->  Limit  (cost=2.92..2.99 rows=1 width=8) (actual time=0.030..0.030 rows=0 loops=12)
+                                                                Buffers: shared hit=366
+                                                                ->  Merge Append  (cost=2.92..2472.14 rows=33866 width=8) (actual time=0.029..0.030 rows=0 loops=12)
+                                                                      Sort Key: e_1.source_cmd_seq DESC
+                                                                      Buffers: shared hit=366
+                                                                      ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_2  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_3  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_4  (cost=0.29..619.97 rows=13464 width=8) (actual time=0.003..0.003 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_5  (cost=0.29..369.35 rows=9061 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_6  (cost=0.15..16.20 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_7  (cost=0.29..457.25 rows=11305 width=8) (actual time=0.004..0.004 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 1
+                                                                            Buffers: shared hit=26
+                                                                      ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_8  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_9  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_10  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_11  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_12  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_13  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_14  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_15  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                                                      ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_16  (cost=0.15..16.20 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                                            Index Cond: (market_id = m.id)
+                                                                            Heap Fetches: 0
+                                                                            Buffers: shared hit=24
+                                            ->  Limit  (cost=2.82..703.91 rows=1874 width=8) (actual time=1.890..1.890 rows=0 loops=12)
+                                                  Buffers: shared hit=118086
+                                                  ->  Merge Append  (cost=2.82..703.91 rows=1874 width=8) (actual time=1.890..1.890 rows=0 loops=12)
+                                                        Sort Key: c.seq
+                                                        Buffers: shared hit=118086
+                                                        ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_1  (cost=0.29..534.19 rows=1859 width=8) (actual time=1.864..1.864 rows=0 loops=12)
+                                                              Index Cond: (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint))
+                                                              Filter: ((market_id = m.id) AND ((command_type)::text = 'NEW'::text))
+                                                              Rows Removed by Filter: 14320
+                                                              Buffers: shared hit=117726
+                                                        ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2  (cost=0.15..8.17 rows=1 width=8) (actual time=0.002..0.002 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b4_market_id_seq_idx on command_journal_b4 c_7  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b5_market_id_seq_idx on command_journal_b5 c_8  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b6_market_id_seq_idx on command_journal_b6 c_9  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b7_market_id_seq_idx on command_journal_b7 c_10  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b8_market_id_seq_idx on command_journal_b8 c_11  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b9_market_id_seq_idx on command_journal_b9 c_12  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b10_market_id_seq_idx on command_journal_b10 c_13  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b11_market_id_seq_idx on command_journal_b11 c_14  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_b12_market_id_seq_idx on command_journal_b12 c_15  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                                        ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_16  (cost=0.15..8.17 rows=1 width=8) (actual time=0.001..0.001 rows=0 loops=12)
+                                                              Index Cond: ((market_id = m.id) AND (seq > COALESCE(((InitPlan 1).col1), '-1'::bigint)))
+                                                              Filter: ((command_type)::text = 'NEW'::text)
+                                                              Buffers: shared hit=24
+                                      ->  Limit  (cost=0.58..16.64 rows=1 width=13) (never executed)
+                                            ->  Nested Loop Anti Join  (cost=0.58..16.64 rows=1 width=13) (never executed)
+                                                  ->  Index Scan using order_reservations_pkey on order_reservations r  (cost=0.29..8.30 rows=1 width=21) (never executed)
+                                                        Index Cond: (command_seq = c.seq)
+                                                  ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e  (cost=0.29..8.32 rows=2 width=8) (never executed)
+                                                        Index Cond: (source_cmd_seq = c.seq)
+                                                        Heap Fetches: 0
+Planning:
+  Buffers: shared hit=162
+Planning Time: 1.605 ms
+JIT:
+  Functions: 255
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 7.149 ms (Deform 2.283 ms), Inlining 14.441 ms, Optimization 245.452 ms, Emission 220.340 ms, Total 487.382 ms
+Execution Time: 512.352 ms
+COMMIT

@@ -1,0 +1,33 @@
+start 2026-09-25T11:19:49Z container=pml-probe-s7cost-410912028 image=postgres:17-alpine cpus=1 N=1000000
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0~V55
+3
+4
+2026-09-25 11:19:54.213928+00
+3
+8
+9
+history 1:P1:0 2:P2:0 3:P3:4
+leases matching-engine:7 matching-p0:8 matching-p1:9
+rows=1000000 leaves=16
+q_1_c22_old result=208333
+  q_1_c22_old run1 Execution Time: 791.796 ms
+  q_1_c22_old run2 Execution Time: 807.836 ms
+  q_1_c22_old run3 Execution Time: 783.886 ms
+q_2_c22p_listing result=0
+  q_2_c22p_listing run1 Execution Time: 1558.204 ms
+  q_2_c22p_listing run2 Execution Time: 1471.941 ms
+  q_2_c22p_listing run3 Execution Time: 1474.959 ms
+q_3_c22p_count result=0
+  q_3_c22p_count run1 Execution Time: 1693.746 ms
+  q_3_c22p_count run2 Execution Time: 1398.072 ms
+  q_3_c22p_count run3 Execution Time: 1404.351 ms
+q_4_c30 result=0
+  q_4_c30 run1 Execution Time: 228.594 ms
+  q_4_c30 run2 Execution Time: 231.815 ms
+  q_4_c30 run3 Execution Time: 204.121 ms
+q_5_c22p_onescan result=0
+  q_5_c22p_onescan run1 Execution Time: 1618.850 ms
+  q_5_c22p_onescan run2 Execution Time: 1598.938 ms
+  q_5_c22p_onescan run3 Execution Time: 1525.160 ms
+done 2026-09-25T11:20:20Z

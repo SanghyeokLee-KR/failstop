@@ -1,0 +1,18 @@
+[12:41:42.209] R0-start 
+[12:44:50.710] R0-end 
+[12:44:50.710] scale-out-1-start 
+[12:44:59.554] scale-out-1-registered health_s=8.37
+[12:45:03.474] R1-end 
+[12:45:06.171] direct-checks-end 
+[12:45:06.430] R2-start 
+[12:48:06.538] R2-end 
+[12:48:36.538] C1-drain 
+[12:48:47.243] C1-stopped rc=0
+[12:49:32.493] C1-started rc=0
+[12:49:41.613] C1-registered health_s=8.89
+[12:51:12.175] C2-killed rc=0
+[12:51:57.411] C2-started rc=0
+[12:52:06.445] C2-healthy health_s=9.03
+[12:53:15.519] R3-end 
+[12:53:54.020] X-unpaced-end 
+facts.json 을 썼다: C:\dev\exchange-pml\harness\evidence\pml-app3-read-20260926-1220\facts.json

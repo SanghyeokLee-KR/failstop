@@ -53,7 +53,11 @@ export interface DataSource {
   getClosedOrders(opts?: { market?: string; cursor?: string | null; limit?: number },
                   signal?: AbortSignal): Promise<Page<Order>>;
   placeOrder(req: OrderRequest): Promise<Order>;
-  cancelOrder(idOrClientId: string): Promise<Order>;
+  /**
+   * 단건 취소. market 은 대상 주문의 마켓이고 HTTP 어댑터가 마켓 힌트 헤더(X-Exchange-Market, 서명 밖)로 싣는다(API 설계
+   * §2-5-d). 인그레스가 그 마켓을 접수하는 노드로 보낸다. 모르면 비워 둔다. 서버가 대상 주문을 읽어 판정한다.
+   */
+  cancelOrder(idOrClientId: string, market?: string): Promise<Order>;
 
   /**
    * 공지 한 쪽(§4-F). 무인증 읽기, active만, 최신순. 커서는 §2-6 opaque.
@@ -435,7 +439,8 @@ export class SimDataSource implements DataSource {
     };
   }
   async placeOrder(req: OrderRequest): Promise<Order> { return this.engine.placeOrder(req); }
-  async cancelOrder(idOrClientId: string): Promise<Order> { return this.engine.cancelOrder(idOrClientId); }
+  // 가짜 어댑터는 한 엔진이라 라우팅이 없다. 마켓 힌트는 쓰지 않는다.
+  async cancelOrder(idOrClientId: string, _market?: string): Promise<Order> { return this.engine.cancelOrder(idOrClientId); }
   async getEffectConfig(): Promise<EffectConfig> { return this.engine.getEffectConfig(); }
 
   subscribe(destination: string, cb: (msg: WsMessage) => void): () => void {

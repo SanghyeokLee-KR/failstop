@@ -1,0 +1,1 @@
+[{"role" : "pml_app", "super" : false, "login" : true, "member_of" : ["app_role"]}, {"role" : "pml_bot", "super" : false, "login" : true, "member_of" : ["app_role"]}, {"role" : "pml_read", "super" : false, "login" : true, "member_of" : null}]

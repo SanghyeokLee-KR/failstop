@@ -92,7 +92,9 @@ services:
     environment: &api-env
       # chaos-monkey 프로파일이 E8 assault 주입기(actuator /chaosmonkey)와 CB 프로브 평면을 로드한다.
       # 격리 chaos 스택 서빙 노드 한정. 데모(dev,bots)·prod·봇 노드는 이 프로파일을 활성화하지 않는다.
-      SPRING_PROFILES_ACTIVE: dev,chaos-monkey
+      # 운영 풀 상한(lock_timeout 2초·statement_timeout 3초)으로 돌리려면 CHAOS_SPRING_PROFILES 에
+      # dev,chaos-monkey,prod-timeouts 를 준다(ADR 0034 S1). 비우면 dev,chaos-monkey 다(application.yml prod-timeouts 문서).
+      SPRING_PROFILES_ACTIVE: ${CHAOS_SPRING_PROFILES:-dev,chaos-monkey}
       SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:15432/exchange
       SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
       SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
@@ -102,6 +104,11 @@ services:
       EXCHANGE_ENGINE_LEASE_TTL: ${CHAOS_LEASE_TTL:-6s}
       EXCHANGE_ENGINE_LEASE_TICK_INTERVAL: ${CHAOS_LEASE_TICK:-2s}
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
+      # 회원 세션 서명 시드와 비밀번호 페퍼. 비우면 노드마다 프로세스 한정 임의 키라, api-1 이 낸 회원 토큰을 api-2 가 401 로 거절하고
+      # api-1 에서 가입한 회원이 api-2 로 로그인하지 못한다. 두 노드가 회원 요청을 나눠 받는 실험(ADR 0034 S7 Q1 교차 노드 이중
+      # 지출)은 .env.chaos 에 두 값을 준다(각 32바이트 base64, 폐기용 스택 전용). 비워 두면 종전 동작 그대로다.
+      EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${CHAOS_MEMBER_SESSION_SEED_BASE64:-}
+      EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${CHAOS_MEMBER_PASSWORD_PEPPER_BASE64:-}
       # 서빙 노드는 dev 프로파일이라 주문 버킷이 계약 기본(100토큰/10s=20req/10s)이다. chaos-bots
       # 플릿은 계정당 다봇 고빈도라 이 한도에 429로 걸려 파킹되고, 카오스 중 부하 생성·자동 복구
       # 관찰이 무력화된다. 실험 부하 유지를 위해 서빙 노드의 주문 capacity를 상향한다(격리 스택 한정).
@@ -205,7 +212,10 @@ services:
   chaos-lb:
     image: nginx:1.29
     container_name: chaos-lb
-    volumes: ["./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    # LB 설정 파일(하네스 CI/CD §3-3, ADR 0034 S5). 기본은 종전 nginx.conf 라 종전 실험의 조건이 그대로다. S5 관문 실행기만
+    # 셸 변수 CHAOS_LB_CONF=./nginx/nginx.partition.conf 를 준 프로세스에서 파티션 업스트림 파일을 고른다. 셸 변수가
+    # --env-file 보다 우선하므로 비밀 파일(.env.chaos)은 고치지 않는다.
+    volumes: ["${CHAOS_LB_CONF:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro"]
     ports: ["58080:8080"]
     depends_on:
       chaos-api-1: { condition: service_healthy }

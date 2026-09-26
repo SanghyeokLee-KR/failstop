@@ -1,25 +1,25 @@
 package kr.exchange.api.ws;
 
 import kr.exchange.api.common.ApiFormats;
-import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.OrderQueryService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.OrderCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,71 +35,96 @@ import java.util.concurrent.ConcurrentHashMap;
  * 있으나 WS는 최선 노력 채널이다. 상태 권위는 REST 스냅샷 + seq/epoch 재동기화 계약(§5-2)이
  * 지므로 게시 실패는 엔진을 세우지 않고 삼킨다(로그만).
  *
- * 단일 노드 SimpleBroker 전제. 크로스노드 팬아웃(/topic Redis 릴레이, /user 외부 STOMP
- * 브로커 릴레이, §5-1)은 다중 노드 승격 시점의 몫이다.
+ * 메시지의 epoch 는 그 배치의 쓰기를 DB 가 판정한 라이터 기간의 epoch 다. 옛 기간의 라이터가 늦게 게시하면 옛 epoch 가 붙어
+ * 클라이언트가 버린다. 게시는 노드 내장 브로커로 가고, 중계 모드면 같은 바이트가 노드 단위 중계로 다른 노드에 간다(§5-1, WsFanout).
  */
 public class MarketDataPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataPublisher.class);
 
+    /** 중계 모드의 비공개 채널 seq 도메인 표시(§5-2). simple 모드는 싣지 않는다. */
+    static final String SEQ_DOMAIN_USER_MARKET = "user_market";
+
     // §4-C-1과 동일한 원가 산출식. 델타에 평단가를 싣지 않으면 클라이언트가 직전 값을 보존해
     // 매수마다 낡은 평단가가 남는다(§5-5 v2.21). 조인은 기존 쿼리에 붙여 왕복을 늘리지 않는다.
     // publishMyAsset은 매칭 단일 라이터 스레드에서 동기 실행되므로 별도 쿼리 추가는 금지다.
+    // version 은 두 잔고 행 version 의 합이고 잔고와 같은 문장에서 읽는다(§4-C-1 잔고 판, DB 설계 §4.1).
     private static final String MY_ASSET_SQL = """
-            SELECT a.symbol, ub.available, ub.locked,
+            SELECT a.symbol, ub.available, ub.locked, ub.version,
                    COALESCE(pc.cost_qty, 0)    AS cost_basis_qty,
                    COALESCE(pc.cost_amount, 0) AS cost_basis_amount,
                    COALESCE(CASE WHEN pc.cost_qty > 0
                                  THEN round(pc.cost_amount / pc.cost_qty, qa.scale::int)
                             END, 0) AS avg_buy_price
-            FROM user_balances ub
+            FROM (SELECT ac.owner_id AS user_id, ac.asset_id,
+                         SUM(CASE WHEN ac.purpose = 'AVAILABLE' THEN b.balance ELSE 0 END) AS available,
+                         SUM(CASE WHEN ac.purpose = 'LOCKED'    THEN b.balance ELSE 0 END) AS locked,
+                         SUM(b.version) AS version
+                  FROM accounts ac JOIN balances b ON b.account_id = ac.id
+                  WHERE ac.owner_type = 'USER' AND ac.owner_id = ? AND ac.asset_id = ?
+                  GROUP BY ac.owner_id, ac.asset_id) ub
             JOIN assets a ON a.id = ub.asset_id
             LEFT JOIN position_cost pc
                  ON pc.user_id = ub.user_id AND pc.asset_id = ub.asset_id
             LEFT JOIN assets qa ON qa.id = pc.quote_asset_id
-            WHERE ub.user_id = ? AND ub.asset_id = ?
             """;
 
-    private final SimpMessagingTemplate messaging;
     private final JdbcClient jdbc;
     private final MarketDirectory markets;
     private final MarketDataService marketData;
     private final OrderQueryService orders;
     private final ChannelSequences sequences;
-    private final EpochSource epochSource;
     private final CandleSubscriptions candleSubscriptions;
+    private final WsFanout fanout;
+    // 중계 모드면 각 노드가 캔들을 계산한다(S6 설계 4-10). simple 모드면 null 이고 라이터 스레드가 계산한다.
+    private final CandleFanout candleFanout;
+    // 중계 모드의 노드별 미러. 자기 게시로도 갱신한다(S6 설계 4-6). simple 모드면 null 이다.
+    private final MarketMirror mirror;
     private final MeterRegistry meterRegistry;
     // 미터는 market당 1개라 캐시로 태그 리스트 재구성·레지스트리 조회를 라이터 스레드에서 없앤다.
     private final Map<String, Counter> tradeCounters = new ConcurrentHashMap<>();
     private final Map<String, Timer> fillTimers = new ConcurrentHashMap<>();
+    // 마켓별 마지막 호가·티커 게시 [epoch, seq]. 라이터 스레드가 쓰고 하트비트 스레드가 읽는다(S6 설계 4-4).
+    private final Map<String, long[]> lastOrderbook = new ConcurrentHashMap<>();
+    private final Map<String, long[]> lastTicker = new ConcurrentHashMap<>();
 
-    public MarketDataPublisher(SimpMessagingTemplate messaging, JdbcClient jdbc,
-                               MarketDirectory markets, MarketDataService marketData,
+    public MarketDataPublisher(JdbcClient jdbc, MarketDirectory markets, MarketDataService marketData,
                                OrderQueryService orders, ChannelSequences sequences,
-                               EpochSource epochSource, CandleSubscriptions candleSubscriptions,
-                               MeterRegistry meterRegistry) {
-        this.messaging = messaging;
+                               CandleSubscriptions candleSubscriptions, WsFanout fanout,
+                               CandleFanout candleFanout, MarketMirror mirror, MeterRegistry meterRegistry) {
+        if (fanout.relaying() && (candleFanout == null || mirror == null)) {
+            throw new IllegalArgumentException("중계 모드는 캔들 팬아웃과 미러가 필요하다");
+        }
         this.jdbc = jdbc;
         this.markets = markets;
         this.marketData = marketData;
         this.orders = orders;
         this.sequences = sequences;
-        this.epochSource = epochSource;
         this.candleSubscriptions = candleSubscriptions;
+        this.fanout = fanout;
+        this.candleFanout = candleFanout;
+        this.mirror = mirror;
         this.meterRegistry = meterRegistry;
     }
 
-    /** 정산 커밋이 끝난 단일 명령 방출 배치를 게시한다. 실패는 삼키고 기록만 한다. */
-    public void publishSettled(List<EngineEvent> events) {
+    /** 정산 커밋이 끝난 단일 명령 방출 배치를 그 라이터 기간으로 게시한다. 실패는 삼키고 기록만 한다. */
+    public void publishSettled(LeaderTerm term, List<EngineEvent> events) {
         try {
-            doPublish(events);
+            doPublish(term.epoch(), events);
         } catch (RuntimeException e) {
             log.warn("WS 게시 실패(정합성 영향 없음, 클라이언트는 REST 재동기화): {}", e.getMessage());
         }
     }
 
-    private void doPublish(List<EngineEvent> events) {
-        long epoch = epochSource.epoch();
+    /** 이 노드가 그 마켓·채널에 마지막으로 게시한 [epoch, seq]. 게시한 적이 없으면 null. */
+    public long[] lastPublished(MarketMirror.Channel channel, String market) {
+        return (channel == MarketMirror.Channel.ORDERBOOK ? lastOrderbook : lastTicker).get(market);
+    }
+
+    private void doPublish(long epoch, List<EngineEvent> events) {
+        if (events.isEmpty()) {
+            return;
+        }
         Set<Integer> touchedMarkets = new LinkedHashSet<>();
         Set<Long> touchedUsers = new LinkedHashSet<>();
         boolean traded = false;
@@ -130,20 +155,25 @@ public class MarketDataPublisher {
         for (int marketId : touchedMarkets) {
             MarketDirectory.Market market = markets.byId(marketId);
             // depth를 마켓당 한 번만 집계해 orderbook·ticker 두 경로에 공유한다(배치당 중복 제거).
-            MarketDataService.Depth depth = marketData.depth(market.id());
+            MarketDataService.Depth depth = marketData.depthForTerm(market.id(), epoch);
             publishOrderbook(market, depth, epoch, events.get(0).engineTs());
             if (traded) {
                 publishTicker(market, depth, epoch);
-                publishCandles(market, epoch);
+                if (candleFanout != null) {
+                    candleFanout.onTrade(market.symbol(), epoch);
+                } else {
+                    publishCandles(market, epoch);
+                }
             }
         }
+        // 한 배치는 명령 하나의 방출이라 마켓이 하나다. myAsset 은 그 마켓과 epoch 를 싣는다(§5-5).
+        MarketDirectory.Market commandMarket = markets.byId(events.get(0).marketId());
         for (long userId : touchedUsers) {
-            publishMyAsset(userId, touchedMarkets, epoch, events.get(0).engineTs());
+            publishMyAsset(userId, commandMarket, touchedMarkets, epoch, events.get(0).engineTs());
         }
     }
 
     private void publishTrade(MarketDirectory.Market market, EngineEvent event, long epoch) {
-        String channel = "trade." + market.symbol();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("type", "trade");
@@ -158,17 +188,22 @@ public class MarketDataPublisher {
         body.put("volume", ApiFormats.amount(event.quantity()));
         body.put("taker_side", event.takerSide() == OrderCommand.Side.BUY ? "bid" : "ask");
         body.put("timestamp", ApiFormats.timeMs(event.engineTs()));
-        messaging.convertAndSend("/topic/" + channel, body);
+        fanout.topic("/topic/trade." + market.symbol(), market.symbol(), epoch, event.eventSeq(), body);
     }
 
     private void publishOrderbook(MarketDirectory.Market market, MarketDataService.Depth depth,
                                   long epoch, long engineTs) {
-        String channel = "orderbook." + market.symbol();
+        long seq = sequences.next("orderbook." + market.symbol());
         Map<String, Object> body = marketData.orderbookBody(market.symbol(), depth,
-                epoch, sequences.next(channel), ApiFormats.timeMs(engineTs));
+                epoch, seq, ApiFormats.timeMs(engineTs));
         body.put("type", "orderbook");
         body.put("stream", "realtime");
-        messaging.convertAndSend("/topic/" + channel, body);
+        byte[] bytes = fanout.topic("/topic/orderbook." + market.symbol(), market.symbol(), epoch, seq, body);
+        // 넣기 시도 뒤에 적는다. 하트비트가 알린 게시는 그보다 먼저 큐에 들어갔거나 버려진 것이다(S6 설계 4-4).
+        lastOrderbook.put(market.symbol(), new long[] {epoch, seq});
+        if (mirror != null) {
+            mirror.update(MarketMirror.Channel.ORDERBOOK, market.symbol(), epoch, seq, bytes);
+        }
     }
 
     /**
@@ -178,8 +213,8 @@ public class MarketDataPublisher {
      * "현재 캔들 갱신"·"새 캔들 확정"은 별도 필드 없이 candle_time 단조성으로 구분한다(§5-3).
      * seq는 버킷 최대 event_seq(= REST §4-A-5 seq)라 REST 스냅샷과 WS 라이브가 한 도메인이다
      * (§5-2, 재연결 재동기화 연속성). 같은 배치 방출이라 이 버킷 최대 id == 방금 체결의 event_seq다.
-     * trade_count·stream은 §5-4 candle 스키마에 없어 싣지 않는다. unit별로 격리해 한 unit 조회
-     * 실패가 나머지 unit·채널을 취소하지 않게 한다(candle은 이 배치에서 가장 무거운 경로).
+     * unit별로 격리해 한 unit 조회 실패가 나머지 unit·채널을 취소하지 않게 한다(candle은 이 배치에서
+     * 가장 무거운 경로). simple 모드 전용이다. 중계 모드는 CandleFanout 이 노드마다 계산한다.
      */
     private void publishCandles(MarketDirectory.Market market, long epoch) {
         for (String unit : candleSubscriptions.subscribedUnits(market.symbol())) {
@@ -188,21 +223,8 @@ public class MarketDataPublisher {
                 if (candle == null) {
                     continue;
                 }
-                String channel = "candle." + unit + "." + market.symbol();
-                Map<String, Object> body = new LinkedHashMap<>();
-                body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-                body.put("type", "candle");
-                body.put("unit", unit);
-                body.put("market", market.symbol());
-                body.put("epoch", epoch);
-                body.put("seq", candle.get("seq"));
-                body.put("candle_time", candle.get("candle_time"));
-                body.put("open", candle.get("open"));
-                body.put("high", candle.get("high"));
-                body.put("low", candle.get("low"));
-                body.put("close", candle.get("close"));
-                body.put("volume", candle.get("volume"));
-                messaging.convertAndSend("/topic/" + channel, body);
+                fanout.localTopic("/topic/candle." + unit + "." + market.symbol(),
+                        CandleFanout.body(unit, market.symbol(), epoch, candle));
             } catch (RuntimeException e) {
                 log.warn("candle 방출 실패(unit={} market={}, 다른 채널·unit 영향 없음): {}",
                         unit, market.symbol(), e.getMessage());
@@ -212,12 +234,24 @@ public class MarketDataPublisher {
 
     private void publishTicker(MarketDirectory.Market market, MarketDataService.Depth depth,
                                long epoch) {
-        String channel = "ticker." + market.symbol();
+        long seq = sequences.next("ticker." + market.symbol());
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("type", "ticker");
-        body.putAll(marketData.ticker(market, epoch, sequences.next(channel), depth));
-        messaging.convertAndSend("/topic/" + channel, body);
+        body.putAll(marketData.ticker(market, epoch, seq, depth));
+        fanout.topic("/topic/ticker." + market.symbol(), market.symbol(), epoch, seq, body);
+        lastTicker.put(market.symbol(), new long[] {epoch, seq});
+        if (mirror != null) {
+            mirror.update(MarketMirror.Channel.TICKER, market.symbol(), epoch, seq, null);
+        }
+    }
+
+    /**
+     * 비공개 채널 seq 키. 중계 모드는 user × market 이다(§5-2). 한 마켓은 한 순간 한 파티션의 리더 하나만 게시하므로 노드 하나의
+     * 카운터로 조밀하다. simple 모드는 게시 노드가 하나라 종전 user × type 이다.
+     */
+    private String privateChannel(String type, long userId, MarketDirectory.Market market) {
+        return fanout.relaying() ? type + ":" + userId + ":" + market.id() : type + ":" + userId;
     }
 
     /** 게시한 주문의 소유 user_id를 반환한다. 대상 행이 없으면 null(중복 조회 방지용 재사용). */
@@ -231,12 +265,15 @@ public class MarketDataPublisher {
             // REJECTED 중 프로젝션 불가 형태(기형 명령)는 행이 없다. 통지 대상 사용자도 특정 불가.
             return null;
         }
-        String channel = "myOrder:" + row.userId();
+        long seq = sequences.next(privateChannel("myOrder", row.userId(), market));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("type", "myOrder");
         body.put("epoch", epoch);
-        body.put("seq", sequences.next(channel));
+        body.put("seq", seq);
+        if (fanout.relaying()) {
+            body.put("seq_domain", SEQ_DOMAIN_USER_MARKET);
+        }
         body.put("id", row.externalId().toString());
         body.put("client_order_id", row.clientOrderId());
         body.put("market", market.symbol());
@@ -258,7 +295,7 @@ public class MarketDataPublisher {
             body.put("trade", trade);
         }
         body.put("timestamp", ApiFormats.timeMs(event.engineTs()));
-        messaging.convertAndSendToUser(String.valueOf(row.userId()), "/queue/myOrder", body);
+        fanout.user(row.userId(), "/queue/myOrder", market.symbol(), epoch, seq, body);
         return row.userId();
     }
 
@@ -303,14 +340,15 @@ public class MarketDataPublisher {
                         .register(meterRegistry));
     }
 
-    private void publishMyAsset(long userId, Set<Integer> marketIds, long epoch, long engineTs) {
+    private void publishMyAsset(long userId, MarketDirectory.Market commandMarket, Set<Integer> marketIds,
+                                long epoch, long engineTs) {
         Set<Short> assetIds = new LinkedHashSet<>();
         for (int marketId : marketIds) {
             MarketDirectory.Market market = markets.byId(marketId);
             assetIds.add(market.baseAssetId());
             assetIds.add(market.quoteAssetId());
         }
-        java.util.List<Map<String, Object>> assets = new java.util.ArrayList<>();
+        List<Map<String, Object>> assets = new ArrayList<>();
         for (short assetId : assetIds) {
             jdbc.sql(MY_ASSET_SQL)
                     .params(userId, assetId)
@@ -327,19 +365,24 @@ public class MarketDataPublisher {
                                 ApiFormats.amount(rs.getBigDecimal("cost_basis_qty")));
                         asset.put("cost_basis_amount",
                                 ApiFormats.amount(rs.getBigDecimal("cost_basis_amount")));
+                        asset.put("version", rs.getLong("version"));
                         return asset;
                     })
                     .optional()
                     .ifPresent(assets::add);
         }
-        String channel = "myAsset:" + userId;
+        long seq = sequences.next(privateChannel("myAsset", userId, commandMarket));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("type", "myAsset");
+        body.put("market", commandMarket.symbol());
         body.put("epoch", epoch);
-        body.put("seq", sequences.next(channel));
+        body.put("seq", seq);
+        if (fanout.relaying()) {
+            body.put("seq_domain", SEQ_DOMAIN_USER_MARKET);
+        }
         body.put("assets", assets);
         body.put("timestamp", ApiFormats.timeMs(engineTs));
-        messaging.convertAndSendToUser(String.valueOf(userId), "/queue/myAsset", body);
+        fanout.user(userId, "/queue/myAsset", commandMarket.symbol(), epoch, seq, body);
     }
 }

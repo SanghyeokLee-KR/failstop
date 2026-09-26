@@ -1,0 +1,35 @@
+2026-09-25T15:23:25+09:00 [Z1/partition] PHASE Z1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.partition.conf
+2026-09-25T15:23:25+09:00 [Z1/partition] volumes before unchanged
+2026-09-25T15:23:31+09:00 [Z1/partition] down -v (exchange-pml) rc=0
+2026-09-25T15:24:04+09:00 [Z1/partition] up --profile obs rc=0 (profiles=dev,chaos-monkey,prod-timeouts lb=nginx.partition.conf)
+2026-09-25T15:24:05+09:00 [Z1/partition] LB conf=nginx.partition.conf nginx-t rc=0 sameSha=True
+2026-09-25T15:24:05+09:00 [Z1/partition] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\protocol.json
+2026-09-25T15:24:31+09:00 [Z1/partition] RC 0
+2026-09-25T15:24:41+09:00 [Z1/partition] RUN python harness/scale/s5_route_probe.py keys --markets KRW-BTC,KRW-ETH,KRW-XRP --count 4 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\keys.json
+2026-09-25T15:24:41+09:00 [Z1/partition] RC 0
+2026-09-25T15:24:41+09:00 [Z1/partition] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\partition_pre.json
+2026-09-25T15:24:42+09:00 [Z1/partition] RC 0
+2026-09-25T15:24:42+09:00 [Z1/partition] Z1 leader=chaos-api-1 bots target_ops=300 warmup 60s
+2026-09-25T15:25:42+09:00 [Z1/partition] RUN docker run k6 order_flow.js RUN_ID=z1r1152542 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T15:27:43+09:00 [Z1/partition] k6 z1r1152542 rc=0 failedThresholds=0
+2026-09-25T15:27:43+09:00 [Z1/partition] RUN docker run k6 order_flow.js RUN_ID=z1r2152743 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T15:29:44+09:00 [Z1/partition] k6 z1r2152743 rc=0 failedThresholds=0
+2026-09-25T15:29:44+09:00 [Z1/partition] RUN docker run k6 order_flow.js RUN_ID=z1r3152944 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T15:31:45+09:00 [Z1/partition] k6 z1r3152944 rc=0 failedThresholds=0
+2026-09-25T15:31:45+09:00 [Z1/partition] RUN docker run k6 order_flow.js RUN_ID=z1r4153145 (PROFILE=smoke STEADY 5 SPIKE 10 WS_VUS 10, 3 markets, MARKET_HINT=1)
+2026-09-25T15:33:46+09:00 [Z1/partition] k6 z1r4153145 rc=0 failedThresholds=0
+2026-09-25T15:33:50+09:00 [Z1/partition] RUN python harness/scale/s5_route_probe.py lbsplit --log C:\Users\DEV-PC\AppData\Local\Temp\pml-s5-logs\Z1-chaos-lb.log --from 2026-09-25T06:25:41.7063324+00:00 --to 2026-09-25T06:33:49.6954607+00:00 --leader chaos-api-1 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\lbsplit.json
+2026-09-25T15:33:50+09:00 [Z1/partition] RC 0
+2026-09-25T15:33:50+09:00 [Z1/partition] RUN python harness/scale/s4_partition_axes.py snapshot --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\partition_post.json
+2026-09-25T15:33:51+09:00 [Z1/partition] RC 0
+2026-09-25T15:33:51+09:00 [Z1/partition] RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T06:24:42.1424515+00:00 --lb-gate --pre C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\partition_pre.json --post C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\partition_post.json --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\partition_axes.json
+2026-09-25T15:33:51+09:00 [Z1/partition] RC 0
+2026-09-25T15:33:52+09:00 [Z1/partition] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T06:23:31.2918654+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\orders500.json
+2026-09-25T15:33:53+09:00 [Z1/partition] RC 0
+2026-09-25T15:33:55+09:00 [Z1/partition] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\Z1\state-after-drain.json
+2026-09-25T15:33:56+09:00 [Z1/partition] RC 0
+2026-09-25T15:34:13+09:00 [Z1/partition] AUTHORITATIVE Z1-post ok=True notOk=[] 
+2026-09-25T15:34:23+09:00 [Z1/partition] SUMMARY summary-Z1 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T15:34:30+09:00 [Z1/partition] Z1 verdict=FAIL fails=[follower_not_owner_eq_lb_first_follower_503]
+2026-09-25T15:34:36+09:00 [Z1/partition] down -v (exchange-pml) rc=0 after Z1
+2026-09-25T15:34:36+09:00 [Z1/partition] volumes after unchanged

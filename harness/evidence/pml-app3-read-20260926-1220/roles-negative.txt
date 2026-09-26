@@ -1,0 +1,9 @@
+== SELECT count(*) FROM trades (rc=0)
+38
+== SELECT count(*) FROM orders (rc=1)
+ERROR:  42501: permission denied for table orders
+LOCATION:  aclcheck_error, aclchk.c:2843
+== INSERT INTO trades DEFAULT VALUES (rc=1)
+ERROR:  25006: cannot execute INSERT in a read-only transaction
+== CREATE TABLE pml_read_probe(x int) (rc=1)
+ERROR:  25006: cannot execute CREATE TABLE in a read-only transaction

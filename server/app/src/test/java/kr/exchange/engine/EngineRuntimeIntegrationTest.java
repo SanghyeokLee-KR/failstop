@@ -310,6 +310,7 @@ class EngineRuntimeIntegrationTest {
         LeaderLeaseService failLease =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(120), Duration.ofSeconds(1));
         takeOver(failLease);
+        LeaderTerm failTerm = failLease.currentTerm().orElseThrow();
 
         MatchingEngineImpl engine = new MatchingEngineImpl();
         replayService.rebuild(engine);
@@ -329,12 +330,23 @@ class EngineRuntimeIntegrationTest {
 
         assertNotNull(fatal.get(), "fail-fast 통지가 없었다");
         assertFalse(failLease.isLeader(), "비 fencing sink 실패도 리더십을 내려놓아야 한다");
-        assertFalse(failLease.tryAcquire(), "강등 후 재승격은 금지다");
+        assertFalse(failLease.tryAcquire(), "재구성 전 재획득 없음: 강등한 리스가 rearm 전에 다시 얻었다");
         // 루프 정지 후 접수는 저널 커밋 전에 거부돼야 한다(무기한 미체결 ACK 금지).
         assertThrows(IllegalStateException.class,
                 () -> bridge.submit(limitIntake(7, 51, OrderCommand.Side.SELL, "151", "1")));
         assertEquals(0, jdbc.sql("SELECT count(*) FROM command_journal WHERE client_order_id = ?")
                 .params("run-51").query(Long.class).single());
+
+        // 재구성을 마친 수명주기가 rearm 하면 만료 리스를 더 큰 epoch 로 다시 얻는다(DB 설계 §5.4-c 5). 강등 전 기간을 쥔
+        // 옛 쓰기는 새 epoch 를 빌리지 못하고 DB 왕복 없이 거부된다.
+        assertTrue(failLease.rearm(), "노드 치명이 아닌 강등이 rearm 되지 않았다");
+        takeOver(failLease);
+        assertTrue(failLease.requireLeader().epoch() > failTerm.epoch(), "재획득 epoch 가 늘지 않았다");
+        assertThrows(NotLeaderException.class, () -> new CommandJournalAppender(jdbc, tx, failLease)
+                .append(failTerm, new CommandDraft(7, CommandDraft.CommandType.NEW, 50L, "run-52", 52L,
+                        BASE_TS + 52, 52L, "{}"), null), "끝난 기간의 append 가 거부되지 않았다");
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM command_journal WHERE client_order_id = ?")
+                .params("run-52").query(Long.class).single());
 
         // 이 테스트가 만든 크래시 창(run-50 커밋·이벤트 미적재)을 복구 경로로 치유해
         // 저널을 정합 상태로 되돌린다(복구 경로 재검증 겸용).
@@ -365,7 +377,7 @@ class EngineRuntimeIntegrationTest {
     void 정지된_마켓_주문은_저널에_닿기_전에_거부된다() throws Exception {
         // 게이트웨이가 ACTIVE 를 본 뒤 관리자가 정지시킨 창을 흉내낸다. 이미 통과한 주문이
         // 엔진에 도착해도 저널 append 전에 끊겨야 한다.
-        // 앞 회차가 종신 강등을 거쳤다. 재승격 금지는 인스턴스 단위이므로 새 리스 서비스로
+        // 앞 회차가 강등을 거쳤다. 강등한 리스는 재구성(rearm) 전에 다시 얻지 않으므로 새 리스 서비스로
         // 승격해야 저널 append 가 fencing 을 통과한다.
         LeaderLeaseService freshLease =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(120), Duration.ofSeconds(1));

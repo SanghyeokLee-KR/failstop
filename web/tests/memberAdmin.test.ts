@@ -9,6 +9,7 @@ import { SimAdminApi } from "../lib/admin/simAdmin";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
 import { AdminError } from "../lib/admin/api";
 import { ACTION_CAP, approvalConsoleTarget } from "../lib/admin/roles";
+import { describeCloseIncomplete } from "../lib/admin/memberClose";
 
 const TRADER = "11111111-1111-4111-8111-111111111111";
 
@@ -86,6 +87,122 @@ test("폐쇄는 승인 소각 경로로만 실행되고 종결 상태다", async
     async () => api.reinstateMember(TRADER),
     (e: unknown) => e instanceof AdminError && e.code === "member_closed",
   );
+});
+
+/*
+ * 정지 마켓 미체결이 남은 폐쇄(API 설계 v2.54 §6-E, ADR 0034 결정 15). 폐쇄는 확정되고 409 orders_cancel_incomplete 가
+ * 남은 수와 사유별 수를 싣는다. 정지 마켓 포함은 AI 가 고른 방침이고 사용자 확인이 필요하다.
+ */
+test("정지 마켓 미체결이 남은 폐쇄는 CLOSED 로 확정하고 409 로 사유별 수를 알린다", async () => {
+  const api = await mod();
+  const halt = await api.issueApproval("op-01", "config.market.halt", { action: "config.market.halt", symbol: "KRW-ETH" });
+  await api.consumeApproval(halt);
+  const close = await api.issueApproval("op-01", "members.close", {
+    action: "members.close", externalId: TRADER, email: "trader@demo.local",
+  });
+
+  let raised: AdminError | null = null;
+  try {
+    await api.consumeApproval(close);
+  } catch (e) {
+    raised = e as AdminError;
+  }
+
+  assert.ok(raised instanceof AdminError, "409 가 나지 않았다");
+  assert.equal(raised.code, "orders_cancel_incomplete");
+  assert.equal(raised.detail?.pending_orders, 1);
+  assert.equal(raised.detail?.canceled_orders, 2);
+  assert.deepEqual(raised.detail?.pending_reasons, { market_suspended: 1 });
+  assert.equal(raised.detail?.approval_id, close.id);
+  assert.match(raised.message, /폐쇄 확정, 미완료 1건\(정지 마켓 1건\)/);
+  const after = await api.getMember(TRADER);
+  assert.equal(after.status, "CLOSED", "폐쇄는 확정이다");
+  assert.equal(after.openOrderCount, 1, "정지 마켓 주문은 남는다");
+  // 서버처럼 토큰은 이미 소각됐다. 같은 토큰으로 다시 부를 수 없다
+  await assert.rejects(async () => api.consumeApproval(close),
+    (e: unknown) => e instanceof AdminError && e.code === "admin_forbidden");
+});
+
+test("미완료 문구는 사유별 수와 다음 조치를 싣는다", () => {
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 3, pending_reasons: { service_unavailable: 1, market_suspended: 2 } }),
+    "폐쇄 확정, 미완료 3건(일시 거부 1건, 정지 마켓 2건). 정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요",
+  );
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 1, pending_reasons: { service_unavailable: 1 } }),
+    "폐쇄 확정, 미완료 1건(일시 거부 1건). 새 승인으로 폐쇄 재요청 필요",
+  );
+  // 마켓 접수 경합(API 설계 v2.55 §2-5-b)은 한글 이름으로 적고 서버와 같은 순서에 둔다. 원시 코드가 보이면 안 된다
+  assert.equal(
+    describeCloseIncomplete({
+      pending_orders: 4,
+      pending_reasons: { market_suspended: 1, too_many_requests: 2, service_unavailable: 1 },
+    }),
+    "폐쇄 확정, 미완료 4건(일시 거부 1건, 접수 혼잡 2건, 정지 마켓 1건). 정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요",
+  );
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 2, pending_reasons: { too_many_requests: 2 } }),
+    "폐쇄 확정, 미완료 2건(접수 혼잡 2건). 새 승인으로 폐쇄 재요청 필요",
+  );
+  // 파티션 인계의 세 사유(API 설계 v2.57 §4-B-3·§6-E)는 원인을 단정하지 않는 이름으로 서버와 같은 순서에 둔다
+  assert.equal(
+    describeCloseIncomplete({
+      pending_orders: 4,
+      pending_reasons: { server_error: 1, partition_not_started: 2, market_suspended: 1 },
+    }),
+    "폐쇄 확정, 미완료 4건(정지 마켓 1건, 소유 노드 미착수 2건, 서버 오류 1건). 정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요",
+  );
+  // 소유 노드가 처리 중인 몫은 곧 취소될 수 있어 잠시 뒤 다시 요청하라고 안내한다
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 3, pending_reasons: { partition_pending: 2, partition_not_started: 1 } }),
+    "폐쇄 확정, 미완료 3건(소유 노드 미착수 1건, 소유 노드 처리 중 2건). 잠시 뒤 새 승인으로 폐쇄 재요청 필요",
+  );
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 2, pending_reasons: { partition_not_started: 2 } }),
+    "폐쇄 확정, 미완료 2건(소유 노드 미착수 2건). 새 승인으로 폐쇄 재요청 필요",
+  );
+  // 사유가 없거나 0 이면 합만 보인다
+  assert.equal(describeCloseIncomplete({ pending_orders: 2, pending_reasons: { market_suspended: 0 } }),
+    "폐쇄 확정, 미완료 2건. 새 승인으로 폐쇄 재요청 필요");
+  assert.equal(describeCloseIncomplete(null), "폐쇄 확정, 미완료 0건. 새 승인으로 폐쇄 재요청 필요");
+});
+
+test("http 어댑터는 폐쇄 409 바디의 detail 을 AdminError 에 싣는다", async () => {
+  const api = new HttpAdminApi("http://admin.test");
+  const prev = globalThis.fetch;
+  const detail = {
+    status: "CLOSED", canceled_orders: 2, pending_orders: 1,
+    pending_reasons: { market_suspended: 1 }, approval_id: 77,
+  };
+  globalThis.fetch = (async (url: unknown) => {
+    if (String(url).endsWith("/admin/v1/session")) {
+      return okRes({
+        operator_id: "op-mod", display_name: "운영", roles: ["SUPER"], token: "sess",
+        expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+      });
+    }
+    return {
+      ok: false, status: 409, headers: { get: () => null },
+      json: async () => ({ error: { name: "orders_cancel_incomplete", message: "폐쇄는 확정됐으나", detail,
+                                    trace_id: null, request_id: "r-1", retry_after: null } }),
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    await api.establishSession();
+    await assert.rejects(
+      async () => api.consumeApproval({
+        id: "77", action: "members.close", targetKey: "", targetLabel: "", requesterId: "op-mod",
+        requesterName: "", approverId: "op-mod", approverName: "", state: "ISSUED", issuedAt: "", expiresAt: "",
+        consumedAt: null,
+        payload: { action: "members.close", externalId: "e-1", email: "e@x" }, token: "apv-1",
+      }),
+      (e: unknown) => e instanceof AdminError && e.code === "orders_cancel_incomplete"
+        && (e.detail?.pending_reasons as Record<string, number>).market_suspended === 1
+        && e.detail?.pending_orders === 1,
+    );
+  } finally {
+    globalThis.fetch = prev;
+  }
 });
 
 test("폐쇄 승인은 요청자와 발급자가 같아도 발급된다(1인 승인)", async () => {

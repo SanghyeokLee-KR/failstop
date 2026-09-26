@@ -1,0 +1,255 @@
+{
+  "ok": true,
+  "already": false,
+  "target": 2,
+  "allow_downgrade": false,
+  "code": 0,
+  "error": null,
+  "started": "2026-09-24T22:07:48+09:00",
+  "guard": {
+    "ok": true,
+    "problems": [],
+    "labels": {
+      "chaos-pg": "exchange-pml",
+      "chaos-api-1": "exchange-pml",
+      "chaos-api-2": "exchange-pml",
+      "chaos-bots": "exchange-pml"
+    },
+    "image_ids": {
+      "chaos-api-1": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea",
+      "chaos-api-2": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea",
+      "chaos-bots": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea"
+    },
+    "pml_image_id": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea"
+  },
+  "before": {
+    "ok": true,
+    "error": null,
+    "ts": "2026-09-24T22:07:48+09:00",
+    "protocol": 1,
+    "changed_at": "2026-09-24T13:07:29.212704+00:00",
+    "history": [
+      {
+        "id": 1,
+        "protocol": 1,
+        "prev_protocol": null,
+        "epoch_floor": 0,
+        "changed_at": "2026-09-24T13:07:29.212704+00:00",
+        "changed_by": "exchange"
+      }
+    ],
+    "lease": [
+      {
+        "resource": "matching-engine",
+        "holder": "9d99f9d4-ee27-4471-8fb4-03d353e04cdb",
+        "epoch": 1,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 0,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 0,
+        "alive": false
+      }
+    ],
+    "retired": [],
+    "acquisitions_by_protocol": {
+      "1": 1
+    },
+    "reservations": 0,
+    "unsettled_new": 1,
+    "unsettled_reservations": 0,
+    "oldest_unsettled_reservation_s": null,
+    "db_now": "2026-09-24T13:07:48.67174+00:00"
+  },
+  "decision": "call",
+  "bots": {
+    "running_before": true,
+    "stop_rc": 0,
+    "start_rc": 0
+  },
+  "drain": {
+    "ok": true,
+    "seconds": 2.2,
+    "samples": [
+      {
+        "t_s": 0.1,
+        "unsettled_new": 0
+      },
+      {
+        "t_s": 2.2,
+        "unsettled_new": 0
+      }
+    ]
+  },
+  "stop": {
+    "chaos-api-2": 0,
+    "chaos-api-1": 0
+  },
+  "call": {
+    "rc": 0,
+    "sql": "SELECT * FROM set_leader_protocol(2::smallint)",
+    "rows": [
+      {
+        "resource": "matching-p0",
+        "retired_epoch": 2,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-p1",
+        "retired_epoch": 3,
+        "protocol": 2
+      },
+      {
+        "resource": "matching-engine",
+        "retired_epoch": 4,
+        "protocol": 2
+      }
+    ],
+    "t0": "2026-09-24 13:07:52.61903+00",
+    "t1": "2026-09-24 13:07:52.637806+00",
+    "duration_ms": 18.8,
+    "stderr": ""
+  },
+  "start": {
+    "chaos-api-1": {
+      "rc": 0,
+      "leader": {
+        "holder": "7e3eb89d-ab10-4c31-b052-0c8ed227c101",
+        "epoch": 5,
+        "alive": true
+      },
+      "waited_s": 10.7
+    },
+    "chaos-api-2": {
+      "rc": 0,
+      "liveness": true,
+      "waited_s": 10.1
+    }
+  },
+  "nodes": {
+    "chaos-api-1": {
+      "ok": true,
+      "values": {
+        "exchange_leader_protocol_boot": 2.0,
+        "exchange_order_inflight_enabled": 0.0
+      }
+    },
+    "chaos-api-2": {
+      "ok": true,
+      "values": {
+        "exchange_leader_protocol_boot": 2.0,
+        "exchange_order_inflight_enabled": 0.0
+      }
+    }
+  },
+  "after": {
+    "ok": true,
+    "error": null,
+    "ts": "2026-09-24T22:08:14+09:00",
+    "protocol": 2,
+    "changed_at": "2026-09-24T13:07:52.634508+00:00",
+    "history": [
+      {
+        "id": 1,
+        "protocol": 1,
+        "prev_protocol": null,
+        "epoch_floor": 0,
+        "changed_at": "2026-09-24T13:07:29.212704+00:00",
+        "changed_by": "exchange"
+      },
+      {
+        "id": 2,
+        "protocol": 2,
+        "prev_protocol": 1,
+        "epoch_floor": 1,
+        "changed_at": "2026-09-24T13:07:52.634508+00:00",
+        "changed_by": "exchange"
+      }
+    ],
+    "lease": [
+      {
+        "resource": "matching-engine",
+        "holder": "7e3eb89d-ab10-4c31-b052-0c8ed227c101",
+        "epoch": 5,
+        "alive": true
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 2,
+        "alive": false
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 3,
+        "alive": false
+      }
+    ],
+    "retired": [
+      {
+        "epoch": 2,
+        "resource": "matching-p0",
+        "protocol": 2,
+        "acquired_at": "2026-09-24T13:07:52.636653+00:00"
+      },
+      {
+        "epoch": 3,
+        "resource": "matching-p1",
+        "protocol": 2,
+        "acquired_at": "2026-09-24T13:07:52.636885+00:00"
+      },
+      {
+        "epoch": 4,
+        "resource": "matching-engine",
+        "protocol": 2,
+        "acquired_at": "2026-09-24T13:07:52.636991+00:00"
+      }
+    ],
+    "acquisitions_by_protocol": {
+      "2": 4,
+      "1": 1
+    },
+    "reservations": 0,
+    "unsettled_new": 0,
+    "unsettled_reservations": 0,
+    "oldest_unsettled_reservation_s": null,
+    "db_now": "2026-09-24T13:08:14.270473+00:00"
+  },
+  "history": [
+    {
+      "id": 1,
+      "protocol": 1,
+      "prev_protocol": null,
+      "epoch_floor": 0,
+      "changed_at": "2026-09-24T13:07:29.212704+00:00",
+      "changed_by": "exchange"
+    },
+    {
+      "id": 2,
+      "protocol": 2,
+      "prev_protocol": 1,
+      "epoch_floor": 1,
+      "changed_at": "2026-09-24T13:07:52.634508+00:00",
+      "changed_by": "exchange"
+    }
+  ],
+  "new_leader_epoch": 5,
+  "expected_leader_epoch": 5,
+  "checks": {
+    "leader": true,
+    "leader_epoch_is_last_retired_plus_1": true,
+    "api2_liveness": true,
+    "gauges": true,
+    "mode_after": true,
+    "retire_order": true
+  },
+  "finished": "2026-09-24T22:08:14+09:00"
+}

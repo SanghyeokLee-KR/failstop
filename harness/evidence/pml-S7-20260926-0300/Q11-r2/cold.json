@@ -1,0 +1,29 @@
+{
+  "judge": "cold-assign",
+  "at": "2026-09-26T04:55:37+09:00",
+  "facts": {
+    "first_trade_s": {
+      "matching-p0": 15.1,
+      "matching-p1": 15.8
+    }
+  },
+  "axes": {
+    "preferred_assignment_without_relocation": true,
+    "non_preferred_acquire_in_2ttl_0": true,
+    "matching-p0_first_trade_le_30s": true,
+    "matching-p1_first_trade_le_30s": true
+  },
+  "positive": [],
+  "verdict": "PASS",
+  "failed": [],
+  "raw": {
+    "assignment": "ok",
+    "relocated": false,
+    "waited_s": 10.64,
+    "first_trade_s": {
+      "matching-p0": 15.1,
+      "matching-p1": 15.8
+    },
+    "non_preferred_acquires_in_2ttl": 0
+  }
+}

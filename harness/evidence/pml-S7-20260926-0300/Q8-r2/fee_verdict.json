@@ -1,0 +1,33 @@
+{
+  "judge": "fee-coupling",
+  "at": "2026-09-26T04:44:56+09:00",
+  "facts": {
+    "attempts": 5,
+    "baseline_s": null,
+    "during_s": null
+  },
+  "axes": {
+    "fee_row_held_by_paused_session": false,
+    "p1_trades_during_pause_ge_1": false,
+    "krw_shard1_increased": false,
+    "api2_transient_exhausted_delta_0": false,
+    "api2_fatal_demotions_0": false,
+    "p1_settle_max_le_baseline_plus_1s": false,
+    "no_lease_handover": false
+  },
+  "positive": [
+    "fee_row_held_by_paused_session",
+    "p1_trades_during_pause_ge_1"
+  ],
+  "verdict": "NOT RUN",
+  "failed": [
+    "fee_row_held_by_paused_session",
+    "p1_trades_during_pause_ge_1",
+    "krw_shard1_increased",
+    "api2_transient_exhausted_delta_0",
+    "api2_fatal_demotions_0",
+    "p1_settle_max_le_baseline_plus_1s",
+    "no_lease_handover"
+  ],
+  "input": "harness\\evidence\\pml-S7-20260926-0300\\Q8-r2\\fee.json"
+}

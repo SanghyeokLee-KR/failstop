@@ -1,0 +1,252 @@
+container=pml-probe-s2-293025013 image=postgres:17-alpine port=127.0.0.1:60589
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== Q1a VALUES 파생 표 + FOR KEY SHARE OF l
+BEGIN
+INSERT 0 1
+Q1a inserted|101|1|5
+Q1a rowlocks|matching-engine|{"For Key Share"}
+Insert on command_journal
+  ->  Subquery Scan on "*SELECT*"
+        ->  LockRows
+              ->  Index Scan using uq_leader_lease_fencing_key on leader_lease l
+                    Index Cond: ((resource = lease_resource_for_market('1'::smallint)) AND (holder = 'node-a'::text) AND (epoch = 5))
+                    Filter: (lease_until > clock_timestamp())
+ROLLBACK
+== Q1b SELECT 부분질의 파생 표 + FOR KEY SHARE OF l
+BEGIN
+INSERT 0 1
+Q1b rowlocks|matching-engine|{"For Key Share"}
+ROLLBACK
+== Q1c OF 없이 FOR KEY SHARE: 한 행 VALUES
+BEGIN
+INSERT 0 1
+ROLLBACK
+== Q1c2 OF 없이 FOR KEY SHARE: 두 행 VALUES
+BEGIN
+INSERT 0 2
+ROLLBACK
+== Q1d 판정 불일치면 0행이고 잠금도 남지 않는다
+BEGIN
+INSERT 0 0
+Q1d rowlocks count|0
+ROLLBACK
+== Q1e 파생 표 append 가 쥔 KEY SHARE: 키 변경(승격)은 기다리고 갱신은 안 기다린다
+Timing is on.
+C renew start|16:29:19.092
+Time: 0.747 ms
+UPDATE 1
+Time: 1.962 ms
+B promote start|16:29:19.094
+Time: 0.118 ms
+UPDATE 1
+Time: 2302.772 ms (00:02.303)
+B promote done|16:29:21.397
+Time: 0.124 ms
+BEGIN
+INSERT 0 1
+A appended|16:29:18.394
+
+COMMIT
+A committed|16:29:21.397
+row|matching-engine|node-b|6|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q1f 승격이 먼저 행을 쥐고 있으면 append 가 기다렸다가 새 행으로 다시 판정한다(EvalPlanQual)
+Timing is on.
+A old-epoch append start|16:29:21.960
+Time: 0.771 ms
+INSERT 0 0
+Time: 1503.911 ms (00:01.504)
+A old-epoch append end|16:29:23.465
+Time: 0.097 ms
+BEGIN
+UPDATE 1
+B promoted uncommitted|16:29:21.461
+
+COMMIT
+B committed|16:29:23.464
+Q1f journal rows|0
+INSERT 0 0
+Q1f2 new-epoch append rows|0|
+== Q2a 막던 트랜잭션이 행을 바꿨고(epoch 9) 조건은 여전히 참
+A result epoch|102
+UPDATE 1
+probe_seq|102|t
+row|matching-engine|node-c|102|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q2b 막던 트랜잭션이 KEY SHARE 로 잠그기만 했다
+A result epoch|101
+UPDATE 1
+probe_seq|101|t
+row|matching-engine|node-c|101|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q2c 막던 트랜잭션이 조건을 거짓으로 바꿨다(다른 노드가 먼저 승격)
+UPDATE 0
+probe_seq|101|t
+row|matching-engine|node-b|6|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q2d 잠금 먼저 방식: 먼저 승격한 쪽이 있으면 번호를 뽑지 않는다
+A lock-first result|
+probe_seq|100|t
+row|matching-engine|node-b|6|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q2e 잠금 먼저 방식: 막던 트랜잭션이 epoch 만 바꾸면 새 epoch 위에서 번호를 한 번 뽑는다
+A lock-first result|101
+probe_seq|101|t
+row|matching-engine|node-c|101|t
+row|matching-p0||0|f
+row|matching-p1||0|f
+== Q2f 시퀀스는 롤백돼도 되돌아가지 않는다
+BEGIN
+rolled back nextval|101
+ROLLBACK
+next nextval|102
+== Q3 A 가 KEY SHARE 보유, B 가 FOR UPDATE 대기, 그 뒤 C 가 KEY SHARE, D 가 갱신
+waiter|241|Lock|transactionid|{237}|SELECT 'B for update got', to_char(clock_timestamp
+BEGIN
+A key share|16:29:36.640
+
+COMMIT
+A committed|16:29:39.645
+B for update start|16:29:37.141
+BEGIN
+B for update got|16:29:41.647
+COMMIT
+C key share start|16:29:37.644
+BEGIN
+C key share got|16:29:37.645
+
+COMMIT
+C committed|16:29:41.647
+D renew start|16:29:37.943
+UPDATE 1
+D renew done|16:29:37.945
+== Q4a UPDATE 권한 없는 역할의 FOR KEY SHARE
+SET
+plain select|5
+ERROR:  permission denied for table leader_lease
+ERROR:  permission denied for table leader_lease
+RESET
+== Q4b 열 하나의 UPDATE 권한만 주면
+GRANT
+SET
+key share with column grant|5
+RESET
+REVOKE
+== Q4c SECURITY DEFINER 함수가 잡은 KEY SHARE 가 호출 트랜잭션 끝까지 남는다
+rowlocks|matching-engine|f|{"For Key Share"}
+Timing is on.
+B promote start|16:29:42.762
+Time: 0.726 ms
+UPDATE 1
+Time: 1798.453 ms (00:01.798)
+B promote done|16:29:44.561
+Time: 0.123 ms
+BEGIN
+SET
+A definer lock|5|probe_app|16:29:42.056
+
+COMMIT
+A committed|16:29:44.560
+== Q5a 마이그레이션 시드 배정
+seed|matching-p0|1,4,5,7,9,11
+seed|matching-p1|2,3,6,8,10,12
+== Q5b 대응 표 권한 없는 역할이 마켓을 넣으면 SECURITY DEFINER 트리거가 대응 행을 넣는다
+SET
+INSERT 0 2
+new markets|13|matching-p0
+new markets|14|matching-p1
+ERROR:  permission denied for table market_lease_partition
+RESET
+== Q5c 소유자도 고치거나 지우거나 비우지 못한다. 같은 행 재삽입은 조용히 넘어간다
+ERROR:  append-only 위반: market_lease_partition.UPDATE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+ERROR:  append-only 위반: market_lease_partition.DELETE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+ERROR:  append-only 위반: market_lease_partition.TRUNCATE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+INSERT 0 0
+market 1 still|matching-p0
+ERROR:  new row for relation "market_lease_partition" violates check constraint "market_lease_partition_resource_check"
+DETAIL:  Failing row contains (99, matching-engine).
+(scenario q5 exit=1)
+== Q6a P1 에서는 markets 에 없는 마켓도 matching-engine
+P1|matching-engine|matching-engine
+== Q6b P3 에서는 대응 값, 대응이 없으면 55000
+P3|matching-p0|matching-p1
+ERROR:  55000: 마켓 77의 리스 파티션 대응이 없다
+CONTEXT:  PL/pgSQL function lease_resource_for_market(smallint) line 12 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+== Q6c P3 에서 마켓 1 리스(p0)로 마켓 2(p1) 행을 쓰려는 append 는 0행
+INSERT 0 0
+INSERT 0 1
+Q6c rows|202|1|7
+== Q7 전환이 FOR UPDATE 를 기다리고, 그 뒤 낡은 도출로 들어온 append 는 0행
+Timing is on.
+late append start|16:29:47.962
+Time: 0.689 ms
+INSERT 0 0
+Time: 708.891 ms
+late append end|16:29:48.671
+Time: 0.134 ms
+BEGIN
+INSERT 0 1
+W in-flight append|16:29:45.664
+
+COMMIT
+W committed|16:29:47.166
+S switch start|16:29:45.962
+BEGIN
+S locked|matching-engine,matching-p0,matching-p1|16:29:47.166
+UPDATE 1
+UPDATE 3
+
+COMMIT
+S committed|16:29:48.670
+Q7 journal|101|5
+Q7 protocol|3
+== Q8 한 트랜잭션이 같은 행을 KEY SHARE 로 여러 번 잡아도 잠금은 하나다
+BEGIN
+5
+5
+5
+Q8 rowlocks|matching-engine|f|{"For Key Share"}
+COMMIT
+== Q10 호출자 권한 함수를 SECURITY DEFINER 로 바꿔도 기존 EXECUTE(PUBLIC 포함)는 그대로다
+DO
+GRANT
+CREATE FUNCTION
+invoker public execute|t
+SET
+ERROR:  permission denied for table leader_lease
+CONTEXT:  SQL statement "UPDATE leader_lease SET holder = p_holder, epoch = epoch + 1 WHERE resource = 'matching-engine' RETURNING epoch"
+PL/pgSQL function grab_lease(text) line 4 at SQL statement
+RESET
+CREATE FUNCTION
+definer public execute|t
+SET
+definer call by reader|6
+RESET
+REVOKE
+after revoke public execute|f
+SET
+ERROR:  permission denied for function grab_lease
+RESET
+row|reader|6
+== Q11 CREATE OR REPLACE 의 매개변수 이름·언어·보안 속성
+CREATE FUNCTION
+ERROR:  cannot change name of input parameter "p_holder"
+HINT:  Use DROP FUNCTION f11(text,interval) first.
+CREATE FUNCTION
+after replace|3|t|sql|{"search_path=public, pg_temp"}
+== Q9 시퀀스와 크래시 복구 (container=pml-probe-s2crash-2998984)
+before crash nextval|1|2|3
+before crash state|3|30|t
+after crash state|33|0|t
+after crash nextval|34
+after clean restart state|34|32|t
+after clean restart nextval|35

@@ -84,6 +84,8 @@ try {
 
     # 1차 게이트 기저. 자발적 강등 카운터는 주입 전후 델타 0이어야 한다(정본 §3 E1). 여기서는
     # -Required로 잡는다. 주입 전에 리더 스크레이프가 안 되면 이 축을 아예 판정할 수 없다.
+    # S4부터 이 계수는 partition 태그를 단다(PartitionRuntime, 하네스 CI/CD §5-2). P2는 파티션이 하나라
+    # 첫 매치가 그 값이다. 파티션 리더 모드(P3)에서는 파티션별 계열을 더해 봐야 한다.
     $standdownPattern = 'exchange_leader_standdown_total(?:\{[^}]*\})?\s+([0-9.eE+-]+)'
     $standdownBaseRaw = Get-AppMetric -Port $port -Pattern $standdownPattern -Required
     $standdownBase = 0.0; if ($null -ne $standdownBaseRaw) { $standdownBase = [double]$standdownBaseRaw }

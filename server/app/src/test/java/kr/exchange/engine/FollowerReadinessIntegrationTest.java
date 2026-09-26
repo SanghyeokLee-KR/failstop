@@ -1,5 +1,6 @@
 package kr.exchange.engine;
 
+import org.awaitility.Awaitility;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -12,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -19,19 +21,24 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 팔로워·강등 노드의 readiness 실측 검증(DB 설계 §5.4, 복구 RTO §3-a).
+ * 팔로워·강등 노드의 readiness 실측 검증(DB 설계 §5.4, §5.4-c 5, 복구 RTO §3-a).
  *
  * Spring은 ApplicationReadyEvent 리스너가 전부 반환한 뒤에 ACCEPTING_TRAFFIC을 자동 발행한다.
  * ready 리스너에서 되돌리는 방식은 그 발행에 덮여 팔로워를 readiness UP으로 오보했다(라이브에서
  * 팔로워 노드가 docker healthy로 남아 LB가 계속 그쪽으로 보낸 원인). 이 테스트는 컨텍스트 기동
- * 전에 리스를 선점해 노드를 확정적으로 팔로워로 만들고, actuator 프로브가 실제로 503을 내는지
- * 본다. 강등(DEMOTED) 노드도 같은 전이를 밟으므로 승격 후 상실 경로까지 함께 고정한다.
+ * 전에 리스를 선점해 노드를 확정적으로 팔로워로 만들고, actuator 프로브가 실제로 503을 내는지 본다.
+ *
+ * 강등은 실제 경로로 만든다(파티션 단위 리더). 선점 리스를 만료시켜 이 노드가 런타임 승격으로 접수를 열게 한 뒤, 다른
+ * 노드가 리스를 가져간 상황을 만들어 갱신 거부로 강등시킨다. 강등한 파티션은 게이트를 닫고 REBUILDING 을 거쳐 FOLLOWER 로
+ * 돌아오고 후보 표식을 다시 세운다. readiness 는 그동안 REFUSING 이어야 한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -45,7 +52,7 @@ class FollowerReadinessIntegrationTest {
     static {
         POSTGRES.start();
         // 스키마를 먼저 올린 뒤 리스를 장기 선점한다. 컨텍스트의 Flyway는 적용분이 없어 무동작이고,
-        // 부팅 승격은 유효한 타 리더 때문에 실패해 이 노드가 팔로워로 확정된다.
+        // 이 노드의 리스 틱은 유효한 타 리더 때문에 획득하지 못해 팔로워로 남는다.
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
@@ -72,13 +79,11 @@ class FollowerReadinessIntegrationTest {
     }
 
     @Autowired
-    LeaderLeaseService lease;
+    PartitionLeases leases;
     @Autowired
     ApplicationAvailability availability;
     @Autowired
-    HaAvailability haAvailability;
-    @Autowired
-    PromotionCoordinator promotionCoordinator;
+    JdbcClient jdbc;
     @Autowired
     TestRestTemplate rest;
 
@@ -87,7 +92,9 @@ class FollowerReadinessIntegrationTest {
     @Test
     @Order(1)
     void followerIsRefusingTrafficAndProbeReturns503() {
+        LeaderLeaseService lease = leases.first();
         assertFalse(lease.isLeader(), "선점된 리스가 있는데 이 노드가 리더가 됐다");
+        assertEquals(PromotionCoordinator.State.FOLLOWER, runtime().state());
 
         assertEquals(ReadinessState.REFUSING_TRAFFIC, availability.getReadinessState(),
                 "팔로워가 ACCEPTING_TRAFFIC으로 남았다(Spring 자동 발행 미정정)");
@@ -97,19 +104,47 @@ class FollowerReadinessIntegrationTest {
 
     @Test
     @Order(2)
-    void demotedNodeReturnsToRefusingAfterAccepting() {
-        // 승격으로 접수를 연 상태를 만든 뒤, 실제 강등 콜백(리스 상실)으로 되돌린다.
-        haAvailability.accepting();
-        assertEquals(ReadinessState.ACCEPTING_TRAFFIC, availability.getReadinessState());
+    void demotedPartitionRebuildsToFollowerAndRefusesTraffic() {
+        LeaderLeaseService lease = leases.first();
+        PartitionRuntime runtime = runtime();
+
+        // 선점 리스가 만료되면 이 노드가 런타임 승격(인계와 M(P) 재생)으로 접수를 연다.
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' "
+                + "WHERE resource = 'matching-engine'").update();
+        Awaitility.await().atMost(Duration.ofSeconds(20)).pollInterval(Duration.ofMillis(100))
+                .until(() -> runtime.state() == PromotionCoordinator.State.ACCEPTING);
+        assertTrue(lease.isLeader());
+        Awaitility.await().atMost(Duration.ofSeconds(5)).pollInterval(Duration.ofMillis(100))
+                .until(() -> availability.getReadinessState() == ReadinessState.ACCEPTING_TRAFFIC);
         assertEquals(HttpStatus.OK, readinessProbe().getStatusCode());
 
-        promotionCoordinator.onLeadershipLost();
+        // 다른 노드가 리스를 가져간 상황. 다음 갱신이 거부되고 그 파티션을 강등한다.
+        jdbc.sql("UPDATE leader_lease SET holder = 'squatter-2', epoch = epoch + 1, "
+                + "lease_until = clock_timestamp() + interval '30 minutes' "
+                + "WHERE resource = 'matching-engine'").update();
+        Awaitility.await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofMillis(100))
+                .until(() -> !lease.isLeader());
+        // 강등은 게이트를 닫고 REBUILDING 을 거쳐 fresh 재구성 뒤 FOLLOWER 로 돌아온다.
+        Awaitility.await().atMost(Duration.ofSeconds(20)).pollInterval(Duration.ofMillis(100))
+                .until(() -> runtime.state() == PromotionCoordinator.State.FOLLOWER);
 
         assertEquals(ReadinessState.REFUSING_TRAFFIC, availability.getReadinessState(),
                 "강등 노드가 ACCEPTING_TRAFFIC으로 남았다");
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, readinessProbe().getStatusCode(),
                 "강등 노드 readiness 프로브가 UP을 반환했다");
-        assertEquals(PromotionCoordinator.State.DEMOTED, promotionCoordinator.state());
+        assertFalse(runtime.demotions().isEmpty(), "강등 기록이 없다");
+        assertEquals(DemotionReason.LEASE_LOST_WHILE_ACCEPTING, runtime.demotions().get(0).reason());
+        assertEquals(1, runtime.breaker().count(), "차단기가 강등을 세지 않았다");
+        assertFalse(runtime.breaker().isOpen());
+        // 재구성을 마친 파티션은 후보로 돌아온다. 선점 리스가 유효하므로 얻지 못한다.
+        assertTrue(lease.isArmed(), "재구성을 마친 파티션이 후보 표식을 다시 세우지 않았다");
+        assertFalse(lease.isNodeFatal());
+        assertEquals("squatter-2", jdbc.sql("SELECT holder FROM leader_lease WHERE resource = 'matching-engine'")
+                .query(String.class).single());
+    }
+
+    private PartitionRuntime runtime() {
+        return leases.runtime(leases.first().resource()).orElseThrow();
     }
 
     private ResponseEntity<String> readinessProbe() {

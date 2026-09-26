@@ -1,0 +1,284 @@
+{
+  "rules": "rules.md",
+  "cells": [
+    {
+      "label": "A1",
+      "arm": "A",
+      "probeRc": 0,
+      "acceptPerSec": 120.88556304636447,
+      "appendMeanMs": 12.350301819244144,
+      "appendP95Ms": 56.81578865624999,
+      "appendP99Ms": 84.93923358823011,
+      "prologueMs": 10.329355031192138,
+      "insertMs": 1.640080180458624,
+      "commitMs": 2.628367101979775,
+      "lockHoldMs": 10.457595968841023,
+      "applyPerSec": 121.00237052491221,
+      "p95OrderMs": 317.4000714027777,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 3090.7890938162777,
+      "server5xx": 3090.7890938162777,
+      "lbClient5xx": 5789.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C29",
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 14.3,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    },
+    {
+      "label": "B1",
+      "arm": "B",
+      "probeRc": 0,
+      "acceptPerSec": 101.058693703014,
+      "appendMeanMs": 13.39311108533851,
+      "appendP95Ms": 60.953029568113784,
+      "appendP99Ms": 86.69127016915188,
+      "prologueMs": 12.218319488066829,
+      "insertMs": 1.962751333446983,
+      "commitMs": 2.9849735693828845,
+      "lockHoldMs": 10.509386701993789,
+      "applyPerSec": 101.14490654527899,
+      "p95OrderMs": 318.60732080357144,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 5084.864717247829,
+      "server5xx": 5084.864717247829,
+      "lbClient5xx": 7640.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 15.8,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    },
+    {
+      "label": "A2",
+      "arm": "A",
+      "probeRc": 0,
+      "acceptPerSec": 102.07424521958032,
+      "appendMeanMs": 13.011050966011247,
+      "appendP95Ms": 59.42242837360333,
+      "appendP99Ms": 87.37840559889884,
+      "prologueMs": 11.425911776990555,
+      "insertMs": 1.7551900141700405,
+      "commitMs": 2.714031730263158,
+      "lockHoldMs": 9.204738305471928,
+      "applyPerSec": 98.91601335785846,
+      "p95OrderMs": 333.7547500500001,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 4615.966298093674,
+      "server5xx": 4615.966298093674,
+      "lbClient5xx": 6987.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C29",
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 18.0,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    },
+    {
+      "label": "B2",
+      "arm": "B",
+      "probeRc": 0,
+      "acceptPerSec": 109.93482533880477,
+      "appendMeanMs": 15.441600845039643,
+      "appendP95Ms": 65.00095636923074,
+      "appendP99Ms": 88.38945415131647,
+      "prologueMs": 12.63600191468378,
+      "insertMs": 1.66037266280526,
+      "commitMs": 3.2905785671571697,
+      "lockHoldMs": 11.635515094868543,
+      "applyPerSec": 110.00379323424944,
+      "p95OrderMs": 304.69778939473673,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 3497.0371136184876,
+      "server5xx": 3497.0371136184876,
+      "lbClient5xx": 5769.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 16.3,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    },
+    {
+      "label": "A3",
+      "arm": "A",
+      "probeRc": 0,
+      "acceptPerSec": 86.79759297894718,
+      "appendMeanMs": 13.669172017882424,
+      "appendP95Ms": 61.19602161413039,
+      "appendP99Ms": 87.56631621671166,
+      "prologueMs": 13.614221661785077,
+      "insertMs": 1.953642722738967,
+      "commitMs": 3.239914240253315,
+      "lockHoldMs": 10.254564566834373,
+      "applyPerSec": 86.97001569046674,
+      "p95OrderMs": 434.64174188749973,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 4521.066222634274,
+      "server5xx": 4521.066222634274,
+      "lbClient5xx": 6968.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C29",
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 19.5,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    },
+    {
+      "label": "B3",
+      "arm": "B",
+      "probeRc": 0,
+      "acceptPerSec": 118.76476369467386,
+      "appendMeanMs": 13.19095464658791,
+      "appendP95Ms": 60.39007612288135,
+      "appendP99Ms": 86.48921533836916,
+      "prologueMs": 10.664678330625271,
+      "insertMs": 1.7300662209487887,
+      "commitMs": 2.8451541730741337,
+      "lockHoldMs": 10.683314785383068,
+      "applyPerSec": 118.79924823697777,
+      "p95OrderMs": 624.112433875,
+      "leaderInstance": "chaos-api-1:8080",
+      "appenderCount": 1,
+      "leader5xx": 0.0,
+      "nonLeader5xx": 3255.6697408627324,
+      "server5xx": 3255.6697408627324,
+      "lbClient5xx": 5082.0,
+      "invariantFail": 0,
+      "invariantChecks": 32,
+      "na": [
+        "C31"
+      ],
+      "skip": [],
+      "drained": true,
+      "hostCpuMeanPct": 14.0,
+      "k6Rc": 0,
+      "connection": {
+        "상태": "고갈 없음",
+        "표본 한도 도달": false,
+        "로그 고갈 줄": 0,
+        "로그 확인": true
+      },
+      "deadlocks": 0
+    }
+  ],
+  "invariants": {
+    "ok": true
+  },
+  "leader5xx": {
+    "leaderKnown": true,
+    "maxA": 0.0,
+    "maxB": 0.0,
+    "ok": true
+  },
+  "appendMean": {
+    "meanA": 13.010174934379272,
+    "meanB": 14.008555525655355,
+    "increase": 0.9983805912760833,
+    "aaSpread": 1.3188701986382796,
+    "ok": true
+  },
+  "appendP95": {
+    "meanA": 59.14474621466124,
+    "meanB": 62.11468735340862,
+    "increase": 2.96994113874738,
+    "aaSpread": 4.380232957880395,
+    "ok": true
+  },
+  "acceptNotJudged": {
+    "meanA": 103.25246708163066,
+    "meanB": 109.91942757883089,
+    "rangeA": {
+      "min": 86.79759297894718,
+      "max": 120.88556304636447,
+      "spread": 34.08797006741729
+    },
+    "rangeB": {
+      "min": 101.058693703014,
+      "max": 118.76476369467386,
+      "spread": 17.70606999165986
+    },
+    "relDiff": 0.06456950313767694,
+    "reproduced": false
+  },
+  "server5xxNotJudged": {
+    "meanA": 4075.9405381814086,
+    "meanB": 3945.8571905763492,
+    "rangeA": {
+      "min": 3090.7890938162777,
+      "max": 4615.966298093674,
+      "spread": 1525.177204277396
+    },
+    "rangeB": {
+      "min": 3255.6697408627324,
+      "max": 5084.864717247829,
+      "spread": 1829.1949763850962
+    }
+  },
+  "verdict": "PASS"
+}

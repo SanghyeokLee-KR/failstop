@@ -1,0 +1,191 @@
+{
+  "started": "2026-09-26T12:23:46.095+09:00",
+  "args": {
+    "cmd": "run",
+    "evidence_dir": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220",
+    "raw_dir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\claude\\C--Users-DEV-PC-Desktop-----\\a9c99344-fc00-4286-9dc8-5fc2370b4cf0\\scratchpad\\pml-app3-raw",
+    "lb_conf": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\lb\\nginx.partition-relay.conf",
+    "lb_tracked": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf",
+    "preflight": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\p3-preflight.json",
+    "read_user": "pml_read",
+    "r_load_s": 120,
+    "r_small_s": 60,
+    "c_pre_s": 30,
+    "c_out_s": 45,
+    "c_post_s": 60,
+    "drain_s": 10,
+    "probe_interval_s": 4
+  },
+  "marks": [
+    {
+      "name": "R0-start",
+      "at": "2026-09-26T12:23:46.648+09:00",
+      "t": 1790393026.649
+    },
+    {
+      "name": "R0-end",
+      "at": "2026-09-26T12:26:55.149+09:00",
+      "t": 1790393215.15
+    },
+    {
+      "name": "scale-out-1-start",
+      "at": "2026-09-26T12:26:55.149+09:00",
+      "t": 1790393215.15
+    },
+    {
+      "name": "scale-out-1-registered",
+      "at": "2026-09-26T12:27:04.182+09:00",
+      "t": 1790393224.183,
+      "health_s": 8.49
+    },
+    {
+      "name": "R1-end",
+      "at": "2026-09-26T12:27:11.615+09:00",
+      "t": 1790393231.616
+    }
+  ],
+  "ip_snapshots": [
+    {
+      "label": "start",
+      "at": "2026-09-26T12:23:46.646+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.3": "chaos-pg",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.8": "chaos-lb"
+      }
+    },
+    {
+      "label": "api3-up-1",
+      "at": "2026-09-26T12:27:04.218+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.10": "chaos-api-3",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.3": "chaos-pg",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.8": "chaos-lb"
+      }
+    }
+  ],
+  "guard": {
+    "ok": true,
+    "problems": [],
+    "labels": {
+      "chaos-pg": "exchange-pml",
+      "chaos-api-1": "exchange-pml",
+      "chaos-api-2": "exchange-pml",
+      "chaos-bots": "exchange-pml"
+    },
+    "image_ids": {
+      "chaos-api-1": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-api-2": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-bots": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+    },
+    "pml_image_id": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+  },
+  "q0_preflight": {
+    "ok": true,
+    "failed": []
+  },
+  "lb_conf": {
+    "copy": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\lb\\nginx.partition-relay.conf",
+    "tracked": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf",
+    "copy_sha256_start": "a7476f65bfce31a95d76d7f62fe72ac6d78456f4aba79b2d5c166862dec3e6f9",
+    "tracked_sha256": "a7476f65bfce31a95d76d7f62fe72ac6d78456f4aba79b2d5c166862dec3e6f9",
+    "mount_source": "C:/dev/exchange-pml/harness/evidence/pml-app3-read-20260926-1220/lb/nginx.partition-relay.conf"
+  },
+  "api3_profile": "prod,read",
+  "api3_role": "read",
+  "api3_image": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+  "preconditions": {
+    "guard_ok": true,
+    "q0_preflight_ok": true,
+    "lb_copy_identical_to_tracked_at_start": true,
+    "lb_mount_is_copy": true,
+    "lb_copy_api3_down_at_start": true,
+    "api3_image_is_pml": true,
+    "api3_profile_prod_read": true,
+    "api3_role_read": true,
+    "api3_first_read_health": true,
+    "api3_db_login_is_read_user": true,
+    "lb_registration_visible_in_nginx": true
+  },
+  "first_start": {
+    "rc": 0,
+    "health_s": 8.49
+  },
+  "api3_sessions_after_start": [
+    {
+      "usename": "pml_read",
+      "n": 4
+    }
+  ],
+  "ws": {
+    "lb_static": {
+      "rc": 0,
+      "api3_read_line": "server chaos-api-3:8080 resolve max_fails=1 fail_timeout=2s;",
+      "api3_down_in_running_conf": false,
+      "exchange_ws": [
+        "chaos-api-1",
+        "chaos-api-2"
+      ],
+      "exchange_any": [
+        "chaos-api-1",
+        "chaos-api-2"
+      ],
+      "exchange_read": [
+        "chaos-api-1",
+        "chaos-api-2",
+        "chaos-api-3"
+      ],
+      "api3_blocks": [
+        "exchange_read"
+      ],
+      "ws_location_upstream": "exchange_ws",
+      "sha256": "b37243633183f3c5d460dc27020486c0ede9bb7920227dba66194715724c41da"
+    }
+  },
+  "split_prom": {
+    "R1-markets": {
+      "uri": "/api/v1/markets",
+      "path": "/api/v1/markets",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": 1.0,
+        "chaos-api-2": 1.0,
+        "chaos-api-3": 1.0
+      }
+    },
+    "R1-trades": {
+      "uri": "/api/v1/trades",
+      "path": "/api/v1/trades?market=KRW-BTC&count=3",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": null,
+        "chaos-api-2": null,
+        "chaos-api-3": null
+      }
+    },
+    "R1-orderbook": {
+      "uri": "/api/v1/orderbook",
+      "path": "/api/v1/orderbook?market=KRW-BTC",
+      "calls": 60,
+      "prom_delta": {
+        "chaos-api-1": null,
+        "chaos-api-2": null,
+        "chaos-api-3": null
+      }
+    }
+  },
+  "error": "Traceback (most recent call last):\n  File \"C:\\dev\\exchange-pml\\harness\\scale\\read_node_probe.py\", line 1015, in main\n    return a.func(a)\n           ~~~~~~^^^\n  File \"C:\\dev\\exchange-pml\\harness\\scale\\read_node_probe.py\", line 827, in cmd_run\n    member.signup()\n    ~~~~~~~~~~~~~^^\n  File \"C:\\dev\\exchange-pml\\harness\\scale\\read_node_probe.py\", line 490, in signup\n    raise RuntimeError('가입 실패(status %s, %s)' % (status, err_name(body)))\nRuntimeError: 가입 실패(status 0, None)\n"
+}

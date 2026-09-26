@@ -1,0 +1,26 @@
+{"ts": "2026-09-24T00:52:42.016Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:44.139Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:46.265Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:48.375Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:50.496Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:52.615Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:54.721Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:56.835Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:52:58.946Z", "lock_waiters": 1, "balance_rows": [{"pid": 312, "kind": "USER:AVAILABLE", "waited_ms": 5}]}
+{"ts": "2026-09-24T00:53:01.061Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:03.156Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:05.279Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:07.387Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:09.519Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:11.635Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:13.753Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:15.858Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:17.972Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:20.055Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:22.163Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:24.284Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:26.411Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:28.526Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:30.637Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:32.749Z", "lock_waiters": 0, "balance_rows": []}
+{"ts": "2026-09-24T00:53:34.870Z", "lock_waiters": 0, "balance_rows": []}

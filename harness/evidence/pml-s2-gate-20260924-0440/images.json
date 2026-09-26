@@ -1,0 +1,26 @@
+[
+  {
+    "tag": "exchange-chaos-app:pml",
+    "worktree": "C:\\dev\\exchange-pml",
+    "commit": "b04acd5f05ae99ff7f12e910c7f115e84bda659e",
+    "serverDirty": 0,
+    "bootJarRc": 0,
+    "jar": "app-0.1.0-SNAPSHOT.jar",
+    "jarSha256": "44acc862a568af5198a2a5293b1c2995ea1aa275da49fb9b195af96db2e03483",
+    "buildRc": 0,
+    "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+    "builtAt": "2026-09-24T04:40:01.8583309+09:00"
+  },
+  {
+    "tag": "exchange-chaos-app:mainref",
+    "worktree": "C:\\dev\\exchange-mainref",
+    "commit": "ec8ef8e37020dc3f3be194e7e1d55aca0ff6e6ba",
+    "serverDirty": 0,
+    "bootJarRc": 0,
+    "jar": "app-0.1.0-SNAPSHOT.jar",
+    "jarSha256": "75144248a811ebc3fa2593e9f862871bbdeb1814b76332c2df9bf9e2acb1928b",
+    "buildRc": 0,
+    "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+    "builtAt": "2026-09-24T04:40:10.3108379+09:00"
+  }
+]

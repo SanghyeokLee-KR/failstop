@@ -1,0 +1,48 @@
+# 조회 노드(app-3) 오버레이. 기본 파일의 chaos-api-3 을 AWS 조회 노드와 같은 역할 설정(prod,read)으로 띄운다.
+#   docker compose -p exchange-pml -f harness/docker-compose.chaos.yml -f harness/docker-compose.relay.yml \
+#     -f harness/docker-compose.p3.yml -f harness/docker-compose.read-node.yml --env-file harness/.env.chaos --profile scale ...
+#
+# 왜 오버레이인가. 기본 파일의 chaos-api-3 은 api-1 환경을 물려받은 dev,chaos-monkey 구성이고(엔진·flyway·하네스만 끔),
+# 2026-09-23 증설 측정이 그 구성이라 기본 파일을 바꾸면 그 측정과 조건이 달라진다. 사용자가 확정한 앱 계층 모델(2026-09-26)에서
+# app-3 은 조회 전용(read 프로파일)이고 AWS 에서는 ASG 가 0~1대로 늘리고 줄인다. 그 모델의 조회 노드를 로컬에서 보려면
+# deploy/compose.node-read.yml 과 같은 설정이 필요해 이 파일을 따로 둔다. 기록은 harness/evidence/pml-app3-read-20260926-*/ 이다.
+#
+# 무엇을 바꾸나.
+#   - 프로파일 prod,read(ReadRoleConfig 가 정확히 이 둘만 허용한다). ReadRoleFilter 가 markets·trades·candles 의 GET/HEAD 와 관리 상태
+#     조회 밖을 404 로 끝낸다. 주문·취소·출금, 호가·티커, /ws/v1 이 모두 여기에 든다.
+#   - DB 로그인은 조회 전용 계정이다. deploy/provision-runtime-roles.sql 이 만드는 것과 같은 권한(assets·markets·trades SELECT,
+#     default_transaction_read_only)을 폐기용 DB 에 만든 뒤 그 이름과 비밀번호를 셸 변수로 넘긴다. 비밀번호는 실행마다 새로 만들고
+#     파일에 적지 않는다. 운영 계정이 아니다.
+#   - 풀은 조회 노드 설정 그대로 8(최소 유휴 2)이고 읽기 전용이다. 기본 파일이 api-1 에서 물려준 32/8 을 여기서 덮는다.
+#     요청 수용 상한은 풀에서 유도되므로(AdmissionLimits, 조회 0.40, 하한 4) 이 노드의 조회 동시 처리 상한은 4 다.
+#   - prod 는 관리 평면을 8081 로 옮기므로 헬스 검사를 8081 로 보고 호스트 38081 로 낸다. 38080 은 고객 평면 그대로다.
+#     capacity_reconciler.py 의 헬스 확인은 호스트 38080 의 /actuator/health/read 를 보므로 이 오버레이와 함께 쓰면 등록하지 못한다.
+#   - prod 기동 검사가 운영 CORS·WS 오리진을 요구한다. 조회 노드는 WS 를 받지 않으므로 닿지 않는 주소(.invalid)를 준다.
+#   - JDBC 주소에 ApplicationName=chaos-api-3 을 붙여 DB 세션을 가른다. Toxiproxy 를 거치지 않는 것은 기본 파일과 같다.
+#
+# 회원 세션 서명 시드·비밀번호 페퍼·마스터키는 기본 파일의 앱 공통 환경(.env.chaos)에서 그대로 물려받는다(prod 기동 필수값).
+services:
+  chaos-api-3:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,read
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-pg:5432/exchange?ApplicationName=chaos-api-3
+      SPRING_DATASOURCE_USERNAME: ${CHAOS_READ_DB_USER:?조회 계정 이름(CHAOS_READ_DB_USER)이 필요하다}
+      SPRING_DATASOURCE_PASSWORD: ${CHAOS_READ_DB_PASSWORD:?조회 계정 비밀번호(CHAOS_READ_DB_PASSWORD)가 필요하다}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
+      SPRING_DATASOURCE_HIKARI_READ_ONLY: "true"
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_NODE_ROLE: read
+      EXCHANGE_ENGINE_ENABLED: "false"
+      EXCHANGE_HARNESS_ENABLED: "false"
+      EXCHANGE_ADMIN_ENABLED: "false"
+      EXCHANGE_LEADER_LEASE_PROVIDER: postgres
+      EXCHANGE_CORS_ALLOWED_ORIGINS: https://pml-read.invalid
+      APP_WS_ALLOWED_ORIGINS: https://pml-read.invalid
+    ports: ["38081:8081"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/liveness"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 40s

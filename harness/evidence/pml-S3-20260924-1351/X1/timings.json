@@ -1,0 +1,98 @@
+{
+  "c14p": {
+    "value": "0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 580.462,
+      "second_ms": 532.739,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 26.619,
+      "second_ms": 32.109,
+      "error": null
+    }
+  },
+  "c31app": {
+    "value": "0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 1101.878,
+      "second_ms": 1042.624,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 191.933,
+      "second_ms": 189.503,
+      "error": null
+    }
+  },
+  "gauge": {
+    "value": "0|0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 389.268,
+      "second_ms": 336.094,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 24.922,
+      "second_ms": 24.107,
+      "error": null
+    }
+  },
+  "c31full": {
+    "value": "0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 261.042,
+      "second_ms": 234.351,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 162.838,
+      "second_ms": 155.187,
+      "error": null
+    }
+  },
+  "precond": {
+    "value": "0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 13.105,
+      "second_ms": 9.462,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 13.125,
+      "second_ms": 9.348,
+      "error": null
+    }
+  },
+  "c05": {
+    "value": "0",
+    "value_error": null,
+    "jit_on": {
+      "rc": 0,
+      "first_ms": 3.328,
+      "second_ms": 2.735,
+      "error": null
+    },
+    "jit_off": {
+      "rc": 0,
+      "first_ms": 3.386,
+      "second_ms": 2.759,
+      "error": null
+    }
+  }
+}

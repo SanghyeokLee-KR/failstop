@@ -67,6 +67,10 @@ public class ErrorRenderer {
         if (e.retryAfter() != null) {
             response.setHeader("Retry-After", String.valueOf(e.retryAfter()));
         }
+        if (e.routeNotOwner()) {
+            // 인그레스 접근 로그와 클라이언트가 소유 아님 거절을 가른다(API 설계 §2-5-d).
+            response.setHeader(ApiException.ROUTE_HEADER, ApiException.ROUTE_NOT_OWNER_VALUE);
+        }
         if (extraHeaders != null) {
             extraHeaders.forEach(response::setHeader);
         }

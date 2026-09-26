@@ -1,0 +1,18 @@
+# P3(파티션 리더 모드) 오버레이 초안(ADR 0034 S7, 마켓분할_리더_S7_설계 4-9). 구현 단계에서 harness/docker-compose.p3.yml 이 된다.
+# 중계 오버레이(harness/docker-compose.relay.yml) 뒤에 겹친다. compose 는 같은 컨테이너 경로의 마운트를 뒤 파일 것으로 바꾸므로
+# 순서가 바뀌면 chaos-lb 가 nginx.relay.conf 로 뜬다. 실행기(lib.ps1 Set-P3Overlay)가 순서를 고정하고 뜬 뒤 마운트를 확인한다.
+# 선호 파티션은 P1·P2 에서 뜻이 없다(LeaderPartitionProperties). DynamoDB 보관소와는 함께 쓰지 못한다(LeaseStoreConfig 가 기동을 멈춘다).
+# JDBC 주소는 기본 파일의 Toxiproxy 주소(api-1 15432, api-2 25432)를 그대로 두고 ApplicationName 만 붙인다. Q8 의 pgrowlocks 표본이
+# pg_stat_activity.application_name 으로 행을 쥔 노드를 가른다. 두 앱은 Toxiproxy 를 거쳐 붙어 client_addr 로는 가를 수 없다.
+# 세 연결 풀(요청, append, 리스)은 같은 DataSourceProperties 에서 나오므로 모두 이 이름을 쓴다. 주소를 바꾸면 E2(Q6)의 절단이 빗나간다.
+services:
+  chaos-api-1:
+    environment:
+      EXCHANGE_LEADER_PARTITION_PREFERRED: matching-p0
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:15432/exchange?ApplicationName=chaos-api-1
+  chaos-api-2:
+    environment:
+      EXCHANGE_LEADER_PARTITION_PREFERRED: matching-p1
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:25432/exchange?ApplicationName=chaos-api-2
+  chaos-lb:
+    volumes: ["./nginx/nginx.partition-relay.conf:/etc/nginx/nginx.conf:ro"]

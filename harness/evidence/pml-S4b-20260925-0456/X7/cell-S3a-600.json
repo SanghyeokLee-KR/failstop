@@ -1,0 +1,194 @@
+{
+  "cell": "S3a",
+  "rate": 600,
+  "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "probeRc": 0,
+  "file": "S3a-600.json",
+  "host": {
+    "before": {
+      "at": "2026-09-24T23:05:09.2606923Z",
+      "cpuTotalPct": [
+        3.4,
+        7.7,
+        6.7,
+        4.6,
+        4.2
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-24T23:11:46.8229646Z",
+      "cpuTotalPct": [
+        24.0,
+        22.9,
+        25.0,
+        18.5,
+        18.9
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 1
+    }
+  },
+  "lb": {
+    "lines": 228512,
+    "status502": 4029,
+    "status503": 30,
+    "status504": 4,
+    "noLiveUpstreams": 4029
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  },
+  "nodeMetrics": {
+    "18080": {
+      "ok": true,
+      "exchange_admission_rejected_total{scope=order}": 49005.0,
+      "exchange_admission_rejected_total{scope=query}": 9.0,
+      "exchange_admission_rejected_total{scope=requery}": 634.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_422": 5.0,
+      "orders_post_201": 26135.0
+    },
+    "28080": {
+      "ok": true,
+      "exchange_admission_rejected_total{scope=order}": 5683.0,
+      "exchange_admission_rejected_total{scope=query}": 5376.0,
+      "exchange_admission_rejected_total{scope=requery}": 1195.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_intake_commit_recovered_total": 0.0,
+      "exchange_order_intake_unresolved_total": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "http_DELETE_503_/api/v1/orders/{id}": 3.0,
+      "http_POST_503_/api/v1/orders": 2444.0,
+      "orders_post_503": 2444.0
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 273,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-api-2": {
+      "lines": 148,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    },
+    "chaos-bots": {
+      "lines": 42,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0,
+      "unhandledException": 0,
+      "authFailure500": 0,
+      "replayNoVerdict": 0,
+      "rebuildFailed": 0,
+      "clientGone": 0,
+      "outageResponse": 0,
+      "settlementExhausted": 0,
+      "loopFatal": 0,
+      "fencingKept": 0
+    }
+  },
+  "drained": true,
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "ok": true
+  }
+}

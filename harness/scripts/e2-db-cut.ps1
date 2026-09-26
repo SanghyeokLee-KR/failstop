@@ -1,12 +1,14 @@
 ﻿# E2 DB 단절. 리더의 pg 프록시에 blackhole 주입 → 리스 갱신 실패 → 강등 → failover → 복구.
 # 판정: 유실 0(gapless+물질화) · 중복 0 · 자산합 0 · RTO < 30s. 종료 훅에서 토식 무조건 해제.
-param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e2.env'))
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e2.env'), [string] $Resource)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $cfg = Read-EnvFile $ConfigPath
 $runId = "E2-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $proxy = $cfg['LEADER_PROXY']
+# 볼 리스 자원(S4 설계 4-18). P1·P2 는 matching-engine 이고 P3 에서는 -Resource 가 필수다.
+$leaseResource = Get-LeaseResource -Resource $Resource
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
@@ -20,7 +22,7 @@ try {
     # 실 리더의 pg 프록시를 차단 대상 삼는다. config 기본값(pg-api1)은 갓 세운 스택에서만 맞고,
     # 앞선 실험이 리더를 api-2로 남겼으면 팔로워의 DB 경로를 끊게 된다. 그때는 리스 상실이 없어
     # 승격도 없고 확정 FAIL이 나는데 그 FAIL은 판정 결함이다.
-    $detected = Get-LeaderContainer
+    $detected = Get-LeaderContainer -Resource $leaseResource
     if (-not $detected) {
         throw '리더 감지 실패. 실 리더를 특정하지 못한 채 차단하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 확인한 뒤 재실행한다.'
     }
@@ -35,9 +37,10 @@ try {
     if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     Write-Section 'ⓐ 사전 권위 run'
-    $prePort = Get-LiveNodePort
+    # 자원을 넘긴다. P3 에서는 자원 없는 /harness/v1/status 가 400 이다(S7 설계 4-13, Q6).
+    $prePort = Get-LiveNodePort -Resource $leaseResource
     Reset-LoadtestAcks -Port $prePort
-    $s0 = Get-HarnessStatus -Port $prePort
+    $s0 = Get-HarnessStatus -Port $prePort -Resource $leaseResource
     $oldEpoch = [long]$s0.epoch; $oldHolder = $s0.holder
     $leaseUntilBefore = ([datetimeoffset]$s0.leaseUntil).UtcDateTime
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
@@ -59,7 +62,7 @@ try {
     # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
     # 스냅샷을 쓰면 사전 권위 run·메트릭 기저·시계가드가 도는 동안의 갱신분이 그대로
     # 다운타임에 더해져 과대 산출된다.
-    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort -Resource $leaseResource).leaseUntil).UtcDateTime
     $t0 = (Get-Date).ToUniversalTime()
     $tradesAtInject = Get-TradeCount
     # timeout=0: 연결 유지·무응답(소켓/풀 타임아웃 검증). 리더 DB 경로만 차단(노드 축 선택성).
@@ -70,7 +73,7 @@ try {
         -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
         -TradesAtInject $tradesAtInject -T0 $t0 `
         -ObserveSec ([int]$cfg['POST_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
-        -StandbyPort $standbyPort -RestoreOps ([int]$cfg['BASE_OPS'])
+        -StandbyPort $standbyPort -RestoreOps ([int]$cfg['BASE_OPS']) -Resource $leaseResource
 
     # 승격 안정성 게이트. E2 라이브에서 두 노드가 123ms 만에 모두 강등해 클러스터가 리더 없이
     # 영구 정지한 적이 있다(DB 설계 v2.23 §5.4). Complete-FailoverExperiment의 verdict는 승격
@@ -82,7 +85,7 @@ try {
     # boolean을 문자열로 연결하면 psql 표시 형식 t/f가 아니라 true/false가 나온다. 명시적으로
     # 't'/'f'를 만들어 표시 형식 가정에 의존하지 않게 한다(실측: ||는 '2|true'를 낸다).
     $leaseSql = "SELECT epoch||'|'||CASE WHEN lease_until > now() THEN 't' ELSE 'f' END " +
-        "FROM leader_lease WHERE resource='matching-engine'"
+        "FROM leader_lease WHERE resource='$leaseResource'"
     $prevEpoch = $null; $stable = $true; $deadSample = 0; $regressed = 0
     for ($i = 0; $i -lt [int]($stableSec / $stableGapSec); $i++) {
         $raw = (Invoke-Psql $leaseSql).Split('|')

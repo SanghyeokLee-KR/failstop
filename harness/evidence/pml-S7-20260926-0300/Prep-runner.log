@@ -1,0 +1,190 @@
+중계·P3 오버레이: harness/docker-compose.relay.yml;harness/docker-compose.p3.yml
+
+== 1/3 bootJar 빌드 ==
+jar: app-0.1.0-SNAPSHOT.jar → app.jar
+
+== 2/3 이미지 빌드 ==
+이미지 태그: exchange-chaos-app:pml, compose 프로젝트: exchange-pml
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.app
+#1 transferring dockerfile: 1.13kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#2 ...
+
+#3 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#2 DONE 1.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/4] FROM docker.io/library/eclipse-temurin:21-jre@sha256:49e21e16e3c86eb7816a44a67549910ed090fbeb40c29c525d58bf5e02e91b0f
+#5 resolve docker.io/library/eclipse-temurin:21-jre@sha256:49e21e16e3c86eb7816a44a67549910ed090fbeb40c29c525d58bf5e02e91b0f 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 60.21MB 4.6s done
+#6 DONE 4.6s
+
+#7 [2/4] RUN apt-get update && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [3/4] WORKDIR /app
+#8 CACHED
+
+#9 [4/4] COPY app.jar app.jar
+#9 DONE 0.1s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 1.0s done
+#10 exporting manifest sha256:c2053b0893bd8a1fea0576c81842520666ecf4493d84641c5b8c60930fb80df6 done
+#10 exporting config sha256:b45d64648f3b70cfc0a68902d74dcb3bfcd5c11873ff7bb34f7a0513db17eef5 done
+#10 exporting attestation manifest sha256:f0695422de3dff4f27c40a18f1247739a3d3e50d955be595be2c4b8dfdd066a6 0.0s done
+#10 exporting manifest list sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf done
+#10 naming to docker.io/library/exchange-chaos-app:pml done
+#10 unpacking to docker.io/library/exchange-chaos-app:pml
+#10 unpacking to docker.io/library/exchange-chaos-app:pml 0.2s done
+#10 DONE 1.3s
+
+ 1 warning found (use docker --debug to expand):
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "EXCHANGE_AUTH_REQUIRE_MASTER_KEY") (line 17)
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/4sjmspmaxuufreil03ngeydp9
+
+== 3/3 compose up ==
+ Network exchange-pml_chaos-net Creating 
+ Network exchange-pml_chaos-net Created 
+ Volume exchange-pml_chaos-pgdata Creating 
+ Volume exchange-pml_chaos-pgdata Created 
+ Container chaos-blackbox Creating 
+ Container chaos-dynamodb Creating 
+ Container chaos-cstats Creating 
+ Container chaos-pg Creating 
+ Container chaos-alertmanager Creating 
+ Container chaos-broker Creating 
+ Container chaos-dynamodb Created 
+ Container chaos-blackbox Created 
+ Container chaos-cstats Created 
+ Container chaos-broker Created 
+ Container chaos-alertmanager Created 
+ Container chaos-prometheus Creating 
+ Container chaos-pg Created 
+ Container chaos-toxiproxy Creating 
+ Container chaos-pg-exporter Creating 
+ Container chaos-prometheus Created 
+ Container chaos-grafana Creating 
+ Container chaos-pg-exporter Created 
+ Container chaos-toxiproxy Created 
+ Container chaos-toxiproxy-init Creating 
+ Container chaos-grafana Created 
+ Container chaos-toxiproxy-init Created 
+ Container chaos-api-1 Creating 
+ Container chaos-api-1 Created 
+ Container chaos-lb Creating 
+ Container chaos-api-2 Creating 
+ Container chaos-api-2 Created 
+ Container chaos-lb Created 
+ Container chaos-bots Creating 
+ Container chaos-bots Created 
+ Container chaos-blackbox Starting 
+ Container chaos-pg Starting 
+ Container chaos-cstats Starting 
+ Container chaos-broker Starting 
+ Container chaos-dynamodb Starting 
+ Container chaos-alertmanager Starting 
+ Container chaos-dynamodb Started 
+ Container chaos-broker Started 
+ Container chaos-cstats Started 
+ Container chaos-blackbox Started 
+ Container chaos-pg Started 
+ Container chaos-pg Waiting 
+ Container chaos-pg Waiting 
+ Container chaos-alertmanager Started 
+ Container chaos-prometheus Starting 
+ Container chaos-prometheus Started 
+ Container chaos-grafana Starting 
+ Container chaos-grafana Started 
+ Container chaos-pg Healthy 
+ Container chaos-pg Healthy 
+ Container chaos-pg-exporter Starting 
+ Container chaos-toxiproxy Starting 
+ Container chaos-pg-exporter Started 
+ Container chaos-toxiproxy Started 
+ Container chaos-toxiproxy-init Starting 
+ Container chaos-toxiproxy-init Started 
+ Container chaos-toxiproxy-init Waiting 
+ Container chaos-dynamodb Waiting 
+ Container chaos-pg Waiting 
+ Container chaos-toxiproxy-init Exited 
+ Container chaos-pg Healthy 
+ Container chaos-dynamodb Healthy 
+ Container chaos-api-1 Starting 
+ Container chaos-api-1 Started 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Healthy 
+ Container chaos-api-1 Healthy 
+ Container chaos-api-2 Starting 
+ Container chaos-lb Starting 
+ Container chaos-api-2 Started 
+ Container chaos-lb Started 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Healthy 
+ Container chaos-bots Starting 
+ Container chaos-bots Started 
+ Container chaos-api-2 Waiting 
+ Container chaos-dynamodb Waiting 
+ Container chaos-prometheus Waiting 
+ Container chaos-toxiproxy-init Waiting 
+ Container chaos-lb Waiting 
+ Container chaos-grafana Waiting 
+ Container chaos-pg-exporter Waiting 
+ Container chaos-alertmanager Waiting 
+ Container chaos-blackbox Waiting 
+ Container chaos-api-1 Waiting 
+ Container chaos-cstats Waiting 
+ Container chaos-toxiproxy Waiting 
+ Container chaos-broker Waiting 
+ Container chaos-bots Waiting 
+ Container chaos-pg Waiting 
+ Container chaos-grafana Healthy 
+ Container chaos-bots Healthy 
+ Container chaos-dynamodb Healthy 
+ Container chaos-pg-exporter Healthy 
+ Container chaos-lb Healthy 
+ Container chaos-toxiproxy-init Exited 
+ Container chaos-alertmanager Healthy 
+ Container chaos-pg Healthy 
+ Container chaos-toxiproxy Healthy 
+ Container chaos-prometheus Healthy 
+ Container chaos-blackbox Healthy 
+ Container chaos-cstats Healthy 
+ Container chaos-api-1 Healthy 
+ Container chaos-broker Healthy 
+ Container chaos-api-2 Healthy 
+
+== 상태 ==
+NAME                 IMAGE                                                   COMMAND                  SERVICE              CREATED          STATUS                    PORTS
+chaos-alertmanager   prom/alertmanager:v0.34.0                               "/bin/alertmanager -…"   chaos-alertmanager   33 seconds ago   Up 32 seconds             0.0.0.0:59093->9093/tcp, [::]:59093->9093/tcp
+chaos-api-1          exchange-chaos-app:pml                                  "java -jar app.jar"      chaos-api-1          33 seconds ago   Up 26 seconds (healthy)   0.0.0.0:18080->8080/tcp, [::]:18080->8080/tcp
+chaos-api-2          exchange-chaos-app:pml                                  "java -jar app.jar"      chaos-api-2          32 seconds ago   Up 10 seconds (healthy)   0.0.0.0:28080->8080/tcp, [::]:28080->8080/tcp
+chaos-blackbox       prom/blackbox-exporter:v0.25.0                          "/bin/blackbox_expor…"   chaos-blackbox       33 seconds ago   Up 32 seconds             9115/tcp
+chaos-bots           exchange-chaos-app:pml                                  "java -jar app.jar"      chaos-bots           32 seconds ago   Up 10 seconds             8080/tcp
+chaos-broker         rabbitmq:4.3.6-alpine                                   "docker-entrypoint.s…"   chaos-broker         33 seconds ago   Up 32 seconds (healthy)   4369/tcp, 5671-5672/tcp, 15691-15692/tcp, 25672/tcp
+chaos-cstats         python:3.12-alpine                                      "python /app/exporte…"   chaos-cstats         33 seconds ago   Up 32 seconds             
+chaos-dynamodb       amazon/dynamodb-local:2.5.2                             "java -jar DynamoDBL…"   chaos-dynamodb       33 seconds ago   Up 32 seconds (healthy)   8000/tcp
+chaos-grafana        grafana/grafana:13.1.0                                  "/run.sh"                chaos-grafana        33 seconds ago   Up 31 seconds             0.0.0.0:53001->3000/tcp, [::]:53001->3000/tcp
+chaos-lb             nginx:1.29                                              "/docker-entrypoint.…"   chaos-lb             32 seconds ago   Up 10 seconds             0.0.0.0:58080->8080/tcp, [::]:58080->8080/tcp
+chaos-pg             postgres:17-alpine                                      "docker-entrypoint.s…"   chaos-pg             33 seconds ago   Up 32 seconds (healthy)   0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp
+chaos-pg-exporter    quay.io/prometheuscommunity/postgres-exporter:v0.17.1   "/bin/postgres_expor…"   chaos-pg-exporter    33 seconds ago   Up 28 seconds             9187/tcp
+chaos-prometheus     prom/prometheus:v3.13.0                                 "/bin/prometheus --s…"   chaos-prometheus     33 seconds ago   Up 32 seconds             0.0.0.0:59090->9090/tcp, [::]:59090->9090/tcp
+chaos-toxiproxy      ghcr.io/shopify/toxiproxy:2.12.0                        "/toxiproxy -host=0.…"   chaos-toxiproxy      33 seconds ago   Up 28 seconds             0.0.0.0:58474->8474/tcp, [::]:58474->8474/tcp
+
+리더 리스:matching-engine|87524223-16ca-45f2-9085-1eee6ec63774|1|t

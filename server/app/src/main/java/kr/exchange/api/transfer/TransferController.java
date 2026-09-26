@@ -7,6 +7,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
+import kr.exchange.api.common.RetrySafeWrite;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,8 +30,12 @@ import java.util.Map;
  * 회원 세션 전용임을 다시 강제한다. API 키 주체(봇)를 막는 이유는 입출금이 데모 사용자
  * 행동이라 봇 부하가 자금을 발행·소각할 이유가 없기 때문이다. 열어두면 부하 시나리오가
  * 자산 총량을 바꿔 상시 게이트의 해석을 흐린다.
+ *
+ * 요청은 필수 Idempotency-Key 와 유일 제약이, 취소는 대기 행 잠금과 결정론적 해제 id 가 다시 보낸 요청을 한 번의 효과로
+ * 모은다(RetrySafeWrite).
  */
 @RestController
+@RetrySafeWrite
 @RequestMapping("/api/v1/transfers")
 public class TransferController {
 

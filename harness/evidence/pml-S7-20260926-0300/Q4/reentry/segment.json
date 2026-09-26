@@ -1,0 +1,43 @@
+{
+  "judge": "segment-judge",
+  "at": "2026-09-26T03:46:56+09:00",
+  "facts": {
+    "2": {
+      "pre": 410,
+      "post": 410
+    },
+    "3": {
+      "pre": 410,
+      "post": 410
+    },
+    "4": {
+      "pre": 10028,
+      "post": 10028
+    },
+    "5": {
+      "pre": 19576,
+      "post": 19576
+    }
+  },
+  "axes": {
+    "pre_has_rows": true,
+    "history_2_old_rows_unchanged": true,
+    "history_3_old_rows_unchanged": true,
+    "history_4_old_rows_unchanged": true,
+    "history_5_old_rows_unchanged": true,
+    "pre_samples_read": true,
+    "pre_samples_consistent": true
+  },
+  "positive": [
+    "pre_has_rows",
+    "pre_samples_read"
+  ],
+  "verdict": "PASS",
+  "failed": [],
+  "pre": [
+    "harness\\evidence\\pml-S7-20260926-0300\\Q4\\protocol.json",
+    "harness\\evidence\\pml-S7-20260926-0300\\Q4\\protocol_down.json",
+    "harness\\evidence\\pml-S7-20260926-0300\\Q4\\protocol_reentry.json"
+  ],
+  "post": "harness\\evidence\\pml-S7-20260926-0300\\Q4\\reentry\\segment_post.json"
+}

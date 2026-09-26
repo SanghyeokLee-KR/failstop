@@ -1,0 +1,14 @@
+2026-09-26T04:54:25+09:00 START Q11
+2026-09-26T04:54:58+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q11-r2\protocol.json
+2026-09-26T04:55:17+09:00 RC 0
+2026-09-26T04:55:18+09:00 RUN python harness/scale/s7_axes.py cold-assign --out harness\evidence\pml-S7-20260926-0300\Q11-r2\cold.json
+2026-09-26T04:55:37+09:00 RC 0
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+2026-09-26T04:55:40+09:00 RUN python -c import sys, json; sys.path.insert(0, "harness/scale"); import s3_common_axes as s; print(json.dumps(s.run_summary()))
+2026-09-26T04:55:41+09:00 RC 0
+2026-09-26T04:55:41+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q11-r2\segment_post.json
+2026-09-26T04:55:41+09:00 RC 0
+2026-09-26T04:55:41+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q11-r2\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q11-r2\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q11-r2\segment.json
+2026-09-26T04:55:42+09:00 RC 0
+2026-09-26T04:55:47+09:00 DOWN rc=0
+2026-09-26T04:55:47+09:00 END Q11 verdict=PASS

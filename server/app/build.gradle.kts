@@ -18,6 +18,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
+    // WebSocket 노드 단위 중계의 STOMP TCP 연결(ADR 0034 S6). spring-messaging 의 ReactorNettyTcpClient 가 쓴다.
+    // HTTP 모듈(reactor-netty-http)은 받지 않는다. 받으면 RestClient 요청 팩토리 자동 선택이 바뀐다. 버전은 SB BOM 이 정한다.
+    implementation("io.projectreactor.netty:reactor-netty-core")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
@@ -25,6 +28,10 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
+    // 오류의 제약 이름(chk_balance_nonneg)을 서버 오류 필드에서 읽으려고 컴파일에만 둔다(SqlErrors, ADR 0034 S3).
+    // 실행 클래스패스는 위 runtimeOnly 가 채운다. 버전은 SB BOM 이 정한다.
+    compileOnly("org.postgresql:postgresql")
+    testCompileOnly("org.postgresql:postgresql")
 
     // 회원 비밀번호 Argon2id·회원 세션 EdDSA(Ed25519).
     // spring-security-crypto는 SB BOM 관리(핀 없음). Argon2PasswordEncoder는 bcprov 런타임 의존이고
@@ -85,4 +92,21 @@ tasks.withType<Test> {
     systemProperty("harness.sql.dir", harnessSql.absolutePath)
     inputs.file(rootProject.file("../deploy/provision-runtime-roles.sql"))
         .withPropertyName("runtimeRoleProvisioning").withPathSensitivity(PathSensitivity.RELATIVE)
+    // 중계 시험(RelayBroker)이 일회용 RabbitMQ 에 복사하는 하네스 중계 설정(ADR 0034 S6). 설정이 바뀌면 캐시된 결과를 쓰지 않는다.
+    inputs.dir(rootProject.file("../harness/relay")).withPropertyName("harnessRelay")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // VM 실습망이 읽는 summary.sql 사본. 원본과 같은지 HarnessSqlCopyTest 가 본다.
+    val vmLabSummarySql = rootProject.file("../deploy/vm-lab/build/build-files/db/summary.sql")
+    inputs.file(vmLabSummarySql).withPropertyName("vmLabSummarySql").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("vmlab.summary.sql", vmLabSummarySql.absolutePath)
+    // 관문 기록용 회 수(S3 설계 6-4, `-Dpml.doubleSpend.rounds=1000`). 명령줄의 -D 는 Gradle JVM 에만 가므로 시험 JVM 으로
+    // 넘긴다. 주지 않으면 시험의 기본값을 쓴다. 시스템 속성은 작업 입력이라 값이 바뀌면 캐시된 결과를 쓰지 않는다.
+    System.getProperty("pml.doubleSpend.rounds")?.let { systemProperty("pml.doubleSpend.rounds", it) }
+    // 교차 노드 이중 지출의 회 수(S7 설계 6-2, `-Dpml.crossNodeDoubleSpend.rounds=1000`). 위와 같은 이유로 넘긴다.
+    System.getProperty("pml.crossNodeDoubleSpend.rounds")?.let { systemProperty("pml.crossNodeDoubleSpend.rounds", it) }
+    // 판정 목록 판을 계약 문서에서 뽑아 돌리는 시험(S7Audit, V55ContractBlockTest)이 읽는 DB 설계. 문서가 바뀌면 캐시된 결과를
+    // 쓰지 않는다. 경로는 시험이 작업 디렉터리에서 찾으므로 시스템 속성으로 넘기지 않는다(비ASCII 파일명).
+    // server 밖의 시험 입력은 .github/workflows/ci-backend.yml 의 paths 에도 둔다. 없으면 그 파일만 바꾼 PR 에서 백엔드 CI 가 돌지 않는다.
+    inputs.dir(rootProject.file("../docs/reference/contracts")).withPropertyName("contractDocs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

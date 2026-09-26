@@ -1,0 +1,77 @@
+{
+  "experiment": "W3",
+  "started": "2026-09-25T21:22:51+09:00",
+  "window_from": "2026-09-25T12:19:39.7127378+00:00",
+  "fault_from": "2026-09-25T12:20:39.7181059+00:00",
+  "fault_to": "2026-09-25T12:21:19.8768968+00:00",
+  "facts": {
+    "accept_rate_during": 26.554029159429447,
+    "accept_rate_before": 27.207834752922512,
+    "accept_ratio": 0.9759699513235673,
+    "leader_5xx": 0.0,
+    "demotions": 0.0,
+    "append_p99_during": 0.006917455222749998,
+    "append_p99_before": 0.008085682567128813,
+    "reconnected_at": "2026-09-25T12:21:23.718000Z",
+    "connected_zero_at": "2026-09-25T12:20:55.718000Z",
+    "follower_degraded_at": "2026-09-25T12:20:55.718000Z",
+    "leader_degraded_max": 0.0,
+    "follower_watch": {
+      "closes1013": 1,
+      "refusals": {
+        "handshake_errors": 14,
+        "status_503": 5
+      }
+    },
+    "leader_watch": {
+      "closes": 0
+    },
+    "receive_again_at_ms": {
+      "chaos-api-1": {
+        "KRW-BTC": 1790338889735,
+        "KRW-ETH": 1790338889735,
+        "KRW-XRP": 1790338889735
+      },
+      "chaos-api-2": {
+        "KRW-BTC": 1790338889735,
+        "KRW-ETH": 1790338889735,
+        "KRW-XRP": 1790338889735
+      },
+      "lb": {
+        "KRW-BTC": 1790338889735,
+        "KRW-ETH": 1790338889735,
+        "KRW-XRP": 1790338889735
+      }
+    },
+    "freshness": {
+      "pairs": 100,
+      "all_ok": true,
+      "bad": 0,
+      "bad_first": [],
+      "follower_nonzero_ratio": 0.57,
+      "follower_all_seq0": false
+    },
+    "heap_before": 68703280.0,
+    "heap_during": 67691600.0
+  },
+  "axes": {
+    "accept_ratio_ge_90pct": true,
+    "leader_5xx_0": true,
+    "demotions_0": true,
+    "append_p99_le_1_5x": true,
+    "connected_back_within_20s": true,
+    "connected_went_0": true,
+    "follower_degraded_within_20s": true,
+    "follower_degraded_back_0": true,
+    "leader_degraded_always_0": true,
+    "follower_watch_1013": true,
+    "follower_watch_handshake_refused": true,
+    "leader_watch_kept_connection": true,
+    "leader_watch_kept_receiving": true,
+    "all_watchers_receive_again_within_60s": true,
+    "freshness_during_and_60s_after_all_ok": true,
+    "heap_growth_le_64MiB": true
+  },
+  "ok": true,
+  "finished": "2026-09-25T21:22:51+09:00"
+}

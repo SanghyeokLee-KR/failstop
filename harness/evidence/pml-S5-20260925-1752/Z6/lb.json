@@ -1,0 +1,10 @@
+{
+  "lbConf": "partition",
+  "file": "harness/nginx/nginx.partition.conf",
+  "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+  "nginxTRc": 0,
+  "sha256Inside": "739ee58804b4c569a0d96f99a8c66bfc069a7c9f5bf345493eebd1c3d4316861",
+  "sha256Repo": "739ee58804b4c569a0d96f99a8c66bfc069a7c9f5bf345493eebd1c3d4316861",
+  "same": true,
+  "envChaosLbConf": "./nginx/nginx.partition.conf"
+}

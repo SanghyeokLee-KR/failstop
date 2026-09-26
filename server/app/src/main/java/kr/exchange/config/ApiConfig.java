@@ -35,7 +35,6 @@ import kr.exchange.api.ws.MarketDataPublisher;
 import kr.exchange.api.ws.OrderbookSnapshotOnSubscribe;
 import kr.exchange.api.ws.StompAuthInterceptor;
 import kr.exchange.engine.EngineBridge;
-import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -49,7 +48,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -59,6 +57,7 @@ import java.util.Map;
 
 /** REST/WS 게이트웨이 배선(M1-4). 도메인 계층은 스프링 어노테이션 없이 여기서만 결선한다. */
 @Configuration
+@org.springframework.boot.context.properties.EnableConfigurationProperties(CancelHandoffProperties.class)
 public class ApiConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ApiConfig.class);
@@ -74,9 +73,21 @@ public class ApiConfig {
         return new NonceStore();
     }
 
+    /** 트랜잭션 밖 읽기의 한 번 더 읽기와 그 계수(API 설계 §2-5-d 'DB가 흔들린 직후', 하네스 CI/CD §5-2). */
     @Bean
-    public ApiKeyDirectory apiKeyDirectory(JdbcClient jdbc) {
-        return new ApiKeyDirectory(jdbc);
+    public kr.exchange.journal.DbReadRetry dbReadRetry(MeterRegistry registry) {
+        return new kr.exchange.journal.DbReadRetry(registry);
+    }
+
+    /** 마켓 라우팅 계수(API 설계 §2-5-d 관측). 선검사 필터, 컨트롤러, 게이트웨이가 같은 계수를 쓴다. */
+    @Bean
+    public kr.exchange.api.common.RoutingCounters routingCounters(MeterRegistry registry) {
+        return new kr.exchange.api.common.RoutingCounters(registry);
+    }
+
+    @Bean
+    public ApiKeyDirectory apiKeyDirectory(JdbcClient jdbc, kr.exchange.journal.DbReadRetry readRetry) {
+        return new ApiKeyDirectory(jdbc, readRetry);
     }
 
     @Bean
@@ -208,7 +219,7 @@ public class ApiConfig {
     }
 
     /**
-     * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 5)보다 뒤다. 인증 뒤에서 막으면
+     * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 4)과 소유권 선검사(order 5)보다 뒤다. 인증 뒤에서 막으면
      * api_keys 조회로 이미 DB를 탄 뒤라 실효가 없고, 바디 상한 앞이면 64KB 초과 요청이 슬롯을
      * 소비한다. ApiAuthFilter와 별도 필터인 이유는 AdmissionFilter 클래스 주석 참조.
      */
@@ -231,6 +242,24 @@ public class ApiConfig {
             @Qualifier("wsAdmissionControl") AdmissionControl wsAdmission) {
         return new kr.exchange.api.common.AdmissionEndpoint(gate, orderAdmission, queryAdmission,
                 requeryAdmission, wsAdmission);
+    }
+
+    /**
+     * 소유권 선검사(API 설계 §2-5-d, S5 설계 4-1). 바디 상한(4) 뒤, 수용 제한(6)·IP 버킷(7)·인증(10) 앞이다. 소유하지 않는 노드에
+     * 온 주문 쓰기를 nonce·레이트리밋·멱등 키·예약·채번을 건드리기 전에 503 으로 돌려보내고 인그레스가 다른 노드로 넘긴다.
+     * 조회 역할 노드에는 걸지 않는다. 조회 역할 필터가 쓰기를 먼저 막는다. 엔진을 끈 노드에는 건다(모든 주문 쓰기를 돌려보냄).
+     */
+    @Bean
+    @org.springframework.context.annotation.Conditional(ReadRoleConfig.NotReadRoleCondition.class)
+    public FilterRegistrationBean<kr.exchange.api.common.MarketRoutingFilter> marketRoutingFilter(
+            ErrorRenderer errorRenderer, MarketDirectory markets, EngineBridge bridge, ObjectMapper objectMapper,
+            kr.exchange.api.common.RoutingCounters routingCounters) {
+        FilterRegistrationBean<kr.exchange.api.common.MarketRoutingFilter> registration = new FilterRegistrationBean<>(
+                new kr.exchange.api.common.MarketRoutingFilter(errorRenderer, markets, bridge, objectMapper,
+                        routingCounters));
+        registration.addUrlPatterns("/api/v1/*");
+        registration.setOrder(5);
+        return registration;
     }
 
     @Bean
@@ -358,8 +387,58 @@ public class ApiConfig {
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
                                      MarketDirectory markets, OrderQueryService orders,
-                                     MeterRegistry meterRegistry) {
-        OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders);
+                                     MeterRegistry meterRegistry,
+                                     kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot,
+                                     kr.exchange.engine.PartitionPlan partitionPlan) {
+        // 잔고 판정의 권위는 기동 모드가 정한다(ADR 0034 S3). P2 이상이면 append 트랜잭션의 DB 예약이 권위이고
+        // in-flight 누계를 끈다. 1 로 뜬 노드는 P2 DB 에서도 안전하다(DB 예약분을 바로 푼다, OrderGateway).
+        OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders,
+                leaderProtocolBoot.reservesAtIntake()
+                        ? OrderGateway.ReserveMode.DB_RESERVATION : OrderGateway.ReserveMode.IN_FLIGHT);
+        gateway.setPartitionPlan(partitionPlan);
+        io.micrometer.core.instrument.Gauge
+                .builder("exchange.order.inflight.enabled", gateway, g -> g.inflightEnabled() ? 1 : 0)
+                .description("게이트웨이가 in-flight 예약 누계를 쓰는가(1) P2 로 떠 끄는가(0)")
+                .register(meterRegistry);
+        // 잔고 부족 거부의 출처. db 는 append 트랜잭션의 23514 다. 이중 지출 시험이 DB 경로가 돌았음을 이 값으로 보인다.
+        for (String source : java.util.List.of("precheck", "db")) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.order.reserve.rejected", gateway, g -> g.reserveRejections(source))
+                    .tag("source", source)
+                    .description("주문 생성의 잔고 부족 거부 수(precheck 저널 전, db append 트랜잭션)")
+                    .register(meterRegistry);
+        }
+        // 접수 append 의 일시 DB 오류 넷. 잠금 계획 뒤 40P01 은 결함 신호다(경보 OrderIntakeDeadlock).
+        for (String state : java.util.List.of("55P03", "57014", "40P01", "40001")) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.order.append.transient", gateway, g -> g.appendTransient(state))
+                    .tag("sqlstate", state)
+                    .description("접수 append 가 일시 DB 오류로 끝난 수")
+                    .register(meterRegistry);
+        }
+        // 마켓 접수 경합 응답 수(API 설계 §2-5-b). 429 는 확정 미접수, 409 는 그 밖이다. 장애 창 밖에서는 0 이어야 한다.
+        for (String cause : java.util.List.of("lock_wait", "lock_wait_stuck", "55P03", "57014", "40P01", "40001")) {
+            for (String response : java.util.List.of("429", "409")) {
+                io.micrometer.core.instrument.FunctionCounter
+                        .builder("exchange.order.intake.contention", gateway,
+                                g -> g.intakeContention(cause, response))
+                        .tags("cause", cause, "response", response)
+                        .description("마켓 접수 경합으로 저널 전에 끝난 주문 생성·취소 수")
+                        .register(meterRegistry);
+            }
+        }
+        // DB 연결 장애와 리더 자격 거부의 응답 수(API 설계 §2-5-c). 첫 증가를 increase() 가 세도록 여섯 조합을 미리 등록한다.
+        // 경합 계수와 따로 세야 창 밖 접수 경합 상한 축이 DB 장애를 경합으로 세지 않는다.
+        for (String cause : java.util.List.of("connection", "fencing")) {
+            for (String response : java.util.List.of("503", "429", "409")) {
+                io.micrometer.core.instrument.FunctionCounter
+                        .builder("exchange.order.intake.unavailable", gateway,
+                                g -> g.intakeUnavailable(cause, response))
+                        .tags("cause", cause, "response", response)
+                        .description("DB 연결 장애·리더 자격 거부로 끝난 주문 생성·취소 수")
+                        .register(meterRegistry);
+            }
+        }
         // 접수 락과 별개의 직렬 구간이라 따로 잰다(InflightReserves 필드 주석).
         io.micrometer.core.instrument.FunctionCounter
                 .builder("exchange.inflight.lock.wait.nanos", gateway,
@@ -386,6 +465,67 @@ public class ApiConfig {
         return gateway;
     }
 
+    /**
+     * 게이트웨이에 라우팅 계수, 한 번 더 읽기, 인계 요청자를 붙인다(S5 설계 4-2·4-4·4-6). 생성자를 늘리지 않고 부착한다. 게이트웨이
+     * 생성 배선(orderGateway)은 시험이 그대로 부르므로 시그니처를 바꾸지 않는다(projectionSignalWiring 과 같은 방식). 붙이지 않은
+     * 게이트웨이는 계수를 내보내지 않고 일괄 취소를 모두 직접 한다.
+     */
+    @Bean
+    public static org.springframework.beans.factory.config.BeanPostProcessor orderGatewayRoutingWiring(
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.api.common.RoutingCounters> counters,
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.journal.DbReadRetry> readRetry,
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.api.order.OrderCancelHandoff> handoff) {
+        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String name) {
+                if (bean instanceof OrderGateway gateway) {
+                    gateway.attachRouting(counters.getObject(), readRetry.getObject());
+                    gateway.attachCancelHandoff(handoff.getObject());
+                }
+                return bean;
+            }
+        };
+    }
+
+    @Bean
+    public kr.exchange.api.order.CancelHandoffCounters cancelHandoffCounters(MeterRegistry registry) {
+        return new kr.exchange.api.order.CancelHandoffCounters(registry);
+    }
+
+    @Bean
+    public kr.exchange.api.order.OrderCancelHandoffRepository orderCancelHandoffRepository(
+            JdbcClient jdbc, PlatformTransactionManager txManager) {
+        return new kr.exchange.api.order.OrderCancelHandoffRepository(jdbc, new TransactionTemplate(txManager));
+    }
+
+    /**
+     * 파티션 밖 취소의 요청자(DB 설계 §5.4-d 1·2). 엔진을 끈 노드(관리 평면, 조회 증설)도 둔다. 그 노드는 어떤 파티션의 게이트도
+     * 열지 않아 일괄 취소와 회원 폐쇄의 주문을 모두 소유 노드에 넘긴다.
+     */
+    @Bean
+    public kr.exchange.api.order.OrderCancelHandoff orderCancelHandoff(
+            kr.exchange.api.order.OrderCancelHandoffRepository repository,
+            kr.exchange.engine.PartitionPlan partitionPlan, kr.exchange.engine.PartitionLeases partitionLeases,
+            CancelHandoffProperties properties, kr.exchange.api.order.CancelHandoffCounters counters) {
+        return new kr.exchange.api.order.OrderCancelHandoff(repository, partitionPlan, partitionLeases,
+                properties.settings(), counters);
+    }
+
+    /**
+     * 파티션 밖 취소의 작업자(DB 설계 §5.4-d 3). 엔진을 켠 노드에만 둔다. 게이트가 열린 파티션의 인계 행만 점유하므로 팔로워로
+     * 떠 있는 동안에는 DB 를 보지 않는다.
+     */
+    @Bean(initMethod = "start", destroyMethod = "close")
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "exchange.engine", name = "enabled", matchIfMissing = true)
+    public kr.exchange.api.order.CancelHandoffWorker cancelHandoffWorker(
+            kr.exchange.api.order.OrderCancelHandoffRepository repository, OrderGateway gateway,
+            kr.exchange.engine.PartitionLeases partitionLeases, CancelHandoffProperties properties,
+            kr.exchange.api.order.CancelHandoffCounters counters) {
+        return new kr.exchange.api.order.CancelHandoffWorker(repository, gateway, partitionLeases,
+                properties.settings(), counters);
+    }
+
     @Bean
     public kr.exchange.api.order.OrderRejectionMetrics orderRejectionMetrics(
             MeterRegistry meterRegistry) {
@@ -398,8 +538,8 @@ public class ApiConfig {
     }
 
     @Bean
-    public EpochSource epochSource(LeaderLeaseService lease, JdbcClient jdbc) {
-        return new EpochSource(lease, jdbc);
+    public EpochSource epochSource(kr.exchange.engine.PartitionLeases partitionLeases, JdbcClient jdbc) {
+        return new EpochSource(partitionLeases, jdbc);
     }
 
     @Bean
@@ -413,16 +553,20 @@ public class ApiConfig {
     }
 
     @Bean
-    public MarketDataPublisher marketDataPublisher(SimpMessagingTemplate messaging,
-                                                   JdbcClient jdbc, MarketDirectory markets,
+    public MarketDataPublisher marketDataPublisher(JdbcClient jdbc, MarketDirectory markets,
                                                    MarketDataService marketData,
                                                    OrderQueryService orders,
                                                    ChannelSequences sequences,
-                                                   EpochSource epochSource,
                                                    CandleSubscriptions candleSubscriptions,
+                                                   kr.exchange.api.ws.WsFanout wsFanout,
+                                                   org.springframework.beans.factory.ObjectProvider<
+                                                           kr.exchange.api.ws.CandleFanout> candleFanout,
+                                                   org.springframework.beans.factory.ObjectProvider<
+                                                           kr.exchange.api.ws.MarketMirror> marketMirror,
                                                    MeterRegistry meterRegistry) {
-        return new MarketDataPublisher(messaging, jdbc, markets, marketData, orders,
-                sequences, epochSource, candleSubscriptions, meterRegistry);
+        // 중계 모드면 캔들 팬아웃과 미러가 있다. 각 노드가 캔들을 계산하고 자기 게시로 미러를 갱신한다(WsRelayConfig, S6 설계 4-6·4-10).
+        return new MarketDataPublisher(jdbc, markets, marketData, orders, sequences, candleSubscriptions,
+                wsFanout, candleFanout.getIfAvailable(), marketMirror.getIfAvailable(), meterRegistry);
     }
 
     @Bean
@@ -435,9 +579,9 @@ public class ApiConfig {
 
     @Bean
     public OrderbookSnapshotOnSubscribe orderbookSnapshotOnSubscribe(
-            MarketDirectory markets, MarketDataService marketData, ChannelSequences sequences,
-            EpochSource epochSource, ObjectMapper objectMapper, ApplicationContext context) {
-        return new OrderbookSnapshotOnSubscribe(markets, marketData, sequences, epochSource,
-                objectMapper, () -> context.getBean("clientOutboundChannel", MessageChannel.class));
+            MarketDirectory markets, kr.exchange.api.ws.MarketViews marketViews, ObjectMapper objectMapper,
+            ApplicationContext context) {
+        return new OrderbookSnapshotOnSubscribe(markets, marketViews, objectMapper,
+                () -> context.getBean("clientOutboundChannel", MessageChannel.class));
     }
 }

@@ -1,0 +1,17 @@
+2026-09-25T22:42:43+09:00 RUN s6-relay-outage Experiment=W4 Image=exchange-chaos-app:pml BotOps=300 Project=exchange-pml
+2026-09-25T22:42:44+09:00 OVERLAYS harness/docker-compose.relay.yml
+2026-09-25T22:43:17+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S6-20260925-1954\W4-fix2\protocol.json
+2026-09-25T22:43:45+09:00 RC 0
+봇 OPS=300 적용(chaos-bots 재기동, settle 5s)
+2026-09-25T22:44:52+09:00 FAULT inject docker exec -u rabbitmq chaos-broker rabbitmqctl -q set_vm_memory_high_watermark absolute 1MiB
+2026-09-25T22:44:54+09:00 FAULT inject rc=0
+2026-09-25T22:45:24+09:00 FAULT restore docker exec -u rabbitmq chaos-broker rabbitmqctl -q set_vm_memory_high_watermark absolute 192MiB
+2026-09-25T22:45:26+09:00 FAULT restore rc=0
+2026-09-25T22:46:58+09:00 RUN python harness/scale/s6_relay_axes.py watch --log harness\evidence\pml-S6-20260925-1954\W4-fix2\watch.log --out harness\evidence\pml-S6-20260925-1954\W4-fix2\watch.json
+2026-09-25T22:46:58+09:00 RC 0
+2026-09-25T22:46:58+09:00 RUN python harness/scale/s6_relay_axes.py judge --experiment W4 --evidence harness\evidence\pml-S6-20260925-1954\W4-fix2 --window-from 2026-09-25T13:43:52.4881488+00:00 --leader chaos-api-1 --follower chaos-api-2 --out harness\evidence\pml-S6-20260925-1954\W4-fix2\relay_axes.json --fault-from 2026-09-25T13:44:52.4987743+00:00 --fault-to 2026-09-25T13:45:26.2770638+00:00 --restore-at 2026-09-25T13:45:24.2739165+00:00
+2026-09-25T22:46:58+09:00 RC 0
+2026-09-25T22:46:58+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T13:42:44.4817011+00:00 --fault-from 2026-09-25T13:44:52.4987743+00:00 --fault-to 2026-09-25T13:45:26.2770638+00:00 --samples harness\evidence\pml-S6-20260925-1954\W4-fix2\balance_samples.jsonl --out harness\evidence\pml-S6-20260925-1954\W4-fix2\s3_common.json
+2026-09-25T22:47:29+09:00 RC 0
+2026-09-25T22:47:34+09:00 END W4 down rc=0
+2026-09-25T22:47:34+09:00 DONE W4 PASS

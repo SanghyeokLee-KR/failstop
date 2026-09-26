@@ -1,0 +1,30 @@
+{
+  "before": {
+    "at": "2026-09-25T20:01:20.2776849Z",
+    "cpuTotalPct": [
+      3.4,
+      5.3,
+      0.0,
+      1.4,
+      3.9
+    ],
+    "cpuAvg": 2.8,
+    "logicalCores": 16,
+    "otherContainers": 0,
+    "others": []
+  },
+  "after": {
+    "at": "2026-09-25T20:03:52.7995923Z",
+    "cpuTotalPct": [
+      2.2,
+      0.8,
+      8.2,
+      0.5,
+      4.6
+    ],
+    "cpuAvg": 3.3,
+    "logicalCores": 16,
+    "otherContainers": 0,
+    "others": []
+  }
+}

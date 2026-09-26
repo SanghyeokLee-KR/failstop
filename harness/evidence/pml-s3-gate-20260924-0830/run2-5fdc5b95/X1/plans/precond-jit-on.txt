@@ -1,0 +1,193 @@
+BEGIN
+SET
+Aggregate  (cost=2608.56..2608.57 rows=1 width=8) (actual time=11.027..11.029 rows=1 loops=1)
+  Buffers: shared hit=1154
+  ->  Hash Anti Join  (cost=1022.06..2608.56 rows=1 width=0) (actual time=11.025..11.028 rows=0 loops=1)
+        Hash Cond: (c.seq = e.source_cmd_seq)
+        Buffers: shared hit=1154
+        ->  Append  (cost=0.00..1353.38 rows=16954 width=8) (actual time=0.011..5.028 rows=16991 loops=1)
+              Buffers: shared hit=900
+              ->  Seq Scan on command_journal_p0 c_1  (cost=0.00..1126.53 rows=16924 width=8) (actual time=0.010..4.294 rows=16991 loops=1)
+                    Filter: ((command_type)::text = 'NEW'::text)
+                    Rows Removed by Filter: 2380
+                    Buffers: shared hit=885
+              ->  Bitmap Heap Scan on command_journal_p100000000 c_2  (cost=4.13..9.47 rows=2 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_p100000000_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_p200000000 c_3  (cost=4.13..9.47 rows=2 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_p200000000_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b1 c_4  (cost=4.13..9.47 rows=2 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b1_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b2 c_5  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b2_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b3 c_6  (cost=4.13..9.47 rows=2 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b3_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b4 c_7  (cost=4.13..9.47 rows=2 width=8) (actual time=0.010..0.010 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b4_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b5 c_8  (cost=4.13..9.47 rows=2 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b5_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b6 c_9  (cost=4.13..9.47 rows=2 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b6_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b7 c_10  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b7_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b8 c_11  (cost=4.13..9.47 rows=2 width=8) (actual time=0.001..0.002 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b8_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b9 c_12  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b9_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b10 c_13  (cost=4.13..9.47 rows=2 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b10_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b11 c_14  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b11_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b12 c_15  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b12_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_default c_16  (cost=4.13..9.47 rows=2 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_default_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+        ->  Hash  (cost=595.36..595.36 rows=34136 width=8) (actual time=4.660..4.660 rows=34285 loops=1)
+              Buckets: 65536  Batches: 1  Memory Usage: 1852kB
+              Buffers: shared hit=254
+              ->  Seq Scan on event_emission_registry e  (cost=0.00..595.36 rows=34136 width=8) (actual time=0.008..2.144 rows=34285 loops=1)
+                    Buffers: shared hit=254
+Planning:
+  Buffers: shared hit=1796
+Planning Time: 9.210 ms
+Execution Time: 11.621 ms
+Aggregate  (cost=2608.56..2608.57 rows=1 width=8) (actual time=7.866..7.869 rows=1 loops=1)
+  Buffers: shared hit=1154
+  ->  Hash Anti Join  (cost=1022.06..2608.56 rows=1 width=0) (actual time=7.865..7.867 rows=0 loops=1)
+        Hash Cond: (c.seq = e.source_cmd_seq)
+        Buffers: shared hit=1154
+        ->  Append  (cost=0.00..1353.38 rows=16954 width=8) (actual time=0.004..2.665 rows=16991 loops=1)
+              Buffers: shared hit=900
+              ->  Seq Scan on command_journal_p0 c_1  (cost=0.00..1126.53 rows=16924 width=8) (actual time=0.004..1.906 rows=16991 loops=1)
+                    Filter: ((command_type)::text = 'NEW'::text)
+                    Rows Removed by Filter: 2380
+                    Buffers: shared hit=885
+              ->  Bitmap Heap Scan on command_journal_p100000000 c_2  (cost=4.13..9.47 rows=2 width=8) (actual time=0.008..0.008 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_p100000000_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.005..0.005 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_p200000000 c_3  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_p200000000_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b1 c_4  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b1_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b2 c_5  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b2_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b3 c_6  (cost=4.13..9.47 rows=2 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b3_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b4 c_7  (cost=4.13..9.47 rows=2 width=8) (actual time=0.008..0.008 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b4_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b5 c_8  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b5_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b6 c_9  (cost=4.13..9.47 rows=2 width=8) (actual time=0.004..0.004 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b6_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b7 c_10  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b7_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b8 c_11  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b8_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.001 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b9 c_12  (cost=4.13..9.47 rows=2 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b9_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b10 c_13  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b10_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b11 c_14  (cost=4.13..9.47 rows=2 width=8) (actual time=0.003..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b11_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.002..0.002 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_b12 c_15  (cost=4.13..9.47 rows=2 width=8) (actual time=0.002..0.003 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_b12_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+              ->  Bitmap Heap Scan on command_journal_default c_16  (cost=4.13..9.47 rows=2 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+                    Recheck Cond: ((command_type)::text = 'NEW'::text)
+                    Buffers: shared hit=1
+                    ->  Bitmap Index Scan on command_journal_default_user_id_client_order_id_idx  (cost=0.00..4.13 rows=2 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                          Buffers: shared hit=1
+        ->  Hash  (cost=595.36..595.36 rows=34136 width=8) (actual time=3.833..3.834 rows=34285 loops=1)
+              Buckets: 65536  Batches: 1  Memory Usage: 1852kB
+              Buffers: shared hit=254
+              ->  Seq Scan on event_emission_registry e  (cost=0.00..595.36 rows=34136 width=8) (actual time=0.002..1.286 rows=34285 loops=1)
+                    Buffers: shared hit=254
+Planning:
+  Buffers: shared hit=45
+Planning Time: 0.329 ms
+Execution Time: 8.463 ms
+COMMIT

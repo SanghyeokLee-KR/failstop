@@ -1,0 +1,1 @@
+{"verdict": "PASS", "groups": {"A_read_split": "PASS", "B_writes": "PASS", "C_stop_return": "PASS", "D_ws": "PASS", "E_integrity": "PASS"}, "failed_axes": [], "missing_positive": []}

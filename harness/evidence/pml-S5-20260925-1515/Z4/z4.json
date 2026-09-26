@@ -1,0 +1,255 @@
+{
+  "phase": "Z4",
+  "at": "2026-09-25T06:55:07.385+00:00",
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "states": {
+    "chaos-api-1": "ACCEPTING",
+    "chaos-api-2": "FOLLOWER"
+  },
+  "users": {
+    "A": 727,
+    "A2": 728,
+    "B": 729,
+    "C": 730
+  },
+  "a": {
+    "label": "a",
+    "port": 28080,
+    "user_id": 727,
+    "placed": [
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      }
+    ],
+    "response": {
+      "status": 200,
+      "ms": 350.1,
+      "retry_after": null,
+      "route_header": null,
+      "ratelimit_account_header": true,
+      "error": null,
+      "constraint": null,
+      "detail_route": null,
+      "body_canceled_count": 4,
+      "body_failed": []
+    },
+    "elapsed_ms": 350.1,
+    "order_states": {
+      "7bf4391e-3d4e-4070-8a78-1d0aec63889b": "CANCELED",
+      "c8be973f-066a-4c89-b389-2de65347c31d": "CANCELED",
+      "caa2d59d-cc59-4e14-84d8-1005c9761b3c": "CANCELED",
+      "ef5dc16d-acb7-4c09-9298-e2332677bc65": "CANCELED"
+    },
+    "handoff_rows": [
+      {
+        "resource": "matching-engine",
+        "state": "DONE",
+        "origin": "cancel_all",
+        "orders": 4
+      }
+    ],
+    "krw": {
+      "before": {
+        "available": "1000000000.000000000000000000",
+        "locked": "0.000000000000000000"
+      },
+      "while_open": {
+        "available": "999812200.000000000000000000",
+        "locked": "187800.000000000000000000"
+      },
+      "after": {
+        "available": "1000000000.000000000000000000",
+        "locked": "0.000000000000000000"
+      }
+    }
+  },
+  "b": {
+    "label": "b",
+    "port": 38080,
+    "user_id": 728,
+    "placed": [
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      }
+    ],
+    "response": {
+      "status": 200,
+      "ms": 260.5,
+      "retry_after": null,
+      "route_header": null,
+      "ratelimit_account_header": true,
+      "error": null,
+      "constraint": null,
+      "detail_route": null,
+      "body_canceled_count": 4,
+      "body_failed": []
+    },
+    "elapsed_ms": 260.5,
+    "order_states": {
+      "75b7eb56-6538-4c65-b3ce-f5c59a27e196": "CANCELED",
+      "f0d63707-3107-4948-832c-bbaadee2a122": "CANCELED",
+      "d000a4b3-889e-4370-ab81-68a8bd6df1b5": "CANCELED",
+      "c6a62a13-f3c0-4fd6-8974-2a6ba4e04256": "CANCELED"
+    },
+    "handoff_rows": [
+      {
+        "resource": "matching-engine",
+        "state": "DONE",
+        "origin": "cancel_all",
+        "orders": 4
+      }
+    ],
+    "krw": {
+      "before": {
+        "available": "1000000000.000000000000000000",
+        "locked": "0.000000000000000000"
+      },
+      "while_open": {
+        "available": "999812200.000000000000000000",
+        "locked": "187800.000000000000000000"
+      },
+      "after": {
+        "available": "1000000000.000000000000000000",
+        "locked": "0.000000000000000000"
+      }
+    }
+  },
+  "c": {
+    "error": "승인 발급 실패(rc=0)"
+  },
+  "d": {
+    "user_id": 730,
+    "placed": [
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-BTC",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      },
+      {
+        "market": "KRW-ETH",
+        "status": 201,
+        "error": null
+      }
+    ],
+    "participate_off": {
+      "chaos-api-1": "200",
+      "chaos-api-2": "200"
+    },
+    "gates_closed": {
+      "ok": true,
+      "states": {
+        "chaos-api-1": "FOLLOWER",
+        "chaos-api-2": "FOLLOWER"
+      }
+    },
+    "error": "승인 발급 실패(rc=0)",
+    "participate_on_after_error": {
+      "chaos-api-1": "200",
+      "chaos-api-2": "200"
+    }
+  },
+  "counters_delta_abc": {
+    "chaos-api-1": {
+      "exchange_order_cancel_handoff_worker_total{outcome=claimed}": 2.0,
+      "exchange_order_cancel_handoff_worker_total{outcome=completed}": 2.0,
+      "exchange_routing_precheck_total{result=accepted}": 12.0
+    },
+    "chaos-api-2": {
+      "exchange_order_cancel_handoff_requests_total{outcome=done}": 1.0,
+      "exchange_routing_precheck_total{result=not_owner}": 2.0,
+      "exchange_routing_precheck_total{result=unresolved}": 1.0
+    }
+  },
+  "counters_delta_all": {
+    "chaos-api-1": {
+      "exchange_order_cancel_handoff_worker_total{outcome=claimed}": 2.0,
+      "exchange_order_cancel_handoff_worker_total{outcome=completed}": 2.0,
+      "exchange_routing_precheck_total{result=accepted}": 16.0
+    },
+    "chaos-api-2": {
+      "exchange_order_cancel_handoff_requests_total{outcome=done}": 1.0,
+      "exchange_routing_precheck_total{result=not_owner}": 2.0,
+      "exchange_routing_precheck_total{result=unresolved}": 1.0
+    }
+  },
+  "lease": {
+    "before": {
+      "holder": "80954736-a0b6-4662-b330-ada8e59e6304",
+      "epoch": 5,
+      "alive": true
+    },
+    "mid": {
+      "holder": "80954736-a0b6-4662-b330-ada8e59e6304",
+      "epoch": 5,
+      "alive": true
+    },
+    "end": {
+      "holder": "80954736-a0b6-4662-b330-ada8e59e6304",
+      "epoch": 5,
+      "alive": true
+    }
+  },
+  "axes": {
+    "a_placed_4": true,
+    "a_200_canceled_4_no_failed": true,
+    "a_orders_canceled": true,
+    "a_one_handoff_row_done": true,
+    "a_locked_back_to_before": true,
+    "b_placed_4": true,
+    "b_200_canceled_4_no_failed": true,
+    "b_orders_canceled": true,
+    "b_one_handoff_row_done": true,
+    "b_locked_back_to_before": true,
+    "c_admin": false,
+    "d_placed_4": true,
+    "d_run": false,
+    "abc_leader_not_owner_0": true,
+    "abc_lease_unchanged": true
+  },
+  "ok": false
+}

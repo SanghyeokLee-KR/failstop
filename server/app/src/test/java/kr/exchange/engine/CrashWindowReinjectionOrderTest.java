@@ -6,6 +6,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.core.SingleWriterLoop;
+import kr.exchange.engine.lease.ReservationFixture;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalReader;
@@ -157,6 +158,142 @@ class CrashWindowReinjectionOrderTest {
             assertEquals(List.of(only12, first2, second2), order, "마켓 안 역전 배치가 seq 순서를 앞질렀다");
             assertEquals(1, recovery.reinjectCreatedAtInversions());
             assertEquals(List.of(), materialized);
+        }
+    }
+
+    /**
+     * 예약 판(ADR 0034 S3, S3 설계 4-8·6-2). P2 에서는 매도 대금으로 다른 마켓 매수를 하는 역전 저널이 생기지 않는다. 매도가
+     * 정산되지 않은 동안 매수 머리말이 잔고 행에서 예약하다 23514 로 거부되기 때문이다.
+     */
+    @Test
+    void p2RefusesTheCrossMarketFundingInversionAtIntake() throws Exception {
+        try (ReservationFixture f = ReservationFixture.create("cw_p2_inversion", 2)) {
+            long alice = f.user("alice", BigDecimal.ZERO);
+            long carol = f.user("carol", new BigDecimal("1000"));
+            f.deposit(alice, ReservationFixture.ETH, BigDecimal.ONE);
+            LeaderLeaseService lease = f.lease();
+            kr.exchange.journal.CommandJournalAppender appender = f.appender(lease, true);
+            MatchingEngineImpl engine = new MatchingEngineImpl();
+            f.submit(appender, engine, f.settlement(lease),
+                    f.limit(ReservationFixture.KRW_ETH, carol, OrderCommand.Side.BUY, "1000", "1"));
+            // 크래시 창: 마켓 2 에서 팔아 받을 KRW 로 마켓 1 에서 산다. 매도는 저널에만 있고 정산되지 않았다.
+            f.append(appender, f.limit(ReservationFixture.KRW_ETH, alice, OrderCommand.Side.SELL, "1000", "1"));
+            OrderIntake buy = f.limit(ReservationFixture.KRW_BTC, alice, OrderCommand.Side.BUY, "1000", "1");
+
+            DataAccessException refused = assertThrows(DataAccessException.class, () -> f.append(appender, buy));
+
+            assertTrue(kr.exchange.journal.SqlErrors.isInsufficientFunds(refused), refused.toString());
+            assertEquals(0, f.count("SELECT count(*) FROM command_journal WHERE assigned_order_id = "
+                    + buy.assignedOrderId()), "잔고 없는 매수가 저널에 들어갔다");
+            assertTrue(lease.isLeader());
+        }
+    }
+
+    /**
+     * 예약 판(S3 설계 6-2). 두 주문을 모두 예약할 만큼 가진 사용자의 예약 명령 둘을 정산 없이 남기고 seq 축 순서와 병합 순서로
+     * 각각 재적재한다. 정산이 예약을 다시 부르지 않으므로 둘 다 23514 없이 끝나고 최종 잔고가 같다.
+     */
+    @Test
+    void reservedCommandsReinjectInEitherOrderWithoutInsufficientFunds() throws Exception {
+        String seqAxis = reinjectReserved("cw_p2_seq_axis", false);
+        String mergeAxis = reinjectReserved("cw_p2_merge_axis", true);
+        assertEquals(seqAxis, mergeAxis, "재적재 순서에 따라 결과 잔고가 갈렸다");
+    }
+
+    /** 예약 명령 둘(뒤 seq 가 앞 created_at)을 남기고 재적재한 뒤 잔고와 주문 행을 잇는다. */
+    private static String reinjectReserved(String prefix, boolean merge) throws Exception {
+        try (ReservationFixture f = ReservationFixture.create(prefix, 2)) {
+            long alice = f.user("alice", new BigDecimal("100000"));
+            LeaderLeaseService lease = f.lease();
+            OrderIntake a = f.limit(ReservationFixture.KRW_BTC, alice, OrderCommand.Side.BUY, "50000", "0.1");
+            OrderIntake b = f.limit(ReservationFixture.KRW_ETH, alice, OrderCommand.Side.BUY, "40000", "0.1");
+            long seqA = insertReserved(f, lease, a, T0.plusSeconds(2));
+            long seqB = insertReserved(f, lease, b, T0.plusSeconds(1));
+            assertTrue(seqA < seqB, "seq 축과 시간 축이 갈리지 않는다");
+            assertEquals(0, new BigDecimal("91000").compareTo(f.available(alice, ReservationFixture.KRW)));
+            SettlementService settlement = f.settlement(lease);
+            ReplayService replay = new ReplayService(new CommandJournalReader(f.app), new EventJournalReader(f.app),
+                    f.mapper, new ObjectMapper(), new MarketCatalog(f.app));
+            List<Long> order = new ArrayList<>();
+            if (merge) {
+                new EngineRecovery(replay, events -> {
+                    order.add(events.get(0).sourceCmdSeq());
+                    settlement.appendAndSettle(events);
+                }, lease).recover(new MatchingEngineImpl());
+                assertEquals(List.of(seqB, seqA), order, "병합 순서가 created_at 순이 아니다");
+            } else {
+                MatchingEngineImpl engine = new MatchingEngineImpl();
+                JournalCheckpoints bounds = replay.materializedThroughByMarket(Map.of());
+                List<PendingBatch> batches = new ArrayList<>();
+                CommandJournalReader commands = new CommandJournalReader(f.app);
+                for (int market : List.of(ReservationFixture.KRW_BTC, ReservationFixture.KRW_ETH)) {
+                    replay.verifyToMarket(engine, market, bounds);
+                    batches.addAll(replay.replayTailMarket(engine, market, commands.maxSeqForMarket(market))
+                            .pendingBatches());
+                }
+                batches.sort(Comparator.comparingLong(PendingBatch::seq));
+                for (PendingBatch batch : batches) {
+                    order.add(batch.seq());
+                    settlement.appendAndSettle(batch.events());
+                }
+                assertEquals(List.of(seqA, seqB), order);
+            }
+            assertEquals(0, settlement.insufficientFunds());
+            assertEquals(0, f.invariant(kr.exchange.harness.InvariantCheck.C14_LOCKED_RESERVATION));
+            return f.owner.sql("""
+                    SELECT (SELECT string_agg(a.purpose || a.asset_id || '=' || b.balance, ',' ORDER BY a.purpose, a.asset_id)
+                              FROM accounts a JOIN balances b ON b.account_id = a.id
+                             WHERE a.owner_type = 'USER' AND a.owner_id = ?) || '|'
+                        || (SELECT string_agg(o.status || ':' || o.locked_amount, ',' ORDER BY o.id) FROM orders o)
+                    """).param(alice).query(String.class).single();
+        }
+    }
+
+    /** 10인자 머리말로 예약한 뒤 소유자가 저널 행을 넣어 created_at 을 정한다(한 트랜잭션). */
+    private static long insertReserved(ReservationFixture f, LeaderLeaseService lease, OrderIntake intake,
+                                       OffsetDateTime createdAt) throws SQLException {
+        CommandDraft draft = f.draft(intake);
+        try (Connection c = f.db.owner()) {
+            c.setAutoCommit(false);
+            long seq;
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "SELECT out_seq, out_reserved FROM append_command_prologue("
+                            + "?, ?, true, ?, ?, ?::smallint, ?, ?::jsonb, ?::smallint, ?::numeric)")) {
+                ps.setString(1, lease.requireLeader().holder());
+                ps.setLong(2, lease.requireLeader().epoch());
+                ps.setLong(3, draft.userId());
+                ps.setString(4, draft.clientOrderId());
+                ps.setInt(5, draft.marketId());
+                ps.setLong(6, draft.assignedOrderId());
+                ps.setString(7, draft.payloadJson());
+                ps.setShort(8, intake.reserveCheck().assetId());
+                ps.setBigDecimal(9, intake.reserveCheck().amount());
+                java.sql.ResultSet rs = ps.executeQuery();
+                assertTrue(rs.next());
+                assertTrue(rs.getBoolean("out_reserved"));
+                seq = rs.getLong("out_seq");
+            }
+            try (java.sql.PreparedStatement ps = c.prepareStatement("""
+                    INSERT INTO command_journal (seq, market_id, command_type, user_id, client_order_id,
+                                                 assigned_order_id, engine_ts, tie_break, payload, fencing_token,
+                                                 checksum, created_at)
+                    VALUES (?, ?, 'NEW', ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+                    """)) {
+                ps.setLong(1, seq);
+                ps.setInt(2, draft.marketId());
+                ps.setLong(3, draft.userId());
+                ps.setString(4, draft.clientOrderId());
+                ps.setLong(5, draft.assignedOrderId());
+                ps.setLong(6, draft.engineTs());
+                ps.setLong(7, draft.tieBreak());
+                ps.setString(8, draft.payloadJson());
+                ps.setLong(9, lease.requireLeader().epoch());
+                ps.setLong(10, JournalChecksum.of(seq, draft));
+                ps.setObject(11, createdAt);
+                assertEquals(1, ps.executeUpdate());
+            }
+            c.commit();
+            return seq;
         }
     }
 

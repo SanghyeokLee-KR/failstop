@@ -1,0 +1,5 @@
+2026-09-25T11:12:57+09:00 [Final] PHASE Final project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T11:12:57+09:00 [Final] volumes before unchanged
+2026-09-25T11:12:57+09:00 [Final] final down -v (exchange-pml) rc=0
+2026-09-25T11:12:58+09:00 [Final] TAG exchange-chaos-app:pml -> sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24
+2026-09-25T11:12:58+09:00 [Final] volumes after unchanged

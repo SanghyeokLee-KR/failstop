@@ -1,0 +1,18 @@
+[12:23:46.648] R0-start 
+[12:26:55.149] R0-end 
+[12:26:55.149] scale-out-1-start 
+[12:27:04.182] scale-out-1-registered health_s=8.49
+[12:27:11.615] R1-end 
+Traceback (most recent call last):
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 1025, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 1015, in main
+    return a.func(a)
+           ~~~~~~^^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 827, in cmd_run
+    member.signup()
+    ~~~~~~~~~~~~~^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 490, in signup
+    raise RuntimeError('가입 실패(status %s, %s)' % (status, err_name(body)))
+RuntimeError: 가입 실패(status 0, None)

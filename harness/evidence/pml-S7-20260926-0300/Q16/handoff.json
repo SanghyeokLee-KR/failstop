@@ -1,0 +1,34 @@
+{
+  "judge": "handoff",
+  "at": "2026-09-26T04:32:27+09:00",
+  "facts": {
+    "paused_holders": [],
+    "paused_cancel_reasons": [],
+    "paused_close_pending_reasons": {}
+  },
+  "axes": {
+    "api1_p1_participation_off": true,
+    "paused_requests_sent": false,
+    "p1_not_validly_held_outside_api2": false,
+    "live_cancel_all_200_canceled_4": true,
+    "live_orders_canceled": true,
+    "live_p1_handoff_row_done": true,
+    "paused_cancel_all_200_p1_open_reasons": false,
+    "paused_member_close_409_incomplete": false,
+    "handoff_rows_closed_after_resume": true,
+    "api1_p1_participation_restored": true
+  },
+  "positive": [
+    "api1_p1_participation_off",
+    "paused_requests_sent",
+    "p1_not_validly_held_outside_api2"
+  ],
+  "verdict": "NOT RUN",
+  "failed": [
+    "paused_requests_sent",
+    "p1_not_validly_held_outside_api2",
+    "paused_cancel_all_200_p1_open_reasons",
+    "paused_member_close_409_incomplete"
+  ],
+  "input": "harness\\evidence\\pml-S7-20260926-0300\\Q16\\q16.json"
+}

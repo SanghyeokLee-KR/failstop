@@ -1,0 +1,26 @@
+container=pml-probe-s3flyway-588610175 image=postgres:17-alpine port=127.0.0.1:53455 flyway=11.7.2
+INFO: Database: jdbc:postgresql://127.0.0.1:53455/probe (PostgreSQL 17.10)
+INFO: Schema history table "public"."flyway_schema_history" does not exist yet
+INFO: Successfully validated 3 migrations (execution time 00:00.017s)
+INFO: Creating Schema History table "public"."flyway_schema_history" ...
+INFO: Current version of schema "public": << Empty Schema >>
+INFO: Migrating schema "public" to version "1 - one"
+INFO: Migrating schema "public" to version "2 - two"
+INFO: Migrating schema "public" to version "4 - four"
+INFO: Successfully applied 3 migrations to schema "public", now at version v4 (execution time 00:00.015s)
+step1 migrate V1,V2,V4: success=true applied=3 target=4
+INFO: Database: jdbc:postgresql://127.0.0.1:53455/probe (PostgreSQL 17.10)
+step2 migrate after adding V3 (defaults): FlywayValidateException: Validate failed: Migrations have failed validation Detected resolved migration not applied to database: 3. To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true. Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+INFO: Database: jdbc:postgresql://127.0.0.1:53455/probe (PostgreSQL 17.10)
+INFO: Successfully validated 4 migrations (execution time 00:00.006s)
+INFO: Current version of schema "public": 4
+WARNING: outOfOrder mode is active. Migration of schema "public" may not be reproducible.
+INFO: Migrating schema "public" to version "3 - three" [out of order]
+INFO: Successfully applied 1 migration to schema "public", now at version v3 (execution time 00:00.004s)
+step3 migrate with outOfOrder=true: success=true applied=1
+INFO: Database: jdbc:postgresql://127.0.0.1:53455/probe (PostgreSQL 17.10)
+INFO: Successfully validated 4 migrations (execution time 00:00.005s)
+INFO: Current version of schema "public": 4
+WARNING: Schema "public" has a version (4) that is newer than the latest available migration (2) !
+INFO: Schema "public" is up to date. No migration necessary.
+step4 older image (knows V1,V2) on DB with V1..V4: success=true applied=0

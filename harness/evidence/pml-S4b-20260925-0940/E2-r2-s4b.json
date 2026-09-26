@@ -1,0 +1,135 @@
+{
+  "sub": "E2-r2",
+  "rc": 0,
+  "host": {
+    "before": {
+      "at": "2026-09-25T01:12:07.7762150Z",
+      "cpuTotalPct": [
+        4.2,
+        22.8,
+        16.9,
+        4.4,
+        4.5
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-25T01:15:24.8893709Z",
+      "cpuTotalPct": [
+        22.7,
+        8.3,
+        1.6,
+        5.1,
+        4.5
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    }
+  },
+  "experiments": [
+    {
+      "experiment": "E2",
+      "verdict": "PASS",
+      "runId": "E2-20260925-101315",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 2789,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 5,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 1,
+          "fencingKept": 0,
+          "partitionDemotion": 1
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 211,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 3451,
+        "status500": 0,
+        "status502": 69,
+        "status503": 1,
+        "status504": 0,
+        "noLiveUpstreams": 69,
+        "first5xx": "2026-09-25T01:13:58.0000000+00:00",
+        "last5xx": "2026-09-25T01:14:05.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 3773,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 41.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "stopped": [],
+        "window_s": 213,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 6,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        },
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 11.256,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    }
+  ]
+}

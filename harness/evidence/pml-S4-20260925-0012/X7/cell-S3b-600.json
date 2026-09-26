@@ -1,0 +1,153 @@
+{
+  "cell": "S3b",
+  "rate": 600,
+  "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "probeRc": 0,
+  "file": "S3b-600.json",
+  "host": {
+    "before": {
+      "at": "2026-09-24T16:08:16.4707091Z",
+      "cpuTotalPct": [
+        40.9,
+        30.1,
+        30.8,
+        41.6,
+        32.9
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 1
+    },
+    "after": {
+      "at": "2026-09-24T16:14:55.5654283Z",
+      "cpuTotalPct": [
+        61.5,
+        33.1,
+        27.6,
+        47.8,
+        36.6
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 1
+    }
+  },
+  "lb": {
+    "lines": 233217,
+    "status502": 6356,
+    "status503": 66,
+    "status504": 90,
+    "noLiveUpstreams": 6356
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  },
+  "nodeMetrics": {
+    "18080": {
+      "ok": true,
+      "exchange_admission_rejected_total{scope=order}": 53408.0,
+      "exchange_admission_rejected_total{scope=query}": 1.0,
+      "exchange_admission_rejected_total{scope=requery}": 994.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "orders_post_422": 2.0,
+      "orders_post_201": 15055.0
+    },
+    "28080": {
+      "ok": true,
+      "exchange_admission_rejected_total{scope=order}": 10327.0,
+      "exchange_admission_rejected_total{scope=query}": 9121.0,
+      "exchange_admission_rejected_total{scope=requery}": 1672.0,
+      "exchange_admission_rejected_total{scope=ws}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "orders_post_503": 3657.0
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 273,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-api-2": {
+      "lines": 145,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-bots": {
+      "lines": 54,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    }
+  },
+  "drained": true,
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "ok": true
+  }
+}

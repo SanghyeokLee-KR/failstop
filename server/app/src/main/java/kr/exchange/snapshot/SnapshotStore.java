@@ -5,9 +5,11 @@ import kr.exchange.engine.core.OrderBookImpl;
 import kr.exchange.engine.core.SnapshotCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,9 +30,13 @@ public class SnapshotStore implements SnapshotSource {
 
     private static final Logger log = LoggerFactory.getLogger(SnapshotStore.class);
 
-    // 스냅샷도 엔진 기원 쓰기다(CLAUDE.md 14절). 커밋까지 리스 행을 쥐어 승격이 이 커밋을 기다리므로
-    // 구 epoch 행이 새 epoch 게시 뒤에 커밋되지 않는다.
-    private static final String ASSERT_AND_LOCK_SQL = "SELECT assert_and_lock_leader(?, ?)";
+    // 스냅샷도 엔진 기원 쓰기다. 마켓마다 그 리스 행을 id 오름차순으로 커밋까지 쥐어 승격이 이 커밋을 기다리게 한다.
+    // P1 은 모든 마켓이 한 행이라 잠금이 하나다. P3 에서는 파티션별로 나눈 뒤에 쓴다(S2 설계 4-3, DB 설계 §5.4-b).
+    private static final String ASSERT_AND_LOCK_SQL = """
+            SELECT m.market_id, assert_and_lock_market_leader(m.market_id, ?, ?) AS epoch
+            FROM unnest(?::smallint[]) WITH ORDINALITY AS m(market_id, ord)
+            ORDER BY m.ord
+            """;
 
     private static final String INSERT_SQL = """
             INSERT INTO snapshots
@@ -56,17 +62,22 @@ public class SnapshotStore implements SnapshotSource {
      * 마켓 행들을 한 트랜잭션으로 적재한다. 워커 스레드(라이터 밖)에서만 호출한다.
      *
      * leader 는 캡처 시점의 리더다. 그 뒤 리더십이 바뀌었으면 fencing 거부 예외로 끝나고 행이 남지 않는다.
+     * 각 행의 fencing_epoch 는 그 마켓의 리스 행에서 잠근 epoch 다. 빈 목록은 쓸 행이 없어 DB 에 닿지 않는다.
      */
     public void persist(LeaderIdentity leader, List<MarketState> markets) {
+        if (markets.isEmpty()) {
+            return;
+        }
+        int[] marketIds = markets.stream().mapToInt(MarketState::marketId).distinct().sorted().toArray();
         tx.executeWithoutResult(status -> {
-            long epoch = jdbc.sql(ASSERT_AND_LOCK_SQL)
-                    .params(leader.holder(), leader.epoch())
-                    .query(Long.class)
-                    .single();
+            Map<Integer, Long> epochs = new HashMap<>();
+            jdbc.sql(ASSERT_AND_LOCK_SQL)
+                    .params(leader.holder(), leader.epoch(), marketIds)
+                    .query((RowCallbackHandler) rs -> epochs.put(rs.getInt("market_id"), rs.getLong("epoch")));
             for (MarketState m : markets) {
                 jdbc.sql(INSERT_SQL)
                         .params((short) m.marketId(), m.seq(), m.state(), m.checksum(),
-                                engineVersion, configHash, SnapshotCodec.formatVersion(), epoch)
+                                engineVersion, configHash, SnapshotCodec.formatVersion(), epochs.get(m.marketId()))
                         .update();
             }
         });
@@ -74,11 +85,20 @@ public class SnapshotStore implements SnapshotSource {
 
     @Override
     public Map<Integer, MarketLoaded> loadLatestAdoptablePerMarket() {
+        return loadLatestAdoptable(marketId -> true);
+    }
+
+    /** scope 밖 마켓의 스냅샷은 디코딩하지 않는다. */
+    @Override
+    public Map<Integer, MarketLoaded> loadLatestAdoptable(java.util.function.IntPredicate scope) {
         List<Integer> markets = jdbc.sql("SELECT DISTINCT market_id FROM snapshots ORDER BY market_id")
                 .query(Integer.class)
                 .list();
         Map<Integer, MarketLoaded> adopted = new TreeMap<>();
         for (int marketId : markets) {
+            if (!scope.test(marketId)) {
+                continue;
+            }
             List<Long> candidates = jdbc.sql("""
                             SELECT DISTINCT last_applied_seq FROM snapshots
                             WHERE market_id = ? ORDER BY last_applied_seq DESC

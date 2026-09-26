@@ -1,0 +1,2 @@
+{"mode": "bus", "count_per_publisher": 5000, "publish_seconds": 0.158, "subscribers": [{"received": {"node-0": 5000, "node-1": 5000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 10000, "sample_missing_headers": []}, {"received": {"node-0": 5000, "node-1": 5000}, "in_publisher_order": {"node-0": true, "node-1": true}, "custom_headers_intact": 10000, "sample_missing_headers": []}]}
+pml-probe-rabbit 216MiB / 15.18GiB

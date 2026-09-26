@@ -1,0 +1,17 @@
+chaos-api-3 exchange-chaos-app:local Created exchange-chaos
+chaos-web nginx:1.29 Up 5 hours (healthy) exchange-chaos
+chaos-admin exchange-chaos-app:local Up 5 hours (healthy) exchange-chaos
+chaos-grafana grafana/grafana:13.1.0 Up 5 hours exchange-chaos
+chaos-bots exchange-chaos-app:local Up 5 hours exchange-chaos
+chaos-lb nginx:1.29 Up 5 hours exchange-chaos
+chaos-api-2 exchange-chaos-app:local Up 5 hours (healthy) exchange-chaos
+chaos-prometheus prom/prometheus:v3.13.0 Up 5 hours exchange-chaos
+chaos-api-1 exchange-chaos-app:local Up 5 hours (unhealthy) exchange-chaos
+chaos-alertmanager prom/alertmanager:v0.34.0 Up 5 hours exchange-chaos
+chaos-toxiproxy-init curlimages/curl:8.11.0 Exited (0) 5 hours ago exchange-chaos
+chaos-cstats python:3.12-alpine Up 5 hours exchange-chaos
+chaos-blackbox prom/blackbox-exporter:v0.25.0 Up 5 hours exchange-chaos
+chaos-pg-exporter quay.io/prometheuscommunity/postgres-exporter:v0.17.1 Up 5 hours exchange-chaos
+chaos-pg postgres:17-alpine Exited (0) 4 hours ago exchange-chaos
+chaos-toxiproxy ghcr.io/shopify/toxiproxy:2.12.0 Up 5 hours exchange-chaos
+chaos-dynamodb amazon/dynamodb-local:2.5.2 Up 5 hours (healthy) exchange-chaos

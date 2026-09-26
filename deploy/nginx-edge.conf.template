@@ -82,6 +82,16 @@ upstream exchange_write {
     server ${APP_2_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
 }
 
+upstream exchange_ws {
+    # WebSocket 은 조회와 같은 두 노드를 쓰되 블록을 따로 둔다. 모든 마켓의 게시를 세션에 줄 수 없는 노드는 핸드셰이크를
+    # 503 으로 거절하고(simple 모드의 팔로워는 늘 거절한다) /ws/ 가 그 503 을 실패로 센다. 실패 표시는 블록마다 따로라
+    # 거절한 팔로워가 exchange_read 의 조회 분산에서 빠지지 않는다(증거 harness/evidence/pml-s6-probe-20260925/ N2).
+    zone exchange_ws 64k;
+    least_conn;
+    server ${APP_1_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
+    server ${APP_2_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
+}
+
 map $http_upgrade $connection_upgrade {
     default upgrade;
     ''      close;
@@ -118,12 +128,20 @@ server {
     }
 
     # WebSocket. heartbeat 10s/10s라 idle 타임아웃이 발생하지 않는다.
+    #
+    # 모든 마켓의 게시를 세션에 줄 수 없는 노드는 핸드셰이크를 업그레이드 전에 503(Retry-After: 5)으로 거절한다
+    # (ADR 0034 S6, API 설계 §5-6). simple 모드의 팔로워도 거절한다. 그 503 을 다음 노드로 넘겨야 거절 노드가
+    # 브라우저에 그대로 보이지 않는다. http_503 이 목록에 없으면 503 은 실패로 세지 않으므로 least_conn 이 연결이
+    # 적은 거절 노드를 계속 고를 수 있다. 업그레이드 뒤의 끊김(1013)은 넘기지 않고 클라이언트 재연결이 맡는다.
+    # 조회 upstream 을 같이 쓰면 이 실패 표시가 조회 분산으로 번지므로 exchange_ws 로 보낸다.
     location /ws/ {
-        proxy_pass http://exchange_read;
+        proxy_pass http://exchange_ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
+        proxy_next_upstream error timeout http_503;
+        proxy_next_upstream_tries 2;
         proxy_read_timeout 3600s;
     }
 

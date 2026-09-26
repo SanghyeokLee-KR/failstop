@@ -1,0 +1,77 @@
+container=pml-probe-s3-96464859 image=postgres:17-alpine port=127.0.0.1:49214
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== P1a power(10::numeric, -s) 의 값과 표시 자릿수(s = 0..18)
+0|1.0000000000000000|16
+1|0.10000000000000000|17
+2|0.010000000000000000|18
+3|0.0010000000000000000|19
+4|0.00010000000000000000|20
+5|0.000010000000000000000|21
+6|0.0000010000000000000000|22
+7|0.00000010000000000000000|23
+8|0.000000010000000000000000|24
+9|0.0000000010000000000000000|25
+10|0.00000000010000000000000000|26
+11|0.000000000010000000000000000|27
+12|0.0000000000010000000000000000|28
+13|0.00000000000010000000000000000|29
+14|0.000000000000010000000000000000|30
+15|0.0000000000000010000000000000000|31
+16|0.00000000000000010000000000000000|32
+17|0.000000000000000010000000000000000|33
+18|0.0000000000000000010000000000000000|34
+== P1b 올림 양자화 식. order_reserve_amount 계약의 지정가 매수 가지와 같은 식이다
+CREATE TABLE
+CREATE FUNCTION
+COPY 3020
+3020
+COPY 3020
+== P1c NUMERIC(40,18) 저장 캐스트 뒤에도 같은가(원장 게시가 쓰는 캐스트). 다른 행 수
+0
+== P1d 양자화 검증식(V38 post_ledger_transaction 의 round 비교)을 통과하지 못하는 결과 수. 0 이어야 한다
+0
+== P5 함수 속성 SET lock_timeout 이 함수 안의 행 잠금 대기에 걸리고 함수가 끝나면 풀리는가
+CREATE TABLE
+INSERT 0 3
+CREATE FUNCTION
+0
+20:00:46.273
+ERROR:  55P03: canceling statement due to lock timeout
+CONTEXT:  while locking tuple (0,1) in relation "lease"
+SQL statement "SELECT 1 FROM lease ORDER BY resource FOR UPDATE"
+PL/pgSQL function lock_all_leases() line 4 at PERFORM
+LOCATION:  ProcessInterrupts, postgres.c:3399
+20:00:47.275
+0
+BEGIN
+A key share|1
+
+COMMIT
+== P5b 잠금 경합이 없으면 함수는 세 행을 잡고 끝난다
+3
+== P6 SECURITY DEFINER 함수 안의 CHECK 위반(23514)이 부른 쪽에 제약 이름을 그대로 넘기는가
+CREATE TABLE
+INSERT 0 2
+CREATE FUNCTION
+CREATE FUNCTION
+ERROR:  23514: new row for relation "bal" violates check constraint "chk_balance_nonneg"
+DETAIL:  Failing row contains (1, -50.000000000000000000).
+CONTEXT:  SQL statement "UPDATE bal SET balance = balance - p_amount WHERE account_id = 1"
+PL/pgSQL function inner_post(numeric) line 3 at SQL statement
+SQL statement "SELECT inner_post(p_amount)"
+PL/pgSQL function outer_prologue(numeric) line 3 at PERFORM
+SCHEMA NAME:  public
+TABLE NAME:  bal
+CONSTRAINT NAME:  chk_balance_nonneg
+LOCATION:  ExecConstraints, execMain.c:2074
+== P1 대조(Java setScale(s, UP) 대 PostgreSQL 식). NUMERIC 값 동등으로 비교한다
+cases=3020 pg_rows=3020 mismatches=0 text_mismatches=0 rounded_up_cases=2520
+sample 1 50000 1 0 java=50000 pg=50000
+sample 3 0.00000001 0.00000001 0 java=1 pg=1
+sample 5 0.00000001 0.00000001 18 java=0.000000000000000100 pg=0.000000000000000100
+sample 6 0.000000000000000001 0.000000000000000001 18 java=0.000000000000000001 pg=0.000000000000000001
+sample 9 99999999999999999999.999999999999999999 1 18 java=99999999999999999999.999999999999999999 pg=99999999999999999999.999999999999999999
+sample 10 9999999999.999999999999999999 99999999999.999999999999999999 18 java=999999999999999999999.999999890000000001 pg=999999999999999999999.999999890000000001
+sample 14 100.000 2.500 2 java=250.00 pg=250.00
+sample 16 33.333 3 2 java=100.00 pg=100.00
+sample 19 7 0.142857142857142857 8 java=1.00000000 pg=1.00000000

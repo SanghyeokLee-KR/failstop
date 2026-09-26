@@ -1,0 +1,19 @@
+# S2 관문 6-4 의 앱 역할 로그인 오버레이(폐기용 스택 exchange-pml 전용).
+# 마이그레이션은 소유자 로그인이 먼저 끝낸 뒤 이 파일로 api·봇을 다시 만든다. 배포 compose.node-app.yml 처럼
+# 런타임 로그인은 Flyway 를 끈다. 로그인은 deploy/provision-runtime-roles.sql 로 만든 app_role 소속 로그인이다.
+# 비밀번호는 주행 스크립트가 실행마다 무작위로 만들어 셸 환경변수로만 넘기고 어디에도 적지 않는다.
+services:
+  chaos-api-1:
+    environment:
+      SPRING_DATASOURCE_USERNAME: ${PML_APP_USER:?PML_APP_USER}
+      SPRING_DATASOURCE_PASSWORD: ${PML_APP_PASSWORD:?PML_APP_PASSWORD}
+      SPRING_FLYWAY_ENABLED: "false"
+  chaos-api-2:
+    environment:
+      SPRING_DATASOURCE_USERNAME: ${PML_APP_USER:?PML_APP_USER}
+      SPRING_DATASOURCE_PASSWORD: ${PML_APP_PASSWORD:?PML_APP_PASSWORD}
+      SPRING_FLYWAY_ENABLED: "false"
+  chaos-bots:
+    environment:
+      SPRING_DATASOURCE_USERNAME: ${PML_BOT_USER:?PML_BOT_USER}
+      SPRING_DATASOURCE_PASSWORD: ${PML_BOT_PASSWORD:?PML_BOT_PASSWORD}

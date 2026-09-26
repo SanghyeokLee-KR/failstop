@@ -1,0 +1,12 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:8420864a1146067c278ae4f8fa0fba34c7ab3e7179fc698cbe2190a486ec72c3",
+  "created": "2026-09-23T23:39:23.487308533Z",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "909af8975e7eae4d99f7fb0dd542a24b0c00b12d",
+  "trackedDiffSha256": "a30a8f690262eb4152322f6ab2ecc9bd3067714fe3f0e4735fbfeb7c7a61adbc",
+  "changedPaths": 91,
+  "jarSha256": "362cdd6f2c761ac43705c1d1013a93aa30302a44ed01ba283bfb1f3a0c05cd9f",
+  "jarWritten": "2026-09-24T08:06:21.3517506+09:00",
+  "note": "S3 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD 위 작업 트리 변경(추적 파일 diff 해시와 새 파일)을 담는다"
+}

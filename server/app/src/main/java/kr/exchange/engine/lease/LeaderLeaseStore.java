@@ -23,8 +23,20 @@ public interface LeaderLeaseStore {
      *
      * 구현은 반드시 조건부 쓰기 한 번으로 성립시킨다. 읽고 나서 쓰면 두 노드가 같은 만료를
      * 보고 함께 승격한다.
+     *
+     * 잠금 대기 상한을 건 구현은 초과를 AcquireLockTimeoutException 으로 알린다. 오류가 아니라 '아직 못 얻음'이다.
      */
     Optional<Long> acquire(String holder, Duration ttl);
+
+    /**
+     * 획득이 트랜잭션 한정 잠금 대기 상한(lock_timeout)을 넘겼다(DB 설계 §5.4-c 3). 트랜잭션째 롤백돼 리스 행과 획득 이력에
+     * 아무것도 남지 않았으므로 다음 틱이 다시 시도하면 된다. 옛 리더의 쓰기 트랜잭션이 리스 행의 KEY SHARE 를 쥐고 있다는 뜻이다.
+     */
+    final class AcquireLockTimeoutException extends RuntimeException {
+        public AcquireLockTimeoutException(String resource, Throwable cause) {
+            super("리스 획득 잠금 대기 상한 초과: resource=" + resource, cause);
+        }
+    }
 
     /**
      * 하트비트. (holder, epoch) 가 여전히 현재 리스의 값이고 아직 만료 전일 때만 참이다.

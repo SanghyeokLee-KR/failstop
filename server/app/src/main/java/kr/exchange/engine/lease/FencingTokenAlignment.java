@@ -42,10 +42,7 @@ public final class FencingTokenAlignment {
                              JdbcClient jdbc) {
         Long pgEpoch;
         try {
-            pgEpoch = jdbc.sql("SELECT epoch FROM leader_lease WHERE resource = 'matching-engine'")
-                    .query(Long.class)
-                    .optional()
-                    .orElse(null);
+            pgEpoch = floor(jdbc);
         } catch (RuntimeException e) {
             log.warn("fencing 토큰 정렬을 건너뛴다(leader_lease 조회 실패): {}", e.toString());
             return;
@@ -76,5 +73,22 @@ public final class FencingTokenAlignment {
         } catch (RuntimeException e) {
             log.warn("fencing 토큰 정렬 실패(승격 게시가 거부되면 이 줄을 먼저 본다): {}", e.toString());
         }
+    }
+
+    /**
+     * DynamoDB 토큰의 하한. epoch 배정 규칙과 같은 max(모든 리스 행 epoch, 획득 이력 epoch) 다(DB 설계 §5.4-b v2.54).
+     *
+     * 종전에는 matching-engine 행 하나만 읽었다. 모드 전환(set_leader_protocol)은 리스 행 셋을 새 epoch 로 퇴역시키고 그
+     * 이력을 lease_acquisitions 에 남기므로, 한 행만 읽은 하한 + 1 게시가 다른 행의 RETIRE 이력과 겹쳐 "게시 epoch 가 다른
+     * 획득 이력과 겹친다"로 거부될 수 있었다(S3 설계 11절 R4). 게시 실패는 승격 포기라 그만큼 리더가 없다. 전환 함수가
+     * matching-engine 을 마지막에 퇴역시키는 것과 함께 두 겹이다. 게시 판정은 바꾸지 않으므로 fencing 은 약해지지 않는다.
+     */
+    public static long floor(JdbcClient jdbc) {
+        return jdbc.sql("""
+                        SELECT GREATEST((SELECT COALESCE(max(epoch), 0) FROM leader_lease),
+                                        (SELECT COALESCE(max(epoch), 0) FROM lease_acquisitions))
+                        """)
+                .query(Long.class)
+                .single();
     }
 }

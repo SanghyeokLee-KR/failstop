@@ -7,6 +7,7 @@ import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.AppendResult;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
+import kr.exchange.journal.ReserveCheck;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -28,7 +29,7 @@ class EngineBridgeMarketGateTest {
     // 저널 경계만 대신한다. 게이트가 거부한 접수는 여기까지 오지 않아야 한다.
     private final CommandJournalAppender appender = new CommandJournalAppender(null, null, null) {
         @Override
-        public AppendResult append(CommandDraft draft) {
+        public AppendResult append(CommandDraft draft, ReserveCheck check) {
             journaledMarkets.add(draft.marketId());
             return new AppendResult(journaledMarkets.size(), 1, false, draft.assignedOrderId());
         }
@@ -62,6 +63,41 @@ class EngineBridgeMarketGateTest {
         } finally {
             router.stopAll();
         }
+    }
+
+    /**
+     * 리더 자격 거부의 응답을 가르는 게이트 조회(API 설계 §2-5-c). 기간을 드는 게이트는 그 마켓 파티션에 열린 기간이 있을 때만
+     * 참이고, 기간을 들지 않는 게이트는 개방 여부 그대로다.
+     */
+    @Test
+    void acceptingReadsTheMarketPartitionGate() {
+        LeaderTerm open = new LeaderTerm(null, "matching-p0", "node-a", 7, 1);
+        AcceptGate partitioned = new AcceptGate() {
+            @Override
+            public boolean isAccepting() {
+                return true;
+            }
+
+            @Override
+            public boolean termBound() {
+                return true;
+            }
+
+            @Override
+            public LeaderTerm openTerm(int marketId) {
+                return marketId == 1 ? open : null;
+            }
+        };
+        CommandPayloadMapper mapper = new CommandPayloadMapper(new ObjectMapper());
+        WriterRouter router = new WriterRouter(marketId -> {
+            throw new IllegalStateException("이 시험은 설치하지 않는다");
+        });
+        EngineBridge bridge = new EngineBridge(appender, router, mapper, partitioned, EngineBridge.NEVER_HALTED);
+        assertTrue(bridge.accepting(1), "열린 기간이 있는 마켓의 게이트를 닫힘으로 읽었다");
+        assertFalse(bridge.accepting(2), "기간이 없는 마켓의 게이트를 열림으로 읽었다");
+
+        assertTrue(new EngineBridge(appender, router, mapper, () -> true, EngineBridge.NEVER_HALTED).accepting(2));
+        assertFalse(new EngineBridge(appender, router, mapper, () -> false, EngineBridge.NEVER_HALTED).accepting(1));
     }
 
     private static OrderIntake order(int marketId, long orderId) {

@@ -1,0 +1,97 @@
+{
+  "urls": [
+    "ws://chaos-api-1:8080/ws/v1",
+    "ws://chaos-api-2:8080/ws/v1",
+    "ws://chaos-lb:8080/ws/v1"
+  ],
+  "markets": [
+    "KRW-BTC",
+    "KRW-ETH",
+    "KRW-XRP"
+  ],
+  "durationSec": 1200,
+  "metrics": {
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 4,
+        "rate": 0.031041087907236548
+      }
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "med": 15.483429000000001,
+        "max": 17.88304,
+        "p(90)": 17.164555,
+        "p(95)": 17.5237975,
+        "avg": 12.483948750000001,
+        "min": 1.085897
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 115,
+        "rate": 0.8924312773330507
+      }
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 9662405,
+        "rate": 74982.89075008049
+      }
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      }
+    },
+    "ws_msgs_received": {
+      "values": {
+        "rate": 113.53277902071767,
+        "count": 14630
+      },
+      "type": "counter",
+      "contains": "default"
+    },
+    "vus_max": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 3,
+        "min": 3,
+        "max": 3
+      }
+    },
+    "ws_session_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 86420.231152,
+        "med": 86420.231152,
+        "max": 86420.231152,
+        "p(90)": 86420.231152,
+        "p(95)": 86420.231152,
+        "avg": 86420.231152
+      }
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 3815,
+        "rate": 29.605437591526858
+      }
+    }
+  }
+}

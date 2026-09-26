@@ -1,0 +1,55 @@
+container=pml-probe-s3bench-2616820894 image=postgres:17-alpine port=127.0.0.1:51764
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit|on|on
+16
+MemTotal:       15917136 kB
+5
+6
+7
+8
+9
+10
+11
+12
+42
+epoch p1=42 p2=46
+-- round 1
+p1 c=1 spread=1 number of transactions actually processed: 3000/3000
+p1 c=1 spread=1 latency average = 1.364 ms
+p1 c=1 spread=1 tps = 733.349483 (without initial connection time)
+p2 c=1 spread=1 number of transactions actually processed: 3000/3000
+p2 c=1 spread=1 latency average = 4.180 ms
+p2 c=1 spread=1 tps = 239.206447 (without initial connection time)
+p1 c=4 spread=1 number of transactions actually processed: 8000/8000
+p1 c=4 spread=1 latency average = 3.993 ms
+p1 c=4 spread=1 tps = 1001.632661 (without initial connection time)
+p2 c=4 spread=1 number of transactions actually processed: 8000/8000
+p2 c=4 spread=1 latency average = 7.471 ms
+p2 c=4 spread=1 tps = 535.381417 (without initial connection time)
+p1 c=4 spread=0 number of transactions actually processed: 8000/8000
+p1 c=4 spread=0 latency average = 4.249 ms
+p1 c=4 spread=0 tps = 941.331513 (without initial connection time)
+p2 c=4 spread=0 number of transactions actually processed: 8000/8000
+p2 c=4 spread=0 latency average = 18.389 ms
+p2 c=4 spread=0 tps = 217.516276 (without initial connection time)
+-- round 2
+p1 c=1 spread=1 number of transactions actually processed: 3000/3000
+p1 c=1 spread=1 latency average = 1.454 ms
+p1 c=1 spread=1 tps = 687.712188 (without initial connection time)
+p2 c=1 spread=1 number of transactions actually processed: 3000/3000
+p2 c=1 spread=1 latency average = 5.245 ms
+p2 c=1 spread=1 tps = 190.669317 (without initial connection time)
+p1 c=4 spread=1 number of transactions actually processed: 8000/8000
+p1 c=4 spread=1 latency average = 3.193 ms
+p1 c=4 spread=1 tps = 1252.620129 (without initial connection time)
+p2 c=4 spread=1 number of transactions actually processed: 8000/8000
+p2 c=4 spread=1 latency average = 7.135 ms
+p2 c=4 spread=1 tps = 560.653846 (without initial connection time)
+p1 c=4 spread=0 number of transactions actually processed: 8000/8000
+p1 c=4 spread=0 latency average = 3.457 ms
+p1 c=4 spread=0 tps = 1157.105074 (without initial connection time)
+p2 c=4 spread=0 number of transactions actually processed: 8000/8000
+p2 c=4 spread=0 latency average = 10.279 ms
+p2 c=4 spread=0 tps = 389.127694 (without initial connection time)
+-- 결과 행 수와 예약 행 수(P1 은 예약 0 이어야 한다)
+p1|38000|0|0
+p2|38000|38000|38000

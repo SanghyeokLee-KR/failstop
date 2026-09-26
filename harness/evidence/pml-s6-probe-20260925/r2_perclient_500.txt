@@ -1,0 +1,17 @@
+== R2 perclient N=500 (auto-delete 없음) 03:12:07Z
+{"mode": "perclient", "requested": 500, "open": 500, "errors": 0, "setup_seconds": 1.72, "hold_seconds": 60.0, "auto_delete": false}
+pml-probe-rabbit 467.3MiB / 15.18GiB
+allocated_unused: 140.6301 mb (28.86%)
+queue_procs: 73.7872 mb (15.14%)
+binary: 70.9851 mb (14.57%)
+connection_other: 47.5127 mb (9.75%)
+other_proc: 37.1267 mb (7.62%)
+other_system: 33.3701 mb (6.85%)
+other_ets: 28.7501 mb (5.9%)
+code: 19.4054 mb (3.98%)
+metadata_store: 19.1806 mb (3.94%)
+metadata_store_ets: 9.5364 mb (1.96%)
+metrics: 5.4575 mb (1.12%)
+atom: 0.9997 mb (0.21%)
+connections: 0
+queues: 7001

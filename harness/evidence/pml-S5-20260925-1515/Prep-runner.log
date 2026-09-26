@@ -1,0 +1,10 @@
+2026-09-25T15:19:01+09:00 [Prep/default] PHASE Prep project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T15:19:01+09:00 [Prep/default] volumes before unchanged
+2026-09-25T15:19:01+09:00 [Prep/default] previous :pml sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24 created 2026-09-25T00:40:47.624531274Z; exchange-chaos-app:s4b3ref=sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24 newRef=exchange-chaos-app:s5ref
+2026-09-25T15:19:01+09:00 [Prep/default] RUN pwsh -NoProfile -File harness\scripts\up.ps1 -Obs
+2026-09-25T15:19:43+09:00 [Prep/default] RC 0
+2026-09-25T15:19:44+09:00 [Prep/default] LB conf=nginx.conf nginx-t rc=0 sameSha=True
+2026-09-25T15:19:44+09:00 [Prep/default] TAG exchange-chaos-app:s5ref -> sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T15:19:44+09:00 [Prep/default] images.json s5=sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095 previous=sha256:dcf0e6a2686d5737d2d5fdd919655a2e06b39063f7a55004fa45b2ead1d13d24 head=9a6d24746664181c2d6843f0a2ec8f98e021d93c diff=06197babcff575460ff01b9044d8f49dd9f9dad0f5eb9fa3e7123a360ffabca0 flyway_max=54
+2026-09-25T15:19:49+09:00 [Prep/default] down -v (exchange-pml) rc=0 after build
+2026-09-25T15:19:49+09:00 [Prep/default] volumes after unchanged

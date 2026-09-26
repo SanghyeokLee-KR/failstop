@@ -11,6 +11,7 @@ import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.AppendResult;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
+import kr.exchange.journal.ReserveCheck;
 import kr.exchange.ledger.AccountBootstrap;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -127,6 +128,11 @@ class OrderGatewayMarketHaltIntegrationTest {
             assertEquals(List.of(first.toString(), second.toString()),
                     bulk.failed().stream().map(f -> f.id()).toList());
             assertTrue(bulk.failed().stream().allMatch(f -> "market_suspended".equals(f.reason())));
+            // 정지 마켓의 거부는 저널에 닿지 못한 503 이 아니다(unsubmitted 0). v2.54 부터 회원 폐쇄는 이것을 따로 세어
+            // 미완료에 넣는다(API 설계 §6-E, ADR 0034 결정 15). 남은 주문이 폐쇄 계정에서 체결될 수 있기 때문이다.
+            assertEquals(0, bulk.unsubmitted());
+            assertEquals(2, bulk.suspended());
+            assertEquals(2, bulk.incomplete());
             assertEquals(2L, jdbc.sql("SELECT count(*) FROM orders WHERE user_id = ? AND status = 'OPEN'"
                             + " AND client_order_id LIKE 'halt-cancel-%'")
                     .params(userId).query(Long.class).single());
@@ -146,7 +152,7 @@ class OrderGatewayMarketHaltIntegrationTest {
     private static OrderGateway haltedGateway(SingleWriterLoop loop) {
         CommandJournalAppender appender = new CommandJournalAppender(null, null, null) {
             @Override
-            public AppendResult append(CommandDraft draft) {
+            public AppendResult append(CommandDraft draft, ReserveCheck check) {
                 throw new AssertionError("정지 마켓의 명령이 저널에 닿았다");
             }
         };

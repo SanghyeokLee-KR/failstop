@@ -1,15 +1,16 @@
 /**
  * tests/httpDatasource.test.ts. HttpStompDataSource 단위 검증.
  * 실제 네트워크 없이 fetch·STOMP를 주입해 계약 동작만 확인한다.
- * 검증 대상: 엔벌로프 파싱, 에러코드 매핑, 세션 만료 재발급, seq gap·epoch 재동기화.
+ * 검증 대상: 엔벌로프 파싱, 에러코드 매핑, 세션 만료 재발급, seq gap·마켓별 epoch 재동기화.
  */
 
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ApiError,
   HttpStompDataSource,
   jitteredReconnectDelayMs,
+  requestHeaders,
   WS_RECONNECT_BASE_MS,
   WS_RECONNECT_MAX_MS,
   type StompFactory,
@@ -24,6 +25,8 @@ interface RecordedCall {
   url: string;
   method: string;
   auth: string | null;
+  /** 마켓 힌트 헤더(API 설계 §2-5-d). requestHeaders 가 호출부 헤더 이름을 소문자로 모은다 */
+  hint: string | null;
 }
 
 function jsonRes(status: number, body: unknown): Response {
@@ -46,6 +49,7 @@ function makeFetch(routes: Record<string, Route>) {
       url,
       method: init?.method ?? "GET",
       auth: headers["Authorization"] ?? null,
+      hint: headers["x-exchange-market"] ?? null,
     };
     calls.push(call);
     const route = routes[path];
@@ -535,6 +539,36 @@ test("cancelOrder: UUID(order.id)는 정규 라우트, client_order_id는 by-cli
   assert.ok(deletes[1].url.endsWith("/api/v1/orders/by-client/web-abc-123"));
 });
 
+test("주문 쓰기는 마켓 힌트를 싣는다: 생성은 바디의 market, 취소는 넘긴 마켓, 모르면 싣지 않는다", async () => {
+  const uuid = "1b4e28ba-2fa1-11d2-883f-0016d3cca427";
+  const order = { id: uuid, status: "OPEN", market: "KRW-ETH" };
+  const { ds, calls } = newDs({
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(15 * 60_000) }),
+    "/api/v1/orders": () => jsonRes(201, order),
+    [`/api/v1/orders/${uuid}`]: () => jsonRes(200, { ...order, status: "CANCELED" }),
+  });
+  await ds.placeOrder({
+    market: "KRW-ETH", side: "bid", ord_type: "limit", price: "50000", volume: "0.1", client_order_id: "web-1",
+  });
+  await ds.cancelOrder(uuid, "KRW-ETH");
+  await ds.cancelOrder(uuid);
+  const writes = calls.filter((c) => c.method !== "GET" && !c.url.includes("/demo/session"));
+  assert.equal(writes.length, 3);
+  assert.equal(writes[0].method, "POST");
+  assert.equal(writes[0].hint, "KRW-ETH", "생성에 힌트가 없다");
+  assert.equal(writes[1].hint, "KRW-ETH", "마켓을 넘긴 취소에 힌트가 없다");
+  assert.equal(writes[2].hint, null, "마켓을 모르는 취소에 힌트를 실었다");
+  // 호출부 헤더를 살리면서 인증 헤더는 어댑터가 정한다(requestHeaders)
+  assert.ok(writes[0].auth?.startsWith("Bearer "));
+});
+
+test("requestHeaders: 호출부의 힌트 헤더를 보존하고 인증·Content-Type 은 어댑터가 정한다", () => {
+  const headers = requestHeaders({ "X-Exchange-Market": "KRW-BTC", Authorization: "Bearer caller" }, true, "tok");
+  assert.equal(headers["x-exchange-market"], "KRW-BTC");
+  assert.equal(headers.Authorization, "Bearer tok");
+  assert.equal(headers["Content-Type"], "application/json; charset=utf-8");
+});
+
 /* ===== STOMP: seq/epoch ===== */
 
 test("seq 연속 수신은 전달, 중복·역행은 드롭", async () => {
@@ -617,7 +651,7 @@ test("같은 콜백 이중 구독: 한쪽 해제해도 STOMP 구독·실시간 �
   assert.equal(received.length, before + 1, "생존 구독으로 실시간 1건 전달(사일런트 프리즈 없음)");
 });
 
-test("epoch 변경 감지 시 전 채널 강제 재동기화", async () => {
+test("epoch 변경 감지 시 그 마켓 채널 재동기화", async () => {
   const stomp = makeStomp();
   const { ds, count } = newDs(
     {
@@ -792,6 +826,850 @@ test("epoch 교체 후 구 세대 REST 스냅샷은 기준점이 되지 않는�
     [100, 3, 4],
     "구 세대 스냅샷(seq 900)을 채택하면 신 리더 실시간이 영구 드롭된다",
   );
+});
+
+/* ===== 마켓별 epoch·비공개 채널 마켓 도메인 (ADR 0034 S6, 설계 4-13·6-3) ===== */
+
+/** REST 티커 원소. epoch 는 서버가 이미 내는 값이다(§4-A-4 v2.58) */
+function tickerRow(market: string, seq: number, epoch?: number): Ticker {
+  return { ...restTicker(seq), market, ...(epoch === undefined ? {} : { epoch }) } as unknown as Ticker;
+}
+
+/** 합류 조회 응답. 요청의 markets 에 든 마켓만 싣는다 */
+function tickerRoute(rows: () => Record<string, { seq: number; epoch?: number }>): Route {
+  return (call) => {
+    const wanted = (new URL(call.url).searchParams.get("markets") ?? "").split(",").filter(Boolean);
+    const table = rows();
+    const data = wanted.filter((m) => table[m]).map((m) => tickerRow(m, table[m].seq, table[m].epoch));
+    return jsonRes(200, { schema_version: "1.0", data, pagination: { next_cursor: null, has_more: false } });
+  };
+}
+
+function wsTickerOf(market: string, seq: number, epoch: number): TickerMessage {
+  return { ...wsTicker(seq, epoch), market };
+}
+
+function wsBook(market: string, seq: number, epoch: number, stream: "snapshot" | "realtime" = "realtime") {
+  return {
+    schema_version: "1.0",
+    type: "orderbook",
+    market,
+    epoch,
+    seq,
+    stream,
+    timestamp: "2026-07-21T09:00:00.200Z",
+    total_ask_size: "1",
+    total_bid_size: "1",
+    orderbook_units: [],
+  };
+}
+
+function restBook(market: string, seq: number, epoch: number) {
+  return {
+    schema_version: "1.0",
+    market,
+    timestamp: "2026-07-21T09:00:00.123Z",
+    epoch,
+    seq,
+    total_ask_size: "1",
+    total_bid_size: "1",
+    orderbook_units: [],
+  };
+}
+
+function wsMyOrder(market: string, seq: number, epoch: number, domain?: "user_market") {
+  return {
+    schema_version: "1.0",
+    type: "myOrder",
+    epoch,
+    seq,
+    timestamp: "2026-07-21T09:00:02.000Z",
+    id: `o-${market}-${seq}`,
+    client_order_id: `c-${market}-${seq}`,
+    market,
+    side: "bid",
+    status: "OPEN",
+    price: "50000000",
+    executed_volume: "0",
+    remaining_volume: "0.1",
+    reject_reason: null,
+    trade: null,
+    ...(domain ? { seq_domain: domain } : {}),
+  };
+}
+
+function wsMyAsset(market: string, seq: number, epoch: number, domain?: "user_market") {
+  return {
+    schema_version: "1.0",
+    type: "myAsset",
+    epoch,
+    seq,
+    timestamp: "2026-07-21T09:00:02.000Z",
+    market,
+    ...(domain ? { seq_domain: domain } : {}),
+    assets: [
+      {
+        currency: "KRW",
+        balance: String(1000 + seq),
+        locked: "0",
+        avg_buy_price: "0",
+        cost_basis_qty: "0",
+        cost_basis_amount: "0",
+      },
+    ],
+  };
+}
+
+/** 받은 메시지를 "마켓:seq" 로 적는다. REST 에서 만든 비공개 메시지(seq 0)는 뺀다 */
+function marketSeqs(received: WsMessage[]): string[] {
+  return received.filter((m) => m.seq !== 0).map((m) => `${(m as { market?: string }).market}:${m.seq}`);
+}
+
+/**
+ * 비공개 채널을 인증 CONNECT 로 연다. 구독이 건 승격 재연결을 성립시키고 그 연결의 채널 복원이 끝날 때까지 흘린다.
+ * 기존 myOrder 재동기화 시험과 같은 순서다(실 클라이언트는 beforeConnect 가 CONNECT 직전에 돈다)
+ */
+async function openPrivate(
+  stomp: ReturnType<typeof makeStomp>,
+  ds: HttpStompDataSource,
+  subscribe: () => void,
+): Promise<void> {
+  ds.connect();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  subscribe();
+  await settle();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  await settle();
+}
+
+const sessionRoute: Route = () => jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+
+test("S6 추가 1: 두 마켓의 서로 다른 epoch 가 번갈아 와도 재동기화하지 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    { "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": { seq: 9 }, "KRW-ETH": { seq: 19 } })) },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  ds.subscribe(dest.ticker("KRW-ETH"), (m) => received.push(m));
+  await settle();
+  const before = count("/api/v1/ticker");
+  const base = received.length;
+
+  // P3: p0 마켓(KRW-BTC)은 epoch 5, p1 마켓(KRW-ETH)은 epoch 9 기간의 라이터가 게시한다
+  for (let i = 0; i < 3; i++) {
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10 + i, 5));
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 20 + i, 9));
+  }
+  await settle();
+
+  assert.equal(count("/api/v1/ticker"), before, "다른 마켓끼리의 epoch 차이는 재동기화 신호가 아니다");
+  assert.deepEqual(marketSeqs(received.slice(base)), [
+    "KRW-BTC:10",
+    "KRW-ETH:20",
+    "KRW-BTC:11",
+    "KRW-ETH:21",
+    "KRW-BTC:12",
+    "KRW-ETH:22",
+  ]);
+});
+
+test("S6 추가 2: 한 마켓의 epoch 가 오르면 그 마켓 채널만 다시 맞추고 비공개 채널은 한 번 맞춘다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const stomp = makeStomp();
+    const book: Record<string, { seq: number; epoch: number }> = {
+      "KRW-BTC": { seq: 40, epoch: 5 },
+      "KRW-ETH": { seq: 30, epoch: 9 },
+    };
+    const ticks: Record<string, { seq: number; epoch?: number }> = {
+      "KRW-BTC": { seq: 9, epoch: 5 },
+      "KRW-ETH": { seq: 19, epoch: 9 },
+    };
+    const { ds, count, calls } = newDs(
+      {
+        "/api/v1/demo/session": sessionRoute,
+        "/api/v1/ticker": tickerRoute(() => ticks),
+        "/api/v1/orderbook": (call) => {
+          const m = new URL(call.url).searchParams.get("market")!;
+          return jsonRes(200, restBook(m, book[m].seq, book[m].epoch));
+        },
+        "/api/v1/orders/open": () => jsonRes(200, emptyList),
+        "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+        "/api/v1/accounts": () => jsonRes(200, emptyList),
+      },
+      stomp.factory,
+    );
+    const received: WsMessage[] = [];
+    const push = (m: WsMessage) => received.push(m);
+    await openPrivate(stomp, ds, () => {
+      for (const market of ["KRW-BTC", "KRW-ETH"]) {
+        ds.subscribe(dest.orderbook(market), push);
+        ds.subscribe(dest.ticker(market), push);
+      }
+      ds.subscribe(dest.myOrder, push);
+      ds.subscribe(dest.myAsset, push);
+    });
+    // 기준점: 두 마켓의 실시간이 각자 기간으로 흐른다
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 41, 5));
+    stomp.push(dest.orderbook("KRW-ETH"), wsBook("KRW-ETH", 31, 9));
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10, 5));
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 20, 9));
+    await settle();
+    const bookMarkets = () =>
+      calls.filter((c) => c.url.includes("/api/v1/orderbook")).map((c) => new URL(c.url).searchParams.get("market"));
+    const tickerMarkets = () =>
+      calls.filter((c) => c.url.includes("/api/v1/ticker")).map((c) => new URL(c.url).searchParams.get("markets"));
+    const privateCounts = () => [count("/api/v1/orders/open"), count("/api/v1/orders/closed"), count("/api/v1/accounts")];
+    const bookBefore = bookMarkets().length;
+    const tickerBefore = tickerMarkets().length;
+    const privateBefore = privateCounts();
+
+    // KRW-ETH 의 파티션 리더가 바뀐다. 새 기간(10)의 카운터는 1 부터다
+    book["KRW-ETH"] = { seq: 2, epoch: 10 };
+    ticks["KRW-ETH"] = { seq: 3, epoch: 10 };
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 1, 10));
+    // 그 사이 KRW-BTC 는 그대로 흐른다
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 42, 5));
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 11, 5));
+    await settle();
+
+    assert.deepEqual(bookMarkets().slice(bookBefore), ["KRW-ETH"], "호가 REST 는 오른 마켓만 1회");
+    assert.deepEqual(tickerMarkets().slice(tickerBefore), ["KRW-ETH"], "티커 합류 요청의 markets 에 오른 마켓만");
+    assert.deepEqual(privateCounts(), privateBefore, "비공개 재동기화는 300ms 창을 기다린다");
+    mock.timers.tick(300);
+    await settle();
+    assert.deepEqual(
+      privateCounts(),
+      privateBefore.map((n) => n + 1),
+      "미체결·체결 주문과 계좌 REST 가 한 번씩",
+    );
+
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 43, 5));
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 12, 5));
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 4, 10));
+    await settle();
+    const btc = received.filter((m) => (m as { market?: string }).market === "KRW-BTC");
+    assert.deepEqual(
+      btc.filter((m) => m.type === "orderbook").map((m) => m.seq).slice(-3),
+      [41, 42, 43],
+      "KRW-BTC 호가 실시간이 결번 없이 이어진다",
+    );
+    assert.deepEqual(
+      btc.filter((m) => m.type === "ticker").map((m) => m.seq).slice(-3),
+      [10, 11, 12],
+      "KRW-BTC 티커 실시간이 결번 없이 이어진다",
+    );
+    const eth = received.filter((m) => m.type === "ticker" && (m as TickerMessage).market === "KRW-ETH");
+    assert.deepEqual(
+      eth.slice(-2).map((m) => [m.epoch, m.seq]),
+      [
+        [10, 3],
+        [10, 4],
+      ],
+      "KRW-ETH 는 새 기간 스냅샷에서 이어진다",
+    );
+    assert.equal(bookMarkets().length, bookBefore + 1);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("S6 추가 2b: 여러 마켓의 epoch 가 잇달아 오르면 비공개 재동기화를 한 번으로 모은다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const stomp = makeStomp();
+    let epoch = 5;
+    const { ds, count } = newDs(
+      {
+        "/api/v1/demo/session": sessionRoute,
+        "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": { seq: 9, epoch }, "KRW-ETH": { seq: 19, epoch } })),
+        "/api/v1/orders/open": () => jsonRes(200, emptyList),
+        "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+        "/api/v1/accounts": () => jsonRes(200, emptyList),
+      },
+      stomp.factory,
+    );
+    await openPrivate(stomp, ds, () => {
+      ds.subscribe(dest.ticker("KRW-BTC"), () => {});
+      ds.subscribe(dest.ticker("KRW-ETH"), () => {});
+      ds.subscribe(dest.myOrder, () => {});
+      ds.subscribe(dest.myAsset, () => {});
+    });
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10, 5));
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 20, 5));
+    await settle();
+    const before = [count("/api/v1/orders/open"), count("/api/v1/accounts")];
+
+    // P2 페일오버: 모든 마켓이 한 기간이라 마켓마다 첫 메시지가 epoch 상승을 알린다
+    epoch = 6;
+    stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 1, 6));
+    await settle();
+    mock.timers.tick(100);
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 1, 6));
+    await settle();
+    mock.timers.tick(300);
+    await settle();
+
+    assert.deepEqual(
+      [count("/api/v1/orders/open"), count("/api/v1/accounts")],
+      before.map((n) => n + 1),
+      "300ms 창 안의 두 상승이 비공개 재동기화 한 번이다",
+    );
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("S6 추가 3: 같은 마켓의 작은 epoch 는 늦게 온 옛 기간 메시지라 전달하지 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({}, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 100, 5, "snapshot"));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 101, 4)); // 옛 리더가 늦게 보낸 것
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 101, 5));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => [m.epoch, m.seq]),
+    [
+      [5, 100],
+      [5, 101],
+    ],
+  );
+  assert.equal(count("/api/v1/orderbook"), 0, "작은 epoch 는 재동기화 신호가 아니다");
+});
+
+test("S6 추가 4: 재동기화 호가 REST 가 seq 0 이면 상태를 전달하고 기준점을 비운다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({ "/api/v1/orderbook": () => jsonRes(200, restBook("KRW-BTC", 0, 5)) }, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 50, 5, "snapshot"));
+  await settle();
+
+  // 재연결이 재동기화를 건다. REST 는 소유하지 않은 노드의 DB 집계(seq 0)다
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.onConnect();
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 57, 5));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 58, 5));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [50, 0, 57, 58],
+  );
+  assert.equal(count("/api/v1/orderbook"), 1, "seq 0 스냅샷 뒤 첫 실시간은 결번이 아니라 기준점이다");
+});
+
+test("S6 추가 5: user_market myOrder 는 마켓마다 조밀하고 결번 난 마켓 때문에 한 번 맞춘다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    {
+      "/api/v1/demo/session": sessionRoute,
+      "/api/v1/orders/open": () => jsonRes(200, emptyList),
+      "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+    },
+    stomp.factory,
+  );
+  const received: WsMessage[] = [];
+  await openPrivate(stomp, ds, () => ds.subscribe(dest.myOrder, (m) => received.push(m)));
+  const before = count("/api/v1/orders/open");
+  const base = received.length;
+
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 1, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 1, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 2, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 2, 1, "user_market"));
+  await settle();
+  assert.equal(count("/api/v1/orders/open"), before, "마켓 교대만으로는 재동기화가 없다");
+  assert.deepEqual(marketSeqs(received.slice(base)), ["KRW-BTC:1", "KRW-ETH:1", "KRW-BTC:2", "KRW-ETH:2"]);
+
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 4, 1, "user_market")); // KRW-ETH 만 3 이 빠졌다
+  await settle();
+  assert.equal(count("/api/v1/orders/open"), before + 1, "결번 난 마켓 때문에 myOrder REST 가 한 번");
+  assert.equal(count("/api/v1/orders/closed"), before + 1);
+});
+
+test("S6 추가 6: seq_domain 이 없는 myOrder 는 종전 user x type 규칙이다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    {
+      "/api/v1/demo/session": sessionRoute,
+      "/api/v1/orders/open": () => jsonRes(200, emptyList),
+      "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+    },
+    stomp.factory,
+  );
+  const received: WsMessage[] = [];
+  await openPrivate(stomp, ds, () => ds.subscribe(dest.myOrder, (m) => received.push(m)));
+  const before = count("/api/v1/orders/open");
+  const base = received.length;
+
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 1, 1));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 2, 1));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 3, 1));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 3, 1)); // 사용자 하나의 카운터라 중복이다
+  await settle();
+  assert.deepEqual(marketSeqs(received.slice(base)), ["KRW-BTC:1", "KRW-ETH:2", "KRW-BTC:3"]);
+  assert.equal(count("/api/v1/orders/open"), before);
+
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 5, 1)); // 4 가 빠졌다
+  await settle();
+  assert.equal(count("/api/v1/orders/open"), before + 1);
+});
+
+test("S6 추가 7: 티커 REST 의 epoch 가 기준보다 작으면 버린다", async () => {
+  const stomp = makeStomp();
+  let row = { seq: 9, epoch: 5 };
+  const { ds } = newDs({ "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": row })) }, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  const base = received.length;
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10, 5));
+  await settle();
+
+  // 재연결 재동기화를 뒤처진 노드가 받는다. 옛 기간(4)의 큰 seq 가 기준점이 되면 실시간이 모두 버려진다
+  row = { seq: 99, epoch: 4 };
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.onConnect();
+  await settle();
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 11, 5));
+  await settle();
+
+  assert.deepEqual(
+    received.slice(base).map((m) => [m.epoch, m.seq]),
+    [
+      [5, 10],
+      [5, 11],
+    ],
+  );
+});
+
+test("S6 추가 8: 기준점이 있을 때 온 seq 0 구독 스냅샷은 전달하고 기준점을 비운다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({}, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 57, 5, "snapshot"));
+  // 소유하지 않은 노드의 구독 즉시 스냅샷은 DB 집계이고 seq 0 이다(S6 설계 4-6)
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 0, 5, "snapshot"));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 90, 5));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 91, 5));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [57, 0, 90, 91],
+  );
+  assert.equal(count("/api/v1/orderbook"), 0, "seq 90 은 결번 재동기화 없이 새 기준점이다");
+});
+
+test("S6 추가 9: user_market myAsset 은 마켓마다 조밀하고 재동기화 중 쌓인 메시지도 마켓마다 검사한다", async () => {
+  const stomp = makeStomp();
+  const held: { resolve: ((r: Response) => void) | null; hold: boolean } = { resolve: null, hold: false };
+  let accounts = 0;
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/demo/session")) return jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+    if (url.includes("/api/v1/accounts")) {
+      accounts += 1;
+      if (!held.hold) return jsonRes(200, emptyList);
+      return new Promise<Response>((resolve) => {
+        held.resolve = resolve;
+      });
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  const received: WsMessage[] = [];
+  await openPrivate(stomp, ds, () => ds.subscribe(dest.myAsset, (m) => received.push(m)));
+  const before = accounts;
+  const base = received.length;
+
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 1, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 1, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 2, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 2, 1, "user_market"));
+  await settle();
+  assert.equal(accounts, before, "마켓 교대만으로는 재동기화가 없다");
+
+  held.hold = true;
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 4, 1, "user_market")); // KRW-ETH 만 결번
+  await settle();
+  assert.equal(accounts, before + 1, "결번 난 마켓 때문에 GET /accounts 가 한 번");
+  // 재동기화 중 두 마켓이 섞여 쌓인다. 마켓마다는 조밀하다
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 3, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 5, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 4, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 6, 1, "user_market"));
+  await settle();
+  assert.ok(held.resolve, "재동기화 REST 발사됨");
+  held.hold = false;
+  held.resolve(jsonRes(200, emptyList));
+  await settle();
+
+  assert.equal(accounts, before + 1, "쌓인 메시지를 비울 때 마켓이 섞여도 결번으로 보지 않는다");
+  // 마켓 사이의 순서는 계약이 아니다. 마켓마다 빠짐없이 오름차순이면 된다
+  const byMarket = (market: string) =>
+    received
+      .slice(base)
+      .filter((m) => m.seq !== 0 && (m as { market?: string }).market === market)
+      .map((m) => m.seq);
+  assert.deepEqual(byMarket("KRW-BTC"), [1, 2, 3, 4]);
+  assert.deepEqual(byMarket("KRW-ETH"), [1, 2, 4, 5, 6]);
+});
+
+test("S6 추가 9b: 재동기화 중 쌓인 한 마켓에 결번이 있으면 다시 맞추고 결번 뒤 메시지는 그 스냅샷 뒤에 흐른다", async () => {
+  const stomp = makeStomp();
+  const held: { resolve: ((r: Response) => void) | null; hold: boolean } = { resolve: null, hold: false };
+  let accounts = 0;
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/demo/session")) return jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+    if (url.includes("/api/v1/accounts")) {
+      accounts += 1;
+      if (!held.hold) return jsonRes(200, emptyList);
+      return new Promise<Response>((resolve) => {
+        held.resolve = resolve;
+      });
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  const received: WsMessage[] = [];
+  await openPrivate(stomp, ds, () => ds.subscribe(dest.myAsset, (m) => received.push(m)));
+  const before = accounts;
+  const base = received.length;
+
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 1, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 1, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 2, 1, "user_market"));
+  held.hold = true;
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 4, 1, "user_market")); // 3 이 빠져 재동기화가 걸린다
+  await settle();
+  // 재동기화 중 KRW-ETH 는 6 이 또 빠지고 KRW-BTC 는 같은 메시지가 두 번 쌓인다
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 2, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 5, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 2, 1, "user_market"));
+  stomp.push(dest.myAsset, wsMyAsset("KRW-ETH", 7, 1, "user_market"));
+  await settle();
+  assert.ok(held.resolve, "재동기화 REST 발사됨");
+  held.hold = false;
+  held.resolve(jsonRes(200, emptyList));
+  await settle();
+
+  assert.equal(accounts, before + 2, "쌓인 KRW-ETH 결번 때문에 GET /accounts 를 한 번 더 부른다");
+  assert.deepEqual(
+    received.slice(base).map((m) => (m.seq === 0 ? "snapshot" : `${(m as { market?: string }).market}:${m.seq}`)),
+    ["KRW-BTC:1", "KRW-ETH:1", "KRW-ETH:2", "snapshot", "KRW-BTC:2", "KRW-ETH:4", "KRW-ETH:5", "snapshot", "KRW-ETH:7"],
+    "결번 뒤 메시지는 새 스냅샷 뒤에만 흐르고 같은 메시지는 한 번만 흐른다",
+  );
+});
+
+test("S6 추가 5b: user_market 실시간의 중복·역행은 전달하지 않고 결번으로 보지도 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    {
+      "/api/v1/demo/session": sessionRoute,
+      "/api/v1/orders/open": () => jsonRes(200, emptyList),
+      "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+    },
+    stomp.factory,
+  );
+  const received: WsMessage[] = [];
+  await openPrivate(stomp, ds, () => ds.subscribe(dest.myOrder, (m) => received.push(m)));
+  const before = count("/api/v1/orders/open");
+  const base = received.length;
+
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 1, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 1, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 2, 1, "user_market"));
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 2, 1, "user_market")); // 중복
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 1, 1, "user_market")); // 역행
+  stomp.push(dest.myOrder, wsMyOrder("KRW-BTC", 3, 1, "user_market"));
+  await settle();
+
+  assert.equal(count("/api/v1/orders/open"), before, "같은 마켓의 중복·역행을 결번으로 봐 재동기화했다");
+  assert.deepEqual(marketSeqs(received.slice(base)), ["KRW-BTC:1", "KRW-ETH:1", "KRW-BTC:2", "KRW-BTC:3"]);
+});
+
+test("S6 추가 10: 초기 REST 스냅샷의 epoch 가 그 마켓 기준보다 작으면 새 구독자에게 전달하지 않는다", async () => {
+  const stomp = makeStomp();
+  let tick = { seq: 9, epoch: 5 };
+  let book = { seq: 40, epoch: 5 };
+  const { ds, count } = newDs(
+    {
+      "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": tick })),
+      "/api/v1/orderbook": () => jsonRes(200, restBook("KRW-BTC", book.seq, book.epoch)),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.ticker("KRW-BTC"), () => {});
+  await settle();
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10, 5));
+  await settle();
+
+  // 뒤처진 노드가 옛 기간(4)의 값을 낸다
+  tick = { seq: 99, epoch: 4 };
+  book = { seq: 99, epoch: 4 };
+  const late: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => late.push(m));
+  await settle();
+  // 미연결이면 호가 초기 표시도 REST 스냅샷으로 채운다
+  stomp.state.args!.onDisconnect();
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => late.push(m));
+  await settle();
+
+  assert.equal(count("/api/v1/orderbook"), 1, "미연결 호가 초기 스냅샷 REST 가 나가지 않았다");
+  assert.deepEqual(late, [], "작은 epoch 의 초기 스냅샷을 전달했다");
+});
+
+test("S6 추가 11: 초기 REST 스냅샷의 epoch 가 크면 그 마켓을 다시 맞추고 그 스냅샷은 따로 전달하지 않는다", async () => {
+  const stomp = makeStomp();
+  let tick = { seq: 9, epoch: 5 };
+  let book = { seq: 300, epoch: 5 };
+  const { ds, count } = newDs(
+    {
+      "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": tick })),
+      "/api/v1/orderbook": () => jsonRes(200, restBook("KRW-BTC", book.seq, book.epoch)),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const first: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => first.push(m));
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => first.push(m));
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 300, 5, "snapshot"));
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 10, 5));
+  await settle();
+  const tickerBefore = count("/api/v1/ticker");
+  const bookBefore = count("/api/v1/orderbook");
+
+  // KRW-BTC 의 리더가 바뀌었다. 실시간보다 새 구독자의 초기 REST 가 먼저 새 기간(6)을 알린다
+  tick = { seq: 3, epoch: 6 };
+  book = { seq: 2, epoch: 6 };
+  const second: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => second.push(m));
+  await settle();
+
+  assert.equal(count("/api/v1/orderbook"), bookBefore + 1, "같은 마켓의 호가를 다시 맞추지 않았다");
+  assert.equal(count("/api/v1/ticker"), tickerBefore + 2, "초기 스냅샷 뒤 그 마켓 티커를 다시 맞추지 않았다");
+  assert.deepEqual(
+    second.map((m) => [m.epoch, m.seq]),
+    [[6, 3]],
+    "새 구독자는 재동기화 스냅샷 하나만 받는다",
+  );
+
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 4, 6));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 3, 6));
+  await settle();
+  const last = (type: string) => first.filter((m) => m.type === type).slice(-1)[0];
+  assert.deepEqual([last("ticker").epoch, last("ticker").seq], [6, 4]);
+  assert.deepEqual([last("orderbook").epoch, last("orderbook").seq], [6, 3]);
+});
+
+test("S6 추가 12: user_market myAsset 을 먼저 받았으면 늦게 온 초기 계좌 스냅샷을 버린다", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolveAccounts: ((r: Response) => void) | null } = { resolveAccounts: null };
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/demo/session")) return jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+    if (url.includes("/api/v1/accounts")) {
+      return new Promise<Response>((resolve) => {
+        deferred.resolveAccounts = resolve;
+      });
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.myAsset, (m) => received.push(m));
+  await settle();
+
+  // 중계 모드의 myAsset 은 마켓마다 센다. 채널 기준점(lastSeq)이 아니라 그 마켓의 기준점만 생긴다
+  stomp.push(dest.myAsset, wsMyAsset("KRW-BTC", 1, 1, "user_market"));
+  await settle();
+  assert.ok(deferred.resolveAccounts, "초기 스냅샷 REST가 발사됨");
+  deferred.resolveAccounts(
+    jsonRes(200, {
+      schema_version: "1.0",
+      data: [{ currency: "KRW", balance: "100000", locked: "0", avg_buy_price: "0", unit_currency: "KRW" }],
+      pagination: { next_cursor: null, has_more: false },
+    }),
+  );
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [1],
+    "마켓 기준점이 있는데 늦은 초기 스냅샷(seq 0)을 전달하면 잔액이 체결 전으로 되돌아간다",
+  );
+});
+
+test("S6: 같은 마켓의 작은 epoch 만 10초 넘게 이어지면 그 마켓 기준을 다시 잡고 맞춘다", async () => {
+  mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+  try {
+    const stomp = makeStomp();
+    // DB 를 복원해 타임라인이 바뀌었다. 서버는 이제 epoch 3 을 낸다
+    const { ds, count } = newDs({ "/api/v1/orderbook": () => jsonRes(200, restBook("KRW-BTC", 7, 3)) }, stomp.factory);
+    ds.connect();
+    stomp.state.args!.onConnect();
+    const received: WsMessage[] = [];
+    ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+    await settle();
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 100, 5, "snapshot"));
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 1, 3));
+    mock.timers.tick(5_000);
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 2, 3));
+    await settle();
+    assert.equal(count("/api/v1/orderbook"), 0, "10초 안의 작은 epoch 는 버리기만 한다");
+
+    mock.timers.tick(5_001);
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 3, 3));
+    await settle();
+    stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 8, 3));
+    await settle();
+
+    assert.equal(count("/api/v1/orderbook"), 1, "기준을 다시 잡고 그 마켓을 한 번 맞춘다");
+    assert.deepEqual(
+      received.map((m) => [m.epoch, m.seq]),
+      [
+        [5, 100],
+        [3, 7],
+        [3, 8],
+      ],
+    );
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("S6: REST 스냅샷이 기준 epoch 를 올리면 같은 마켓의 다른 조밀 채널도 다시 맞춘다", async () => {
+  const stomp = makeStomp();
+  let bookRest = { seq: 300, epoch: 5 };
+  let tickRest = { seq: 499, epoch: 5 };
+  const { ds, count } = newDs(
+    {
+      "/api/v1/orderbook": () => jsonRes(200, restBook("KRW-BTC", bookRest.seq, bookRest.epoch)),
+      "/api/v1/ticker": tickerRoute(() => ({ "KRW-BTC": tickRest })),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 300, 5, "snapshot"));
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 500, 5));
+  await settle();
+  const tickerBefore = count("/api/v1/ticker");
+
+  // 호가 결번 재동기화의 REST 가 이미 새 기간(6)을 낸다. 실시간은 아직 새 기간을 싣지 않았다
+  bookRest = { seq: 2, epoch: 6 };
+  tickRest = { seq: 3, epoch: 6 };
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 303, 5));
+  await settle();
+  assert.equal(count("/api/v1/ticker"), tickerBefore + 1, "같은 마켓의 티커도 새 기간으로 다시 맞춘다");
+
+  // 새 리더의 티커 카운터는 낮은 seq 다. 옛 기준점(500)에 남아 있으면 모두 버려진다
+  stomp.push(dest.ticker("KRW-BTC"), wsTickerOf("KRW-BTC", 4, 6));
+  stomp.push(dest.orderbook("KRW-BTC"), wsBook("KRW-BTC", 3, 6));
+  await settle();
+  const last = (type: string) => received.filter((m) => m.type === type).slice(-1)[0];
+  assert.deepEqual([last("ticker").epoch, last("ticker").seq], [6, 4]);
+  assert.deepEqual([last("orderbook").epoch, last("orderbook").seq], [6, 3]);
+});
+
+test("S6: 재동기화 중 쌓인 옛 기간 비공개 메시지는 그 마켓 epoch 가 오른 뒤 흘리지 않는다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const stomp = makeStomp();
+    const held: { resolve: ((r: Response) => void) | null; hold: boolean } = { resolve: null, hold: false };
+    let tickerEpoch = 9;
+    const fetchFn: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/demo/session")) return jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+      if (url.includes("/api/v1/orders/open")) {
+        if (!held.hold) return jsonRes(200, emptyList);
+        return new Promise<Response>((resolve) => {
+          held.resolve = resolve;
+        });
+      }
+      if (url.includes("/api/v1/orders/closed")) return jsonRes(200, emptyList);
+      if (url.includes("/api/v1/ticker")) {
+        return jsonRes(200, { schema_version: "1.0", data: [tickerRow("KRW-ETH", 5, tickerEpoch)], pagination: { next_cursor: null, has_more: false } });
+      }
+      return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+    };
+    const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+    const received: WsMessage[] = [];
+    await openPrivate(stomp, ds, () => {
+      ds.subscribe(dest.myOrder, (m) => received.push(m));
+      ds.subscribe(dest.ticker("KRW-ETH"), () => {});
+    });
+    const base = received.length;
+    stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 1, 9, "user_market"));
+    await settle();
+
+    // 결번 재동기화가 도는 동안 옛 기간(9) 메시지가 쌓인다
+    held.hold = true;
+    stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 3, 9, "user_market"));
+    stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 4, 9, "user_market"));
+    await settle();
+    // 그 사이 KRW-ETH 의 리더가 바뀐다
+    tickerEpoch = 10;
+    stomp.push(dest.ticker("KRW-ETH"), wsTickerOf("KRW-ETH", 1, 10));
+    await settle();
+    held.hold = false;
+    assert.ok(held.resolve, "결번 재동기화 REST 발사됨");
+    held.resolve(jsonRes(200, emptyList));
+    await settle();
+    mock.timers.tick(300);
+    await settle();
+    stomp.push(dest.myOrder, wsMyOrder("KRW-ETH", 1, 10, "user_market"));
+    await settle();
+
+    assert.deepEqual(
+      received.slice(base).filter((m) => m.seq !== 0).map((m) => [m.epoch, m.seq]),
+      [
+        [9, 1],
+        [10, 1],
+      ],
+      "스냅샷 뒤에 옛 기간 메시지(9:3, 9:4)를 흘리면 새 기간 상태를 되돌린다",
+    );
+  } finally {
+    mock.timers.reset();
+  }
 });
 
 test("trade: event_seq 비연속 증가(1000·1003·1007)는 전부 적용, 재동기화 없음", async () => {

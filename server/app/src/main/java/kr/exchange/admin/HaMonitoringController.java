@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalReader;
 import kr.exchange.journal.JournalCheckpoints;
@@ -90,28 +91,21 @@ public class HaMonitoringController {
     @GetMapping("/status")
     public Map<String, Object> status(HttpServletRequest request) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
-        // lease_remaining_ms는 리스 신선도 지표다. renew가 lease_until을 now+ttl로 밀므로 잔여는
-        // 마지막 심박 이후 경과의 역상(ttl로 유계)이다. 별도 heartbeat 컬럼이 없어 이 값이 권위다.
-        Map<String, Object> lease = jdbc.sql("""
-                        SELECT holder, epoch, lease_until, clock_timestamp() AS now,
-                               (lease_until > clock_timestamp()) AS leader_alive,
-                               GREATEST(0, EXTRACT(EPOCH FROM (lease_until - clock_timestamp()))
-                                          * 1000)::bigint AS lease_remaining_ms
-                        FROM leader_lease WHERE resource = 'matching-engine'
-                        """)
-                .query((rs, n) -> {
-                    // 키 순서를 고정한다. Map.of는 JVM 기동마다 순회 순서가 바뀌어 증빙
-                    // 캡처와 화면 diff가 실행마다 달라진다. 이 컨트롤러의 전 투영과 엔벌로프에 같은 규율을 쓴다.
-                    Map<String, Object> row = new java.util.LinkedHashMap<>();
-                    row.put("holder", rs.getString("holder") == null ? "" : rs.getString("holder"));
-                    row.put("epoch", rs.getLong("epoch"));
-                    row.put("lease_until", ts(rs.getObject("lease_until", OffsetDateTime.class)));
-                    row.put("leader_alive", rs.getBoolean("leader_alive"));
-                    row.put("lease_remaining_ms", rs.getLong("lease_remaining_ms"));
-                    return row;
-                })
-                .optional()
-                .orElse(Map.of("leader_alive", false));
+        // 모드는 DB 가 정한다(leader_protocol). 행이 없으면(V48 전) 단일 리더다. 모드가 쓰는 리스 자원만 낸다(API 설계 §6-C).
+        int protocol = jdbc.sql("SELECT protocol FROM leader_protocol").query(Integer.class).optional().orElse(1);
+        List<String> resources = protocol >= LeaseResources.PARTITION_PROTOCOL
+                ? List.of(LeaseResources.PARTITION_P0, LeaseResources.PARTITION_P1)
+                : List.of(LeaseResources.MATCHING_ENGINE);
+        List<Map<String, Object>> leases = new ArrayList<>();
+        for (String resource : resources) {
+            Map<String, Object> row = new java.util.LinkedHashMap<>(lease(resource));
+            row.put("markets", marketSymbols(resource, protocol));
+            Map<String, Object> ordered = new java.util.LinkedHashMap<>();
+            ordered.put("resource", resource);
+            ordered.putAll(row);
+            leases.add(ordered);
+        }
+        Map<String, Object> lease = lease(resources.get(0));
         // 세 워터마크는 표시용 전역 스칼라다. 대역 채번에서는 마켓 사이 seq 대소가 없어 서로 빼지 않는다.
         long commandWm = scalar("SELECT COALESCE(max(seq), 0) FROM command_journal");
         long eventWm = scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
@@ -143,7 +137,9 @@ public class HaMonitoringController {
         }
         Map<String, Object> out = new java.util.LinkedHashMap<>();
         out.put("schema_version", "1.1");
+        out.put("leader_protocol", protocol);
         out.put("lease", lease);
+        out.put("leases", leases);
         out.put("command_watermark", commandWm);
         out.put("command_watermarks", commandWatermarks);
         out.put("event_watermark", eventWm);
@@ -155,6 +151,48 @@ public class HaMonitoringController {
         out.put("recovery_runs_count", scalar("SELECT count(*) FROM recovery_runs"));
         out.put("last_failover", lastFailover());
         return out;
+    }
+
+    /**
+     * 리스 한 행. lease_remaining_ms는 리스 신선도 지표다. renew가 lease_until을 now+ttl로 밀므로 잔여는 마지막 심박 이후
+     * 경과의 역상(ttl로 유계)이다. 별도 heartbeat 컬럼이 없어 이 값이 권위다.
+     */
+    private Map<String, Object> lease(String resource) {
+        return jdbc.sql("""
+                        SELECT holder, epoch, lease_until, clock_timestamp() AS now,
+                               (lease_until > clock_timestamp()) AS leader_alive,
+                               GREATEST(0, EXTRACT(EPOCH FROM (lease_until - clock_timestamp()))
+                                          * 1000)::bigint AS lease_remaining_ms
+                        FROM leader_lease WHERE resource = ?
+                        """)
+                .param(resource)
+                .query((rs, n) -> {
+                    // 키 순서를 고정한다. Map.of는 JVM 기동마다 순회 순서가 바뀌어 증빙
+                    // 캡처와 화면 diff가 실행마다 달라진다. 이 컨트롤러의 전 투영과 엔벌로프에 같은 규율을 쓴다.
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("holder", rs.getString("holder") == null ? "" : rs.getString("holder"));
+                    row.put("epoch", rs.getLong("epoch"));
+                    row.put("lease_until", ts(rs.getObject("lease_until", OffsetDateTime.class)));
+                    row.put("leader_alive", rs.getBoolean("leader_alive"));
+                    row.put("lease_remaining_ms", rs.getLong("lease_remaining_ms"));
+                    return row;
+                })
+                .optional()
+                .orElse(Map.of("leader_alive", false));
+    }
+
+    /** 그 자원이 덮는 마켓 심볼(마켓 id 순). P1·P2 의 matching-engine 은 모든 마켓이다. */
+    private List<String> marketSymbols(String resource, int protocol) {
+        if (protocol < LeaseResources.PARTITION_PROTOCOL) {
+            return jdbc.sql("SELECT symbol FROM markets ORDER BY id").query(String.class).list();
+        }
+        return jdbc.sql("""
+                        SELECT m.symbol FROM market_lease_partition p JOIN markets m ON m.id = p.market_id
+                        WHERE p.resource = ? ORDER BY m.id
+                        """)
+                .param(resource)
+                .query(String.class)
+                .list();
     }
 
     /**
@@ -225,7 +263,7 @@ public class HaMonitoringController {
                 .list();
         List<Map<String, Object>> failovers = jdbc.sql("""
                         SELECT experiment_id, old_leader, new_leader, old_epoch, new_epoch,
-                               rto_seconds, downtime_seconds, rpo_records, verdict, created_at
+                               rto_seconds, downtime_seconds, rpo_records, verdict, created_at, resource
                         FROM harness.failover_runs WHERE created_at >= ?
                         ORDER BY created_at DESC LIMIT ?
                         """)
@@ -245,6 +283,8 @@ public class HaMonitoringController {
                             rs.getObject("rpo_records") == null ? "" : rs.getLong("rpo_records"));
                     row.put("verdict", str(rs.getString("verdict")));
                     row.put("created_at", ts(rs.getObject("created_at", OffsetDateTime.class)));
+                    // 그 사건이 옮긴 리스 자원(DB 설계 §3.8 V53). V53 이전 행은 null 이다.
+                    row.put("resource", rs.getString("resource"));
                     return row;
                 })
                 .list();

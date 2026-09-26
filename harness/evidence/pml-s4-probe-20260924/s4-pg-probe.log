@@ -1,0 +1,85 @@
+v53 source=documents(DB 설계 §3.8)
+v53 lines=12 sha256=a009eb5a807bf35f
+repository max migration=V52
+container=pml-probe-s4pg-243822321 image=postgres:17-alpine port=127.0.0.1:55802
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== G0 applied repository migrations: 53 files
+v53 exit=0
+
+== G1 P3 흉내(소유자 UPDATE). 최고 모드 2 획득, P3 의 matching-engine 획득, 최고 모드 3 의 p0 획득
+UPDATE 1
+ERROR:  55000: 이 호출은 P2 까지만 안다. 현재 P3에서는 리스를 획득하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 리스 자원 matching-engine은 P3에서 획득할 수 없다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+p0 acquired epoch|1
+E0=1
+
+== G2 세션 X 가 p1 행 KEY SHARE 를 4초 쥔다. appu 가 lock_timeout 700ms 로 p1 을 획득한다. 그동안 p0 갱신과 p1 새 KEY SHARE
+before: acquisitions=1 p1=/0
+waiting|appu|Lock|transactionid|SELECT try_acquire_lease('matching-p1', 'nodeA', interval '6
+-- B(획득, lock_timeout 700ms)
+SET
+Timing is on.
+ERROR:  55P03: canceling statement due to lock timeout
+LOCATION:  ProcessInterrupts, postgres.c:3399
+Time: 702.593 ms
+-- R(p0 갱신, 획득이 기다리는 동안)
+renew p0|t
+Time: 2.924 ms
+Time: 101.454 ms
+renew p0|t
+Time: 0.866 ms
+Time: 101.361 ms
+renew p0|t
+Time: 0.897 ms
+Time: 101.361 ms
+renew p0|t
+Time: 0.920 ms
+Time: 101.328 ms
+renew p0|t
+Time: 0.855 ms
+-- K(획득이 기다리는 동안 p1 에 새 KEY SHARE)
+Time: 0.107 ms
+K new KEY SHARE on p1|1
+Time: 1.159 ms
+Time: 0.686 ms
+after timeout: acquisitions=1 p1=/0 appu_locks=0
+BEGIN
+X holds p1 KEY SHARE|1
+
+COMMIT
+
+== G3 X 커밋 뒤 lock_timeout 없는 획득
+p1 acquired epoch|2
+matching-engine||0|-6.2
+matching-p0|nodeA|1|3.0
+matching-p1|nodeB|2|6.0
+1|matching-p0|nodeA|3|ACQUIRE
+2|matching-p1|nodeB|3|ACQUIRE
+
+== G4 V53 harness.failover_runs.resource
+resource|text|YES|-
+chk_failover_runs_resource|CHECK (((resource IS NULL) OR (resource = ANY (ARRAY['matching-engine'::text, 'matching-p0'::text, 'matching-p1'::text]))))
+그 사건이 옮긴 리스 자원(ADR 0034 S4). NULL 은 이 열을 더하기 전의 행이다
+E4|matching-p1
+INSERT 0 1
+ERROR:  23514: new row for relation "failover_runs" violates check constraint "chk_failover_runs_resource"
+DETAIL:  Failing row contains (2, E4, null, null, null, null, null, null, null, null, null, null, PASS, null, 2026-09-24 07:38:57.446572+00, matching-p9).
+SCHEMA NAME:  harness
+TABLE NAME:  failover_runs
+CONSTRAINT NAME:  chk_failover_runs_resource
+LOCATION:  ExecConstraints, execMain.c:2074
+E2|t
+INSERT 0 1
+hr reads|2|1
+
+== G5 마켓 둘의 대응, 모드별 도출, T5 술어(파티션 한정) 실행
+INSERT 0 3
+INSERT 0 2
+map|1|matching-p0
+map|2|matching-p1
+P3 derive|matching-p0|matching-p1
+T5|NULL
+UPDATE 1
+P2 derive|matching-engine|matching-engine

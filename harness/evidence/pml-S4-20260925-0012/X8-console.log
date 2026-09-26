@@ -1,0 +1,17 @@
+2026-09-25T01:22:47+09:00 [X8] PHASE X8 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T01:22:47+09:00 [X8] volumes before unchanged
+2026-09-25T01:23:25+09:00 [X8] up --profile obs rc=0 (E1)
+2026-09-25T01:23:25+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X8\E1\protocol.json
+2026-09-25T01:23:57+09:00 [X8] RC 0
+2026-09-25T01:24:07+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e1-pg-latency.ps1 
+2026-09-25T01:28:45+09:00 [X8] RC 1
+2026-09-25T01:28:46+09:00 [X8] X8 E1 rc=1 verdict=FAIL demotions=1 acquireLockTimeouts=0
+2026-09-25T01:28:50+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E1
+2026-09-25T01:29:28+09:00 [X8] up --profile obs rc=0 (E3)
+2026-09-25T01:29:28+09:00 [X8] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X8\E3\protocol.json
+2026-09-25T01:30:01+09:00 [X8] RC 0
+2026-09-25T01:30:11+09:00 [X8] RUN pwsh -NoProfile -File harness\scripts\e3-redis-outage.ps1 
+2026-09-25T01:30:13+09:00 [X8] RC 0
+2026-09-25T01:30:14+09:00 [X8] X8 E3 rc=0 verdict=SKIP demotions=0 acquireLockTimeouts=0
+2026-09-25T01:30:21+09:00 [X8] down -v (exchange-pml) rc=0 after X8 E3
+2026-09-25T01:30:21+09:00 [X8] volumes after unchanged

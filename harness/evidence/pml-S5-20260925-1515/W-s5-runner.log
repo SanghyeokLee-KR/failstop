@@ -1,0 +1,20 @@
+2026-09-25T16:25:04+09:00 [WsRace/default] PHASE WsRace project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml lb=nginx.conf
+2026-09-25T16:25:04+09:00 [WsRace/default] volumes before unchanged
+2026-09-25T16:25:10+09:00 [WsRace/default] TAG exchange-chaos-app:pml -> sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T16:25:10+09:00 [WsRace/default] down -v (exchange-pml) rc=0
+2026-09-25T16:25:43+09:00 [WsRace/default] up --profile obs rc=0 (profiles=dev,chaos-monkey,prod-timeouts lb=nginx.conf)
+2026-09-25T16:25:43+09:00 [WsRace/default] LB conf=nginx.conf nginx-t rc=0 sameSha=True
+2026-09-25T16:25:43+09:00 [WsRace/default] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\W-s5\protocol.json
+2026-09-25T16:26:10+09:00 [WsRace/default] RC 0
+2026-09-25T16:26:20+09:00 [WsRace/default] W-s5 image=sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095 raceRef= bots target_ops=300 warmup 60s
+2026-09-25T16:27:20+09:00 [WsRace/default] RUN docker run k6 ws_subscribe_race.js (VUS 20, 120s, HOLD_MS 1500, KRW-BTC)
+2026-09-25T16:29:22+09:00 [WsRace/default] W-s5 k6 rc=0 summary={"race_subscriptions":1600,"race_snapshot_first":1600,"race_realtime_first":0,"race_start_gap":0,"race_later_gap":0,"race_stale":0,"race_no_snapshot":0,"ws_sessions":1600,"ws_msgs_received":32218}
+2026-09-25T16:29:22+09:00 [WsRace/default] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-25T07:25:09.7588055+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\W-s5\orders500.json
+2026-09-25T16:29:23+09:00 [WsRace/default] RC 0
+2026-09-25T16:29:26+09:00 [WsRace/default] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S5-20260925-1515\W-s5\state-after-drain.json
+2026-09-25T16:29:27+09:00 [WsRace/default] RC 0
+2026-09-25T16:29:43+09:00 [WsRace/default] AUTHORITATIVE W-s5-post ok=True notOk=[] 
+2026-09-25T16:29:51+09:00 [WsRace/default] SUMMARY summary-W-s5 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T16:30:02+09:00 [WsRace/default] down -v (exchange-pml) rc=0 after W-s5
+2026-09-25T16:30:02+09:00 [WsRace/default] TAG exchange-chaos-app:pml -> sha256:1696fdb04f3d047985070b319892c836a300239682c6bfe8b52c48022b512095
+2026-09-25T16:30:02+09:00 [WsRace/default] volumes after unchanged

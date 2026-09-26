@@ -1,0 +1,36 @@
+2026-09-26T04:27:51+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=E7 LatchBeforeTraffic=False SnapshotEvidence=False Protocol=3 PartitionAxes=True Relay=True WsGateAxes=False P3=True Resource=matching-p1 SurvivorLoadOps=20 WebObserve=False ConsolidateOn=chaos-api-1 Project=exchange-pml
+2026-09-26T04:27:51+09:00 OVERLAYS harness/docker-compose.relay.yml;harness/docker-compose.p3.yml
+2026-09-26T04:27:52+09:00 START E7
+2026-09-26T04:28:25+09:00 RUN python harness/scale/protocol_latch.py transition --target 3 --latch-band --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\protocol.json
+2026-09-26T04:28:44+09:00 RC 0
+2026-09-26T04:28:59+09:00 WATCH start pml-s6-watch-E7 rc=0
+2026-09-26T04:29:00+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\budget.json
+2026-09-26T04:29:00+09:00 RC 0
+2026-09-26T04:29:00+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\partition_pre.json
+2026-09-26T04:29:00+09:00 RC 0
+2026-09-26T04:29:01+09:00 K6 start pml-s7-k6-E7 rc=0 markets=KRW-BTC,KRW-XRP,KRW-DOGE,KRW-TRX,KRW-DOT,KRW-AVAX ops=20
+2026-09-26T04:29:01+09:00 EXPERIMENT E7 pwsh -NoProfile -File harness/scripts/e7-gray-pause.ps1
+2026-09-26T04:30:31+09:00 EXPERIMENT E7 rc=0
+2026-09-26T04:30:32+09:00 K6 stop pml-s7-k6-E7
+2026-09-26T04:30:34+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-25T19:27:52.2009035+00:00 --fault-from 2026-09-25T19:29:01.4950879+00:00 --fault-to 2026-09-25T19:30:31.6362894+00:00 --samples harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\balance_samples.jsonl --protocol 3 --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\s3_common.json --resource matching-p1 --expect-demotion
+2026-09-26T04:31:05+09:00 RC 1
+2026-09-26T04:31:05+09:00 RUN python harness/scale/s7_axes.py segment-count --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\segment_post.json
+2026-09-26T04:31:05+09:00 RC 0
+2026-09-26T04:31:05+09:00 RUN python harness/scale/s7_axes.py segment-judge --pre harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\protocol.json --post harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\segment_post.json --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\segment.json
+2026-09-26T04:31:05+09:00 RC 0
+2026-09-26T04:31:05+09:00 RUN python harness/scale/s7_axes.py victim-writes --samples harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\epoch_samples.jsonl --inject-at 2026-09-25T19:29:40.5797783Z --resource matching-p1 --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\victim_writes.json
+2026-09-26T04:31:05+09:00 RC 0
+2026-09-26T04:31:05+09:00 RUN python harness/scale/s7_axes.py partition-rto --resource matching-p0 --old-epoch 8 --inject-at 2026-09-25T19:29:40.5797783Z --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\rto_matching-p0.json
+2026-09-26T04:31:06+09:00 RC 0
+2026-09-26T04:31:06+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\partition_post.json
+2026-09-26T04:31:06+09:00 RC 0
+2026-09-26T04:31:06+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-25T19:27:52.2009035+00:00 --fault-from 2026-09-25T19:29:01.4950879+00:00 --fault-to 2026-09-25T19:30:31.6362894+00:00 --pre harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\partition_pre.json --post harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\partition_post.json --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\partition_axes.json
+2026-09-26T04:31:06+09:00 RC 1
+2026-09-26T04:31:09+09:00 RUN python harness/scale/s6_relay_axes.py watch --log harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\watch.log --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\watch.json
+2026-09-26T04:31:09+09:00 RC 0
+2026-09-26T04:31:09+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\protocol_state.json
+2026-09-26T04:31:10+09:00 RC 0
+2026-09-26T04:31:11+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\conn_samples.jsonl --out harness\evidence\pml-S7-20260926-0300\Q3b\runner\E7\connections.json
+2026-09-26T04:31:12+09:00 RC 0
+2026-09-26T04:31:18+09:00 END E7 down rc=0
+2026-09-26T04:31:18+09:00 DONE E7=FAIL(공통 판정)

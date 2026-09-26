@@ -1,0 +1,32 @@
+[
+  {
+    "container": "chaos-api-1",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2\\E4-chaos-api-1.log",
+    "bytes": 67996,
+    "sha256": "1f16c0e4f8d0f77f6414723ba2089905f7e24fcabff0992fe078770fe5732919"
+  },
+  {
+    "container": "chaos-api-2",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2\\E4-chaos-api-2.log",
+    "bytes": 55648,
+    "sha256": "f861cfd46a638df1ebe174f3cbe7d022c2a1832b4800e6260c6d01636307bdaf"
+  },
+  {
+    "container": "chaos-bots",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2\\E4-chaos-bots.log",
+    "bytes": 5382,
+    "sha256": "0841de7d85f56456a895c45f37b6963f8288bb2342a975fa77e99d56a5c11ec8"
+  },
+  {
+    "container": "chaos-pg",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2\\E4-chaos-pg.log",
+    "bytes": 3232,
+    "sha256": "42f4c2e1b6b8c031efdb5df8e419c6be0edfec92a636bda9f0860c37170a2c29"
+  },
+  {
+    "container": "chaos-toxiproxy",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s3-logs\\X2\\E4-chaos-toxiproxy.log",
+    "bytes": 34273,
+    "sha256": "4dbe7f0736ec36a76c702830f42f6f5a5351b4f613cba8517f2c47d7c1a40243"
+  }
+]

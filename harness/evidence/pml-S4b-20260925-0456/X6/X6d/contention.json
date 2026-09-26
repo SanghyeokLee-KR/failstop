@@ -1,0 +1,2098 @@
+{
+  "variant": "d",
+  "iterations": 1,
+  "lock_sec": 70.0,
+  "started": "2026-09-24T20:33:39Z",
+  "finished": "2026-09-24T20:34:50Z",
+  "accounts": {
+    "L_user_id": 1447,
+    "M_user_id": 1448
+  },
+  "contention_delta": {
+    "55P03|429": 66.0
+  },
+  "record": {
+    "attempts": 66,
+    "admission_rejected_order_delta": 0.0
+  },
+  "axes": {
+    "attempts_429_market": true,
+    "no_demotion": true,
+    "leader_epoch_unchanged": true,
+    "serviceable_always_1": true,
+    "final_201": true
+  },
+  "ok": true,
+  "rows": [
+    {
+      "attempts": [
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1024.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.4,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.4,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.0,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1036.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.0,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1031.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1027.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1033.3,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.4,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1030.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1021.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.4,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1028.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1017.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1028.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1021.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1020.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1020.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1022.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.7,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1036.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.4,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1016.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1017.9,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1033.7,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1022.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1016.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1014.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1021.8,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1020.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.0,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.1,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.6,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1021.2,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1029.5,
+          "replay": false
+        },
+        {
+          "coid": "x6dL-1922983ee5034c4fbf24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1031.4,
+          "replay": false
+        }
+      ],
+      "samples": [
+        {
+          "t": 1.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.853658536585366,
+              "partition": 1.853658536585366
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 2.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.853658536585366,
+              "partition": 1.853658536585366
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 3.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.85,
+              "partition": 1.9473684210526316
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 4.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.85,
+              "partition": 1.9473684210526316
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 5.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 6.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 7.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 8.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 9.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.05,
+              "partition": 2.05
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 10.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.05,
+              "partition": 2.05
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 11.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 12.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 13.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.0526315789473686
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 14.7,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8064516129032258,
+              "partition": 1.8064516129032258
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 15.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8064516129032258,
+              "partition": 1.8064516129032258
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 16.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.7959183673469388,
+              "partition": 1.9555555555555555
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 17.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.7959183673469388,
+              "partition": 1.9555555555555555
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 18.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9487179487179487,
+              "partition": 1.9487179487179487
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 20.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9487179487179487,
+              "partition": 1.9487179487179487
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 21.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0256410256410255,
+              "partition": 2.0256410256410255
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 22.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0256410256410255,
+              "partition": 2.0256410256410255
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 23.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.6904761904761905,
+              "partition": 2.0285714285714285
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 24.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.6904761904761905,
+              "partition": 2.0285714285714285
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 25.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.108108108108108
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 26.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.108108108108108
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 27.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 28.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 29.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 30.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 31.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.951219512195122,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 32.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.951219512195122,
+              "partition": 2.051282051282051
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 33.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.945945945945946,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 34.7,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.4883720930232558,
+              "partition": 1.7777777777777777
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 35.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.4883720930232558,
+              "partition": 1.7777777777777777
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 36.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.1052631578947367
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 37.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.1052631578947367
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 38.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9444444444444444,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 39.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9444444444444444,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 41.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8461538461538463,
+              "partition": 1.894736842105263
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 42.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8461538461538463,
+              "partition": 1.894736842105263
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 43.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.794871794871795,
+              "partition": 2.0588235294117645
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 44.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.794871794871795,
+              "partition": 2.0588235294117645
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 45.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.794871794871795,
+              "partition": 1.9444444444444444
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 46.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.794871794871795,
+              "partition": 1.9444444444444444
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 47.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8571428571428572,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 48.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8571428571428572,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 49.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.7727272727272727,
+              "partition": 2.0526315789473686
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 50.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.7727272727272727,
+              "partition": 2.0526315789473686
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 51.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.1025641025641026
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 52.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0,
+              "partition": 2.1025641025641026
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 53.6,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.9,
+              "partition": 2.054054054054054
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 54.7,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.675,
+              "partition": 1.763157894736842
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 55.7,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.675,
+              "partition": 1.763157894736842
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 56.8,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8205128205128205,
+              "partition": 2.0285714285714285
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 57.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8205128205128205,
+              "partition": 2.0285714285714285
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 58.9,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.864864864864865,
+              "partition": 1.9714285714285715
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 60.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.864864864864865,
+              "partition": 1.9714285714285715
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 61.0,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0256410256410255,
+              "partition": 2.0256410256410255
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 62.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 2.0256410256410255,
+              "partition": 2.0256410256410255
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 63.1,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8666666666666667,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 64.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.8666666666666667,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 65.2,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.1666666666666665
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 66.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.1666666666666665
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 67.3,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 68.4,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.95,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        },
+        {
+          "t": 69.5,
+          "serviceable": {
+            "chaos-api-1": {
+              "node": 1.0,
+              "partition": 1.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          },
+          "completion_ratio": {
+            "chaos-api-1": {
+              "node": 1.75,
+              "partition": 2.0
+            },
+            "chaos-api-2": {
+              "node": 1.0,
+              "partition": 1.0
+            }
+          }
+        }
+      ],
+      "final": {
+        "coid": "x6dL-1922983ee5034c4fbf24",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 19.3,
+        "replay": false
+      },
+      "leader_before": [
+        "chaos-api-1",
+        6
+      ],
+      "leader_after": [
+        "chaos-api-1",
+        6
+      ],
+      "demotions_before": 0.0,
+      "demotions_after": 0.0
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
+import kr.exchange.api.common.RetrySafeWrite;
+import kr.exchange.api.common.RoutingCounters;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.BatchResponse;
 import kr.exchange.api.order.dto.CancelAllResponse;
@@ -32,8 +34,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** 주문 REST(§4-B). 인증 컨텍스트는 ApiAuthFilter가 request attribute로 주입한다. */
+/**
+ * 주문 REST(§4-B). 인증 컨텍스트는 ApiAuthFilter가 request attribute로 주입한다. 생성은 client_order_id 멱등, 취소는 종결
+ * 주문의 재취소 멱등이라 다시 보내도 한 번의 효과로 모인다(RetrySafeWrite).
+ */
 @RestController
+@RetrySafeWrite
 @RequestMapping("/api/v1/orders")
 public class OrderController {
 
@@ -85,10 +91,12 @@ public class OrderController {
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
         try {
+            // 마켓 힌트(API 설계 §2-5-d). 같은 이름 헤더 둘은 선검사가 먼저 거절하고, 선검사 없는 배선을 위해 여기서도 본다.
+            String hint = hint(request);
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             byte[] body = readBoundedBody(request);
             JsonNode json = parse(body);
-            OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
+            OrderGateway.Placement placement = gateway.place(principal.userId(), json, body, hint);
             OrderResponse view = orders.view(placement.row(), placement.epoch());
             if (placement.replayed()) {
                 return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(view);
@@ -107,7 +115,10 @@ public class OrderController {
         AuthPrincipal principal = principal(request);
         JsonNode array;
         try {
+            String hint = hint(request);
             array = parseArray(readBoundedBody(request));
+            // 한 배치 한 마켓(API 설계 §4-B-6 v2.57). 계정 토큰 차감과 원소 처리보다 먼저라 토큰·키·예약·채번을 남기지 않는다.
+            requireSingleMarket(array, hint);
             // 원소당 weight 5를 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
             rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size() * ORDER_WEIGHT);
         } catch (ApiException e) {
@@ -148,6 +159,18 @@ public class OrderController {
                     results.add(new BatchResponse.Item(i, clientOrderId, "in_progress", null, null,
                             new BatchResponse.InProgressError(e.name(), e.retryAfter())));
                     inProgress++;
+                    if (e.dbOutage() == ApiException.DbOutage.UNREACHABLE) {
+                        // 저널 확인마저 DB 에 닿지 못했다. 남은 원소의 접수 전 조회가 같은 장애를 원시 예외로 올려 앞 원소의
+                        // 결과를 잃지 않게 시도하지 않는다(API 설계 §2-5-c). 같은 배열을 다시 보내면 새로 접수된다.
+                        for (int rest = i + 1; rest < array.size(); rest++) {
+                            JsonNode skipped = array.get(rest);
+                            results.add(new BatchResponse.Item(rest, skipped.hasNonNull("client_order_id")
+                                    ? skipped.get("client_order_id").asText() : null, "in_progress", null, null,
+                                    new BatchResponse.InProgressError("service_unavailable", 1)));
+                            inProgress++;
+                        }
+                        break;
+                    }
                 } else {
                     results.add(new BatchResponse.Item(i, clientOrderId, "rejected", null, null,
                             new BatchResponse.RejectedError(e.name(), e.getMessage(), e.detail())));
@@ -167,6 +190,7 @@ public class OrderController {
                                                 @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
         try {
+            String hint = hint(request);
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             UUID externalId;
             try {
@@ -174,7 +198,7 @@ public class OrderController {
             } catch (IllegalArgumentException e) {
                 throw new ApiException(404, "order_not_found", "주문 없음");
             }
-            OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId);
+            OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId, hint);
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
         } catch (ApiException e) {
             rejections.record(e);
@@ -189,9 +213,10 @@ public class OrderController {
                                                         @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
         try {
+            String hint = hint(request);
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             OrderGateway.Placement placement =
-                    gateway.cancelByClient(principal.userId(), clientOrderId);
+                    gateway.cancelByClient(principal.userId(), clientOrderId, hint);
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
         } catch (ApiException e) {
             rejections.record(e);
@@ -199,18 +224,31 @@ public class OrderController {
         }
     }
 
-    /** 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. */
+    /**
+     * 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. 이 노드가 접수하지 않는 파티션의 주문은 그 소유 노드에 넘긴다
+     * (DB 설계 §5.4-d). 이 노드에서 submit 을 하나도 하지 않고 끝났으면(열린 주문이 없었거나 모두 넘김) 좀비 판정의 노드 층
+     * 수요에서 뺀다(DB 설계 §5.4-c 8 v2.57). 인계 행 넣기가 DB 오류로 끝났으면 빼지 않는다.
+     */
     @DeleteMapping
     public CancelAllResponse cancelAll(HttpServletRequest request, HttpServletResponse response,
                                        @RequestParam(value = "market", required = false) String market) {
         AuthPrincipal principal = principal(request);
         try {
+            String hint = hint(request);
+            if (hint != null && !hint.equals(market)) {
+                // 마켓 없는 일괄 취소에 실린 힌트나 market 쿼리와 다른 힌트. 계정 토큰 차감 전에 끝낸다(API 설계 §2-5-d).
+                gateway.routing().hintRejected(RoutingCounters.HINT_MISMATCH);
+                throw MarketHint.mismatch();
+            }
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
         } catch (ApiException e) {
             rejections.record(e);
             throw e;
         }
         OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
+        if (result.localSubmits() == 0 && !result.handoffInsertFailed()) {
+            request.setAttribute(ApiException.DEMAND_NOT_LOCAL_ATTRIBUTE, Boolean.TRUE);
+        }
         return new CancelAllResponse(ApiFormats.SCHEMA_VERSION, result.canceledIds().size(),
                 result.canceledIds(), result.failed());
     }
@@ -227,7 +265,7 @@ public class OrderController {
         OrderQueryService.OrderRow row = orders.byExternalId(externalId)
                 .filter(r -> r.userId() == principal.userId())
                 .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
-        return orders.view(row, epochSource.epoch());
+        return orders.view(row, epochSource.epoch(row.marketId()));
     }
 
     /** 재조회 계약(§4-B-4(a), §7-6): 판정 권위는 command_journal이다. */
@@ -240,7 +278,7 @@ public class OrderController {
             throw new ApiException(404, "order_not_found", "접수된 주문 없음");
         }
         return orders.byClientOrderId(principal.userId(), clientOrderId)
-                .map(row -> orders.view(row, epochSource.epoch()))
+                .map(row -> orders.view(row, epochSource.epoch(row.marketId())))
                 .orElseThrow(() -> new ApiException(409, "order_in_progress",
                         "저널에는 있으나 프로젝션 미반영. 재조회 필요", null, 1));
     }
@@ -310,10 +348,11 @@ public class OrderController {
         Cursors.Cursor decoded = cursor == null ? null : Cursors.decode(cursor);
         List<OrderQueryService.OrderRow> rows =
                 orders.page(principal.userId(), open, market, decoded, limit);
-        long epoch = epochSource.epoch();
         List<OrderResponse> data = new ArrayList<>();
+        // 비리더는 epoch 를 리스 행에서 읽으므로 한 페이지 안에서는 마켓마다 한 번만 읽는다.
+        java.util.Map<Integer, Long> epochs = new java.util.HashMap<>();
         for (OrderQueryService.OrderRow row : rows) {
-            data.add(orders.view(row, epoch));
+            data.add(orders.view(row, epochs.computeIfAbsent(row.marketId(), epochSource::epoch)));
         }
         String nextCursor = null;
         if (rows.size() == limit && !rows.isEmpty()) {
@@ -374,6 +413,40 @@ public class OrderController {
             throw new ApiException(400, "invalid_parameter", "일괄 주문은 최대 " + MAX_BATCH + "건입니다.");
         }
         return node;
+    }
+
+    /** 요청의 마켓 힌트(API 설계 §2-5-d). 같은 이름 헤더가 둘 이상이면 400 market_hint_duplicate 이고 거절 수를 센다. */
+    private String hint(HttpServletRequest request) {
+        try {
+            return MarketHint.from(request);
+        } catch (ApiException duplicate) {
+            gateway.routing().hintRejected(RoutingCounters.HINT_DUPLICATE);
+            throw duplicate;
+        }
+    }
+
+    /**
+     * 한 배치 한 마켓(API 설계 §4-B-6 v2.57). market 이 문자열인 원소들의 값이 둘 이상이면 400 batch_single_market, 힌트가 있고
+     * 그 값과 다르면 400 market_hint_mismatch 다. market 이 없거나 문자열이 아닌 원소는 종전처럼 그 원소만 rejected 다. 같은
+     * 파티션의 마켓끼리 섞는 것도 받지 않는다. 대응은 운영 데이터라 클라이언트가 모르고, 받던 배치가 대응 변경으로 거부되는
+     * 계약은 불안정하다.
+     */
+    private void requireSingleMarket(JsonNode array, String hint) {
+        java.util.Set<String> markets = new java.util.LinkedHashSet<>();
+        for (JsonNode element : array) {
+            JsonNode market = element.isObject() ? element.get("market") : null;
+            if (market != null && market.isTextual()) {
+                markets.add(market.asText());
+            }
+        }
+        if (markets.size() > 1) {
+            gateway.routing().hintRejected(RoutingCounters.BATCH_SINGLE_MARKET);
+            throw MarketHint.batchSingleMarket();
+        }
+        if (hint != null && !markets.isEmpty() && !markets.contains(hint)) {
+            gateway.routing().hintRejected(RoutingCounters.HINT_MISMATCH);
+            throw MarketHint.mismatch();
+        }
     }
 
     static AuthPrincipal principal(HttpServletRequest request) {

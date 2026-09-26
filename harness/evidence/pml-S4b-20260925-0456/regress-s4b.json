@@ -1,0 +1,533 @@
+{
+  "sub": "regress",
+  "rc": 1,
+  "host": {
+    "before": {
+      "at": "2026-09-24T22:42:16.0543397Z",
+      "cpuTotalPct": [
+        2.4,
+        2.5,
+        5.1,
+        6.1,
+        3.7
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 0
+    },
+    "after": {
+      "at": "2026-09-24T22:58:21.9695373Z",
+      "cpuTotalPct": [
+        48.1,
+        28.8,
+        42.3,
+        43.3,
+        21.7
+      ],
+      "logicalCores": 16,
+      "otherBusyProcesses": 1
+    }
+  },
+  "experiments": [
+    {
+      "experiment": "E4",
+      "verdict": "PASS",
+      "runId": "E4-20260925-074323",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 379,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 207,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 1985,
+        "status500": 0,
+        "status502": 147,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 147,
+        "first5xx": "2026-09-24T22:44:03.0000000+00:00",
+        "last5xx": "2026-09-24T22:44:08.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 2890,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 30.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "window_s": 189,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 5,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        },
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 5.385,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    },
+    {
+      "experiment": "E5",
+      "verdict": "PASS",
+      "runId": "E5-20260925-074611",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 564,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 1,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 1
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 202,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 5280,
+        "status500": 0,
+        "status502": 72,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 72,
+        "first5xx": "2026-09-24T22:46:53.0000000+00:00",
+        "last5xx": "2026-09-24T22:46:57.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 5564,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 33.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "window_s": 242,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 5,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 1.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        },
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 5.782,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    },
+    {
+      "experiment": "E6",
+      "verdict": "FAIL(공통 판정)",
+      "runId": "E6-20260925-074948",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 280,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 202,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 3750,
+        "status500": 0,
+        "status502": 146,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 146,
+        "first5xx": "2026-09-24T22:50:58.0000000+00:00",
+        "last5xx": "2026-09-24T22:51:03.0000000+00:00"
+      },
+      "orders500": {
+        "ok": false,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": false
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": false
+        },
+        "lb": {
+          "access_lines": 3961,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 29.0,
+        "nodes": {
+          "chaos-api-1": null,
+          "chaos-api-2": 0.0
+        },
+        "window_s": 213,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 4,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {},
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 5.543,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    },
+    {
+      "experiment": "E7",
+      "verdict": "PASS",
+      "runId": "E7-20260925-075318",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 411,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 22,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 1,
+          "fencingKept": 0,
+          "partitionDemotion": 1
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 210,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 2739,
+        "status500": 0,
+        "status502": 25,
+        "status503": 0,
+        "status504": 0,
+        "noLiveUpstreams": 25,
+        "first5xx": "2026-09-24T22:54:08.0000000+00:00",
+        "last5xx": "2026-09-24T22:54:10.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 3018,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 34.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "window_s": 215,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 6,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        },
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 12.333,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    },
+    {
+      "experiment": "COLD",
+      "verdict": "PASS",
+      "runId": "COLD-20260925-075630",
+      "logs": {
+        "chaos-api-1": {
+          "ok": true,
+          "lines": 392,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        },
+        "chaos-api-2": {
+          "ok": true,
+          "lines": 309,
+          "replayNoVerdict": 0,
+          "rebuildFailed": 0,
+          "unhandledException": 0,
+          "authFailure500": 0,
+          "clientGone": 0,
+          "outageResponse": 0,
+          "settlementExhausted": 0,
+          "loopFatal": 0,
+          "fencingKept": 0,
+          "partitionDemotion": 0
+        }
+      },
+      "lbFaultWindow": {
+        "access": 2485,
+        "status500": 0,
+        "status502": 65,
+        "status503": 0,
+        "status504": 4,
+        "noLiveUpstreams": 64,
+        "first5xx": "2026-09-24T22:57:12.0000000+00:00",
+        "last5xx": "2026-09-24T22:57:23.0000000+00:00"
+      },
+      "orders500": {
+        "ok": true,
+        "readable": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "zero": {
+          "lb": true,
+          "prom": true,
+          "nodes": true
+        },
+        "lb": {
+          "access_lines": 2753,
+          "orders_500": 0,
+          "ok": true
+        },
+        "prom_max": 0.0,
+        "prom_series": 20.0,
+        "nodes": {
+          "chaos-api-1": 0.0,
+          "chaos-api-2": 0.0
+        },
+        "window_s": 194,
+        "prom_increase": 0.0
+      },
+      "recoveryRuns": {
+        "success": 6,
+        "mismatch": 0
+      },
+      "intakeCounters": {
+        "chaos-api-1": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        },
+        "chaos-api-2": {
+          "exchange_order_intake_commit_recovered_total": 0.0,
+          "exchange_order_intake_unavailable_total{connection|409}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|429}": 0.0,
+          "exchange_order_intake_unavailable_total{connection|503}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|409}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|429}": 0.0,
+          "exchange_order_intake_unavailable_total{fencing|503}": 0.0,
+          "exchange_order_intake_unresolved_total": 0.0
+        }
+      },
+      "rtoSeconds": 11.825,
+      "epochs": {
+        "old": 5,
+        "new": 6
+      }
+    }
+  ]
+}

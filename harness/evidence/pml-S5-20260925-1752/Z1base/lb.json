@@ -1,0 +1,10 @@
+{
+  "lbConf": "default",
+  "file": "harness/nginx/nginx.conf",
+  "nginxT": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\r\nnginx: configuration file /etc/nginx/nginx.conf test is successful",
+  "nginxTRc": 0,
+  "sha256Inside": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+  "sha256Repo": "42fb8144947bbb477b28836e5eb74fa2d350514463d3019f1cef329524fccfcf",
+  "same": true,
+  "envChaosLbConf": ""
+}

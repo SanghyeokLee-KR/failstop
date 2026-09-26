@@ -114,11 +114,17 @@ export const INVARIANT_DEFS: { name: string; label: string; scope: InvariantScop
   { name: "C19_ORDERBOOK_NONCROSS", label: "호가 비교차", scope: "AUTHORITATIVE_ONLY", gloss: "bestBid < bestAsk" },
   { name: "C20_ORDER_FEE_MATERIALIZED", label: "수수료 물질화", scope: "SCHEDULED", gloss: "체결 대 수수료 원장" },
   { name: "C21_EVENT_EMISSION_REGISTRY", label: "방출 레지스트리", scope: "SCHEDULED", gloss: "이벤트 이중 방출 차단" },
-  { name: "C22_FENCING_MONOTONIC", label: "fencing 단조", scope: "AUTHORITATIVE_ONLY", gloss: "epoch 역행 커밋 0" },
+  // ADR 0034 S7 에서 C22' 로 개정했다. 파티션 모드(P3) 구간은 파티션별로 보고, 모드 전환 뒤 옛 구간 epoch 쓰기를 센다
+  { name: "C22_FENCING_MONOTONIC", label: "fencing 단조", scope: "AUTHORITATIVE_ONLY", gloss: "epoch 역행·전환 뒤 옛 epoch 쓰기 0" },
   { name: "C23_COUNTER_SEQ_CONSISTENCY", label: "채번 카운터 정합", scope: "AUTHORITATIVE_ONLY", gloss: "journal_counters 대 실적재" },
   { name: "C24_POSITION_COST_QTY", label: "보유 수량 정합", scope: "AUTHORITATIVE_ONLY", gloss: "포지션 대 잔고" },
   { name: "C25_POSITION_COST_SANITY", label: "원가 건전성", scope: "AUTHORITATIVE_ONLY", gloss: "평단가 범위" },
   { name: "C26_CMD_BAND_HEADROOM", label: "명령 대역 여유", scope: "SCHEDULED", gloss: "잔여 10% 미만 마켓 0" },
   { name: "C27_CMD_DEFAULT_PARTITION", label: "명령 기본 파티션 공백", scope: "SCHEDULED", gloss: "command_journal_default 0행" },
   { name: "C28_CMD_LEGACY_AFTER_CUTOVER", label: "레거시 채번 없음", scope: "SCHEDULED", gloss: "대역 전환 뒤 전역 seq 0" },
+  { name: "C29_MARKET_PARTITION_MAP", label: "마켓 파티션 대응", scope: "SCHEDULED", gloss: "대응·리스 행·모드 래치 누락 0" },
+  // ADR 0034 S7. 네 표 전량을 훑는 스냅샷 판정이라 권위 run 한정이다. 파티션을 넘는 쓰기의 사후 백스톱이다
+  { name: "C30_FENCING_RESOURCE_MATCH", label: "파티션 epoch 자원", scope: "AUTHORITATIVE_ONLY", gloss: "P3 epoch 대 마켓 파티션" },
+  // ADR 0034 S3. 비용 때문에 권위 run 한정·최근 창(마켓마다 주문 생성 5,000건)이다. 전수 판은 하네스 SQL 이 센다
+  { name: "C31_RESERVATION_LINK", label: "접수 예약 연결", scope: "AUTHORITATIVE_ONLY", gloss: "예약 행 대 원장·저널" },
 ];

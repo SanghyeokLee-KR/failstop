@@ -63,8 +63,9 @@ class SnapshotCaptureWiringTest {
 
     /** 라이터를 띄우지 않으므로 정산, 저널, 리스, 시세 협력자는 쓰이지 않는다. */
     private static WriterRouter router(boolean snapshots, SnapshotPersister persister, SimpleMeterRegistry registry) {
-        return new EngineConfig().writerRouter(new EngineProperties(null, null, null, 16, null), null, null,
-                new CommandPayloadMapper(new ObjectMapper()), null, null, null,
+        return new EngineConfig().writerRouter(new EngineProperties(null, null, null, 16, null, null, null), null, null,
+                new CommandPayloadMapper(new ObjectMapper()),
+                kr.exchange.engine.TestPartitions.unstarted(kr.exchange.engine.PartitionPlan.single()), null, null,
                 new SnapshotProperties(snapshots, 0, null, 0, null, null), persister, registry);
     }
 }

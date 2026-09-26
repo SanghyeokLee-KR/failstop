@@ -1,0 +1,89 @@
+{
+  "judge": "ack-interval",
+  "at": "2026-09-26T03:54:10+09:00",
+  "facts": {
+    "KRW-AVAX": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 131,
+      "window_rows": 35,
+      "baseline_max_gap_s": 0.8012700080871582,
+      "window_max_gap_s": 0.8001370429992676
+    },
+    "KRW-BTC": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 473,
+      "window_rows": 144,
+      "baseline_max_gap_s": 0.7999670505523682,
+      "window_max_gap_s": 0.38735318183898926
+    },
+    "KRW-DOGE": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 135,
+      "window_rows": 31,
+      "baseline_max_gap_s": 0.8008699417114258,
+      "window_max_gap_s": 0.8009400367736816
+    },
+    "KRW-DOT": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 130,
+      "window_rows": 34,
+      "baseline_max_gap_s": 0.8002779483795166,
+      "window_max_gap_s": 0.8002908229827881
+    },
+    "KRW-TRX": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 133,
+      "window_rows": 32,
+      "baseline_max_gap_s": 0.800361156463623,
+      "window_max_gap_s": 0.8014531135559082
+    },
+    "KRW-XRP": {
+      "baseline_from_s": 1790362322.945421,
+      "baseline_rows": 466,
+      "window_rows": 124,
+      "baseline_max_gap_s": 0.5003790855407715,
+      "window_max_gap_s": 0.37245702743530273
+    },
+    "window": {
+      "inject_at": "2026-09-25T18:52:45.9620192Z",
+      "end_at_epoch_s": 1790362375.987,
+      "baseline_from": "2026-09-25T18:52:02.9454211Z"
+    }
+  },
+  "axes": {
+    "KRW-AVAX_window_new_ge_10": true,
+    "KRW-AVAX_baseline_measured": true,
+    "KRW-AVAX_ack_gap_le_baseline_plus_1s": true,
+    "KRW-BTC_window_new_ge_10": true,
+    "KRW-BTC_baseline_measured": true,
+    "KRW-BTC_ack_gap_le_baseline_plus_1s": true,
+    "KRW-DOGE_window_new_ge_10": true,
+    "KRW-DOGE_baseline_measured": true,
+    "KRW-DOGE_ack_gap_le_baseline_plus_1s": true,
+    "KRW-DOT_window_new_ge_10": true,
+    "KRW-DOT_baseline_measured": true,
+    "KRW-DOT_ack_gap_le_baseline_plus_1s": true,
+    "KRW-TRX_window_new_ge_10": true,
+    "KRW-TRX_baseline_measured": true,
+    "KRW-TRX_ack_gap_le_baseline_plus_1s": true,
+    "KRW-XRP_window_new_ge_10": true,
+    "KRW-XRP_baseline_measured": true,
+    "KRW-XRP_ack_gap_le_baseline_plus_1s": true
+  },
+  "positive": [
+    "KRW-AVAX_window_new_ge_10",
+    "KRW-AVAX_baseline_measured",
+    "KRW-BTC_window_new_ge_10",
+    "KRW-BTC_baseline_measured",
+    "KRW-DOGE_window_new_ge_10",
+    "KRW-DOGE_baseline_measured",
+    "KRW-DOT_window_new_ge_10",
+    "KRW-DOT_baseline_measured",
+    "KRW-TRX_window_new_ge_10",
+    "KRW-TRX_baseline_measured",
+    "KRW-XRP_window_new_ge_10",
+    "KRW-XRP_baseline_measured"
+  ],
+  "verdict": "PASS",
+  "failed": []
+}

@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * 판정을 여기 두지 않는 이유는 계측이 판정을 바꾸면 안 되기 때문이다. 모든 메서드가 위임하고
  * 반환값과 예외를 그대로 통과시킨다. 예외도 세되 삼키지 않는다.
+ *
+ * 지표는 모두 partition 태그(리스 자원 이름)를 단다(하네스 CI/CD §5-2). P1·P2 에서는 matching-engine 하나다.
  */
 public final class MeteredLeaderLeaseStore implements LeaderLeaseStore {
 
@@ -26,6 +28,7 @@ public final class MeteredLeaderLeaseStore implements LeaderLeaseStore {
     private final Clock clock;
     private final Counter acquireGranted;
     private final Counter acquireDenied;
+    private final Counter acquireLockTimeouts;
     private final Counter renewOk;
     private final Counter renewRejected;
     private final Counter renewError;
@@ -35,37 +38,48 @@ public final class MeteredLeaderLeaseStore implements LeaderLeaseStore {
     private final AtomicLong token = new AtomicLong();
 
     public MeteredLeaderLeaseStore(LeaderLeaseStore delegate, MeterRegistry registry, Clock clock) {
-        if (delegate == null || registry == null || clock == null) {
-            throw new IllegalArgumentException("delegate·registry·clock은 필수");
+        this(delegate, registry, clock, LeaseResources.MATCHING_ENGINE);
+    }
+
+    public MeteredLeaderLeaseStore(LeaderLeaseStore delegate, MeterRegistry registry, Clock clock,
+                                   String partition) {
+        if (delegate == null || registry == null || clock == null || partition == null) {
+            throw new IllegalArgumentException("delegate·registry·clock·partition은 필수");
         }
         this.delegate = delegate;
         this.clock = clock;
         this.acquireGranted = Counter.builder("exchange.leader.lease.acquire")
                 .description("리스 승격 시도 결과")
-                .tag("outcome", "granted")
+                .tags("outcome", "granted", "partition", partition)
                 .register(registry);
         this.acquireDenied = Counter.builder("exchange.leader.lease.acquire")
                 .description("리스 승격 시도 결과")
-                .tag("outcome", "denied")
+                .tags("outcome", "denied", "partition", partition)
+                .register(registry);
+        this.acquireLockTimeouts = Counter.builder("exchange.leader.lease.acquire.lock_timeouts")
+                .description("리스 획득 트랜잭션이 잠금 대기 상한을 넘겨 끝난 수. 옛 리더의 쓰기가 리스 행을 쥐고 있었다")
+                .tag("partition", partition)
                 .register(registry);
         this.renewOk = Counter.builder("exchange.leader.lease.renew")
                 .description("리스 갱신 결과. rejected는 보관소가 거부한 것이고 error는 왕복 실패다")
-                .tag("outcome", "ok")
+                .tags("outcome", "ok", "partition", partition)
                 .register(registry);
         this.renewRejected = Counter.builder("exchange.leader.lease.renew")
                 .description("리스 갱신 결과. rejected는 보관소가 거부한 것이고 error는 왕복 실패다")
-                .tag("outcome", "rejected")
+                .tags("outcome", "rejected", "partition", partition)
                 .register(registry);
         this.renewError = Counter.builder("exchange.leader.lease.renew")
                 .description("리스 갱신 결과. rejected는 보관소가 거부한 것이고 error는 왕복 실패다")
-                .tag("outcome", "error")
+                .tags("outcome", "error", "partition", partition)
                 .register(registry);
         Gauge.builder("exchange.leader.lease.last_renew_age_seconds", this,
                         MeteredLeaderLeaseStore::lastRenewAgeSeconds)
                 .description("마지막 갱신 성공 이후 경과. 갱신이 멈추면 이 값만 오른다")
+                .tag("partition", partition)
                 .register(registry);
         Gauge.builder("exchange.leader.lease.fencing_token", token, AtomicLong::doubleValue)
                 .description("이 노드가 마지막으로 얻은 fencing 토큰. 승격에서만 오른다")
+                .tag("partition", partition)
                 .register(registry);
     }
 
@@ -77,7 +91,13 @@ public final class MeteredLeaderLeaseStore implements LeaderLeaseStore {
 
     @Override
     public Optional<Long> acquire(String holder, Duration ttl) {
-        Optional<Long> acquired = delegate.acquire(holder, ttl);
+        Optional<Long> acquired;
+        try {
+            acquired = delegate.acquire(holder, ttl);
+        } catch (AcquireLockTimeoutException e) {
+            acquireLockTimeouts.increment();
+            throw e;
+        }
         if (acquired.isPresent()) {
             acquireGranted.increment();
             token.set(acquired.get());

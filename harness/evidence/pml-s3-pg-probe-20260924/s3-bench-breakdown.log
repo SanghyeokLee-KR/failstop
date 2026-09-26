@@ -1,0 +1,38 @@
+container=pml-probe-s3bench2-1977113421 image=postgres:17-alpine port=127.0.0.1:64594
+epoch p1=42 p2=46 avail=5 locked=9
+-- round 1
+p1_append sync=on latency average = 1.113 ms
+p2_append sync=on latency average = 3.172 ms
+reserve sync=on latency average = 2.211 ms
+p2_prologue_rollback sync=on latency average = 1.917 ms
+p1_prologue_rollback sync=on latency average = 0.511 ms
+p1_append sync=off latency average = 0.689 ms
+p2_append sync=off latency average = 2.841 ms
+reserve sync=off latency average = 1.916 ms
+p2_prologue_rollback sync=off latency average = 2.150 ms
+p1_prologue_rollback sync=off latency average = 0.524 ms
+-- round 2
+p1_append sync=on latency average = 1.211 ms
+p2_append sync=on latency average = 3.569 ms
+reserve sync=on latency average = 2.598 ms
+p2_prologue_rollback sync=on latency average = 2.331 ms
+p1_prologue_rollback sync=on latency average = 0.547 ms
+p1_append sync=off latency average = 0.718 ms
+p2_append sync=off latency average = 3.214 ms
+reserve sync=off latency average = 2.202 ms
+p2_prologue_rollback sync=off latency average = 2.493 ms
+p1_prologue_rollback sync=off latency average = 0.526 ms
+-- round 3
+p1_append sync=on latency average = 1.209 ms
+p2_append sync=on latency average = 3.894 ms
+reserve sync=on latency average = 2.862 ms
+p2_prologue_rollback sync=on latency average = 2.657 ms
+p1_prologue_rollback sync=on latency average = 0.529 ms
+p1_append sync=off latency average = 0.716 ms
+p2_append sync=off latency average = 3.574 ms
+reserve sync=off latency average = 1.850 ms
+p2_prologue_rollback sync=off latency average = 3.177 ms
+p1_prologue_rollback sync=off latency average = 0.541 ms
+-- WAL 바이트/트랜잭션(P1 append 대 P2 append, 각 500건)
+p1 wal_bytes_per_tx|889
+p2 wal_bytes_per_tx|2620

@@ -1,0 +1,72 @@
+image postgres:17-alpine sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+image ghcr.io/shopify/toxiproxy:2.12.0 sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e
+app.jar sha256 b64eaa642e3cebe2
+libs HikariCP-6.3.3.jar micrometer-commons-1.15.12.jar postgresql-42.7.11.jar slf4j-api-2.0.18.jar spring-beans-6.2.19.jar spring-context-6.2.19.jar spring-core-6.2.19.jar spring-jcl-6.2.19.jar spring-jdbc-6.2.19.jar spring-tx-6.2.19.jar 
+ports pg=127.0.0.1:(무작위) proxy=127.0.0.1:(무작위) api=127.0.0.1:(무작위)
+openjdk version "21.0.11" 2026-04-21 LTS
+server_version 17.10
+
+== J1 statement_timeout(57014)
+  던진 예외(359 ms): org.springframework.dao.QueryTimeoutException
+  원인 사슬[0] org.springframework.dao.QueryTimeoutException | PreparedStatementCallback; SQL [SELECT pg_sleep(1)::text]; ERROR: canceling statement due to statement timeout
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=57014 | ERROR: canceling statement due to statement timeout
+  J1 뒤 풀 연결: SELECT 1 = 1
+
+== J2 lock_timeout(55P03)
+  던진 예외(317 ms): org.springframework.jdbc.UncategorizedSQLException
+  원인 사슬[0] org.springframework.jdbc.UncategorizedSQLException | PreparedStatementCallback; uncategorized SQLException for SQL [SELECT v FROM probe_t WHERE id = 1 FOR UPDATE];...
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=55P03 | ERROR: canceling statement due to lock timeout   Where: while locking tuple (0,1) in relation "probe_t"
+
+== J3 교착(40P01)
+  던진 예외(1018 ms): org.springframework.dao.PessimisticLockingFailureException
+  원인 사슬[0] org.springframework.dao.PessimisticLockingFailureException | probe; ERROR: deadlock detected   Detail: Process 77 waits for ShareLock on transaction 744; blocked by proces...
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=40P01 | ERROR: deadlock detected   Detail: Process 77 waits for ShareLock on transaction 744; blocked by process 76. P...
+
+== J4 직렬화 실패(40001)
+  던진 예외(15 ms): org.springframework.dao.CannotAcquireLockException
+  원인 사슬[0] org.springframework.dao.CannotAcquireLockException | PreparedStatementCallback; SQL [UPDATE probe_t SET v = v + 1 WHERE id = 3]; ERROR: could not serialize access ...
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=40001 | ERROR: could not serialize access due to concurrent update
+
+== J5 RAISE(P0001)
+  던진 예외(2 ms): org.springframework.jdbc.UncategorizedSQLException
+  원인 사슬[0] org.springframework.jdbc.UncategorizedSQLException | PreparedStatementCallback; uncategorized SQLException for SQL [SELECT raise_fencing()]; SQL state [P0001]; err...
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=P0001 | ERROR: fencing 위반: probe   Where: PL/pgSQL function raise_fencing() line 1 at RAISE
+  J5 뒤 풀 연결: SELECT 1 = 1
+
+== J6 백엔드 종료(57P01) 뒤 같은 트랜잭션
+  던진 예외(311 ms): org.springframework.transaction.TransactionSystemException
+  원인 사슬[0] org.springframework.transaction.TransactionSystemException | JDBC rollback failed
+  원인 사슬[1] java.sql.SQLException sqlstate=null | Connection is closed
+  applicationException[0] org.springframework.dao.DataAccessResourceFailureException | PreparedStatementCallback; SQL [SELECT 1]; FATAL: terminating connection due to administrator command
+  applicationException[1] org.postgresql.util.PSQLException sqlstate=57P01 | FATAL: terminating connection due to administrator command
+  J6 뒤 풀 연결: SELECT 1 = 1
+
+== J7 E2 모양(timeout 0 downstream, 2초 뒤 제거) 뒤 같은 트랜잭션
+  던진 예외(2008 ms): org.springframework.transaction.TransactionSystemException
+  원인 사슬[0] org.springframework.transaction.TransactionSystemException | JDBC rollback failed
+  원인 사슬[1] java.sql.SQLException sqlstate=null | Connection is closed
+  applicationException[0] org.springframework.dao.DataAccessResourceFailureException | PreparedStatementCallback; SQL [SELECT 2]; An I/O error occurred while sending to the backend.
+  applicationException[1] org.postgresql.util.PSQLException sqlstate=08006 | An I/O error occurred while sending to the backend.
+  applicationException[2] java.io.EOFException | 
+  J7 뒤 풀 연결: SELECT 1 = 1
+
+== J8 커밋 응답 유실(E2 모양을 커밋 직전에 걸고 2초 뒤 제거)
+  J8 커밋 여부(관리 연결로 본 probe_commit 행 수) = 1
+  던진 예외(2026 ms): org.springframework.transaction.TransactionSystemException
+  원인 사슬[0] org.springframework.transaction.TransactionSystemException | JDBC rollback failed
+  원인 사슬[1] java.sql.SQLException sqlstate=null | Connection is closed
+  J8 뒤 풀 연결: SELECT 1 = 1
+
+== J9 프록시 끔 뒤 조회(풀 획득)
+  던진 예외(0 ms): org.springframework.dao.DataAccessResourceFailureException
+  원인 사슬[0] org.springframework.dao.DataAccessResourceFailureException | PreparedStatementCallback; SQL [SELECT 1]; An I/O error occurred while sending to the backend.
+  원인 사슬[1] org.postgresql.util.PSQLException sqlstate=08006 | An I/O error occurred while sending to the backend.
+  원인 사슬[2] java.io.EOFException | 
+
+== J9 프록시 끔 뒤 트랜잭션 시작
+  던진 예외(1505 ms): org.springframework.transaction.CannotCreateTransactionException
+  원인 사슬[0] org.springframework.transaction.CannotCreateTransactionException | Could not open JDBC Connection for transaction
+  원인 사슬[1] java.sql.SQLTransientConnectionException sqlstate=08001 | probe - Connection is not available, request timed out after 1502ms (total=0, active=0, idle=0, waiting=0)
+  원인 사슬[2] org.postgresql.util.PSQLException sqlstate=08001 | The connection attempt failed.
+  원인 사슬[3] java.io.EOFException | 
+  J9 복구 뒤 풀 연결: SELECT 1 = 1

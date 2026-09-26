@@ -29,7 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from load_ceiling import q, admin_call  # noqa: E402
 
 IMAGE = 'grafana/k6:1.4.0'
-NET = 'exchange-chaos_chaos-net'
+# compose 가 프로젝트 접두를 붙인 망 이름이다. 폐기용 스택은 CHAOS_PROJECT 로 다른 프로젝트를 쓴다(harness/scripts/lib.ps1 과 같은 규칙).
+NET = (os.environ.get('CHAOS_PROJECT') or 'exchange-chaos') + '_chaos-net'
 
 # 부하를 흩는 마켓 목록의 기본값.
 #

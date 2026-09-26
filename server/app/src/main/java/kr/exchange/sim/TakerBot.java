@@ -336,7 +336,7 @@ public class TakerBot implements Runnable {
         String body = "{\"market\":\"" + props.market() + "\",\"side\":\"" + side
                 + "\",\"ord_type\":\"limit\",\"price\":\"" + price + "\",\"volume\":\""
                 + qty.toPlainString() + "\",\"client_order_id\":\"" + coid() + "\"}";
-        report(client.placeOrder(body));
+        report(client.placeOrder(props.market(), body));
     }
 
     private void submitMarketSell(BigDecimal qty) {
@@ -346,7 +346,7 @@ public class TakerBot implements Runnable {
         String body = "{\"market\":\"" + props.market()
                 + "\",\"side\":\"ask\",\"ord_type\":\"market\",\"volume\":\"" + qty.toPlainString()
                 + "\",\"client_order_id\":\"" + coid() + "\"}";
-        report(client.placeOrder(body));
+        report(client.placeOrder(props.market(), body));
     }
 
     /**

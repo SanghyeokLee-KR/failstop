@@ -1,0 +1,16 @@
+2026-09-25T05:43:45+09:00 [B1] PHASE B1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T05:43:45+09:00 [B1] volumes before unchanged
+2026-09-25T05:44:29+09:00 [B1] up --profile obs rc=0 (B1)
+2026-09-25T05:44:29+09:00 [B1] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0456\B1-r2\protocol.json
+2026-09-25T05:44:56+09:00 [B1] RC 0
+2026-09-25T05:45:06+09:00 [B1] B1 bots target_ops=300, warmup 120s
+2026-09-25T05:47:07+09:00 [B1] B1 round 1 reset_peer pg-api1 (chaos-api-1) 2026-09-24T20:47:06.9611940+00:00 -> 2026-09-24T20:47:07.1256914+00:00
+2026-09-25T05:48:08+09:00 [B1] B1 round 2 reset_peer pg-api1 (chaos-api-1) 2026-09-24T20:48:07.9349792+00:00 -> 2026-09-24T20:48:08.0508590+00:00
+2026-09-25T05:49:08+09:00 [B1] B1 round 3 reset_peer pg-api1 (chaos-api-1) 2026-09-24T20:49:08.8448411+00:00 -> 2026-09-24T20:49:08.9677807+00:00
+2026-09-25T05:50:09+09:00 [B1] RUN python harness/scale/s3_common_axes.py orders500 --window-from 2026-09-24T20:43:50.8684185+00:00 --out C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0456\B1-r2\orders500.json
+2026-09-25T05:50:10+09:00 [B1] RC 0
+2026-09-25T05:50:29+09:00 [B1] AUTHORITATIVE B1-post ok=True notOk=[] 
+2026-09-25T05:50:36+09:00 [B1] SUMMARY summary-B1 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T05:50:42+09:00 [B1] B1 verdict=N/A measured=2/3 fails=[leader_epoch_unchanged]
+2026-09-25T05:50:47+09:00 [B1] down -v (exchange-pml) rc=0 after B1
+2026-09-25T05:50:48+09:00 [B1] volumes after unchanged

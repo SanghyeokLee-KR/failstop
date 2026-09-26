@@ -1,0 +1,427 @@
+BEGIN
+SET
+Aggregate  (cost=9910118.65..9910118.66 rows=1 width=8) (actual time=7983.722..7998.859 rows=1 loops=1)
+  Buffers: shared hit=11946815 read=182846, temp read=7415 written=7496
+  ->  Append  (cost=0.00..9906681.31 rows=1374939 width=0) (actual time=7983.695..7998.832 rows=0 loops=1)
+        Buffers: shared hit=11946815 read=182846, temp read=7415 written=7496
+        ->  Subquery Scan on "*SELECT* 1"  (cost=0.00..9630991.12 rows=874912 width=0) (actual time=5486.856..5486.896 rows=0 loops=1)
+              Buffers: shared hit=11946447 read=70795
+              ->  Seq Scan on order_reservations r  (cost=0.00..9622242.00 rows=874912 width=40) (actual time=5486.856..5486.895 rows=0 loops=1)
+                    Filter: ((created_at >= (now() - '90 days'::interval)) AND ((NOT EXISTS(SubPlan 1)) OR (NOT EXISTS(SubPlan 2)) OR (NOT EXISTS(SubPlan 3))))
+                    Rows Removed by Filter: 1000000
+                    Buffers: shared hit=11946447 read=70795
+                    SubPlan 1
+                      ->  Index Scan using uq_ledger_business_event on ledger_transactions t  (cost=0.42..8.45 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Index Cond: (((business_event_type)::text = 'RESERVE'::text) AND (business_event_id = r.order_id))
+                            Filter: ((id = r.ledger_txn_id) AND ((status)::text = 'SEALED'::text))
+                            Buffers: shared hit=3986802 read=13198
+                    SubPlan 2
+                      ->  Append  (cost=0.00..8.53 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Buffers: shared hit=3979824 read=20176
+                            ->  Seq Scan on ledger_entries_p2026_07 e_1  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_08 e_2  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_3  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                                  Index Cond: ((account_id = r.locked_account_id) AND (created_at = r.created_at))
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                                  Buffers: shared hit=3979824 read=20176
+                            ->  Seq Scan on ledger_entries_p2026_10 e_4  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_11 e_5  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_12 e_6  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_01 e_7  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_02 e_8  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_03 e_9  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_04 e_10  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_05 e_11  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_06 e_12  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_07 e_13  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_08 e_14  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_default e_15  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                    SubPlan 3
+                      ->  Append  (cost=0.00..8.53 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Buffers: shared hit=3979821 read=20179
+                            ->  Seq Scan on ledger_entries_p2026_07 e_17  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_08 e_18  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_19  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                                  Index Cond: ((account_id = r.available_account_id) AND (created_at = r.created_at))
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                                  Buffers: shared hit=3979821 read=20179
+                            ->  Seq Scan on ledger_entries_p2026_10 e_20  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_11 e_21  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_12 e_22  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_01 e_23  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_02 e_24  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_03 e_25  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_04 e_26  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_05 e_27  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_06 e_28  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_07 e_29  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_08 e_30  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_default e_31  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+        ->  Subquery Scan on "*SELECT* 2"  (cost=27983.57..86016.37 rows=27 width=0) (actual time=438.486..453.574 rows=0 loops=1)
+              Buffers: shared hit=2 read=46213, temp read=7415 written=7496
+              ->  Gather  (cost=27983.57..86016.10 rows=27 width=40) (actual time=438.485..453.573 rows=0 loops=1)
+                    Workers Planned: 2
+                    Workers Launched: 2
+                    Buffers: shared hit=2 read=46213, temp read=7415 written=7496
+                    ->  Nested Loop  (cost=26983.57..85013.40 rows=11 width=40) (actual time=420.086..420.268 rows=0 loops=3)
+                          Buffers: shared hit=2 read=46213, temp read=7415 written=7496
+                          ->  Parallel Hash Anti Join  (cost=26983.43..85012.86 rows=11 width=8) (actual time=420.085..420.266 rows=0 loops=3)
+                                Hash Cond: (c.seq = r_1.command_seq)
+                                Buffers: shared hit=2 read=46213, temp read=7415 written=7496
+                                ->  Parallel Append  (cost=0.00..50768.76 rows=416687 width=16) (actual time=0.101..58.888 rows=333333 loops=3)
+                                      Buffers: shared read=43477
+                                      ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=16) (actual time=0.022..0.022 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=16) (actual time=0.022..0.022 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=16) (actual time=0.007..0.007 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..0.00 rows=1 width=16) (actual time=0.007..0.007 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..0.00 rows=1 width=16) (actual time=0.009..0.009 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..0.00 rows=1 width=16) (actual time=0.004..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..0.00 rows=1 width=16) (actual time=0.033..0.033 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..0.00 rows=1 width=16) (actual time=0.007..0.007 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_default c_16  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..48685.40 rows=416672 width=16) (actual time=0.049..44.752 rows=333333 loops=3)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                            Buffers: shared read=43477
+                                ->  Parallel Hash  (cost=20147.09..20147.09 rows=416667 width=8) (actual time=272.286..272.286 rows=333333 loops=3)
+                                      Buckets: 262144  Batches: 8  Memory Usage: 7008kB
+                                      Buffers: shared hit=2 read=2736, temp written=3060
+                                      ->  Parallel Index Only Scan using order_reservations_pkey on order_reservations r_1  (cost=0.42..20147.09 rows=416667 width=8) (actual time=0.027..18.223 rows=333333 loops=3)
+                                            Heap Fetches: 0
+                                            Buffers: shared hit=2 read=2736
+                          ->  Memoize  (cost=0.14..0.16 rows=1 width=8) (never executed)
+                                Cache Key: c.fencing_token
+                                Cache Mode: logical
+                                ->  Index Scan using lease_acquisitions_pkey on lease_acquisitions a  (cost=0.13..0.15 rows=1 width=8) (never executed)
+                                      Index Cond: (epoch = c.fencing_token)
+                                      Filter: (protocol >= 2)
+        ->  Subquery Scan on "*SELECT* 3"  (cost=13.00..182799.12 rows=500000 width=0) (actual time=2058.350..2058.357 rows=0 loops=1)
+              Buffers: shared hit=366 read=65838
+              ->  Merge Anti Join  (cost=13.00..177799.12 rows=500000 width=40) (actual time=2058.349..2058.355 rows=0 loops=1)
+                    Merge Cond: (r_2.command_seq = c_17.seq)
+                    Join Filter: ((c_17.assigned_order_id = r_2.order_id) AND (c_17.user_id = r_2.user_id) AND (c_17.market_id = r_2.market_id) AND (sha256(convert_to((c_17.payload)::text, 'UTF8'::name)) = r_2.payload_sha256))
+                    Buffers: shared hit=366 read=65838
+                    ->  Index Scan using order_reservations_pkey on order_reservations r_2  (cost=0.42..43225.43 rows=1000000 width=59) (actual time=0.075..149.730 rows=1000000 loops=1)
+                          Buffers: shared hit=366 read=19611
+                    ->  Materialize  (cost=2.62..99583.84 rows=1000027 width=257) (actual time=0.480..453.103 rows=1000000 loops=1)
+                          Buffers: shared read=46227
+                          ->  Merge Append  (cost=2.62..97083.77 rows=1000027 width=257) (actual time=0.477..286.935 rows=1000000 loops=1)
+                                Sort Key: c_17.seq
+                                Buffers: shared read=46227
+                                ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_18  (cost=0.42..71960.63 rows=1000012 width=257) (actual time=0.062..235.524 rows=1000000 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=46212
+                                ->  Index Scan using command_journal_p100000000_pkey on command_journal_p100000000 c_19  (cost=0.12..8.14 rows=1 width=58) (actual time=0.017..0.017 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_p200000000_pkey on command_journal_p200000000 c_20  (cost=0.12..8.14 rows=1 width=58) (actual time=0.056..0.057 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b1_pkey on command_journal_b1 c_21  (cost=0.12..8.14 rows=1 width=58) (actual time=0.035..0.035 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b2_pkey on command_journal_b2 c_22  (cost=0.12..8.14 rows=1 width=58) (actual time=0.041..0.041 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b3_pkey on command_journal_b3 c_23  (cost=0.12..8.14 rows=1 width=58) (actual time=0.020..0.020 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b4_pkey on command_journal_b4 c_24  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b5_pkey on command_journal_b5 c_25  (cost=0.12..8.14 rows=1 width=58) (actual time=0.028..0.028 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b6_pkey on command_journal_b6 c_26  (cost=0.12..8.14 rows=1 width=58) (actual time=0.017..0.017 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b7_pkey on command_journal_b7 c_27  (cost=0.12..8.14 rows=1 width=58) (actual time=0.062..0.062 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b8_pkey on command_journal_b8 c_28  (cost=0.12..8.14 rows=1 width=58) (actual time=0.015..0.015 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b9_pkey on command_journal_b9 c_29  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b10_pkey on command_journal_b10 c_30  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b11_pkey on command_journal_b11 c_31  (cost=0.12..8.14 rows=1 width=58) (actual time=0.011..0.011 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b12_pkey on command_journal_b12 c_32  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_default_pkey on command_journal_default c_33  (cost=0.12..8.14 rows=1 width=58) (actual time=0.044..0.044 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+Planning:
+  Buffers: shared hit=3325 read=252
+Planning Time: 20.158 ms
+JIT:
+  Functions: 451
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 22.104 ms (Deform 11.437 ms), Inlining 110.970 ms, Optimization 690.927 ms, Emission 627.038 ms, Total 1451.039 ms
+Execution Time: 8024.491 ms
+Aggregate  (cost=9910118.65..9910118.66 rows=1 width=8) (actual time=8326.099..8340.108 rows=1 loops=1)
+  Buffers: shared hit=11946823 read=182838, temp read=7417 written=7504
+  ->  Append  (cost=0.00..9906681.31 rows=1374939 width=0) (actual time=8326.071..8340.080 rows=0 loops=1)
+        Buffers: shared hit=11946823 read=182838, temp read=7417 written=7504
+        ->  Subquery Scan on "*SELECT* 1"  (cost=0.00..9630991.12 rows=874912 width=0) (actual time=6074.271..6074.278 rows=0 loops=1)
+              Buffers: shared hit=11946447 read=70795
+              ->  Seq Scan on order_reservations r  (cost=0.00..9622242.00 rows=874912 width=40) (actual time=6074.270..6074.276 rows=0 loops=1)
+                    Filter: ((created_at >= (now() - '90 days'::interval)) AND ((NOT EXISTS(SubPlan 1)) OR (NOT EXISTS(SubPlan 2)) OR (NOT EXISTS(SubPlan 3))))
+                    Rows Removed by Filter: 1000000
+                    Buffers: shared hit=11946447 read=70795
+                    SubPlan 1
+                      ->  Index Scan using uq_ledger_business_event on ledger_transactions t  (cost=0.42..8.45 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Index Cond: (((business_event_type)::text = 'RESERVE'::text) AND (business_event_id = r.order_id))
+                            Filter: ((id = r.ledger_txn_id) AND ((status)::text = 'SEALED'::text))
+                            Buffers: shared hit=3986802 read=13198
+                    SubPlan 2
+                      ->  Append  (cost=0.00..8.53 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Buffers: shared hit=3979824 read=20176
+                            ->  Seq Scan on ledger_entries_p2026_07 e_1  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_08 e_2  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_3  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                                  Index Cond: ((account_id = r.locked_account_id) AND (created_at = r.created_at))
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                                  Buffers: shared hit=3979824 read=20176
+                            ->  Seq Scan on ledger_entries_p2026_10 e_4  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_11 e_5  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2026_12 e_6  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_01 e_7  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_02 e_8  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_03 e_9  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_04 e_10  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_05 e_11  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_06 e_12  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_07 e_13  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_p2027_08 e_14  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                            ->  Seq Scan on ledger_entries_default e_15  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.locked_account_id) AND (asset_id = r.asset_id) AND (amount = r.amount))
+                    SubPlan 3
+                      ->  Append  (cost=0.00..8.53 rows=15 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                            Buffers: shared hit=3979821 read=20179
+                            ->  Seq Scan on ledger_entries_p2026_07 e_17  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_08 e_18  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Index Scan using ledger_entries_p2026_09_account_id_created_at_amount_asset__idx on ledger_entries_p2026_09 e_19  (cost=0.43..8.46 rows=1 width=0) (actual time=0.001..0.001 rows=1 loops=1000000)
+                                  Index Cond: ((account_id = r.available_account_id) AND (created_at = r.created_at))
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                                  Buffers: shared hit=3979821 read=20179
+                            ->  Seq Scan on ledger_entries_p2026_10 e_20  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_11 e_21  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2026_12 e_22  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_01 e_23  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_02 e_24  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_03 e_25  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_04 e_26  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_05 e_27  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_06 e_28  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_07 e_29  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_p2027_08 e_30  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+                            ->  Seq Scan on ledger_entries_default e_31  (cost=0.00..0.00 rows=1 width=0) (never executed)
+                                  Filter: ((transaction_id = r.ledger_txn_id) AND (created_at = r.created_at) AND (account_id = r.available_account_id) AND (asset_id = r.asset_id) AND (amount = (- r.amount)))
+        ->  Subquery Scan on "*SELECT* 2"  (cost=27983.57..86016.37 rows=27 width=0) (actual time=407.055..421.049 rows=0 loops=1)
+              Buffers: shared hit=2 read=46213, temp read=7417 written=7504
+              ->  Gather  (cost=27983.57..86016.10 rows=27 width=40) (actual time=407.054..421.047 rows=0 loops=1)
+                    Workers Planned: 2
+                    Workers Launched: 2
+                    Buffers: shared hit=2 read=46213, temp read=7417 written=7504
+                    ->  Nested Loop  (cost=26983.57..85013.40 rows=11 width=40) (actual time=389.340..389.544 rows=0 loops=3)
+                          Buffers: shared hit=2 read=46213, temp read=7417 written=7504
+                          ->  Parallel Hash Anti Join  (cost=26983.43..85012.86 rows=11 width=8) (actual time=389.339..389.542 rows=0 loops=3)
+                                Hash Cond: (c.seq = r_1.command_seq)
+                                Buffers: shared hit=2 read=46213, temp read=7417 written=7504
+                                ->  Parallel Append  (cost=0.00..50768.76 rows=416687 width=16) (actual time=0.085..43.872 rows=333333 loops=3)
+                                      Buffers: shared read=43477
+                                      ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..0.00 rows=1 width=16) (actual time=0.021..0.022 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..0.00 rows=1 width=16) (actual time=0.022..0.022 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..0.00 rows=1 width=16) (actual time=0.007..0.007 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.007 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..0.00 rows=1 width=16) (actual time=0.008..0.008 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..0.00 rows=1 width=16) (actual time=0.006..0.006 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..0.00 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..0.00 rows=1 width=16) (actual time=0.013..0.013 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Seq Scan on command_journal_default c_16  (cost=0.00..0.00 rows=1 width=16) (actual time=0.007..0.008 rows=0 loops=1)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                      ->  Parallel Seq Scan on command_journal_p0 c_1  (cost=0.00..48685.40 rows=416672 width=16) (actual time=0.040..30.436 rows=333333 loops=3)
+                                            Filter: ((command_type)::text = 'NEW'::text)
+                                            Buffers: shared read=43477
+                                ->  Parallel Hash  (cost=20147.09..20147.09 rows=416667 width=8) (actual time=262.746..262.746 rows=333333 loops=3)
+                                      Buckets: 262144  Batches: 8  Memory Usage: 7008kB
+                                      Buffers: shared hit=2 read=2736, temp written=3060
+                                      ->  Parallel Index Only Scan using order_reservations_pkey on order_reservations r_1  (cost=0.42..20147.09 rows=416667 width=8) (actual time=0.036..16.786 rows=333333 loops=3)
+                                            Heap Fetches: 0
+                                            Buffers: shared hit=2 read=2736
+                          ->  Memoize  (cost=0.14..0.16 rows=1 width=8) (never executed)
+                                Cache Key: c.fencing_token
+                                Cache Mode: logical
+                                ->  Index Scan using lease_acquisitions_pkey on lease_acquisitions a  (cost=0.13..0.15 rows=1 width=8) (never executed)
+                                      Index Cond: (epoch = c.fencing_token)
+                                      Filter: (protocol >= 2)
+        ->  Subquery Scan on "*SELECT* 3"  (cost=13.00..182799.12 rows=500000 width=0) (actual time=1844.742..1844.748 rows=0 loops=1)
+              Buffers: shared hit=374 read=65830
+              ->  Merge Anti Join  (cost=13.00..177799.12 rows=500000 width=40) (actual time=1844.741..1844.747 rows=0 loops=1)
+                    Merge Cond: (r_2.command_seq = c_17.seq)
+                    Join Filter: ((c_17.assigned_order_id = r_2.order_id) AND (c_17.user_id = r_2.user_id) AND (c_17.market_id = r_2.market_id) AND (sha256(convert_to((c_17.payload)::text, 'UTF8'::name)) = r_2.payload_sha256))
+                    Buffers: shared hit=374 read=65830
+                    ->  Index Scan using order_reservations_pkey on order_reservations r_2  (cost=0.42..43225.43 rows=1000000 width=59) (actual time=0.041..123.313 rows=1000000 loops=1)
+                          Buffers: shared hit=374 read=19603
+                    ->  Materialize  (cost=2.62..99583.84 rows=1000027 width=257) (actual time=0.497..404.597 rows=1000000 loops=1)
+                          Buffers: shared read=46227
+                          ->  Merge Append  (cost=2.62..97083.77 rows=1000027 width=257) (actual time=0.492..250.035 rows=1000000 loops=1)
+                                Sort Key: c_17.seq
+                                Buffers: shared read=46227
+                                ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_18  (cost=0.42..71960.63 rows=1000012 width=257) (actual time=0.036..205.989 rows=1000000 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=46212
+                                ->  Index Scan using command_journal_p100000000_pkey on command_journal_p100000000 c_19  (cost=0.12..8.14 rows=1 width=58) (actual time=0.020..0.020 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_p200000000_pkey on command_journal_p200000000 c_20  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b1_pkey on command_journal_b1 c_21  (cost=0.12..8.14 rows=1 width=58) (actual time=0.130..0.130 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b2_pkey on command_journal_b2 c_22  (cost=0.12..8.14 rows=1 width=58) (actual time=0.013..0.013 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b3_pkey on command_journal_b3 c_23  (cost=0.12..8.14 rows=1 width=58) (actual time=0.011..0.011 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b4_pkey on command_journal_b4 c_24  (cost=0.12..8.14 rows=1 width=58) (actual time=0.011..0.011 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b5_pkey on command_journal_b5 c_25  (cost=0.12..8.14 rows=1 width=58) (actual time=0.014..0.014 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b6_pkey on command_journal_b6 c_26  (cost=0.12..8.14 rows=1 width=58) (actual time=0.090..0.090 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b7_pkey on command_journal_b7 c_27  (cost=0.12..8.14 rows=1 width=58) (actual time=0.013..0.013 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b8_pkey on command_journal_b8 c_28  (cost=0.12..8.14 rows=1 width=58) (actual time=0.011..0.011 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b9_pkey on command_journal_b9 c_29  (cost=0.12..8.14 rows=1 width=58) (actual time=0.013..0.013 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b10_pkey on command_journal_b10 c_30  (cost=0.12..8.14 rows=1 width=58) (actual time=0.010..0.011 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b11_pkey on command_journal_b11 c_31  (cost=0.12..8.14 rows=1 width=58) (actual time=0.077..0.077 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_b12_pkey on command_journal_b12 c_32  (cost=0.12..8.14 rows=1 width=58) (actual time=0.014..0.015 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+                                ->  Index Scan using command_journal_default_pkey on command_journal_default c_33  (cost=0.12..8.14 rows=1 width=58) (actual time=0.012..0.012 rows=0 loops=1)
+                                      Filter: ((command_type)::text = 'NEW'::text)
+                                      Buffers: shared read=1
+Planning:
+  Buffers: shared hit=185 read=93
+Planning Time: 3.491 ms
+JIT:
+  Functions: 451
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 24.609 ms (Deform 11.936 ms), Inlining 92.440 ms, Optimization 765.140 ms, Emission 738.173 ms, Total 1620.362 ms
+Execution Time: 8357.386 ms
+COMMIT

@@ -1,0 +1,12 @@
+2026-09-24T05:18:37+09:00 PHASE AB project=exchange-pml repo=C:\dev\exchange-pml
+2026-09-24T05:18:37+09:00 PROBE B2 image=exchange-chaos-app:pml rate=600
+2026-09-24T05:24:41+09:00 PROBE B2 rc=0
+2026-09-24T05:24:45+09:00 docker stop chaos-bots rc=0
+2026-09-24T05:24:48+09:00 drain=True
+2026-09-24T05:24:53+09:00 SUMMARY summary-B2 rc=0 checks=31 fail=[] skip=[] C29=PASS
+2026-09-24T05:24:54+09:00 PROBE A3 image=exchange-chaos-app:mainref rate=600
+2026-09-24T05:30:47+09:00 PROBE A3 rc=0
+2026-09-24T05:30:50+09:00 docker stop chaos-bots rc=0
+2026-09-24T05:30:53+09:00 drain=True
+2026-09-24T05:30:58+09:00 SUMMARY summary-A3 rc=0 checks=31 fail=[] skip=[C29] C29=SKIP
+2026-09-24T05:30:58+09:00 AB done. B 칸의 스택은 되돌림 주행을 위해 남긴다

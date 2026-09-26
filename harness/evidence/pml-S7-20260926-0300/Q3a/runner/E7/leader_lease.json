@@ -1,0 +1,3 @@
+[{"resource":"matching-p1","holder":"00d2f8eb-007c-4bd7-9c1e-d694a17badb2","epoch":10,"lease_until":"2026-09-25T18:34:30.407153+00:00"}, 
+ {"resource":"matching-p0","holder":"00d2f8eb-007c-4bd7-9c1e-d694a17badb2","epoch":8,"lease_until":"2026-09-25T18:34:30.4148+00:00"}, 
+ {"resource":"matching-engine","holder":"","epoch":7,"lease_until":"2026-09-25T18:31:57.242678+00:00"}]

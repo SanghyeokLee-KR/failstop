@@ -1,0 +1,97 @@
+{
+  "urls": [
+    "ws://chaos-api-1:8080/ws/v1",
+    "ws://chaos-api-2:8080/ws/v1",
+    "ws://chaos-lb:8080/ws/v1"
+  ],
+  "markets": [
+    "KRW-BTC",
+    "KRW-ETH",
+    "KRW-XRP"
+  ],
+  "durationSec": 1200,
+  "metrics": {
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 4633,
+        "rate": 36.17543282278415
+      }
+    },
+    "ws_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 8.482019600000001,
+        "min": 1.143537,
+        "med": 12.586908,
+        "max": 13.744201,
+        "p(90)": 13.707337800000001,
+        "p(95)": 13.7257694
+      }
+    },
+    "ws_msgs_sent": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 125,
+        "rate": 0.9760261391858448
+      }
+    },
+    "ws_msgs_received": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "rate": 92.46481232191019,
+        "count": 11842
+      }
+    },
+    "vus_max": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "max": 3,
+        "value": 3,
+        "min": 3
+      }
+    },
+    "data_received": {
+      "contains": "data",
+      "values": {
+        "count": 7186692,
+        "rate": 56115.193970222375
+      },
+      "type": "counter"
+    },
+    "ws_session_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 85929.36670099999,
+        "min": 85927.361366,
+        "med": 85929.36670099999,
+        "max": 85931.372036,
+        "p(90)": 85930.970969,
+        "p(95)": 85931.1715025
+      }
+    },
+    "ws_sessions": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 5,
+        "rate": 0.03904104556743379
+      }
+    },
+    "vus": {
+      "values": {
+        "min": 3,
+        "max": 3,
+        "value": 3
+      },
+      "type": "gauge",
+      "contains": "default"
+    }
+  }
+}

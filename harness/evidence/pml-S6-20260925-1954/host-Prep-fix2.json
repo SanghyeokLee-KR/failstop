@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-25T13:35:59.4672036Z",
+  "cpuTotalPct": [
+    36.9,
+    16.5,
+    23.1,
+    18.7,
+    3.8
+  ],
+  "cpuAvg": 19.8,
+  "logicalCores": 16,
+  "otherContainers": 13,
+  "patroniContainers": 13
+}

@@ -1,0 +1,16 @@
+{
+  "judge": "partition-rto",
+  "at": "2026-09-26T05:07:23+09:00",
+  "facts": {
+    "rto_s": 11.927,
+    "resource": "matching-p0",
+    "old_epoch": 9,
+    "inject_at": "2026-09-25T20:05:57.3557711Z"
+  },
+  "axes": {
+    "rto_lt_30s": true
+  },
+  "positive": [],
+  "verdict": "PASS",
+  "failed": []
+}

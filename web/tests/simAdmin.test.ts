@@ -40,3 +40,18 @@ test("세션 없이는 종합을 읽지 못한다", async () => {
   // 목은 권한 검사를 동기로 던진다. async로 감싸 거절로 받는다
   await assert.rejects(async () => api.getOverview());
 });
+
+test("HA 상태의 리스 표는 목의 단일 리더(matching-engine) 한 행이다", async () => {
+  const api = new SimAdminApi();
+  await api.establishSession("op-01");
+  const ha = await api.getHaStatus();
+  assert.equal(ha.leases?.length, 1);
+  const lease = ha.leases![0];
+  assert.equal(lease.resource, "matching-engine");
+  assert.equal(lease.holder, ha.leaderNodeId);
+  assert.equal(lease.epoch, ha.epoch);
+  assert.ok(lease.markets.length > 0, "리더가 덮는 마켓이 비었다");
+  // 목은 리스 만료 시각을 추적하지 않는다. 지어내지 않는다
+  assert.equal(lease.leaseRemainingMs, null);
+  assert.equal(lease.leaseUntil, null);
+});

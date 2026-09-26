@@ -79,6 +79,24 @@ public class MarketDirectory implements AutoCloseable {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 주어진 마켓으로 스냅샷을 세운 카탈로그. DB 를 읽지 않고 갱신 스레드도 시작하지 않는다. DB 없이 선검사를 보는 시험
+     * (MarketRoutingFilterTest)이 쓴다. 미스 재적재는 jdbc 를 부르므로 시험은 모의 JdbcClient 로 DB 접근이 없었음을 본다.
+     */
+    public static MarketDirectory ofSnapshot(JdbcClient jdbc, List<Market> markets) {
+        MarketDirectory directory = new MarketDirectory(jdbc);
+        Map<String, Market> byName = new HashMap<>();
+        Map<Integer, Market> byKey = new HashMap<>();
+        for (Market m : markets) {
+            byName.put(m.symbol(), m);
+            byKey.put(m.id(), m);
+        }
+        directory.snapshot = new Snapshot(List.copyOf(markets), Map.copyOf(byName), Map.copyOf(byKey),
+                System.currentTimeMillis());
+        directory.lastSuccessAt = directory.snapshot.loadedAt();
+        return directory;
+    }
+
     /** 최초 적재와 주기 갱신 시작. 최초 적재는 기동을 막아야 하므로 예외를 그대로 올린다. */
     public void start() {
         if (refresher != null) {
@@ -136,6 +154,22 @@ public class MarketDirectory implements AutoCloseable {
             throw new ApiException(400, "invalid_parameter", "존재하지 않는 마켓입니다: " + symbol);
         }
         return m;
+    }
+
+    /**
+     * 소유권 선검사 전용(API 설계 §2-5-d, S5 설계 4-1). 스냅샷만 읽고 미스에 다시 적재하지 않는다. 없는 심볼이나 적재 전이면
+     * null 이다.
+     *
+     * 선검사는 인증 전이라 미인증 요청이 없는 심볼을 보내도 DB 조회가 일어나면 안 된다. bySymbol 의 미스 재적재는 빈도 상한이
+     * 있어도 인증 전 요청을 DB 로 잇는다. 기동 뒤 생긴 마켓은 다음 주기 갱신(1초)까지 모르는 마켓으로 보이고, 선검사는 그
+     * 요청을 뒤 단계로 넘긴다.
+     */
+    public Market cachedBySymbol(String symbol) {
+        Snapshot s = snapshot;
+        if (s == null || symbol == null) {
+            return null;
+        }
+        return s.bySymbol().get(symbol);
     }
 
     /**

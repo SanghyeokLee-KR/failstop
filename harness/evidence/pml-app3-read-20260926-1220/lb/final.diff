@@ -1,0 +1,18 @@
+warning: in the working copy of 'C:\dev\exchange-pml\harness\evidence\pml-app3-read-20260926-1220\lb\nginx.partition-relay.conf', CRLF will be replaced by LF the next time Git touches it
+ ...idence\\pml-app3-read-20260926-1220\\lb\\nginx.partition-relay.conf" | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+warning: in the working copy of 'C:\dev\exchange-pml\harness\evidence\pml-app3-read-20260926-1220\lb\nginx.partition-relay.conf', CRLF will be replaced by LF the next time Git touches it
+diff --git "a/C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf" "b/C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\lb\\nginx.partition-relay.conf"
+index ebd888c3..b1d19793 100644
+--- "a/C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf"
++++ "b/C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\lb\\nginx.partition-relay.conf"
+@@ -51,7 +51,7 @@ http {
+         server chaos-api-2:8080 resolve max_fails=1 fail_timeout=2s;
+         # 조절기가 토글하는 줄. down은 반드시 세미콜론 직전 마지막 토큰이어야 한다.
+         # asg_controller.Balancer.set_down의 정규식이 그 위치에서만 잡는다.
+-        server chaos-api-3:8080 resolve max_fails=1 fail_timeout=2s down;
++        server chaos-api-3:8080 resolve max_fails=1 fail_timeout=2s;
+     }
+ 
+     # 호가·티커 REST(중계 오버레이 전용). 중계 모드에서는 그 마켓을 쥐지 않은 노드가 중계 미러로 답하므로(API§4-A-2) 쓰기

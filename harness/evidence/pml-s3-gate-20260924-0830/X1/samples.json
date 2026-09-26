@@ -1,0 +1,762 @@
+[
+  {
+    "at": "2026-09-24T00:40:37.3388121Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:40:37.498Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:40:52.6514885Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:40:52.786Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:41:07.9283396Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:41:08.068Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:41:23.2094182Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:41:23.35Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:41:38.4469276Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:41:38.57Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:41:53.6953430Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:41:53.821Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:42:08.9506807Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:42:09.083Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:42:24.2134984Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:42:24.327Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:42:39.4606307Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:42:39.589Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:42:54.7348524Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:42:54.865Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:43:10.0092835Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:43:10.127Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:43:25.2611033Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:43:25.38Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:43:40.4967166Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:43:40.619Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:43:55.7426676Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:43:55.883Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:44:11.0251938Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:44:11.151Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:44:26.2745785Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:44:26.399Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:44:41.5435114Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:44:41.672Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:44:56.8088487Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:44:56.9Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:45:12.0265623Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:45:12.155Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:45:27.2988382Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:45:27.43Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:45:42.5392592Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:45:42.659Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:45:57.8086174Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:45:57.945Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:46:13.0804791Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:46:13.195Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:46:28.2985370Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:46:28.428Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:46:43.5573905Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:46:43.684Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:46:58.8319606Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:46:58.951Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:47:14.0614839Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:47:14.169Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:47:29.2819354Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:47:29.398Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:47:44.5376394Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:47:44.661Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:47:59.7833482Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:47:59.896Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:48:15.0246619Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:48:15.163Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:48:30.3044740Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:48:30.428Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:48:45.5382268Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:48:45.662Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:49:00.8070220Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:49:00.913Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:49:16.0393646Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:49:16.157Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:49:31.3031985Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:49:31.413Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:49:46.5298716Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 2.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:49:46.638Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:50:01.7670276Z",
+    "gauge_18080": {
+      "count": 1.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:50:01.895Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:50:17.0181050Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:50:17.138Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  },
+  {
+    "at": "2026-09-24T00:50:32.2563161Z",
+    "gauge_18080": {
+      "count": 0.0,
+      "oldest": 0.0
+    },
+    "gauge_28080": {
+      "count": 2.0,
+      "oldest": 0.0
+    },
+    "balance": {
+      "ts": "2026-09-24T00:50:32.374Z",
+      "lock_waiters": 0,
+      "by_event": {},
+      "balance_row_waiters": {}
+    },
+    "lease_epoch": 6,
+    "lease_alive": true
+  }
+]

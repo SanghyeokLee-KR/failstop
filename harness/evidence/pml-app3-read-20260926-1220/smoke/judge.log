@@ -1,0 +1,1 @@
+{"verdict": "FAIL", "groups": {"A_read_split": "FAIL", "B_writes": "PASS", "C_stop_return": "FAIL", "D_ws": "PASS", "E_integrity": "PASS"}, "failed_axes": ["A_read_split.R2_errors_0", "C_stop_return.C1_errors_0", "C_stop_return.C1_out_api3_served_0"], "missing_positive": []}

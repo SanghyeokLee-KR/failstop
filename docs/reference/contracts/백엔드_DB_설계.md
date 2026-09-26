@@ -1,4 +1,4 @@
-# DB 설계 (v2.51.1)
+# DB 설계 (v2.59)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -41,7 +41,7 @@ DB는 명령과 체결 결과, 복식부기 원장, 복구용 스냅샷을 보�
 - 한계(앱·운영 규율로 보완, 정직한 명시):
   - `owner_id` → `users.id` 물리 FK가 없다(SYSTEM owner_id=0과 단일 컬럼을 공유하는 구조상 불가). USER 계정의 실존 사용자 대응은 고아 탐지 쿼리로 보완한다.
   - `allow_negative`는 purpose에서만 파생되는 생성열이다. GENESIS/GATEWAY 외 계정의 음수 허용(마이너스 수수료, 신용 등)은 표현할 수 없고, 도입하려면 컬럼·CHECK 마이그레이션이 필요하다.
-  - 수수료 샤드 수 K는 DDL에 없다. 증설은 계정 행 추가로 가능하지만 축소·재배치는 원장 이관 분개를 요구한다. `hash(event_seq)%K`의 K 변경은 재생·catch-up의 샤드 동일성을 깨므로 K는 설정 박제 대상이다.
+  - 수수료 샤드 수 K는 DDL에 없다. 증설은 계정 행 추가로 가능하지만 축소·재배치는 원장 이관 분개를 요구한다. `hash(event_seq)%K`의 K 변경은 재생·catch-up의 샤드 동일성을 깨므로 K는 설정 박제 대상이다. (v2.55, ADR 0034 결정한 값 10) 해시 배정은 구현하지 않았고 샤드는 모드가 정한다. P1·P2는 샤드 0 하나이고, 파티션 리더 모드(P3)에서는 체결 수수료를 그 마켓 파티션의 번호(`matching-p0` 0, `matching-p1` 1)를 샤드로 쓰는 FEE_INCOME 계정에 게시한다. 샤드 1 계정은 P3 전환의 선행 조건이다(§5.4-c).
   - 신규 purpose(스테이킹, 에스크로 등)는 CHECK 어휘 변경 마이그레이션이 선행돼야 한다. 어휘 고정은 오타 계정 생성을 막는 대신 확장 비용을 치르는 의도적 선택이다.
   - `balances.version` 낙관적 락은 사용자 개시 경로 전용 계약이다. version 증가는 `post_ledger_transaction`이 강제하지만, `WHERE version = :v` 검사 자체는 앱 책임이다.
 
@@ -381,8 +381,16 @@ erDiagram
 | V44 | `V44__command_band_cutover_latch.sql` | 대역 채번 커트오버 래치(ADR 0022 6단계). 삽입 전용 표 `journal_cutover`(UPDATE·DELETE 는 트리거가 거부)의 행이 없으면 전역 채번, 있으면 마켓 대역 채번이다. 6인자 `append_command_prologue(..., p_market_id)` 가 채번 직전에 같은 트랜잭션에서 래치를 읽어 `next_journal_value('command_seq')` 와 `next_market_command_seq(p_market_id)` 가운데 하나를 부르고, 멱등 조회 정렬·어드바이저리 락 키·VOLATILE 은 V43 과 같다. 5인자 판은 래치가 있으면 예외를 내되 강등 분류 문구를 쓰지 않는다. `latch_command_band_cutover()` 는 대역 잎과 꼬리 파티션 실재, 마켓별 `command_seq` 카운터 행, `command_journal_default` 0행을 검사한 뒤 래치 행을 넣고 소유자만 실행한다. 래치 행이 없을 때만 되돌릴 수 있다. |
 | V45 | `V45__band_headroom.sql` | 채번 대역 여유 뷰 `v_journal_band_headroom`(ADR 0022 7단계 3-2). `journal_band_spec` 의 축마다 `market_journal_counters` 의 마켓별 `next_value`, 남은 배정 가능 번호 수 `remaining`(`band_span - next_value`), `remaining_ratio`(`remaining / band_span`)를 낸다. 채번 함수가 지역 번호를 `band_span - 1` 까지 주므로 `next_value` 가 `band_span` 이면 `remaining` 이 0 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. 하네스 C26_CMD_BAND_HEADROOM 과 게이지 `exchange.journal.band.remaining` 의 원천이고 `app_role`·`harness_role` 에 SELECT 를 준다. 뷰 하나라 DROP 으로 되돌린다 | V40(`journal_band_spec`), V36(`market_journal_counters`), V0(롤 GRANT) |
 | V46 | `V46__event_seq_band_widen.sql` | 이벤트 저널 대역 확대(ADR 0022 9단계, 3-3). `journal_band_spec('event_seq')` 를 (10^7, 19) 에서 (10^12, 63) 으로 올리고, 꼬리 잎 `event_journal_p200000000` [2x10^8, 10^12) 와 마켓이 있는 id K 마다 대역 잎 `event_journal_b<K>` [K x 10^12, (K+1) x 10^12) 를 만든다. 파생을 DB 로 옮겨 `next_market_event_seq(p_market_id, p_count)` 가 마켓 안 번호와 `market_id * band_span + market_seq` 를 함께 돌려주고, 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 55000 으로 거부한다. 잎 생성 단일 진입점은 `ensure_event_band_partition`(SECURITY DEFINER, PUBLIC 회수)이고 마켓 생성 트리거가 두 저널 잎을 함께 만든다. 적용 전 확인 셋(명세 (10^7, 19), `event_journal_default` 0행, 앞으로 배정될 대역 값과 겹치는 TRADE·RELEASE `business_event_id` 0건)이 실패하면 멈춘다. 기존 행은 그대로이고 `market_seq` 가 같은 카운터에서 이어져 마켓 안 증가가 유지된다. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다(ADR 0022 7절 9단계) | V40(`journal_band_spec`, `next_market_journal_value`, `seed_market_journal_counters`, `ensure_command_band_partition`), V36(`market_journal_counters`, `event_journal.market_id`·`market_seq`), V1(`event_journal`, `ledger_transactions`), V0(`app_role` GRANT) |
-| V47 | `V47__order_intake_failure_resolution.sql` | 주문 접수의 append 가 예외로 끝난 뒤의 판정. `idempotency_keys` 에 널 허용 열 `shared_at` 을 더한다(기본값이 없어 표를 다시 쓰지 않는다). 기존 키로 내용을 대조한 요청이 append 전에 이 열을 채운다. 함수 `resolve_failed_order_intake(user_id, idem_key, request_hash, assigned_order_id, discard_key)` 는 V44 머리말과 같은 어드바이저리 락(`cmd-new:<user>:<key>`)을 잡은 뒤, 이 요청의 주문 id 로 커밋된 NEW 가 있으면 `JOURNALED` 와 그 seq·market_id·fencing_token 을 돌려주고 키를 지우지 않는다(커밋 응답 유실). 없으면 `discard_key` 일 때 `shared_at` 이 비어 있는 그 해시의 키만 지우고 `DISCARDED`·`KEPT`·`ABSENT` 를, 아니면 `NOT_JOURNALED` 를 돌려준다. 판정에 `created_at` 을 쓰지 않아 DB 시계 역행과 무관하다. 보존 태그 `wip/per-market-leader-20260923` 의 같은 번호 파일(`created_at` 비교판)과 다른 파일이다. 함수를 지우고 게이트웨이를 되돌리는 새 마이그레이션으로 되돌리며 `shared_at` 은 남겨도 무해하다 | V44(어드바이저리 락 키), V1(`idempotency_keys`, `command_journal`), V9(`idempotency_keys` DELETE), V0(`app_role` GRANT) |
+| V47 | `V47__order_intake_failure_resolution.sql` | 주문 접수의 append 가 예외로 끝난 뒤의 판정. `idempotency_keys` 에 널 허용 열 `shared_at` 을 더한다(기본값이 없어 표를 다시 쓰지 않는다). 기존 키로 내용을 대조한 요청이 append 전에 이 열을 채운다. 함수 `resolve_failed_order_intake(user_id, idem_key, request_hash, assigned_order_id, discard_key)` 는 V44 머리말과 같은 어드바이저리 락(`cmd-new:<user>:<key>`)을 잡은 뒤, 이 요청의 주문 id 로 커밋된 NEW 가 있으면 `JOURNALED` 와 그 seq·market_id·fencing_token 을 돌려주고 키를 지우지 않는다(커밋 응답 유실). 없으면 `discard_key` 일 때 `shared_at` 이 비어 있는 그 해시의 키만 지우고 `DISCARDED`·`KEPT`·`ABSENT` 를, 아니면 `NOT_JOURNALED` 를 돌려준다. 함수는 키를 넣은 요청을 가리지 못하므로 `discard_key` 는 그 키를 넣은 요청의 첫 판정에만 참으로 준다. 판정의 응답을 잃은 뒤 참으로 다시 부르면, 첫 판정이 키를 지운 사이 같은 내용의 다른 요청이 같은 해시로 새로 넣은 키를 지울 수 있다(API 설계 §2-4). 판정에 `created_at` 을 쓰지 않아 DB 시계 역행과 무관하다. 보존 태그 `wip/per-market-leader-20260923` 의 같은 번호 파일(`created_at` 비교판)과 다른 파일이다. 함수를 지우고 게이트웨이를 되돌리는 새 마이그레이션으로 되돌리며 `shared_at` 은 남겨도 무해하다 | V44(어드바이저리 락 키), V1(`idempotency_keys`, `command_journal`), V9(`idempotency_keys` DELETE), V0(`app_role` GRANT) |
 | V47.1 | `V47_1__revoke_trigger_function_public_execute.sql` | 소유자 권한(SECURITY DEFINER) 트리거 함수 넷 `create_balance_for_account()`·`register_trade_seq()`·`register_event_emission()`(V1)과 `seed_market_journal_counters()`(V36, 현재 본문 V46)에서 PUBLIC 기본 EXECUTE 를 회수한다. `app_role` 에도 주지 않는다. PostgreSQL 은 트리거 함수의 EXECUTE 를 `CREATE TRIGGER` 때만 검사하고 발화 때는 보지 않으므로 기존 트리거 넷(`trg_account_balance`, `trg_trades_register`, `trg_ej_register`, `trg_markets_seed_counters`)은 그대로 돈다. 회수 뒤에도 PUBLIC 에 EXECUTE 가 남은 함수가 있으면 예외로 멈춘다. 표·행·함수 본문은 바꾸지 않는다. 버전 47.1 은 V47 과 V48 사이에 정렬된다(§3.1, v2.51.1) | V1(세 함수와 트리거), V36(`trg_markets_seed_counters`), V46(`seed_market_journal_counters` 본문) |
+| V48 | `V48__market_partition_lease.sql` | 마켓 파티션 리스와 시장 도출 fencing(ADR 0034 S2, §3.4, §5.4-b). 2026-09-24 작업 브랜치에 이 판을 따라 만들었고 본문이 §3.4 첫 SQL 블록과 같다. 표 넷(한 행 `leader_protocol`, 추가 전용 `leader_protocol_history`·`lease_acquisitions`·`market_lease_partition`), `leader_lease` 행 `matching-p0`·`matching-p1`, 마켓 생성 트리거의 대응 행 시드, 판정 `assert_lease_holder`, 도출 `lease_resource_for_market`, 잠금 `assert_and_lock_market_leader`, 명령 저널 append `append_command_journal_row`, 획득·갱신·반납 `try_acquire_lease`·`renew_lease`·`release_lease`. `append_command_prologue` 6인자, `assert_current_leader`, `try_acquire_leader`, `renew_leader_lease`, `publish_leader_epoch`, `expire_leader_lease_now`, `assert_and_lock_leader`를 CREATE OR REPLACE 한다. 리스 행을 잠그거나 바꾸는 함수와 대응 트리거 함수는 소유자 권한이고 PUBLIC EXECUTE를 회수한다(`CREATE TRIGGER` 가 트리거 함수의 EXECUTE 를 검사한다). epoch 는 획득 트랜잭션 안에서 `max(리스 행, 획득 이력) + 1` 로 배정한다. 프로토콜 1(P1)에서는 도출이 `matching-engine` 이라 동작이 V47 까지와 같다. 쓰기를 멈춘 창에서 적용한다. 프로토콜이 1일 때만 새 객체를 지우고 교체한 함수를 이전 본문으로 되돌리는 새 마이그레이션으로 되돌린다 | V1(`leader_lease`, `markets`, `command_journal`, `forbid_mutation`, `next_journal_value`), V30·V41(`assert_and_lock_leader`), V33(게시·만료), V40(`next_market_command_seq`), V44(6인자 머리말, `journal_cutover`), V46(마켓 생성 트리거), V0(롤 GRANT) |
+| V49 | `V49__revoke_lease_update_journal_insert.sql` | `app_role` 의 `leader_lease` UPDATE 와 `command_journal` INSERT 회수(ADR 0034 결정한 값 17, §3.4). 파일은 2026-09-24 S3 코드와 함께 작업 브랜치에 만들었다. V48 의 소유자 권한 함수가 획득·갱신·반납·게시·잠금·append 를 모두 덮은 뒤에 넣되, S2 이미지에는 넣지 않고 S2 이미지가 관문을 통과한 뒤의 다음 이미지에 넣는다. 그 뒤 앱 역할은 리스 행을 소유자 권한 함수로만 바꾸거나 잠그고 명령 저널은 `append_command_journal_row` 로만 쓴다. 행 잠금 절(`FOR KEY SHARE`)도 UPDATE 권한을 요구하므로 V48 이전 바이너리의 append 는 역할이 분리된 배포에서 권한 오류가 된다. `GRANT UPDATE ON leader_lease TO app_role` 과 `GRANT INSERT ON command_journal TO app_role` 로 되돌린다. 2026-09-24 S3 설계(v2.54)에서 적용 시점을 좁혔다. V50 이 적용된 DB 에 V49 를 뒤늦게 넣으면 Flyway 기본 설정이 검증에서 멈추므로(§3.5 적용과 되돌리기) V49 는 V50 과 같은 이미지나 그 앞 이미지에 넣는다. S3 의 첫 이미지가 V49 를 함께 싣는다 | V48, V1(`app_role` GRANT) |
+| V50 | `V50__order_intake_reservation.sql` | 접수 시점 예약과 모드 전환(ADR 0034 S3, §3.5, §5.1, §5.4-b). 파일은 2026-09-24 S3 코드와 함께 작업 브랜치에 만들었다. 추가 전용 표 `order_reservations`, 예약액 계산 `order_reserve_amount`, 10인자 `append_command_prologue`(리스 KEY SHARE, NEW 멱등, P2 이상 NEW 의 예약액 계산·대조와 `reserve_funds`, 채번, 예약 행), P2 이상에서 예약 없는 NEW 를 거부하는 5·6인자 머리말, 예약 행과 payload 를 대조하는 `append_command_journal_row`, 바이너리가 아는 최고 모드를 받는 4인자 `try_acquire_lease`·3인자 `publish_leader_epoch`(3인자 획득·2인자 게시는 P1 전용으로 바뀐다), 소유자 전용 전환 함수 `set_leader_protocol`. 모드는 바꾸지 않는다. P1 에서는 저널·원장·주문 행이 V49 까지와 같다 | V49(같은 이미지나 앞 이미지), V48, V38(`reserve_funds` 경로), V14(`transfer_requests`) |
+| V51 | `V51__app_role_default_partition_select.sql` | `app_role` 에 DEFAULT 파티션 잎 다섯(`ledger_entries_default`, `event_journal_default`, `trades_default`, `outbox_default`, `command_journal_default`)의 SELECT 를 준다(§3.6). 불변식 검증기의 C15·C27 이 잎을 직접 세는데 잎은 부모 권한을 물려받지 않아, 앱 역할 로그인 검증기의 상시 run 이 C15 에서 멈추고 권위 run 이 실패했다(2026-09-24 S3 관문 X1). 읽기만 준다. 쓰기 권한은 늘지 않는다 | V1(잎과 `app_role` GRANT), V8·V12(잎 재부착), V0 |
+| V52 | `V52__lease_until_from_grant.sql` | 리스 획득이 `lease_until` 을 행 잠금을 얻은 뒤의 시각에서 센다(§3.7, §5.4-b). 내부 함수 `lease_acquire_core`(V48, 2인자 `try_acquire_leader` 경로)와 `lease_acquire_capped`(V50, 3·4인자 `try_acquire_lease` 경로)를 같은 서명·속성으로 바꾼다. 종전 판은 기다리기 전 시각에서 세어, 멈춘 옛 리더의 KEY SHARE 를 TTL 보다 오래 기다린 획득이 이미 만료된 리스를 돌려줬다(2026-09-24 S3 관문 X3). 판정·epoch 배정·잠금 순서는 그대로다 | V50, V48 |
+| V53 | `V53__failover_runs_resource.sql` | 하네스 페일오버 측정 이력 `harness.failover_runs`에 널 허용 열 `resource`를 더한다(§3.8, ADR 0034 S4). 그 사건이 옮긴 리스 자원(`matching-engine`·`matching-p0`·`matching-p1`)이고 CHECK가 세 이름만 받는다. 기본값이 없어 표를 다시 쓰지 않고, 이 열 이전의 행은 NULL이다. 리스 행 외래키는 두지 않는다. 파일은 S4 코드와 함께 만들었고 본문은 §3.8의 SQL 블록과 같다(2026-09-24, 작업 브랜치 커밋 `48629d5d`). S4 코드와 같은 이미지에 싣는다 | V4(`harness.failover_runs`) |
+| V54 | `V54__order_cancel_requests.sql` | 파티션 밖 취소 인계 표 `order_cancel_requests`(ADR 0034 S5, §3.9, §5.4-d). 일괄 취소와 회원 폐쇄가 이 노드가 접수 게이트를 열지 않은 파티션의 미체결 주문을 파티션마다 행으로(행당 주문 500개까지) 넣고, 그 파티션의 소유 노드가 리스가 자기 holder·epoch로 유효할 때만 점유해 보통의 취소 경로로 처리한 뒤 결과를 적는다. 가져가지 않은 채 5분이 지난 행과 점유한 뒤 5분 안에 끝나지 않은 행은 만료로 닫는다. 쓰기 권한 판정과 무관하다. `app_role`은 SELECT·INSERT·UPDATE(DELETE 없음), `harness_role`은 SELECT다. 이 판(2026-09-25, 설계 검토 대응 반영)은 계약이고 파일은 S5 코드와 함께 §3.9의 SQL 블록과 같게 만든다 | V0(`app_role`·`harness_role` GRANT), V1(`users` 외래키), V48(`leader_lease` 읽기, 외래키 없음) |
+| V55 | `V55__partition_protocol_cutover.sql` | 파티션 리더 모드(P3)로 오르내리는 전환(ADR 0034 S7, §3.10, §5.4-e). `set_leader_protocol`을 CREATE OR REPLACE로 바꿔 2->3과 확인 인자를 준 3->2를 더하고, 내리는 전이는 모두 확인 인자를 요구한다. 선행 조건을 한 줄씩 내는 읽기 전용 함수 `leader_protocol_blockers(target)`을 두고 전환 함수가 잠금 뒤에 부른다. 3으로 올릴 때의 선행 조건은 정산되지 않은 주문 생성 명령 0건, 명령 대역 래치, 모든 마켓의 대응·카운터·대역 잎, 파티션 리스 행, 모든 마켓 자산의 FEE_INCOME 샤드 0·1 계정, `app_role`의 V49 권한 상태다. FEE_INCOME 샤드 1 계정을 자산마다 만들고(기존 자산은 이 파일이, 새 자산은 `accounts` 트리거가 같은 트랜잭션에) 모드는 바꾸지 않는다. 이 판(2026-09-25)은 계약이고 파일은 S7 코드와 함께 §3.10의 SQL 블록과 같게 만든다 | V48(리스 행·대응 표·이력), V50(`set_leader_protocol` 교체), V44(`journal_cutover`), V36·V40(카운터·대역 잎), V49(권한 상태) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1180,6 +1188,8 @@ CREATE TABLE processed_events (
 --       서로 다른 노드가 서로 다른 마켓의 리더가 되는 것을 허용해 레거시 구간 전역 seq 채번 권위가
 --       분열되고, 마켓마다 epoch 계열이 갈려 C22 시간 축 팔의 단일 epoch 순서 전제(ADR 0022 6-2)가
 --       깨지므로 금지한다(§4.4 '전 마켓 단일 라이터'·§6.3 ⑤ 결번 검증과 정합).
+--     ※ (v2.53) 이 금지는 ADR 0034 에 따라 P3 전환(S7)부터 파티션 리스 두 행(matching-p0·matching-p1)으로
+--       대체된다. P1·P2 에서는 그대로다. 파티션 행, 마켓 대응, 판정 도출은 §3.4(V48)에 있다.
 --     ※ 유효 범위(P0-6): leader_lease는 **동일 PostgreSQL primary에 접속한 앱 인스턴스
 --       사이의** 단일 라이터 보장 장치다. DB 클러스터 자체의 primary 교체(failover)는
 --       조율하지 못한다. split-brain으로 두 primary가 병존하면 각 primary의 leader_lease가
@@ -1415,7 +1425,7 @@ BEGIN
 END $$;
 ```
 
-위 블록은 V1 시점 상태다. `idempotency_keys`는 이후 `V9`가 DELETE를 추가로 부여한다.
+위 블록은 V1 시점 상태다. `idempotency_keys`는 이후 `V9`가 DELETE를 추가로 부여한다. 파티션 잎은 부모의 권한을 물려받지 않는다. `app_role`은 부모 표로 읽고 쓰며, 불변식 검증기가 직접 세는 DEFAULT 잎 다섯의 SELECT만 V51이 따로 준다(§3.6). `harness_role`은 위 `GRANT SELECT ON ALL TABLES`가 V1에 이미 있던 잎까지 덮는다.
 `OrderGateway.deleteOrphanKey`, `resolve_failed_order_intake`(V47), `gc-idem` cron이 하드 DELETE로
 정리하는 효과 테이블이라 V1의 SELECT·INSERT·UPDATE만으로는 운영 롤 경로에서 42501이 나기 때문이다. 관리 평면
 `operator_roles`(V5) DELETE도 같은 이유로 V9가 부여한다(효과 테이블, 소프트 삭제 아님).
@@ -1742,6 +1752,8 @@ select extname from pg_extension;
 
 **따라서 갈래 C 전량은 스키마 변경 없이 어떤 보존 정책도 적용할 수 없다.** 파티션화가 선행 조건이고, 그 비용이 이 갈래를 미루게 만든 원인으로 보인다. 미루는 동안 31%가 계속 자란다.
 
+(v2.57, ADR 0034 S5) V54의 `order_cancel_requests`(§3.9)도 이 갈래에 넣는다. 파티션이 없고 `app_role`에 DELETE가 없어 끝난 행(`DONE`·`ABANDONED`·`EXPIRED`)을 지우는 주체가 없다. 끝나지 않은 행은 작업자의 만료(§5.4-d 6)가 5분 뒤 닫으므로 부분 색인에 쌓이지 않는다. 행 크기는 넘긴 주문 수에 비례하고(주문 하나에 16바이트, 행당 최대 500개), 증가 속도는 일괄 취소의 계정 레이트리밋(API 설계 §2-5)이 묶는다. 파기 수단은 이 갈래의 다른 표와 함께 정한다.
+
 #### 3.2-a-6 끊어진 상호 참조
 
 `백엔드_API_설계.md` §2-4는 "보존 정책"이라는 이름의 절을 두고, 세 문서가 그 절 번호를 인용한다(`관리자_설계.md`, `하네스_CICD_IaC.md`, ADR 0005). 그 절이 규정하는 것은 셋이다.
@@ -1862,7 +1874,1479 @@ CREATE TABLE user_provisioning (
 
 코인 입출금을 열면 이 조건이 깨진다. 사용자가 BTC를 입금하는 동안 같은 사용자의 BTC 체결이 정산되면 두 게시가 경합한다. 코인 입출금은 정산과의 직렬화를 먼저 설계해야 하며 V14 범위 밖이다. KRW는 quote 자산이라 `apply_position_cost`가 무동작이므로 이 제약과 무관하다.
 
+### 3.4 `V48__market_partition_lease.sql`·`V49__revoke_lease_update_journal_insert.sql`: 마켓 파티션 리스와 시장 도출 fencing (v2.53 신설, ADR 0034 S2)
+
+V48 파일은 2026-09-24 작업 브랜치 `claude/per-market-leader`에 이 절을 따라 만들었고 본문이 아래 첫 SQL 블록과 같다. v2.54에서 V49의 자리를 정했다. S3의 V50이 V49보다 뒤 번호이고, V50이 적용된 DB에 V49를 나중에 넣으면 Flyway 11.7.2 기본 설정(`outOfOrder=false`)이 검증에서 멈춘다(§3.5 적용과 되돌리기). 그래서 V49는 S3의 첫 이미지에 V50과 함께 들어간다. V49 파일은 같은 날 S3 코드와 함께 만들었고 아래 V49 SQL 블록과 같다. 그 블록 머리 주석의 'S2 이미지가 관문을 통과한 뒤의 다음 이미지'는 v2.53 때의 계획이고, 실제로는 S2 관문이 통과하지 않은 채(A/B 부하 비교의 5xx 조건) S3의 첫 이미지에 V50~V52와 함께 들어갔다. V48의 3인자 `try_acquire_lease`와 2인자 `publish_leader_epoch`는 V50이 P1 전용으로 바꾼다(§3.5). 설계와 PostgreSQL 동작 확인은 `docs/reference/architecture/마켓분할_리더_S2_설계.md`에 있다.
+
+V48은 매칭 리더를 마켓 파티션 두 개로 나눌 수 있게 DB를 준비한다. 파티션 리스 행 두 개, 마켓과 파티션의 대응, 모드 래치와 그 이력, 획득 이력을 넣고, 쓰기 경로의 리더 판정이 기록할 행의 마켓에서 리스 행을 찾게 한다. 모드는 `leader_protocol.protocol` 한 값이 정한다. 1(P1)은 V47까지와 같은 단일 리더, 2(P2)는 단일 리더에 접수 시점 예약(ADR 0034 S3), 3(P3)은 파티션 리더다. V48은 1로 시드하고 모드를 바꾸는 함수는 넣지 않는다. 전환 함수는 S3에서 이 절을 개정하며 더한다.
+
+P1에서는 동작이 V47까지와 같다. 도출 함수가 대응 표와 `markets`를 읽지 않고 `matching-engine`을 돌려주므로 모든 쓰기가 종전과 같은 행을 같은 잠금 모드로 잡고, 판정 문구도 같다. epoch 배정은 `max(모든 리스 행의 epoch, 획득 이력의 epoch) + 1`인데 P1에서는 파티션 행이 epoch 0에 머물러 종전의 `matching-engine` epoch + 1과 같은 값이다.
+
+```sql
+-- V48__market_partition_lease.sql (ADR 0034 S2). 쓰기를 멈춘 창에서 적용한다.
+-- 운영 풀의 statement_timeout·lock_timeout 을 Flyway 가 물려받으면 외래키·트리거 생성이 막힌다(V41 과 같은 근거).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+
+-- ── 획득 이력(추가 전용) ────────────────────────────────────────────
+-- epoch 는 모든 리스 행을 통틀어 한 번씩만 쓴다. 감사(ADR 0034 C30)가 이 표로 epoch 의 자원을 증명한다.
+CREATE TABLE lease_acquisitions (
+    epoch       BIGINT      PRIMARY KEY,
+    resource    TEXT        NOT NULL REFERENCES leader_lease (resource),
+    holder      TEXT        NOT NULL,
+    protocol    SMALLINT    NOT NULL CHECK (protocol IN (1, 2, 3)),
+    -- ACQUIRE: DB 획득, PUBLISH: 외부 보관소 게시(P1·P2), RETIRE: 전환 함수의 퇴역(S3·S7, V48 코드는 쓰지 않는다)
+    origin      TEXT        NOT NULL CHECK (origin IN ('ACQUIRE', 'PUBLISH', 'RETIRE')),
+    acquired_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+CREATE TRIGGER trg_lease_acq_noupd BEFORE UPDATE OR DELETE ON lease_acquisitions
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_lease_acq_notrunc BEFORE TRUNCATE ON lease_acquisitions
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+-- ── 모드 래치(한 행)와 이력(추가 전용) ──────────────────────────────
+CREATE TABLE leader_protocol (
+    singleton  BOOLEAN     PRIMARY KEY DEFAULT true CHECK (singleton),
+    protocol   SMALLINT    NOT NULL CHECK (protocol IN (1, 2, 3)),
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    changed_by TEXT        NOT NULL DEFAULT session_user
+);
+CREATE TABLE leader_protocol_history (
+    id            BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    protocol      SMALLINT    NOT NULL CHECK (protocol IN (1, 2, 3)),
+    prev_protocol SMALLINT    CHECK (prev_protocol IN (1, 2, 3)),
+    -- 변경 시점의 max(리스 행 epoch, 획득 이력 epoch). 변경 트랜잭션이 프로토콜 행을 쥐므로 그 뒤 배정되는
+    -- epoch 는 모두 이 값보다 크다. 감사가 시계 대신 epoch 범위로 프로토콜 구간을 가른다(ADR 0022 9-17).
+    epoch_floor   BIGINT      NOT NULL,
+    changed_at    TIMESTAMPTZ NOT NULL,
+    changed_by    TEXT        NOT NULL
+);
+-- leader_protocol 은 지우거나 비울 수 없다. UPDATE 는 소유자만 한다(app_role 은 SELECT).
+CREATE TRIGGER trg_leader_protocol_nodel BEFORE DELETE ON leader_protocol
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_leader_protocol_notrunc BEFORE TRUNCATE ON leader_protocol
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_protocol_hist_noupd BEFORE UPDATE OR DELETE ON leader_protocol_history
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_protocol_hist_notrunc BEFORE TRUNCATE ON leader_protocol_history
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+CREATE FUNCTION stamp_leader_protocol() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.changed_at := clock_timestamp();
+    NEW.changed_by := session_user;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_leader_protocol_stamp BEFORE UPDATE ON leader_protocol
+    FOR EACH ROW EXECUTE FUNCTION stamp_leader_protocol();
+
+-- INSERT(시드)와 protocol 이 바뀐 UPDATE 만 기록한다. 같은 값 UPDATE 는 남기지 않는다.
+CREATE FUNCTION record_leader_protocol_change() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.protocol = OLD.protocol THEN
+        RETURN NULL;
+    END IF;
+    INSERT INTO leader_protocol_history (protocol, prev_protocol, epoch_floor, changed_at, changed_by)
+    VALUES (NEW.protocol,
+            CASE WHEN TG_OP = 'UPDATE' THEN OLD.protocol END,
+            GREATEST(COALESCE((SELECT max(epoch) FROM leader_lease), 0),
+                     COALESCE((SELECT max(epoch) FROM lease_acquisitions), 0)),
+            NEW.changed_at, NEW.changed_by);
+    RETURN NULL;
+END $$;
+CREATE TRIGGER trg_leader_protocol_history AFTER INSERT OR UPDATE ON leader_protocol
+    FOR EACH ROW EXECUTE FUNCTION record_leader_protocol_change();
+
+INSERT INTO leader_protocol (protocol) VALUES (1);
+
+-- ── 파티션 리스 행 ──────────────────────────────────────────────────
+-- V1 시드와 같은 모양(보유자 없음, epoch 0, 만료). P1·P2 에서는 아무도 획득하지 않는다.
+INSERT INTO leader_lease (resource, holder, epoch, lease_until) VALUES
+    ('matching-p0', '', 0, now() - interval '1 s'),
+    ('matching-p1', '', 0, now() - interval '1 s');
+
+-- ── 마켓 대응(추가 전용) ────────────────────────────────────────────
+CREATE TABLE market_lease_partition (
+    market_id SMALLINT    PRIMARY KEY REFERENCES markets (id),
+    resource  TEXT        NOT NULL REFERENCES leader_lease (resource)
+              CONSTRAINT chk_mlp_partition_resource CHECK (resource IN ('matching-p0', 'matching-p1')),
+    mapped_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    mapped_by TEXT        NOT NULL DEFAULT session_user
+);
+-- 이 판에서 마켓은 다른 파티션으로 옮기지 않는다(ADR 0034 결정 1). journal_cutover(V44)와 같은 추가 전용 강제다.
+CREATE TRIGGER trg_mlp_noupd BEFORE UPDATE OR DELETE ON market_lease_partition
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_mlp_notrunc BEFORE TRUNCATE ON market_lease_partition
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+CREATE FUNCTION default_lease_partition(p_market_id SMALLINT) RETURNS TEXT
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE
+        WHEN p_market_id IN (1, 4, 5, 7, 9, 11)  THEN 'matching-p0'   -- ADR 0034 결정한 값 3
+        WHEN p_market_id IN (2, 3, 6, 8, 10, 12) THEN 'matching-p1'
+        WHEN p_market_id % 2 = 1                 THEN 'matching-p0'   -- 13 이상은 홀수 p0, 짝수 p1
+        ELSE 'matching-p1'
+    END
+$$;
+INSERT INTO market_lease_partition (market_id, resource)
+SELECT id, default_lease_partition(id) FROM markets;
+-- 마켓은 Flyway 뒤 앱·시드 도구가 넣는다. 트리거가 대응 행을 같은 트랜잭션에 넣는다. 트리거 발화는 EXECUTE 권한을
+-- 보지 않지만 CREATE TRIGGER 는 본다. 아래 권한 절이 PUBLIC EXECUTE 를 회수해, 다른 역할이 자기 임시 표에 이 함수를
+-- 걸어 소유자 권한으로 대응 행을 넣지 못하게 한다(S2 설계 10절 검토 1).
+CREATE FUNCTION seed_market_lease_partition() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    INSERT INTO market_lease_partition (market_id, resource)
+    VALUES (NEW.id, default_lease_partition(NEW.id))
+    ON CONFLICT (market_id) DO NOTHING;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_markets_seed_lease_partition AFTER INSERT ON markets
+    FOR EACH ROW EXECUTE FUNCTION seed_market_lease_partition();
+
+-- ── 도출 ────────────────────────────────────────────────────────────
+-- P1·P2 는 markets·대응 표를 읽지 않는다. 마켓 행 없이 쓰는 경로가 종전처럼 돈다.
+CREATE FUNCTION lease_resource_for_market(p_market_id SMALLINT) RETURNS TEXT
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    v_protocol SMALLINT;
+    v_resource TEXT;
+BEGIN
+    SELECT protocol INTO v_protocol FROM leader_protocol;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF v_protocol < 3 THEN
+        RETURN 'matching-engine';
+    END IF;
+    SELECT resource INTO v_resource FROM market_lease_partition WHERE market_id = p_market_id;
+    IF NOT FOUND THEN
+        -- 강등 분류 문구(fencing 위반)를 쓰지 않는다. 설정 결함이지 오래된 리더가 아니다.
+        RAISE EXCEPTION '마켓 %의 리스 파티션 대응이 없어 쓰기를 거부한다(market_lease_partition)', p_market_id
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    RETURN v_resource;
+END $$;
+
+-- ── 판정(유일한 규칙) ───────────────────────────────────────────────
+-- V1 assert_current_leader 본문을 자원 인자로 옮긴다. matching-engine 이면 문구가 V1 과 바이트 단위로 같다.
+CREATE FUNCTION assert_lease_holder(p_resource TEXT, p_holder TEXT, p_epoch BIGINT) RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+    r        RECORD;
+    v_suffix TEXT := CASE WHEN p_resource = 'matching-engine' THEN '' ELSE ' resource=' || p_resource END;
+BEGIN
+    SELECT holder, epoch, lease_until INTO r FROM leader_lease WHERE resource = p_resource;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_lease 시드 행 없음: 부트스트랩 오류%', v_suffix;
+    END IF;
+    IF r.holder <> p_holder OR r.epoch <> p_epoch THEN
+        RAISE EXCEPTION 'fencing 위반: 현재 리더(holder=%, epoch=%)가 아님(요청 holder=%, epoch=%)%',
+            r.holder, r.epoch, p_holder, p_epoch, v_suffix;
+    END IF;
+    IF r.lease_until < clock_timestamp() THEN
+        RAISE EXCEPTION 'fencing 위반: 리스 만료(lease_until=%, now=%)%',
+            r.lease_until, clock_timestamp(), v_suffix;
+    END IF;
+END $$;
+
+-- 2인자 판정은 위임으로 바꾼다. 옛 경로(V44 5인자 머리말, 2인자 assert_and_lock_leader)도 같은 규칙을 탄다.
+CREATE OR REPLACE FUNCTION assert_current_leader(p_holder TEXT, p_epoch BIGINT) RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM assert_lease_holder('matching-engine', p_holder, p_epoch);
+END $$;
+
+-- 잠금 뒤 판정(V41 순서). 조건 없이 잡아야 불일치 때 판정이 거부 사유를 잃지 않는다.
+CREATE FUNCTION assert_and_lock_market_leader(p_market_id SMALLINT, p_holder TEXT, p_epoch BIGINT)
+RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_resource TEXT := lease_resource_for_market(p_market_id);
+    v_epoch    BIGINT;
+BEGIN
+    SELECT epoch INTO v_epoch FROM leader_lease WHERE resource = v_resource FOR KEY SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_lease 시드 행 없음: 부트스트랩 오류';
+    END IF;
+    PERFORM assert_lease_holder(v_resource, p_holder, p_epoch);
+    RETURN v_epoch;
+END $$;
+
+-- ── 명령 저널 append ────────────────────────────────────────────────
+-- market_id 를 한 번 받아 행의 market_id 와 리스 도출에 함께 쓴다. 체크섬은 seq 를 받은 뒤 앱이 계산한다(V39 근거).
+CREATE FUNCTION append_command_journal_row(
+    p_seq BIGINT, p_market_id SMALLINT, p_command_type VARCHAR, p_user_id BIGINT,
+    p_client_order_id VARCHAR, p_assigned_order_id BIGINT, p_engine_ts BIGINT, p_tie_break BIGINT,
+    p_payload JSONB, p_checksum BIGINT, p_holder TEXT, p_epoch BIGINT
+) RETURNS INTEGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_rows INTEGER;
+BEGIN
+    INSERT INTO command_journal
+      (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
+       engine_ts, tie_break, payload, fencing_token, checksum)
+    SELECT p_seq, v.market_id, p_command_type, p_user_id, p_client_order_id, p_assigned_order_id,
+           p_engine_ts, p_tie_break, p_payload, l.epoch, p_checksum
+    FROM (VALUES (p_market_id)) AS v(market_id)
+    JOIN leader_lease l ON l.resource = lease_resource_for_market(v.market_id)
+    WHERE l.holder = p_holder AND l.epoch = p_epoch AND l.lease_until > clock_timestamp()
+    FOR KEY SHARE OF l;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    RETURN v_rows;   -- 0 이면 오래된 리더다. 호출자가 예외로 채번까지 롤백한다
+END $$;
+
+-- 6인자 머리말. V44 본문에서 (1) 판정 한 줄만 바꾼다. 멱등 판정, 어드바이저리 락 키, 래치 채번, VOLATILE,
+-- 호출자 권한은 V44 그대로다. 잠그지 않는 판정이고 잠금은 append_command_journal_row 가 잡는다.
+CREATE OR REPLACE FUNCTION append_command_prologue(
+    p_holder          TEXT,
+    p_epoch           BIGINT,
+    p_is_new          BOOLEAN,
+    p_user_id         BIGINT,
+    p_client_order_id VARCHAR,
+    p_market_id       SMALLINT
+) RETURNS TABLE (
+    out_seq        BIGINT,
+    out_replayed   BOOLEAN,
+    out_fencing    BIGINT,
+    out_order_id   BIGINT
+)
+LANGUAGE plpgsql VOLATILE AS $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- (1) 커밋 전 리더 검증. 자원은 이 명령의 마켓에서 도출한다(P1·P2 는 matching-engine).
+    PERFORM assert_lease_holder(lease_resource_for_market(p_market_id), p_holder, p_epoch);
+
+    -- (2) NEW 멱등 재전송 판정. 락 키와 조회 술어에 market_id 를 넣지 않는다(ADR 0022 4-3).
+    IF p_is_new AND p_client_order_id IS NOT NULL THEN
+        PERFORM pg_advisory_xact_lock(
+            hashtextextended('cmd-new:' || p_user_id::text || ':' || p_client_order_id, 0));
+
+        SELECT c.seq, c.fencing_token, c.assigned_order_id INTO r
+        FROM command_journal c
+        WHERE c.command_type = 'NEW'
+          AND c.user_id = p_user_id
+          AND c.client_order_id = p_client_order_id
+        ORDER BY c.created_at, c.seq
+        LIMIT 1;
+
+        IF FOUND THEN
+            out_seq      := r.seq;
+            out_replayed := TRUE;
+            out_fencing  := r.fencing_token;
+            out_order_id := r.assigned_order_id;
+            RETURN NEXT;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- (3) 채번. V44 와 같다.
+    IF EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq') THEN
+        out_seq := next_market_command_seq(p_market_id);
+    ELSE
+        out_seq := next_journal_value('command_seq');
+    END IF;
+    out_replayed := FALSE;
+    out_fencing  := NULL;
+    out_order_id := NULL;
+    RETURN NEXT;
+END $$;
+
+-- ── epoch 배정과 획득 ───────────────────────────────────────────────
+-- 내부 함수. 호출자가 leader_protocol 행을 FOR UPDATE 로 쥔 뒤 READ COMMITTED 에서만 부른다.
+-- 그 행이 배정을 한 줄로 세우므로 다음 배정은 앞 배정의 커밋을 본다. 롤백하면 배정도 사라진다.
+CREATE FUNCTION allocate_lease_epoch() RETURNS BIGINT
+LANGUAGE plpgsql VOLATILE AS $$
+BEGIN
+    RETURN GREATEST(COALESCE((SELECT max(epoch) FROM leader_lease), 0),
+                    COALESCE((SELECT max(epoch) FROM lease_acquisitions), 0)) + 1;
+END $$;
+
+-- 내부 함수. 획득 본문 하나를 두 공개 함수가 부른다.
+CREATE FUNCTION lease_acquire_core(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_legacy BOOLEAN)
+RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE
+    -- V47 까지의 한 문장 UPDATE 는 lease_until 을 행 잠금 대기 전에 계산했다. P1 동등성을 위해 같은 기준을 쓴다.
+    v_started  TIMESTAMPTZ := clock_timestamp();
+    v_protocol SMALLINT;
+    v_epoch    BIGINT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM leader_lease WHERE resource = p_resource) THEN
+        RAISE EXCEPTION 'leader_lease 행 없음: resource=%', p_resource;
+    END IF;
+    -- (1) 만료된 행만 잠근다. FOR UPDATE 는 진행 중 쓰기의 KEY SHARE 커밋을 기다리고, 경합에서 진 쪽은
+    --     재평가에서 조건이 거짓이 되어 아무것도 쓰지 않는다.
+    PERFORM 1 FROM leader_lease
+     WHERE resource = p_resource AND lease_until < clock_timestamp()
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    -- (2) 획득·게시·전환을 한 줄로 세우고 이 트랜잭션 동안 모드를 고정한다. 잠금 순서는 리스 행 다음 프로토콜 행이다.
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF p_legacy AND v_protocol <> 1 THEN
+        RAISE EXCEPTION '2인자 try_acquire_leader 는 P1 에서만 획득한다(현재 P%)', v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF (v_protocol < 3 AND p_resource <> 'matching-engine')
+       OR (v_protocol = 3 AND p_resource NOT IN ('matching-p0', 'matching-p1')) THEN
+        RAISE EXCEPTION '리스 자원 %은 P%에서 획득할 수 없다', p_resource, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    -- (3) 배정과 기록
+    v_epoch := allocate_lease_epoch();
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = v_epoch, lease_until = v_started + p_ttl
+     WHERE resource = p_resource;
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, p_resource, p_holder, v_protocol, 'ACQUIRE');
+    RETURN v_epoch;
+END $$;
+
+CREATE FUNCTION try_acquire_lease(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN lease_acquire_core(p_resource, p_holder, p_ttl, false);
+END $$;
+
+-- 매개변수 이름은 V1 과 같게 둔다(CREATE OR REPLACE 는 입력 매개변수 이름을 바꾸지 못한다).
+CREATE OR REPLACE FUNCTION try_acquire_leader(p_holder TEXT, p_ttl INTERVAL) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN lease_acquire_core('matching-engine', p_holder, p_ttl, true);
+END $$;
+
+-- ── 갱신·반납 ───────────────────────────────────────────────────────
+-- lease_until 만 바꾸므로 FOR NO KEY UPDATE 이고 쓰기의 KEY SHARE 를 기다리지 않는다(V41).
+CREATE FUNCTION renew_lease(p_resource TEXT, p_holder TEXT, p_epoch BIGINT, p_ttl INTERVAL) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    UPDATE leader_lease
+       SET lease_until = clock_timestamp() + p_ttl
+     WHERE resource = p_resource AND holder = p_holder AND epoch = p_epoch
+       AND lease_until >= clock_timestamp();
+    RETURN FOUND;
+END $$;
+
+CREATE OR REPLACE FUNCTION renew_leader_lease(p_holder TEXT, p_epoch BIGINT, p_ttl INTERVAL) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN renew_lease('matching-engine', p_holder, p_epoch, p_ttl);
+END $$;
+
+-- 엔진의 강등 경로는 반납하지 않는다(ADR 0002:56). 운영·시험의 즉시 비우기 전용이다.
+CREATE FUNCTION release_lease(p_resource TEXT, p_holder TEXT, p_epoch BIGINT) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second'
+     WHERE resource = p_resource AND holder = p_holder AND epoch = p_epoch;
+    RETURN FOUND;
+END $$;
+
+-- ── 외부 보관소 게시(P1·P2 전용) ────────────────────────────────────
+-- V33 단조 UPDATE 를 그대로 두고 모드 확인과 획득 이력을 더한다. P3 거부는 ADR 0034 결정한 값 18 이다.
+CREATE OR REPLACE FUNCTION publish_leader_epoch(p_holder TEXT, p_epoch BIGINT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_epoch    BIGINT;
+    v_protocol SMALLINT;
+BEGIN
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = p_epoch,
+           lease_until = clock_timestamp() + interval '100 years'
+     WHERE resource = 'matching-engine'
+       AND (epoch < p_epoch OR (epoch = p_epoch AND holder = p_holder))
+    RETURNING epoch INTO v_epoch;
+    IF v_epoch IS NULL THEN
+        RETURN NULL;
+    END IF;
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF v_protocol = 3 THEN
+        RAISE EXCEPTION '파티션 모드(P3)에서는 외부 보관소 epoch 게시를 거부한다'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    -- 같은 보유자의 재게시는 정상 경로다(V33). 같은 epoch 가 다른 자원·보유자로 이미 있으면 거부한다.
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, 'matching-engine', p_holder, v_protocol, 'PUBLISH')
+    ON CONFLICT (epoch) DO NOTHING;
+    IF NOT FOUND AND NOT EXISTS (SELECT 1 FROM lease_acquisitions
+                                 WHERE epoch = v_epoch AND resource = 'matching-engine'
+                                   AND holder = p_holder) THEN
+        RAISE EXCEPTION '게시 epoch %가 다른 획득 이력과 겹친다', v_epoch;
+    END IF;
+    RETURN v_epoch;
+END $$;
+
+-- V33 본문 그대로 소유자 권한으로 바꾼다. 외부 보관소에서 PostgreSQL 보관소로 되돌릴 때 쓴다.
+CREATE OR REPLACE FUNCTION expire_leader_lease_now() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    UPDATE leader_lease
+       SET lease_until = clock_timestamp() - interval '1 second'
+     WHERE resource = 'matching-engine';
+END $$;
+
+-- V41 본문 그대로 소유자 권한으로 바꾼다. S2 코드는 부르지 않고 V48 이전 바이너리의 정산·스냅샷 경로가 부른다.
+-- 소유자 권한이라 V49 뒤에도 그 경로는 잠글 수 있다. 판정은 위임된 assert_current_leader 를 거친다.
+CREATE OR REPLACE FUNCTION assert_and_lock_leader(p_holder TEXT, p_epoch BIGINT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_epoch BIGINT;
+BEGIN
+    SELECT epoch INTO v_epoch
+    FROM leader_lease WHERE resource = 'matching-engine'
+    FOR KEY SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_lease 시드 행 없음: 부트스트랩 오류';
+    END IF;
+    PERFORM assert_current_leader(p_holder, p_epoch);
+    RETURN v_epoch;
+END $$;
+
+-- ── 권한 ────────────────────────────────────────────────────────────
+-- 호출자 권한 함수를 CREATE OR REPLACE 로 소유자 권한으로 바꾸면 PUBLIC 의 기본 EXECUTE 가 남아 표 권한이 없는
+-- 역할도 리스를 바꿀 수 있다(S2 설계 3절 Q10). 리스를 잠그거나 바꾸는 함수와 내부 함수에서 모두 회수한다.
+-- 소유자 권한 트리거 함수도 회수한다. CREATE TRIGGER 가 EXECUTE 를 검사하므로 남겨 두면 임시 표를 만들 수 있는
+-- 모든 역할이 이 함수를 자기 표에 걸어 소유자 권한으로 돌린다. 발화는 EXECUTE 를 보지 않아 마켓 생성은 그대로다.
+REVOKE ALL ON FUNCTION
+    seed_market_lease_partition(),
+    allocate_lease_epoch(),
+    lease_acquire_core(TEXT, TEXT, INTERVAL, BOOLEAN),
+    try_acquire_lease(TEXT, TEXT, INTERVAL),
+    try_acquire_leader(TEXT, INTERVAL),
+    renew_lease(TEXT, TEXT, BIGINT, INTERVAL),
+    renew_leader_lease(TEXT, BIGINT, INTERVAL),
+    release_lease(TEXT, TEXT, BIGINT),
+    publish_leader_epoch(TEXT, BIGINT),
+    expire_leader_lease_now(),
+    assert_and_lock_leader(TEXT, BIGINT),
+    assert_and_lock_market_leader(SMALLINT, TEXT, BIGINT),
+    append_command_journal_row(BIGINT, SMALLINT, VARCHAR, BIGINT, VARCHAR, BIGINT, BIGINT, BIGINT,
+                               JSONB, BIGINT, TEXT, BIGINT)
+FROM PUBLIC;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        GRANT EXECUTE ON FUNCTION
+            try_acquire_lease(TEXT, TEXT, INTERVAL),
+            try_acquire_leader(TEXT, INTERVAL),
+            renew_lease(TEXT, TEXT, BIGINT, INTERVAL),
+            renew_leader_lease(TEXT, BIGINT, INTERVAL),
+            release_lease(TEXT, TEXT, BIGINT),
+            publish_leader_epoch(TEXT, BIGINT),
+            expire_leader_lease_now(),
+            assert_and_lock_leader(TEXT, BIGINT),
+            assert_and_lock_market_leader(SMALLINT, TEXT, BIGINT),
+            append_command_journal_row(BIGINT, SMALLINT, VARCHAR, BIGINT, VARCHAR, BIGINT, BIGINT, BIGINT,
+                                       JSONB, BIGINT, TEXT, BIGINT),
+            lease_resource_for_market(SMALLINT),
+            assert_lease_holder(TEXT, TEXT, BIGINT)
+        TO app_role;
+        GRANT SELECT ON leader_protocol, leader_protocol_history, lease_acquisitions, market_lease_partition
+            TO app_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'harness_role') THEN
+        GRANT SELECT ON leader_protocol, leader_protocol_history, lease_acquisitions, market_lease_partition
+            TO harness_role;
+    END IF;
+END $$;
+```
+
+```sql
+-- V49__revoke_lease_update_journal_insert.sql (ADR 0034 결정한 값 17). S2 이미지에는 넣지 않는다.
+-- S2 이미지가 관문(앱 역할 종단 주행과 되돌림 주행 포함)을 통과한 뒤의 다음 이미지에 넣는다. 그래야 V48 만
+-- 적용된 구간이 생겨 S2 이미지를 S2 이전 이미지로 권한 조치 없이 되돌릴 수 있다. 이 파일 뒤에 S2 이전 이미지로
+-- 되돌리려면 소유자가 먼저 두 권한을 다시 준다(GRANT UPDATE ON leader_lease, GRANT INSERT ON command_journal).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        -- 리스 행을 바꾸거나 행 잠금을 거는 일은 V48 의 소유자 권한 함수로만 한다.
+        REVOKE UPDATE ON leader_lease FROM app_role;
+        -- 명령 저널은 리스 판정과 KEY SHARE 를 싣는 append_command_journal_row 로만 쓴다.
+        -- 파티션 잎에는 app_role 권한이 없으므로(잎은 부모 권한을 물려받지 않는다) 부모에서 회수하면 닫힌다.
+        REVOKE INSERT ON command_journal FROM app_role;
+    END IF;
+END $$;
+```
+
+epoch 배정. 획득은 리스 행을 만료 조건으로 FOR UPDATE 잠근 뒤 `leader_protocol` 행을 FOR UPDATE로 잡고 `allocate_lease_epoch()`를 부른다. 게시와 S3의 전환 함수도 같은 프로토콜 행을 잡으므로 epoch 배정은 한 줄로 서고, 새 epoch는 모든 리스 행과 획득 이력을 통틀어 유일하며 배정 순서대로 커진다. 시퀀스를 쓰지 않는 이유는 PostgreSQL 시퀀스가 롤백, 행 잠금 재평가, 크래시 복구 때 값을 건너뛰어 P1의 "승격마다 +1"을 지키지 못하기 때문이다(S2 설계 3절 Q2·Q9). 획득 트랜잭션이 롤백되면 배정도 함께 사라진다. 두 획득이 동시에 배정하면 뒤 획득은 프로토콜 행에서 앞 트랜잭션이 끝나기를 기다렸다가, 앞이 커밋했으면 그 값 + 1을, 롤백했으면 그 번호를 받는다. 운영에서 epoch를 줄이는 경로는 없다. P1의 "종전과 같은 +1"은 파티션 자원을 획득한 적이 없는 DB에서 성립한다. 파티션 epoch가 한 번이라도 생긴 DB에서는 P1로 돌아와도 새 epoch가 그 위로 뛴다. 모든 자원을 통틀어 유일하게 하려는 규칙의 의도된 결과다. 소유자가 시험에서 epoch를 되감은 뒤 획득해도 새 epoch가 이력 최대 + 1로 뛴다.
+
+허용 자원. P1·P2에서는 `matching-engine`만, P3에서는 `matching-p0`·`matching-p1`만 획득한다. 2인자 `try_acquire_leader`는 P1에서만 획득하고 P2·P3에서는 55000으로 거부한다(ADR 0034 결정 6). 거부 판정은 프로토콜 행을 잡은 뒤에 한다. 먼저 읽고 나중에 잠그면 그 사이 전환이 커밋되어 옛 바이너리가 새 모드의 행을 가져갈 수 있다.
+
+권한. 리스 행을 잠그거나 바꾸는 함수와 대응 트리거 함수는 모두 `SECURITY DEFINER`이고 `SET search_path = public, pg_temp`다. 기존 소유자 권한 함수(V1 `create_balance_for_account`, V36 `seed_market_journal_counters`)는 `public`만 두었는데, 새 함수는 임시 스키마가 앞에 끼어드는 것을 막으려고 `pg_temp`를 뒤에 명시한다. 소유자 권한 함수는 트리거 함수까지 모두 PUBLIC EXECUTE를 회수하고 공개 함수만 `app_role`에 준다. PostgreSQL은 트리거 함수의 EXECUTE를 발화 때가 아니라 `CREATE TRIGGER` 때 검사한다. 그래서 트리거 함수에 PUBLIC EXECUTE를 남기면 임시 표를 만들 수 있는 역할(조회 로그인 포함)이 자기 임시 표에 그 함수를 걸어 소유자 권한으로 돌릴 수 있다. 회수해도 `markets` 트리거는 그대로 발화한다. 호출자 권한 트리거 함수(`stamp_leader_protocol`, `record_leader_protocol_change`)는 부른 역할의 권한으로 돌아 권한을 넓히지 않으므로 그대로 둔다. 판정·도출·머리말은 SELECT만 하므로 호출자 권한으로 둔다. 기존 소유자 권한 트리거 함수 넷(V1 `create_balance_for_account`·`register_trade_seq`·`register_event_emission`, V46 `seed_market_journal_counters`)에도 PUBLIC EXECUTE가 남아 같은 경로가 열려 있다. V1~V46의 문제라 이 절의 범위가 아니고 별도 마이그레이션으로 고친다(S2 설계 10절 검토 1).
+
+V49 뒤 `app_role`은 `leader_lease`를 읽기만 하고, 바꾸거나 행 잠금을 거는 일은 위 함수로만 한다. `command_journal`은 `append_command_journal_row`로만 쓴다. 행 잠금 절도 UPDATE 권한을 요구하므로 V48 이전 바이너리의 append INSERT…SELECT는 V49 뒤 역할이 분리된 배포에서 `permission denied`다. V49가 보장하는 것은 두 가지다. V49 뒤 `app_role`이 리스 행의 holder·epoch를 바꾸는 길은 획득과 게시뿐이고 둘 다 `lease_acquisitions`에 한 행씩 남으므로, V49 뒤에 생긴 epoch는 모두 자원과 보유자를 이력으로 증명할 수 있다. 명령 저널에 새로 쓰이는 모든 행은 기록하는 순간 그 마켓의 리스 행에서 holder·epoch·만료 판정을 통과한 epoch를 `fencing_token`으로 가진다. V49는 `app_role` 안의 권한 경계가 아니다. 앱과 봇 로그인이 모두 `app_role`이므로(`deploy/provision-runtime-roles.sql`) 두 로그인은 같은 함수를 부를 수 있다. V49 뒤에도 이 역할에 남는 경로는 §5.4-b에 적었다.
+
+적용과 되돌리기. V48은 `leader_lease`·`markets`에 외래키와 트리거를 거는 동안 짧게 SHARE ROW EXCLUSIVE 잠금을 잡으므로 쓰기를 멈춘 창에서 적용한다. 이미지에 든 Flyway는 이미지 안의 마이그레이션을 한 번에 모두 적용하므로, V48과 V49는 서로 다른 이미지로 내보낸다. S2 이미지에는 V48만 넣고, V49는 S2 이미지가 관문을 통과한 뒤의 다음 이미지에 넣는다. 그래야 V48만 적용된 구간이 생기고, 그 구간에서는 S2 이전 이미지로 권한 조치 없이 되돌릴 수 있다. 앞 이미지가 DB에만 있는 뒤 번호를 건너뛰고 뜨는 것은 Flyway 기본값(`ignoreMigrationPatterns=*:future`)에 기댄다. 실행으로는 2026-09-24 S2 관문의 되돌림 주행이 확인했다. V48 DB에서 main 이미지가 'DB 버전이 이미지보다 새롭다'는 경고 뒤 적용 없이 떠 리더가 됐다(PASS, `harness/evidence/pml-s2-gate-20260924-0440/README.md`). V48은 프로토콜이 1인 동안 되돌릴 수 있다. 새 표·함수·트리거와 두 파티션 행(대응 표를 먼저 지운다)을 지우고, 교체한 함수를 V44·V41·V33·V1 본문과 호출자 권한으로 되돌리는 새 마이그레이션을 더한다. 대응 표와 이력은 추가 전용 트리거가 DELETE·TRUNCATE를 막으므로 표째 DROP 한다. V49는 `GRANT UPDATE ON leader_lease TO app_role`과 `GRANT INSERT ON command_journal TO app_role`로 되돌린다. V49 뒤에 V48 이전 바이너리로 돌아가려면 이 두 GRANT를 먼저 한다. V49 이미지에서 S2 이미지로 돌아갈 때는 필요 없다. S2 바이너리는 두 권한을 쓰지 않는다. V48과 V49가 한 번에 적용되는 배포(로컬에서 검증을 마친 이미지를 다른 DB에 처음 올리는 경우)에는 V48만 있는 구간이 없으므로, 그 DB를 V48 이전 바이너리로 되돌릴 때는 두 GRANT가 항상 먼저다.
+
+검증. 대응과 리스·프로토콜 행의 누락은 하네스 C29_MARKET_PARTITION_MAP(CRITICAL, SCHEDULED)이 센다(`docs/reference/contracts/하네스_검증설계.md` §4-1). P1 동등성, epoch 배정, 파티션 격리, 권한의 시험 목록은 S2 설계 6절에 있다. 위 두 SQL 블록은 2026-09-24 저장소의 V0~V47을 올린 폐기용 DB에 문서에서 그대로 뽑아 적용해 문법과 기본 동작(P1 epoch +1, 롤백 뒤 결번 없음, 앱 역할 경로, V49 뒤 직접 UPDATE·행 잠금·명령 저널 직접 INSERT 거부, 트리거 함수 실행 권한, P3 흉내의 파티션 격리, C29 양성 대조)을 확인했다(`harness/evidence/pml-s2-pg-probe-20260924/contract-check.log`). 같은 날 설계 검토의 지적을 재현하고 수정을 대조한 결과(임시 표 트리거, V49 뒤 남는 경로, P3 흉내 뒤 epoch, 동시 배정, V48 이전 SQL의 V48·V49 호환과 되돌리기 GRANT)는 `review-check.log`에 있다. V48 파일과 S2 코드의 시험 목록과 실행 결과는 S2 설계 11절에 있다. S2 때 V49 권한 상태는 시험이 위 V49 블록을 시험 자원(`server/app/src/test/resources/s2-contract/`)으로 실행해 만들었다. V49 파일이 들어온 S3 변경에서 그 자원을 지웠고, 시험은 Flyway가 적용한 V49로 돈다.
+
+### 3.5 `V50__order_intake_reservation.sql`: 접수 시점 예약과 모드 전환 (v2.54 신설, ADR 0034 S3)
+
+V50 파일은 2026-09-24 작업 브랜치 `claude/per-market-leader`에 S3 코드와 함께 이 절을 따라 만들었고 본문이 아래 SQL 블록과 같다. V49 파일, 관문 주행 뒤 더한 V51(§3.6)·V52(§3.7)와 같은 이미지에 들어간다(아래 적용과 되돌리기). 설계와 PostgreSQL·Flyway 동작 확인은 `docs/reference/architecture/마켓분할_리더_S3_설계.md`에 있다.
+
+V50은 자금 예약의 권위를 정산에서 접수로 옮길 수 있게 한다. 모드가 2(P2) 이상이면 주문 생성 명령은 저널 append와 같은 트랜잭션에서 `reserve_funds`로 예약되고, 그 트랜잭션이 예약 기록 `order_reservations` 한 행을 남긴다. 잔고가 모자라면 `balances`의 `chk_balance_nonneg`가 23514로 트랜잭션 전체를 롤백하므로 저널 행, 채번, 예약 행, 원장 거래가 하나도 남지 않는다. 정산은 예약 행이 있는 주문에 `reserve_funds`를 다시 부르지 않고 예약 행의 금액과 계정을 권위로 쓴다(§5.1). 그래서 정산 시점의 23514는 버그가 없는 한 도달하지 않는다. 모드 1(P1)에서는 새 머리말이 예약을 건너뛰고 V49까지와 같은 저널 행을 쓴다. 정산도 예약 행이 없는 주문을 종전처럼 정산 시점에 예약한다. 두 정산 경로는 영구히 함께 남는다(ADR 0034 되돌리기).
+
+모드는 V50이 바꾸지 않는다. 소유자가 정지 창에서 `set_leader_protocol(2)`를 불러야 P2가 된다. 전환 함수는 모든 리스 행을 먼저 FOR UPDATE로 잡아 진행 중 쓰기가 끝나기를 기다린 뒤 선행 조건(정산되지 않은 주문 생성 명령 0건)을 보고, 모든 리스 행을 새 epoch로 퇴역시킨다. 전환 전에 쥔 epoch로는 어떤 쓰기도 통과하지 못한다.
+
+V50은 바이너리가 아는 모드도 DB가 가리게 한다. S3 이전 바이너리는 P2의 예약 정산을 모른다. 그런 바이너리가 P2 리더가 되면 예약된 주문을 정산하며 `reserve_funds`를 다시 불러 `uq_ledger_business_event` 23505로 멈추거나, 거부된 주문의 예약을 풀지 않은 채 정산을 끝내 LOCKED에 자금을 남긴다. 그래서 획득과 게시는 호출자가 아는 최고 모드를 받는다. 4인자 `try_acquire_lease`와 3인자 `publish_leader_epoch`는 그 값을 인자로 받고, S2 바이너리가 부르는 3인자 획득과 S2 이전 바이너리가 부르는 2인자 게시는 P1에서만 동작한다. V48의 2인자 `try_acquire_leader`는 이미 P1 전용이다. P2 이상의 저널에는 예약 없는 주문 생성 명령이 들어가지 않는다. 옛 5·6인자 머리말이 NEW를 55000으로 거부하고, 저널 행 함수가 같은 트랜잭션의 예약 행과 payload를 대조한다.
+
+```sql
+-- V50__order_intake_reservation.sql (ADR 0034 S3). 쓰기를 멈춘 창에서 적용한다. V49 가 먼저 적용돼 있어야 한다.
+-- 운영 풀의 statement_timeout·lock_timeout 을 Flyway 가 물려받으면 표 생성과 함수 교체가 막힌다(V41·V48 과 같은 근거).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+
+-- ── 예약 행(추가 전용) ──────────────────────────────────────────────
+-- P2 이상에서 주문 생성 명령이 저널에 들어갈 때 같은 트랜잭션이 한 행을 남긴다. 원장 RESERVE 거래(business_event_id =
+-- 주문 id)와 짝이다. 정산은 이 행의 금액과 계정을 권위로 쓰고 reserve_funds 를 다시 부르지 않는다(ADR 0034 결정 5).
+-- 쓰는 곳은 소유자 권한 머리말 하나다. 접수 락 안에서 마켓·계정 행에 KEY SHARE 를 더하지 않으려고 외래키를 두지 않고,
+-- 연결은 하네스 C31 이 감사한다. payload_sha256 은 예약액을 계산한 payload 와 저널 행 payload 를 묶는다.
+CREATE TABLE order_reservations (
+    command_seq          BIGINT         PRIMARY KEY,
+    order_id             BIGINT         NOT NULL,
+    user_id              BIGINT         NOT NULL,
+    market_id            SMALLINT       NOT NULL,
+    asset_id             SMALLINT       NOT NULL,
+    available_account_id BIGINT         NOT NULL,
+    locked_account_id    BIGINT         NOT NULL,
+    amount               NUMERIC(40,18) NOT NULL CHECK (amount > 0),
+    ledger_txn_id        BIGINT         NOT NULL,
+    payload_sha256       BYTEA          NOT NULL,
+    created_at           TIMESTAMPTZ    NOT NULL DEFAULT now()
+);
+CREATE TRIGGER trg_order_res_noupd BEFORE UPDATE OR DELETE ON order_reservations
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_order_res_notrunc BEFORE TRUNCATE ON order_reservations
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+-- ── 예약액 계산(ADR 0034 결정 7) ────────────────────────────────────
+-- checksum 이 덮는 payload 값과 카탈로그 scale 로 계산한다. 정산(SettlementService.settleAccepted)과 게이트웨이 가드
+-- (OrderGateway.ParsedOrder.reserve)의 산식과 같다. 지정가 매수는 price x qty 를 quote 자산 scale 로 올림(양수라 UP 과
+-- 같다), 시장가 매수는 quote_order_qty 그대로, 매도는 qty 그대로다(§1.4 방향별 양자화 레짐). round 는 값을 바꾸지 않고
+-- 표시 자릿수를 scale 로 맞춘다(Java setScale 과 글자까지 같다, S3 설계 3절 P1).
+CREATE FUNCTION order_reserve_amount(p_market_id SMALLINT, p_payload JSONB,
+                                     OUT asset_id SMALLINT, OUT amount NUMERIC)
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    v_side  TEXT := p_payload ->> 'side';
+    v_type  TEXT := p_payload ->> 'ord_type';
+    v_base  SMALLINT;
+    v_quote SMALLINT;
+    v_scale INT;
+    v_raw   NUMERIC;
+BEGIN
+    SELECT m.base_asset_id, m.quote_asset_id, q.scale INTO v_base, v_quote, v_scale
+      FROM markets m JOIN assets q ON q.id = m.quote_asset_id
+     WHERE m.id = p_market_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '예약액 계산: 마켓 % 없음', p_market_id;
+    END IF;
+    IF v_side = 'BUY' AND v_type = 'MARKET' THEN
+        asset_id := v_quote;
+        amount   := (p_payload ->> 'quote_order_qty')::NUMERIC;
+    ELSIF v_side = 'BUY' THEN
+        asset_id := v_quote;
+        v_raw    := (p_payload ->> 'price')::NUMERIC * (p_payload ->> 'qty')::NUMERIC;
+        amount   := trunc(v_raw, v_scale);
+        IF amount < v_raw THEN
+            amount := amount + power(10::NUMERIC, -v_scale);
+        END IF;
+        amount   := round(amount, v_scale);
+    ELSIF v_side = 'SELL' THEN
+        asset_id := v_base;
+        amount   := (p_payload ->> 'qty')::NUMERIC;
+    END IF;
+    IF amount IS NULL OR amount <= 0 THEN
+        RAISE EXCEPTION '예약액 계산: payload 로 양수 예약액을 만들 수 없다(market=%, side=%, ord_type=%)',
+            p_market_id, v_side, v_type;
+    END IF;
+END $$;
+
+-- ── 10인자 머리말(P1·P2 공용) ───────────────────────────────────────
+-- 순서는 ADR 0034 결정 5 다. (1) 리스 행 KEY SHARE 와 판정 (2) NEW 멱등 판정(V44·V48 그대로) (3) P2 이상 NEW 의 예약액
+-- 계산·대조와 reserve_funds (4) 채번(V44 래치 규칙) (5) 예약 행. P1 에서는 (3)(5)를 건너뛰어 V48 6인자 판과 같은 행을 쓴다.
+-- 잔고가 모자라면 (3)의 balances CHECK(chk_balance_nonneg)가 23514 로 트랜잭션 전체를 롤백한다. 저널 행·채번·예약 행이
+-- 남지 않는다. 채번보다 예약이 먼저인 이유는 잔고 행을 기다리는 동안 채번 카운터 행을 쥐지 않으려는 것이다.
+-- 소유자 권한이다. 예약 행과 원장 게시는 이 함수로만 쓴다(app_role 은 order_reservations 를 읽기만 한다).
+CREATE FUNCTION append_command_prologue(
+    p_holder            TEXT,
+    p_epoch             BIGINT,
+    p_is_new            BOOLEAN,
+    p_user_id           BIGINT,
+    p_client_order_id   VARCHAR,
+    p_market_id         SMALLINT,
+    p_assigned_order_id BIGINT,
+    p_payload           JSONB,
+    p_check_asset       SMALLINT,
+    p_check_amount      NUMERIC
+) RETURNS TABLE (
+    out_seq      BIGINT,
+    out_replayed BOOLEAN,
+    out_fencing  BIGINT,
+    out_order_id BIGINT,
+    out_reserved BOOLEAN
+)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    r        RECORD;
+    v_prot   SMALLINT;
+    v_asset  SMALLINT;
+    v_amount NUMERIC;
+    v_avail  BIGINT;
+    v_locked BIGINT;
+    v_txn    BIGINT;
+BEGIN
+    -- (1) 조건 없는 KEY SHARE 뒤 판정(V41 순서). 이 잠금을 쥔 동안 전환(모든 리스 행 FOR UPDATE)은 커밋하지 못하므로
+    --     아래에서 읽는 모드는 이 트랜잭션이 끝날 때까지 그대로다.
+    PERFORM assert_and_lock_market_leader(p_market_id, p_holder, p_epoch);
+    SELECT protocol INTO v_prot FROM leader_protocol;
+
+    -- (2) NEW 멱등 재전송 판정. 락 키와 조회 술어에 market_id 를 넣지 않는다(ADR 0022 4-3). 재전송은 예약하지 않는다.
+    IF p_is_new AND p_client_order_id IS NOT NULL THEN
+        PERFORM pg_advisory_xact_lock(
+            hashtextextended('cmd-new:' || p_user_id::text || ':' || p_client_order_id, 0));
+        SELECT c.seq, c.fencing_token, c.assigned_order_id INTO r
+          FROM command_journal c
+         WHERE c.command_type = 'NEW'
+           AND c.user_id = p_user_id
+           AND c.client_order_id = p_client_order_id
+         ORDER BY c.created_at, c.seq
+         LIMIT 1;
+        IF FOUND THEN
+            out_seq := r.seq; out_replayed := TRUE; out_fencing := r.fencing_token;
+            out_order_id := r.assigned_order_id; out_reserved := FALSE;
+            RETURN NEXT;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- (3) 예약. DB 계산이 권위이고 앱 값은 대조에만 쓴다.
+    out_reserved := p_is_new AND v_prot >= 2;
+    IF out_reserved THEN
+        SELECT a.asset_id, a.amount INTO v_asset, v_amount FROM order_reserve_amount(p_market_id, p_payload) a;
+        IF p_check_asset IS DISTINCT FROM v_asset OR p_check_amount IS NULL OR p_check_amount <> v_amount THEN
+            RAISE EXCEPTION '예약액 대조 불일치: 앱(asset=%, amount=%) DB(asset=%, amount=%), order=%',
+                p_check_asset, p_check_amount, v_asset, v_amount, p_assigned_order_id;
+        END IF;
+        SELECT max(a.id) FILTER (WHERE a.purpose = 'AVAILABLE'), max(a.id) FILTER (WHERE a.purpose = 'LOCKED')
+          INTO v_avail, v_locked
+          FROM accounts a
+         WHERE a.owner_type = 'USER' AND a.owner_id = p_user_id AND a.asset_id = v_asset
+           AND a.purpose IN ('AVAILABLE', 'LOCKED') AND a.shard = 0;
+        IF v_avail IS NULL OR v_locked IS NULL THEN
+            RAISE EXCEPTION '예약 계정 없음: user=%, asset=%', p_user_id, v_asset;
+        END IF;
+        v_txn := reserve_funds(p_assigned_order_id, v_avail, v_locked, v_asset, v_amount);
+    END IF;
+
+    -- (4) 채번. V44 와 같다.
+    IF EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq') THEN
+        out_seq := next_market_command_seq(p_market_id);
+    ELSE
+        out_seq := next_journal_value('command_seq');
+    END IF;
+
+    -- (5) 예약 행
+    IF out_reserved THEN
+        INSERT INTO order_reservations (command_seq, order_id, user_id, market_id, asset_id,
+                                        available_account_id, locked_account_id, amount, ledger_txn_id,
+                                        payload_sha256)
+        VALUES (out_seq, p_assigned_order_id, p_user_id, p_market_id, v_asset,
+                v_avail, v_locked, v_amount, v_txn, sha256(convert_to(p_payload::text, 'UTF8')));
+    END IF;
+    out_replayed := FALSE; out_fencing := NULL; out_order_id := NULL;
+    RETURN NEXT;
+END $$;
+
+-- ── 레거시 머리말은 P2 이상에서 예약 없는 NEW 를 받지 않는다 ────────────
+-- 6인자 판. V48 본문에서 판정 뒤 한 조건만 더한다. 거부를 판정 뒤에 두어 오래된 리더는 fencing 거부로 강등된다.
+CREATE OR REPLACE FUNCTION append_command_prologue(
+    p_holder          TEXT,
+    p_epoch           BIGINT,
+    p_is_new          BOOLEAN,
+    p_user_id         BIGINT,
+    p_client_order_id VARCHAR,
+    p_market_id       SMALLINT
+) RETURNS TABLE (
+    out_seq        BIGINT,
+    out_replayed   BOOLEAN,
+    out_fencing    BIGINT,
+    out_order_id   BIGINT
+)
+LANGUAGE plpgsql VOLATILE AS $$
+DECLARE
+    r RECORD;
+BEGIN
+    PERFORM assert_lease_holder(lease_resource_for_market(p_market_id), p_holder, p_epoch);
+    IF p_is_new AND (SELECT protocol FROM leader_protocol) >= 2 THEN
+        RAISE EXCEPTION 'P2 이상에서는 예약 없는 주문 생성 명령을 받지 않는다. 10인자 append_command_prologue 를 부르는 앱이어야 한다(ADR 0034 S3)'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+
+    IF p_is_new AND p_client_order_id IS NOT NULL THEN
+        PERFORM pg_advisory_xact_lock(
+            hashtextextended('cmd-new:' || p_user_id::text || ':' || p_client_order_id, 0));
+
+        SELECT c.seq, c.fencing_token, c.assigned_order_id INTO r
+        FROM command_journal c
+        WHERE c.command_type = 'NEW'
+          AND c.user_id = p_user_id
+          AND c.client_order_id = p_client_order_id
+        ORDER BY c.created_at, c.seq
+        LIMIT 1;
+
+        IF FOUND THEN
+            out_seq      := r.seq;
+            out_replayed := TRUE;
+            out_fencing  := r.fencing_token;
+            out_order_id := r.assigned_order_id;
+            RETURN NEXT;
+            RETURN;
+        END IF;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq') THEN
+        out_seq := next_market_command_seq(p_market_id);
+    ELSE
+        out_seq := next_journal_value('command_seq');
+    END IF;
+    out_replayed := FALSE;
+    out_fencing  := NULL;
+    out_order_id := NULL;
+    RETURN NEXT;
+END $$;
+
+-- 5인자 판. V44 본문에서 래치 거부 뒤 같은 조건을 더한다.
+CREATE OR REPLACE FUNCTION append_command_prologue(
+    p_holder          TEXT,
+    p_epoch           BIGINT,
+    p_is_new          BOOLEAN,
+    p_user_id         BIGINT,
+    p_client_order_id VARCHAR
+) RETURNS TABLE (
+    out_seq        BIGINT,
+    out_replayed   BOOLEAN,
+    out_fencing    BIGINT,
+    out_order_id   BIGINT
+)
+LANGUAGE plpgsql VOLATILE AS $$
+DECLARE
+    r RECORD;
+BEGIN
+    PERFORM assert_current_leader(p_holder, p_epoch);
+
+    IF EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq') THEN
+        RAISE EXCEPTION '명령 대역 커트오버 래치 뒤에는 5인자 append_command_prologue 로 접수할 수 없다. 6인자 판을 부르는 앱이어야 한다(ADR 0022 6단계)'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF p_is_new AND (SELECT protocol FROM leader_protocol) >= 2 THEN
+        RAISE EXCEPTION 'P2 이상에서는 예약 없는 주문 생성 명령을 받지 않는다. 10인자 append_command_prologue 를 부르는 앱이어야 한다(ADR 0034 S3)'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+
+    IF p_is_new AND p_client_order_id IS NOT NULL THEN
+        PERFORM pg_advisory_xact_lock(
+            hashtextextended('cmd-new:' || p_user_id::text || ':' || p_client_order_id, 0));
+
+        SELECT c.seq, c.fencing_token, c.assigned_order_id INTO r
+        FROM command_journal c
+        WHERE c.command_type = 'NEW'
+          AND c.user_id = p_user_id
+          AND c.client_order_id = p_client_order_id
+        ORDER BY c.created_at, c.seq
+        LIMIT 1;
+
+        IF FOUND THEN
+            out_seq      := r.seq;
+            out_replayed := TRUE;
+            out_fencing  := r.fencing_token;
+            out_order_id := r.assigned_order_id;
+            RETURN NEXT;
+            RETURN;
+        END IF;
+    END IF;
+
+    out_seq      := next_journal_value('command_seq');
+    out_replayed := FALSE;
+    out_fencing  := NULL;
+    out_order_id := NULL;
+    RETURN NEXT;
+END $$;
+
+-- ── 저널 행: P2 이상의 NEW 는 같은 트랜잭션의 예약 행과 맞아야 넣는다 ─────
+-- V48 본문 뒤에 확인 하나를 더한다. 넣지 못했으면(0행, 오래된 리더) 확인하지 않고 0 을 돌려준다. 예약 행은 같은 seq·주문·
+-- 사용자·마켓이고 예약액을 계산한 payload 가 이 행의 payload 와 같아야 한다. 어긋나면 트랜잭션 전체를 롤백한다.
+CREATE OR REPLACE FUNCTION append_command_journal_row(
+    p_seq BIGINT, p_market_id SMALLINT, p_command_type VARCHAR, p_user_id BIGINT,
+    p_client_order_id VARCHAR, p_assigned_order_id BIGINT, p_engine_ts BIGINT, p_tie_break BIGINT,
+    p_payload JSONB, p_checksum BIGINT, p_holder TEXT, p_epoch BIGINT
+) RETURNS INTEGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_rows INTEGER;
+BEGIN
+    INSERT INTO command_journal
+      (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
+       engine_ts, tie_break, payload, fencing_token, checksum)
+    SELECT p_seq, v.market_id, p_command_type, p_user_id, p_client_order_id, p_assigned_order_id,
+           p_engine_ts, p_tie_break, p_payload, l.epoch, p_checksum
+    FROM (VALUES (p_market_id)) AS v(market_id)
+    JOIN leader_lease l ON l.resource = lease_resource_for_market(v.market_id)
+    WHERE l.holder = p_holder AND l.epoch = p_epoch AND l.lease_until > clock_timestamp()
+    FOR KEY SHARE OF l;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    IF v_rows = 1 AND p_command_type = 'NEW' AND (SELECT protocol FROM leader_protocol) >= 2
+       AND NOT EXISTS (SELECT 1 FROM order_reservations r
+                        WHERE r.command_seq = p_seq AND r.order_id = p_assigned_order_id
+                          AND r.user_id = p_user_id AND r.market_id = p_market_id
+                          AND r.payload_sha256 = sha256(convert_to(p_payload::text, 'UTF8'))) THEN
+        RAISE EXCEPTION 'P2 주문 생성 명령에 맞는 예약 행이 없다(seq=%, order=%)', p_seq, p_assigned_order_id;
+    END IF;
+    RETURN v_rows;   -- 0 이면 오래된 리더다. 호출자가 예외로 채번·예약까지 롤백한다
+END $$;
+
+-- ── 획득·게시: 바이너리가 아는 최고 프로토콜 ──────────────────────────
+-- 내부 함수. V48 lease_acquire_core 의 본문에 호출자가 아는 최고 프로토콜을 더한다. 그보다 높은 모드에서는 거부한다.
+-- S2 이전 바이너리는 P2 의 예약 정산을 모르므로 P2 리더가 되면 예약 주문을 다시 예약하거나(23505) 거부 주문의 예약을
+-- 풀지 않는다(S3 설계 4-8).
+CREATE FUNCTION lease_acquire_capped(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_max_protocol SMALLINT)
+RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_started  TIMESTAMPTZ := clock_timestamp();
+    v_protocol SMALLINT;
+    v_epoch    BIGINT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM leader_lease WHERE resource = p_resource) THEN
+        RAISE EXCEPTION 'leader_lease 행 없음: resource=%', p_resource;
+    END IF;
+    PERFORM 1 FROM leader_lease
+     WHERE resource = p_resource AND lease_until < clock_timestamp()
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF v_protocol > p_max_protocol THEN
+        RAISE EXCEPTION '이 호출은 P% 까지만 안다. 현재 P%에서는 리스를 획득하지 않는다', p_max_protocol, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF (v_protocol < 3 AND p_resource <> 'matching-engine')
+       OR (v_protocol = 3 AND p_resource NOT IN ('matching-p0', 'matching-p1')) THEN
+        RAISE EXCEPTION '리스 자원 %은 P%에서 획득할 수 없다', p_resource, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    v_epoch := allocate_lease_epoch();
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = v_epoch, lease_until = v_started + p_ttl
+     WHERE resource = p_resource;
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, p_resource, p_holder, v_protocol, 'ACQUIRE');
+    RETURN v_epoch;
+END $$;
+
+-- S2 바이너리가 부르는 3인자 판은 P1 에서만 획득한다.
+CREATE OR REPLACE FUNCTION try_acquire_lease(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN lease_acquire_capped(p_resource, p_holder, p_ttl, 1::SMALLINT);
+END $$;
+
+CREATE FUNCTION try_acquire_lease(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_max_protocol SMALLINT)
+RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN lease_acquire_capped(p_resource, p_holder, p_ttl, p_max_protocol);
+END $$;
+
+-- 게시. V48 본문에 최고 프로토콜 확인을 더한다. P3 은 늘 거부한다(ADR 0034 결정한 값 18).
+CREATE FUNCTION publish_leader_epoch(p_holder TEXT, p_epoch BIGINT, p_max_protocol SMALLINT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_epoch    BIGINT;
+    v_protocol SMALLINT;
+BEGIN
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = p_epoch,
+           lease_until = clock_timestamp() + interval '100 years'
+     WHERE resource = 'matching-engine'
+       AND (epoch < p_epoch OR (epoch = p_epoch AND holder = p_holder))
+    RETURNING epoch INTO v_epoch;
+    IF v_epoch IS NULL THEN
+        RETURN NULL;
+    END IF;
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF v_protocol = 3 THEN
+        RAISE EXCEPTION '파티션 모드(P3)에서는 외부 보관소 epoch 게시를 거부한다'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF v_protocol > p_max_protocol THEN
+        RAISE EXCEPTION '이 호출은 P% 까지만 안다. 현재 P%에서는 epoch 를 게시하지 않는다', p_max_protocol, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, 'matching-engine', p_holder, v_protocol, 'PUBLISH')
+    ON CONFLICT (epoch) DO NOTHING;
+    IF NOT FOUND AND NOT EXISTS (SELECT 1 FROM lease_acquisitions
+                                 WHERE epoch = v_epoch AND resource = 'matching-engine'
+                                   AND holder = p_holder) THEN
+        RAISE EXCEPTION '게시 epoch %가 다른 획득 이력과 겹친다', v_epoch;
+    END IF;
+    RETURN v_epoch;
+END $$;
+
+-- S2 이전 바이너리가 부르는 2인자 판은 P1 에서만 게시한다.
+CREATE OR REPLACE FUNCTION publish_leader_epoch(p_holder TEXT, p_epoch BIGINT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    RETURN publish_leader_epoch(p_holder, p_epoch, 1::SMALLINT);
+END $$;
+
+-- ── 정산 잠금 계획: 배치가 게시할 잔고 행을 첫 게시 전에 한 번에 잡는다 ───────
+-- post_ledger_transaction 은 호출 하나 안에서만 account_id 오름차순으로 잡는다. 정산 배치는 게시를 여러 번 하므로(P1 ACCEPTED
+-- 예약, TRADE 마다 한 번, 해제) 배치 전체로는 순서가 어긋날 수 있다. P2 에서는 접수 예약(AVAILABLE 다음 LOCKED)과 순환을
+-- 만든다(S3 설계 11절 R6, 폐기용 컨테이너 재현 C20). 정산은 배치의 첫 게시 직전에 이 함수로 그 배치가 게시할 수 있는 잔고
+-- 행 전체(§5.0 잠금 계획)를 오름차순으로 한 번에 잡는다. 행을 바꾸지 않고 잠근 행 수를 돌려준다. 소유자 권한인 이유는
+-- app_role 에 balances UPDATE 권한이 없어 행 잠금 절을 직접 쓸 수 없기 때문이다.
+CREATE FUNCTION lock_balance_rows(p_account_ids BIGINT[]) RETURNS INTEGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_rows INTEGER;
+BEGIN
+    PERFORM 1
+      FROM balances b
+     WHERE b.account_id = ANY (p_account_ids)
+     ORDER BY b.account_id
+       FOR NO KEY UPDATE;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    RETURN v_rows;
+END $$;
+
+-- ── 모드 전환(소유자 전용, 정지 창) ─────────────────────────────────
+-- (1) 모든 리스 행을 resource 순 FOR UPDATE 로 잡아 진행 중 쓰기(KEY SHARE)의 커밋을 기다린다 (2) 모드 행을 잡는다
+-- (3) 허용 전이인지 본다 (4) 선행 조건을 잠금 뒤에 본다 (5) 모드를 바꾼다(이력 트리거가 epoch_floor 를 남긴다)
+-- (6) 모든 리스 행을 새 epoch 로 퇴역시켜 이전 모드의 쓰기를 펜싱한다. 퇴역은 matching-engine 행을 마지막에 해서 그 행의
+-- epoch 가 셋 가운데 가장 크게 한다. 외부 보관소 노드는 재기동 때 토큰 하한을 리스 행에서 읽으므로(FencingTokenAlignment),
+-- 그 행이 가장 작으면 전환 뒤 첫 게시가 다른 행의 RETIRE 이력과 겹쳐 거부된다(S3 설계 11절 R4). 잠금 대기는 5초로 끊는다
+-- (S2 설계 3절 Q3). 이 판이 받는 전이는 1→2 와, p_allow_downgrade 를 준 2→1 이다. 2↔3 은 S7 이 이 함수를 개정하며 더한다.
+CREATE FUNCTION set_leader_protocol(p_target SMALLINT, p_allow_downgrade BOOLEAN DEFAULT false)
+RETURNS TABLE (out_resource TEXT, out_retired_epoch BIGINT, out_protocol SMALLINT)
+LANGUAGE plpgsql SET lock_timeout = '5s' AS $$
+DECLARE
+    v_current   SMALLINT;
+    v_unsettled BIGINT;
+    v_sample    TEXT;
+    v_res       TEXT;
+    v_epoch     BIGINT;
+BEGIN
+    PERFORM 1 FROM leader_lease l ORDER BY l.resource FOR UPDATE;
+    SELECT p.protocol INTO v_current FROM leader_protocol p FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF NOT ((v_current = 1 AND p_target = 2) OR (v_current = 2 AND p_target = 1)) THEN
+        RAISE EXCEPTION '프로토콜 전이 P% -> P%는 이 판에서 받지 않는다(1->2, 2->1 만)', v_current, p_target
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF v_current = 2 AND p_target = 1 AND NOT p_allow_downgrade THEN
+        RAISE EXCEPTION 'P2 -> P1 은 ADR 0034 결정 8 과 시험 R1 을 확인한 뒤 p_allow_downgrade => true 로만 한다'
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    -- 선행 조건은 잠금 뒤에 본다. 잠금 전에 보면 그 사이 커밋되는 미예약 NEW 가 새어 들어온다(단계 계획 2절 검토 1 1b).
+    SELECT count(*) INTO v_unsettled
+      FROM command_journal c
+     WHERE c.command_type = 'NEW'
+       AND NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = c.seq);
+    IF v_unsettled > 0 THEN
+        SELECT string_agg(s.seq::text, ',') INTO v_sample
+          FROM (SELECT c.seq FROM command_journal c
+                 WHERE c.command_type = 'NEW'
+                   AND NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = c.seq)
+                 ORDER BY c.seq LIMIT 10) s;
+        RAISE EXCEPTION '정산되지 않은 주문 생성 명령이 %건 있다(앞 seq: %). 정지 창에서 큐를 비운 뒤 다시 부른다',
+            v_unsettled, v_sample
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    UPDATE leader_protocol SET protocol = p_target;
+    -- 잠금은 위에서 resource 순으로 이미 쥐었다. 퇴역 순서만 matching-engine 을 끝에 둔다(false 가 true 보다 앞선다).
+    FOR v_res IN SELECT l.resource FROM leader_lease l
+                 ORDER BY (l.resource = 'matching-engine'), l.resource LOOP
+        v_epoch := allocate_lease_epoch();
+        UPDATE leader_lease l
+           SET holder = '', epoch = v_epoch, lease_until = clock_timestamp() - interval '1 second'
+         WHERE l.resource = v_res;
+        INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+        VALUES (v_epoch, v_res, '', p_target, 'RETIRE');
+        out_resource := v_res; out_retired_epoch := v_epoch; out_protocol := p_target;
+        RETURN NEXT;
+    END LOOP;
+END $$;
+
+-- ── 권한 ────────────────────────────────────────────────────────────
+-- 소유자 권한 함수와 내부 함수, 전환 함수에서 PUBLIC EXECUTE 를 회수한다(S2 설계 3절 Q10). 전환 함수는 app_role 에도
+-- 주지 않는다. 예약 행은 app_role 이 읽기만 한다.
+REVOKE ALL ON FUNCTION
+    append_command_prologue(TEXT, BIGINT, BOOLEAN, BIGINT, VARCHAR, SMALLINT, BIGINT, JSONB, SMALLINT, NUMERIC),
+    lease_acquire_capped(TEXT, TEXT, INTERVAL, SMALLINT),
+    try_acquire_lease(TEXT, TEXT, INTERVAL, SMALLINT),
+    publish_leader_epoch(TEXT, BIGINT, SMALLINT),
+    lock_balance_rows(BIGINT[]),
+    set_leader_protocol(SMALLINT, BOOLEAN)
+FROM PUBLIC;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        GRANT EXECUTE ON FUNCTION
+            append_command_prologue(TEXT, BIGINT, BOOLEAN, BIGINT, VARCHAR, SMALLINT, BIGINT, JSONB, SMALLINT, NUMERIC),
+            try_acquire_lease(TEXT, TEXT, INTERVAL, SMALLINT),
+            publish_leader_epoch(TEXT, BIGINT, SMALLINT),
+            lock_balance_rows(BIGINT[]),
+            order_reserve_amount(SMALLINT, JSONB)
+        TO app_role;
+        GRANT SELECT ON order_reservations TO app_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'harness_role') THEN
+        GRANT SELECT ON order_reservations TO harness_role;
+    END IF;
+END $$;
+```
+
+예약액. `order_reserve_amount`는 checksum이 덮는 payload의 `side`·`ord_type`·`price`·`qty`·`quote_order_qty`와 카탈로그의 `assets.scale`(마켓의 quote 자산)로 계산한다. 지정가 매수는 `price x qty`를 quote scale로 올림하고, 시장가 매수는 `quote_order_qty` 그대로, 매도는 `qty` 그대로다. §1.4 방향별 양자화 레짐의 예약 행과 같고, 정산(`SettlementService.settleAccepted`)과 게이트웨이 가드(`OrderGateway.ParsedOrder.reserve`)가 쓰는 Java `setScale(scale, RoundingMode.UP)`와 같은 값을 낸다. 끝의 `round`는 값을 바꾸지 않고 표시 자릿수를 scale로 맞춘다. 2026-09-24 경계 사례 20개와 고정 시드 난수 사례 3,000개(그중 올림이 실제로 일어난 사례 2,520개)에서 Java 결과와 값과 글자가 모두 같았다(S3 설계 3절 P1). 앱은 자기가 계산한 자산과 금액을 `p_check_asset`·`p_check_amount`로 넘기고, 머리말은 이것을 대조에만 쓴다. 다르면 트랜잭션을 롤백한다. 앱 산식이 DB와 어긋난 채 과소 예약하면 중간 체결이 LOCKED 잔여를 넘어 정산이 멈추기 때문이다(ADR 0034 결정 5).
+
+잠금 순서. 10인자 머리말은 리스 행 KEY SHARE, 어드바이저리 락(NEW만), 잔고 행(`post_ledger_transaction`이 account_id 오름차순 FOR NO KEY UPDATE), 채번 카운터 행 순으로 잡고, 이어 저널 행 함수가 같은 리스 행을 다시 KEY SHARE로 잡는다(이미 쥔 잠금이다). 채번보다 예약이 먼저인 이유는 잔고 행을 기다리는 동안 채번 카운터 행을 쥐지 않으려는 것이다. 래치 전에는 모든 마켓이 `journal_counters('command_seq')` 한 행을 나눠 쓰므로, 카운터를 쥔 채 한 사용자의 잔고 행을 기다리면 다른 마켓의 접수까지 그 뒤에 선다. 정산 트랜잭션은 이벤트 카운터, 주문 행(그 마켓 라이터만 잡는다), 잔고 행 순이고 명령 카운터를 잡지 않으며, 출금은 잔고 행만 잡는다.
+
+잔고 행에서 교착이 없으려면 잔고 행을 잡는 트랜잭션마다 잔고 행 전체를 한 번의 account_id 오름차순 묶음으로 잡아야 한다(§5.0 v2.54). `post_ledger_transaction`은 호출 하나 안에서만 오름차순을 지킨다. 접수 예약과 출금은 게시를 한 번 하므로 그대로 성립한다. 정산 배치는 게시를 여러 번 한다(P1 ACCEPTED 예약, TRADE마다 한 번, CANCELED·REJECTED 해제). 그래서 정산은 배치의 첫 게시 직전에 `lock_balance_rows`로 그 배치가 게시할 수 있는 잔고 행 전체(잠금 계획)를 오름차순으로 한 번에 잡는다. 이 판의 첫 초안은 게시 호출 하나 안의 오름차순만 보고 "어느 두 경로도 같은 두 자원을 반대 순서로 잡지 않는다"고 적었는데 틀렸다. 시장가·IOC 주문의 체결 분개는 그 주문의 예약 자산 쪽에서 LOCKED만 잡는다(매수는 환급이 0이면 AVAILABLE(quote) 분개가 빠지고, 매도는 AVAILABLE(base) 분개가 없다). 이어지는 잔여 해제는 그보다 id가 작은 같은 자산의 AVAILABLE을 요구한다(계정은 AVAILABLE, LOCKED 순으로 만들어진다). 같은 사용자가 다른 마켓에서 같은 자산을 P2로 예약하면 AVAILABLE을 먼저, LOCKED를 다음에 잡으므로 순환이 생긴다. 폐기용 컨테이너에서 잠금 계획이 없는 정산은 교착 판정(40P01)으로 끝났고, 계획을 먼저 잡은 정산은 접수를 자기 커밋까지 기다리게 했을 뿐 교착이 없었다(S3 설계 3절 C20). P1에서도 같은 모양이 다른 마켓 정산과 출금 사이에 있었고 정산의 일시 오류 재시도가 흡수해 왔다. 잠금 계획은 그 경우도 없앤다.
+
+payload 결속. 예약 행은 예약액을 계산한 payload의 SHA-256(`payload_sha256`, `jsonb::text`의 UTF-8 바이트)을 가진다. `append_command_journal_row`는 P2 이상의 NEW를 넣은 뒤 같은 seq·주문·사용자·마켓의 예약 행이 있고 payload 해시가 같은지 본다. 앱이 머리말과 저널 행에 서로 다른 payload를 넘기면 트랜잭션이 롤백된다. 넣지 못한 경우(0행, 오래된 리더)에는 보지 않고 0을 돌려준다. 호출자가 예외로 채번과 예약까지 롤백한다.
+
+전환. `set_leader_protocol(p_target, p_allow_downgrade)`는 소유자만 부른다(PUBLIC과 `app_role`에 EXECUTE가 없다). 이 판이 받는 전이는 1->2와, 확인 인자를 준 2->1이다. 2->1은 ADR 0034 결정 8의 조건(정지 창, 정산되지 않은 주문 생성 명령 0건)과 S3 설계의 시험 R1이 통과한 뒤에만 쓴다. 2<->3은 S7이 이 함수를 개정하며 더한다(v2.59, §3.10의 V55가 더했다. 잠금 순서, 5초 잠금 대기, 퇴역 순서는 이 판 그대로다). 함수는 모든 리스 행을 resource 순서로 FOR UPDATE로 잡는다. 진행 중 쓰기가 쥔 KEY SHARE의 커밋을 기다리려는 것이고, 잠금 대기는 함수 속성 `lock_timeout = '5s'`로 끊는다. 쓰기가 끊이지 않으면 기다리는 FOR UPDATE 앞으로 새 KEY SHARE가 계속 끼어들 수 있기 때문이다(S2 설계 3절 Q3). 그다음 모드 행을 잡고, 선행 조건을 잠금 뒤에 본다. 잠금 전에 보면 그 사이 커밋되는 미예약 NEW가 새어 들어온다. 선행 조건을 통과하면 모드를 바꾸고(이력 트리거가 그 시점의 `epoch_floor`를 남긴다), 리스 행마다 `allocate_lease_epoch()`로 새 epoch를 받아 holder `''`, 만료 상태로 바꾸고 `lease_acquisitions`에 `RETIRE` 행(새 모드)을 남긴다. 퇴역은 `matching-p0`, `matching-p1`, `matching-engine` 순이라 `matching-engine`의 퇴역 epoch가 셋 가운데 가장 크다. 외부 보관소(DynamoDB) 노드는 재기동 때 토큰 하한을 PostgreSQL에서 읽고(`FencingTokenAlignment`) 하한 + 1로 게시한다. 그 하한이 가장 작은 퇴역 epoch이면 첫 두 게시가 다른 행의 `RETIRE` 이력과 겹쳐 "게시 epoch가 다른 획득 이력과 겹친다"로 거부된다(2026-09-24 설계 검토가 폐기용 컨테이너에서 재현). 그래서 퇴역 순서를 정하고, 하한도 `matching-engine` 행 하나가 아니라 epoch 배정 규칙과 같은 max(리스 행, 획득 이력)로 읽는다(§5.4-b 외부 보관소). 전환이 커밋되면 이전 모드의 모든 리더가 쥔 epoch는 판정에서 거부되고, 전환 커밋 전에 판정을 통과했던 V48 경로의 append도 저널 행 함수의 KEY SHARE 재평가에서 0행이 된다(S2 설계 3절 Q7, S3 설계 3절 C16). 퇴역 epoch는 `epoch_floor`보다 크고 전환 뒤 첫 획득과 외부 보관소의 첫 게시는 마지막 퇴역 epoch + 1이다(S3 설계 3절 C3·C19). 전환은 리스 행 셋에 epoch를 하나씩 쓰므로 epoch가 한 번에 셋 오른다. 그 뒤 승격마다 +1은 그대로다.
+
+권한. 10인자 머리말은 소유자 권한이다. 예약 행과 원장 게시를 이 함수로만 쓰게 하려는 것이고, `app_role`은 `order_reservations`를 읽기만 한다. 잠금 계획 함수 `lock_balance_rows`도 소유자 권한이다. `app_role`에 `balances` UPDATE 권한이 없어 행 잠금 절을 직접 쓸 수 없기 때문이다. 행을 바꾸지 않고 잠그기만 하므로, `app_role`이 이미 부르는 `reserve_funds`·`post_ledger_transaction`보다 넓은 능력을 주지 않는다. 소유자 권한 함수와 내부 함수 `lease_acquire_capped`, 전환 함수는 PUBLIC EXECUTE를 회수하고, `app_role`에는 10인자 머리말, 4인자 획득, 3인자 게시, `lock_balance_rows`, `order_reserve_amount`만 준다. `order_reserve_amount`는 SELECT만 하는 호출자 권한 함수라 그대로 둔다. CREATE OR REPLACE로 바꾼 함수(5·6인자 머리말, 저널 행 함수, 3인자 획득, 2인자 게시)는 V48의 권한을 그대로 유지한다.
+
+적용과 되돌리기. V50은 표 하나를 만들고 함수를 바꾸므로 쓰기를 멈춘 창에서 적용한다. Flyway 11.7.2는 높은 번호가 적용된 DB에 낮은 번호 파일이 새로 보이면 `Detected resolved migration not applied to database`로 검증을 멈춘다(`outOfOrder` 기본 거짓). 그래서 V50이 들어가는 이미지는 V49를 함께 싣거나 V49가 이미 적용된 DB에만 올린다. 반대로 앞 이미지가 DB에만 있는 뒤 번호를 만나면 `Schema has a version (N) that is newer than the latest available migration`을 경고하고 뜬다(S3 설계 3절 P7, S2 설계 4-1의 전제를 실행으로 확인했다). V50은 모드가 1이고 `order_reservations`가 비어 있을 때만 되돌린다. 새 표·함수를 지우고 바꾼 함수를 V48·V44 본문으로 되돌리는 새 마이그레이션을 더한다. 예약 행이 한 번이라도 생기면 되돌리지 않는다. 그 주문의 예약이 원장에 남아 있고 정산의 두 갈래가 그 행을 읽기 때문이다.
+
+검증. 예약 연결은 하네스 C31_RESERVATION_LINK(CRITICAL, 앱은 권위 run 한정·최근 창, 전수 판은 하네스 SQL), LOCKED 잔고는 C14'(C14_LOCKED_RESERVATION의 개정 술어, HIGH, SCHEDULED, 정산 전 예약 항은 마켓별 정산 커서로 경계)가 센다(`docs/reference/contracts/하네스_검증설계.md` §4-1). 위 SQL 블록은 2026-09-24 저장소의 V0~V48과 §3.4의 V49 계약 SQL 위에 문서에서 그대로 뽑아 적용했고, 권한, P1 동등 경로, 전환 거부와 퇴역 순서, P2 예약·재전송·잔고 부족·오래된 epoch·대조 불일치·payload 결속, 동시 예약과 출금 경합, 전환 경합 셋, 되돌리기, 외부 보관소의 전환 뒤 첫 게시, 정산 잠금 계획의 교착 제거, C14'·C31의 양성·음성 대조를 확인했다(`harness/evidence/pml-s3-pg-probe-20260924/s3-contract-check.log`). 합성 행 100만 건에서 잰 문장 시간은 S3 설계 3절 P8이다. 시험 목록은 S3 설계 6절이다.
+
 ---
+
+### 3.6 `V51__app_role_default_partition_select.sql`: 검증기의 DEFAULT 잎 읽기 권한 (v2.54 추가, ADR 0034 S3 관문)
+
+앱의 불변식 검증기(`InvariantVerifier`)는 앱 풀로 돈다. 배포의 런타임 로그인은 `app_role`에 속하므로(`deploy/provision-runtime-roles.sql`) 검증기도 `app_role` 권한으로 문장을 낸다. C15_DEFAULT_PARTITION(WARN, SCHEDULED)과 C27_CMD_DEFAULT_PARTITION(CRITICAL, SCHEDULED)은 DEFAULT 파티션 잎을 부모가 아니라 잎 이름으로 직접 센다(하네스 검증설계 §4-1). 잎은 부모의 권한을 물려받지 않고 V1의 `app_role` GRANT는 부모 표에만 걸려 있어, 앱 역할 로그인에서는 두 문장이 `permission denied`(42501)로 끝난다. 상시 run은 체크를 차례로 돌다 C15에서 멈춰 그 run의 어떤 체크도 적재하지 못하고, 권위 run은 한 트랜잭션이라 통째로 실패한다. 2026-09-24 S3 관문 X1(앱 역할 로그인 주행)에서 권위 run이 HTTP 500으로 드러났다. 로컬 카오스 스택과 종전 통합 시험은 소유자 로그인이라 이 누락을 가렸다.
+
+V51은 그 잎 다섯의 SELECT만 준다. 쓰기는 늘지 않는다. 잎에 직접 쓰는 권한은 없고, 쓰기는 부모 표를 거치며 명령 저널은 `append_command_journal_row`로만 쓴다(V49). `harness_role`은 V1의 `GRANT SELECT ON ALL TABLES IN SCHEMA public`이 V1 시점 잎까지 덮고 V8·V12가 잎을 떼었다 다시 붙여도 표의 권한은 남으므로 따로 주지 않는다.
+
+```sql
+-- V51__app_role_default_partition_select.sql (ADR 0034 S3 관문 X1). 불변식 검증기의 C15·C27 은 DEFAULT 파티션 잎을 직접 센다.
+-- 잎은 부모의 권한을 물려받지 않아 앱 역할 로그인 검증기가 permission denied 로 멈췄다. 읽기만 준다. 쓰기는 부모 표를 거치고
+-- 명령 저널은 append_command_journal_row 로만 쓴다(V49). harness_role 은 V1 의 GRANT SELECT ON ALL TABLES 가 이미 덮는다.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        GRANT SELECT ON ledger_entries_default, event_journal_default, trades_default, outbox_default,
+                        command_journal_default TO app_role;
+    END IF;
+END $$;
+```
+
+적용과 되돌리기. 권한만 바꾸므로 쓰기를 멈추지 않고 적용한다. 되돌리려면 같은 잎의 SELECT를 회수하는 새 마이그레이션을 더한다. 그러면 앱 역할 로그인 검증기가 다시 C15에서 멈춘다. V49·V50과 같은 이미지(S3의 첫 이미지)에 싣는다. Flyway 기본 설정은 높은 번호가 적용된 DB에 낮은 번호가 새로 보이면 검증에서 멈추므로(§3.5 적용과 되돌리기), V51보다 뒤 번호를 싣는 이미지는 V51을 함께 싣는다.
+
+검증. `AppRoleInvariantRunTest`가 배포와 같은 런타임 로그인으로 상시 run과 권위 run을 끝까지 돌고, 잎 직접 INSERT가 42501인지 본다. `MigrationSmokeTest`가 잎 다섯의 `app_role` SELECT와 INSERT 부재를 본다. 폐기용 스택에서는 S3 관문 X1이 앱 역할 로그인 권위 run과 컨테이너 로그의 `permission denied` 0줄을 본다.
+
+### 3.7 `V52__lease_until_from_grant.sql`: 획득 리스의 만료 기준 (v2.54 추가, ADR 0034 S3 관문)
+
+리스 획득은 만료된 리스 행을 `FOR UPDATE`로 잡는다. 그 잠금은 옛 epoch로 리스 행에 KEY SHARE를 건 쓰기 트랜잭션이 끝나기를 기다린다(V41 성질 "승격은 진행 중 쓰기의 커밋을 기다린다"). V1 이래 획득은 `lease_until`을 이 기다림 전의 시각에서 셌다. V1의 한 문장 UPDATE는 행을 고르며 새 행 값을 계산한 뒤 잠금을 기다리고, V48·V50의 함수 판은 같은 결과를 내려고 시작 시각(`v_started`)을 따로 잡았다. 기다림이 TTL보다 길면 획득은 이미 만료된 리스를 돌려준다. 새 리더는 첫 쓰기에서 `fencing 위반: 리스 만료`를 받고, 앱은 그것을 종신 강등으로 다루므로(재승격 금지, 복귀는 재기동) 클러스터에 리더가 남지 않는다.
+
+2026-09-24 S3 관문 X3(E7 리더 pause, P2)에서 이 일이 났다. 멈춘 옛 리더는 리스 행 KEY SHARE를 쥔 트랜잭션 둘을 남겼고, 둘은 잔고 행에서 서로를 기다리는 사슬이었다. 앞 세션이 `idle_in_transaction_session_timeout`(10초)으로 끊긴 뒤에야 뒤 세션이 잔고 행을 얻어 문장을 마치고 다시 10초를 기다려, 획득은 약 14.5초를 기다렸다. TTL 6초로 센 리스는 받는 순간 만료였고 새 리더는 승격 60밀리초 뒤 첫 접수에서 강등됐다. P2에서는 접수가 잔고 행을 잡으므로 멈춘 리더의 트랜잭션끼리 이런 사슬이 쉽게 생긴다. P1에서도 같은 조건(기다림 > TTL)이면 같은 결과이고, S1 관문의 E7은 이 조건을 만나지 않았다.
+
+V52는 두 내부 함수의 `lease_until`을 행 잠금을 얻은 뒤의 `clock_timestamp() + ttl`로 바꾼다. 서명, 속성(호출자 권한, 호출은 소유자 권한 공개 함수가 한다), 판정 순서, epoch 배정, 이력 기록은 그대로다. 안전 조건은 달라지지 않는다. 잠금을 얻었다는 것은 옛 epoch로 리스 행을 잡은 쓰기 트랜잭션이 모두 끝났다는 뜻이고, 쓰기 판정은 holder·epoch·만료를 함께 보므로 옛 리더의 쓰기는 계속 거부된다. 달라지는 것은 기다림이 있었던 획득의 만료 시각뿐이다. 새 리더는 받은 순간부터 TTL만큼 리스를 쥐고, 다음 틱의 갱신이 그것을 잇는다.
+
+```sql
+-- V52__lease_until_from_grant.sql (ADR 0034 S3 관문 X3). 리스 획득이 lease_until 을 행 잠금을 얻은 뒤의 시각에서 센다.
+-- 종전 판은 기다리기 전 시각(v_started)에서 세어, 멈춘 옛 리더의 KEY SHARE 를 TTL 보다 오래 기다린 획득이 이미 만료된 리스를
+-- 돌려줬다. 새 리더는 첫 쓰기에서 리스 만료 fencing 거부를 받고 종신 강등했다. 판정·epoch 배정·잠금 순서·서명·속성은 그대로다.
+CREATE OR REPLACE FUNCTION lease_acquire_core(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_legacy BOOLEAN)
+RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_protocol SMALLINT;
+    v_epoch    BIGINT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM leader_lease WHERE resource = p_resource) THEN
+        RAISE EXCEPTION 'leader_lease 행 없음: resource=%', p_resource;
+    END IF;
+    -- (1) 만료된 행만 잠근다. FOR UPDATE 는 진행 중 쓰기의 KEY SHARE 커밋을 기다리고, 경합에서 진 쪽은
+    --     재평가에서 조건이 거짓이 되어 아무것도 쓰지 않는다.
+    PERFORM 1 FROM leader_lease
+     WHERE resource = p_resource AND lease_until < clock_timestamp()
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    -- (2) 획득·게시·전환을 한 줄로 세우고 이 트랜잭션 동안 모드를 고정한다. 잠금 순서는 리스 행 다음 프로토콜 행이다.
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF p_legacy AND v_protocol <> 1 THEN
+        RAISE EXCEPTION '2인자 try_acquire_leader 는 P1 에서만 획득한다(현재 P%)', v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF (v_protocol < 3 AND p_resource <> 'matching-engine')
+       OR (v_protocol = 3 AND p_resource NOT IN ('matching-p0', 'matching-p1')) THEN
+        RAISE EXCEPTION '리스 자원 %은 P%에서 획득할 수 없다', p_resource, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    -- (3) 배정과 기록. 만료 시각은 잠금을 얻은 뒤의 시각에서 센다(V52).
+    v_epoch := allocate_lease_epoch();
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = v_epoch, lease_until = clock_timestamp() + p_ttl
+     WHERE resource = p_resource;
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, p_resource, p_holder, v_protocol, 'ACQUIRE');
+    RETURN v_epoch;
+END $$;
+
+CREATE OR REPLACE FUNCTION lease_acquire_capped(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_max_protocol SMALLINT)
+RETURNS BIGINT
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_protocol SMALLINT;
+    v_epoch    BIGINT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM leader_lease WHERE resource = p_resource) THEN
+        RAISE EXCEPTION 'leader_lease 행 없음: resource=%', p_resource;
+    END IF;
+    PERFORM 1 FROM leader_lease
+     WHERE resource = p_resource AND lease_until < clock_timestamp()
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    SELECT protocol INTO v_protocol FROM leader_protocol FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF v_protocol > p_max_protocol THEN
+        RAISE EXCEPTION '이 호출은 P% 까지만 안다. 현재 P%에서는 리스를 획득하지 않는다', p_max_protocol, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF (v_protocol < 3 AND p_resource <> 'matching-engine')
+       OR (v_protocol = 3 AND p_resource NOT IN ('matching-p0', 'matching-p1')) THEN
+        RAISE EXCEPTION '리스 자원 %은 P%에서 획득할 수 없다', p_resource, v_protocol
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    -- 만료 시각은 잠금을 얻은 뒤의 시각에서 센다(V52).
+    v_epoch := allocate_lease_epoch();
+    UPDATE leader_lease
+       SET holder = p_holder, epoch = v_epoch, lease_until = clock_timestamp() + p_ttl
+     WHERE resource = p_resource;
+    INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+    VALUES (v_epoch, p_resource, p_holder, v_protocol, 'ACQUIRE');
+    RETURN v_epoch;
+END $$;
+```
+
+적용과 되돌리기. 함수 본문만 바꾸므로 쓰기를 멈추지 않고 적용한다. 바꾼 두 함수는 공개되지 않은 내부 함수라(`PUBLIC` 회수, 호출은 소유자 권한 공개 함수가 한다) 권한은 그대로다. 되돌리려면 V48·V50 본문을 다시 넣는 새 마이그레이션을 더한다. V49·V50·V51과 같은 이미지(S3의 첫 이미지)에 싣는다.
+
+검증. `LeaseAcquireAfterWaitTest`가 세 획득 경로(4인자, 3인자, 2인자)마다 옛 리더의 KEY SHARE를 TTL보다 오래 쥔 채 획득을 기다리게 한 뒤, 받은 리스가 살아 있고 첫 판정·첫 갱신이 통과하는지 본다. V52 전에는 받은 리스가 이미 만료였다(실패 먼저 확인). 폐기용 스택에서는 S3 관문 X3이 다시 확인한다.
+
+### 3.8 `V53__failover_runs_resource.sql`: 페일오버 측정 이력의 리스 자원 (v2.55 신설, ADR 0034 S4)
+
+V53 파일은 S4 코드와 함께 이 절을 따라 만들었다(2026-09-24, 작업 브랜치 커밋 `48629d5d`). 본문은 아래 SQL 블록과 같다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). Testcontainers 일회용 DB(`MigrationSmokeTest`)와 폐기용 스택(V0~V53)에만 적용했다. 설계는 `docs/reference/architecture/마켓분할_리더_S4_설계.md` 4-18이다.
+
+하네스는 페일오버 실험 하나를 끝낼 때마다 판정을 `harness.failover_runs`(V4)에 한 행으로 남긴다. 행에는 옛 epoch와 새 epoch가 있고, 리스 자원이 `matching-engine` 하나인 P1·P2에서는 그것으로 어느 리더가 넘어갔는지가 정해졌다. 파티션 리더 모드(P3, ADR 0034 S7)에서는 한 사건이 파티션 하나의 리스만 옮긴다. epoch는 모든 리스 자원을 통틀어 유일하므로(§3.4 epoch 배정) 획득 이력 `lease_acquisitions`을 epoch로 되짚으면 자원을 알 수는 있다. 그러나 하네스가 행을 적재하는 시점과 퇴역·재획득으로 이력이 늘어나는 시점이 엇갈리면 되짚기가 틀리기 쉽고, 관리 API와 화면이 행마다 이력을 다시 읽어야 한다. V53은 사건의 자원을 열 하나로 적는다.
+
+```sql
+-- V53__failover_runs_resource.sql (ADR 0034 S4). 페일오버 측정 이력에 그 사건의 리스 자원을 남긴다.
+-- 파티션 모드(S7)에서는 한 사건이 파티션 하나만 옮기므로 old_epoch·new_epoch 만으로는 어느 파티션의 사건인지 가를 수 없다.
+-- 널 허용 열이고 기본값이 없어 표를 다시 쓰지 않는다. 이 열 이전의 행은 NULL 이고 단일 자원(matching-engine) 시절의 사건이다.
+-- 리스 행을 참조하는 외래키를 두지 않는다. 외래키 검사는 적재 때 리스 행에 KEY SHARE 를 잡아 획득과 줄을 서게 한다.
+-- 표 수준 권한(V4 의 app_role INSERT·SELECT, harness_role SELECT)이 새 열에도 걸리므로 GRANT 를 다시 하지 않는다.
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+ALTER TABLE harness.failover_runs ADD COLUMN resource TEXT
+    CONSTRAINT chk_failover_runs_resource
+    CHECK (resource IS NULL OR resource IN ('matching-engine', 'matching-p0', 'matching-p1'));
+COMMENT ON COLUMN harness.failover_runs.resource IS
+    '그 사건이 옮긴 리스 자원(ADR 0034 S4). NULL 은 이 열을 더하기 전의 행이다';
+```
+
+자원 이름을 CHECK로 묶는 이유는 ADR 0034 결정 1이 파티션을 두 개로 고정하고 옮기지 않기 때문이다. 리스 행을 외래키로 참조하면 이름 검사는 같지만, 하네스가 행을 넣을 때마다 참조한 리스 행에 KEY SHARE가 걸려 그 순간의 획득·전환과 줄을 선다. 측정 기록이 리더 선출에 끼어들지 않게 이름 목록으로 둔다. 자원을 늘리는 결정이 생기면 이 CHECK를 새 마이그레이션으로 바꾼다.
+
+적재. 하네스의 `POST /harness/v1/failover`(`FailoverRecorder`)가 요청 바디의 `resource`를 이 열에 넣는다. 바디에 없으면 리스 자원이 하나뿐인 P1·P2에서는 `matching-engine`을 넣고, P3에서는 어느 파티션의 사건인지 짐작하지 않고 400으로 거부한다. 그래서 S4 이후 앱이 적재한 행은 NULL이 아니다. 관리 API `/admin/v1/ha/recovery`의 `failover_runs[]` 행이 이 값을 싣는다(API 설계 §6-C).
+
+적용과 되돌리기. `ALTER TABLE ... ADD COLUMN`은 널 허용·기본값 없는 열이라 표를 다시 쓰지 않고 카탈로그만 바꾼다. 그 짧은 동안 `harness.failover_runs`에 ACCESS EXCLUSIVE 잠금을 쥐므로 하네스 적재가 없는 migrate 단계에서 적용한다. 되돌리려면 이 열을 지우는 새 마이그레이션을 더한다. 그 전에 S4 이후 앱이 이 열에 쓰는 적재를 멈춘다. V53은 S4 코드와 같은 이미지에 싣는다. V52보다 뒤 번호이므로 V49~V52가 이미 적용된 DB에만 올라간다(§3.5 적용과 되돌리기의 Flyway 순서 규칙).
+
+검증. 폐기용 PostgreSQL 17.10에 저장소의 V0~V52를 올린 뒤 이 블록을 문서에서 그대로 뽑아 적용했다(`harness/evidence/pml-s4-probe-20260924/s4-pg-probe.log` G4). 열은 `text`·널 허용이고, `app_role` 로그인이 `resource`를 넣은 행과 넣지 않은 행(NULL)을 모두 적재했으며, 목록 밖 이름은 23514(`chk_failover_runs_resource`)로 거부됐다. `harness_role` 로그인은 새 열을 읽었다. 코드가 들어가면 `MigrationSmokeTest`가 열과 CHECK를, `FailoverRecorderResourceTest`가 앱 역할 적재를 고정한다.
+
+### 3.9 `V54__order_cancel_requests.sql`: 파티션 밖 취소 인계 (v2.57 신설, ADR 0034 S5)
+
+이 절은 S5 코드보다 먼저 적은 계약이다(2026-09-25). V54 파일은 S5 코드와 함께 이 절을 따라 만들고 본문은 아래 SQL 블록과 같게 한다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). 새 마이그레이션은 Testcontainers 일회용 DB(`MigrationSmokeTest`)와 폐기용 스택(프로젝트 `exchange-pml`)에만 적용한다. 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-4, 처리 규칙은 §5.4-d, 응답 계약은 API 설계 v2.57 §4-B-3·§6-E다.
+
+파티션 리더 모드(P3)에서는 한 노드가 모든 마켓의 취소를 저널에 넣을 수 없다. 저널 append는 그 마켓 파티션의 리스 기간으로만 통과하기 때문이다(§5.4-b). 마켓 없는 일괄 취소와 회원 폐쇄는 여러 파티션의 주문을 한 번에 다루므로, 요청을 받은 노드가 게이트를 열지 않은 파티션의 주문은 그 파티션의 소유 노드가 취소해야 한다. 마켓을 준 일괄 취소도 받은 노드가 그 마켓을 접수하지 않으면 같다(§5.4-d 1). P1·P2에서도 엔진을 끈 관리 평면(로컬 `chaos-admin`, 학교 bot-1)이 폐쇄를 처리하면 같은 문제가 있다. 그 노드는 어떤 마켓의 게이트도 열지 않아 폐쇄의 취소가 모두 저널 전에 거부됐다(S5 설계 2절). V54는 요청을 받은 노드가 넘길 주문 목록을 파티션마다 행으로 넣고 소유 노드가 가져가 처리하는 표다.
+
+```sql
+-- V54__order_cancel_requests.sql (ADR 0034 S5, DB 설계 §3.9·§5.4-d). 파티션 밖 취소를 그 파티션의 소유 노드에 넘기는 요청 표.
+-- 이 노드가 접수 게이트를 열지 않은 파티션의 미체결 주문(일괄 취소, 회원 폐쇄)을 요청자가 파티션마다 행으로 넣고 기다린다.
+-- 소유 노드의 작업자는 그 파티션 리스가 자기 holder·epoch 로 유효할 때만 행을 점유하고 끝내며, 보통의 취소 경로(저널 append 와
+-- DB fencing)로 취소한다. 표는 작업 지시일 뿐 쓰기 권한 판정에 쓰이지 않는다. 판정은 종전처럼 DB 가 기록할 행의 마켓에서 도출한다.
+-- 리스 행 외래키는 두지 않는다(V53 과 같은 이유. 외래키 검사가 리스 행에 KEY SHARE 를 잡아 획득과 줄을 서게 한다).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+
+CREATE TABLE order_cancel_requests (
+    id            BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- 한 요청(일괄 취소 한 번, 폐쇄 한 번)이 넣은 파티션 행들을 묶는다. 요청자가 이 값으로 자기 행을 모아 읽는다.
+    request_id    UUID        NOT NULL,
+    resource      TEXT        NOT NULL
+                  CONSTRAINT chk_ocr_resource CHECK (resource IN ('matching-engine', 'matching-p0', 'matching-p1')),
+    user_id       BIGINT      NOT NULL REFERENCES users(id),
+    -- 요청 시점에 열려 있던 그 파티션 마켓의 주문 external_id. 작업자는 이 목록만 취소하고 뒤에 들어온 주문은 건드리지 않는다.
+    order_ids     UUID[]      NOT NULL
+                  CONSTRAINT chk_ocr_order_ids CHECK (cardinality(order_ids) BETWEEN 1 AND 500
+                                                     AND array_position(order_ids, NULL) IS NULL),
+    origin        VARCHAR(16) NOT NULL
+                  CONSTRAINT chk_ocr_origin CHECK (origin IN ('cancel_all', 'member_close')),
+    -- PENDING -> CLAIMED -> DONE 이 보통 길이다. 가져가지 않은 행은 요청자의 포기나 만료로 ABANDONED, 점유한 뒤 5분 안에
+    -- 끝나지 않은 행은 만료로 EXPIRED 가 된다.
+    state         VARCHAR(16) NOT NULL DEFAULT 'PENDING'
+                  CONSTRAINT chk_ocr_state CHECK (state IN ('PENDING', 'CLAIMED', 'DONE', 'ABANDONED', 'EXPIRED')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- 점유한 노드의 holder 와 그 파티션 기간의 epoch. 더 큰 epoch 의 작업자만 끝나지 않은 점유를 다시 점유한다.
+    claimed_by    VARCHAR(64),
+    claimed_epoch BIGINT,
+    claimed_at    TIMESTAMPTZ,
+    finished_at   TIMESTAMPTZ,
+    -- 작업자의 처리 결과(취소한 id, 원소별 실패 사유, 사유별 수). DONE 에만 있다.
+    result        JSONB,
+    CONSTRAINT chk_ocr_claim CHECK ((state IN ('CLAIMED', 'DONE', 'EXPIRED'))
+        = (claimed_by IS NOT NULL AND claimed_epoch IS NOT NULL AND claimed_at IS NOT NULL)),
+    CONSTRAINT chk_ocr_finished CHECK ((state IN ('DONE', 'ABANDONED', 'EXPIRED')) = (finished_at IS NOT NULL)),
+    CONSTRAINT chk_ocr_result CHECK ((state = 'DONE') = (result IS NOT NULL))
+);
+
+-- 작업자의 점유와 만료 경로. 끝나지 않은 행만 파티션별로 오래된 순서로 집는다. 만료가 오래된 열린 행을 끝내므로 작게 유지된다.
+CREATE INDEX idx_ocr_open ON order_cancel_requests (resource, id) WHERE state IN ('PENDING', 'CLAIMED');
+-- 요청자가 자기 요청의 행을 모아 읽고 포기하는 경로.
+CREATE INDEX idx_ocr_request ON order_cancel_requests (request_id);
+
+COMMENT ON TABLE order_cancel_requests IS
+    '파티션 밖 취소 인계(ADR 0034 S5). 요청자가 넣고 그 파티션의 소유 노드가 점유해 처리한다. 쓰기 권한 판정과 무관하다';
+COMMENT ON COLUMN order_cancel_requests.claimed_epoch IS
+    '점유한 작업자 기간의 epoch. 끝나지 않은 점유는 더 큰 epoch 의 작업자만 다시 점유한다';
+
+-- app_role 은 SELECT·INSERT·UPDATE 만 갖는다. 행을 지우지 않는다(끝난 행은 DONE·ABANDONED·EXPIRED 로 남고 보존은 §3.2-a 갈래 C 다).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        GRANT SELECT, INSERT, UPDATE ON order_cancel_requests TO app_role;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'harness_role') THEN
+        GRANT SELECT ON order_cancel_requests TO harness_role;
+    END IF;
+END $$;
+```
+
+HTTP로 소유 노드에 다시 보내지 않고 DB 표로 넘기는 이유는 셋이다. 관리 평면에는 회원의 API 키가 없어 서명한 요청을 만들 수 없고, 사용자 요청을 다시 보내면 nonce와 허용창(§3-4)을 노드 사이에서 다시 따져야 한다. 두 노드가 모두 닿는 권위는 DB이고, 소유 노드가 바뀌는 동안에도 요청이 남아 새 소유자가 이어받을 수 있다. 큐 모양은 `chaos_commands`(V21)·`sim_commands`(V22)와 같은 `FOR UPDATE SKIP LOCKED` 점유다.
+
+열과 제약. `request_id`는 한 번의 일괄 취소나 폐쇄가 넣은 행들을 묶는다. `resource`는 V53과 같은 세 이름만 받는다. 리스 행 외래키를 두지 않는 이유도 V53과 같다(§3.8). `order_ids`는 요청 시점에 열려 있던 그 파티션 마켓 주문의 `external_id`이고 1개 이상 500개 이하, NULL 원소 없음이다. 작업자는 이 목록만 취소한다. 상태는 `PENDING`에서 `CLAIMED`를 거쳐 `DONE`으로 가는 것이 보통 길이다. 아무도 가져가지 않은 `PENDING` 행은 요청자의 포기나 넣은 지 5분 뒤의 만료로 `ABANDONED`가 되고, 점유했으나 점유한 지 5분 안에 끝나지 않은 `CLAIMED` 행은 만료로 `EXPIRED`가 된다(§5.4-d 2·6). `ABANDONED` 행의 주문에는 이 요청이 아무 명령도 넣지 않았고, `EXPIRED` 행의 주문은 일부가 취소됐을 수 있다. `CLAIMED` 행은 더 큰 epoch의 작업자가 다시 점유할 수 있다(§5.4-d 5). 점유 열 셋은 `CLAIMED`·`DONE`·`EXPIRED`에만, `finished_at`은 `DONE`·`ABANDONED`·`EXPIRED`에만, `result`는 `DONE`에만 있다. `users` 외래키는 행을 넣을 때 그 회원 행에 KEY SHARE를 잡는다. 폐쇄의 상태 전이 `UPDATE users SET status`는 키 열을 바꾸지 않아 FOR NO KEY UPDATE이므로 이 잠금을 기다리지 않는다(아래 검증 P5-8). 주문 외래키는 배열 원소에 걸 수 없어 두지 않는다. 작업자가 주문을 읽을 때 `user_id`로 걸러 다른 회원의 주문은 `order_not_found`로 끝나고, 엔진도 소유자가 다른 취소를 거부한다.
+
+색인. `idx_ocr_open`은 끝나지 않은 행만 담는 부분 색인이라 끝난 행이 쌓여도 점유 질의가 그 행들을 훑지 않는다. 끝나지 않은 채 남는 행(요청자가 포기하지 못하고 죽음, 포기가 DB 장애로 실패, 점유자가 끝내지 못하고 5분 안에 다시 점유되지 않음)은 작업자의 만료가 닫는다(§5.4-d 6). 만료가 없으면 그런 행이 이 색인에 쌓여 점유 질의가 순차 조회로 바뀐다(아래 검증 R9). `idx_ocr_request`는 요청자가 자기 요청의 행을 모아 읽고 포기하는 경로다.
+
+권한. `app_role`은 SELECT·INSERT·UPDATE만 갖고 DELETE가 없다. `harness_role`은 SELECT다. 끝난 행은 지우지 않는다. 행 크기는 넘긴 주문 수에 비례하고(주문 하나에 16바이트, 행당 최대 500개) 일괄 취소의 계정 레이트리밋이 증가 속도를 묶는다. 보존은 §3.2-a 갈래 C와 같이 파기 수단이 없는 상태로 둔다.
+
+적용과 되돌리기. 새 표라 기존 표를 다시 쓰지 않는다. `users` 외래키를 만드는 동안 `users`에 SHARE ROW EXCLUSIVE 잠금을 잠깐 쥐므로 migrate 단계에서 적용한다. V54는 S5 코드와 같은 이미지에 싣는다. S5 코드가 이 표에 넣으므로 V54 없이 S5 코드를 띄우면 인계가 모두 실패한다. 되돌리려면 S5 이전 코드로 돌린 뒤 이 표를 지우는 새 마이그레이션을 더한다. V53보다 뒤 번호이므로 V49~V53이 적용된 DB에만 올라간다(§3.5 적용과 되돌리기의 Flyway 순서 규칙).
+
+검증. 폐기용 PostgreSQL 17.10에 저장소의 V0~V53을 파일마다 한 트랜잭션으로 올린 뒤 이 블록의 첫 판(57줄, sha256 앞 16자 `01c3309957317817`, 상태 넷)을 문서에서 그대로 뽑아 적용했다(`harness/evidence/pml-s5-probe-20260925/s5-pg-probe.log`). P5의 점유 문장은 리스 확인이 없던 첫 판 문장이다. P5-0 열·색인·권한이 위와 같다. P5-1 `app_role` 로그인이 넣고 읽고 점유했으며 DELETE는 42501로 거부됐고, `harness_role` 로그인은 읽기만 됐다. P5-2 목록 밖 자원, 빈 목록, NULL 원소, 501개, 없는 회원, 결과 없는 `DONE`, 점유 없는 `CLAIMED`가 모두 제약(23514·23503)으로 거부됐다. P5-3 한 작업자가 트랜잭션 안에서 한 행을 점유한 채 멈춘 동안 다른 작업자는 기다리지 않고 나머지 행만 점유했다(약 5ms). P5-4 요청자의 포기(`state = 'PENDING'` 조건의 UPDATE)는 점유 트랜잭션이 커밋할 때까지 기다린 뒤 점유된 행을 건너뛰고 남은 `PENDING` 행만 포기로 바꿨다. P5-5 같은 epoch의 작업자는 끝나지 않은 점유를 다시 잡지 않았고 더 큰 epoch의 작업자는 잡았으며, 옛 점유자의 끝내기는 0행이었다. P5-6 넣은 지 6분 된 행은 점유되지 않았다. P5-7 끝난 행 2만 개를 더하고 ANALYZE한 뒤에도 점유 질의는 `idx_ocr_open` 색인 조회와 LockRows였다. P5-8 요청 행을 넣는 트랜잭션이 열린 동안 같은 회원의 상태 전이는 기다리지 않았다(약 4ms).
+
+검토 대응 판의 검증. 설계 검토 대응으로 고친 이 판(59줄, sha256 앞 16자 `52f13181748b31c9`)은 같은 방법으로 다시 확인했다(`harness/evidence/pml-s5-probe-20260925/s5r-pg-probe.log`, 2026-09-25 13:32 KST). R0 V0~V53과 이 블록이 올라갔고 CHECK 일곱, 색인 셋, 권한이 위와 같다. R1 `app_role` 로그인이 `leader_lease`를 읽었고 DELETE는 거부됐다. R2 점유 열 없는 `EXPIRED`, `finished_at` 없는 `EXPIRED`, 결과 있는 `EXPIRED`, 점유 열 있는 `ABANDONED`가 23514로 거부됐고 점유 열과 `finished_at`이 있는 `EXPIRED`는 들어갔다. R3 같은 holder·epoch의 두 스레드는 SKIP LOCKED로 겹치지 않았다. R4 같은 파티션에서 한 행이라도 점유된 요청의 포기는 0행이었고, 두 파티션에 걸친 요청은 시작하지 않은 파티션의 행만 포기됐으며, 점유 트랜잭션이 커밋되기 전에 시작한 포기는 1.3초 기다린 뒤 점유된 행을 건너뛰고 나머지 두 행을 포기했고 그 두 행은 뒤에 점유되지 않았다. R5 리스가 다른 holder·epoch로 넘어간 뒤 옛 점유자의 끝내기(점유자·epoch는 맞음)와 새 점유가 모두 0행이었고, 새 소유자는 옛 점유 두 행과 `PENDING` 한 행을 다시 점유해 끝냈다. 리스가 만료되면 같은 holder·epoch의 점유와 끝내기가 0행이었다. R6 넣은 지 6분 된 행은 유효한 리스로도 점유되지 않았다. R7 점유 트랜잭션과 끝내기 트랜잭션이 열린 동안 `renew_lease`(약 3ms)와 리스 행 `FOR UPDATE NOWAIT`(약 1ms)가 곧바로 됐다. 리스 확인은 리스 행을 잠그지 않는다. R8 만료가 넣은 지 6분 된 `PENDING`을 `ABANDONED`로, 6분 전 점유한 `CLAIMED`를 `EXPIRED`로 바꿨고, 새 행과 1분 전 다시 점유한 옛 행과 끝난 행은 그대로 뒀다. R9 하루 지난 `PENDING` 5만 행과 `CLAIMED` 5만 행이 있으면 점유 질의가 순차 조회로 약 10.6ms, 새 행 없는 파티션의 확인이 약 9.4ms였다. 만료가 101문장(약 3.2초, 가장 긴 문장 47ms)으로 10만 행을 닫은 뒤 두 질의는 `idx_ocr_open` 색인 조회로 약 3.9ms·2.0ms였고, 닫을 행이 없을 때 만료 문장은 약 1.7ms였다. R10 P5-8과 같이 외래키 잠금이 폐쇄의 상태 전이를 막지 않았다(약 4ms). 코드가 들어가면 `MigrationSmokeTest`가 열·제약·권한을, `OrderCancelHandoffRepositoryTest`가 점유·포기·재점유·끝내기·만료 술어를 고정한다.
+
+### 3.10 `V55__partition_protocol_cutover.sql`: 파티션 리더 모드 전환과 수수료 샤드 계정 (v2.59 신설, ADR 0034 S7)
+
+이 절은 S7 코드보다 먼저 적은 계약이다(2026-09-25). V55 파일은 S7 코드와 함께 이 절을 따라 만들고 본문은 아래 SQL 블록과 같게 한다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). 새 마이그레이션은 Testcontainers 일회용 DB(`MigrationSmokeTest`)와 폐기용 스택(프로젝트 `exchange-pml`)에만 적용한다. 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-1·4-2, 전환 절차는 §5.4-e, 폐기용 PostgreSQL 확인은 `harness/evidence/pml-s7-probe-20260925/`에 있다.
+
+V55는 세 가지를 한다. 첫째, 모드 전환 함수가 2->3과 3->2를 받게 한다. V50 판은 1->2와 확인 인자를 준 2->1만 받았다(§3.5). 둘째, 전환을 막는 선행 조건을 한 줄씩 내는 읽기 전용 함수 `leader_protocol_blockers`를 두어 전환 함수와 전환 도구가 같은 정의를 쓰게 한다. 셋째, P3가 쓰는 FEE_INCOME 샤드 1 계정을 자산마다 만든다(§5.4-c 11). 모드는 바꾸지 않는다. P3는 소유자가 정지 창에서 `set_leader_protocol(3)`을 불러야 켜진다(§5.4-e).
+
+```sql
+-- V55__partition_protocol_cutover.sql (ADR 0034 S7, DB 설계 §3.10·§5.4-e). 쓰기를 멈춘 창에서 적용한다.
+-- 파티션 리더 모드(P3)로 오르내리는 전환과 그 선행 조건, P3 가 쓰는 수수료 샤드 계정을 더한다. 모드는 바꾸지 않는다.
+-- 운영 풀의 statement_timeout·lock_timeout 을 Flyway 가 물려받으면 트리거 생성과 함수 교체가 막힌다(V41·V48 과 같은 근거).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+
+-- ── 수수료 샤드 계정(ADR 0034 결정 10, DB 설계 §5.4-c 11) ─────────────
+-- P3 에서 체결 수수료는 그 마켓 파티션의 번호(matching-p0 0, matching-p1 1)를 샤드로 쓰는 FEE_INCOME 계정에 게시한다.
+-- 모드와 무관하게 자산마다 샤드 0·1 두 계정을 둔다. P1·P2 는 샤드 0 만 쓰므로 샤드 1 은 잔고 0 으로 남는다.
+-- 자산은 앱·시드 도구·배포 SQL 이 넣고 그때 샤드 0 계정을 만든다. 트리거가 같은 트랜잭션에 샤드 1 을 더한다.
+-- 발화는 EXECUTE 를 보지 않지만 CREATE TRIGGER 는 본다. 아래 권한 절이 PUBLIC EXECUTE 를 회수한다(V48 과 같은 이유).
+CREATE FUNCTION seed_fee_income_shard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard)
+    VALUES ('SYSTEM', 0, 'FEE_INCOME', NEW.asset_id, 1)
+    ON CONFLICT (owner_type, owner_id, purpose, asset_id, shard) DO NOTHING;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_accounts_fee_income_shard AFTER INSERT ON accounts
+    FOR EACH ROW WHEN (NEW.owner_type = 'SYSTEM' AND NEW.purpose = 'FEE_INCOME' AND NEW.shard = 0)
+    EXECUTE FUNCTION seed_fee_income_shard();
+-- 이미 있는 자산. 잔고 행은 trg_account_balance 가 만든다.
+INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard)
+SELECT 'SYSTEM', 0, 'FEE_INCOME', a.asset_id, 1
+  FROM accounts a
+ WHERE a.owner_type = 'SYSTEM' AND a.purpose = 'FEE_INCOME' AND a.shard = 0
+ON CONFLICT (owner_type, owner_id, purpose, asset_id, shard) DO NOTHING;
+
+-- ── 전환 선행 조건(읽기 전용) ─────────────────────────────────────────
+-- 목표 모드로 전환하지 못하게 막는 것을 한 줄씩 낸다. 행이 없으면 막는 것이 없다. 전환 함수가 잠금 뒤에 부르고,
+-- 전환 도구는 정지 창에 들어가기 전에 같은 함수로 미리 본다(드레인 전이라 unsettled_new 는 그때 참일 수 있다).
+-- 모든 목표: 정산되지 않은 주문 생성 명령 0건(ADR 0034 결정 8, S3 설계 4-7).
+-- 3 으로 올릴 때(단계 계획 S7 선행 조건): 명령 대역 래치, 모든 마켓의 대응·카운터 행, 파티션 리스 행, 모든 마켓의 기준·호가
+-- 자산에 FEE_INCOME 샤드 0·1, app_role 에 leader_lease UPDATE 와 command_journal INSERT 가 없음(V49 상태, AI 방침).
+-- 두 노드가 파티션 가능 바이너리인지는 DB 가 알 수 없어 절차가 확인한다(DB 설계 §5.4-e).
+CREATE FUNCTION leader_protocol_blockers(p_target SMALLINT)
+RETURNS TABLE (blocker TEXT, detail TEXT)
+LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $$
+DECLARE
+    v_n    BIGINT;
+    v_list TEXT;
+BEGIN
+    SELECT count(*) INTO v_n
+      FROM command_journal c
+     WHERE c.command_type = 'NEW'
+       AND NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = c.seq);
+    IF v_n > 0 THEN
+        SELECT string_agg(s.seq::text, ',') INTO v_list
+          FROM (SELECT c.seq FROM command_journal c
+                 WHERE c.command_type = 'NEW'
+                   AND NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = c.seq)
+                 ORDER BY c.seq LIMIT 10) s;
+        blocker := 'unsettled_new'; detail := v_n || '건(앞 seq: ' || v_list || ')'; RETURN NEXT;
+    END IF;
+    IF p_target <> 3 THEN
+        RETURN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq') THEN
+        blocker := 'band_latch_missing'; detail := 'journal_cutover 에 command_seq 행이 없다(ADR 0022 6-b)'; RETURN NEXT;
+    END IF;
+    -- 래치 뒤에 생긴 마켓도 대역 잎이 있어야 한다. 없으면 그 마켓 명령이 DEFAULT 잎으로 간다(V44 래치 전 확인 1 과 같은 술어).
+    SELECT string_agg(m.id::text, ',' ORDER BY m.id) INTO v_list
+      FROM markets m
+     WHERE NOT EXISTS (SELECT 1 FROM pg_inherits i
+                        WHERE i.inhparent = 'public.command_journal'::regclass
+                          AND i.inhrelid = to_regclass('public.command_journal_b' || m.id));
+    IF v_list IS NOT NULL THEN
+        blocker := 'band_leaf_missing'; detail := '대역 잎이 없는 마켓 ' || v_list; RETURN NEXT;
+    END IF;
+    SELECT string_agg(m.id::text, ',' ORDER BY m.id) INTO v_list
+      FROM markets m WHERE NOT EXISTS (SELECT 1 FROM market_lease_partition p WHERE p.market_id = m.id);
+    IF v_list IS NOT NULL THEN
+        blocker := 'market_partition_missing'; detail := '마켓 ' || v_list; RETURN NEXT;
+    END IF;
+    SELECT string_agg(m.id::text || ':' || n.name, ',' ORDER BY m.id, n.name) INTO v_list
+      FROM markets m CROSS JOIN (VALUES ('command_seq'), ('event_seq')) AS n(name)
+     WHERE NOT EXISTS (SELECT 1 FROM market_journal_counters c WHERE c.market_id = m.id AND c.name = n.name);
+    IF v_list IS NOT NULL THEN
+        blocker := 'market_counter_missing'; detail := '마켓:카운터 ' || v_list; RETURN NEXT;
+    END IF;
+    SELECT string_agg(r.resource, ',' ORDER BY r.resource) INTO v_list
+      FROM (VALUES ('matching-p0'), ('matching-p1')) AS r(resource)
+     WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource);
+    IF v_list IS NOT NULL THEN
+        blocker := 'lease_row_missing'; detail := v_list; RETURN NEXT;
+    END IF;
+    SELECT string_agg(x.asset_id::text, ',' ORDER BY x.asset_id) INTO v_list
+      FROM (SELECT base_asset_id AS asset_id FROM markets UNION SELECT quote_asset_id FROM markets) x
+     WHERE (SELECT count(DISTINCT a.shard) FROM accounts a
+             WHERE a.owner_type = 'SYSTEM' AND a.owner_id = 0 AND a.purpose = 'FEE_INCOME'
+               AND a.asset_id = x.asset_id AND a.shard IN (0, 1)) < 2;
+    IF v_list IS NOT NULL THEN
+        blocker := 'fee_shard_missing'; detail := 'FEE_INCOME 샤드 0·1 이 모두 있지 않은 자산 ' || v_list; RETURN NEXT;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
+        IF has_any_column_privilege('app_role', 'leader_lease', 'UPDATE') THEN
+            blocker := 'app_role_lease_update'; detail := 'app_role 이 leader_lease 를 UPDATE 할 수 있다(V49 회수가 되돌려졌다)'; RETURN NEXT;
+        END IF;
+        IF has_any_column_privilege('app_role', 'command_journal', 'INSERT') THEN
+            blocker := 'app_role_journal_insert'; detail := 'app_role 이 command_journal 에 직접 INSERT 할 수 있다(V49 회수가 되돌려졌다)'; RETURN NEXT;
+        END IF;
+    END IF;
+END $$;
+
+-- ── 모드 전환(소유자 전용, 정지 창) ─────────────────────────────────
+-- V50 판에 2->3 과 3->2 를 더한다. 잠금 순서(모든 리스 행 resource 순 FOR UPDATE 다음 모드 행), 5초 잠금 대기, 퇴역 순서
+-- (matching-engine 을 마지막에)는 V50 과 같다. 내리는 전이(3->2, 2->1)는 모두 p_allow_downgrade 를 요구한다. 선행 조건은 잠금
+-- 뒤에 leader_protocol_blockers 로 본다. 잠금 전에 보면 그 사이 커밋되는 쓰기가 새어 들어온다(단계 계획 2절 검토 1 1b).
+CREATE OR REPLACE FUNCTION set_leader_protocol(p_target SMALLINT, p_allow_downgrade BOOLEAN DEFAULT false)
+RETURNS TABLE (out_resource TEXT, out_retired_epoch BIGINT, out_protocol SMALLINT)
+LANGUAGE plpgsql SET lock_timeout = '5s' AS $$
+DECLARE
+    v_current  SMALLINT;
+    v_blockers TEXT;
+    v_res      TEXT;
+    v_epoch    BIGINT;
+BEGIN
+    PERFORM 1 FROM leader_lease l ORDER BY l.resource FOR UPDATE;
+    SELECT p.protocol INTO v_current FROM leader_protocol p FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'leader_protocol 행 없음: 부트스트랩 오류';
+    END IF;
+    IF NOT ((v_current = 1 AND p_target = 2) OR (v_current = 2 AND p_target = 1)
+            OR (v_current = 2 AND p_target = 3) OR (v_current = 3 AND p_target = 2)) THEN
+        RAISE EXCEPTION '프로토콜 전이 P% -> P%는 받지 않는다(1->2, 2->1, 2->3, 3->2 만)', v_current, p_target
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    IF p_target < v_current AND NOT p_allow_downgrade THEN
+        RAISE EXCEPTION 'P% -> P% 는 되돌리기다. 2->1 은 ADR 0034 결정 8 과 시험 R1, 3->2 는 DB 설계 §5.4-e 되돌리기 절차를 확인한 뒤 p_allow_downgrade => true 로만 한다',
+            v_current, p_target
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    SELECT string_agg(b.blocker || ': ' || b.detail, '; ') INTO v_blockers FROM leader_protocol_blockers(p_target) b;
+    IF v_blockers IS NOT NULL THEN
+        RAISE EXCEPTION 'P% -> P% 전환의 선행 조건이 어긋난다. %', v_current, p_target, v_blockers
+            USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+    UPDATE leader_protocol SET protocol = p_target;
+    -- 잠금은 위에서 resource 순으로 이미 쥐었다. 퇴역 순서만 matching-engine 을 끝에 둔다(false 가 true 보다 앞선다).
+    FOR v_res IN SELECT l.resource FROM leader_lease l
+                 ORDER BY (l.resource = 'matching-engine'), l.resource LOOP
+        v_epoch := allocate_lease_epoch();
+        UPDATE leader_lease l
+           SET holder = '', epoch = v_epoch, lease_until = clock_timestamp() - interval '1 second'
+         WHERE l.resource = v_res;
+        INSERT INTO lease_acquisitions (epoch, resource, holder, protocol, origin)
+        VALUES (v_epoch, v_res, '', p_target, 'RETIRE');
+        out_resource := v_res; out_retired_epoch := v_epoch; out_protocol := p_target;
+        RETURN NEXT;
+    END LOOP;
+END $$;
+
+-- ── 권한 ────────────────────────────────────────────────────────────
+-- 트리거 함수와 선행 조건 함수에서 PUBLIC EXECUTE 를 회수한다. 전환 함수의 권한은 V50 그대로다(CREATE OR REPLACE 는 권한을
+-- 바꾸지 않는다. PUBLIC 과 app_role 에 EXECUTE 가 없다). 선행 조건 함수는 읽기만 하므로 하네스 조회 역할에 준다.
+REVOKE ALL ON FUNCTION seed_fee_income_shard(), leader_protocol_blockers(SMALLINT) FROM PUBLIC;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'harness_role') THEN
+        GRANT EXECUTE ON FUNCTION leader_protocol_blockers(SMALLINT) TO harness_role;
+    END IF;
+END $$;
+```
+
+수수료 샤드 계정. P3에서 체결 수수료는 그 마켓 파티션의 번호를 샤드로 쓰는 FEE_INCOME 계정에 게시한다(§5.4-c 11, `SettlementService.feeShard`). 샤드 1 계정이 없는 자산의 p1 마켓 체결은 정산이 계정을 찾지 못해 계약 위반(`IllegalStateException`)으로 멈추고 그 파티션이 강등된다. 그래서 모드와 무관하게 자산마다 샤드 0·1 두 계정을 둔다. 계정은 앱 시드(`AccountBootstrap.asset`), 시드 도구(`SeedMarketCatalog`), 배포 SQL(`deploy/linux/app/bootstrap-markets.sql`) 세 곳이 샤드 0으로 만들므로, 샤드 0 계정을 넣는 행 트리거가 같은 트랜잭션에 샤드 1을 더한다. 트리거의 `WHEN` 절이 `SYSTEM`·`FEE_INCOME`·샤드 0 행만 고르므로 사용자 계정 생성에는 함수 호출이 없다. 샤드 1 행의 삽입은 조건에 걸리지 않아 되부름이 없다. 이미 있는 자산은 V55 본문이 채운다. 잔고 행은 V1의 `trg_account_balance`가 만든다. P1·P2는 샤드 0만 쓰므로 샤드 1은 잔고 0으로 남는다. 그래서 V55를 적용한 DB는 모드와 무관하게 시스템 계정이 자산마다 하나 늘어난다(배포 스모크의 시스템 계정 수 대조가 13자산 39개에서 52개가 된다). 수수료 합계를 읽는 곳은 샤드를 가리지 않고 더해야 한다. 2026-09-25 저장소에는 FEE_INCOME을 샤드 0으로 좁혀 읽는 소비처가 없다(`SettlementService`의 계정 조회만 샤드를 인자로 받는다). 트리거 함수는 소유자 권한이라 PUBLIC EXECUTE를 회수한다. `app_role`은 V1부터 `accounts` INSERT를 가지므로 이 트리거가 넓히는 능력은 없다.
+
+선행 조건 함수. `leader_protocol_blockers(target)`은 목표 모드로 전환하지 못하게 막는 것을 `blocker`(식별자)와 `detail`(대상)로 한 줄씩 낸다. 모든 목표에 대해 정산되지 않은 주문 생성 명령(`unsettled_new`)을 본다. V50 판의 전환 함수 선행 조건과 같은 술어다. 3으로 올릴 때는 여덟을 더 본다. 명령 대역 래치(`band_latch_missing`, ADR 0022 6-b), 래치 뒤 생긴 마켓까지 포함한 대역 잎(`band_leaf_missing`, V44 래치 전 확인 1과 같은 술어), 마켓 대응(`market_partition_missing`), 마켓마다 `command_seq`·`event_seq` 카운터(`market_counter_missing`), 파티션 리스 행(`lease_row_missing`), 모든 마켓의 기준·호가 자산의 FEE_INCOME 샤드 0·1(`fee_shard_missing`), `app_role`의 V49 권한 상태(`app_role_lease_update`·`app_role_journal_insert`)다. 권한은 `has_any_column_privilege`로 본다. 표 권한이 없어도 열 하나의 UPDATE가 있으면 행 잠금 절(`FOR KEY SHARE`)을 쓸 수 있기 때문이다. 파티션 리스 행은 대응 표와 획득 이력이 외래 키로 참조하므로 보통 경로로는 빠지지 않는다(지우면 23503). `lease_row_missing`은 복원 도구처럼 트리거를 끄고(`session_replication_role = replica`) 적재하거나 지운 DB를 막는 방어 항목이다. 이 함수는 `app_role`에 속한 역할의 권한만 본다. 소유자 로그인으로 뜬 앱(로컬 카오스 스택)은 이 검사가 막지 않으며, 그 앱은 V48 이후 리스와 명령 저널을 소유자 권한 함수로만 쓴다(§5.4-b). 두 노드가 파티션 가능 바이너리인지는 DB가 알 수 없어 전환 절차가 확인한다(§5.4-e). 읽기만 하므로 `harness_role`에 EXECUTE를 준다.
+
+전환. V55 판의 `set_leader_protocol`은 1->2, 2->1, 2->3, 3->2만 받는다. 1->3과 3->1, 같은 모드로의 전환은 55000이다. 내리는 전이(2->1, 3->2)는 모두 `p_allow_downgrade => true`를 요구한다. 2->1은 종전처럼 ADR 0034 결정 8과 시험 R1 뒤에, 3->2는 §5.4-e의 되돌리기 절차에서만 쓴다. 선행 조건은 모든 리스 행과 모드 행을 잠근 뒤 `leader_protocol_blockers`로 보고, 한 줄이라도 있으면 전부를 한 메시지로 모아 55000으로 끝나며 아무것도 바꾸지 않는다. 잠금 뒤의 새 문장이 새 스냅숏을 잡으므로 잠금 전에 커밋된 쓰기를 모두 본다. 잠금 순서(리스 행 resource 순 FOR UPDATE, 모드 행), 함수 속성 `lock_timeout = '5s'`, 퇴역 순서(`matching-p0`, `matching-p1`, `matching-engine`)와 퇴역 이력은 V50 판 그대로다(§3.5). 2->3이 커밋되면 P2 리더가 쥔 `matching-engine` epoch는 퇴역으로 거부되고, 그 뒤의 쓰기는 `lease_resource_for_market`이 파티션 행을 돌려주므로 파티션 행의 새 획득 epoch로만 통과한다. 3->2도 같은 방식으로 두 파티션 리더의 epoch를 모두 거부한다. 퇴역 epoch는 새 모드의 이력 행 `epoch_floor`보다 크고, 새 모드의 첫 획득은 마지막 퇴역 epoch 뒤에 배정된다.
+
+적용과 되돌리기. V55는 트리거 하나와 함수 둘을 만들고 전환 함수를 바꾸며 FEE_INCOME 계정을 더한다. 트리거 생성이 `accounts`에 SHARE ROW EXCLUSIVE 잠금을 잠깐 쥐므로 migrate 단계에서 적용한다. V54보다 뒤 번호이므로 V49~V54가 적용된 DB에만 올라간다(§3.5 적용과 되돌리기의 Flyway 순서 규칙). V55만 적용된 DB는 모드가 그대로이고 S6 이전 바이너리도 동작이 같다(전환 함수는 소유자만 부르고 샤드 1 계정은 게시 대상이 아니다). 되돌리려면 모드가 1이나 2일 때 트리거·두 함수를 지우고 전환 함수를 V50 본문으로 되돌리는 새 마이그레이션을 더한다. 샤드 1 계정은 잔고가 0이면 남겨도 무해하고, P3에서 수수료가 쌓였으면 지우지 않는다. P3에 오른 DB는 3->2로 먼저 내린다(§5.4-e).
+
+검증. 폐기용 PostgreSQL 17.10에 저장소의 V0~V54를 파일마다 한 트랜잭션으로 올리고 옛 자산·시스템 계정을 흉내 낸 뒤 이 블록의 초안(`v55-draft.sql`)을 올려 확인했다(`harness/evidence/pml-s7-probe-20260925/s7-pg-probe-draft.log`, 2026-09-25 20:41 KST). 문서에서 뽑은 판의 재확인은 같은 폴더의 `s7-pg-probe.log`다. P7-0 기존 자산 셋의 샤드 1 계정과 잔고 행이 생겼고 GENESIS·GATEWAY 샤드 1은 생기지 않았다. 트리거 함수는 소유자 권한이고 PUBLIC EXECUTE가 없으며, 선행 조건 함수는 `harness_role`만 부를 수 있다. P7-1 앱 역할 로그인이 넣은 새 자산의 FEE_INCOME 샤드 0에 샤드 1이 같이 생겼고, 같은 행의 `ON CONFLICT DO NOTHING` 재삽입은 오류 없이 넘어갔다. 앱 로그인이 트리거 함수를 자기 임시 표에 걸면 42501이었다. P7-2 P1에서 1->3은 전이 거부, 1->2 뒤 선행 조건은 래치 없음, 정산 전 NEW, 샤드 1 없는 자산, 대응·카운터·대역 잎 없는 마켓, `app_role`의 표 전체·열 하나 UPDATE와 저널 INSERT를 차례로 한 줄씩 냈고, 푼 뒤 2->3이 세 행을 퇴역시켰다. P7-3 P3에서 최고 모드 2 획득과 `matching-engine` 획득은 55000, 최고 모드 3은 두 파티션을 얻었다. p0의 holder·epoch로 p1 마켓 행을 넣으면 0행이었다. 3->1과 3->3은 전이 거부, 확인 인자 없는 3->2는 되돌리기 거부였다. P7-4 p1 행에 KEY SHARE를 쥔 세션이 있으면 3->2가 5.005초 뒤 55P03으로 끝나고 모드와 리스가 그대로였다. 같은 날 설계 검토 대응으로 문서에서 뽑은 V55를 다시 올려 확인했다(`s7-pg-review-probe.log`). 파티션 리스 행을 보통 세션에서 지우면 `lease_acquisitions`의 외래 키로 23503이고, `session_replication_role = replica` 세션에서 지우면 blockers(3)가 `lease_row_missing` 한 줄만 냈다(롤백). 코드가 들어가면 `MigrationSmokeTest`가 객체와 권한을, `PartitionProtocolTransitionTest`·`FeeIncomeShardAccountsTest`가 전이 규칙·선행 조건·계정을 고정한다(S7 설계 6절).
 
 ## 4. 테이블별 컬럼 설명표 (핵심)
 
@@ -1870,11 +3354,11 @@ CREATE TABLE user_provisioning (
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
 | `accounts.owner_type/owner_id/purpose` | VARCHAR/BIGINT | USER는 AVAILABLE·LOCKED 2계정, SYSTEM(owner_id=0)은 FEE_INCOME·GENESIS·GATEWAY. `user_id=0` 문제 제거 |
-| `accounts.shard` | SMALLINT | FEE_INCOME 등 핫계정 N분산. 체결마다 `hash(event_seq)%K`로 선택 → 단일행 병목 해소(초안 high). 키는 event_seq(v2.3): 트랜잭션 진입 전에 확정되는 결정론 값이라 §5.2 수수료 샤드 선정과 재생·catch-up 재정산의 샤드 동일성이 모두 성립한다(v2.6: trade_id=event_seq 명시 삽입 규약으로 두 값이 동일해졌으며, 샤드 키의 근거는 'DB 채번 회피'가 아니라 '트랜잭션 진입 전 확정되는 결정론 값'이다) |
+| `accounts.shard` | SMALLINT | FEE_INCOME 등 핫계정 N분산. 체결마다 `hash(event_seq)%K`로 선택 → 단일행 병목 해소(초안 high). 키는 event_seq(v2.3): 트랜잭션 진입 전에 확정되는 결정론 값이라 §5.2 수수료 샤드 선정과 재생·catch-up 재정산의 샤드 동일성이 모두 성립한다(v2.6: trade_id=event_seq 명시 삽입 규약으로 두 값이 동일해졌으며, 샤드 키의 근거는 'DB 채번 회피'가 아니라 '트랜잭션 진입 전 확정되는 결정론 값'이다). (v2.55) 해시 선택은 구현하지 않았다. 실제 샤드는 모드가 정한다. P1·P2는 0, P3은 그 마켓 파티션의 번호다(§1.2, §5.4-c 11). (v2.59, V55) FEE_INCOME은 모드와 무관하게 자산마다 샤드 0·1 두 계정이다. 샤드 0 계정을 넣으면 `accounts` 트리거가 같은 트랜잭션에 샤드 1을 더하고, 샤드 1은 P3 전까지 잔고 0이다(§3.10) |
 | `balances.account_id` | BIGINT PK | 잔고 키를 account_id로 통일. 시스템·LOCKED·소스계정 포함 전 계정이 balances에 존재(계정 생성 시 `trg_account_balance`가 1:1 자동 생성, high#3) |
 | `balances.balance` | NUMERIC(40,18) | `CHECK(balance>=0 OR allow_negative)`. 일반계정은 AVAILABLE(이중지출)·LOCKED(과다락) 최종 방어선, 소스계정만 음수 허용(critical#1) |
 | `balances.allow_negative` | BOOLEAN | `accounts.allow_negative`(=purpose IN GENESIS/GATEWAY) 복제. 자산 총합=0 불변식상 소스계정의 음수 보유를 CHECK가 허용하도록 하는 근거 |
-| `balances.version` | BIGINT | 낙관적 락. 사용자 개시 경로에서 `WHERE version=:v` 일관 적용. 체결 경로는 FOR UPDATE 비관 락이되, balances를 갱신하는 **모든 정본 경로**(§5.1 (d)·§5.2 (5)·§5.3)가 `version=version+1`로 증가시켜 version 검사가 실효한다(v2.4) |
+| `balances.version` | BIGINT | 낙관적 락. 사용자 개시 경로에서 `WHERE version=:v` 일관 적용. 체결 경로는 FOR UPDATE 비관 락이되, balances를 갱신하는 **모든 정본 경로**(§5.1 (d)·§5.2 (5)·§5.3)가 `version=version+1`로 증가시켜 version 검사가 실효한다(v2.4). (v2.58, ADR 0034 S6) 두 번째 소비처는 잔고 판이다. 계좌 조회와 myAsset 게시가 사용자·자산의 USER 계정 가운데 AVAILABLE·LOCKED 두 행의 version 합을 잔고와 같은 SQL 문장에서 읽어 `version`으로 낸다(API §4-C-1·§5-5). 클라이언트는 이 값으로 두 노드가 보낸 같은 자산의 메시지 가운데 새 값을 가린다. 그래서 잔고를 바꾸는 새 경로도 반드시 `version=version+1`을 하고, version을 줄이거나 되돌리는 갱신을 두지 않는다. 수동 승격으로 커밋이 사라졌거나 백업에서 복원하면 값이 줄 수 있으며 클라이언트는 계좌 재조회로 맞춘다(API §5-2). 원가 필드(`position_cost` 파생 `avg_buy_price`·`cost_basis_*`)는 이 판에 들지 않는다. 원가 재구축 `rebuild_position_cost`(§6.4 C24·C25 조치)는 `position_cost`만 고치고 `balances`를 건드리지 않으므로 같은 판에서 원가만 달라질 수 있고, API §5-2는 그래서 같은 판의 항목도 적용한다 |
 
 ### 4.2 `orders`
 | 컬럼 | 설명 |
@@ -1903,7 +3387,13 @@ CREATE TABLE user_provisioning (
 | `command_journal.fencing_token` | 기록 시점 리더 epoch. §5.4 원자적 fencing으로 stale 이중쓰기 차단 |
 | `event_journal.event_seq` | 출력 사실의 전역유일 식별자. V36부터 `market_id * band_span + market_seq` 파생이라 전역 gapless가 아니고, 결번 없이 증가하는 축은 마켓 안의 `market_seq`다. `band_span`은 `journal_band_spec('event_seq')`이고 V36~V45는 10^7로 앱이, V46부터는 10^12로 `next_market_event_seq`가 파생한다. 확대 경계에서도 마켓 안 값은 계속 커지고 첫 대역 행 뒤 명세를 되돌리지 않는다(ADR 0022 7절 9단계). **trades.id의 진실 원천**(v2.6: trade_id=event_seq 명시 삽입) |
 | `snapshots.last_applied_seq/state_checksum` | 재생 시작점 / 손상 스냅샷 폐기 fallback. `last_applied_seq` 는 그 행 `market_id` 의 엔진 적용 커서다(v2.49). 전 마켓 행에 스칼라 한 값을 쓰면 대역 채번에서 그 값이 가장 높은 대역 마켓의 seq 라 복원한 낮은 대역 마켓이 제 명령을 커서 아래로 보고 버린다 |
-| `leader_lease.epoch` | fencing token 발급원. 승격(탈취) 시에만 원자적 +1, 리스 갱신(heartbeat)은 epoch 보존(v2.4, §5.4). 행은 V1 부트스트랩 시드로 선재 |
+| `leader_lease.epoch` | fencing token 발급원. 승격(탈취) 시에만 원자적 +1, 리스 갱신(heartbeat)은 epoch 보존(v2.4, §5.4). 행은 V1 부트스트랩 시드로 선재. V48부터(v2.53) 행은 `matching-engine`·`matching-p0`·`matching-p1` 셋이고 P1·P2는 `matching-engine`만 쓴다. 배정은 `max(모든 리스 행 epoch, lease_acquisitions.epoch) + 1`이며 파티션 자원을 획득한 적이 없는 DB의 P1에서는 종전과 같은 +1이다(§3.4) |
+| `leader_protocol.protocol` | 리더 모드 래치 한 값(1 단일 리더, 2 단일 리더+접수 시점 예약, 3 파티션 리더). 쓰기 판정의 리스 도출과 허용 획득 자원을 정한다. 앱 설정이 아니라 DB가 정한다(ADR 0034 결정 6). 바뀔 때마다 `leader_protocol_history`에 `epoch_floor`와 함께 남는다(§3.4). v2.54부터 운영에서 이 값을 바꾸는 길은 소유자 전용 `set_leader_protocol`(§3.5) 하나이고, 2 이상에서는 주문 생성 명령마다 접수 트랜잭션이 예약한다. v2.59(V55)부터 2<->3도 같은 함수로 하고, 3으로 올리는 선행 조건은 `leader_protocol_blockers(3)`이 낸다(§3.10, §5.4-e) |
+| `lease_acquisitions.epoch` | 획득·게시·퇴역이 쓴 epoch의 추가 전용 기록(PK). epoch가 어느 자원의 것인지 사후에 증명한다(ADR 0034 C30) |
+| `market_lease_partition.resource` | 마켓의 파티션 리스(`matching-p0`·`matching-p1`). 추가 전용이고 P3에서만 판정이 읽는다. 대응이 없는 마켓은 P3에서 쓰기가 55000으로 거부되고 하네스 C29가 센다 |
+| `harness.failover_runs.resource` | 그 페일오버 사건이 옮긴 리스 자원(`matching-engine`·`matching-p0`·`matching-p1`, V53, v2.55). CHECK가 세 이름만 받고 외래키는 없다. NULL은 이 열을 더하기 전의 행이다. S4 이후 앱은 P1·P2에서 바디에 없으면 `matching-engine`을 넣고 P3에서는 바디에 없으면 400으로 거부한다(§3.8) |
+| `order_reservations.command_seq` | 예약된 주문 생성 명령의 seq(PK). P2 이상에서 10인자 머리말이 저널 append와 같은 트랜잭션에 한 행을 넣는다(v2.54, §3.5). 추가 전용이다. 정산 여부는 `event_emission_registry`에 이 seq의 행이 있는지로 가른다 |
+| `order_reservations.amount/locked_account_id/ledger_txn_id` | DB가 payload와 `assets.scale`로 계산한 예약액, 예약이 들어간 LOCKED 계정, 원장 RESERVE 거래(`business_event_id` = `order_id`). 정산은 이 금액과 계정을 주문 행에 넘기고 `reserve_funds`를 다시 부르지 않는다. 거부(REJECTED)된 주문은 이 금액을 해제한다(§5.1). 연결은 하네스 C31이, 정산 전 예약을 더한 LOCKED 잔고는 C14'가 감사한다 |
 
 ---
 
@@ -1914,12 +3404,22 @@ CREATE TABLE user_provisioning (
 ### 5.0 전역 잠금 순서 규약 (P1)
 
 - 모든 자금 경로(예약 §5.1, 체결 정산 §5.2, 해제·취소 §5.3, 입출금 정산)는 `balances` 행 배타 잠금을 **account_id 오름차순**으로만 획득한다. 예외 없음.
-- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER) 단일 경로다. 정본은 마이그레이션 파일이고 현재 본문은 V38이다(§4.3). 함수 내부가 헤더 행 FOR UPDATE 후 입력 JSONB에서 계정별 델타를 집계하고(V27), `balances`를 account_id 오름차순 `FOR NO KEY UPDATE`로 먼저 잠근 뒤 일괄 UPDATE로 적용하므로(V37), 이 경로를 쓰는 한 규약이 물리 강제된다.
+- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER) 단일 경로다. 정본은 마이그레이션 파일이고 현재 본문은 V38이다(§4.3). 함수 내부가 헤더 행 FOR UPDATE 후 입력 JSONB에서 계정별 델타를 집계하고(V27), `balances`를 account_id 오름차순 `FOR NO KEY UPDATE`로 먼저 잠근 뒤 일괄 UPDATE로 적용하므로(V37), 이 경로를 쓰는 한 규약이 물리 강제된다. 다만 강제되는 범위는 호출 하나다.
+- 트랜잭션 단위 규칙(v2.54, 2026-09-24 설계 검토 반영). 한 트랜잭션이 `post_ledger_transaction`을 여러 번 부르면 호출 사이에서 오름차순이 깨질 수 있다. 그래서 게시를 두 번 이상 하는 트랜잭션은 첫 게시 직전에 그 트랜잭션이 게시할 수 있는 잔고 행 전체(잠금 계획)를 `lock_balance_rows(account_ids)`로 오름차순 한 번에 잡는다(§3.5). 그 뒤의 게시는 이미 쥔 행만 다시 잡으므로 기다리지 않는다. 지금 이런 트랜잭션은 정산 배치 하나다. 잠금 계획은 명령 사용자와 그 배치 TRADE의 maker 사용자 각각의 마켓 base·quote 자산 AVAILABLE·LOCKED 네 행, TRADE가 있으면 두 자산의 FEE_INCOME 행이다. 정산 게시는 이 밖의 계정을 쓰지 않는다. 엔진은 명령 사용자의 주문만 취소하고(CANCEL은 소유자 대조, STP는 같은 사용자), 체결 당사자는 taker(명령 사용자)와 maker뿐이다. 앱은 게시마다 계정이 계획 안에 있는지 보고, 벗어나면 지표를 올린다(교착 가능성일 뿐 자금 안전과는 무관하므로 라이터를 멈추지 않는다). 게시를 한 번 하는 트랜잭션(P2 접수 예약, 출금 요청·승인·거절, GENESIS)은 그대로 규칙을 채운다.
 - 예약·해제는 `reserve_funds` / `release_funds` 헬퍼로 호출한다. 두 헬퍼 모두 `post_ledger_transaction` 경유이므로 동일 규약이 자동 적용된다.
 - 자금 외 행 잠금(`orders` FOR UPDATE)은 id 오름차순으로 통일하고, 한 트랜잭션 안에서 테이블 간 잠금 순서(balances 다음 orders 또는 그 역)를 경로 전체에서 하나로 고정한다(§5.2의 순서가 정본).
 - 호출 규율("모든 자금 트랜잭션이 이 경로만 사용") 자체는 앱 계층 책임이다. `app_role`의 원장·잔고 직접 DML 회수(§9)가 우회를 물리 차단하고, 감사 쿼리(§6)가 잔여 위반을 탐지한다.
 
 ### 5.1 주문 접수 시 예약 (AVAILABLE → LOCKED, 진짜 복식부기)
+
+(v2.54, ADR 0034 S3) 이 절은 리더 모드(`leader_protocol.protocol`)에 따라 다르게 읽는다. 모드 2(P2) 이상에서는 아래 블록의 원자 커밋으로 돌아간다. 예약 (b~d, f)는 저널 append (a')와 같은 트랜잭션에서 10인자 `append_command_prologue`가 한다(§3.5). 예약액은 앱이 아니라 DB가 payload와 `assets.scale`로 계산하고 앱이 넘긴 값은 대조에만 쓴다. 잔고가 모자라면 `chk_balance_nonneg`가 23514로 그 트랜잭션 전체를 롤백해 저널 행, 채번, 예약 행, 원장 거래가 남지 않고, 게이트웨이는 `400 insufficient_funds`로 끝낸다(API 설계 v2.54 §2-3·§2-4). 주문 행 (e)와 ACCEPTED 이벤트 (a'')는 지금처럼 정산 트랜잭션이 쓰되 아래 'P2 정산 규칙'을 따른다. 모드 1(P1)에서는 블록 안의 v2.9 분기(게이트웨이 사전 가드와 정산 시점 예약)가 그대로다. ADR 0034가 v2.9 분기를 '예약은 정산에서 한다' 변형이라 부르고 P2부터 이 절의 원자 커밋으로 되돌린다고 적은 것이 이 뜻이다.
+
+P2 정산 규칙(v2.54). 정산은 명령마다 `order_reservations`에 그 seq의 행이 있는지 머리말 한 왕복에서 함께 읽는다.
+
+- ACCEPTED: 예약 행이 있으면 `reserve_funds`를 부르지 않는다. 주문 행의 `locked_account_id`와 `locked_amount`는 예약 행의 `locked_account_id`와 `amount`다. 예약 행의 주문 id·사용자·마켓과 side에서 나온 자산이 명령과 다르면 계약 위반(`IllegalStateException`)으로 라이터를 멈춘다. 예약 행이 없으면(P1에서 접수한 명령) 종전처럼 `reserve_funds`로 예약한다.
+- REJECTED(주문 생성): 예약 행이 있으면 주문 행 유무나 모양과 관계없이 먼저 `release_funds`로 예약 전액을 LOCKED에서 AVAILABLE로 되돌린다. `business_event_id`는 그 REJECTED 이벤트의 event_seq이고 CANCELED 해제와 같은 축이다(§4.3). 그 뒤 종전 규칙대로 주문 행이 없고 모양이 맞으면 REJECTED 행을 넣는다. 해제를 조기 반환(중복 주문 id, 넣을 수 없는 모양) 앞에 두는 이유는 그 반환이 해제를 건너뛰면 예약이 LOCKED에 영영 남기 때문이다. 예약 행은 이 명령의 것이므로 다른 주문의 자금을 풀 수 없다.
+- 같은 배치를 다시 정산하면 `event_emission_registry`가 배치 전체를 건너뛰게 하므로(§5.5 ②) 해제도 한 번뿐이다.
+- CANCELED·TRADE는 바뀌지 않는다. 정산이 끝난 예약 주문은 주문 행의 `locked_amount`로 보통 주문과 똑같이 체결·취소된다.
 
 ```sql
 BEGIN;
@@ -1965,6 +3465,11 @@ SELECT assert_current_leader(:holder_uuid, :my_epoch);
 --        명령의 **무결성 위반**이다. 엔진이 이미 수락·매칭해 오더북과 disposition이 확정된
 --        뒤의 사후 거절은 저널과 상태를 가르므로, REJECTED 기록 대상이 아니라
 --        배치 전체 롤백 + 단일 라이터 루프 정지 + demote(fail-fast)로 처리한다(§5.4).
+--      잔고 검증 시점 분기(v2.54, P2 이상): 잔고 판정의 권위는 이 블록의 원자 커밋이다. 10인자 머리말이
+--        (a') 트랜잭션 안에서 예약하고 잔고 부족 23514 는 트랜잭션 전체 롤백 뒤 400 insufficient_funds 로
+--        끝난다(미접수. 채번·예약 행·원장 거래 없음). 게이트웨이 가드는 빠른 거부일 뿐이고 in-flight 누계를
+--        쓰지 않는다. 정산은 예약 행이 있는 명령에 reserve_funds 를 부르지 않으므로 정산 시점 23514 는
+--        버그가 없는 한 도달하지 않는다. 도달하면 종전처럼 fail-fast 이고 지표로 경보한다(§5.4).
 -- (a'') 접수 이벤트 적재(v2.3): §3.1 6.2 규칙대로 동일 트랜잭션에 원자 포함(별도 트랜잭션 금지)
 INSERT INTO event_journal (event_seq, source_cmd_seq, event_ordinal, event_type,
                            payload, payload_schema_version, fencing_epoch, created_at)
@@ -2004,7 +3509,8 @@ SELECT assert_current_leader(:holder_uuid, :my_epoch);
 -- balances 잠금(v2.6): post_ledger_transaction 내부에서 account_id 오름차순 UPDATE로
 -- 획득한다(전역 잠금 순서 규약의 물리 강제, §5.0). app_role은 balances UPDATE 권한이 없어
 -- SELECT ... FOR UPDATE 자체가 불가하다. 자금 경로 전부가 함수를 경유하므로
--- 오름차순 규약이 자동 적용된다.
+-- 오름차순 규약이 자동 적용된다. 강제 범위는 호출 하나다. 체결 배치는 게시를 여러 번 하므로
+-- 첫 게시 직전에 lock_balance_rows 로 잠금 계획 전체를 오름차순 한 번에 잡는다(v2.54, §5.0).
 
 -- 단일 라이터 매칭엔진 경로에서는 orders도 비관 락으로 일원화(low#6).
 -- 낙관적 version 충돌은 단일 라이터 전제상 발생해선 안 되며(발생 시 불변식 위반),
@@ -2133,6 +3639,8 @@ COMMIT;
 
 ```sql
 -- 정본은 V1 함수 3종(try_acquire_leader/renew_leader_lease/assert_current_leader, §3.1 6.6)이다.
+-- (v2.53) V48부터 셋은 자원 인자 판(try_acquire_lease/renew_lease/assert_lease_holder, §3.4)의 matching-engine
+--   위임이고, 쓰기 경로는 기록할 행의 마켓에서 자원을 도출한다(§5.4-b). P1에서는 아래 서술이 그대로 성립한다.
 -- now()는 clock_timestamp()로 정정(P0-1): 장기 트랜잭션에서 now()는 시작 시각으로 고정된다.
 -- 리더 승격(takeover, v2.4 갱신과 분리): 리스가 **만료된 경우에만** epoch +1로 탈취한다.
 --   대상 행은 V1 부트스트랩 시드('matching-engine', epoch=0, 만료 상태, §3.1 6.6)로
@@ -2180,10 +3688,10 @@ FOR KEY SHARE OF l;
 - 원자성: 승격(탈취)은 단일 조건부 UPDATE, 갱신(heartbeat)은 epoch 보존 단일 UPDATE(v2.4), append는 leader_lease를 **FOR KEY SHARE로 잠그는** 단일 INSERT…SELECT(v2.43). 키를 바꾸는 탈취가 진행 중 쓰기 트랜잭션의 커밋을 대기하므로 문장 실행과 COMMIT 사이의 레이스 창이 없고, 키를 바꾸지 않는 갱신은 대기하지 않는다(v2.4, v2.43).
 - 엄격 비교: `l.epoch = :my_epoch` (동일 epoch 두 리더 동시 허용하던 `>=` 제거).
 - 권위 참조: 저널 max가 아니라 `leader_lease.epoch` 참조.
-- 부팅 승격 대기: 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효하므로, 부팅 복구 경로는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 try_acquire_leader를 재시도한 뒤 실패 처리한다(만료 전 탈취 없음, 승격 규칙 불변).
-- 강등 사유 분류(v2.23, E2 라이브 교정): 강등은 **종신**과 **회복 가능** 두 등급이다. 가르는 축은 사유 문구가 아니라 **그 강등이 단일 라이터 루프를 정지시켰는가**다. 루프가 halt되면 인메모리 오더북이 타 리더의 커밋을 반영하지 못한 stale로 굳고 소비자도 사라져, 리스만 다시 얻으면 '접수는 ACK되는데 체결이 없는' 반쪽 리더가 된다. 그때만 종신이다.
+- 부팅 승격 대기: 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효하므로, 부팅 복구 경로는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 try_acquire_leader를 재시도한 뒤 실패 처리한다(만료 전 탈취 없음, 승격 규칙 불변). (v2.55) S4 코드부터 이 대기는 없어진다. 기동은 늘 팔로워로 하고 첫 획득은 런타임 승격 경로를 탄다(§5.4-c 4).
+- 강등 사유 분류(v2.23, E2 라이브 교정): 강등은 **종신**과 **회복 가능** 두 등급이다. 가르는 축은 사유 문구가 아니라 **그 강등이 단일 라이터 루프를 정지시켰는가**다. 루프가 halt되면 인메모리 오더북이 타 리더의 커밋을 반영하지 못한 stale로 굳고 소비자도 사라져, 리스만 다시 얻으면 '접수는 ACK되는데 체결이 없는' 반쪽 리더가 된다. 그때만 종신이다. (v2.55) S4 코드부터 종신은 노드 치명(VM Error)에만 남는다. 나머지 종신 사유는 그 파티션만 강등하고 fresh 재구성과 차단기를 거쳐 후보로 돌아온다(§5.4-c 5·10).
   - 종신(재승격 금지, 복귀는 재기동): 이벤트 sink 실패(루프 fail-fast), 접수 개방 이후의 renew 거부·fencing 상실, 서비스 불능 지속의 자발적 강등. 전부 self-shutdown(루프 halt)을 동반한다. 이벤트 sink 실패는 아래 정산 sink 오류 분류(v2.51)가 재시도로 흡수하지 못한 것만 해당한다.
-  - 정산 sink 오류 분류(v2.51): 일시 DB 오류 넷(55P03 잠금 대기 초과, 57014 문장 취소, 40P01 교착 희생, 40001 직렬화 실패)은 정산이 배치 전체를 다시 돌린다. 시도는 첫 시도를 포함해 4회이고, 첫 시도 시작부터 5초가 지나면 새 시도를 열지 않으며, 대기는 50~100, 100~200, 200~400밀리초의 무작위 값이다. 넷 다 커밋 전에 트랜잭션이 롤백되는 오류이고, 매 시도가 새 트랜잭션에서 로컬 리더 확인과 `assert_and_lock_leader`, 레지스트리 멱등 판정(§5.5 ②)부터 다시 하므로 이중 정산과 오래된 리더의 쓰기가 생기지 않는다. 재시도 제한을 넘긴 일시 오류와 재시도 대상이 아닌 오류는 종전대로 fail-fast 하고 종신 강등한다. 후자는 fencing 거부(P0001), 무결성 위반(23xxx, 잔고 CHECK 23514 포함), 커밋 여부를 알 수 없는 연결 오류(08xxx), 계약 위반(`IllegalStateException`) 등이다. 운영 기본 풀의 `lock_timeout 2000ms`·`statement_timeout 3000ms`(prod 프로파일)가 정산에 걸려도 한 번의 초과로 강등하지 않게 하는 것이 목적이다. 시간 상한은 하나로 정해지지 않는다. 한 시도가 문장마다 `lock_timeout`이나 `statement_timeout`까지 기다릴 수 있어서, 흔한 최악은 5초에 마지막 한 시도(잠금 대기 초과면 그 문장에서 끝나 대략 2초)를 더한 값이고 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길다. 그 시간만큼 그 마켓 라이터가 멈추고 승격 재생의 크래시 창 재정산도 늘어난다. 재시도 수는 `exchange.settlement.transient_retries`, 흡수하지 못해 라이터로 올린 수는 `exchange.settlement.transient_exhausted` 로 본다. 제한을 넘기면 여전히 종신 강등이고 앱이 한 대인 배치에서는 사람이 재기동할 때까지 주문이 멈춘다.
+  - 정산 sink 오류 분류(v2.51): 일시 DB 오류 넷(55P03 잠금 대기 초과, 57014 문장 취소, 40P01 교착 희생, 40001 직렬화 실패)은 정산이 배치 전체를 다시 돌린다. 시도는 첫 시도를 포함해 8회이고, 첫 시도 시작부터 15초가 지나면 새 시도를 열지 않으며, 대기는 50~100, 100~200밀리초, 그 뒤로는 200~400밀리초의 무작위 값이다(v2.56, ADR 0034 S4b. 종전은 4회·5초였다). 넷 다 커밋 전에 트랜잭션이 롤백되는 오류이고, 매 시도가 새 트랜잭션에서 로컬 리더 확인과 `assert_and_lock_leader`, 레지스트리 멱등 판정(§5.5 ②)부터 다시 하므로 이중 정산과 오래된 리더의 쓰기가 생기지 않는다. 재시도 제한을 넘긴 일시 오류와 재시도 대상이 아닌 오류는 종전대로 fail-fast 하고 종신 강등한다. 후자는 fencing 거부(P0001), 무결성 위반(23xxx, 잔고 CHECK 23514 포함), 커밋 여부를 알 수 없는 연결 오류(08xxx), 계약 위반(`IllegalStateException`) 등이다. 운영 기본 풀의 `lock_timeout 2000ms`·`statement_timeout 3000ms`(prod 프로파일)가 정산에 걸려도 한 번의 초과로 강등하지 않게 하는 것이 목적이다. 시간 상한은 하나로 정해지지 않는다. 한 시도가 문장마다 `lock_timeout`이나 `statement_timeout`까지 기다릴 수 있어서, 흔한 최악은 15초에 마지막 한 시도(잠금 대기 초과면 그 문장에서 끝나 대략 2초)를 더한 약 17~18초이고 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길다. 그 시간만큼 그 마켓 라이터가 멈추고 승격 재생의 크래시 창 재정산도 늘어난다. 이 값은 좀비 판정 창(45초)과 P1 in-flight 예약 TTL(30초)보다 짧다. 15초는 멈춘 트랜잭션을 끊는 `idle_in_transaction_session_timeout`(카오스 10초)에 잠금 대기 초과 2초와 여유를 더한 값이다. 종전 4회·5초는 PG 지연 주입(E1, 200±100ms)에서 한 시도가 약 3.6초라 두 번째 시도 뒤 기한을 넘겨, 잠금 대기가 잠깐 이어진 것만으로 라이터를 치명으로 올렸다(S4b 설계 13절). 한도를 넘긴 일시 오류를 치명으로 올리는 규칙 자체는 그대로다. 한도 없이 다시 돌리면 접수는 계속 ACK되는데 그 마켓의 체결이 무기한 멈춘 라이터가 되고, 파티션 층 좀비 판정은 접수 append 커밋도 완료로 세므로 그것을 보지 못한다. 재시도 수는 `exchange.settlement.transient_retries`, 흡수하지 못해 라이터로 올린 수는 `exchange.settlement.transient_exhausted` 로 본다. 제한을 넘기면 여전히 종신 강등이고 앱이 한 대인 배치에서는 사람이 재기동할 때까지 주문이 멈춘다.
   - 회복 가능(리스 반납, 만료 후 재승격 허용): **승격 재생 구간의 실패**. 이 구간은 fresh 엔진에 대한 스냅샷 로드 → tail 재생 → 크래시 창 재정산이 끝나야 엔진을 루프에 설치하고 접수를 열므로, 실패 시점의 루프는 승격 전 상태 그대로이고 게이트도 닫힌 채다. 종신이 전제하는 상태가 성립하지 않는다. 다음 승격은 새 epoch로 재생을 처음부터 다시 하므로 stale 상태를 물려받지 않는다.
   - 근거(E2 라이브 실측): 스탠바이가 epoch 2를 정상 획득한 123ms 뒤 승격 재생의 정산이 assert_current_leader 거부를 받아 종신 강등했고, 같은 창에서 구 리더도 sink 실패로 종신 강등해 **승격 가능한 후보가 0**이 됐다. leader_lease는 epoch 2·만료 상태로 남고 체결이 영구 정지했다(재기동으로만 해소). 무결성은 유지됐으므로 결함은 정확성이 아니라 가용성 등급 판정에 있었다.
   - 원자성·fencing 불변: 회복 가능 반납도 leader_lease에 **아무것도 쓰지 않는다**. 갱신만 멈추므로 다음 리더는 종전대로 TTL 만료 뒤 try_acquire_leader(epoch +1) 단독 UPDATE로만 정해진다. 반납한 노드의 인메모리 epoch는 즉시 비워져 이후 모든 쓰기가 DB 왕복 전에 거부되고, 다시 승격하면 반드시 더 큰 epoch를 받으므로 구 epoch의 append는 계속 0행이다. 만료 전 창에서 타 노드가 탈취할 수 없다는 성질도 그대로다.
@@ -2195,11 +3703,11 @@ FOR KEY SHARE OF l;
   - 재생 구간 표식은 **시도별 토큰**이다(v2.24). 회복 가능 반납으로 [재생 실패 -> 반납 -> 만료 -> 같은 노드가 재승격]이 정상 경로가 됐고, 앞선 시도가 뒷정리를 하는 동안 새 시도가 시작될 수 있다. 낡은 해제가 새 표식을 지우면 새 시도의 재생 실패가 종신으로 잘못 내려가 후보가 소진된다. 해제는 자기 토큰에 대해서만 성립하며, 구간이 겹치면(단일 승격 워커 전제 위반) 오류 로그를 남긴다.
   - 표식 해제 지점은 **결과별로 다르다**(v2.29). 일괄 해제(예: finally)는 세 결과 중 하나를 반드시 틀리게 만든다. (a) 재생 성공: 접수 개방 **전**에 걷는다. 개방 이후의 상실은 열린 게이트 위의 상실이라 종신이어야 한다. (b) 회복 가능 반납: `standDown`이 끝난 **뒤**에 걷는다. 먼저 걷으면 해제와 반납 사이에 도착한 renew 거부가 종신으로 내려가 노드가 후보에서 빠진다. 재생 구간에도 하트비트가 계속 도는 것이 설계이므로 이 창은 실재한다. (c) 종신 강등: `demote` **전**에 걷는다. 표식을 쥔 채 부르면 강등 판정이 회복 가능으로 뒤집히고, 그러면 종신 콜백이 발화하지 않아 단일 라이터 halt 자체가 소실된다. 세 지점 모두 등급을 직접 가르므로 배선이 아니라 계약이다.
 - 리스 연장 단일 경로(v2.24): `lease_until`을 미는 호출은 앱에 정확히 하나만 둔다. 하트비트와 위 fencing 거부 재확인이 같은 `renew_leader_lease`를 쓰므로, '연장 직전 생존성 판정'(아래 자발적 강등)을 호출자별로 두면 하나만 빠져도 좀비 리더가 그 경로로 리스를 무한 연장한다. 재확인이 판정을 통과하지 못하면 연장하지 않고 그 자리에서 자발적 강등한다. 노출 자체는 좁았지만(다음 renew 틱이 닫는다) '리스를 연장하는 경로는 모두 생존성 판정을 통과한다'가 참이 아니게 되는 것이 결함이다. 판정을 renew 틱보다 자주 부르는 것은 무해하다. 누적 창이라 표본이 잘게 쪼개져도 비율과 초기화 규칙이 같다.
-- 접수 개방 조건에 소비자 생존 포함(v2.24): 승격 재생 완료 후 접수 게이트를 여는 조건은 [승격 시도 세대 일치 + 상태 PROMOTING + 리스 보유 + **단일 라이터 루프 가동**]이다. 정지한 루프 위에서 게이트를 열면 저널에 커밋되고 영원히 체결되지 않는 주문이 생긴다. 현재 배선에서는 재생 구간에 루프가 유휴라 도달하지 않지만 그 불변이 코드에 없으면 배선 변경으로 무음으로 깨진다. 이 조건에 걸리면 종신 강등한다. 루프 정지는 강등 등급 분류의 종신 축 그 자체이고, 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
+- 접수 개방 조건에 소비자 생존 포함(v2.24): 승격 재생 완료 후 접수 게이트를 여는 조건은 [승격 시도 세대 일치 + 상태 PROMOTING + 리스 보유 + **단일 라이터 루프 가동**]이다. 정지한 루프 위에서 게이트를 열면 저널에 커밋되고 영원히 체결되지 않는 주문이 생긴다. 현재 배선에서는 재생 구간에 루프가 유휴라 도달하지 않지만 그 불변이 코드에 없으면 배선 변경으로 무음으로 깨진다. 이 조건에 걸리면 종신 강등한다. 루프 정지는 강등 등급 분류의 종신 축 그 자체이고, 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다. (v2.55) S4 코드부터 이 조건의 리스와 루프는 그 파티션의 것이다(§5.4-c 7).
 - 승격 경계 판정 초기화(v2.23): 자발적 강등 판정기(아래)의 누적 창은 승격 시점에 다시 세운다. serviceable() 판정은 renew 직전에만 불리고 renew는 리더만 하므로 팔로워 구간에는 표본이 한 번도 채취되지 않는다. 그 사이 쌓인 수요는 '리더 일을 못 했다'가 아니라 '리더가 아니어서 거절했다'는 기록이다. 초기화하지 않으면 승격 후 첫 표본이 팔로워 구간 전량을 완료 0과 함께 창에 접고, 비율이 임계를 회복하려면 그 분모의 5%를 새로 채워야 해서 정상 처리율로도 임계 시간 안에 회복이 불가능하다. 결과는 페일오버 standdownAfter 초 뒤의 확정적 재강등이며, 2노드에서는 곧 클러스터 정지다.
 - 유효 범위: 이 fencing은 동일 primary 접속 앱 사이에서만 성립한다. DB 클러스터 failover의 무손실·단일 primary 보장은 §7.2 요건이 담당한다(P0-6).
-- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 리스 풀이 싣는 것은 리스 UPDATE(heartbeat·승격 시도), 승격 다운타임 관측 SELECT, 그리고 리스 보관소가 DynamoDB일 때의 fencing epoch 게시(`publish_leader_epoch`)다. 나머지 쓰기는 두 풀로 나뉜다(2026-09-23 정정). 접수의 명령 저널 append는 전용 append 풀(`exchange.engine.append-datasource`, 최대 14·연결 대기 2초, `LeaseDataSourceConfig.appendDataSource`)과 그 풀의 트랜잭션 관리자를 쓰고(ADR 0022 4-1), 재생과 정산은 기본 풀을 쓴다. 어느 풀이든 fencing 검사(FOR KEY SHARE)는 그 쓰기와 같은 트랜잭션 안에 있으므로 split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음). 풀 격리는 커넥션 축만 막는다. 행 잠금 축은 v2.43 FOR KEY SHARE 가 막는다.
-- 서비스 불능 지속 시 자발적 강등(standdown, v2.19): 전용 풀 격리는 하트비트 생존성을 서비스 생존성과 분리한다. 그 결과 요청 경로가 완전히 멈춘 노드도 heartbeat만은 성공해 리스가 계속 유효하고, 스탠바이는 만료를 보지 못해 승격하지 않는다(좀비 리더 → 클러스터 무기한 정지, 라이브 실측: 요청 풀 고갈 상태의 리더가 30분 이상 체결 0인 채 lease_until만 전진, epoch 불변). 앱은 renew 직전에 이 노드가 일을 할 수 있는지 판정하고, 불능이 임계 시간 동안 끊김 없이 지속되면 **갱신을 포기**한다.
+- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 리스 풀이 싣는 것은 리스 UPDATE(heartbeat·승격 시도), 승격 다운타임 관측 SELECT, 그리고 리스 보관소가 DynamoDB일 때의 fencing epoch 게시(`publish_leader_epoch`)다. 나머지 쓰기는 두 풀로 나뉜다(2026-09-23 정정). 접수의 명령 저널 append는 전용 append 풀(`exchange.engine.append-datasource`, 최대 14·연결 대기 2초, `LeaseDataSourceConfig.appendDataSource`)과 그 풀의 트랜잭션 관리자를 쓰고(ADR 0022 4-1), 재생과 정산은 기본 풀을 쓴다. append 풀 세션에는 `lock_timeout`이 없다. 앱 설정 `exchange.engine.accept-lock-timeout`(v2.52, ADR 0034 S1, 기본 0이면 끔)을 주면 append 트랜잭션의 첫 문장으로 `set_config('lock_timeout', '<n>ms', true)`를 불러 그 트랜잭션에만 상한을 건다. 초과(55P03)는 머리말의 리스 판정·멱등 판정·채번과 저널 INSERT를 함께 롤백하므로 저널 행과 채번이 남지 않고(C05), 리스 행에 쓰지 않으므로 강등하지 않는다. 설정은 트랜잭션 한정이라 커밋·롤백 뒤 풀 커넥션에 남지 않는다. 켜면 append마다 왕복이 하나 는다. 어느 풀이든 fencing 검사(FOR KEY SHARE)는 그 쓰기와 같은 트랜잭션 안에 있으므로 split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음). 풀 격리는 커넥션 축만 막는다. 행 잠금 축은 v2.43 FOR KEY SHARE 가 막는다. (v2.55) S4 코드부터 획득은 같은 풀에서 획득 트랜잭션에만 lock_timeout을 걸고 한다. 획득 전용 풀은 두지 않는다(§5.4-c 3).
+- 서비스 불능 지속 시 자발적 강등(standdown, v2.19): 전용 풀 격리는 하트비트 생존성을 서비스 생존성과 분리한다. 그 결과 요청 경로가 완전히 멈춘 노드도 heartbeat만은 성공해 리스가 계속 유효하고, 스탠바이는 만료를 보지 못해 승격하지 않는다(좀비 리더 → 클러스터 무기한 정지, 라이브 실측: 요청 풀 고갈 상태의 리더가 30분 이상 체결 0인 채 lease_until만 전진, epoch 불변). 앱은 renew 직전에 이 노드가 일을 할 수 있는지 판정하고, 불능이 임계 시간 동안 끊김 없이 지속되면 **갱신을 포기**한다. (v2.55) S4 코드부터 판정은 노드 층과 파티션 층 두 층이고, 마켓 접수 경합으로 끝난 요청은 두 층 모두 수요에서 뺀다(§5.4-c 8).
   - 판정 명제: **쓰기 수요 대비 완료율이 붕괴한 상태가 임계 시간 지속되면 리더 자격을 내려놓는다.** 원인은 묻지 않는다. 두 축뿐이다. ① 주문 쓰기 요청 도착(수요), ② 그 요청 경로가 끝낸 일(완료). 둘 다 인메모리 카운터라 판정이 굶거나 실패할 여지가 없다(판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다).
   - 신호가 **비율**인 근거(라이브 3회 실증): 이 장애는 정지가 아니라 처리율 붕괴다. (1차) 요청 풀 전량 점유(active >= maximum-pool-size)를 필수 조건으로 뒀더니, 실제 좀비는 커넥션 대기가 아니라 CPU 폭주(chaos-api-1 463%, HikariCP housekeeper 지연 59초)로 죽어 있어 커넥션이 계속 반납됐고 점유 조건이 거짓인 표본이 섞여 발동하지 않았다. (2차) '완료 0'을 조건으로 뒀더니, 노드가 완전히 죽지 않고 **5분에 체결 1건**을 내는 상태였다(정상은 초당 20건). 완료 1건이 누적을 초기화하는 규칙 때문에 역시 발동하지 않았다. (3차) 비율을 도입했으나 완료 축이 넓어 발동하지 않았다(아래 ②). 정상 구간의 완료/수요는 1 이상이고 좀비 구간은 0.04 수준이므로, 그 간극을 비율로 재면 임계 선택이 예민하지 않다. 풀 점유는 판정에서 빼고 강등 로그의 진단 정보로만 남긴다(사후 원인 분류용). 능동 커넥션 프로브도 채택하지 않는다. HikariCP가 대기자를 FIFO로 처리하므로 대기열이 길기만 해도 실패해 지연을 정지로 오판하고 v2.18 이전(헛페일오버)으로 회귀한다.
   - ① 계측 지점의 도달 가능성(필수 제약): 좀비 상태에서는 인증 필터의 `api_keys` 조회부터 실패한다. 따라서 컨트롤러·게이트웨이·저널 append 중 어디에서 세든 수요가 한 번도 증가하지 않고 판정이 성립하지 않는다. ①은 **인증·DB 접촉 이전**(ApiAuthFilter의 주문 POST·DELETE 분기)에서 센다.
@@ -2215,8 +3723,8 @@ FOR KEY SHARE OF l;
   - 무제한 면제는 두지 않는다(v2.22): §7-6 by-client 재조회는 429를 줄 수 없어 조회 버킷에 넣을 수 없지만, 완전 면제하면 동시성 상한이 사라진다. 그런데 이 경로는 하필 노드가 굶는 순간에 몰린다. 커넥션 획득 3초 초과가 503을 만들고 클라이언트는 5xx에 재조회로 반응하므로 되먹임 고리가 된다. 전용 소형 버킷(풀의 10%, 하한 2)을 두고 초과분은 거절이 아니라 판정 보류(`409 requery_deferred`)로 내보내 수렴을 유지한다(API §2-5-a). 보류는 저널 존재를 주장하지 않으므로 잘못된 404(이중 접수의 유일한 원인)를 만들지 않는다.
   - 판정 실패 처리: 풀 상태 조회가 예외를 내면 그 표본은 정상으로 흡수하고 누적을 초기화한다. 예외를 renew 호출자로 흘리면 갱신 SQL 자체가 실행되지 않아 리스가 TTL 만료로 소멸한다. '판정 못 함'이 '강등 안 함'이 아니라 비자발적 페일오버가 되는 것을 막는다.
   - 원자성·fencing 불변: 자발적 강등은 `leader_lease`에 **아무것도 쓰지 않는다**. 리스를 즉시 반납하지도 않는다. 승격은 종전대로 TTL 만료 후 스탠바이의 `try_acquire_leader`(epoch +1) 단독 UPDATE로만 성립하므로 만료 구동 승격 규칙·epoch 단조·stale append 0행 거부가 모두 불변이다.
-  - 강등 후 상태: **종신** 등급이다(위 강등 사유 분류). self-shutdown(단일 라이터 halt + 재승격 금지)이 적용되고 복귀는 재생을 포함한 프로세스 재기동뿐이다. 서비스 불능이 확인된 노드가 리스를 다시 노리면 손상 노드 사이의 리더십 플래핑이 되고, halt된 루프 위의 재승격은 '접수는 ACK되는데 소비자가 없는' 반쪽 리더를 만든다. 회복 가능 등급은 승격 재생 구간에만 적용되며 이 사유에는 해당하지 않는다.
-  - readiness 연동: 강등은 리스 상실 콜백을 타 readiness를 REFUSING_TRAFFIC으로 내린다. readiness의 소비자는 컨테이너 healthcheck와 운영자·하네스 관측이다. **LB는 readiness를 조회하지 않는다**(오픈소스 nginx에 능동 health_check가 없다). 트래픽 이동을 만드는 것은 프록시된 응답의 503이 `max_fails`에 계상되는 수동 판정이고, 그 503은 접수 경로가 낸다(리더 아님, 승격 재생 중 AcceptGate 거부, 강등 직후 단일 라이터 정지). 강등 시 두 축(readiness REFUSING, 접수 경로 폐쇄)이 함께 움직여야 '승격은 됐는데 체결은 재개되지 않는' 상태를 피한다. 강등 사유별로 readiness 의미를 나누지 않는다.
+  - 강등 후 상태: **종신** 등급이다(위 강등 사유 분류). self-shutdown(단일 라이터 halt + 재승격 금지)이 적용되고 복귀는 재생을 포함한 프로세스 재기동뿐이다. 서비스 불능이 확인된 노드가 리스를 다시 노리면 손상 노드 사이의 리더십 플래핑이 되고, halt된 루프 위의 재승격은 '접수는 ACK되는데 소비자가 없는' 반쪽 리더를 만든다. 회복 가능 등급은 승격 재생 구간에만 적용되며 이 사유에는 해당하지 않는다. (v2.55) S4 코드부터 이 사유도 그 파티션의 fresh 재구성과 차단기로 바뀐다(§5.4-c 5·10).
+  - readiness 연동: 강등은 리스 상실 콜백을 타 readiness를 REFUSING_TRAFFIC으로 내린다. readiness의 소비자는 컨테이너 healthcheck와 운영자·하네스 관측이다. **LB는 readiness를 조회하지 않는다**(오픈소스 nginx에 능동 health_check가 없다). 트래픽 이동을 만드는 것은 프록시된 응답의 503이 `max_fails`에 계상되는 수동 판정이고, 그 503은 접수 경로가 낸다(리더 아님, 승격 재생 중 AcceptGate 거부, 강등 직후 단일 라이터 정지). 강등 시 두 축(readiness REFUSING, 접수 경로 폐쇄)이 함께 움직여야 '승격은 됐는데 체결은 재개되지 않는' 상태를 피한다. 강등 사유별로 readiness 의미를 나누지 않는다. (v2.55) S4 코드부터 readiness는 파티션 가운데 하나라도 접수 중이면 ACCEPTING이다(§5.4-c 14).
   - readiness 발행 정정은 비대칭이다(v2.27): 승격 상태와 어긋난 발행을 되돌리는 감시(v2.19 도입)의 정정 대상은 **[목표 REFUSING인데 ACCEPTING이 발행됨] 한 방향뿐**이다. 반대 방향(목표 ACCEPTING인데 REFUSING 발행)은 되돌리지 않고 수용한다. 근거는 종료 경로다. Spring의 웹 컨텍스트 close는 웹서버를 내리기 **전에** REFUSING_TRAFFIC을 발행하고, 그 뒤 종료 경로에는 접수 목표를 내리는 지점이 없다. 대칭으로 정정하면 그 발행이 ACCEPTING으로 되돌려져 웹서버가 실제로 닫힐 때까지 `/actuator/health/readiness`가 200 UP을 내고, 컨테이너 healthcheck·하네스·운영자가 종료 중인 리더를 정상 수용 노드로 관측한다(하네스 CICD §4-1 graceful 경로 'readiness=REFUSING_TRAFFIC -> in-flight 완료 -> 종료' 위반). 수용 방향은 안전측이라(트래픽을 덜 받는다) 그대로 둔다. 차단해야 하는 위험 방향인 [readiness UP + 접수 폐쇄]는 종전대로 정정된다. 앱 안에서 readiness를 발행하는 주체는 이 감시를 든 컴포넌트 하나뿐이라, 수용한 REFUSING이 오발행일 가능성은 현재 배선에 없다.
   - 강등 노드의 잔존 오류 바닥: 강등해도 프로세스는 살아 있으므로 nginx primary 슬롯에서 빠지지 않는다. `max_fails=1 fail_timeout=2s` 구성에서 2초마다 1건이 그 노드로 가서 503을 받고, 비멱등 메서드(POST)는 기본적으로 다음 업스트림으로 재시도되지 않아 그대로 클라이언트에 반환된다(약 0.5건/s. 봇 40 ops/s 기준 약 1.25%). 강등 이전의 좀비 상태가 100% 실패였으므로 순개선이지만 0은 아니다. 제거 수단은 세 가지이며 전부 이 변경 범위 밖이다: nginx `non_idempotent` 추가(하네스 소관), 강등 노드를 업스트림에서 내리는 운영 절차, 강등 시 프로세스 종료(self-shutdown 의미를 프로세스 수준으로 확장하는 별도 정책 변경). 하네스 §3 E1·E7' 판정에 이 바닥을 명시한다.
   - 관측: `exchange.leader.standdown`(Prometheus `exchange_leader_standdown_total`, 자발적 강등 횟수), `exchange.node.serviceable`(`exchange_node_serviceable`, 1 정상·0 불능 판정), `exchange.node.write_completion_ratio`(`exchange_node_write_completion_ratio`, 누적 완료율. 붕괴 진행을 실시간으로 좇는 축). 하네스 CICD §5-2 명세표 등재.
@@ -2252,6 +3760,183 @@ FOR KEY SHARE OF l;
 **시계.** PostgreSQL 보관소는 만료를 `clock_timestamp()`로 판정해 모든 노드가 같은 시계를 봤다. DynamoDB는 조건식에서 쓸 서버 시계를 노출하지 않으므로 기준 시각이 호출한 노드의 시계다. 스큐가 TTL에 가까우면 이른 탈취가 가능하다. 시계 스큐 내성은 여전히 검증 범위 밖이다.
 
 결정 기록은 `docs/reference/adr/0017-leader-lease-out-of-commit-path.md`다.
+
+#### 5.4-b 쓰기 권한 검사를 기록할 행의 마켓에서 도출한다 (v2.53, ADR 0034 S2)
+
+§5.4의 쓰기 트랜잭션 공통 계약은 뜻이 그대로다. 엔진 기원 쓰기는 커밋 전에 (holder, epoch)를 리스 행과 대조하고 그 행을 커밋까지 FOR KEY SHARE로 쥔다. V48부터 바뀌는 것은 어느 행이냐다. 앱이 자원 이름을 넘기거나 SQL에 `'matching-engine'`을 박지 않고, DB가 기록할 행의 `market_id`로 `lease_resource_for_market(market_id)`를 불러 행을 찾는다. 두 노드가 같은 마켓의 파티션을 서로 다르게 알아도 각자 다른 리스로 통과하는 경우가 구조적으로 없게 하려는 것이다(ADR 0034 결정 4). 프로토콜 1·2에서는 이 함수가 `matching-engine`을 돌려주므로 §5.4의 서술이 그대로 성립한다. 3에서는 마켓의 파티션 행을 돌려준다.
+
+| 쓰기 | 판정과 잠금 | 마켓의 출처 |
+|---|---|---|
+| 명령 저널 append(§5.1 (a')) | 6인자 머리말이 `assert_lease_holder(lease_resource_for_market(p_market_id), …)`로 잠그지 않고 판정한다. v2.54의 10인자 머리말(S3 바이너리)은 첫 문장에서 `assert_and_lock_market_leader`로 잠근 뒤 판정하므로 그 트랜잭션이 끝날 때까지 전환이 모드를 바꾸지 못한다(§3.5). `append_command_journal_row`가 INSERT…SELECT의 `FOR KEY SHARE OF l`로 잠그며 holder·epoch·`lease_until > clock_timestamp()`를 다시 본다. 0행이면 앱이 예외로 채번(P2에서는 예약까지)을 롤백한다 | 함수 인자 하나가 행의 `market_id`와 도출에 함께 쓰인다. 앱이 마켓을 두 번 넘기지 않는다 |
+| 정산(이벤트·주문·체결·원장, §5.1~§5.3) | 머리말 한 문장의 `assert_and_lock_market_leader(COALESCE(command_journal.market_id, :batch_market), …)` | 정산할 명령 행. 명령 행이 없을 때만 배치 마켓을 써서 "리스 거부"를 "명령 부재"보다 먼저 가른다. 명령 행 마켓과 배치 마켓이 다르거나 배치가 한 마켓이 아니면 앱이 `IllegalStateException`으로 멈춘다(계약 위반, 재시도 없음) |
+| 이벤트 저널(저널 계층 시험 경로) | `assert_and_lock_market_leader(:batch_market, …)` | 배치 마켓. 배치가 한 마켓이 아니면 잠금 전에 거부한다 |
+| 스냅샷(§5.5 STEP1) | 배치의 마켓마다 `assert_and_lock_market_leader`를 마켓 id 오름차순으로 부르고 행마다 그 마켓의 epoch를 쓴다 | 스냅샷 행의 마켓. P1에서는 같은 행이라 잠금이 하나다 |
+
+판정 규칙은 `assert_lease_holder` 한 곳에 있다. `assert_current_leader`와 `assert_and_lock_leader`도 이 함수를 거친다. 거부 문구와 SQLSTATE P0001은 `matching-engine`이면 V1과 같아 `FencingErrors`의 강등 분류가 바뀌지 않고, 파티션 자원이면 문구 끝에 ` resource=<이름>`이 붙는다. P3에서 대응이 없는 마켓의 쓰기는 `fencing 위반`이 아닌 55000으로 거부된다. 오래된 리더가 아니라 설정 결함이므로 강등 사유로 세지 않는다. 정산에서는 재시도 대상(55P03·57014·40P01·40001)이 아니므로 종전 분류대로 라이터가 멈춘다. fencing 거부를 주입하는 시험은 이 3인자 판정 함수를 갈아 끼워야 네 쓰기 경로를 모두 덮는다. 2인자 함수에 주입하면 새 경로를 비껴간다(V30 머리 주석이 적은 무력화).
+
+권한. 리스 행을 잠그는 일과 바꾸는 일은 소유자 권한 함수(§3.4)로만 한다. PostgreSQL은 행 잠금 절에도 UPDATE 권한을 요구하므로, V49가 `app_role`의 UPDATE를 회수한 뒤 앱이 직접 쓰는 `FOR KEY SHARE`는 권한 오류가 된다. 그래서 append의 INSERT…SELECT를 `append_command_journal_row`로 옮겼고, V49는 `command_journal` 직접 INSERT도 회수해 명령 저널을 이 함수로만 쓰게 한다. 소유자 권한 함수 안에서 잡은 행 잠금은 호출 트랜잭션 끝까지 남으므로 "승격은 진행 중 쓰기의 커밋을 기다린다"는 V41 성질이 그대로다. 소유자 권한 함수는 트리거 함수까지 모두 PUBLIC EXECUTE를 회수하고 공개 함수만 `app_role`에 준다.
+
+이 권한은 정직하지만 오래된 리더의 쓰기를 막는 fencing을 받치는 것이고, `app_role`에 속한 로그인끼리의 경계가 아니다. 앱과 봇 로그인이 같은 `app_role`이므로 V49 뒤에도 둘 다 다음 경로를 쓸 수 있다.
+
+- `event_journal`·`snapshots`와 정산이 쓰는 `orders`·`trades`에 리스 판정 없이 직접 INSERT한다. 정산과 스냅샷이 앱 SQL로 쓰므로 S2에서 회수하지 않는다.
+- `publish_leader_epoch`로 살아 있는 PostgreSQL 리스를 더 큰 epoch와 임의 보유자로 바꾸고 `lease_until`을 100년 뒤로 민다. 게시에는 만료 조건이 없다(V33, DynamoDB 보관소의 재게시 때문이다). 그 뒤 PostgreSQL 보관소의 자동 승격은 `expire_leader_lease_now` 전까지 일어나지 않는다.
+- `expire_leader_lease_now`나, 읽을 수 있는 holder·epoch를 넣은 `release_lease`로 현재 리더의 리스를 즉시 만료시킨다.
+- 같은 값을 넣은 `renew_lease`로 멈춘 리더의 리스를 임의 길이만큼 연장하고, 만료된 리스를 `try_acquire_lease`로 임의 TTL만큼 획득한다.
+- 읽은 holder·epoch로 `append_command_journal_row`를 불러 현재 리더 이름으로 명령 행을 쓴다.
+
+게시와 획득은 `lease_acquisitions`에 남아 사후에 드러난다. 봇 로그인을 떼는 봇 전용 역할, 게시 함수를 DynamoDB 보관소 노드의 로그인으로 좁히는 일, 만료 함수를 소유자 전용으로 좁히는 일은 S2 밖의 별도 과제다(S2 설계 4-7).
+
+획득 리스의 만료 기준(v2.54, V52). 획득은 `lease_until`을 행 잠금을 얻은 뒤의 `clock_timestamp() + ttl`로 센다. 종전 판은 기다리기 전 시각에서 세어, 멈춘 옛 리더의 KEY SHARE를 TTL보다 오래 기다린 획득이 이미 만료된 리스를 돌려줬고, 새 리더가 첫 쓰기에서 강등돼 리더가 없어졌다(§3.7, S3 관문 X3). 잠금을 얻었다는 것은 옛 epoch의 쓰기가 모두 끝났다는 뜻이라 안전 조건은 그대로다.
+
+잠금 순서. 획득은 리스 행 하나(만료 조건 FOR UPDATE) 다음에 `leader_protocol` 행을 잡는다. 이 FOR UPDATE는 명시 잠금이라 V41 인덱스(`uq_leader_lease_fencing_key`)가 없어도 진행 중 쓰기를 기다린다. 게시는 V33의 UPDATE 그대로라 holder·epoch가 키 열일 때, 곧 그 인덱스가 있을 때만 쓰기를 기다린다. 게시도 리스 행 UPDATE 다음에 프로토콜 행이다. S3의 전환 함수는 모든 리스 행을 resource 순으로 잡은 뒤 프로토콜 행을 잡는다. 쓰기는 리스 행 하나에 KEY SHARE만 잡고 프로토콜 행은 잠그지 않고 읽는다. KEY SHARE끼리는 충돌하지 않으므로 순환은 FOR UPDATE를 쥔 쪽과만 생길 수 있고, 위 순서가 그것을 막는다. PostgreSQL은 기다리는 FOR UPDATE 앞으로 새 KEY SHARE를 들여보내므로(S2 설계 3절 Q3) 쓰기가 끊이지 않으면 FOR UPDATE가 굶을 수 있다. 전환 함수 `set_leader_protocol`(v2.54, §3.5)은 정지 창에서만 부르고 함수 속성으로 `lock_timeout = '5s'`를 건다. 쓰기가 멈추지 않았으면 55P03으로 끝나고 아무것도 바꾸지 않는다. 10인자 머리말(v2.54)은 리스 행 KEY SHARE, 어드바이저리 락, 잔고 행(account_id 오름차순), 채번 카운터 행 순이다. 정산은 리스 행 KEY SHARE, 이벤트 카운터 행, 주문 행, 잔고 행 순이고 출금은 잔고 행만 잡는다. 잔고 행은 트랜잭션마다 한 번의 오름차순 묶음으로만 잡는다. 접수 예약과 출금은 게시가 한 번이라 그렇고, 정산은 첫 게시 직전의 잠금 계획으로 그렇게 만든다(§5.0 v2.54). 그래서 잔고 행에서 경로 사이에 반대 순서가 없다.
+
+바이너리 능력(v2.54). 획득과 게시는 호출자가 아는 최고 모드를 받는다. 4인자 `try_acquire_lease(resource, holder, ttl, max_protocol)`와 3인자 `publish_leader_epoch(holder, epoch, max_protocol)`는 현재 모드가 그 값보다 크면 55000으로 거부한다. 판정은 프로토콜 행을 잡은 뒤에 하므로 전환과 경합하지 않는다. S2 바이너리의 3인자 획득과 S2 이전 바이너리의 2인자 게시는 최고 모드 1로 동작한다. P2의 예약 정산을 모르는 바이너리가 P2 리더가 되지 못하게 하려는 것이다(§3.5). S3 바이너리는 2를 넘긴다. 갱신은 모드를 보지 않는다. 전환이 모든 리스 행을 퇴역시키므로 옛 보유자의 갱신은 holder·epoch 불일치로 거짓이 된다.
+
+외부 보관소(§5.4-a)는 P1·P2에서만 쓴다. P2에서는 S3 이후 바이너리의 3인자 게시만 된다(위 바이너리 능력). `publish_leader_epoch`는 P3이면 55000으로 거부하고, 게시 실패는 승격 실패이므로 DynamoDB 보관소 노드는 P3에서 쓰기를 열 수 없다. 앱은 DynamoDB 보관소를 만들 때 프로토콜이 3이면 기동을 멈춘다(ADR 0034 결정한 값 18). 외부 보관소 노드는 기동 때 DynamoDB 토큰 하한을 PostgreSQL에서 읽는다(`FencingTokenAlignment`). v2.54부터 하한은 `GREATEST(max(leader_lease.epoch), max(lease_acquisitions.epoch))`이다. 종전처럼 `matching-engine` 행 하나만 읽으면 모드 전환이 다른 리스 행에 남긴 `RETIRE` 이력이 하한보다 클 수 있고, 그러면 하한 + 1 게시가 이력과 겹쳐 승격이 두 번 실패한다(S3 설계 11절 R4). 전환 함수가 `matching-engine`을 마지막에 퇴역시키는 것(§3.5)과 함께 두 겹이다. 두 조회 모두 `app_role`의 SELECT 권한 안이다(V48).
+
+#### 5.4-c 리더 수명주기를 파티션 단위로 나눈다 (v2.55, ADR 0034 S4)
+
+S4 코드(2026-09-24 작성, 2026-09-25 작업 브랜치에 커밋)는 이 절을 따라 만들었다. 설계와 PostgreSQL·nginx 동작 확인은 `docs/reference/architecture/마켓분할_리더_S4_설계.md`와 `harness/evidence/pml-s4-probe-20260924/`에 있다. S4는 리스·판정 SQL 함수를 바꾸지 않는다(V53은 하네스 측정 이력의 열 하나다, §3.8). 바뀌는 것은 앱이 리스를 쥐고 놓는 단위다. §5.4의 원자성·엄격 비교·권위 참조·만료 구동 승격과 §5.4-b의 시장 도출 판정은 그대로다. 아래 1~14는 §5.4의 해당 항목보다 우선한다. §5.4 본문에서 이 절로 대체된 항목에는 표식을 달았다.
+
+1. 파티션 계획. 노드는 기동 때 `leader_protocol`을 한 번 읽어 파티션 계획을 만든다(§3.5 기동 모드와 같은 값). 조회 역할 노드는 로그인이 이 행을 읽지 못하므로 DB를 읽지 않고 `matching-engine` 하나의 계획을 쓴다. 조회 역할이 서빙하는 경로는 epoch를 싣지 않는다. P1·P2에서는 파티션이 `matching-engine` 하나이고 모든 마켓을 덮는다. P3에서는 `matching-p0`·`matching-p1` 둘이고 마켓의 파티션은 `market_lease_partition`에서 읽는다. 앱의 대응은 라우팅과 수명주기에만 쓰고 쓰기 판정에는 쓰지 않는다. 판정은 DB가 기록할 행의 마켓에서 도출한다(§5.4-b). 대응 표는 추가 전용이므로 앱이 읽은 대응이 DB와 달라지는 경우는 아직 읽지 않은 새 마켓뿐이고, 그 마켓은 처음 쓰일 때 다시 읽는다. 기동 뒤 모드가 바뀌면(S7의 전환 함수) 전환이 모든 리스 행을 퇴역시키므로 옛 계획의 쓰기는 epoch 불일치로 거부되고, 노드는 재기동해야 새 계획으로 참여한다. P1·P2의 노드도 이 절 전체를 파티션 하나로 실행한다. 그래서 P2에서 도는 코드 경로가 P3과 같다.
+
+2. 리스는 파티션마다 따로 쥔다. 파티션마다 리스 서비스 인스턴스와 틱 스레드가 하나씩 있다. holder는 노드마다 하나이고 그 노드의 모든 파티션이 같이 쓴다. epoch는 리스 행마다 따로 받고, DB가 모든 자원을 통틀어 유일하게 배정한다(§3.4). 한 파티션의 갱신 실패·fencing 거부·강등은 그 파티션의 리스만 놓게 한다. 다른 파티션의 epoch·갱신·게이트는 바뀌지 않는다. 엔진을 끈 노드(봇, 조회 증설, 조회 역할)도 파티션별 리스 서비스를 만들지만 시작하지 않는다. 틱 스레드가 없고 획득·갱신을 부르지 않는다. 리스를 시작하는 것은 엔진을 켠 노드의 기동 수명주기뿐이다.
+
+3. 획득은 트랜잭션 한정 잠금 대기 상한을 건다. 갱신·반납·fencing 거부 뒤 재확인·획득·획득 이력 조회·현재 리스 조회·외부 보관소 게시는 모두 리스 전용 풀(`exchange.engine.lease-datasource`, 최대 2, v2.18과 같다)로 한다. 획득 전용 풀은 두지 않는다. 획득은 그 풀 위의 트랜잭션 하나에서 `set_config('lock_timeout', '<값>', true)` 다음에 획득 함수를 부르고 커밋한다. 값은 `exchange.engine.lease-acquire-lock-timeout`(기본 1000ms)이고 0보다 크고 리스 틱 주기보다 작아야 하며 기동 때 검사한다. 설정은 트랜잭션 한정이라 커밋·롤백 뒤 커넥션에 남지 않으므로 갱신·반납·재확인은 v2.18과 같다. 획득은 리스 행을 FOR UPDATE로 잡으므로 옛 리더의 진행 중 쓰기가 쥔 KEY SHARE를 기다린다(§5.4 원자성, V41). 이 기다림이 lock_timeout을 넘으면 획득은 55P03으로 끝나고 트랜잭션째 롤백돼 리스 행과 획득 이력에 아무것도 남기지 않는다. 다음 틱이 다시 시도한다. 폐기용 PostgreSQL에서 p1 획득이 KEY SHARE에 막혀 있는 동안 p0 갱신이 모두 곧바로 성공했고, 획득은 설정한 lock_timeout 뒤 55P03으로 끝났으며 획득 이력 행과 남은 잠금이 없었다. 기다리는 획득은 다른 세션의 새 KEY SHARE도 막지 않았다(S4 설계 3절 G2). 풀을 나누지 않아도 되는 근거는 리스 풀을 쓰는 틱 스레드가 파티션마다 하나라 P3에서도 둘이고 풀 최대가 2라는 것이다. 한 파티션의 획득이 막혀 연결 하나를 쥐어도 다른 파티션의 갱신은 남은 연결을 쓰고, 드문 재확인·조회가 끼어 두 연결이 찬 순간에도 갱신의 기다림은 막힌 획득의 lock_timeout 이하다. 파티션이나 리스 풀 사용처가 늘면 이 근거를 다시 본다. 승격 규칙은 같다. 리스가 만료된 뒤에만, 그리고 옛 epoch의 쓰기가 모두 끝난 뒤에만 새 epoch가 생긴다. 달라지는 것은 기다림이 틱 경계에서 끊겨 획득이 최대 한 틱 늦을 수 있다는 것이다. 외부 보관소 모드(P1·P2)의 게시도 같은 방식으로 상한을 받고, 초과는 승격 실패(회복 가능)다.
+
+4. 기동은 늘 팔로워로 한다. 기동 복구는 리스를 얻지 않고 크래시 창을 재적재하지 않는다. 마켓별 물질화 경계까지 대조한 엔진을 팔로워에 넘기고, 팔로워가 인계받은 뒤 파티션별 리스 틱을 시작한다. 첫 획득은 런타임 승격 경로(아래 7)를 탄다. §5.4의 부팅 승격 대기(TTL 1.5배, 상한 30초)는 없어지고 크래시 창 재적재는 승격 재생만 한다(ADR 0034 결정 7). 기동 때 리스를 얻는 경로를 남기면 P3에서 선호·유예 규칙(아래 9)을 거치지 않은 획득이 생기고, 재생 범위를 파티션으로 좁히는 곳이 두 군데가 된다. 콜드 재기동의 복구 시간은 한 틱과 승격 재생만큼 늘 수 있다. 스탠바이 승격과 같은 경로이므로 RTO 게이트(30초)는 그대로다.
+
+5. 강등은 파티션 단위이고 종신이 아니다. 강등 사유는 넷으로 가른다.
+   - 계획(PLANNED): 운영자가 파티션 참여를 끈 경우다. 갱신을 멈추고 리스가 만료되게 둔다. 라이터를 멈추고 아래 재구성을 한다.
+   - 회복 가능(RECOVERABLE): 승격 재생 구간의 실패다. §5.4의 회복 가능 반납 그대로다. 루프와 엔진이 승격 전 상태라 재구성하지 않는다.
+   - 파티션 치명(WRITER_FATAL, LEASE_LOST_WHILE_ACCEPTING, STALL, PROMOTION_LOOP_DOWN): 그 파티션 라이터의 sink 실패, 접수 개방 뒤의 갱신 거부·fencing 상실, 그 파티션의 자발적 강등(아래 8), 승격 완료 시점의 라이터 정지다. 종전 판의 종신 사유와 같다.
+   - 노드 치명(NODE_FATAL): VM Error(`VirtualMachineError`, 예: OOM·StackOverflowError)다. 모든 파티션을 종신 강등해 상태를 DEMOTED로 두고 재기동으로만 복귀한다(§5.4 v2.24). 운영자의 차단기 해제나 재구성 뒤 후보 복귀가 DEMOTED를 풀지 않는다. `AssertionError`처럼 VM 오류가 아닌 Error는 파티션 치명(WRITER_FATAL)이다.
+
+   계획·파티션 치명 강등은 한 번의 호출로 이 순서를 지킨다. 그 파티션 마켓의 접수 게이트를 닫고, 리스를 놓고(DB에 쓰지 않는다. 갱신만 멈춘다), 그 파티션 마켓의 라이터를 멈춘다. 그 뒤 그 파티션 마켓의 엔진과 팔로워 상태를 버리고 스냅샷과 저널에서 새로 만든다(fresh 재구성). 재구성은 마켓별 물질화 경계까지 대조하는 기동 복구와 같다. 끝나면 그 파티션을 팔로워로 되돌리고 차단기(아래 10)가 닫혀 있고 참여가 켜져 있으면 다시 후보로 세운다. 종전 판이 이 사유들을 종신으로 둔 근거는 멈춘 루프의 인메모리 오더북이 다른 리더의 커밋을 반영하지 못한 stale이라는 것이었다. fresh 재구성은 그 상태를 하나도 쓰지 않으므로 그 파티션만 재기동한 것과 같다. 다른 파티션의 라이터·엔진·리스는 건드리지 않는다. 재구성이 실패하면(DB 단절 등) 그 파티션은 후보가 아닌 채로 1초에서 시작해 30초까지 두 배씩 늘어나는 간격으로 재구성을 다시 한다. 재구성 실패는 차단기에 세지 않고 지표로 센다. 그동안 다른 파티션은 계속 돈다. E5(네트워크 분할)처럼 격리된 옛 리더는 격리 중 재구성이 실패하다가 복귀 뒤 성공해 팔로워가 된다. (v2.56, ADR 0034 S4b) 재구성의 재생이 DB 접근 실패(연결 장애·일시 오류 넷)로 끝나면 재생 불일치가 아니므로 `recovery_runs`에 불일치 행을 남기지 않는다(§5.5 v2.56). 스냅샷 적재나 스냅샷 시작 재생의 실패가 커넥션 획득 실패나 연결 끊김이면 스냅샷 없는 전량 재생으로 폴백하지 않는다. 이 노드가 DB에 닿지 못하므로 전량 재생도 실패하기 때문이다. 일시 오류 넷과 자원 부족(53xxx)은 특정 문장(큰 스냅샷 조회)에서만 계속 날 수 있으므로 종전처럼 폴백한다. 다음 재시도가 DB가 돌아온 뒤 성공 행을 남긴다. 파티션 치명 강등의 기록(관리 조회의 강등 `detail`과 로그)에는 원인 예외 이름과 원인 사슬에서 처음 만난 SQLSTATE를 싣는다. 롤백 실패로 원래 예외가 가려진 경우는 그 원래 예외의 SQLSTATE다.
+
+6. 기간 결속 쓰기. 리스를 얻는 순간 기간(resource, holder, epoch, 세대)을 만들고, 그 승격의 재생 sink(이벤트 재적재와 재정산)와 설치할 루프·sink·스냅샷·치명 처리기, 그 파티션의 접수 게이트에 같은 기간을 넘긴다. 승격 재생은 루프 설치보다 먼저 DB에 쓰므로 기간을 설치 때 만들면 재생 구간의 쓰기가 기간에 묶이지 않는다. 승격 재생이 실패해 회복 가능 반납을 하면 그 기간이 끝나고, 다음 획득은 새 기간으로 재생을 처음부터 한다. 엔진 기원 쓰기는 리스 서비스가 지금 쥔 epoch가 아니라 이 기간의 epoch로 DB 판정을 받고, 쓰기 전에 리스 서비스의 현재 기간과 같은지 앱에서 먼저 본다. 다르면 DB 왕복 없이 거부한다. fencing 거부 뒤의 권위 재확인(§5.4 v2.23)도 이 기간의 epoch로 갱신을 불러, 참이면 재시도하고 거짓이면 이 기간만 강등한다. 강등 호출은 기간을 받고, 리스 서비스의 현재 기간과 다르면 아무것도 하지 않는다. 이 규칙이 필요한 이유는 같은 프로세스 안의 재승격이다. 파티션이 재구성 뒤 같은 노드에서 새 epoch를 얻으면 holder가 같으므로, 강등 전 루프나 앞선 승격 재생의 스레드(정산 재시도 대기 등)가 늦게 깨어나 리스 서비스에서 새 epoch를 읽으면 DB 판정을 통과한다. 기간을 결속하면 그 스레드는 옛 epoch를 들고 있어 앱에서 거부되고, 앱 검사를 빠뜨려도 DB가 옛 epoch를 거부한다. 오래된 리더의 쓰기 차단은 여전히 DB fencing이 지고, 기간 결속은 같은 holder의 옛 스레드가 새 epoch를 빌리는 길을 막는다. 늦게 온 옛 기간의 실패가 새 기간을 강등시키지도 않는다. (v2.56, ADR 0034 S4b) 주문 접수의 append가 fencing 거부를 받으면 재확인이 참이어도 append는 롤백된 채 예외를 올린다. 이 경로의 '재시도'는 클라이언트의 같은 키 재전송이 맡는다. 게이트웨이는 그 순간 그 마켓의 접수 게이트가 열려 있으면(재확인이 참, 재확인 왕복 실패, 같은 노드의 새 기간 재승격) 쓰기 업스트림에서 이 노드를 빼지 않는 `429`·`409`를, 닫혀 있으면(재확인이 거짓이라 강등) 페일오버 `503`을 낸다(API 설계 §2-5-c). 재확인이 거짓이면 강등이 같은 스레드에서 게이트를 먼저 닫으므로 게이트 상태가 재확인 결과를 드러낸다.
+
+7. 승격과 설치는 그 파티션의 마켓 M(P)만 다룬다. 승격 재생은 M(P)만 스냅샷과 저널에서 복원하고 크래시 창도 M(P)만 재적재한다. 재적재 순서는 M(P) 안에서 §5.5의 (created_at, seq) 병합 그대로다. P3에서는 두 파티션의 크래시 창을 각자 재적재하므로 파티션 사이의 병합 순서가 없다. 자금 쪽 근거는 접수 시점 예약(§3.5)이다. P2 이상에서는 예약이 저널 append와 함께 커밋되므로 정산 순서가 잔고 부족을 만들지 않는다. 팔로워가 M(P)의 모든 마켓에서 head에 닿았으면 팔로워 엔진을 인계받아 재생을 생략한다. 생략의 근거인 불변식 M(§5.4 v2.24)은 마켓마다 성립한다. 인계는 마켓별 적용 잠금 안에서 하고, 설치할 복사본과 인계 엔진의 상태 해시가 다르면 생략하지 않고 fresh 재생으로 간다. 라이터 설치는 M(P)의 샤드만 새 루프로 바꾸고, 다른 파티션 샤드의 엔진·루프·큐·커서는 건드리지 않는다. 종전 설치(`WriterRouter.installFrom`)는 복구 결과에 없는 마켓의 샤드를 빈 엔진으로 덮었다. 파티션이 둘이면 다른 파티션의 살아 있는 북을 지운다. 게이트는 그 파티션의 기간이 유효하고 M(P) 라이터가 모두 돌 때 연다(§5.4 v2.24의 개방 조건을 파티션에 적용한다).
+
+8. 좀비 판정은 두 층이다. 노드 층은 §5.4 v2.19 그대로 인증 이전의 주문 쓰기 수요와 리더 기원 쓰기 커밋을 센다. 파티션 층은 그 파티션의 게이트가 열린 동안 그 파티션 마켓에 온 접수를 수요로(접수 락을 얻기 전에 센다), 그 파티션의 저널 append 커밋과 정산 커밋을 완료로 센다. 파티션 리스의 갱신은 두 판정을 모두 통과해야 한다. 파티션 층의 붕괴는 그 파티션만 STALL로 강등하고, 노드 층의 붕괴는 그 노드가 쥔 모든 파티션을 STALL로 강등한다. 임계(완료율 5%, 45초, 수요 하한 20건), 누적과 hold 규칙, 승격 경계 초기화는 두 층이 같다. 수용 거절(§5.4 v2.20)은 두 층 모두 수요로 세지 않는다. 마켓 접수 경합으로 끝난 요청(접수 락 대기 상한 초과와 append 트랜잭션의 55P03·57014·40P01·40001, 응답은 API 설계 §2-5-b의 `429`나 `409 order_in_progress`)도 두 층 모두 수요에서 뺀다. 이 요청들은 DB에 닿아 유계 시간 안에 확정적인 답을 받았고, 원인은 대개 DB 쪽 잠금(멈춘 트랜잭션이나 운영자 세션이 쥔 잔고 행)이라 페일오버로 풀리지 않는다. 수요로 세면 한 사용자의 잔고 행이 오래 잠긴 저트래픽 구간에서 그 사용자의 재시도만으로 STALL 강등이 나고, 새 리더도 같은 행에 막혀 다시 강등하며, 강등이 차단기(아래 10)에 세어져 두 노드가 모두 차단될 수 있다. 예외는 하나다. 접수 락 대기 상한 초과 가운데 그 순간 락을 쥔 요청이 대기 상한(`exchange.engine.accept-lock-wait`)보다 오래 쥐고 있던 것은 수요로 남긴다. append의 잠금 대기는 `exchange.engine.accept-lock-timeout`으로 끊기므로 그보다 한참 긴 보유는 DB 잠금이 아니라 끝나지 않는 보유자(응답 없는 연결, 앱 결함)이고, 빼면 대기자가 모두 저널 전 거절로 빠져나가 그 좀비를 놓친다. 노드 층은 요청 단위로 센 수요를 그 요청의 응답이 경합 응답일 때 되돌리고(배치 주문·일괄 취소는 되돌리지 않는다), 파티션 층은 submit 단위로 뺀다. 표본 경계에서 새 수요가 음수가 되지 않게 0으로 자른다. 이 규칙은 강등 시점을 정하는 가용성 규칙이고 쓰기 판정(fencing)과 무관하다.
+
+   (v2.57, ADR 0034 S5) 소유권 선검사(API 설계 §2-5-d)의 `503`은 인증 필터 앞에서 끝나므로 노드 층 수요로 세지 않는다. 그 파티션의 게이트가 닫혀 있으므로 파티션 층도 세지 않는다. 노드 층은 두 경우의 수요를 응답 코드와 무관하게 되돌린다. 하나는 힌트 없는 단건 취소가 게이트웨이의 `503`(`route=not_owner`)으로 끝난 경우다. 두 노드가 파티션을 하나씩 쥔 P3에서 다른 파티션 주문의 취소가 이 노드에 와도 이 노드가 할 일이 아니고, 세면 그런 요청만으로 이 노드의 모든 파티션이 STALL로 강등될 수 있다. 다른 하나는 일괄 취소가 이 노드에서 submit을 하나도 하지 않고 끝난 경우다(열린 주문이 없었거나 모두 인계 행으로 넘김). 이 요청은 이 노드의 쓰기 능력을 시험하지 않는다. 인계 행 넣기가 DB 오류로 끝났으면 되돌리지 않는다. 인계받은 취소(§5.4-d)는 소유 노드의 파티션 층에서 보통의 취소와 같이 submit 단위로 수요와 완료를 센다. 선검사와 submit 사이에 게이트가 닫혀(강등) submit이 거부된 요청은 종전처럼 수요로 남는다.
+
+9. 선호와 유예. P3에서 노드는 설정으로 선호 파티션(`exchange.leader.partition.preferred`)과 참여 파티션(`exchange.leader.partition.participate`, 기본 전부)을 받는다. 비선호 파티션은 기동 직후 2×TTL, 그 뒤에는 그 파티션 리스의 만료를 관측할 때마다 1×TTL을 기다린 뒤에만 획득을 시도한다(ADR 0034 결정 2). 선호 노드에 자동으로 되돌려 주지 않는다(결정 4). 재배치는 운영자가 비선호 노드의 참여를 끄고(계획 강등) 리스가 만료된 뒤 선호 노드가 획득하게 한다. P1·P2의 `matching-engine`에는 선호와 유예가 없다. 유예는 획득 시도를 늦출 뿐이고 승격 규칙은 그대로다. (v2.56, ADR 0034 S4b) 참여 여부는 승격 조율의 상태와 같은 락 안에서 바꾸고 읽는다. 참여를 끄면 같은 락 안에서 후보 표식을 내리고, 후보 표식을 다시 세우는 모든 경로(재구성 완료, 참여 켜기, 차단기 해제)는 같은 락 안에서 상태가 FOLLOWER이고 참여가 켜져 있을 때만 세운다. S4 코드는 참여 여부를 락 밖에서 읽어, 참여 끄기가 재구성 완료와 엇갈리면 끈 파티션의 후보 표식이 다시 섰다. 쓰기 판정은 DB가 하므로 오래된 리더 차단과는 무관하지만 운영자의 재배치(결정 4)가 무력해진다.
+
+10. 차단기. 한 파티션의 파티션 치명 강등이 10분 창 안에서 3회에 이르면 그 파티션은 이 노드에서 차단(BLOCKED)된다. 재구성은 하지만 리스를 다시 노리지 않는다. 운영자가 해제하거나 프로세스를 재기동하면 풀린다. 횟수와 창은 설정(`exchange.leader.partition.max-demotions`, `exchange.leader.partition.demotion-window`)이다(ADR 0034 결정 12). 계획·회복 가능·노드 치명 강등은 세지 않는다. 차단은 경보(`PartitionBreakerOpen`)로 알린다.
+
+11. 수수료 샤드. P1·P2는 샤드 0 하나다. P3에서는 체결 수수료를 그 마켓 파티션의 번호(`matching-p0` 0, `matching-p1` 1)를 샤드로 쓰는 FEE_INCOME 계정에 게시한다(§1.2, ADR 0034 결정 10). 두 파티션의 정산이 같은 수수료 잔고 행을 다투지 않게 하려는 것이다. 샤드 1 계정이 모든 수수료 자산에 없으면 P3 전환을 하지 않는다. 정산 잠금 계획(§5.0)은 그 배치가 게시할 샤드의 계정을 넣는다. (v2.59) 샤드 1 계정은 V55가 기존 자산에 만들고 새 자산은 `accounts` 트리거가 만든다. 전환 함수는 모든 마켓의 기준·호가 자산에 샤드 0·1이 없으면 `fee_shard_missing`으로 거부한다(§3.10). 한 체결의 샤드는 그 정산이 커밋될 때의 모드로 정해지고, 정산은 레지스트리 멱등으로 한 번만 커밋되므로 모드가 바뀐 뒤 같은 체결이 다른 샤드로 다시 게시되지 않는다.
+
+12. 외부 보관소. DynamoDB 리스 공급자는 파티션 리스를 지원하지 않는다. 앱은 공급자가 DynamoDB인데 프로토콜이 3이거나 설정이 `matching-p0`·`matching-p1`을 참여·선호 파티션으로 적으면 기동을 멈춘다(ADR 0034 결정 18, §5.4-b). P1·P2에서는 종전대로 쓴다.
+
+13. 바이너리 능력은 2 그대로다. S4 바이너리도 획득과 게시에 최고 모드 2를 넘긴다(§5.4-b). 그래서 P3 DB에서 S4 바이너리는 어떤 파티션도 획득하지 못하고 팔로워로만 남는다. 파티션 리스의 실제 획득은 S7 바이너리가 최고 모드 3을 넘길 때 열린다. S4의 시험은 이 값을 주입해 P3을 흉내 낸다. (v2.59, S7) S7 바이너리는 최고 모드 3을 넘기고, 그 값을 게이지 `exchange.leader.protocol.max`로 내보낸다. 전환 절차는 두 노드가 이 값으로 3을 내는지 보고 나서 2->3을 부른다(§5.4-e). S6 이전 바이너리는 P3 DB에서 어떤 파티션도 얻지 못하고 팔로워로 남으므로 안전 문제는 아니고 가용성 문제다.
+
+14. readiness. 노드의 readiness는 파티션 가운데 하나라도 접수 중이면 ACCEPTING이고, 아니면 REFUSING이다. P1·P2에서는 종전과 같다. readiness의 소비자와 발행 정정 규칙(§5.4 v2.27)은 그대로다. 파티션 상태·강등 사유·차단은 지표와 관리 API로 내보낸다(`docs/reference/contracts/하네스_CICD_IaC.md` §5-2, API 설계 §6-C).
+
+#### 5.4-d 파티션 밖 취소를 소유 노드에 넘긴다 (v2.57, ADR 0034 S5)
+
+이 절은 S5 코드보다 먼저 적은 계약이다(2026-09-25, 같은 날 설계 검토 대응으로 1~8을 고쳤다). 표는 V54(§3.9), 응답은 API 설계 v2.57 §4-B-3·§6-E, 설계는 `docs/reference/architecture/마켓분할_리더_S5_설계.md` 4-4와 11절이다. 인계는 취소를 누가 저널에 넣는지만 바꾼다. 저널 append, 기간 결속, 시장 도출 fencing(§5.4-b), 예약 환급(§5.3)은 보통의 취소와 같다.
+
+1. 대상. 일괄 취소(`DELETE /api/v1/orders`, `market` 유무와 무관)와 회원 폐쇄(`/admin/v1/members/{id}/close`)다. 요청을 받은 노드가 접수 게이트를 열지 않은 파티션의 주문을 넘긴다. 마켓을 준 일괄 취소는 보통 소유권 선검사와 인그레스가 그 마켓의 소유 노드로 보내므로(API 설계 §2-5-d) 넘길 주문이 없다. 선검사가 모르는 마켓(기동 뒤 생겨 이 노드의 메모리 카탈로그에 아직 없는 마켓)이면 선검사를 통과하므로 받은 노드가 그 주문을 넘긴다. 단건 취소는 넘기지 않는다. 소유하지 않는 노드는 `503`으로 돌려보낸다. P1·P2에서는 파티션이 `matching-engine` 하나이고, 리더 노드는 모두 직접 취소하며 팔로워와 엔진을 끈 노드는 모두 넘긴다.
+
+2. 요청자. 요청 시점의 미체결 주문(`OPEN`·`PARTIAL`)을 읽어 메모리의 파티션 대응(§5.4-c 1)으로 나눈다. 이 노드가 접수 게이트를 연 파티션의 주문은 종전처럼 하나씩 취소한다. 나머지 파티션의 주문은 파티션마다 `exchange.order.cancel-handoff.chunk`(기본 100, 최대 500)개씩 행을 만들고, 한 요청의 모든 행을 한 트랜잭션으로 넣는다. 넣기는 직접 취소보다 먼저 한다. 두 파티션의 취소가 함께 진행되게 하려는 것이다. 직접 취소를 마친 뒤 모든 행이 `DONE`이 되거나 넣은 뒤 `exchange.order.cancel-handoff.wait`(기본 5초)가 지날 때까지 `request_id`로 행을 읽는다(100ms 간격). 직접 취소가 그보다 오래 걸렸으면 한 번만 읽는다. 끝나면 가져가지 않은 행을 아래 문장으로 포기로 바꾸고 행을 다시 읽어 합친다.
+
+   ```sql
+   UPDATE order_cancel_requests r
+      SET state = 'ABANDONED', finished_at = now()
+    WHERE r.request_id = :request_id AND r.state = 'PENDING'
+      AND NOT EXISTS (SELECT 1 FROM order_cancel_requests s
+                       WHERE s.request_id = r.request_id AND s.resource = r.resource
+                         AND s.state IN ('CLAIMED', 'DONE'));
+   ```
+
+   같은 파티션에서 이 요청의 행을 소유 노드가 하나라도 가져갔으면(`CLAIMED`·`DONE`) 그 파티션의 남은 `PENDING` 행은 포기하지 않는다. 작업자는 행을 번호 순서대로 하나씩 처리하므로, 그런 행은 큰 인계의 뒷부분이 기다림 안에 차례를 받지 못한 것이고 이어서 처리된다. 합치는 규칙은 이렇다. `DONE` 행은 결과(원소별 사유와 사유별 수)를 그대로 싣는다. 포기한 행의 주문은 `partition_not_started`이고, `CLAIMED` 행과 포기하지 않고 남긴 `PENDING` 행의 주문은 `partition_pending`이다. 행 넣기가 DB 연결 장애로 끝나면 그 주문들은 `service_unavailable`이다. 커밋됐을 수 있으므로 행이 남아 처리될 수 있다. 기다림이나 포기가 DB 연결 장애로 끝나면 `DONE`이 아닌 행의 주문은 모두 `partition_pending`이다. 포기하지 못한 행은 유효 시간 안에 처리될 수 있기 때문이다.
+
+3. 작업자. 엔진을 켠 노드에서 파티션마다 `exchange.order.cancel-handoff.workers`(기본 1)개의 스레드가 돈다. 스레드는 그 파티션의 접수 게이트가 열린 기간을 보고, 열려 있으면 그 기간의 holder·epoch로 행 하나를 아래 문장으로 점유하고 바로 커밋한다. 비어 있거나 게이트가 닫혀 있으면 `exchange.order.cancel-handoff.poll`(기본 200ms) 뒤 다시 본다. 작업자는 요청 풀의 연결을 한 번에 하나만 쓰고 수용 제한 밖에서 돌므로 요청 풀의 예비분(API 설계 §2-5-a의 20%)을 쓴다. 기본값을 1로 두는 이유다.
+
+   ```sql
+   WITH picked AS (
+       SELECT r.id, r.state AS prior_state FROM order_cancel_requests r
+        WHERE r.resource = :resource
+          AND (r.state = 'PENDING' OR (r.state = 'CLAIMED' AND r.claimed_epoch < :epoch))
+          AND r.created_at > now() - interval '5 minutes'
+          AND EXISTS (SELECT 1 FROM leader_lease l
+                       WHERE l.resource = :resource AND l.holder = :holder AND l.epoch = :epoch
+                         AND l.lease_until > clock_timestamp())
+        ORDER BY r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED)
+   UPDATE order_cancel_requests r
+      SET state = 'CLAIMED', claimed_by = :holder, claimed_epoch = :epoch, claimed_at = now()
+     FROM picked WHERE r.id = picked.id
+   RETURNING r.id, r.resource, r.user_id, r.order_ids, picked.prior_state;
+   ```
+
+   점유 전 상태(`prior_state`)는 재점유 계수(8의 `reclaimed`)를 세려고 함께 돌려준다. 술어는 바뀌지 않는다(S5 코드 단계에서 더함, S5 설계 12절).
+
+   리스 확인(`EXISTS`)은 명령 저널 append의 판정(`append_command_journal_row`가 보는 holder·epoch·`lease_until > clock_timestamp()`)과 같은 술어다. 그래서 리스를 이미 잃었는데 아직 게이트를 연 노드는 새 행을 점유하지 못한다. 이 확인은 리스 행을 읽기만 하고 잠그지 않으므로 리스 갱신·획득과 줄을 서지 않는다(§3.9 검증 R7).
+
+   점유한 행의 주문은 하나씩 보통의 취소 경로로 처리한다. 주문을 `user_id`로 걸러 읽고, 이미 종결됐으면 현재 상태를 적고, 아니면 채번하고 CANCEL 명령을 그 파티션 게이트의 기간으로 append한 뒤 반영을 기다린다. 계정 레이트리밋은 쓰지 않는다. 주문마다 먼저 그 파티션의 게이트가 점유 때와 같은 기간으로 열려 있는지 보고, 아니면 멈춘다. 주문의 결말은 둘로 가른다.
+
+   - 결과에 적는 결말. 취소됨, 먼저 종결된 주문의 상태, `order_not_found`, `order_in_progress`(취소 저널 뒤 반영 대기), `market_suspended`, 마켓 접수 경합의 `too_many_requests`, append의 DB 연결 장애 `service_unavailable`을 로컬 일괄 취소(API 설계 §4-B-3)와 같은 이름으로 적는다. 대상 주문 재조회나 취소 전 조회(연결 끊김이면 한 번 더 읽은 뒤)가 DB에 닿지 못하면 그 주문과 남은 주문을 시도하지 않고 `service_unavailable`로 적는다. 그 밖의 예외(결함)는 그 주문을 `server_error`로 적고 ERROR 로그를 남긴 뒤 다음 주문으로 넘어간다.
+   - 결과에 적지 않는 결말. 리더 자격을 잃었다는 거부, 곧 리더 자격 거부(fencing 거부, 옛 epoch의 삽입 0행, 기간 종료), 라이터 정지, 승격 재생 중 거부는 적지 않고 그 행 처리를 멈춘다. 그때 게이트가 아직 같은 기간으로 열려 있으면(재확인이 참이었거나 재확인 왕복이 실패함) poll 뒤 그 주문부터 이어 한다. 같은 주문에서 이 일이 세 번 이어지면 로컬 일괄 취소가 같은 경우에 적는 사유(게이트를 연 노드의 리더 자격 거부는 `too_many_requests`, 라이터 정지와 승격 재생 중은 `service_unavailable`)로 적고 넘어간다. 게이트가 닫혔으면 행을 `CLAIMED`로 둔 채 멈추고 다음 기간을 기다린다. 그 행은 더 큰 epoch의 작업자가 다시 점유한다(5).
+
+   다 처리하면 게이트가 같은 기간으로 열려 있는지 한 번 더 보고 아래 문장으로 끝낸다.
+
+   ```sql
+   UPDATE order_cancel_requests o
+      SET state = 'DONE', finished_at = now(), result = CAST(:result AS jsonb)
+    WHERE o.id = :id AND o.state = 'CLAIMED' AND o.claimed_by = :holder AND o.claimed_epoch = :epoch
+      AND EXISTS (SELECT 1 FROM leader_lease l
+                   WHERE l.resource = o.resource AND l.holder = :holder AND l.epoch = :epoch
+                     AND l.lease_until > clock_timestamp());
+   ```
+
+   0행이면 더 큰 epoch가 다시 점유했거나 이 노드의 리스가 이미 유효하지 않은 것이라 결과를 버리고 행을 그대로 둔다. 끝내기가 DB 오류로 실패하면 게이트가 같은 기간으로 열려 있는 동안 poll 간격으로 다시 한다. 스레드는 VM 오류 밖의 모든 예외를 잡고 계속 돈다. 행 단위에서 새는 예외(결과 직렬화 실패 같은 결함)는 그 행을 `CLAIMED`로 두고 ERROR 로그와 계수를 남긴다. 그 행은 기간이 끝나 더 큰 epoch가 다시 점유하거나 만료로 닫힌다(6). `result`는 `{"canceled":[...],"failed":[{"id":...,"reason":...}],"counts":{"unsubmitted":n,"contended":n,"suspended":n,"errored":n}}`다. `unsubmitted`는 `service_unavailable`, `contended`는 `too_many_requests`, `suspended`는 `market_suspended`, `errored`는 `server_error`의 수이고, 원소별 사유는 일괄 취소(API 설계 §4-B-3)와 같다.
+
+4. 경합. 두 작업자는 같은 행을 함께 점유하지 않는다(SKIP LOCKED). 요청자의 포기와 작업자의 점유는 행 잠금으로 줄을 서고 한 행에서 둘 가운데 하나만 된다. 포기가 먼저면 그 행은 끝난 상태라 점유 조건에 들지 않고, 점유가 먼저면 포기의 UPDATE가 점유 커밋을 기다린 뒤 `state = 'PENDING'` 조건을 다시 보고 그 행을 건너뛴다(§3.9 검증 P5-4·R4c). 점유 트랜잭션이 커밋되기 전에 시작한 포기는 `NOT EXISTS`에서 그 점유를 보지 못하므로 같은 파티션의 다른 `PENDING` 행을 포기한다(R4c). 그 행들은 `partition_not_started`로 알리고 뒤에 점유되지 않으므로 규칙은 그대로다. 그래서 `partition_not_started`로 적은 주문에는 이 요청이 아무 명령도 넣지 않았다. 점유 트랜잭션은 점유만 하고 곧바로 커밋하므로 포기의 기다림은 짧다.
+
+5. 재점유. 끝나지 않은 `CLAIMED` 행은 그 파티션을 더 큰 epoch로 얻은 작업자만 다시 점유한다. 옛 소유자가 죽었거나 강등돼 행을 끝내지 못해도 새 소유자가 이어받는다. 같은 epoch의 작업자는 SQL로 다시 점유하지 않고, 같은 기간 안에서 멈춘 행은 그 행을 쥔 스레드가 이어 한다(3). 옛 점유자의 끝내기는 점유자·epoch 조건이나 리스 확인으로 0행이 된다(§3.9 검증 P5-5·R5). 이어받은 작업자는 목록을 처음부터 다시 취소한다. 이미 취소된 주문은 종결 상태라 다시 취소하지 않는다. 앞 점유자의 CANCEL이 저널에 들어갔으나 프로젝션에 아직 반영되지 않은 주문에는 CANCEL이 한 번 더 들어갈 수 있다. 엔진은 책에 없는 주문의 CANCEL을 `order_not_found`로 거부하고 원장에 아무것도 쓰지 않는다. 고객의 같은 주문 동시 취소와 같은 경우다.
+
+6. 유효 시간과 만료. 넣은 지 5분이 지난 행은 점유하지 않는다(DB 시계). 요청자가 포기하지 못하고 죽은 경우에 오래된 요청이 뒤늦게 실행되는 것을 막는 운영 규칙이고 안전 조건이 아니다. 끝나지 않은 채 남은 행은 작업자가 닫는다. 작업자 스레드는 게이트가 열린 동안 `exchange.order.cancel-handoff.expire-interval`(기본 60초)마다 아래 문장을 한 번에 1000행까지, 닫은 행이 1000보다 적을 때까지 되풀이한다. 모드 전환(S7) 뒤 작업자가 없어지는 `matching-engine` 행도 닫도록 자원과 무관하게 모든 행을 본다.
+
+   ```sql
+   WITH stale AS (
+       SELECT id FROM order_cancel_requests
+        WHERE state IN ('PENDING', 'CLAIMED')
+          AND ((state = 'PENDING' AND created_at <= now() - interval '5 minutes')
+            OR (state = 'CLAIMED' AND claimed_at <= now() - interval '5 minutes'))
+        ORDER BY id LIMIT 1000 FOR UPDATE SKIP LOCKED)
+   UPDATE order_cancel_requests r
+      SET state = CASE r.state WHEN 'PENDING' THEN 'ABANDONED' ELSE 'EXPIRED' END, finished_at = now()
+     FROM stale WHERE r.id = stale.id;
+   ```
+
+   `PENDING` 행은 넣은 지 5분, `CLAIMED` 행은 점유한 지 5분이 지나면 닫는다. 주문 500개까지인 한 행의 처리 시간(약 40건/초면 13초)을 한참 넘긴 점유다. 늦게 끝난 작업자의 끝내기는 `state = 'CLAIMED'` 조건으로 0행이 되어 결과를 버린다. 요청자는 넣은 지 몇 초 안의 자기 행만 포기하므로 만료와 겹치지 않는다. 만료가 없으면 이런 행이 부분 색인에 남아 점유 질의가 순차 조회로 바뀐다. 폐기용 PostgreSQL에서 하루 지난 열린 행 10만 개가 있을 때 점유 질의는 순차 조회로 약 10.6ms였고, 만료(101문장, 약 3.2초, 가장 긴 문장 47ms) 뒤에는 색인 조회로 약 2.0~3.9ms였다(§3.9 검증 R9).
+
+7. 권한과 안전. 이 표는 작업 지시일 뿐 쓰기 권한 판정에 쓰이지 않는다. 판정은 종전처럼 저널 append가 DB에서 그 마켓의 리스로 한다(§5.4-b). 점유와 끝내기의 리스 확인은 결과를 바르게 알리기 위한 장치다. 한 (holder, epoch)의 리스는 한 번 유효하지 않게 되면 다시 유효해지지 않는다. 갱신은 만료 전에만 되고 획득은 늘 새 epoch를 받기 때문이다. 그래서 끝내기가 성공한 행은 점유부터 끝내기까지 리스가 유효했던 작업자가 처리한 것이다. 점유한 뒤 리스를 잃은 노드의 append는 fencing으로 거부되고, 그 거부는 결과에 적히지 않으며, 끝내기는 리스 확인으로 0행이다. 행은 `CLAIMED`로 남아 더 큰 epoch가 다시 점유한다. 늦어질 뿐 옛 소유자의 실패가 결과로 굳지 않고 오래된 리더의 쓰기도 되지 않는다(§3.9 검증 R5). 작업자는 행의 `user_id`로 주문을 걸러 읽고 엔진도 소유자가 다른 취소를 거부하므로, 행이 다른 회원의 주문 id를 담아도 취소되지 않는다. 인계는 취소만 한다. 주문 생성과 배치는 넘기지 않는다.
+
+8. 수요와 관측. 인계받은 취소는 소유 노드의 파티션 층 좀비 판정에서 submit 단위로 센다. 요청자의 노드 층 수요 규칙은 §5.4-c 8 v2.57이다. 계수기는 요청자의 `exchange.order.cancel_handoff.requests{outcome}`(`done`·`pending`·`not_started`·`insert_failed`, 행 단위)와 작업자의 `exchange.order.cancel_handoff.worker{outcome}`(`claimed`·`reclaimed`·`completed`·`complete_lost`·`stopped`·`resumed`·`expired`·`error`)다(하네스 CI/CD §5-2).
+
+#### 5.4-e 파티션 리더 모드로 오르내린다 (v2.59, ADR 0034 S7)
+
+이 절은 S7 코드보다 먼저 적은 계약이다(2026-09-25). 함수는 §3.10(V55), 설계는 `docs/reference/architecture/마켓분할_리더_S7_설계.md` 4-4~4-6이다. 명령 대역 래치와 P3 전환은 로컬 Docker 폐기용 스택의 DB와 Testcontainers 일회용 DB에서만 한다(ADR 0034 결정한 값 9·19). 학교와 개인 AWS의 DB는 사용자가 승인한 뒤 따로 판단한다.
+
+1. 올리는 절차(2->3). 정지 창에서 차례로 한다.
+   - 사전 확인. 두 앱 노드의 게이지 `exchange_leader_protocol_max`가 3이어야 한다(파티션 가능 바이너리, §5.4-c 13). 선호 설정은 app-1이 `matching-p0`, app-2가 `matching-p1`이다(§5.4-c 9). `leader_protocol_blockers(3)`이 `unsettled_new`·`band_latch_missing` 밖의 줄을 내면 정지 창에 들어가지 않는다. 리스 보관소가 DynamoDB인 노드는 P3로 뜨지 않으므로(§5.4-c 12) 먼저 PostgreSQL 보관소로 바꾼다.
+   - 쓰기 부하를 멈추고 정산 전 주문 생성 명령이 0인 표본을 두 번 잇달아 본다(상한 120초). 넘으면 전환하지 않는다.
+   - 두 앱 노드를 멈춘다. 멈추지 않아도 안전은 DB가 지키지만(아래 5), 새 계획으로 뜨려면 어차피 다시 시작해야 한다.
+   - 모드가 1이면 먼저 1->2를 부른다. 명령 대역 래치가 없으면 `latch_command_band_cutover()`를 부른다(되돌릴 수 없다, ADR 0022 6-b). 이어 `set_leader_protocol(3)`을 부른다. 선행 조건이 어긋나면 55000으로 끝나고 아무것도 바뀌지 않는다.
+   - 두 노드를 함께 시작한다. 노드는 기동 때 모드 3을 읽어 파티션 계획을 만들고(§5.4-c 1) 선호 파티션을 곧바로 노린다. 비선호 파티션은 기동 뒤 2×TTL, 그 뒤에는 만료를 볼 때마다 1×TTL을 기다린다.
+   - 배정 확인. 시작 뒤 90초 안에 app-1이 `matching-p0`, app-2가 `matching-p1`을 쥐어야 한다. 한 노드가 두 파티션을 쥐었으면(두 노드의 기동 완료 시각 차가 유예보다 컸다) 그 노드에서 비선호 파티션의 참여를 끄고(계획 강등, 리스는 반납하지 않고 만료, API 설계 §6-C `POST /actuator/partitions`), 선호 노드가 얻은 것을 본 뒤 참여를 다시 켠다(ADR 0034 결정 4의 재배치). 참여를 끈 채 두면 그 노드가 선호 노드의 장애를 넘겨받지 못한다.
+   - 사후 확인. 두 노드의 `exchange_leader_protocol_boot`가 3, `exchange_order_inflight_enabled`가 0이고, C29가 0이며, 두 파티션 리스의 epoch가 마지막 퇴역 epoch보다 크다. 그 뒤 부하를 되살린다.
+2. 내리는 절차(3->2, 되돌리기). 올리는 절차와 같은 정지 창에서 `set_leader_protocol(2, true)`를 부른다. 두 노드를 멈춘 채 부르고, app-1을 먼저 시작해 `matching-engine`을 마지막 퇴역 epoch 뒤의 epoch로 얻는 것을 본 뒤 app-2를 시작한다(팔로워). 두 노드의 `exchange_leader_protocol_boot`가 2인지 본다. 데이터 이관은 없다. 예약은 P2와 P3가 같은 규칙(§3.5)이라 P3에서 접수한 주문도 P2 정산이 그대로 다룬다. 샤드 1의 수수료 잔고는 남고 P2의 새 수수료는 샤드 0으로 간다. 명령 대역 래치는 그대로다. 되돌린 뒤 다시 올릴 때는 위 1을 다시 한다.
+3. 소프트 롤백. 모드를 3에 둔 채 한 노드의 두 파티션 참여를 끄거나 그 노드를 멈추면 다른 노드가 TTL과 유예 뒤 두 파티션을 모두 쥔다. 리스 행은 둘이지만 한 노드가 모든 마켓을 쓴다. 되돌리기 전 먼저 쓰는 단계다(ADR 0034 되돌리기 절).
+4. 전환 뒤에는 노드를 반드시 다시 시작한다. 노드는 기동 때 읽은 계획을 바꾸지 않는다(§5.4-c 1). 다시 시작하지 않은 노드는 옛 계획의 자원을 얻으려 하고 DB가 거부한다. P2 계획으로 뜬 노드는 P3 DB에서 `matching-engine`을, P3 계획으로 뜬 노드는 P2 DB에서 파티션 자원을 얻지 못하고(55000, §3.5·V52 획득 함수) 팔로워로 남는다.
+5. 안전. 전환은 모든 리스 행을 잠가 진행 중 쓰기의 커밋을 기다린 뒤 모든 행을 퇴역시킨다(§3.5). 그래서 정지 창을 지키지 않아도 이전 모드의 쓰기는 전환 뒤 통과하지 못한다. 전환 전에 시작한 트랜잭션도 쓰기 판정(`append_command_journal_row`, `assert_and_lock_market_leader`)이 리스 행을 잠근 뒤 새 값을 읽으므로 옛 epoch로 커밋하지 못한다. 정지 창은 드레인과 재시작을 위한 운영 규칙이다. 이 차단을 세 곳에서 확인한다. 범위가 서로 다르다.
+   - 사후 감사(권위 run). 전환 뒤 시작한 트랜잭션이 옛 구간 epoch로 `command_journal`·`snapshots`에 쓴 행은 C22'의 구간 경계 팔이 센다. 두 표의 `created_at`은 DB 시각이다. 파티션 epoch로 다른 파티션 마켓에 쓴 행과 퇴역·게시·이력 없는 epoch로 쓴 행은 네 표 모두 C30이 센다(§6.4 ⑯·⑳). 전환을 가로지른 트랜잭션(전환 전에 시작해 전환 뒤 커밋)과, 옛 구간 epoch로 `event_journal`·`trades`에 쓴 행은 사후 감사가 세지 못한다. 앞의 것은 `created_at`이 트랜잭션 시작 시각이라서, 뒤의 것은 두 표의 `created_at`이 engine_ts 파생이라 전환 시각과 비교할 수 없어서다.
+   - T4-2 전환 판(서버 시험, 하네스 검증설계 §4-4 ⑦). 전환 뒤 다시 시작하지 않은 옛 모드 노드의 접수·체결 정산·스냅샷 쓰기가 모두 0행이나 예외이고, 전환 전에 시작한 트랜잭션도 옛 epoch로 커밋하지 못하며, 네 표에서 옛 구간 epoch(그 전환 이력 행의 `epoch_floor` 이하) 행 수가 늘지 않는 것을 본다.
+   - 실험의 구간 경계 증분(하네스 검증설계 §3 P3 실험 공통 판정). 전환 직후(노드 시작 전)와 실험 끝에 네 표의 옛 구간 epoch 행 수를 세어 같아야 한다. 전환 뒤 모든 epoch는 `epoch_floor`보다 크게 배정되므로 옛 구간 epoch 행은 늘 수 없다. 커밋 순서와 무관하게 세므로 위 두 빈틈을 덮는다.
+6. 열린 인계 행. 전환 전에 들어가 끝나지 않은 인계 행(V54)은 새 모드에서 그 자원의 작업자가 없으므로 5분 만료로 닫힌다(§5.4-d 6). 요청자는 이미 `partition_not_started`나 `partition_pending`을 받았다.
 
 #### 5.5-a 기동 재생을 체크포인트로 상한한다 (v2.40, 2026-09-08 실측 구동)
 
@@ -2311,6 +3996,11 @@ FROM snapshots WHERE market_id=:mid ORDER BY last_applied_seq DESC LIMIT 1;
 --   폴백(v2.49): 채택본을 새 엔진에 싣고 STEP2 를 마친 뒤에야 복구 대상 엔진으로 옮긴다. 적재가 실패하면 기록 없이,
 --     STEP2 가 실패하면 recovery_runs 불일치 행을 남긴 뒤 스냅샷 없이 전량 재생한다. 승격 재생이 리더 자격을 잃고
 --     실패하면 폴백하지 않는다.
+--   (v2.56) STEP2 가 DB 접근 실패(연결 장애, 일시 오류 넷)로 끝나면 불일치 행을 남기지 않는다(아래 '판정 없이 끝난
+--     재생'). 폴백 여부는 따로 정한다. 적재나 STEP2 가 커넥션 획득 실패나 연결 끊김(08xxx, 57P01~03, 롤백·커밋 실패)으로
+--     끝나면 폴백하지 않고 복구를 실패로 올린다. 이 노드가 DB 에 닿지 못해 전량 재생도 첫 조회에서 실패하고, 폴백 계수가
+--     스냅샷 결함이 아닌 DB 장애를 세기 때문이다. 일시 오류 넷과 자원 부족(53xxx)은 종전처럼 폴백한다. 57014·53200 은
+--     statement_timeout 아래 큰 bytea 스냅샷 조회에서만 계속 날 수 있고 전량 재생은 짧은 구간 조회라 성공할 수 있다.
 
 -- STEP2. 스냅샷 이후 명령 tail 재생: **마켓별 2상**. 마켓 사이 순회 순서는 결과에 영향이 없다
 --   (엔진 커서가 마켓별이라는 전제, ADR 0022 4-5). 오더북은 마켓 로컬이고, event_seq는 V36부터
@@ -2351,6 +4041,8 @@ ORDER BY seq ASC;                                   -- idx_cmd_market (market_id
 --     §5.1 v2.9 규칙상 잔고 부족은 게이트웨이 사전 가드가 저널 append 이전에 차단하므로
 --     저널에는 잔고부족 REJECTED 명령이 존재하지 않고, 정산 시점 23514는 fail-fast(루프
 --     정지 + demote)로 종결되어 커밋되지 않는다. 재생이 이 분기를 만나면 전제 위반이다.
+--   (v2.54) P2 이상에서는 잔고 부족 주문이 저널에 들어가지 않는다. 예약이 저널 append 와 같은 트랜잭션이라
+--     23514 면 저널 행도 롤백된다(§5.1). 이 분기는 모드와 관계없이 도달 불가다.
 --   (※ 결정론 검증 재생과 서비스 복원·catch-up 재생이 같은 마켓별 경로를 쓴다. 재적재 이벤트의
 --    event_seq는 재생 순서가 아니라 적재 트랜잭션이 마켓 카운터에서 받으므로(② 참조) 재생이
 --    전역 순서를 만들 이유가 없다.)
@@ -2381,6 +4073,21 @@ INSERT INTO recovery_runs(market_id, snapshot_id, replayed_from_seq, replayed_to
 남기 때문이다. 그것은 "재생할 것이 없었다"이지 "결정론이 증명됐다"가 아니다. 0건 주행만으로
 C17 통과를 주장하지 않는다.
 
+**판정 없이 끝난 재생(v2.56, ADR 0034 S4b)**. `matched=false`는 재생이 결정론 판정을 낸 불일치
+(`ReplayMismatchException`)와 원인을 가리지 못한 예외(엔진·계약 예외, 분류되지 않은 DB 오류)다. 재생이
+DB 접근 실패로 끝나면 대조를 끝내지 못한 것이라 행을 남기지 않고 예외를 그대로 올린다. DB 접근 실패는
+연결 장애(SQLSTATE 08xxx·53xxx·57P01·57P02·57P03, 커넥션 획득·트랜잭션 시작 실패, 연결이 끊겨 커밋이나
+롤백이 실패한 경우)와 일시 오류 넷(55P03·57014·40P01·40001)이다. 승격 재생이 도중에 리더 자격을 잃어
+재적재 권한 확인이 실패한 경우도 같다. 원인 사슬에 `ReplayMismatchException`이 있으면 이 규칙보다
+불일치 기록이 먼저다. 스냅샷 시작 재생이면 전량 재생으로 폴백할지는 STEP1 주석대로 따로 정한다(연결 장애 가운데 획득
+실패와 연결 끊김만 폴백하지 않는다). 호출자가 다시 한다. 파티션 재구성은 1초에서 30초까지의 간격(§5.4-c 5), 승격
+재생은 회복 가능 반납 뒤 다음 획득, 기동 복구는 프로세스 재기동이다. 불일치로 적으면 C17이 DB 장애를
+결정론 위반으로 센다. 2026-09-25 S4 관문 재주행의 E2에서 절단 중 강등한 옛 리더의 재구성 재시도가
+DB 복귀 순간의 커넥션 획득 실패로 끝나 C17 1행이 됐다. 판정 없는 재생을 따로 적는 행(`matched` NULL
+등)은 두지 않는다. 관리 API와 웹 복구 표가 `matched`가 참이 아닌 행을 실패로 세고, DB에 닿지 못하는
+동안에는 그 행을 적을 수도 없기 때문이다. V24 열 주석은 남는 행에 대해 여전히 참이므로 새 마이그레이션이
+필요 없다.
+
 V3 마이그레이션 파일의 테이블 주석(V3:24-26)은 상태 해시 대조 서술 그대로다. 적용된
 마이그레이션은 수정하지 않는다(Flyway 체크섬). V3에는 `COMMENT ON`이 없어 DB 쪽에는 컬럼
 주석이 아예 없었으므로, V24가 그것을 신설해 DB 쪽 정본을 세운다. 문서만 고치면 `psql \d+`로
@@ -2391,6 +4098,7 @@ V3 마이그레이션 파일의 테이블 주석(V3:24-26)은 상태 해시 대�
     - 마켓 사이를 seq로 줄 세우지 않는다. 재적재 정산이 `reserve_funds`로 예약하고 잔고 부족 23514가 배치를 롤백시킨다. 명령 seq가 마켓 대역으로 채번되면 seq 순서는 마켓 id 순서라, 한 마켓의 매도 대금으로 다른 마켓에서 산 크래시 창이 재기동마다 같은 자리에서 멈춘다. `command_journal.created_at`은 append 트랜잭션 시작 시각이므로 DB 서버 시계가 뒤로 가지 않는 한 ACK를 보고 낸 후속 명령이 앞 명령보다 크다.
     - 전체 `(created_at, seq)` 정렬이 아니라 병합이다. DB 서버 시계가 뒤로 가면(프라이머리 교체 포함) 마켓 안에서도 created_at이 seq와 역전될 수 있고, 전체 정렬은 그때 마켓 안 seq 순서를 뒤집는다. 마켓 안 역전 쌍은 seq 순서를 따르고 `exchange.recovery.reinject.created_at_inversions`에 센다. 마켓 안 created_at이 seq와 같은 순서이면 병합 결과는 전체 정렬과 같다.
     - 이 순서가 복원하는 것은 사용자가 만든 인과 순서이지 원래의 마켓 사이 정산 순서가 아니다. 같은 사용자가 잔고를 넘겨 동시에 낸 명령 둘이 한 크래시 창에 들면 어느 순서로도 23514이고, 그것은 게이트웨이 사전 가드의 몫이다.
+    - (v2.54) P2 이상에서 접수한 주문 생성 명령은 재적재 정산에서도 `reserve_funds`를 부르지 않는다. 예약이 접수 트랜잭션에서 이미 끝났기 때문이다(§5.1 P2 정산 규칙). 그래서 그런 명령의 재적재 순서는 잔고 부족과 무관하고, 병합 순서가 지키려던 '매도 대금으로 산 크래시 창'은 P2에서 접수 단계가 먼저 400으로 막는다(매수 예약 시점에 매도 대금이 아직 정산되지 않았다). 병합 순서는 P1에서 접수한 명령과 CANCEL 을 위해 그대로 둔다.
     - 리스 갱신 판정(시간·누적 이벤트 수)은 배치 경계에서 한다. 한 배치 안에서는 명령 단위 원자성 때문에 갱신하지 않는다.
   - **이미 적재분 판정과 event_seq 배정(P0-4)**: 재방출 이벤트는 명령 내 방출 순번을 event_ordinal로 갖는다. 이미 적재분 판정은 event_emission_registry를 (source_cmd_seq, event_ordinal)로 조회해 존재하면 스킵, 없으면 신규 적재한다. 신규 적재 시 트리거가 레지스트리에 자동 기입되므로 동일 (source_cmd_seq, event_ordinal) 중복 방출은 레지스트리 PK가 23505로 물리 차단하고, event_seq 재사용은 레지스트리 UNIQUE(event_seq)가 차단한다. 미적재분의 event_seq는 적재 트랜잭션이 라이브 정산과 같은 경로로 `next_market_event_seq(market_id, n)`에서 마켓 안 번호 구간과 그 파생값(`market_id * band_span + market_seq`)을 함께 받아 배정한다(V46. V36~V45는 `next_market_journal_value(market_id, 'event_seq', n)`과 앱의 10^7 파생). 배정은 재적재 순서가 아니라 마켓 카운터가 정한다. 23505 멱등 스킵은 동시 stale 라이터에 대한 최후 안전망이다.
   - **유형별 재정산(v2.3)**: TRADE → §5.2 전 절차(수수료는 payload 박제값 사용. `trade_seq_registry` 23505 = '이미 정산됨' → 멱등 스킵, §5.2 (1')), CANCELED → §5.3의 RELEASE 정산(잠금 환급 + orders CANCELED), REJECTED → orders(REJECTED) 기록만(원장 무변경, §5.1 (a') 거절 경로와 동일), ACCEPTED → event_journal 적재만. 어느 유형이든 이벤트 적재와 대응 정산은 §3.1 6.2대로 **동일 트랜잭션 원자 커밋**한다.
@@ -2506,20 +4214,49 @@ UNION ALL
 SELECT r.event_seq FROM event_emission_registry r
 LEFT JOIN event_journal e ON e.event_seq = r.event_seq
 WHERE e.event_seq IS NULL;                                                       -- 0행
--- ⑯ fencing_epoch 단조성 감사(P0-1): assert_current_leader 호출 규율은 앱 책임이므로
---    저장된 epoch 열의 사후 감사로 보완한다(event_journal/trades/snapshots 동일 패턴).
---    시간 축 팔(created_at, seq)과 마켓 안 팔(market_id 분할 seq)의 합이다(ADR 0022 6-2). 대역 파생 seq 순서는
---    마켓 id 순서라 seq 단일 순서로는 마켓 경계마다 거짓 위반이 난다. 시간 축 팔은 DB 서버 시계 역행
---    (프라이머리 전환 포함) 뒤 split-brain 없이도 행을 낼 수 있다(ADR 0022 9-17).
-SELECT 'time' AS arm, seq FROM (
-  SELECT seq, fencing_token, lag(fencing_token) OVER (ORDER BY created_at, seq) AS prev
-  FROM command_journal) t
-WHERE prev > fencing_token
+-- ⑯ fencing_epoch 단조성 감사(P0-1, v2.59 C22'): assert_current_leader 호출 규율은 앱 책임이므로 저장된 epoch 열의 사후 감사로
+--    보완한다. 세 팔의 위반 행을 낸다(0행이 정상). 프로토콜 구간은 leader_protocol_history 의 epoch_floor 로 가른다. 구간 k 의
+--    epoch 는 (floor_k, floor_{k+1}] 이고 첫 행(V48 시드) 앞의 epoch 는 첫 구간이다. 이력이 없는 V47 이하 DB 는 하네스 SQL 이 종전 판을 쓴다.
+--    시간 축 팔: P1·P2 구간 행은 전역 하나, P3 구간 행은 그 행 마켓의 파티션별로 lag(fencing_token) OVER (ORDER BY created_at, seq).
+--    마켓 안 팔: 종전 그대로 lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq). 마켓 채번은 카운터 행을 커밋까지 잠그므로
+--    마켓 안 seq 순서는 커밋 순서다.
+--    구간 경계 팔: 어떤 구간의 epoch 로 기록된 command_journal·snapshots 행의 created_at 이 다음 전환의 changed_at 이후. 두 표의
+--    created_at 은 DB 서버의 트랜잭션 시작 시각(DEFAULT now())이다. 전환은 모든 리스 행을 잠가 진행 중 쓰기의 커밋을 기다린 뒤 모드를
+--    바꾸므로 그 뒤에 시작한 트랜잭션이 옛 구간 epoch 로 커밋할 수 없다(DB 설계 §3.5·§5.4-e). 한계가 둘이다. 전환 전에 시작해 전환 뒤
+--    커밋한 트랜잭션은 created_at 이 changed_at 앞이라 이 팔이 보지 못하고, 같은 마켓에 먼저 커밋된 새 구간 명령 행이 있을 때만 마켓 안
+--    팔이 센다. event_journal·trades 의 created_at 은 engine_ts 파생(V1)이라 전환 시각과 비교하지 않는다. 두 빈틈은 §5.4-e 5 가 적은
+--    T4-2 전환 판과 실험의 구간 경계 증분이 맡는다.
+--    시간 축 팔과 구간 경계 팔은 DB 서버 시계 역행 뒤 거짓 양성을 낼 수 있다(ADR 0022 9-17).
+WITH seg AS (
+    SELECT h.protocol,
+           CASE WHEN h.id = min(h.id) OVER () THEN -1 ELSE h.epoch_floor END AS lo,
+           lead(h.epoch_floor) OVER (ORDER BY h.id) AS hi,
+           lead(h.changed_at) OVER (ORDER BY h.id) AS ended_at
+      FROM leader_protocol_history h
+), j AS (
+    SELECT c.seq, c.market_id, c.created_at, c.fencing_token, s.ended_at,
+           CASE WHEN s.protocol = 3 THEN coalesce(m.resource, '?') ELSE '*' END AS arm_key
+      FROM command_journal c
+      LEFT JOIN seg s ON c.fencing_token > s.lo AND (s.hi IS NULL OR c.fencing_token <= s.hi)
+      LEFT JOIN market_lease_partition m ON m.market_id = c.market_id
+)
+SELECT 'time' AS arm, 'command_journal' AS tbl, t.seq AS subject FROM (
+    SELECT j.seq, j.fencing_token,
+           lag(j.fencing_token) OVER (PARTITION BY j.arm_key ORDER BY j.created_at, j.seq) AS prev
+      FROM j) t
+ WHERE t.prev > t.fencing_token
 UNION ALL
-SELECT 'market', seq FROM (
-  SELECT seq, fencing_token, lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq) AS prev
-  FROM command_journal) t
-WHERE prev > fencing_token;                                                  -- 0행
+SELECT 'market', 'command_journal', t.seq FROM (
+    SELECT c.seq, c.fencing_token, lag(c.fencing_token) OVER (PARTITION BY c.market_id ORDER BY c.seq) AS prev
+      FROM command_journal c) t
+ WHERE t.prev > t.fencing_token
+UNION ALL
+SELECT 'boundary', 'command_journal', j.seq FROM j WHERE j.ended_at IS NOT NULL AND j.created_at >= j.ended_at
+UNION ALL
+SELECT 'boundary', 'snapshots', n.snapshot_id
+  FROM snapshots n
+  JOIN seg s ON n.fencing_epoch > s.lo AND (s.hi IS NULL OR n.fencing_epoch <= s.hi)
+ WHERE s.ended_at IS NOT NULL AND n.created_at >= s.ended_at;                                   -- 0행
 -- ⑰ 채번 카운터 정합(P0-5): 카운터가 그 축의 저널 최대값 이하이면 재사용 위험. 네 문장의 행 수 합이 위반 수다.
 --    명세 부재, 명령 레거시 팔, 명령 대역 팔(지역 번호 = seq - market_id * band_span), 이벤트 팔 순(ADR 0022 6-3).
 --    전역 journal_counters('event_seq') 행은 V36 뒤 호출자가 없어 대조하지 않는다.
@@ -2550,11 +4287,36 @@ SELECT * FROM position_cost_qty_check;                                       -- 
 --    쌍 불변식((cost_qty=0) = (cost_amount=0)), 워터마크 단조(last_txn_id), 통화 라벨 정합.
 --    쌍 불변식이 깨지면 수량 0인데 원가가 남은 유령 손실 또는 그 역이다.
 SELECT * FROM position_cost_sanity_check;                                    -- 0행
+-- ⑳ C30 파티션 epoch 의 자원 대조(v2.59, ADR 0034 S7). P3 구간의 epoch 로 기록된 명령·이벤트·체결·스냅샷 행 가운데 그 epoch 의
+--    획득 이력이 없거나, 획득(ACQUIRE)이 아니거나, 획득 때 모드가 3 이 아니거나, 획득 자원이 그 행 마켓의 파티션과 다른 행을
+--    낸다(0행이 정상). 파티션을 넘는 쓰기(split-brain)는 P3 구간의 시간 축 팔이 파티션별이라 C22' 가 보지 못하므로 이것이 센다.
+WITH seg AS (
+    SELECT h.protocol,
+           CASE WHEN h.id = min(h.id) OVER () THEN -1 ELSE h.epoch_floor END AS lo,
+           lead(h.epoch_floor) OVER (ORDER BY h.id) AS hi
+      FROM leader_protocol_history h
+), p3 AS (
+    SELECT lo, hi FROM seg WHERE protocol = 3
+), w AS (
+    SELECT 'command_journal' AS tbl, c.seq AS subject, c.market_id, c.fencing_token AS epoch FROM command_journal c
+    UNION ALL SELECT 'event_journal', e.event_seq, e.market_id, e.fencing_epoch FROM event_journal e
+    UNION ALL SELECT 'trades', t.id, t.market_id, t.fencing_epoch FROM trades t
+    UNION ALL SELECT 'snapshots', s.snapshot_id, s.market_id, s.fencing_epoch FROM snapshots s
+)
+SELECT w.tbl, w.subject
+  FROM w
+  JOIN p3 ON w.epoch > p3.lo AND (p3.hi IS NULL OR w.epoch <= p3.hi)
+  LEFT JOIN lease_acquisitions a ON a.epoch = w.epoch
+  LEFT JOIN market_lease_partition m ON m.market_id = w.market_id
+ WHERE a.epoch IS NULL OR a.origin <> 'ACQUIRE' OR a.protocol <> 3
+    OR m.resource IS NULL OR m.resource <> a.resource;                                          -- 0행
 ```
 
 C24·C25는 하네스 불변식 카탈로그 번호다(§6.1~§6.4의 원문 기호 ①~⑰과 별개 축). DB 설계 §6.4가 이미 ⑧~⑩을 쓰고 있어 번호 충돌을 피해 하네스 축으로 배정했다. 두 검사는 계층 ③ 파생 프로젝션 대상이므로 **자산 보존(§6.1)이나 봉인 무결성(§6.2)의 판정을 대체하지 않는다.** 위반 시 조치는 `rebuild_position_cost()` 재구축이며(§5.5 ⑤ 프로젝션 재구성 경로에 `orders`·`balances`와 나란히 놓인다), 자금 경로는 건드리지 않는다.
 
-재구축 실행 조건: `apply_position_cost`가 no-RAISE 계약을 입력 계열(22·23)로만 한정하고 잠금·취소·데드락은 상위로 올리므로, 정산이 가동 중인 상태에서 `rebuild_position_cost()`를 돌리면 라이브 게시가 잠금 타임아웃을 맞고 롤백된다. 정산은 이 오류를 제한 재시도하지만(§5.4 정산 sink 오류 분류, v2.51) 재구축이 재시도 기한 5초보다 오래 잠금을 쥐는 것이 보통이라 결국 엔진이 fail-fast한다. **재구축은 정산 정지 창에서 소유자 롤로 실행한다.** V13 안의 백필도 같은 호출이므로, 롤링 배포로 다른 노드가 정산 중일 때 이 마이그레이션을 적용하면 그 노드가 fail-fast한다(운영 규모에서는 테이블·함수만 만들고 백필을 부팅 후 1회 잡으로 분리한다. 백필 전까지 평단가가 비는 것은 무해한 열화다).
+⑯(v2.59)은 하네스 카탈로그의 C22'이고 ⑳은 C30이다(ADR 0034 S7, 하네스 검증설계 §4-1). ⑯의 시간 축 팔은 P1·P2 구간을 종전처럼 전역으로, P3 구간을 그 마켓의 파티션별로 본다. 두 파티션 리더가 서로 다른 epoch로 동시에 쓰면 전역 시간 축에서 epoch가 번갈아 내려가 종전 판이 split-brain 없이 위반을 내기 때문이다(S7 설계 3절 P7-5, 폐기용 PostgreSQL에서 P3 행 다섯 개에 종전 판 2건). 구간 경계 팔은 새로 더한 것이다. 전환 뒤에 시작한 트랜잭션이 옛 구간 epoch로 `command_journal`·`snapshots`에 쓴 행을 센다. 두 표의 `created_at`은 DB 서버의 트랜잭션 시작 시각이라 전환 시각과 비교할 수 있다. `event_journal`·`trades`의 `created_at`은 engine_ts 파생이라(V1) 이 팔에 넣지 않는다. 전환 전에 시작해 전환 뒤 커밋한 트랜잭션은 이 팔이 보지 못하고, 같은 마켓에 먼저 커밋된 새 구간 명령 행이 있을 때만 마켓 안 팔이 센다(마켓 채번이 카운터 행을 커밋까지 잠그므로 마켓 안 seq 순서가 커밋 순서다). 이 두 빈틈은 사후 감사가 아니라 T4-2 전환 판(서버 시험)과 P3 실험의 구간 경계 증분이 맡는다(§5.4-e 5). 파티션별로 나눈 시간 축 팔은 파티션을 넘는 쓰기를 보지 못하므로 그 탐지는 ⑳(C30)이 맡는다. P3 구간이 없는 DB에서 ⑯의 시간 축 팔과 마켓 안 팔은 종전 판과 같은 행을 낸다(모든 행이 전역 한 구간). 두 문장은 권위 run 한정이고 비용은 S7 설계 3절 P7-7에 적었다(합성 명령 100만 행, CPU 1, 종전 판 약 0.8초, C22' 수 판 약 1.3~1.4초).
+
+재구축 실행 조건: `apply_position_cost`가 no-RAISE 계약을 입력 계열(22·23)로만 한정하고 잠금·취소·데드락은 상위로 올리므로, 정산이 가동 중인 상태에서 `rebuild_position_cost()`를 돌리면 라이브 게시가 잠금 타임아웃을 맞고 롤백된다. 정산은 이 오류를 제한 재시도하지만(§5.4 정산 sink 오류 분류, v2.51) 재구축이 재시도 기한(v2.56부터 15초, 종전 5초)보다 오래 잠금을 쥐는 것이 보통이라 결국 엔진이 fail-fast한다. **재구축은 정산 정지 창에서 소유자 롤로 실행한다.** V13 안의 백필도 같은 호출이므로, 롤링 배포로 다른 노드가 정산 중일 때 이 마이그레이션을 적용하면 그 노드가 fail-fast한다(운영 규모에서는 테이블·함수만 만들고 백필을 부팅 후 1회 잡으로 분리한다. 백필 전까지 평단가가 비는 것은 무해한 열화다).
 
 ### 6.5 상시 강제 + 위반 대응 (초안 missing)
 
@@ -3666,3 +5428,115 @@ ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026
 §3 표에 V47.1 행을, §3.1에 '소유자 권한 트리거 함수의 PUBLIC 회수 (V47.1)'를 더한다. V1은 소유자 권한 함수의 PUBLIC 기본 EXECUTE를 회수한다고 정했지만 트리거 함수 셋을 목록에서 뺐고, V36이 만든 `seed_market_journal_counters`도 회수하지 않았다. PostgreSQL은 트리거 함수의 EXECUTE를 `CREATE TRIGGER` 때만 보므로, 조회 로그인은 레지스트리 두 표와 카운터 표에, `app_role` 로그인은 INSERT 권한이 없는 레지스트리 두 표에 자기 임시 표 트리거로 소유자 권한의 행을 쓸 수 있었고, 두 로그인 모두 `markets`에 없는 마켓의 저널 대역 잎을 만들 수 있었다. 잔고 표는 외래키가 막았다. 회수는 트리거 발화에 영향을 주지 않으므로 계정 생성, 체결·이벤트 적재, 마켓 생성은 그대로다.
 
 번호는 사용자가 정했다. 브랜치 `claude/per-market-leader`가 V48 이후와 이 문서의 v2.52~v2.54를 쓰고 있어, 마이그레이션은 V47과 V48 사이에 정렬되는 47.1로, 문서 판은 v2.51.1로 둔다. 그 브랜치의 V48~V52는 네 함수를 건드리지 않고, 그 브랜치가 새로 만든 소유자 권한 함수는 각자 PUBLIC을 회수한다. 표 구조, 함수 본문, `app_role` 권한은 바뀌지 않는다.
+
+## v2.52 패치 반영 사항
+
+ADR 0034 S1(단일 리더 안전 보강)의 나머지 가운데 append 트랜잭션의 잠금 대기 상한을 적는다. 2026-09-24 갱신.
+
+§5.4 리스 전용 커넥션 풀 항목의 append 풀 서술에 `exchange.engine.accept-lock-timeout`을 더한다. 기본값 0은 종전 동작 그대로이고, 켜면 append 트랜잭션 한정 `lock_timeout`이 걸린다. 초과는 커밋 전 롤백이라 저널·채번·리스 행에 흔적이 없다. 이 상한은 파티션 모드에서 한 마켓의 append가 다른 노드의 잠금에 막혀 그 마켓 접수 줄 전체를 세우는 것을 끊으려는 틀이며, 값과 응답 매핑(55P03은 아직 게이트웨이에서 `500`, API 설계 v2.53)은 ADR 0034 S3·S4에서 정한다. 테이블과 함수는 바뀌지 않고 새 마이그레이션도 없다. 문서 헤더 버전을 v2.52 로 순증.
+
+## v2.53 패치 반영 사항
+
+ADR 0034 S2(스키마와 시장 도출 fencing)를 코드보다 먼저 정본에 반영한다. 코드와 마이그레이션 파일은 이 판을 따라 만든다. 설계와 PostgreSQL 동작 확인은 `docs/reference/architecture/마켓분할_리더_S2_설계.md`와 `harness/evidence/pml-s2-pg-probe-20260924/`에 있다. 2026-09-24 갱신.
+
+§3 표에 V48·V49 행을 더하고 §3.4를 신설한다. V48은 한 행 `leader_protocol`과 추가 전용 `leader_protocol_history`·`lease_acquisitions`·`market_lease_partition`, `leader_lease` 행 `matching-p0`·`matching-p1`, 마켓 생성 트리거의 대응 시드, 판정·도출·잠금·append·획득·갱신·반납 함수를 넣고, 6인자 머리말과 V1·V30·V33·V41의 리스 함수를 CREATE OR REPLACE 한다. V49는 `app_role`의 `leader_lease` UPDATE와 `command_journal` INSERT를 회수하며, S2 이미지가 아니라 S2 관문을 통과한 뒤의 다음 이미지에 넣는다. 모드는 1(P1)로 시드하며 P1에서는 쓰기가 종전과 같은 `matching-engine` 행을 같은 잠금으로 잡고 판정 문구와 epoch 증가가 같다.
+
+ADR 0034 초안과 다른 계약이 둘 있다. epoch는 전역 시퀀스가 아니라 획득 트랜잭션 안의 `max(리스 행, 획득 이력) + 1`이다. 시퀀스는 롤백·행 잠금 재평가·크래시 복구 때 값을 건너뛰어 P1의 "승격마다 +1"을 깨기 때문이다. 권한 회수는 앱의 `FOR KEY SHARE`(행 잠금 절도 UPDATE 권한을 요구한다), 호출자 권한 리스 함수, `PostgresLeaderLeaseStore.release`의 직접 UPDATE가 함수로 덮이지 않아 V48에서 이 경로를 소유자 권한 함수로 옮기고 V49로 나눴다. 소유자 권한으로 바꾸는 리스 함수는 PUBLIC EXECUTE를 회수한다. 남겨 두면 표 권한이 없는 역할도 리스를 바꿀 수 있다. 두 변경은 ADR 0034 결정 3과 결정한 값 17의 수정이며 사용자 확인 대상이다.
+
+§3.1 6.6 주석에 마켓별 리스 분할 금지가 P3 전환부터 파티션 두 개로 대체된다고 적는다. P1·P2에서는 그대로다. §4.4의 `leader_lease.epoch` 행을 고치고 `leader_protocol.protocol`, `lease_acquisitions.epoch`, `market_lease_partition.resource` 행을 더한다. §5.4 머리 주석에 V48 위임 관계를 적고 §5.4-b를 신설해 쓰기 경로별 시장 도출, 판정 문구, 권한, 잠금 순서, 외부 보관소의 P3 거부를 적는다.
+
+결정한 값 7(예약액 계산의 scale 열)은 확인만 했다. scale은 `assets.scale`(V1)에 있고 마켓은 `base_asset_id`·`quote_asset_id`로 닿으므로 새 열을 더하지 않는다. 대응 감사는 하네스 C29_MARKET_PARTITION_MAP(CRITICAL, SCHEDULED)이다. API 계약은 바뀌지 않는다. 문서 헤더 버전을 v2.53 으로 순증.
+
+같은 날 설계 검토의 지적 일곱 건을 이 판에 반영했다(S2 설계 10절). 대응 트리거 함수 `seed_market_lease_partition`도 PUBLIC EXECUTE를 회수한다. `CREATE TRIGGER`가 EXECUTE를 검사하므로, 남겨 두면 조회 로그인도 임시 표 트리거로 소유자 권한 쓰기를 할 수 있었다. V49는 `command_journal` INSERT도 회수하고 파일 이름을 `V49__revoke_lease_update_journal_insert.sql`로 바꿨으며, S2 이미지가 아니라 그다음 이미지에 넣어 V48만 적용된 되돌리기 구간을 만든다. V49 뒤에도 `app_role` 로그인(봇 포함)에 남는 경로를 §5.4-b에 적었다. §3.4 epoch 배정 문단과 §4.4 `leader_lease.epoch` 행에 "+1"이 파티션 자원을 획득한 적이 없는 DB에서 성립한다는 조건과 동시 배정 성질을 더했다. 기존 소유자 권한 트리거 함수 넷(V1·V46)에도 PUBLIC EXECUTE가 남아 있는 것을 확인했다. 이 판의 범위가 아니므로 별도 마이그레이션으로 고친다.
+
+같은 날 이 판을 따라 V48 파일과 S2 코드를 작업 브랜치 `claude/per-market-leader`에 넣었다. V48 본문은 §3.4 첫 SQL 블록과 같고 V49 파일은 넣지 않았다. 쓰기 경로 네 곳이 `append_command_journal_row`·`assert_and_lock_market_leader`를 부르고, 리스 보관소는 `try_acquire_lease`·`renew_lease`·`release_lease`를 부른다. 구현하며 계약에 한 문장을 더했다. 획득의 명시 FOR UPDATE는 V41 인덱스 없이도 쓰기를 기다리고 게시만 그 인덱스에 기댄다(§5.4-b 잠금 순서). 시험과 실행 결과는 S2 설계 11절에 있다.
+
+## v2.54 패치 반영 사항
+
+ADR 0034 S3(접수 시점 예약과 P2 전환)를 코드보다 먼저 정본에 반영한다. 코드와 마이그레이션 파일은 이 판을 따라 만든다. 설계와 PostgreSQL·Flyway 동작 확인은 `docs/reference/architecture/마켓분할_리더_S3_설계.md`와 `harness/evidence/pml-s3-pg-probe-20260924/`에 있다. 2026-09-24 갱신.
+
+§3 표에 V50 행을 더하고 §3.5를 신설한다. V50은 추가 전용 `order_reservations`, 예약액 계산 `order_reserve_amount`, 10인자 `append_command_prologue`, 소유자 전용 `set_leader_protocol`, 최고 모드를 받는 4인자 `try_acquire_lease`·3인자 `publish_leader_epoch`, 내부 함수 `lease_acquire_capped`를 넣는다. 5·6인자 머리말은 P2 이상에서 예약 없는 NEW를 55000으로 거부하고, `append_command_journal_row`는 P2 이상의 NEW를 같은 트랜잭션의 예약 행과 payload 해시로 대조하며, S2 바이너리의 3인자 획득과 S2 이전 바이너리의 2인자 게시는 P1 전용이 된다. 모드는 바꾸지 않는다. P1에서는 저널·원장·주문 행이 V49까지와 같다.
+
+§5.1을 모드별로 읽게 고친다. P2 이상은 이 절의 원자 커밋으로 돌아가 예약이 저널 append와 같은 트랜잭션에서 일어나고, 잔고 부족 23514는 트랜잭션 전체를 롤백해 `400 insufficient_funds`로 끝난다(ADR 0034가 대체 대상으로 적은 v2.9 '예약은 정산에서 한다' 변형의 P2 복귀). 정산은 예약 행을 권위로 써 `reserve_funds`를 다시 부르지 않고, 거부된 주문은 조기 반환보다 먼저 예약 전액을 해제한다. P1의 v2.9 분기는 그대로다.
+
+§5.4-b에 10인자 머리말의 잠금 순서(리스 행을 첫 문장에서 KEY SHARE), 전환 함수의 `lock_timeout = '5s'`, 바이너리 능력(최고 모드)을 적는다. §5.5 STEP2의 도달 불가 분기와 재적재 순서에 P2 설명을 더한다. §4.4에 `order_reservations` 행과 `leader_protocol.protocol`의 전환 경로를 더한다.
+
+V49의 적용 시점을 좁혔다. V50이 적용된 DB에 V49를 뒤늦게 넣으면 Flyway 11.7.2 기본 설정이 `Detected resolved migration not applied to database`로 검증을 멈춘다(폐기용 컨테이너 실행 확인). 그래서 V49는 V50과 같은 이미지나 그 앞 이미지에 들어가고, S3의 첫 이미지가 둘을 함께 싣는다. V49를 S7 전환의 선행 조건으로 두는 방침(AI 방침, 2026-09-24, 사용자 확인 필요)은 이 순서로 충족된다.
+
+ADR 0034와 다른 계약은 셋이다. 첫째, 예약액과 저널 행을 payload 해시로 묶는다. ADR은 DB가 payload로 계산한다고만 적었고, 머리말과 저널 행이 따로 부르는 함수라 두 번 넘기는 payload가 같다는 보장이 없었다. 둘째, 레거시 거부를 2인자 함수에서 S2 바이너리의 3인자 획득과 2인자 게시까지 넓혔다. S2 바이너리가 P2 리더가 되면 예약 주문을 다시 예약하거나 거부 주문의 예약을 풀지 않는다. 셋째, 전환 함수는 2->1에 확인 인자를 요구한다(결정 8을 함수 인자로 옮겼다). 세 가지 모두 사용자 확인 대상이다. API 계약은 v2.54에서 함께 바뀐다(`insufficient_funds`의 P2 경로, 잠금 대기 초과 503 매핑의 계약 문구, 회원 폐쇄 409의 정지 마켓 포함). 문서 헤더 버전을 v2.54 로 순증.
+
+같은 날 S3 설계 검토의 지적을 이 판에 반영했다(S3 설계 11절). 버전은 그대로 v2.54다. 셋이 바뀌었다. 첫째, §5.0에 트랜잭션 단위 규칙을 더했다. `post_ledger_transaction`의 오름차순 잠금은 호출 하나 안에서만 성립하므로, 게시를 여러 번 하는 정산 배치는 첫 게시 직전에 새 소유자 권한 함수 `lock_balance_rows`로 잠금 계획 전체를 오름차순 한 번에 잡는다. 종전 판의 "어느 두 경로도 반대 순서로 잡지 않는다"는 틀렸고, 계획 없는 정산과 P2 접수 예약의 교착(40P01)을 폐기용 컨테이너에서 재현했다. 둘째, 전환 함수가 `matching-engine` 행을 마지막에 퇴역시키고, 외부 보관소의 토큰 하한을 max(리스 행, 획득 이력)로 읽게 했다(§5.4-b). 종전 판은 전환 뒤 DynamoDB 보관소의 첫 두 게시가 `RETIRE` 이력과 겹쳐 거부됐다. 셋째, §3.5 검증 문단에 하네스 C14'·C31의 비용 경계를 적었다. 첫째와 둘째는 AI가 정한 값이고 사용자 확인 대상이다.
+
+같은 날 S3 관문 X1(폐기용 스택의 앱 역할 로그인 주행)에서 드러난 권한 누락을 이 판에 더했다. 버전은 그대로 v2.54다. §3 표에 V51 행을 더하고 §3.6을 신설했다. 불변식 검증기의 C15·C27은 DEFAULT 파티션 잎을 직접 세는데 잎은 부모의 권한을 물려받지 않아, 앱 역할 로그인 검증기의 상시 run이 C15에서 멈추고 권위 run이 HTTP 500으로 끝났다. V51은 그 잎 다섯의 `app_role` SELECT만 준다. S3 이전부터 있던 누락이고 소유자 로그인으로 도는 로컬 카오스와 통합 시험이 가렸다. 이 추가는 2026-09-24 작업을 맡은 AI가 정했고 사용자 확인 대상이다.
+
+같은 날 S3 관문 X3(E7 리더 pause, P2)에서 드러난 획득 결함을 이 판에 더했다. 버전은 그대로 v2.54다. §3 표에 V52 행을 더하고 §3.7을 신설했으며 §5.4-b에 획득 리스의 만료 기준을 적었다. V1 이래 획득은 `lease_until`을 행 잠금 대기 전 시각에서 세어, 멈춘 옛 리더의 KEY SHARE를 TTL보다 오래 기다린 획득이 이미 만료된 리스를 돌려줬다. 새 리더가 첫 접수에서 종신 강등돼 클러스터에 리더가 없어졌다. V52는 잠금을 얻은 뒤의 시각에서 센다. S3 이전부터 있던 결함이고 P2의 잔고 행 대기 사슬이 드러냈다. 이 변경도 AI가 정했고 사용자 확인 대상이다.
+
+같은 날 S3 구현 검토(라운드 2) 뒤 §3.4·§3.5의 파일 상태 문장을 고쳤다. 버전은 그대로 v2.54이고 계약 내용은 바뀌지 않는다. V49·V50 파일은 S3 코드와 함께 만들었고, V49~V52 파일의 본문은 각각 §3.4의 V49 블록, §3.5·§3.6·§3.7의 SQL 블록과 같다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). §3.4에는 S2 관문의 되돌림 주행 PASS와 V49 시험 자원을 지운 사실을 적었다.
+
+## v2.55 패치 반영 사항
+
+ADR 0034 S4(파티션 단위 Java)를 코드보다 먼저 정본에 반영한다. 코드와 마이그레이션 파일은 이 판을 따라 만든다. 설계와 PostgreSQL·nginx 동작 확인은 `docs/reference/architecture/마켓분할_리더_S4_설계.md`와 `harness/evidence/pml-s4-probe-20260924/`에 있다. 2026-09-24 갱신.
+
+§3 표에 V53 행을 더하고 §3.8을 신설한다. V53은 `harness.failover_runs`에 널 허용 열 `resource`를 더한다. 세 리스 자원 이름만 받는 CHECK를 두고 외래키는 두지 않는다. 리스·판정·접수·정산 함수는 바꾸지 않는다. §4.4에 그 열의 행을 더한다.
+
+§5.4-c를 신설해 리더 수명주기를 파티션 단위로 적는다. 파티션 계획(P1·P2는 `matching-engine` 하나, 조회 역할은 DB를 읽지 않는 한 파티션), 파티션별 리스 인스턴스와 노드 공용 holder(엔진을 끈 노드는 만들되 시작하지 않는다), 리스 풀 유지와 획득 트랜잭션 한정 `lock_timeout`, 기동의 팔로워 시작, 강등 사유 넷과 fresh 재구성, 획득 때 만드는 기간 결속 쓰기, 승격 범위 M(P)와 부분 설치, 두 층 좀비 판정과 경합 수요 제외, 선호와 유예, 차단기, P3 수수료 샤드, DynamoDB 공급자의 파티션 모드 차단, 최고 모드 2 유지, readiness를 담는다. §5.4의 부팅 승격 대기, 강등 사유 분류, 접수 개방 조건, 리스 전용 풀, 자발적 강등, 강등 후 상태, readiness 항목에는 이 절로 대체된다는 표식을 달았다. §1.2와 §4.1의 수수료 샤드 서술에 해시 배정을 구현하지 않았고 샤드는 모드가 정한다는 문장을 더했다.
+
+ADR 0034가 값을 남겼거나 ADR·단계 계획과 다르게 정한 계약은 다섯이고 모두 2026-09-24 작업을 맡은 AI가 정했다(사용자 확인 대상). 첫째, 차단기는 10분 창 안의 파티션 치명 강등 3회다(결정 12가 S4에 남긴 값). 둘째, 획득 `lock_timeout` 기본값은 1000ms이고 리스 틱 주기보다 작아야 하며, 획득 전용 풀을 두지 않고 기존 리스 풀에서 트랜잭션 한정으로 건다(단계 계획 S4의 '갱신 전용·획득 전용 연결 분리'를 풀 크기와 대기 상한으로 채운다). 셋째, 기간 결속 쓰기는 ADR에 없던 규칙이다. 같은 프로세스 안의 재승격이 강등 전 루프나 앞선 승격 재생의 스레드에 새 epoch를 빌려줄 수 있어서 더했고, 기간은 리스를 얻을 때 만든다. 넷째, 기동의 크래시 창 재적재를 없애 콜드 재기동이 승격 재생을 한 번 더 할 수 있다. 결정 7의 '부팅은 늘 팔로워'를 따른 결과다. 다섯째, 좀비 판정의 수요에서 마켓 접수 경합을 두 층 모두 뺀다(접수 락 보유자가 대기 상한보다 오래 쥔 대기 초과는 남긴다). §5.4 v2.19의 수요 정의를 바꾼다. API 계약은 v2.55에서 함께 바뀐다(마켓 접수 경합의 `429`·`409 order_in_progress`, 관리 API의 파티션 리스 목록, 비접수 경로 55P03은 `500` 유지).
+
+같은 날 설계 검토 지적 17건을 반영해 이 판을 고쳤다. 버전은 그대로 v2.55다. 첫 판의 획득 전용 풀(엔진 노드마다 연결 2 추가)을 없애고 트랜잭션 한정 상한으로 바꿨고(§5.4-c 3), 엔진을 끈 노드와 조회 역할의 배선을 적었으며(§5.4-c 1·2), 기간을 획득 때 만들어 승격 재생도 묶었고(§5.4-c 6), 노드 치명의 DEMOTED 상태를 적었으며(§5.4-c 5), 경합을 좀비 판정 수요에서 뺐다(§5.4-c 8). 대응 근거는 S4 설계 11절이다. 문서 헤더 버전을 v2.55 로 순증.
+
+같은 날 S4 구현 검토(라운드 1) 뒤 §3 표의 V53 행, §3.8, §5.4-c 머리의 파일·구현 상태 문장을 고쳤다. 버전은 그대로 v2.55이고 계약 내용은 바뀌지 않는다. V53 파일은 S4 코드와 함께 만들었고 본문은 §3.8의 SQL 블록과 같다(줄바꿈을 LF로 맞추고 끝 줄바꿈을 뺀 문자열 대조). 2026-09-25 문서 단계에서 §3 표의 V49·V50 행에 남아 있던 '작성 전 계약이다'를 S3 코드와 함께 만들었다는 상태 문장으로 바꾸고, §5.4-c 머리의 '커밋 전'을 커밋 상태로 고쳤다. 계약 내용은 바뀌지 않는다.
+
+## v2.56 패치 반영 사항
+
+ADR 0034 S4b(S4 관문 결함 보정)를 코드보다 먼저 정본에 반영한다. 설계와 Spring·PostgreSQL·nginx 동작 확인은 `docs/reference/architecture/마켓분할_리더_S4b_설계.md`와 `harness/evidence/pml-s4b-probe-20260925/`에 있다. 스키마와 SQL 함수는 바꾸지 않고 새 마이그레이션도 없다. 2026-09-25 갱신.
+
+§5.5에 판정 없이 끝난 재생의 기록 규칙을 더한다. 재생이 DB 접근 실패(연결 장애와 일시 오류 넷)나 리더 자격 상실로 끝나면 `recovery_runs`에 불일치 행을 남기지 않고 예외를 올린다. STEP1의 스냅샷 폴백은 커넥션 획득 실패와 연결 끊김일 때만 하지 않고, 일시 오류 넷과 자원 부족은 종전처럼 폴백한다. 진짜 불일치(`ReplayMismatchException`)와 원인을 가리지 못한 예외는 종전처럼 `matched=false`다. S4 관문 재주행의 E2에서 재구성 재시도의 커넥션 획득 실패가 C17 1행으로 남은 것을 고친다. §5.4-c 5에 같은 규칙과 강등 기록의 SQLSTATE를, §5.4-c 6에 접수 경로의 재확인 참 fencing 거부를 클라이언트 재전송이 다시 시도한다는 것을, §5.4-c 9에 참여 여부와 후보 표식을 승격 조율의 상태 락 안에서 바꾸는 규칙을 적었다(S4 최종 검토가 남긴 참여 끄기 경합). 판정 없는 재생을 따로 적는 행을 두지 않는 선택은 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다. 응답 계약은 API 설계 v2.56 §2-5-c다. 문서 헤더 버전을 v2.56 으로 순증.
+
+같은 날 설계 검토 지적을 반영해 이 판을 고쳤다. 버전은 그대로 v2.56이다. 첫 판은 스냅샷 적재나 시작 재생이 일시 오류 넷이나 자원 부족으로 끝나도 폴백하지 않았다. 57014·53200은 큰 스냅샷 조회에서만 계속 날 수 있어 재구성과 기동 복구가 끝없이 실패할 수 있으므로 폴백 생략을 획득 실패와 연결 끊김으로 좁혔다(§5.4-c 5, §5.5 STEP1). §5.4-c 6의 문장을 더한 것도 이 검토의 결과다. 대응 근거는 S4b 설계 11절 R2·R3이다.
+
+같은 날 코드 단계의 폐기용 스택 E1(PG 지연 200±100ms) 다섯 번 가운데 한 번이 S4 첫 E1 FAIL을 재현했다. 리더의 정산이 잔고 행 잠금 대기 초과(55P03)를 두 번 만나 첫 시도부터 7.3초가 지나 기한 5초를 넘겼고, 재시도 한도를 넘긴 일시 오류로 라이터가 치명(`WRITER_FATAL`, 강등 기록 `sqlstate=55P03`)으로 끝났다. S4b 설계 4-6의 판단표대로 한도만 늘렸다. §5.4 정산 sink 오류 분류의 재시도를 시도 8회, 첫 시도부터 15초 기한, 대기 50~100·100~200밀리초 뒤 200~400밀리초로 고치고 §6.4의 재구축 서술을 맞췄다. 시도마다 새 트랜잭션에서 기간 확인, DB fencing 판정, 레지스트리 멱등 판정을 다시 하므로 이중 정산과 오래된 리더의 쓰기가 생기지 않고, 한도를 넘기면 여전히 치명이다. 값은 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다(ADR 0034 결정한 값 11). 버전은 그대로 v2.56이다.
+
+같은 날 구현 검토 지적을 반영해 §3 표의 V47 행에 `discard_key` 의 호출 조건을 적었다. 게이트웨이가 연결이 끊긴 판정을 같은 인자로 다시 불러, 첫 판정이 지운 키 자리에 같은 내용의 다른 요청이 새로 넣은 키를 지울 수 있었다. 함수와 스키마는 그대로이고 다시 부르는 판정은 키를 지우지 않는다(API 설계 v2.56 §2-4, S4b 설계 14절). 버전은 그대로 v2.56이다.
+
+같은 날 S4b 문서 단계에서 §3 표의 V53 행과 §3.8에 남아 있던 '커밋 전'을 V53이 들어간 작업 브랜치 커밋 `48629d5d`로 고쳤다. 버전은 그대로 v2.56이고 계약 내용은 바뀌지 않는다.
+
+## v2.57 패치 반영 사항
+
+ADR 0034 S5(REST 라우팅과 요청 경계)를 코드보다 먼저 정본에 반영한다. 설계와 nginx·PostgreSQL 동작 확인은 `docs/reference/architecture/마켓분할_리더_S5_설계.md`와 `harness/evidence/pml-s5-probe-20260925/`에 있다. 응답 계약은 API 설계 v2.57이다. 2026-09-25 갱신.
+
+§3 표에 V54 행을 더하고 §3.9를 신설한다. V54는 파티션 밖 취소 인계 표 `order_cancel_requests`를 만든다. 요청자가 파티션마다 행을 넣고, 그 파티션의 소유 노드가 epoch로 점유해 보통의 취소 경로로 처리한 뒤 결과를 적는다. 자원 이름 CHECK, 주문 목록 1~500개, 상태(설계 검토 대응 뒤 다섯)와 상태별 열 CHECK, `users` 외래키, 끝나지 않은 행의 부분 색인, `app_role` SELECT·INSERT·UPDATE와 `harness_role` SELECT를 둔다. 리스·판정·접수·정산 함수는 바꾸지 않는다. SQL 블록은 폐기용 PostgreSQL 17.10에서 확인했다(§3.9 검증). §3.2-a-5에 이 표를 갈래 C로 적었다.
+
+§5.4-d를 신설해 인계 규칙을 적는다. 요청자의 파티션 분할과 행 넣기, 5초 기다림과 포기, 작업자의 기간 한정 실행과 점유·끝내기 술어, 포기와 점유의 경합, 더 큰 epoch의 재점유, 5분 유효 시간, 권한과 안전(표는 작업 지시일 뿐이고 판정은 §5.4-b 그대로), 수요와 관측이다. 엔진을 끈 관리 평면에서 회원 폐쇄의 취소가 모두 저널 전에 거부되던 결함(P1·P2 포함)도 이 인계로 고친다.
+
+§5.4-c 8에 소유권 선검사와 인계의 좀비 판정 수요 규칙을 더한다. 선검사의 `503`은 인증 전에 끝나 수요가 아니다. 힌트 없는 단건 취소의 게이트웨이 `503`(`route=not_owner`)과 이 노드에서 submit을 하나도 하지 않은 일괄 취소는 노드 층 수요를 되돌린다.
+
+2026-09-25 작업을 맡은 AI가 정한 값과 선택은 이렇다(사용자 확인 대상). HTTP 전달 대신 DB 표로 넘기는 것, 기다림 5초, 유효 시간 5분, 행당 주문 기본 100개(최대 500), 파티션당 작업자 스레드 1개와 빈 표 확인 간격 200ms, 끝난 행을 지우지 않는 것, 두 가지 수요 되돌림이다. 문서 헤더 버전을 v2.57 로 순증.
+
+같은 날 설계 검토 지적을 반영해 이 판을 다시 고쳤다. 버전은 그대로 v2.57이다. 첫 판의 작업자는 리스를 잃고도 아직 게이트를 연 노드에서 새 행을 점유할 수 있었고, 리더 자격 거부로 끝난 주문을 실패로 적은 채 행을 `DONE`으로 끝낼 수 있었다. `DONE`은 다시 점유되지 않으므로 새 소유자가 그 행을 처리하지 않았고, 폐쇄는 경합(`too_many_requests`)처럼 잘못 알려졌다. §5.4-d 3의 점유와 끝내기 문장에 리스 확인(자기 holder·epoch의 리스가 유효할 때만)을 더하고, 리더 자격을 잃었다는 거부는 결과에 적지 않고 멈추게 했다. 같은 기간 안에서는 그 행을 쥔 스레드가 이어 하고, 작업자 스레드는 예외로 죽지 않으며 주문 단위 예외는 `service_unavailable`·`server_error`로 적는다. 요청자는 그 파티션 몫을 소유 노드가 이미 시작한 요청의 `PENDING` 행을 포기하지 않는다(§5.4-d 2). 첫 판은 큰 인계의 뒷부분과 다른 회원의 인계를 '가져가지 않음'으로 포기해, 소유 노드가 멀쩡한데도 응답 없음처럼 알렸다. 포기한 주문의 사유 이름은 원인과 무관한 `partition_not_started`로 바꿨다(API 설계 §4-B-3). §3.9의 V54에 상태 `EXPIRED`를 더하고 §5.4-d 6에 만료를 두었다. 첫 판에서는 끝나지 않은 채 남은 행이 부분 색인에 영원히 남았다. §5.4-d 1의 대상을 API 설계 §4-B-3과 맞췄다(마켓을 준 일괄 취소도 선검사가 모르는 마켓이면 넘긴다). 고친 블록과 문장은 폐기용 PostgreSQL 17.10에서 다시 확인했다(§3.9 검증 R0~R10). 만료 간격 60초와 한 문장 1000행, 같은 주문에서 이어 하기 세 번은 AI가 정한 값이고 사용자 확인 대상이다. 근거와 검토 대응은 S5 설계 11절이다.
+
+같은 날 S5 코드와 대조해 §5.4-d 3의 두 문장을 코드와 맞췄다. 버전은 그대로 v2.57이다. 점유 문장은 점유 전 상태와 자원을 함께 돌려준다. 작업자가 더 큰 epoch 로 끝나지 않은 점유를 다시 잡은 수(`reclaimed`)를 세려면 점유 전 상태가 필요하다. 끝내기 문장은 결과 인자의 형을 `CAST(:result AS jsonb)`로 밝혔다. JDBC가 결과를 문자열 인자로 넘기기 때문이다. 두 문장의 술어(점유 조건, 리스 확인, 점유자·epoch 조건)는 바뀌지 않았다. 근거는 S5 설계 12절이다.
+
+## v2.58 패치 반영 사항
+
+ADR 0034 S6(WebSocket 외부 브로커 중계)가 기대는 DB 쪽 성질을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S6_설계.md`, 응답 계약은 API 설계 v2.58 §4-C-1·§5-2·§5-5다. DDL과 SQL 함수는 바꾸지 않고 새 마이그레이션도 없다. 2026-09-25 갱신.
+
+§4.1의 `balances.version` 행에 두 번째 소비처를 적었다. 계좌 조회와 myAsset 게시가 사용자·자산의 AVAILABLE·LOCKED 두 행의 version 합을 잔고 판으로 낸다. 두 행은 잔고를 바꾸는 모든 정본 경로가 1씩 올리고(`V38__ledger_balance_update_index_scan.sql` 등, 2026-09-25 저장소 전역 확인) 한 문장은 커밋된 한 시점을 보므로, 합은 한 DB 타임라인 안에서 줄지 않고 같은 값이면 잔고와 잠금도 같다. 이 성질이 클라이언트 비교의 전제라 잔고를 바꾸는 새 경로도 version을 올려야 하고 줄이는 갱신을 두지 않는다. 합을 판으로 쓰는 선택은 2026-09-25 작업을 맡은 AI가 정했고 사용자 확인 대상이다. 문서 헤더 버전을 v2.58 으로 순증.
+
+같은 날 설계 검토 지적을 반영해 §4.1 `balances.version` 행에 원가 필드가 잔고 판에 들지 않는다는 한계를 적었다. 원가 재구축 `rebuild_position_cost`(`V13__position_cost.sql`, §6.4 C24·C25 조치)는 `position_cost`만 고치고 `balances`를 건드리지 않으므로, 같은 판의 myAsset 항목이 새 원가를 싣고 올 수 있다. API 설계 §5-2가 같은 판의 항목도 적용하도록 고친 근거다. 함수와 스키마는 그대로이고 버전도 그대로 v2.58이다(S6 설계 11절 지적 7).
+
+같은 날 S6 브랜치(`claude/pml-s6`)를 S5 위에 병합하며 이 판의 번호를 v2.57에서 v2.58로 옮겼다. 두 브랜치가 같은 v2.56을 기준으로 v2.57을 매겼고, 먼저 들어간 S5(V54)가 v2.57을 쓴다. 내용은 바꾸지 않았다. 이 판은 DDL·함수·마이그레이션을 바꾸지 않으므로 V54가 그대로 마지막 마이그레이션이다. §4.1의 잔고 판 규칙은 S5의 인계에도 맞는다. 인계 작업자의 취소는 소유 노드의 보통 취소 경로(§5.4-d 3, `OrderGateway.cancelForHandoff`가 엔진 접수로 넘김)라 잔고를 바꾸는 정본 경로의 version 증가를 그대로 거치고, 그 게시도 소유 노드의 게시기가 낸다.
+
+## v2.59 패치 반영 사항
+
+ADR 0034 S7(P3 전환과 파티션 실험)을 코드보다 먼저 정본에 반영한다. 설계와 PostgreSQL·nginx·compose 동작 확인은 `docs/reference/architecture/마켓분할_리더_S7_설계.md`와 `harness/evidence/pml-s7-probe-20260925/`에 있다. 응답 계약은 API 설계 v2.59, 판정 계약은 하네스 검증설계의 S7 패치 노트다. 2026-09-25 갱신.
+
+§3 표에 V55 행을 더하고 §3.10을 신설한다. V55는 모드 전환 함수 `set_leader_protocol`을 CREATE OR REPLACE로 바꿔 2->3과 확인 인자를 준 3->2를 더하고, 내리는 전이를 모두 확인 인자로 묶는다. 전환을 막는 선행 조건을 한 줄씩 내는 읽기 전용 함수 `leader_protocol_blockers`를 두고, 전환 함수가 모든 리스 행과 모드 행을 잠근 뒤 그 함수를 부른다. 3으로 올리는 선행 조건은 정산 전 주문 생성 명령 0건, 명령 대역 래치, 모든 마켓의 대역 잎·대응·카운터, 파티션 리스 행, 모든 마켓 자산의 FEE_INCOME 샤드 0·1, `app_role`의 V49 권한 상태다. 두 노드가 파티션 가능 바이너리인지는 DB가 알 수 없어 절차가 확인한다. FEE_INCOME 샤드 1 계정을 기존 자산에 만들고 새 자산은 `accounts` 행 트리거가 만든다. 모드는 바꾸지 않는다.
+
+§5.4-e를 신설해 올리는 절차와 내리는 절차, 소프트 롤백, 전환 뒤 재시작, 안전, 열린 인계 행을 적는다. §5.4-c 11에 샤드 1 계정의 출처와 전환 선행 조건을, 13에 S7 바이너리의 최고 모드 3과 게이지 `exchange.leader.protocol.max`를 더한다. §3.5 전환 문단, §4.1 `accounts.shard` 행, §4.4 `leader_protocol.protocol` 행에 V55를 가리키는 문장을 더한다.
+
+§6.4 ⑯을 C22'로 바꾸고 ⑳(C30)을 더한다. ⑯은 프로토콜 구간을 `leader_protocol_history.epoch_floor`로 갈라 시간 축 팔을 P1·P2 구간은 전역, P3 구간은 파티션별로 보고, 마켓 안 팔은 그대로 두며, 전환 뒤 시작한 트랜잭션이 옛 구간 epoch로 `command_journal`·`snapshots`에 쓴 행을 세는 구간 경계 팔을 더한다. ⑳은 P3 구간 epoch로 기록된 명령·이벤트·체결·스냅샷 행 가운데 획득 이력이 없거나, 획득이 아니거나, 획득 자원이 그 행 마켓의 파티션과 다른 행을 센다.
+
+같은 날 S7 설계 검토 대응(S7 설계 11절)으로 셋을 고쳤다. 첫째, 구간 경계 팔의 범위를 실제 술어대로 좁혀 적고 `snapshots`를 더했다. 첫 판은 이 팔이 '전환 뒤 옛 구간 epoch로 기록된 행'을 모두 센다고 적었지만 `command_journal`만 읽었고, `created_at`이 트랜잭션 시작 시각이라 전환을 가로지른 트랜잭션을 보지 못한다. `event_journal`·`trades`의 `created_at`은 engine_ts 파생이라 이 팔에 넣지 않았다. 둘째, §5.4-e 5에 차단을 확인하는 세 곳(사후 감사, T4-2 전환 판, 실험의 구간 경계 증분)과 각 범위를 적었다. 셋째, ⑯ 목록 판의 열을 `(arm, tbl, subject)`로 바꿨다. 고친 ⑯은 폐기용 PostgreSQL에서 목록 판과 수 판의 행 수가 같고 새 주입을 맞는 팔로 세는 것을 확인했다(S7 설계 3절 R7).
+
+2026-09-25 작업을 맡은 AI가 정한 값과 선택은 이렇다(사용자 확인 대상). 샤드 1 계정을 모드와 무관하게 늘 두는 것과 그 트리거, 선행 조건 함수와 3으로 올릴 때 더 보는 여덟 가지(대역 잎과 `app_role` 권한 검사 포함), 내리는 전이 모두의 확인 인자, C22'의 구간 경계 팔과 그 범위, C30이 획득 이력 없음과 획득이 아닌 epoch까지 세는 것, 정적 감사가 세지 못하는 전환 경계를 T4-2 전환 판과 실험의 구간 경계 증분에 맡기는 것이다. 문서 헤더 버전을 v2.59 로 순증.

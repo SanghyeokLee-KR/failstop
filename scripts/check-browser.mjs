@@ -74,6 +74,31 @@ const VISITS = SCREENS.flatMap((route) => {
     : [signedIn];
 });
 
+/* 탭을 눌러야 그려지는 요소를 재는 방문. 기본 탭만 재면 그 요소는 이 게이트에 한 번도 들어오지 않는다.
+   준비가 기대한 상태에 닿지 않으면 그 화면을 잰 것이 아니므로 실패로 끝낸다 */
+VISITS.push({
+  route: "/admin/drill",
+  session: true,
+  label: "/admin/drill (앱 리더 전환 대본)",
+  async prepare(page) {
+    const leases = page.getByRole("table", { name: "리더 리스" });
+    if ((await leases.count()) !== 0) {
+      throw new Error("/admin/drill: 리더를 읽지 않는 기본 대본에 리더 리스 표가 있다");
+    }
+    await page.getByRole("tab", { name: /앱 리더 전환/ }).dispatchEvent("click");
+    /* 대본을 바꿔도 다음 폴링(평시 30초)까지 앞 대본의 값을 든다. 새로고침으로 이 대본이 읽는 축을 부른다 */
+    await page.getByRole("button", { name: "새로고침" }).dispatchEvent("click");
+    try {
+      await leases.waitFor({ timeout: 30_000 });
+    } catch (e) {
+      throw new Error(`/admin/drill: 앱 리더 전환 대본에 리더 리스 표가 그려지지 않았다 (${e.message.split("\n")[0]})`);
+    }
+    /* sim 관리 원천은 단일 리더(P1·P2)라 matching-engine 한 행이다(simAdmin.getHaStatus) */
+    const rows = await leases.locator("tbody tr").count();
+    if (rows !== 1) throw new Error(`/admin/drill: 리더 리스 표의 행이 ${rows}개다. sim 리스는 1개다`);
+  },
+});
+
 /* ---------- 페이지 안에서 도는 프로브 ---------- */
 
 /**
@@ -440,11 +465,12 @@ async function main() {
         colorScheme: "light",
       });
       const page = await ctx.newPage();
-      for (const { route, session, label } of screens) {
+      for (const { route, session, label, prepare } of screens) {
         const noScroll = NO_SCROLL.some((re) => re.test(route));
         step(`${vp.name} ${label}`);
         await page.goto(dev.url + route, { waitUntil: "domcontentloaded", timeout: 60_000 });
         if (session) await establishAdminSession(page, route);
+        if (prepare) await prepare(page);
         await page.waitForTimeout(DATA_MS);
         for (const theme of ["light", "dark"]) {
           await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);

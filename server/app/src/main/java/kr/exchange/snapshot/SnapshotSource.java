@@ -3,6 +3,8 @@ package kr.exchange.snapshot;
 import kr.exchange.engine.core.OrderBookImpl;
 
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.IntPredicate;
 
 /**
  * 복구·승격이 소비하는 스냅샷 로드 계약(복구 RTO 설계 §3-b 복원 STEP1). 마켓마다 채택 게이트를 통과한
@@ -12,6 +14,17 @@ public interface SnapshotSource {
 
     /** 마켓 id 에서 그 마켓의 채택본으로. 게이트는 format_version·engine_version·config_hash·state_checksum 이다. */
     Map<Integer, MarketLoaded> loadLatestAdoptablePerMarket();
+
+    /** scope 의 마켓만 고른다. 파티션 승격 재생과 재구성이 그 파티션 마켓만 적재한다(DB 설계 §5.4-c 7). */
+    default Map<Integer, MarketLoaded> loadLatestAdoptable(IntPredicate scope) {
+        Map<Integer, MarketLoaded> scoped = new TreeMap<>();
+        loadLatestAdoptablePerMarket().forEach((marketId, loaded) -> {
+            if (scope.test(marketId)) {
+                scoped.put(marketId, loaded);
+            }
+        });
+        return scoped;
+    }
 
     /**
      * 채택된 마켓 하나의 스냅샷. seq 는 last_applied_seq 이고 그 마켓 커서가 된다.

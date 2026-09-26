@@ -1,0 +1,32 @@
+[
+  {
+    "container": "chaos-api-1",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W1-fix\\W1-chaos-api-1.log",
+    "bytes": 70860,
+    "sha256": "6815c19ca524db2dba9f4c090013be24c951f0cab4d9745378cfe5451b805e5b"
+  },
+  {
+    "container": "chaos-api-2",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W1-fix\\W1-chaos-api-2.log",
+    "bytes": 56835,
+    "sha256": "e370cd47d847061ad149fd20b1bca8dc323cf8ed03d111bcb9113d34276281f8"
+  },
+  {
+    "container": "chaos-bots",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W1-fix\\W1-chaos-bots.log",
+    "bytes": 7727,
+    "sha256": "e0f7d1d6813434493f5f18701a995c105140ada8bffff59e4ed1bf442a12cfef"
+  },
+  {
+    "container": "chaos-lb",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W1-fix\\W1-chaos-lb.log",
+    "bytes": 5328211,
+    "sha256": "d3ca805262038b9324659878109a3f83968cd9557507cdc7ff37f6dc548b33d5"
+  },
+  {
+    "container": "chaos-broker",
+    "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s6-logs\\W1-fix\\W1-chaos-broker.log",
+    "bytes": 1772,
+    "sha256": "8f8da0aabee3e8f86d283d63cbea4cc8af42d97ed3de5d1115561ee0067f8302"
+  }
+]

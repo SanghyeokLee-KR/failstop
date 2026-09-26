@@ -1,0 +1,197 @@
+{
+  "runId": "Z1d-post",
+  "window": "post",
+  "commandWatermark": 143,
+  "eventWatermark": 4000000000039,
+  "verdict": "PASS",
+  "criticalClean": true,
+  "totalViolations": 0,
+  "checks": [
+    {
+      "checkName": "C01_ASSET_CONSERVATION",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C02_BAL_VS_LEDGER",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C03_TXN_UNSEALED",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C05_CMD_GAPLESS",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C06_EVT_GAPLESS",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C07_DUP_ORDER",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C07P_DUP_ORDER_JOURNAL",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C08_DUP_FILL",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C09_TRADE_SEQ_EVENT_MATCH",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C10_ORDER_FILL_AGG",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C11_TRADE_ORPHAN",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C12_EVENT_ORPHAN",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C13A_ORDER_MATERIALIZED",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C13B_ORDER_JOURNALED",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C14_LOCKED_RESERVATION",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C20_ORDER_FEE_MATERIALIZED",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C17_REPLAY_DETERMINISM",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C18_FILL_PRICE_MAKER",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C15_DEFAULT_PARTITION",
+      "severity": "WARN",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C26_CMD_BAND_HEADROOM",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C27_CMD_DEFAULT_PARTITION",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C28_CMD_LEGACY_AFTER_CUTOVER",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C29_MARKET_PARTITION_MAP",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C31_RESERVATION_LINK",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C16_ACK_JOURNALED",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C19_ORDERBOOK_NONCROSS",
+      "severity": "HIGH",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C21_EVENT_EMISSION_REGISTRY",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C22_FENCING_MONOTONIC",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C23_COUNTER_SEQ_CONSISTENCY",
+      "severity": "CRITICAL",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C24_POSITION_COST_QTY",
+      "severity": "WARN",
+      "ok": true,
+      "violatedRows": 0
+    },
+    {
+      "checkName": "C25_POSITION_COST_SANITY",
+      "severity": "WARN",
+      "ok": true,
+      "violatedRows": 0
+    }
+  ]
+}

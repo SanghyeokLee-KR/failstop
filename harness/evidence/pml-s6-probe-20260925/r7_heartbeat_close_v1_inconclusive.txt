@@ -1,0 +1,4 @@
+== R7 (첫 판) 읽지 않는 클라이언트는 EOF 를 볼 수 없어 판정 불가. 아래 silent 판으로 다시 잰다
+{"mode": "stall", "published": 1000, "x-max-length": 2000, "x-message-ttl": 10000, "heartbeat": "2000,2000", "ack": "client-individual", "prefetch": 100}
+{"broker_closed_after_seconds": null, "held": 40.0}
+queues after: 0

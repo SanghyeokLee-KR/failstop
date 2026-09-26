@@ -1,0 +1,30 @@
+
+== E1(PG 지연) 시작 runId=E1-20260925-061028 proxy=pg-api1 port=18080 ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+리더 감지: chaos-api-1 -> proxy=pg-api1 port=18080 standby=28080
+
+== ⓐ 사전 권위 run + baseline 지연 ==
+사전 verdict=PASS old_epoch=5
+baseline p99=16.9ms 실패=0/120
+스택 전제: 키 열 인덱스 1, FOR KEY SHARE 함수 1, 리스 보관소 postgres
+
+== ⓑ 주입: latency=200/jitter=100 on pg-api1 ==
+T0=2026-09-24T21:11:15.6778468Z
+
+== ⓒ 지연 중 관측(온디맨드 권위 run[스탠바이 경로] + 지연 표본[리더 경로]) ==
+지연 중 p99=2179.2ms 오류율=0 무결성위반=0
+리스 표본 418(실패 0) 갱신 잠금 대기 0 RowShareLock 최대 5 last_renew_age 최대 2.409s(표본 213) 갱신 증분 ok=92 rejected=0 error=0
+주입 창 헬스 표본 3개 중 불량 0, 체결 증분 96
+
+== ⓓ 해제 + p99 복귀 측정 ==
+복귀 임계 p99<=66.9ms 복귀시간=2.1s
+
+== ⓔ 사후 권위 run ==
+
+── verdict(JSON) ───────────────────────
+{"experimentId":"E1","verdict":"PASS","ts":"2026-09-24T21:15:04.9750549Z","tradeDeltaInject":96,"injectP99FactorMin":10.0,"renewScrapeOk":true,"fencingKeyIndex":1,"renewErrorDelta":0.0,"recoveryMaxSec":60,"leaseRowShareMax":5,"tradeDeltaAfter":331,"standdownDelta":0.0,"leaseSampleCount":418,"lastRenewAgeLimitSec":4.0,"renewAgeSampleMissed":0,"nodeServiceable":"1.0","statusRespOk":true,"healthOk":true,"injectTotalViolations":0,"renewOkDeltaInject":92.0,"injectUnhealthySamples":0,"recoverySec":2.0976844,"injectGatedClean":true,"stackPreconditionOk":true,"renewRejectedDelta":0.0,"tradesFlowing":true,"errorRateMax":0.001,"standdownOk":true,"postUnhealthySamples":0,"admissionRejectedOrder":"305.0","leaseRowShareMin":2,"epochStable":true,"renewOkMin":30,"injectP99Reached":true,"baselineP99Ms":16.9,"primaryOk":true,"renewAgeSampleMin":60,"postGatedClean":true,"leaseGateOk":true,"lastRenewAgeMaxSec":2.409,"errorRate":0.0,"renewLockWaitSamples":0,"leaseStoreProvider":"postgres","injectP99Ms":2179.2,"epochBefore":5,"standdownScrapeOk":true,"positiveOk":true,"epochAfter":5,"leaseSampleFailed":0,"renewLockWaits":[],"leaseSampleMin":120,"renewAgeSampleCount":213,"fixDeployed":true,"lockFunctionKeyShare":1}
+────────────────────────────────────────
+판정 파일: C:\dev\exchange-pml\harness\evidence\pml-S4b-20260925-0456\chaos-runs\E1-20260925-061028.json (불변식 행 93)
+
+== 종료 훅: 토식 해제 ==
+E1(PG 지연) PASS.
