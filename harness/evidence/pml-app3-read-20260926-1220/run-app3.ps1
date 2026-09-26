@@ -3,13 +3,15 @@
 # 사용: pwsh -NoProfile -File C:\dev\exchange-pml\harness\evidence\pml-app3-read-20260926-1220\run-app3.ps1 -RawDir <저장소 밖 폴더>
 # 비밀 파일(harness/.env.chaos, harness/load/secrets/*)은 경로로만 넘기고 읽지 않는다. 조회 계정 비밀번호는 이 프로세스에서 만들어
 # 환경 변수로만 넘기고 적지 않는다.
-param([Parameter(Mandatory = $true)] [string] $RawDir)
+# -OutDir 는 결과 폴더(기본 이 폴더), -ProbeArgs 는 read_node_probe.py run 에 더할 인자(짧은 경로 점검용 주행 시간 등)다.
+param([Parameter(Mandatory = $true)] [string] $RawDir, [string] $OutDir = '', [string[]] $ProbeArgs = @())
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $env:PYTHONIOENCODING = 'utf-8'
 $repo = 'C:\dev\exchange-pml'
-$ev = $PSScriptRoot
+$ev = $(if ($OutDir) { $OutDir } else { $PSScriptRoot })
+New-Item -ItemType Directory -Force -Path $ev | Out-Null
 if ((Resolve-Path $ev).Path -notlike "$repo\harness\evidence\*") { throw "증거 폴더가 작업 트리 밖이다: $ev" }
 $env:CHAOS_PROJECT = 'exchange-pml'
 $env:COMPOSE_PROJECT_NAME = 'exchange-pml'
@@ -127,8 +129,8 @@ try {
 
     # 5. 단계 실행
     Log 'read_node_probe.py run'
-    $rc = Invoke-Py @('harness/scale/read_node_probe.py', 'run', '--evidence-dir', $ev, '--raw-dir', $RawDir, '--lb-conf', $copy,
-        '--preflight', (Join-Path $ev 'p3-preflight.json'), '--read-user', $readUser) 'run.log'
+    $rc = Invoke-Py (@('harness/scale/read_node_probe.py', 'run', '--evidence-dir', $ev, '--raw-dir', $RawDir, '--lb-conf', $copy,
+        '--preflight', (Join-Path $ev 'p3-preflight.json'), '--read-user', $readUser) + $ProbeArgs) 'run.log'
     Log "run 종료코드 $rc"
     $status['runRc'] = $rc
 

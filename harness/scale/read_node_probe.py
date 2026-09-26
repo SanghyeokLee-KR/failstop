@@ -74,6 +74,12 @@ WRITE_MIN = {'POST /api/v1/orders': 50, 'DELETE /api/v1/orders': 10, 'POST /api/
 PROBE_KIND_MIN = 10
 WS_HANDSHAKES = 30
 HEALTH_BUDGET_S = 180
+# 작업자당 요청 상한(초당). 9/23 의 같은 작업자 수 처리량을 작업자 수로 나눈 값이다(20 작업자 345건/s, 5 작업자 203건/s,
+# docs/measurements/20260923.md). keep-alive 로 바꾼 뒤 상한 없이 돌리면 20 작업자가 초당 약 2,700건을 내 9/23 과 다른 부하가 된다
+# (경로 점검 smoke/). 상한 없는 부하는 기록 단계 X-unpaced 에서만 쓴다.
+RATE_20W = 345.0 / 20
+RATE_5W = 203.0 / 5
+STALE_ERRORS = ('RemoteDisconnected', 'ConnectionResetError', 'ConnectionAbortedError', 'BrokenPipeError')
 
 LB_LINE = re.compile(
     r'^(?P<addr>\S+) - \S+ \[(?P<time>[^\]]+)\] "(?P<method>[A-Z]+) (?P<uri>\S+) [^"]*" (?P<status>\d{3}) \d+ '
@@ -202,6 +208,11 @@ def judge(facts, post_run=None):
     if not pre or not all(axis(v) for v in pre.values()):
         out['verdict'] = 'BLOCKED'
         out['blocked_by'] = sorted(k for k, v in pre.items() if not axis(v)) or ['preconditions 없음']
+        return out
+    if facts.get('error') or 'lb' not in facts:
+        # 실행기가 도중에 멈춘 주행은 판정하지 않는다(도구가 표본을 끝까지 뜨지 못했다).
+        out['verdict'] = 'NOT RUN'
+        out['not_run_reason'] = (facts.get('error') or 'LB 로그를 모으기 전에 끝났다')[-400:]
         return out
     lb = facts.get('lb') or {}
     ph = lb.get('phases') or {}
@@ -396,21 +407,40 @@ class KeepAlive:
 
     def __init__(self, port, timeout):
         self.port, self.timeout, self.conn = port, timeout, None
+        self.used = 0
+        self.stale_retries = 0
+
+    def _once(self, path, ua):
+        if self.conn is None:
+            self.conn = http.client.HTTPConnection('localhost', self.port, timeout=self.timeout)
+            self.used = 0
+        self.conn.request('GET', path, headers={'Accept': 'application/json', 'User-Agent': ua})
+        resp = self.conn.getresponse()
+        resp.read()
+        self.used += 1
+        if resp.getheader('Connection', '').lower() == 'close':
+            self.close()
+        return resp.status
 
     def get(self, path, ua):
+        """GET 하나. 이미 쓴 연결이 응답 없이 끊겼으면(nginx reload 가 쉬는 연결을 닫거나 keepalive_requests 를 채움) 새 연결로 한 번만
+        다시 보낸다. 브라우저와 HTTP 라이브러리가 멱등 요청에 하는 것과 같고, 다시 보낸 수는 stale_retries 로 따로 센다. 새 연결의 실패와
+        두 번째 실패는 그대로 오류다."""
         t0 = time.monotonic()
         try:
-            if self.conn is None:
-                self.conn = http.client.HTTPConnection('localhost', self.port, timeout=self.timeout)
-            self.conn.request('GET', path, headers={'Accept': 'application/json', 'User-Agent': ua})
-            resp = self.conn.getresponse()
-            resp.read()
-            status = resp.status
-            if resp.getheader('Connection', '').lower() == 'close':
-                self.close()
+            status = self._once(path, ua)
             return status, None, round((time.monotonic() - t0) * 1000, 2)
         except Exception as e:  # noqa: BLE001 - 전송 실패도 값으로 남긴다
+            reused = self.conn is not None and self.used > 0
             self.close()
+            if reused and type(e).__name__ in STALE_ERRORS:
+                self.stale_retries += 1
+                try:
+                    status = self._once(path, ua)
+                    return status, None, round((time.monotonic() - t0) * 1000, 2)
+                except Exception as e2:  # noqa: BLE001
+                    self.close()
+                    return 0, type(e2).__name__, round((time.monotonic() - t0) * 1000, 2)
             return 0, type(e).__name__, round((time.monotonic() - t0) * 1000, 2)
 
     def close(self):
@@ -420,6 +450,7 @@ class KeepAlive:
             except Exception:  # noqa: BLE001
                 pass
         self.conn = None
+        self.used = 0
 
 
 class LoadGen:
@@ -429,6 +460,8 @@ class LoadGen:
         self.max_workers = max_workers
         self.active = 0
         self.phase = None
+        self.rate = None
+        self.stale = collections.Counter()
         self.timeout = timeout
         self.records = []
         self.stop = threading.Event()
@@ -437,14 +470,24 @@ class LoadGen:
     def _worker(self, k):
         i = k
         client = KeepAlive(LB_PORT, self.timeout)
+        next_at = 0.0
         while not self.stop.is_set():
             ph = self.phase
             if ph is None or k >= self.active:
                 time.sleep(0.02)
                 continue
+            rate = self.rate
+            if rate:
+                now = time.monotonic()
+                if now < next_at:
+                    time.sleep(next_at - now)
+                next_at = max(next_at + 1.0 / rate, time.monotonic())
             path = LOAD_PATHS[i % len(LOAD_PATHS)]
             t = time.time()
+            before = client.stale_retries
             status, err, ms = client.get(path, UA_PREFIX + ph)
+            if client.stale_retries != before:
+                self.stale[ph] += client.stale_retries - before
             self.records.append((t, ph, i % len(LOAD_PATHS), status, ms, err))
             i += 1
         client.close()
@@ -455,7 +498,9 @@ class LoadGen:
             th.start()
             self.threads.append(th)
 
-    def set(self, phase, workers):
+    def set(self, phase, workers, rate='auto'):
+        """rate 는 작업자당 초당 상한. 'auto' 는 9/23 의 같은 작업자 수 처리량(20 -> RATE_20W, 5 -> RATE_5W), None 은 상한 없음."""
+        self.rate = {20: RATE_20W, 5: RATE_5W}.get(workers) if rate == 'auto' else rate
         self.active = workers
         self.phase = phase
 
@@ -657,9 +702,10 @@ def member_state(email, order_id, transfer_ext):
     sql = ("SELECT json_build_object('orders', (SELECT count(*) FROM orders o WHERE o.user_id = u.id), "
            "'transfers', (SELECT count(*) FROM transfer_requests t WHERE t.user_id = u.id), "
            "'journal', (SELECT count(*) FROM command_journal c WHERE c.user_id = u.id), "
-           "'order_status', (SELECT status FROM orders WHERE id = %d), "
+           "'order_status', (SELECT status FROM orders WHERE external_id = '%s'::uuid), "
            "'transfer_status', (SELECT status FROM transfer_requests WHERE external_id = '%s'::uuid)) "
-           "FROM users u WHERE u.email = '%s'") % (int(order_id), str(uuid.UUID(str(transfer_ext))), email.replace("'", "''"))
+           "FROM users u WHERE u.email = '%s'") % (str(uuid.UUID(str(order_id))), str(uuid.UUID(str(transfer_ext))),
+                                                   email.replace("'", "''"))
     return psql_json(sql)
 
 
@@ -683,7 +729,18 @@ def direct_api3_checks(member, market, terms):
     res['target_status'] = {'order': s, 'withdraw': s2}
     if not oid or not ext:
         return res
-    res['targets_prepared'] = True
+    # 주문 응답의 id 는 외부 id(UUID)다. 주문 행은 정산이 물질화하므로 OPEN 이 보일 때까지 기다린 뒤 앞 표본을 뜬다.
+    # 기다리지 않으면 물질화 전후의 차이를 api-3 의 부작용으로 잘못 셀 수 있다.
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < 15:
+        st0 = member_state(member.email, oid, ext)
+        if st0 and st0.get('order_status') == 'OPEN':
+            break
+        time.sleep(0.3)
+    res['targets_prepared'] = bool(st0 and st0.get('order_status') == 'OPEN' and st0.get('transfer_status'))
+    if not res['targets_prepared']:
+        res['target_state'] = st0
+        return res
     before = {'db': member_state(member.email, oid, ext), 'krw': krw_of(member)}
     p = APP_PORTS[API3]
     for k, fn in (('order_create', lambda: place_order(member, market, terms, port=p, ua='B3-direct')),
@@ -911,6 +968,7 @@ def cmd_run(a):
     rc_start, _, _ = docker(['start', API3], timeout=60)
     mark('C1-started', rc=rc_start)
     h1 = wait_read_health()
+    load.set('C1-reg', 5)
     if h1 is not None:
         lb.set_down(API3, False)
         lb.reload()
@@ -945,8 +1003,15 @@ def cmd_run(a):
         split_records += recs
         facts['split_prom']['R3-' + name] = info
     mark('R3-end')
+    # 기록 단계. 상한 없는 20 작업자 30초(keep-alive). 판정에 쓰지 않는다.
+    load.set('X-unpaced', 20, rate=None)
+    time.sleep(a.x_unpaced_s)
+    load.pause()
+    mark('X-unpaced-end')
     facts['write_probe'] = probe.close()
     load.close()
+    facts['client_stale_retries'] = dict(load.stale)
+    facts['load_rates'] = {'RATE_20W': RATE_20W, 'RATE_5W': RATE_5W}
     facts['docker_stats'] = stats.close()
     facts['member_krw_end'] = krw_of(member)
     facts['ip_snapshots'].append(ip_snapshot('end'))
@@ -1041,6 +1106,7 @@ def main(argv=None):
     r.add_argument('--c-post-s', type=float, default=60)
     r.add_argument('--drain-s', type=float, default=10)
     r.add_argument('--probe-interval-s', type=float, default=4)
+    r.add_argument('--x-unpaced-s', type=float, default=30)
     r.set_defaults(func=cmd_run)
     j = sub.add_parser('judge')
     j.add_argument('--facts', required=True)

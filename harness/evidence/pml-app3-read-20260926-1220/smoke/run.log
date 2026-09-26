@@ -1,0 +1,17 @@
+[12:35:20.760] R0-start 
+[12:35:44.261] R0-end 
+[12:35:44.261] scale-out-1-start 
+[12:35:53.283] scale-out-1-registered health_s=8.53
+[12:35:57.441] R1-end 
+[12:36:00.138] direct-checks-end 
+[12:36:00.461] R2-start 
+[12:36:16.272] R2-end 
+[12:36:21.273] C1-drain 
+[12:36:25.064] C1-stopped rc=0
+[12:36:35.341] C1-started rc=0
+[12:36:48.789] C1-registered health_s=13.17
+[12:37:04.324] C2-killed rc=0
+[12:37:14.600] C2-started rc=0
+[12:37:27.751] C2-healthy health_s=13.15
+[12:37:46.924] R3-end 
+facts.json 을 썼다: C:\dev\exchange-pml\harness\evidence\pml-app3-read-20260926-1220\smoke\facts.json

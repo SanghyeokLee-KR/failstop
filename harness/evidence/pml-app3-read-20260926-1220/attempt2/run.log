@@ -1,0 +1,22 @@
+[12:29:57.534] R0-start 
+[12:33:06.037] R0-end 
+[12:33:06.037] scale-out-1-start 
+[12:33:15.399] scale-out-1-registered health_s=8.85
+[12:33:19.383] R1-end 
+Traceback (most recent call last):
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 1062, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 1052, in main
+    return a.func(a)
+           ~~~~~~^^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 870, in cmd_run
+    facts['direct_api3'] = direct_api3_checks(member, market, terms)
+                           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 687, in direct_api3_checks
+    before = {'db': member_state(member.email, oid, ext), 'krw': krw_of(member)}
+                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\dev\exchange-pml\harness\scale\read_node_probe.py", line 662, in member_state
+    "FROM users u WHERE u.email = '%s'") % (int(order_id), str(uuid.UUID(str(transfer_ext))), email.replace("'", "''"))
+                                            ~~~^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'f4e26f82-f92b-4136-a335-d8f412638efb'

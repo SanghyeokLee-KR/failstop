@@ -1,0 +1,1651 @@
+{
+  "started": "2026-09-26T12:35:20.218+09:00",
+  "args": {
+    "cmd": "run",
+    "evidence_dir": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\smoke",
+    "raw_dir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\claude\\C--Users-DEV-PC-Desktop-----\\a9c99344-fc00-4286-9dc8-5fc2370b4cf0\\scratchpad\\pml-app3-raw\\smoke",
+    "lb_conf": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\smoke\\lb\\nginx.partition-relay.conf",
+    "lb_tracked": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf",
+    "preflight": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\smoke\\p3-preflight.json",
+    "read_user": "pml_read",
+    "r_load_s": 10.0,
+    "r_small_s": 5.0,
+    "c_pre_s": 5.0,
+    "c_out_s": 10.0,
+    "c_post_s": 10.0,
+    "drain_s": 3.0,
+    "probe_interval_s": 2.0
+  },
+  "marks": [
+    {
+      "name": "R0-start",
+      "at": "2026-09-26T12:35:20.760+09:00",
+      "t": 1790393720.76
+    },
+    {
+      "name": "R0-end",
+      "at": "2026-09-26T12:35:44.261+09:00",
+      "t": 1790393744.262
+    },
+    {
+      "name": "scale-out-1-start",
+      "at": "2026-09-26T12:35:44.261+09:00",
+      "t": 1790393744.262
+    },
+    {
+      "name": "scale-out-1-registered",
+      "at": "2026-09-26T12:35:53.283+09:00",
+      "t": 1790393753.284,
+      "health_s": 8.53
+    },
+    {
+      "name": "R1-end",
+      "at": "2026-09-26T12:35:57.441+09:00",
+      "t": 1790393757.441
+    },
+    {
+      "name": "direct-checks-end",
+      "at": "2026-09-26T12:36:00.138+09:00",
+      "t": 1790393760.139
+    },
+    {
+      "name": "R2-start",
+      "at": "2026-09-26T12:36:00.461+09:00",
+      "t": 1790393760.461
+    },
+    {
+      "name": "R2-end",
+      "at": "2026-09-26T12:36:16.272+09:00",
+      "t": 1790393776.273
+    },
+    {
+      "name": "C1-drain",
+      "at": "2026-09-26T12:36:21.273+09:00",
+      "t": 1790393781.273
+    },
+    {
+      "name": "C1-stopped",
+      "at": "2026-09-26T12:36:25.064+09:00",
+      "t": 1790393785.065,
+      "rc": 0
+    },
+    {
+      "name": "C1-started",
+      "at": "2026-09-26T12:36:35.341+09:00",
+      "t": 1790393795.342,
+      "rc": 0
+    },
+    {
+      "name": "C1-registered",
+      "at": "2026-09-26T12:36:48.789+09:00",
+      "t": 1790393808.79,
+      "health_s": 13.17
+    },
+    {
+      "name": "C2-killed",
+      "at": "2026-09-26T12:37:04.324+09:00",
+      "t": 1790393824.325,
+      "rc": 0
+    },
+    {
+      "name": "C2-started",
+      "at": "2026-09-26T12:37:14.600+09:00",
+      "t": 1790393834.6,
+      "rc": 0
+    },
+    {
+      "name": "C2-healthy",
+      "at": "2026-09-26T12:37:27.751+09:00",
+      "t": 1790393847.752,
+      "health_s": 13.15
+    },
+    {
+      "name": "R3-end",
+      "at": "2026-09-26T12:37:46.924+09:00",
+      "t": 1790393866.924
+    }
+  ],
+  "ip_snapshots": [
+    {
+      "label": "start",
+      "at": "2026-09-26T12:35:20.758+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.8": "chaos-lb",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.3": "chaos-pg"
+      }
+    },
+    {
+      "label": "api3-up-1",
+      "at": "2026-09-26T12:35:53.321+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.8": "chaos-lb",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.10": "chaos-api-3",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.3": "chaos-pg"
+      }
+    },
+    {
+      "label": "api3-up-2",
+      "at": "2026-09-26T12:36:48.836+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.8": "chaos-lb",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.10": "chaos-api-3",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.3": "chaos-pg"
+      }
+    },
+    {
+      "label": "api3-up-3",
+      "at": "2026-09-26T12:37:27.799+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.8": "chaos-lb",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.10": "chaos-api-3",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.3": "chaos-pg"
+      }
+    },
+    {
+      "label": "end",
+      "at": "2026-09-26T12:37:46.986+09:00",
+      "rc": 0,
+      "map": {
+        "172.18.0.4": "chaos-broker",
+        "172.18.0.7": "chaos-api-2",
+        "172.18.0.9": "chaos-bots",
+        "172.18.0.8": "chaos-lb",
+        "172.18.0.6": "chaos-api-1",
+        "172.18.0.10": "chaos-api-3",
+        "172.18.0.2": "chaos-dynamodb",
+        "172.18.0.5": "chaos-toxiproxy",
+        "172.18.0.3": "chaos-pg"
+      }
+    }
+  ],
+  "guard": {
+    "ok": true,
+    "problems": [],
+    "labels": {
+      "chaos-pg": "exchange-pml",
+      "chaos-api-1": "exchange-pml",
+      "chaos-api-2": "exchange-pml",
+      "chaos-bots": "exchange-pml"
+    },
+    "image_ids": {
+      "chaos-api-1": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-api-2": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+      "chaos-bots": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+    },
+    "pml_image_id": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf"
+  },
+  "q0_preflight": {
+    "ok": true,
+    "failed": []
+  },
+  "lb_conf": {
+    "copy": "C:\\dev\\exchange-pml\\harness\\evidence\\pml-app3-read-20260926-1220\\smoke\\lb\\nginx.partition-relay.conf",
+    "tracked": "C:\\dev\\exchange-pml\\harness\\nginx\\nginx.partition-relay.conf",
+    "copy_sha256_start": "a7476f65bfce31a95d76d7f62fe72ac6d78456f4aba79b2d5c166862dec3e6f9",
+    "tracked_sha256": "a7476f65bfce31a95d76d7f62fe72ac6d78456f4aba79b2d5c166862dec3e6f9",
+    "mount_source": "C:/dev/exchange-pml/harness/evidence/pml-app3-read-20260926-1220/smoke/lb/nginx.partition-relay.conf"
+  },
+  "api3_profile": "prod,read",
+  "api3_role": "read",
+  "api3_image": "sha256:267c799f03d0685ff80d2418cf9e5148fd212950f4b73adf515444076ee412cf",
+  "preconditions": {
+    "guard_ok": true,
+    "q0_preflight_ok": true,
+    "lb_copy_identical_to_tracked_at_start": true,
+    "lb_mount_is_copy": true,
+    "lb_copy_api3_down_at_start": true,
+    "api3_image_is_pml": true,
+    "api3_profile_prod_read": true,
+    "api3_role_read": true,
+    "api3_first_read_health": true,
+    "api3_db_login_is_read_user": true,
+    "lb_registration_visible_in_nginx": true
+  },
+  "first_start": {
+    "rc": 0,
+    "health_s": 8.53
+  },
+  "api3_sessions_after_start": [
+    {
+      "usename": "pml_read",
+      "n": 4
+    }
+  ],
+  "ws": {
+    "lb_static": {
+      "rc": 0,
+      "api3_read_line": "server chaos-api-3:8080 resolve max_fails=1 fail_timeout=2s;",
+      "api3_down_in_running_conf": false,
+      "exchange_ws": [
+        "chaos-api-1",
+        "chaos-api-2"
+      ],
+      "exchange_any": [
+        "chaos-api-1",
+        "chaos-api-2"
+      ],
+      "exchange_read": [
+        "chaos-api-1",
+        "chaos-api-2",
+        "chaos-api-3"
+      ],
+      "api3_blocks": [
+        "exchange_read"
+      ],
+      "ws_location_upstream": "exchange_ws",
+      "sha256": "b37243633183f3c5d460dc27020486c0ede9bb7920227dba66194715724c41da"
+    },
+    "handshakes": [
+      {
+        "status": 101,
+        "ms": 123.91
+      },
+      {
+        "status": 101,
+        "ms": 102.24
+      },
+      {
+        "status": 101,
+        "ms": 46.51
+      },
+      {
+        "status": 101,
+        "ms": 12.43
+      },
+      {
+        "status": 101,
+        "ms": 40.64
+      },
+      {
+        "status": 101,
+        "ms": 7.12
+      },
+      {
+        "status": 101,
+        "ms": 46.93
+      },
+      {
+        "status": 101,
+        "ms": 76.01
+      },
+      {
+        "status": 101,
+        "ms": 8.82
+      },
+      {
+        "status": 101,
+        "ms": 44.81
+      },
+      {
+        "status": 101,
+        "ms": 13.44
+      },
+      {
+        "status": 101,
+        "ms": 39.94
+      },
+      {
+        "status": 101,
+        "ms": 8.75
+      },
+      {
+        "status": 101,
+        "ms": 41.9
+      },
+      {
+        "status": 101,
+        "ms": 8.06
+      },
+      {
+        "status": 101,
+        "ms": 3.33
+      },
+      {
+        "status": 101,
+        "ms": 22.96
+      },
+      {
+        "status": 101,
+        "ms": 5.71
+      },
+      {
+        "status": 101,
+        "ms": 44.87
+      },
+      {
+        "status": 101,
+        "ms": 7.39
+      },
+      {
+        "status": 101,
+        "ms": 46.87
+      },
+      {
+        "status": 101,
+        "ms": 10.77
+      },
+      {
+        "status": 101,
+        "ms": 3.55
+      },
+      {
+        "status": 101,
+        "ms": 27.55
+      },
+      {
+        "status": 101,
+        "ms": 63.23
+      },
+      {
+        "status": 101,
+        "ms": 6.65
+      },
+      {
+        "status": 101,
+        "ms": 45.75
+      },
+      {
+        "status": 101,
+        "ms": 16.98
+      },
+      {
+        "status": 101,
+        "ms": 34.86
+      },
+      {
+        "status": 101,
+        "ms": 9.47
+      }
+    ]
+  },
+  "split_prom": {
+    "R1-markets": {
+      "uri": "/api/v1/markets",
+      "path": "/api/v1/markets",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 30.0,
+        "chaos-api-3": 30.0
+      }
+    },
+    "R1-trades": {
+      "uri": "/api/v1/trades",
+      "path": "/api/v1/trades?market=KRW-BTC&count=3",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 30.0,
+        "chaos-api-3": 30.0
+      }
+    },
+    "R1-orderbook": {
+      "uri": "/api/v1/orderbook",
+      "path": "/api/v1/orderbook?market=KRW-BTC",
+      "calls": 60,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 31.0,
+        "chaos-api-3": 0
+      }
+    },
+    "R3-markets": {
+      "uri": "/api/v1/markets",
+      "path": "/api/v1/markets",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 30.0,
+        "chaos-api-3": 30.0
+      }
+    },
+    "R3-trades": {
+      "uri": "/api/v1/trades",
+      "path": "/api/v1/trades?market=KRW-BTC&count=3",
+      "calls": 90,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 30.0,
+        "chaos-api-3": 30.0
+      }
+    },
+    "R3-orderbook": {
+      "uri": "/api/v1/orderbook",
+      "path": "/api/v1/orderbook?market=KRW-BTC",
+      "calls": 60,
+      "prom_delta": {
+        "chaos-api-1": 30.0,
+        "chaos-api-2": 30.0,
+        "chaos-api-3": 0
+      }
+    }
+  },
+  "member_krw_start": {
+    "balance": "100000000",
+    "locked": "0"
+  },
+  "direct_api3": {
+    "writes": {
+      "order_create": {
+        "status": 404,
+        "error": "not_found",
+        "ms": 8.87
+      },
+      "order_cancel": {
+        "status": 404,
+        "error": "not_found",
+        "ms": 21.77
+      },
+      "withdraw_create": {
+        "status": 404,
+        "error": "not_found",
+        "ms": 15.4
+      },
+      "withdraw_cancel": {
+        "status": 404,
+        "error": "not_found",
+        "ms": 2.67
+      }
+    },
+    "reads": {
+      "orderbook": {
+        "status": 404,
+        "error": "not_found"
+      },
+      "ticker": {
+        "status": 404,
+        "error": "not_found"
+      },
+      "accounts": {
+        "status": 404,
+        "error": "not_found"
+      },
+      "ws_upgrade": {
+        "status": 404,
+        "ms": 15.37
+      }
+    },
+    "targets_prepared": true,
+    "target_status": {
+      "order": 201,
+      "withdraw": 201
+    },
+    "before": {
+      "db": {
+        "orders": 1,
+        "transfers": 1,
+        "journal": 1,
+        "order_status": "OPEN",
+        "transfer_status": "REQUESTED"
+      },
+      "krw": {
+        "balance": "99980000",
+        "locked": "20000"
+      }
+    },
+    "after": {
+      "db": {
+        "orders": 1,
+        "transfers": 1,
+        "journal": 1,
+        "order_status": "OPEN",
+        "transfer_status": "REQUESTED"
+      },
+      "krw": {
+        "balance": "99980000",
+        "locked": "20000"
+      }
+    },
+    "side_effect_unchanged": true,
+    "cleanup": {
+      "order_cancel": 200,
+      "withdraw_cancel": 200
+    }
+  },
+  "w4_post_read_path": {
+    "405": 20,
+    "404": 10
+  },
+  "api3_sessions_under_load": [
+    {
+      "usename": "pml_read",
+      "n": 8
+    }
+  ],
+  "cycles": {
+    "C1": {
+      "ok": true,
+      "health_s": 13.17
+    },
+    "C2": {
+      "ok": true,
+      "health_s": 13.15
+    }
+  },
+  "write_probe": {
+    "order_create": {
+      "2xx": 51
+    },
+    "order_cancel": {
+      "2xx": 51
+    },
+    "withdraw_create": {
+      "2xx": 51
+    },
+    "withdraw_cancel": {
+      "2xx": 51
+    },
+    "errors": []
+  },
+  "docker_stats": [
+    {
+      "at": "2026-09-26T12:35:22.876+09:00",
+      "rows": [
+        [
+          "chaos-lb",
+          "10.87%",
+          "5.047MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "19.31%",
+          "327.3MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "101.14%",
+          "276.9MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "103.01%",
+          "310.3MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "15.80%",
+          "13.02MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "83.17%",
+          "206.5MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "36.30%",
+          "141.2MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.08%",
+          "190.6MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:35:39.970+09:00",
+      "rows": [
+        [
+          "chaos-lb",
+          "0.47%",
+          "5.188MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "12.99%",
+          "330.6MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "10.81%",
+          "292.4MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "11.35%",
+          "327.9MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "7.97%",
+          "16.11MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "14.46%",
+          "265.6MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "2.96%",
+          "82.52MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.06%",
+          "190.6MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:35:56.134+09:00",
+      "rows": [
+        [
+          "chaos-api-3",
+          "0.27%",
+          "219.4MiB / 1GiB"
+        ],
+        [
+          "chaos-lb",
+          "0.43%",
+          "5.145MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "10.41%",
+          "336.5MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "9.93%",
+          "295.2MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "12.14%",
+          "332.2MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "7.84%",
+          "15.96MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "11.79%",
+          "274.3MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "3.02%",
+          "82.29MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.06%",
+          "190.7MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:36:13.261+09:00",
+      "rows": [
+        [
+          "chaos-api-3",
+          "92.46%",
+          "249.2MiB / 1GiB"
+        ],
+        [
+          "chaos-lb",
+          "43.29%",
+          "5.781MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "10.60%",
+          "337.3MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "87.74%",
+          "307.7MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "77.50%",
+          "340.4MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "38.88%",
+          "17MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "143.75%",
+          "309.2MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "104.78%",
+          "161.5MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.09%",
+          "190.7MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:36:30.385+09:00",
+      "rows": [
+        [
+          "chaos-lb",
+          "48.11%",
+          "5.594MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "10.46%",
+          "340.9MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "69.51%",
+          "310.3MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "66.78%",
+          "339.9MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "59.21%",
+          "16.89MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "163.96%",
+          "295.9MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "4.30%",
+          "82.95MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "3.08%",
+          "191.1MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:36:47.212+09:00",
+      "rows": [
+        [
+          "chaos-api-3",
+          "104.35%",
+          "208.3MiB / 1GiB"
+        ],
+        [
+          "chaos-lb",
+          "47.31%",
+          "6.098MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "10.30%",
+          "341.2MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "63.67%",
+          "313.2MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "64.95%",
+          "340.7MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "56.97%",
+          "16.89MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "171.43%",
+          "304MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "4.40%",
+          "83.14MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.08%",
+          "190.9MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:37:04.345+09:00",
+      "rows": [
+        [
+          "chaos-lb",
+          "44.19%",
+          "5.414MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "9.91%",
+          "346MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "58.07%",
+          "313.6MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "59.20%",
+          "342MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "41.54%",
+          "16.94MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "168.03%",
+          "315.4MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "91.16%",
+          "83.21MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "3.37%",
+          "191.1MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:37:21.475+09:00",
+      "rows": [
+        [
+          "chaos-api-3",
+          "103.16%",
+          "148.8MiB / 1GiB"
+        ],
+        [
+          "chaos-lb",
+          "46.18%",
+          "5.367MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "8.84%",
+          "354.9MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "65.25%",
+          "313.4MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "66.64%",
+          "343.1MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "55.96%",
+          "17.41MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "178.71%",
+          "306.7MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "3.60%",
+          "82.83MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "0.07%",
+          "191.1MiB / 15.18GiB"
+        ]
+      ]
+    },
+    {
+      "at": "2026-09-26T12:37:38.243+09:00",
+      "rows": [
+        [
+          "chaos-api-3",
+          "46.32%",
+          "255MiB / 1GiB"
+        ],
+        [
+          "chaos-lb",
+          "26.64%",
+          "5.098MiB / 15.18GiB"
+        ],
+        [
+          "chaos-bots",
+          "11.17%",
+          "355.2MiB / 512MiB"
+        ],
+        [
+          "chaos-api-2",
+          "28.81%",
+          "313.4MiB / 1GiB"
+        ],
+        [
+          "chaos-api-1",
+          "30.95%",
+          "343.5MiB / 1GiB"
+        ],
+        [
+          "chaos-toxiproxy",
+          "27.58%",
+          "16.86MiB / 15.18GiB"
+        ],
+        [
+          "chaos-pg",
+          "105.08%",
+          "318.3MiB / 15.18GiB"
+        ],
+        [
+          "chaos-broker",
+          "3.33%",
+          "83.25MiB / 320MiB"
+        ],
+        [
+          "chaos-dynamodb",
+          "2.60%",
+          "191.1MiB / 15.18GiB"
+        ]
+      ]
+    }
+  ],
+  "member_krw_end": {
+    "balance": "100000000",
+    "locked": "0"
+  },
+  "lb_conf_final_api3_active": true,
+  "client": {
+    "R0": {
+      "requests": 11978,
+      "ok_200": 11978,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 4.63,
+      "p95_ms": 80.48,
+      "p99_ms": 87.55,
+      "max_ms": 184.41,
+      "rps": 1202.6
+    },
+    "R0b": {
+      "requests": 6981,
+      "ok_200": 6981,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.92,
+      "p95_ms": 3.46,
+      "p99_ms": 55.29,
+      "max_ms": 73.25,
+      "rps": 1410.6
+    },
+    "R2": {
+      "requests": 27528,
+      "ok_200": 26969,
+      "errors": 559,
+      "error_rate": 0.020307,
+      "errors_by": {
+        "transport:ConnectionAbortedError": 20,
+        "429": 539
+      },
+      "p50_ms": 3.49,
+      "p95_ms": 54.92,
+      "p99_ms": 69.21,
+      "max_ms": 175.28,
+      "rps": 2549.9
+    },
+    "R2b": {
+      "requests": 14518,
+      "ok_200": 14518,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.62,
+      "p95_ms": 2.3,
+      "p99_ms": 3.68,
+      "max_ms": 50.97,
+      "rps": 2919.6
+    },
+    "C1-pre": {
+      "requests": 16393,
+      "ok_200": 16393,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.58,
+      "p95_ms": 2.14,
+      "p99_ms": 2.92,
+      "max_ms": 42.56,
+      "rps": 3278.6
+    },
+    "C1-drain": {
+      "requests": 12878,
+      "ok_200": 12875,
+      "errors": 3,
+      "error_rate": 0.000233,
+      "errors_by": {
+        "transport:RemoteDisconnected": 3
+      },
+      "p50_ms": 1.6,
+      "p95_ms": 2.15,
+      "p99_ms": 3.03,
+      "max_ms": 24.27,
+      "rps": 3396.8
+    },
+    "C1-out": {
+      "requests": 78159,
+      "ok_200": 78159,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.64,
+      "p95_ms": 2.26,
+      "p99_ms": 3.18,
+      "max_ms": 85.2,
+      "rps": 3287.9
+    },
+    "C1-post": {
+      "requests": 27646,
+      "ok_200": 27643,
+      "errors": 3,
+      "error_rate": 0.000109,
+      "errors_by": {
+        "transport:ConnectionAbortedError": 2,
+        "transport:RemoteDisconnected": 1
+      },
+      "p50_ms": 1.63,
+      "p95_ms": 2.43,
+      "p99_ms": 4.12,
+      "max_ms": 87.02,
+      "rps": 2764.6
+    },
+    "C2-pre": {
+      "requests": 16847,
+      "ok_200": 16847,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.63,
+      "p95_ms": 2.35,
+      "p99_ms": 3.3,
+      "max_ms": 48.11,
+      "rps": 3070.7
+    },
+    "C2-out": {
+      "requests": 32135,
+      "ok_200": 32135,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.59,
+      "p95_ms": 2.22,
+      "p99_ms": 3.01,
+      "max_ms": 2000.57,
+      "rps": 3127.5
+    },
+    "C2-return": {
+      "requests": 41021,
+      "ok_200": 41021,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.69,
+      "p95_ms": 2.46,
+      "p99_ms": 3.28,
+      "max_ms": 459.69,
+      "rps": 3108.1
+    },
+    "C2-post": {
+      "requests": 27051,
+      "ok_200": 27051,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.66,
+      "p95_ms": 2.55,
+      "p99_ms": 3.82,
+      "max_ms": 110.17,
+      "rps": 2705.1
+    },
+    "R1-markets": {
+      "requests": 90,
+      "ok_200": 90,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.01,
+      "p95_ms": 2.5,
+      "p99_ms": 37.32,
+      "max_ms": 37.32,
+      "rps": 462.3
+    },
+    "R1-trades": {
+      "requests": 90,
+      "ok_200": 90,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 2.48,
+      "p95_ms": 4.3,
+      "p99_ms": 40.94,
+      "max_ms": 40.94,
+      "rps": 301.9
+    },
+    "R1-orderbook": {
+      "requests": 60,
+      "ok_200": 60,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 0.92,
+      "p95_ms": 1.27,
+      "p99_ms": 2.71,
+      "max_ms": 2.71,
+      "rps": 1070.7
+    },
+    "R3-markets": {
+      "requests": 90,
+      "ok_200": 90,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 0.67,
+      "p95_ms": 0.93,
+      "p99_ms": 22.63,
+      "max_ms": 22.63,
+      "rps": 1047.5
+    },
+    "R3-trades": {
+      "requests": 90,
+      "ok_200": 90,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.34,
+      "p95_ms": 2.97,
+      "p99_ms": 27.86,
+      "max_ms": 27.86,
+      "rps": 521.5
+    },
+    "R3-orderbook": {
+      "requests": 60,
+      "ok_200": 60,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 0.87,
+      "p95_ms": 1.03,
+      "p99_ms": 12.53,
+      "max_ms": 12.53,
+      "rps": 1015.3
+    },
+    "C1": {
+      "requests": 135076,
+      "ok_200": 135070,
+      "errors": 6,
+      "error_rate": 4.4e-05,
+      "errors_by": {
+        "transport:RemoteDisconnected": 4,
+        "transport:ConnectionAbortedError": 2
+      },
+      "p50_ms": 1.62,
+      "p95_ms": 2.27,
+      "p99_ms": 3.25,
+      "max_ms": 87.02,
+      "rps": 3173.5
+    },
+    "C2": {
+      "requests": 117054,
+      "ok_200": 117054,
+      "errors": 0,
+      "error_rate": 0.0,
+      "errors_by": {},
+      "p50_ms": 1.64,
+      "p95_ms": 2.42,
+      "p99_ms": 3.29,
+      "max_ms": 2000.57,
+      "rps": 3004.4
+    }
+  },
+  "ipmap": {
+    "172.18.0.4": [
+      "chaos-broker"
+    ],
+    "172.18.0.7": [
+      "chaos-api-2"
+    ],
+    "172.18.0.9": [
+      "chaos-bots"
+    ],
+    "172.18.0.8": [
+      "chaos-lb"
+    ],
+    "172.18.0.6": [
+      "chaos-api-1"
+    ],
+    "172.18.0.2": [
+      "chaos-dynamodb"
+    ],
+    "172.18.0.5": [
+      "chaos-toxiproxy"
+    ],
+    "172.18.0.3": [
+      "chaos-pg"
+    ],
+    "172.18.0.10": [
+      "chaos-api-3"
+    ]
+  },
+  "lb": {
+    "raw_lines": 316611,
+    "parsed": 316600,
+    "raw_sha256": "c86aa15e37b365252ba42aa9b577fabb8c54f5996bbb117c182c2c0a17573c85",
+    "raw_path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\claude\\C--Users-DEV-PC-Desktop-----\\a9c99344-fc00-4286-9dc8-5fc2370b4cf0\\scratchpad\\pml-app3-raw\\smoke\\lb-access.log.gz",
+    "phases": {
+      "R0": {
+        "lines": 11978,
+        "served": {
+          "chaos-api-2": 6109,
+          "chaos-api-1": 5869
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "R0b": {
+        "lines": 6981,
+        "served": {
+          "chaos-api-1": 3446,
+          "chaos-api-2": 3535
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "R1-markets": {
+        "lines": 90,
+        "served": {
+          "chaos-api-2": 30,
+          "chaos-api-3": 30,
+          "chaos-api-1": 30
+        },
+        "tried_api3": 30,
+        "api3_5xx": 0,
+        "api3_share": 0.3333
+      },
+      "R1-trades": {
+        "lines": 90,
+        "served": {
+          "chaos-api-2": 30,
+          "chaos-api-3": 30,
+          "chaos-api-1": 30
+        },
+        "tried_api3": 30,
+        "api3_5xx": 0,
+        "api3_share": 0.3333
+      },
+      "R1-orderbook": {
+        "lines": 60,
+        "served": {
+          "chaos-api-2": 30,
+          "chaos-api-1": 30
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-signup": {
+        "lines": 1,
+        "served": {
+          "chaos-api-1": 1
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-markets": {
+        "lines": 1,
+        "served": {
+          "chaos-api-2": 1
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-accounts": {
+        "lines": 4,
+        "served": {
+          "chaos-api-1": 4
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "B3-target-order": {
+        "lines": 1,
+        "served": {
+          "chaos-api-2": 1
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "B3-target-withdraw": {
+        "lines": 1,
+        "served": {
+          "chaos-api-1": 1
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "B3-target-cleanup": {
+        "lines": 2,
+        "served": {
+          "chaos-api-2": 1,
+          "chaos-api-1": 1
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W4-post-read-path": {
+        "lines": 30,
+        "served": {
+          "chaos-api-2": 10,
+          "chaos-api-3": 10,
+          "chaos-api-1": 10
+        },
+        "tried_api3": 10,
+        "api3_5xx": 0,
+        "api3_share": 0.3333
+      },
+      "R2": {
+        "lines": 27508,
+        "served": {
+          "chaos-api-3": 7118,
+          "chaos-api-2": 10757,
+          "chaos-api-1": 9633
+        },
+        "tried_api3": 7118,
+        "api3_5xx": 0,
+        "api3_share": 0.2588
+      },
+      "W-order": {
+        "lines": 51,
+        "served": {
+          "chaos-api-2": 51
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-order-cancel": {
+        "lines": 51,
+        "served": {
+          "chaos-api-2": 51
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-withdraw": {
+        "lines": 51,
+        "served": {
+          "chaos-api-1": 51
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "W-withdraw-cancel": {
+        "lines": 51,
+        "served": {
+          "chaos-api-1": 51
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "D3-ws": {
+        "lines": 30,
+        "served": {
+          "chaos-api-1": 15,
+          "chaos-api-2": 15
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "R2b": {
+        "lines": 14518,
+        "served": {
+          "chaos-api-1": 4801,
+          "chaos-api-2": 5192,
+          "chaos-api-3": 4525
+        },
+        "tried_api3": 4525,
+        "api3_5xx": 0,
+        "api3_share": 0.3117
+      },
+      "C1-pre": {
+        "lines": 16393,
+        "served": {
+          "chaos-api-1": 5514,
+          "chaos-api-3": 5365,
+          "chaos-api-2": 5514
+        },
+        "tried_api3": 5365,
+        "api3_5xx": 0,
+        "api3_share": 0.3273
+      },
+      "C1-drain": {
+        "lines": 12875,
+        "served": {
+          "chaos-api-3": 441,
+          "chaos-api-2": 6173,
+          "chaos-api-1": 6261
+        },
+        "tried_api3": 441,
+        "api3_5xx": 0,
+        "api3_share": 0.0343
+      },
+      "C1-out": {
+        "lines": 78159,
+        "served": {
+          "chaos-api-1": 39252,
+          "chaos-api-2": 38906,
+          "chaos-api-3": 1
+        },
+        "tried_api3": 1,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "C1-post": {
+        "lines": 27643,
+        "served": {
+          "chaos-api-1": 10651,
+          "chaos-api-2": 10767,
+          "chaos-api-3": 6225
+        },
+        "tried_api3": 6225,
+        "api3_5xx": 0,
+        "api3_share": 0.2252
+      },
+      "C2-pre": {
+        "lines": 16847,
+        "served": {
+          "chaos-api-1": 5971,
+          "chaos-api-2": 6104,
+          "chaos-api-3": 4772
+        },
+        "tried_api3": 4774,
+        "api3_5xx": 0,
+        "api3_share": 0.2833
+      },
+      "C2-out": {
+        "lines": 32135,
+        "served": {
+          "chaos-api-1": 16097,
+          "chaos-api-2": 16038
+        },
+        "tried_api3": 2,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      },
+      "C2-return": {
+        "lines": 41021,
+        "served": {
+          "chaos-api-2": 20434,
+          "chaos-api-1": 20552,
+          "chaos-api-3": 35
+        },
+        "tried_api3": 39,
+        "api3_5xx": 0,
+        "api3_share": 0.0009
+      },
+      "C2-post": {
+        "lines": 27051,
+        "served": {
+          "chaos-api-1": 10483,
+          "chaos-api-2": 10533,
+          "chaos-api-3": 6035
+        },
+        "tried_api3": 6035,
+        "api3_5xx": 0,
+        "api3_share": 0.2231
+      },
+      "R3-markets": {
+        "lines": 90,
+        "served": {
+          "chaos-api-2": 30,
+          "chaos-api-3": 30,
+          "chaos-api-1": 30
+        },
+        "tried_api3": 30,
+        "api3_5xx": 0,
+        "api3_share": 0.3333
+      },
+      "R3-trades": {
+        "lines": 90,
+        "served": {
+          "chaos-api-2": 30,
+          "chaos-api-3": 30,
+          "chaos-api-1": 30
+        },
+        "tried_api3": 30,
+        "api3_5xx": 0,
+        "api3_share": 0.3333
+      },
+      "R3-orderbook": {
+        "lines": 60,
+        "served": {
+          "chaos-api-1": 30,
+          "chaos-api-2": 30
+        },
+        "tried_api3": 0,
+        "api3_5xx": 0,
+        "api3_share": 0.0
+      }
+    },
+    "writes": {
+      "lines": 1358,
+      "served": {
+        "chaos-api-1": 874,
+        "chaos-api-2": 484
+      },
+      "tried_api3": 0,
+      "api3_5xx": 0,
+      "api3_share": 0.0,
+      "by_kind": {
+        "POST /api/v1/orders": 1025,
+        "DELETE /api/v1/orders": 228,
+        "POST other": 1,
+        "POST /api/v1/transfers": 52,
+        "DELETE /api/v1/transfers": 52
+      }
+    },
+    "ws": {
+      "lines": 30,
+      "served": {
+        "chaos-api-1": 15,
+        "chaos-api-2": 15
+      },
+      "tried_api3": 0,
+      "api3_5xx": 0,
+      "api3_share": 0.0
+    },
+    "orderbook_ticker": {
+      "lines": 1030,
+      "served": {
+        "chaos-api-2": 516,
+        "chaos-api-1": 514
+      },
+      "tried_api3": 0,
+      "api3_5xx": 0,
+      "api3_share": 0.0
+    },
+    "api3_5xx_total": 0,
+    "all_after_registration": {
+      "lines": 297038,
+      "served": {
+        "chaos-api-2": 131585,
+        "chaos-api-1": 130798,
+        "chaos-api-3": 34655
+      },
+      "tried_api3": 34663,
+      "api3_5xx": 0,
+      "api3_share": 0.1167
+    },
+    "unknown_or_ambiguous": {}
+  },
+  "finished": "2026-09-26T12:37:53.447+09:00"
+}
