@@ -1,0 +1,5 @@
+# EDGE01 의 백업 보관 SFTP 허용. 배치 위치는 /etc/vm-lab/firewall.d/30-db-backup-sftp.nft 다.
+# Databasus(OPS01)가 백업 파일을 dbbackup 계정으로 올린다. 경계형 전환 전에는 host-only 관리 대역의 22 허용이
+# 이 연결도 받아 주었지만, 전환 뒤에는 OPS01 이 lab-lan 주소로 오므로 따로 연다.
+# 네트워크에서는 OPS01 의 22 를 열고, 계정 제한은 sshd 의 AllowUsers dbbackup@192.168.10.41 이 맡는다.
+add rule inet vmlab roles iifname "enp0s8" ip saddr 192.168.10.41 tcp dport 22 ct state new counter accept comment "Databasus 백업 SFTP(OPS01)"
