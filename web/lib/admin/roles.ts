@@ -3,7 +3,7 @@
  * 최소 권한 원칙. 파괴 액션 승인 티켓은 역할과 독립이며 여기서 강제하지 않는다(승인 원장이 강제).
  */
 
-import type { AdminRole, ApprovalPayload, DestructiveAction } from "./types";
+import type { AdminRole, AiActionKind, ApprovalPayload, DestructiveAction } from "./types";
 
 export const ROLE_LABEL: Record<AdminRole, string> = {
   VIEWER: "조회",
@@ -55,6 +55,34 @@ export const ACTION_CAP: Record<DestructiveAction, Capability> = {
   "operators.status": "SUPER",
   "operators.roles": "SUPER",
   "members.close": "MEMBER_MOD",
+  // 관제센터 조치는 용량 조작과 같이 인프라 조치라 SUPER다(관리자 설계 4-4)
+  "ops.threshold.set": "SUPER",
+  "ops.ai.auto": "SUPER",
+  "ops.ai.limits": "SUPER",
+  // 변경 요청 승인은 작업 합의의 기록이라 총괄이 한다(관리자 설계 4-4 3라운드 계약 초안)
+  "ops.change.approve": "SUPER",
+};
+
+/**
+ * AI 조치안의 승인·되돌리기 요구 권한(API 설계 §6-F 조치 종류별 역할). 사람이 같은 효과의 조작을 직접 할 때의 역할이다. 보류
+ * 요청은 계획 작업 창 안의 warning 30분 이하뿐이라 사람의 티켓 없는 보류(BOT_OPS)를 넘지 않고, 봇 부하 줄임은 봇 플릿 제어다.
+ * 임계값만 승인 티켓(ops.threshold.set)을 더 요구한다
+ */
+export const AI_ACTION_CAP: Record<AiActionKind, Capability> = {
+  READ_NODES: "SUPER",
+  THRESHOLD: "SUPER",
+  BACKUP_NOW: "SUPER",
+  SILENCE: "BOT_OPS",
+  BOT_LOAD: "BOT_OPS",
+};
+
+/** 요구 권한이 없을 때 단추 옆에 적는 말 */
+export const CAP_NEED: Record<Capability, string> = {
+  VIEW: "조회 권한 필요",
+  BOT_OPS: "봇 운영 권한 필요",
+  CHAOS_OPS: "실험 운영 권한 필요",
+  MEMBER_MOD: "회원 운영 권한 필요",
+  SUPER: "총괄 권한 필요",
 };
 
 export const ACTION_LABEL: Record<DestructiveAction, string> = {
@@ -66,6 +94,10 @@ export const ACTION_LABEL: Record<DestructiveAction, string> = {
   "operators.status": "운영자 상태 변경",
   "operators.roles": "운영자 역할 변경",
   "members.close": "회원 폐쇄",
+  "ops.threshold.set": "임계값 변경",
+  "ops.ai.auto": "AI 자동 모드 켜기",
+  "ops.ai.limits": "AI 한도 변경",
+  "ops.change.approve": "변경 요청 승인",
 };
 
 /** 요청 권한 충족 여부 */
@@ -103,5 +135,67 @@ export function approvalConsoleTarget(payload: ApprovalPayload): { key: string; 
         // 식별자는 UUID라 눈으로 못 읽는다. 운영자가 보는 손잡이는 이메일이다
         label: `회원 ${payload.email} 폐쇄`,
       };
+    case "ops.threshold.set":
+      return {
+        key: `ops.threshold.set:${payload.key}`,
+        label: `${payload.label} ${payload.from}${payload.unit} → ${payload.to}${payload.unit}${payload.revertOf ? " (되돌리기)" : ""}`,
+      };
+    case "ops.ai.auto":
+      return { key: "ops.ai.auto", label: `AI 자동 모드 ${payload.hours}시간` };
+    case "ops.ai.limits":
+      return {
+        key: `ops.ai.limits:${payload.key}`,
+        label: `AI 한도 ${payload.label} ${payload.from}${payload.unit} → ${payload.to}${payload.unit}${payload.revertOf ? " (되돌리기)" : ""}`,
+      };
+    case "ops.change.approve":
+      return { key: `ops.change.approve:${payload.id}`, label: payload.title.startsWith(payload.id) ? payload.title : `${payload.id} · ${payload.title}` };
   }
+}
+
+/** 운영 관제 조작 한 줄의 요구 역할과 승인 티켓(설정의 역할·권한 표) */
+export interface OpsPermission {
+  group: string;
+  action: string;
+  /** 요구하는 가장 낮은 역할. 총괄은 모든 조작을 하고, 실험 운영은 봇 운영을 품는다 */
+  role: AdminRole;
+  /** 승인 티켓 액션. 없으면 null이다 */
+  ticket: string | null;
+  /** 짧은 보조 말(권한을 줄이는 조작, 잠정 등급, 계약 초안) */
+  note?: string;
+}
+
+/**
+ * 운영 관제 조작과 요구 역할·승인 티켓(관리자 설계 1-2절, 2-5절, 3-2절, API 설계 §6-F, 4-4절 3라운드 계약 초안). 설정의
+ * 역할·권한 표가 읽는 정적 표이고 두 원천이 같다. 서버가 같은 효과의 조작을 사람이 직접 할 때의 역할을 요구하는 규칙을 옮겼고,
+ * 권한을 줄이는 조작은 조회 권한으로 된다. 화면의 단추(경보 확인·보류, 조치안 승인·되돌리기)도 이 역할로 연다. 바꾸는 곳은
+ * 백오피스의 운영자·역할 화면이다
+ */
+export const OPS_PERMISSIONS: OpsPermission[] = [
+  { group: "조회", action: "관제 판·상세·보고서 조회와 AI 상담", role: "VIEWER", ticket: null },
+  { group: "조회", action: "시나리오 재생, 관제 판 시나리오 시작", role: "VIEWER", ticket: null, note: "sim 전용" },
+  { group: "경보", action: "경보 확인", role: "BOT_OPS", ticket: null },
+  { group: "경보", action: "경보 보류(장애 등급 아님, 30분 이하)와 보류 해제", role: "BOT_OPS", ticket: null },
+  { group: "경보", action: "경보 보류(장애·등급 모름, 30분 초과)", role: "SUPER", ticket: "ops.alert.silence", note: "콘솔 단추 없음" },
+  { group: "AI", action: "AI 즉시 끄기·즉시 정지, 조치안 거절·나중에", role: "VIEWER", ticket: null, note: "권한을 줄이는 조작" },
+  { group: "AI", action: "조치안 승인·되돌리기(봇 부하 줄임, 경보 보류)", role: "BOT_OPS", ticket: null },
+  { group: "AI", action: "조치안 승인·되돌리기(app-3 켜기·끄기), 백업 즉시 실행", role: "SUPER", ticket: null },
+  { group: "AI", action: "임계값 변경·되돌리기(임계값 조치안 포함)", role: "SUPER", ticket: "ops.threshold.set" },
+  { group: "AI", action: "AI 자동 모드 켜기", role: "SUPER", ticket: "ops.ai.auto" },
+  { group: "AI", action: "AI 한도 변경", role: "SUPER", ticket: "ops.ai.limits" },
+  { group: "AI", action: "AI 재개", role: "SUPER", ticket: null },
+  { group: "변경", action: "계획 작업 창 등록", role: "BOT_OPS", ticket: null },
+  { group: "변경", action: "계획 작업 창 조기 종료", role: "VIEWER", ticket: null, note: "권한을 줄이는 조작" },
+  { group: "변경", action: "변경 요청 등록·진행·종료·취소", role: "BOT_OPS", ticket: null, note: "계약 초안" },
+  { group: "변경", action: "변경 요청 승인", role: "SUPER", ticket: "ops.change.approve", note: "계약 초안" },
+  { group: "사건", action: "사건 담당 지정, 사후 분석 작성", role: "BOT_OPS", ticket: null, note: "계약 초안" },
+  { group: "용량", action: "app-3 켜기·끄기(용량·부하)", role: "SUPER", ticket: null, note: "잠정 등급" },
+  { group: "용량", action: "봇 플릿 제어(생성·정지·발행률·국면)", role: "BOT_OPS", ticket: null },
+  { group: "용량", action: "봇 파라미터 변경", role: "BOT_OPS", ticket: "sim.bots.params" },
+  { group: "보고", action: "Teams 연결 시험", role: "SUPER", ticket: null, note: "서버 경로 없음" },
+  { group: "운영자", action: "운영자 생성·상태 변경·역할 부여(백오피스)", role: "SUPER", ticket: "operators.*" },
+];
+
+/** 그 역할 하나만 가진 운영자가 이 조작을 할 수 있나. 행렬의 칸이다 */
+export function roleAllows(role: AdminRole, need: AdminRole): boolean {
+  return can([role], need === "VIEWER" ? "VIEW" : need);
 }

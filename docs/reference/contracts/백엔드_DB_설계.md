@@ -330,7 +330,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 아래 표에서 로드맵 행을 뺀 파일 전부이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). 로드맵 행은 번호 미배정이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 아래 표에서 계획 행과 로드맵 행을 뺀 파일 전부이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). 로드맵 행은 번호 미배정이다. 계획 행은 번호와 DDL만 정했고 파일이 없다(§10). 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -366,7 +366,7 @@ erDiagram
 | V29 | `V29__sim_fleet_state_target_ops_width.sql` | 같은 표의 목표 OPS 열 폭 확장 | V28(`sim_fleet_state` 생성) |
 | V30 | `V30__assert_and_lock_leader.sql` | `assert_and_lock_leader`. 세대 번호 검증과 행 잠금을 한 호출로 묶는다. 잠금 모드는 V41 이 FOR KEY SHARE 로 바꿨다 | V1(`leader_lease`, `assert_current_leader` 호출) |
 | V31 | `V31__order_id_sequence.sql` | 주문 식별자 시퀀스. 단일 라이터 전제에서 채번을 DB 로 옮긴다 | V0, V1(`journal_counters`·`orders`에서 시작값 역산, `app_role` GRANT) |
-| V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정이 이 표를 읽는다 | V0(`app_role` GRANT) |
+| V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정과 관제센터의 app-3 켜기·끄기(`READ_NODES`)가 이 표를 읽는다. `app` 행은 앱 계층 전체 대수이고 초기값 min 2·desired 2·max 3은 app-1·app-2 고정과 app-3 자동 증설의 2~3대다(ADR 0030 사용자 정정, v2.51.5) | V0(`app_role` GRANT) |
 | V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) | V1(`leader_lease`) |
 | V34 | `V34__single_operator_approval.sql` | `chk_approval_two_person` 제약 제거. 파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019). 바꾼 뒤의 판정 축은 정본 8.2가 남긴 방어 일곱이다: 승인 티켓 별도 발급 단계, 티켓 수명 5분, 단회 소각, 액션과 대상 바인딩, 요청자 바인딩, 역할 통제, 추가만 가능한 감사 기록. 사라진 한 겹은 발급자와 사용자의 분리이고, 그 대가는 정본 13.3 한계 11이 등재한다 | V5(`admin_approvals` 생성) |
 | V35 | `V35__orders_locked_account_index.sql` | `orders.locked_account_id` 부분 인덱스. C14 불변식이 orders 를 순차 스캔하던 것을 인덱스로 바꾼다. 열린 상태 셋만 담는다 | V1 |
@@ -391,6 +391,10 @@ erDiagram
 | V53 | `V53__failover_runs_resource.sql` | 하네스 페일오버 측정 이력 `harness.failover_runs`에 널 허용 열 `resource`를 더한다(§3.8, ADR 0034 S4). 그 사건이 옮긴 리스 자원(`matching-engine`·`matching-p0`·`matching-p1`)이고 CHECK가 세 이름만 받는다. 기본값이 없어 표를 다시 쓰지 않고, 이 열 이전의 행은 NULL이다. 리스 행 외래키는 두지 않는다. 파일은 S4 코드와 함께 만들었고 본문은 §3.8의 SQL 블록과 같다(2026-09-24, 작업 브랜치 커밋 `48629d5d`). S4 코드와 같은 이미지에 싣는다 | V4(`harness.failover_runs`) |
 | V54 | `V54__order_cancel_requests.sql` | 파티션 밖 취소 인계 표 `order_cancel_requests`(ADR 0034 S5, §3.9, §5.4-d). 일괄 취소와 회원 폐쇄가 이 노드가 접수 게이트를 열지 않은 파티션의 미체결 주문을 파티션마다 행으로(행당 주문 500개까지) 넣고, 그 파티션의 소유 노드가 리스가 자기 holder·epoch로 유효할 때만 점유해 보통의 취소 경로로 처리한 뒤 결과를 적는다. 가져가지 않은 채 5분이 지난 행과 점유한 뒤 5분 안에 끝나지 않은 행은 만료로 닫는다. 쓰기 권한 판정과 무관하다. `app_role`은 SELECT·INSERT·UPDATE(DELETE 없음), `harness_role`은 SELECT다. 이 판(2026-09-25, 설계 검토 대응 반영)은 계약이고 파일은 S5 코드와 함께 §3.9의 SQL 블록과 같게 만든다 | V0(`app_role`·`harness_role` GRANT), V1(`users` 외래키), V48(`leader_lease` 읽기, 외래키 없음) |
 | V55 | `V55__partition_protocol_cutover.sql` | 파티션 리더 모드(P3)로 오르내리는 전환(ADR 0034 S7, §3.10, §5.4-e). `set_leader_protocol`을 CREATE OR REPLACE로 바꿔 2->3과 확인 인자를 준 3->2를 더하고, 내리는 전이는 모두 확인 인자를 요구한다. 선행 조건을 한 줄씩 내는 읽기 전용 함수 `leader_protocol_blockers(target)`을 두고 전환 함수가 잠금 뒤에 부른다. 3으로 올릴 때의 선행 조건은 정산되지 않은 주문 생성 명령 0건, 명령 대역 래치, 모든 마켓의 대응·카운터·대역 잎, 파티션 리스 행, 모든 마켓 자산의 FEE_INCOME 샤드 0·1 계정, `app_role`의 V49 권한 상태다. FEE_INCOME 샤드 1 계정을 자산마다 만들고(기존 자산은 이 파일이, 새 자산은 `accounts` 트리거가 같은 트랜잭션에) 모드는 바꾸지 않는다. 이 판(2026-09-25)은 계약이고 파일은 S7 코드와 함께 §3.10의 SQL 블록과 같게 만든다 | V48(리스 행·대응 표·이력), V50(`set_leader_protocol` 교체), V44(`journal_cutover`), V36·V40(카운터·대역 잎), V49(권한 상태) |
+| V70 | `V70__ops_thresholds.sql` | MSP 관제센터 임계값 레지스트리 `ops_thresholds`(항목 아홉 개 시드, 앱은 `value`·`version`·`updated_by`·`updated_at` 열만 UPDATE)와 append-only 변경 이력 `ops_threshold_changes`(초기 이력 `SEED`). 초기값이 있는 항목의 미설정을 막는 CHECK, 조회 임계 두 행의 간격(T3)을 커밋 때 보는 지연 제약 트리거 `trg_ops_read_threshold_gap`(§10.2). 새 마이그레이션으로 표를 지워 되돌린다 | V47.1과 브랜치 `claude/per-market-leader`의 V48~V69가 먼저 적용된 DB. 순서를 어기면 그 DB에 V48 이후를 넣을 수 없어, 앱의 적용 전 점검이 이를 막는다(§10.6). V5(`admin_approvals`), V1(`forbid_mutation`) |
+| V71 | `V71__ops_incidents.sql` | 경보 사건 작업 표 `ops_incidents`(등급은 정규화한 네 값, (지문, 시작 시각) 유일, 열린 사건은 지문당 하나)와 append-only 타임라인 `ops_incident_events`(§10.3). 새 마이그레이션으로 표를 지워 되돌린다 | V70과 같은 적용 순서. V1(`forbid_mutation`) |
+| V72 | `V72__ops_ai.sql` | AI 신원(`admin_operators.kind`, `ai-ops`, 역할 부여·종류 변경 금지 트리거), AI 한도 `ops_ai_limits`(다섯 항목, 하드 범위 CHECK)와 append-only 변경 이력, AI 모드·정지 단일 행 `ops_ai_mode`(자동 창·활성 번호·활성 한도를 정하는 트리거), 계획 작업 창 `ops_maintenance_windows`, append-only 판단 기록 `ops_ai_decisions`, 조치 요청 작업 표 `ops_ai_actions`, 사건 이벤트 종류 확장(§10.4). 새 마이그레이션으로 표를 지워 되돌린다 | V70·V71과 같은 적용 순서. V5(`admin_operators`, `admin_approvals`), V71(`ops_incidents`, `ops_incident_events`) |
+| V73 | `V73__ops_notifications.sql` | 관제센터 통지 보관함 `ops_notifications`(보고 서비스로 넘길 AI 통지 사건, 상태 `PENDING`·`SENDING`·`ACCEPTED`·`FAILED`·`SKIPPED`, 사건 id 유일, 본문 16 KiB 이하, 웹훅 주소를 싣는 열 없음)와 판단 주기의 단일 실행 임대 `ops_runner_lease`(행 하나, 앱은 임대 열만 UPDATE)(§10.5). 새 마이그레이션으로 표를 지워 되돌린다 | V70~V72와 같은 적용 순서 |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -4449,6 +4453,551 @@ failover에서도 RPO 0을 주장하려면 아래 요건을 전부 갖춰야 한
 
 ---
 
+## 10. MSP 관제센터 스키마 (V70~V73 구현)
+
+관리 콘솔 MSP 관제센터(2단계)가 쓰는 표다. v2.51.2에서 번호와 DDL을 먼저 정했다. 2026-09-25 V70·V71 파일을 아래 DDL 그대로 만들었다. v2.51.3에서 V72에 AI 정지, AI 한도, 계획 작업 창을 더해 DDL을 다시 정하고 같은 날 파일을 만들었다. v2.51.4에서 V73에 통지 보관함과 판단 주기의 단일 실행 임대를 정하고 같은 날 파일을 만들었다. 통지는 관리 JVM이 Teams에 직접 보내지 않고 보고 서비스로 넘긴다. 설계 이유는 [관제센터 2단계 설계](../architecture/MSP_관제센터_2단계_설계.md), 요청·응답은 [API 설계](백엔드_API_설계.md) §6-F가 기준이다. 번호가 V70부터인 것은 V48~V69를 브랜치 `claude/per-market-leader`가 쓰기 때문이다.
+
+코어와 격리한다. 이 표들은 원장·저널·정산·주문 표와 어떤 외래키나 트리거로도 이어지지 않는다. 이어지는 곳은 관리 평면(`admin_operators`, `admin_approvals`)과 서로뿐이다. 무엇이 일어났는지 적는 기록 표(append-only)와 무엇을 할 차례인지 적는 작업 표(상태가 바뀜)를 나눈다. 감사 로그를 작업 큐로 쓰지 않는 V21의 원칙과 같다. `app_role`에는 DELETE를 주지 않는다. 앱이 과거를 지우거나 항목을 늘리거나 범위를 넓힐 수 없게 하는 것이 목적이다.
+
+### 10.1 표와 권한
+
+| 표 | 성격 | `app_role` 권한 | 핵심 제약 |
+|---|---|---|---|
+| `ops_thresholds` | 임계값 현재값. 항목은 마이그레이션만 만든다 | SELECT, UPDATE(`value`, `version`, `updated_by`, `updated_at` 열만) | 값은 범위 안. 초기값이 있는 항목은 미설정 불가. 조회 임계 두 행의 간격은 커밋 때 트리거가 검사. 범위·단위·폭·기본값 열은 앱이 바꿀 수 없다 |
+| `ops_threshold_changes` | 임계값 변경 이력, append-only | SELECT, INSERT | `(key, version)` 유일 |
+| `ops_incidents` | 사건 작업 표 | SELECT, INSERT, UPDATE | `(fingerprint, started_at)` 유일, 열린 사건은 지문당 하나, 등급은 정규화한 네 값 |
+| `ops_incident_events` | 사건 타임라인, append-only | SELECT, INSERT | 종류·행위자 어휘 CHECK |
+| `ops_ai_limits` | AI 한도 현재값, 항목은 마이그레이션만 만든다 | SELECT, UPDATE(`value`, `version`, `updated_by`, `approval_id`, `reason`, `updated_at` 열만) | 항목 다섯 개, 항목별 하드 범위 CHECK |
+| `ops_ai_limit_changes` | AI 한도 변경 이력, append-only | SELECT, INSERT | `(key, version)` 유일 |
+| `ops_ai_mode` | AI 모드와 정지 단일 행 | SELECT, UPDATE | 자동이면 켠 사람·사유·승인·시작·끝·활성 시각·활성 한도가 모두 있고 끝이 시작 뒤 8시간 이내. 자동 창과 활성 번호는 트리거가 커밋 시각과 같은 트랜잭션에서 소각한 티켓으로 정한다. 정지 중에는 수동이다 |
+| `ops_maintenance_windows` | 계획 작업 창 | SELECT, INSERT, UPDATE(`ended_by`, `ended_at` 열만) | 길이 24시간 이하, 대상(경보명이나 라벨)이 있어야 함 |
+| `ops_ai_decisions` | AI 판단 기록, append-only | SELECT, INSERT | 출력 원문 16 KiB 이하, 원문과 해시는 함께 있거나 함께 없음 |
+| `ops_ai_actions` | AI 조치 요청 작업 표 | SELECT, INSERT, UPDATE | 열린 요청은 같은 조치당 하나, `EXECUTING`은 표 전체에서 하나, 결과를 모르는 실행은 `UNKNOWN`, 정책이 제안 때 막은 요청은 `DENIED` |
+| `ops_notifications` | 통지 보관함. 보고 서비스로 넘길 AI 통지 사건 | SELECT, INSERT, UPDATE | 사건 id 유일, 종류·상태 어휘 CHECK, 본문 16 KiB 이하, 접수 시각은 `ACCEPTED`일 때만. 웹훅 주소를 싣는 열이 없다 |
+| `ops_runner_lease` | 여러 관리 JVM 가운데 하나만 AI 판단 주기를 돌리게 하는 임대. 행은 마이그레이션만 만든다 | SELECT, UPDATE(`holder`, `expires_at`, `renewed_at` 열만) | 보유자와 만료는 함께 있거나 함께 없음 |
+| `admin_operators.kind`(열 추가) | 사람과 AI 신원 구분 | 기존 UPDATE 권한(V5)이지만 트리거가 값 변경을 막는다 | AI 신원에는 역할을 줄 수 없다 |
+
+`harness_role`에는 이 표들의 SELECT만 준다. IDENTITY 열의 시퀀스 권한은 V21·V32와 같이 표 권한만 둔다. 앱 로그인으로 INSERT가 실제로 되는지는 구현 때 통합 시험으로 확인한다.
+
+### 10.2 V70 임계값 레지스트리
+
+```sql
+-- 항목·단위·범위·AI 1회 폭은 이 마이그레이션만 정한다. 앱은 현재값과 판 번호만 바꾼다.
+CREATE TABLE ops_thresholds (
+    key           VARCHAR(64)   PRIMARY KEY
+                  CHECK (key ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'),
+    unit          VARCHAR(16)   NOT NULL CHECK (unit IN ('ratio','seconds','credits')),
+    -- NULL 은 미설정이다. 경보 규칙과 AI 가 쓰지 않는다.
+    value         NUMERIC(12,4),
+    default_value NUMERIC(12,4),
+    min_value     NUMERIC(12,4) NOT NULL,
+    max_value     NUMERIC(12,4) NOT NULL,
+    ai_max_step   NUMERIC(12,4) NOT NULL CHECK (ai_max_step > 0),
+    version       BIGINT        NOT NULL DEFAULT 1 CHECK (version >= 1),
+    updated_by    VARCHAR(64)   NOT NULL,
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ops_threshold_bounds  CHECK (min_value < max_value),
+    CONSTRAINT chk_ops_threshold_value   CHECK (value IS NULL OR value BETWEEN min_value AND max_value),
+    CONSTRAINT chk_ops_threshold_default CHECK (default_value IS NULL OR default_value BETWEEN min_value AND max_value),
+    -- 초기값이 있는 항목은 미설정이 될 수 없다. 대체값을 둔 경보 규칙이 NaN 을 받아 꺼지지 않게 한다.
+    CONSTRAINT chk_ops_threshold_seeded_set CHECK (default_value IS NULL OR value IS NOT NULL)
+);
+
+-- 축소 임계는 증설 임계보다 0.15 이상 낮아야 한다(정책 T3). 두 행에 걸치므로 커밋 때 다시 본다.
+-- 앱은 쓰기 전에 같은 규칙을 검사한다. 이 트리거는 되돌리기·자동 되돌림·설정 적용처럼 앱이 놓칠 수 있는 경로의 마지막 선이다.
+CREATE FUNCTION check_ops_read_threshold_gap() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_out NUMERIC;
+    v_in  NUMERIC;
+BEGIN
+    SELECT value INTO v_out FROM ops_thresholds WHERE key = 'read.scale_out_cpu';
+    SELECT value INTO v_in  FROM ops_thresholds WHERE key = 'read.scale_in_cpu';
+    IF v_out IS NOT NULL AND v_in IS NOT NULL AND v_in > v_out - 0.15 THEN
+        RAISE EXCEPTION '조회 축소 임계 %는 증설 임계 %보다 0.15 이상 낮아야 한다', v_in, v_out
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER trg_ops_read_threshold_gap
+    AFTER UPDATE ON ops_thresholds DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW WHEN (NEW.key IN ('read.scale_out_cpu','read.scale_in_cpu'))
+    EXECUTE FUNCTION check_ops_read_threshold_gap();
+
+CREATE TABLE ops_threshold_changes (
+    id           BIGINT        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key          VARCHAR(64)   NOT NULL REFERENCES ops_thresholds(key),
+    from_value   NUMERIC(12,4),
+    to_value     NUMERIC(12,4),
+    -- 이 변경 뒤의 판 번호
+    version      BIGINT        NOT NULL,
+    via          VARCHAR(16)   NOT NULL
+                 CHECK (via IN ('SEED','CONFIG','MANUAL','AI_APPROVED','AI_AUTO','REVERT','AUTO_REVERT')),
+    changed_by   VARCHAR(64)   NOT NULL,
+    approval_id  BIGINT        REFERENCES admin_approvals(id),
+    -- 외래키는 ops_ai_actions 를 만드는 V72 가 건다.
+    ai_action_id BIGINT,
+    revert_of    BIGINT        REFERENCES ops_threshold_changes(id),
+    reason       VARCHAR(500)  NOT NULL DEFAULT '',
+    changed_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT uq_ops_threshold_change_version UNIQUE (key, version)
+);
+CREATE INDEX idx_ops_threshold_changes_keyset ON ops_threshold_changes (changed_at DESC, id DESC);
+CREATE INDEX idx_ops_threshold_changes_key ON ops_threshold_changes (key, changed_at DESC);
+CREATE TRIGGER trg_ops_threshold_changes_noupd BEFORE UPDATE OR DELETE ON ops_threshold_changes
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_ops_threshold_changes_notrunc BEFORE TRUNCATE ON ops_threshold_changes
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+-- 초기값은 지금 경보 규칙의 리터럴이 있는 항목만 그 값이다. 나머지는 미설정으로 시작한다.
+INSERT INTO ops_thresholds (key, unit, value, default_value, min_value, max_value, ai_max_step, updated_by) VALUES
+    ('read.scale_out_cpu',       'ratio',   0.60,  0.60,  0.20,  0.85,   0.05,  'migration:V70'),
+    ('read.scale_in_cpu',        'ratio',   0.30,  0.30,  0.05,  0.50,   0.05,  'migration:V70'),
+    ('host.cpu_alert',           'ratio',   NULL,  NULL,  0.60,  0.95,   0.05,  'migration:V70'),
+    ('host.mem_alert',           'ratio',   NULL,  NULL,  0.70,  0.95,   0.05,  'migration:V70'),
+    ('host.disk_free_alert',     'ratio',   0.15,  0.15,  0.10,  0.40,   0.05,  'migration:V70'),
+    ('db.replication_lag_alert', 'seconds', NULL,  NULL,  5,     300,    10,    'migration:V70'),
+    ('backup.delay_alert',       'seconds', 93600, 93600, 43200, 259200, 21600, 'migration:V70'),
+    ('bot.capacity_guard',       'ratio',   NULL,  NULL,  0.50,  0.90,   0.05,  'migration:V70'),
+    ('host.cpu_credit_alert',    'credits', NULL,  NULL,  10,    200,    20,    'migration:V70');
+INSERT INTO ops_threshold_changes (key, from_value, to_value, version, via, changed_by, reason)
+SELECT key, NULL, value, 1, 'SEED', 'migration:V70', '초기값' FROM ops_thresholds;
+
+GRANT SELECT ON ops_thresholds TO app_role;
+GRANT UPDATE (value, version, updated_by, updated_at) ON ops_thresholds TO app_role;
+GRANT SELECT, INSERT ON ops_threshold_changes TO app_role;
+GRANT SELECT ON ops_thresholds, ops_threshold_changes TO harness_role;
+```
+
+리터럴의 출처는 `deploy/linux/reporting/school-alerts.yml`의 `LinuxDiskSpaceLow`(0.15)와 `deploy/linux/postgresql/backup/backup-alerts.yml`의 `DatabaseBackupStale`(93600초), 조회 임계는 API 설계 §6-A-a의 계약 기본값이다. 조회 임계의 하한 0.20·0.05는 로컬 `admin-chaos` 프로파일의 0.25·0.10이 범위 안에 들도록 정했다. 축소 임계가 증설 임계보다 0.15 이상 낮아야 한다는 규칙은 두 행에 걸치므로 CHECK로는 걸 수 없어, 커밋 때 지연 제약 트리거가 다시 본다. 앱의 정책 엔진은 쓰기 전에 같은 규칙을 검사해 `409 msp_policy_denied`로 알리고, 트리거는 사람의 변경만이 아니라 되돌리기, AI 조치, 자동 되돌림, 설정 적용까지 모든 쓰기 경로를 막는 마지막 선이다. 두 행을 함께 바꾸는 설정 적용은 한 트랜잭션에서 하므로 중간 상태가 거부되지 않는다. 트리거 함수는 호출자 권한으로 돌고 `app_role`의 SELECT로 두 행을 읽는다.
+
+값의 소수 자릿수는 `NUMERIC(12,4)`가 넷째 자리로 반올림해 저장하므로 DB가 긴 입력을 거부하지 못한다. 넷째 자리를 넘는 입력은 앱이 먼저 거부한다(API 설계 §6-F `detail.constraint=scale`). 승인 티켓의 대상 문자열과 저장값이 달라지지 않게 하기 위해서다. 초기값(`via='SEED'`) 변경은 되돌리기 대상이 아니며, 초기값이 있는 항목은 `chk_ops_threshold_seeded_set` 때문에 미설정으로 돌아갈 수도 없다.
+
+### 10.3 V71 사건과 타임라인
+
+```sql
+CREATE TABLE ops_incidents (
+    id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- Alertmanager 지문(라벨 묶음 해시, 16자리 16진)
+    fingerprint    VARCHAR(16)  NOT NULL CHECK (fingerprint ~ '^[0-9a-f]{16}$'),
+    alertname      VARCHAR(128) NOT NULL,
+    -- 정규화한 등급. severity 라벨이 없거나 모르는 값(예: none)이면 other 이고 원래 값은 labels 에 남는다.
+    -- 모르는 값을 거부하면 그 경보 하나 때문에 쓰기가 실패한다. 생존 신호 경보(Watchdog)는 이 표에 넣지 않는다.
+    severity       VARCHAR(8)   NOT NULL CHECK (severity IN ('critical','warning','info','other')),
+    -- 보류 매처를 만들기 위한 라벨 묶음 전체. API 응답과 AI 근거에는 허용한 라벨만 낸다.
+    labels         JSONB        NOT NULL,
+    summary        VARCHAR(500) NOT NULL DEFAULT '',
+    started_at     TIMESTAMPTZ  NOT NULL,
+    first_seen_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    last_seen_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    resolved_at    TIMESTAMPTZ,
+    status         VARCHAR(16)  NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','RESOLVED')),
+    acked_by       VARCHAR(64),
+    acked_at       TIMESTAMPTZ,
+    silence_id     VARCHAR(64),
+    silenced_until TIMESTAMPTZ,
+    silenced_by    VARCHAR(64),
+    silence_actor  VARCHAR(8)   CHECK (silence_actor IN ('OPERATOR','AI')),
+    CONSTRAINT uq_ops_incident_episode UNIQUE (fingerprint, started_at),
+    CONSTRAINT chk_ops_incident_resolved CHECK ((status = 'RESOLVED') = (resolved_at IS NOT NULL)),
+    CONSTRAINT chk_ops_incident_ack CHECK ((acked_by IS NULL) = (acked_at IS NULL)),
+    CONSTRAINT chk_ops_incident_silence CHECK (
+        (silence_id IS NULL AND silenced_until IS NULL AND silenced_by IS NULL AND silence_actor IS NULL)
+        OR (silence_id IS NOT NULL AND silenced_until IS NOT NULL AND silenced_by IS NOT NULL AND silence_actor IS NOT NULL))
+);
+CREATE UNIQUE INDEX uq_ops_incident_open ON ops_incidents (fingerprint) WHERE status = 'OPEN';
+CREATE INDEX idx_ops_incidents_keyset ON ops_incidents (started_at DESC, id DESC);
+
+CREATE TABLE ops_incident_events (
+    id          BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- NULL 은 사건에 속하지 않는 기록(모드 전환 등)
+    incident_id BIGINT       REFERENCES ops_incidents(id),
+    kind        VARCHAR(16)  NOT NULL CHECK (kind IN (
+                    'OPENED','AI_JUDGED','APPROVED','REJECTED','DEFERRED','ACTED','AUTO_ACTED',
+                    'AUTO_REVERTED','REVERTED','MODE','NOTIFIED','ACKED','SILENCED','UNSILENCED','RESOLVED')),
+    actor_type  VARCHAR(8)   NOT NULL CHECK (actor_type IN ('SYSTEM','AI','OPERATOR')),
+    actor_id    VARCHAR(64)  NOT NULL,
+    text        VARCHAR(500) NOT NULL,
+    -- 관련 id(decision_id, action_id, threshold_change_id, approval_id, silence_id)
+    ref         JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    at          TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_ops_incident_events_incident ON ops_incident_events (incident_id, at, id);
+CREATE INDEX idx_ops_incident_events_keyset ON ops_incident_events (at DESC, id DESC);
+CREATE TRIGGER trg_ops_incident_events_noupd BEFORE UPDATE OR DELETE ON ops_incident_events
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_ops_incident_events_notrunc BEFORE TRUNCATE ON ops_incident_events
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+GRANT SELECT, INSERT, UPDATE ON ops_incidents TO app_role;
+GRANT SELECT, INSERT ON ops_incident_events TO app_role;
+GRANT SELECT ON ops_incidents, ops_incident_events TO harness_role;
+```
+
+사건의 신원은 (지문, 시작 시각)이다. 해제된 경보가 다시 나면 지문은 같고 시작 시각이 달라 새 행이 된다. 폴러는 경보마다 따로 짧은 트랜잭션으로 쓰고, 두 제약(`uq_ops_incident_episode`, `uq_ops_incident_open`)을 어기지 않도록 다음 순서를 지킨다.
+
+1. 같은 지문의 `OPEN` 행이 다른 시작 시각이면, 같은 트랜잭션에서 그 행을 `RESOLVED`로 닫은 뒤 새 행을 넣는다. 해제 시각은 새 시작 시각이고, 새 시작 시각이 이전 시작 시각보다 이르면 폴링 시각이다. Alertmanager는 한 지문에 경보를 하나만 두므로 시작 시각이 바뀌었다면 이전 발생은 그 전에 끝났다.
+2. 같은 (지문, 시작 시각)의 행이 `RESOLVED`면 새 행을 만들지 않고 그 행을 다시 연다(`status`를 `OPEN`, `resolved_at`을 NULL로). Prometheus와 Alertmanager 사이의 전송이 경보의 유효 시간보다 길게 끊겼다가 원래 시작 시각으로 다시 온 경우다.
+3. 해제는 성공한 폴링에서 150초 이상 연속으로 보이지 않고, 그동안 Alertmanager가 다시 시작하지 않았을 때만 한다. Alertmanager는 경보를 메모리에만 두어 재시작 직후 빈 목록을 돌려주기 때문이다(설계 6-1절).
+
+한 경보의 쓰기가 실패해도 다른 경보의 열기·해제는 진행한다. 해제 판정은 표가 아니라 폴링 응답에 그 경보가 있었는지로 하므로, 쓰기에 실패한 경보가 잘못 해제되지 않는다.
+
+### 10.4 V72 AI 신원, 한도, 모드와 정지, 계획 작업 창, 판단, 조치 요청
+
+파일은 `V72__ops_ai.sql`이고 아래 DDL과 같다. v2.51.2의 계획에서 세 가지가 달라졌다. AI 정지를 모드 행에 두었고(사용자 결정 2026-09-25), AI 한도를 표로 옮겨 운영자가 1인 승인으로 바꾸게 했으며(같은 날), AI의 경보 보류를 계획 작업 창 안으로 좁혔다(로컬 실측 근거, 설계 7-13절).
+
+```sql
+-- 1. AI 신원. 세션을 받을 수 없고(앱이 검사) 역할을 가질 수 없다(아래 트리거).
+ALTER TABLE admin_operators ADD COLUMN kind VARCHAR(8) NOT NULL DEFAULT 'HUMAN'
+    CHECK (kind IN ('HUMAN','AI'));
+INSERT INTO admin_operators (operator_id, display_name, status, kind)
+VALUES ('ai-ops', 'AI 운영', 'ACTIVE', 'AI');
+
+CREATE FUNCTION forbid_ai_operator_role() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM admin_operators WHERE operator_id = NEW.operator_id AND kind = 'AI') THEN
+        RAISE EXCEPTION 'AI 운영자 신원에는 역할을 줄 수 없다: %', NEW.operator_id;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_operator_roles_no_ai BEFORE INSERT OR UPDATE ON operator_roles
+    FOR EACH ROW EXECUTE FUNCTION forbid_ai_operator_role();
+
+CREATE FUNCTION forbid_operator_kind_change() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.kind IS DISTINCT FROM OLD.kind THEN
+        RAISE EXCEPTION '운영자 종류는 바꿀 수 없다: %', OLD.operator_id;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_admin_operators_kind BEFORE UPDATE OF kind ON admin_operators
+    FOR EACH ROW EXECUTE FUNCTION forbid_operator_kind_change();
+
+-- 2. AI 한도(ADR 0035). 값은 사람이 ops.ai.limits 티켓으로만 바꾼다. 하드 범위는 앱과 DB 가 함께 건다.
+CREATE TABLE ops_ai_limits (
+    key         VARCHAR(32)  PRIMARY KEY CHECK (key IN
+                    ('confidence_pct','auto_cap','threshold_per_item','bot_cooldown_min','backup_disk_free_pct')),
+    value       SMALLINT     NOT NULL,
+    version     BIGINT       NOT NULL DEFAULT 1 CHECK (version >= 1),
+    updated_by  VARCHAR(64)  NOT NULL,
+    approval_id BIGINT       REFERENCES admin_approvals(id),
+    reason      VARCHAR(500) NOT NULL DEFAULT '',
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ops_ai_limit_range CHECK (CASE key
+        WHEN 'confidence_pct'       THEN value BETWEEN 70 AND 95
+        WHEN 'auto_cap'             THEN value BETWEEN 1 AND 10
+        WHEN 'threshold_per_item'   THEN value BETWEEN 1 AND 3
+        WHEN 'bot_cooldown_min'     THEN value BETWEEN 5 AND 60
+        WHEN 'backup_disk_free_pct' THEN value BETWEEN 20 AND 50
+        ELSE false END)
+);
+
+CREATE TABLE ops_ai_limit_changes (
+    id          BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key         VARCHAR(32)  NOT NULL REFERENCES ops_ai_limits(key),
+    from_value  SMALLINT,
+    to_value    SMALLINT     NOT NULL,
+    version     BIGINT       NOT NULL,
+    changed_by  VARCHAR(64)  NOT NULL,
+    approval_id BIGINT       REFERENCES admin_approvals(id),
+    reason      VARCHAR(500) NOT NULL DEFAULT '',
+    changed_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_ops_ai_limit_change_version UNIQUE (key, version)
+);
+CREATE INDEX idx_ops_ai_limit_changes_keyset ON ops_ai_limit_changes (changed_at DESC, id DESC);
+CREATE TRIGGER trg_ops_ai_limit_changes_noupd BEFORE UPDATE OR DELETE ON ops_ai_limit_changes
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_ops_ai_limit_changes_notrunc BEFORE TRUNCATE ON ops_ai_limit_changes
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+INSERT INTO ops_ai_limits (key, value, updated_by, reason) VALUES
+    ('confidence_pct',       80, 'migration:V72', '확정값(ADR 0035)'),
+    ('auto_cap',              5, 'migration:V72', '확정값(ADR 0035)'),
+    ('threshold_per_item',    2, 'migration:V72', '확정값(ADR 0035)'),
+    ('bot_cooldown_min',     10, 'migration:V72', '확정값(ADR 0035)'),
+    ('backup_disk_free_pct', 30, 'migration:V72', '확정값(ADR 0035)');
+INSERT INTO ops_ai_limit_changes (key, from_value, to_value, version, changed_by, reason)
+SELECT key, NULL, value, 1, 'migration:V72', reason FROM ops_ai_limits;
+
+-- 3. AI 모드와 정지. 단일 행이다.
+CREATE TABLE ops_ai_mode (
+    id                SMALLINT     PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    mode              VARCHAR(8)   NOT NULL DEFAULT 'MANUAL' CHECK (mode IN ('MANUAL','AUTO')),
+    enabled_by        VARCHAR(64),
+    reason            VARCHAR(500),
+    approval_id       BIGINT       REFERENCES admin_approvals(id),
+    since             TIMESTAMPTZ,
+    valid_until       TIMESTAMPTZ,
+    -- 자동 모드 활성 번호. 수동에서 자동으로 켤 때만 하나 오른다(트리거). 자동 조치 횟수는 이 번호로 센다.
+    activation        BIGINT       NOT NULL DEFAULT 0 CHECK (activation >= 0),
+    activation_at     TIMESTAMPTZ,
+    -- 활성 때의 한도. 넓히는 한도 변경은 다음 활성부터 쓰려고 잡아 둔다.
+    activation_limits JSONB,
+    stopped           BOOLEAN      NOT NULL DEFAULT false,
+    stopped_by        VARCHAR(64),
+    stopped_at        TIMESTAMPTZ,
+    stop_reason       VARCHAR(200),
+    changed_by        VARCHAR(64)  NOT NULL,
+    changed_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    version           BIGINT       NOT NULL DEFAULT 1,
+    CONSTRAINT chk_ops_ai_mode_auto CHECK (
+        (mode = 'AUTO' AND enabled_by IS NOT NULL AND reason IS NOT NULL AND approval_id IS NOT NULL
+             AND since IS NOT NULL AND valid_until IS NOT NULL
+             AND activation_at IS NOT NULL AND activation_limits IS NOT NULL)
+        OR (mode = 'MANUAL' AND enabled_by IS NULL AND reason IS NULL AND approval_id IS NULL
+             AND since IS NULL AND valid_until IS NULL
+             AND activation_at IS NULL AND activation_limits IS NULL)),
+    -- ADR 0035 의 자동 모드 최대 8시간을 DB 가 한 번 더 건다.
+    CONSTRAINT chk_ops_ai_mode_window CHECK (
+        valid_until IS NULL OR (valid_until > since AND valid_until <= since + interval '8 hours')),
+    -- 정지 중에는 자동일 수 없다.
+    CONSTRAINT chk_ops_ai_mode_stop CHECK (
+        (stopped AND stopped_by IS NOT NULL AND stopped_at IS NOT NULL AND mode = 'MANUAL')
+        OR (NOT stopped AND stopped_by IS NULL AND stopped_at IS NULL AND stop_reason IS NULL))
+);
+INSERT INTO ops_ai_mode (id, mode, changed_by) VALUES (1, 'MANUAL', 'migration:V72');
+
+-- 자동 창과 활성은 DB 가 정한다. 시작은 커밋 트랜잭션 시각, 끝은 거기에 티켓 대상 AUTO:{h} 의 시간을
+-- 더한 값이다. 티켓은 이 트랜잭션에서 소각한 ops.ai.auto 이고 그 사용자가 켠 사람이어야 한다.
+-- 수동에서 켤 때만 활성 번호를 올리고 그때의 한도를 잡아 두며, 자동인 동안 새 티켓으로 다시 켜면
+-- 창만 새로 열고 활성 번호와 한도는 이어 쓴다.
+CREATE FUNCTION check_ops_ai_mode_auto() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    v_action    TEXT;
+    v_state     TEXT;
+    v_target    TEXT;
+    v_requester TEXT;
+    v_consumed  TIMESTAMPTZ;
+BEGIN
+    IF NEW.mode <> 'AUTO' THEN
+        RETURN NEW;
+    END IF;
+    IF OLD.mode = 'AUTO' AND NEW.approval_id IS NOT DISTINCT FROM OLD.approval_id
+       AND NEW.since IS NOT DISTINCT FROM OLD.since
+       AND NEW.valid_until IS NOT DISTINCT FROM OLD.valid_until
+       AND NEW.activation IS NOT DISTINCT FROM OLD.activation
+       AND NEW.activation_at IS NOT DISTINCT FROM OLD.activation_at
+       AND NEW.activation_limits IS NOT DISTINCT FROM OLD.activation_limits THEN
+        RETURN NEW;
+    END IF;
+    SELECT action, state, target, requester_operator_id, consumed_at
+      INTO v_action, v_state, v_target, v_requester, v_consumed
+      FROM admin_approvals WHERE id = NEW.approval_id;
+    IF NOT FOUND OR v_action <> 'ops.ai.auto' OR v_state <> 'CONSUMED'
+       OR v_consumed IS DISTINCT FROM now()
+       OR v_requester IS DISTINCT FROM NEW.enabled_by
+       OR v_target !~ '^AUTO:(1|2|4|8)$' THEN
+        RAISE EXCEPTION '자동 모드에는 이 트랜잭션에서 소각한 ops.ai.auto 티켓이 필요하다: %', NEW.approval_id;
+    END IF;
+    NEW.since := now();
+    NEW.valid_until := now() + make_interval(hours => substring(v_target FROM 6)::INT);
+    IF OLD.mode = 'AUTO' THEN
+        NEW.activation := OLD.activation;
+        NEW.activation_at := OLD.activation_at;
+        NEW.activation_limits := OLD.activation_limits;
+    ELSE
+        NEW.activation := OLD.activation + 1;
+        NEW.activation_at := now();
+        NEW.activation_limits := (SELECT jsonb_object_agg(key, value) FROM ops_ai_limits);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER trg_ops_ai_mode_auto BEFORE UPDATE ON ops_ai_mode
+    FOR EACH ROW EXECUTE FUNCTION check_ops_ai_mode_auto();
+
+-- 4. 계획 작업 창. AI 의 경보 보류는 이 창과 겹치는 warning 경보에만 허용한다(정책 S6).
+CREATE TABLE ops_maintenance_windows (
+    id         BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    starts_at  TIMESTAMPTZ  NOT NULL,
+    ends_at    TIMESTAMPTZ  NOT NULL,
+    alertname  VARCHAR(128),
+    labels     JSONB        NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(labels) = 'object'),
+    reason     VARCHAR(200) NOT NULL CHECK (length(reason) > 0),
+    created_by VARCHAR(64)  NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    ended_by   VARCHAR(64),
+    ended_at   TIMESTAMPTZ,
+    CONSTRAINT chk_ops_window_span CHECK (ends_at > starts_at AND ends_at <= starts_at + interval '24 hours'),
+    CONSTRAINT chk_ops_window_target CHECK (alertname IS NOT NULL OR labels <> '{}'::jsonb),
+    CONSTRAINT chk_ops_window_end CHECK ((ended_by IS NULL) = (ended_at IS NULL))
+);
+CREATE INDEX idx_ops_windows_ends ON ops_maintenance_windows (ends_at DESC, id DESC);
+
+-- 5. 판단 기록. append-only 다.
+CREATE TABLE ops_ai_decisions (
+    id               BIGINT        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    decided_at       TIMESTAMPTZ   NOT NULL,
+    mode             VARCHAR(8)    NOT NULL CHECK (mode IN ('MANUAL','AUTO')),
+    outcome          VARCHAR(16)   NOT NULL CHECK (outcome IN
+                         ('PROPOSED','NO_ACTION','INVALID_OUTPUT','MODEL_ERROR','EVIDENCE_STALE')),
+    error            VARCHAR(32),
+    model            VARCHAR(128)  NOT NULL,
+    prompt_version   VARCHAR(32)   NOT NULL,
+    evidence         JSONB         NOT NULL,
+    -- 모델에 보낸 근거 바이트의 해시. JSONB 는 키 순서를 바꾸므로 보낸 원문으로 계산한다.
+    evidence_sha256  CHAR(64)      NOT NULL,
+    oldest_sample_at TIMESTAMPTZ,
+    output_raw       TEXT          CHECK (output_raw IS NULL OR octet_length(output_raw) <= 16384),
+    output_sha256    CHAR(64),
+    output_truncated BOOLEAN       NOT NULL DEFAULT false,
+    situation        VARCHAR(1000),
+    reason           VARCHAR(1000),
+    confidence       NUMERIC(4,3)  CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1),
+    -- 이 판단이 낸 조치 요청의 identity_key. 판단과 요청 행을 잇는다. 조치가 없으면 NULL 이다.
+    action_key       VARCHAR(200),
+    dropped          JSONB         NOT NULL DEFAULT '[]'::jsonb,
+    latency_ms       INTEGER,
+    incident_id      BIGINT        REFERENCES ops_incidents(id),
+    CONSTRAINT chk_ops_ai_output_hash CHECK ((output_raw IS NULL) = (output_sha256 IS NULL))
+);
+CREATE INDEX idx_ops_ai_decisions_keyset ON ops_ai_decisions (decided_at DESC, id DESC);
+CREATE TRIGGER trg_ops_ai_decisions_noupd BEFORE UPDATE OR DELETE ON ops_ai_decisions
+    FOR EACH ROW EXECUTE FUNCTION forbid_mutation();
+CREATE TRIGGER trg_ops_ai_decisions_notrunc BEFORE TRUNCATE ON ops_ai_decisions
+    FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
+
+-- 6. 조치 요청. 상태가 바뀌는 작업 표다.
+CREATE TABLE ops_ai_actions (
+    id                BIGINT        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    first_decision_id BIGINT        NOT NULL REFERENCES ops_ai_decisions(id),
+    last_decision_id  BIGINT        NOT NULL REFERENCES ops_ai_decisions(id),
+    consecutive       SMALLINT      NOT NULL DEFAULT 1 CHECK (consecutive >= 1),
+    kind              VARCHAR(16)   NOT NULL CHECK (kind IN
+                          ('READ_NODES','THRESHOLD','SILENCE','BOT_LOAD','BACKUP_NOW')),
+    identity_key      VARCHAR(200)  NOT NULL,
+    params            JSONB         NOT NULL,
+    target            VARCHAR(128)  NOT NULL,
+    confidence        NUMERIC(4,3)  NOT NULL CHECK (confidence BETWEEN 0 AND 1),
+    reason            VARCHAR(500)  NOT NULL DEFAULT '',
+    status            VARCHAR(16)   NOT NULL DEFAULT 'PROPOSED' CHECK (status IN
+                          ('PROPOSED','DEFERRED','EXECUTING','APPROVED','AUTO_EXECUTED','FAILED','UNKNOWN',
+                           'REJECTED','DENIED','WITHDRAWN','EXPIRED','REVERTED','AUTO_REVERTED')),
+    hold_rule         VARCHAR(32),
+    hold_reason       VARCHAR(200),
+    deferred_until    TIMESTAMPTZ,
+    decided_by        VARCHAR(64),
+    decided_at        TIMESTAMPTZ,
+    approval_id       BIGINT        REFERENCES admin_approvals(id),
+    executed_by       VARCHAR(64),
+    executed_at       TIMESTAMPTZ,
+    -- 자동 실행한 자동 모드 활성 번호. 사람 승인 실행은 NULL 이다. 활성당 상한은 이 값으로 센다.
+    activation        BIGINT,
+    result            JSONB,
+    baseline          JSONB,
+    observe_until     TIMESTAMPTZ,
+    observe_outcome   VARCHAR(16)   CHECK (observe_outcome IN
+                          ('KEPT','REVERTED','UNOBSERVABLE','REVERT_BLOCKED','NOT_REVERTIBLE')),
+    revert_info       JSONB,
+    reverted_by       VARCHAR(64),
+    reverted_at       TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ   NOT NULL,
+    expires_at        TIMESTAMPTZ   NOT NULL,
+    CONSTRAINT chk_ops_ai_action_defer CHECK (deferred_until IS NULL OR deferred_until <= expires_at)
+);
+CREATE UNIQUE INDEX uq_ops_ai_action_open ON ops_ai_actions (identity_key)
+    WHERE status IN ('PROPOSED','DEFERRED','EXECUTING');
+CREATE UNIQUE INDEX uq_ops_ai_action_one_executing ON ops_ai_actions (status)
+    WHERE status = 'EXECUTING';
+CREATE INDEX idx_ops_ai_actions_keyset ON ops_ai_actions (created_at DESC, id DESC);
+CREATE INDEX idx_ops_ai_actions_activation ON ops_ai_actions (activation) WHERE activation IS NOT NULL;
+
+ALTER TABLE ops_threshold_changes
+    ADD CONSTRAINT fk_ops_threshold_change_action FOREIGN KEY (ai_action_id) REFERENCES ops_ai_actions(id);
+
+-- 7. 사건 타임라인의 종류를 넓힌다.
+ALTER TABLE ops_incident_events DROP CONSTRAINT ops_incident_events_kind_check;
+ALTER TABLE ops_incident_events ADD CONSTRAINT ops_incident_events_kind_check CHECK (kind IN (
+    'OPENED','AI_JUDGED','APPROVED','REJECTED','DEFERRED','ACTED','AUTO_ACTED',
+    'AUTO_REVERTED','REVERTED','MODE','NOTIFIED','ACKED','SILENCED','UNSILENCED','RESOLVED',
+    'STOPPED','RESUMED','LIMITS','WINDOW','DENIED','OBSERVED'));
+
+-- 8. 권한
+GRANT SELECT ON ops_ai_limits TO app_role;
+GRANT UPDATE (value, version, updated_by, approval_id, reason, updated_at) ON ops_ai_limits TO app_role;
+GRANT SELECT, INSERT ON ops_ai_limit_changes TO app_role;
+GRANT SELECT, UPDATE ON ops_ai_mode TO app_role;
+GRANT SELECT, INSERT ON ops_maintenance_windows TO app_role;
+GRANT UPDATE (ended_by, ended_at) ON ops_maintenance_windows TO app_role;
+GRANT SELECT, INSERT ON ops_ai_decisions TO app_role;
+GRANT SELECT, INSERT, UPDATE ON ops_ai_actions TO app_role;
+GRANT SELECT ON ops_ai_limits, ops_ai_limit_changes, ops_ai_mode, ops_maintenance_windows, ops_ai_decisions,
+    ops_ai_actions TO harness_role;
+```
+
+V70·V72의 트리거 함수 넷(`check_ops_read_threshold_gap`, `forbid_ai_operator_role`, `forbid_operator_kind_change`, `check_ops_ai_mode_auto`)은 소유자 권한(SECURITY DEFINER) 함수가 아니다. 호출자 권한으로 돌아 권한을 올리지 않으므로 V47.1의 PUBLIC 회수 대상과 성격이 다르다. `check_ops_ai_mode_auto`는 `app_role`의 SELECT로 `admin_approvals`와 `ops_ai_limits`를 읽는다. 운영자 상태·역할 변경 API가 `ai-ops`를 대상으로 받지 않는 것과 세션 발급 거부는 앱이 맡는다.
+
+자동 창 트리거는 앱의 실수를 막는 선이다. 시작을 미래로 넣거나, 다른 액션이나 이전에 소각한 티켓, 다른 운영자의 티켓을 붙이거나, 티켓보다 긴 창을 넣는 갱신을 거부하거나 덮어쓴다. 같은 DB 계정을 쓰는 앱이 티켓 행까지 고치는 경우는 막지 못한다. `app_role`은 `admin_approvals`를 갱신할 수 있기 때문이다(V5). 자동 시간은 1·2·4·8시간만 받는다(ADR 0035). 창을 이어 붙이는 것을 막지 않는 이유는 설계 문서 7-9절과 13절에 있다.
+
+**활성 번호와 활성 한도.** 자동 조치 상한과 임계값 항목당 횟수는 하루가 아니라 자동 모드 1회 활성마다 센다(ADR 0035, 사용자 결정 2026-09-25). 트리거가 수동에서 자동으로 켜는 갱신에서만 `activation`을 하나 올리고 그때의 `ops_ai_limits`를 `activation_limits`로 잡는다. 자동인 동안 새 티켓으로 다시 켜면 창만 새로 열고 번호와 잡아 둔 한도는 그대로라, 창을 이어 붙여도 횟수가 비지 않는다. 앱은 자동 실행한 조치 요청의 `activation`에 그 번호를 적고 같은 번호의 행 수로 센다. 쿨다운과 관찰 창은 조치 시각으로 재므로 활성과 무관하게 이어진다. 운영 중의 한도는 잡아 둔 값과 지금 값 가운데 조이는 쪽이다. 그래서 조이는 변경은 곧바로, 푸는 변경은 다음 활성부터 적용된다(API 설계 §6-F AI 한도).
+
+**정지.** `stopped`가 참이면 모드는 수동이다(CHECK). 정지는 한 문장으로 자동을 풀고 정지 칸을 채운다. 대기 중이던 조치 요청(`PROPOSED`, `DEFERRED`)은 같은 트랜잭션에서 `EXPIRED`(`hold_rule`=`M9`)가 된다. 재개는 정지 칸을 비우고 수동으로 남긴다. 자동으로 다시 켜려면 새 `ops.ai.auto` 티켓이 필요하다.
+
+조치 요청의 `UNKNOWN`은 실행이 중간에 끊겨 결과를 원천에서 대조하지 못한 상태다. `EXECUTING`이 아니므로 부분 유일 인덱스에 걸리지 않지만, 앱은 `UNKNOWN`이 남아 있는 동안 자동 켜기를 거부하고 주기마다 다시 대조한다. `DENIED`는 정책 엔진이 제안 때 막은 요청이다(방향 모순, 계획 작업 창 없음, 경계 밖 등). 열린 상태가 아니므로 같은 조치가 다음 판단에 다시 나오면 새 행이 된다.
+
+### 10.5 V73 통지 보관함과 단일 실행 임대
+
+통지는 관리 JVM이 Teams에 직접 보내지 않는다. 2026-09-25 사용자 요구에 따라 거래 서버와 분리된 보고 서비스(`deploy/reporting`)가 일일·사건 보고와 같은 카드 언어, 보관함, 재시도, 전송 기록으로 보낸다. 관리 JVM은 조치가 커밋된 뒤 서버가 만든 값만으로 사건을 이 보관함에 쓰고, 전용 작업이 보고 서비스의 수신 경로(`POST /msp/events`)로 넘긴다. 그래서 상태 어휘는 Teams 전송이 아니라 넘김의 상태다. `ACCEPTED`는 보고 서비스가 접수했다는 뜻이고 Teams 전달 결과는 보고 서비스의 전송 기록이 가진다. 보고 서비스는 같은 사건 id를 한 번만 받으므로 응답을 잃은 넘김은 다시 보낸다. 그래서 v2.51.2 계획에 있던 `UNKNOWN`(다시 보내지 않음)이 없다. 보고 서비스 설정이 없을 때 발행한 사건은 `SKIPPED`로 남긴다.
+
+`ops_runner_lease`는 여러 관리 JVM 가운데 하나만 AI 판단 주기와 관찰 주기를 돌리게 하는 임대다. 매칭 리더(`leader_lease`)와 무관하다. 판단 주기가 돌 때마다 DB 시계로 임대를 갱신하거나(자기가 보유자) 비었거나 만료된 임대를 가져간다. 커넥션을 붙잡지 않으므로 학교 관리 JVM의 작은 DB 풀(4)을 쓰지 않는다. 임대가 만료되기 전에 멈춘 JVM은 만료 뒤 다른 JVM에게 넘어간다. 멈춘 JVM이 만료 시각을 넘겨 다시 깨어나는 짧은 겹침은 실행 쪽의 한 번에 한 실행(부분 유일 인덱스와 어드바이저리 락, §10.4)이 막는다.
+
+```sql
+CREATE TABLE ops_notifications (
+    id              BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- 보고 서비스가 같은 사건을 한 번만 받는 키다. 응답을 잃은 넘김을 다시 보내도 카드는 한 장이다.
+    event_id        UUID         NOT NULL UNIQUE,
+    kind            VARCHAR(32)  NOT NULL CHECK (kind IN
+                        ('AUTO_EXECUTED','AUTO_REVERTED','MODE_CHANGED','CAP_REACHED','OBSERVE_FAILED',
+                         'EXECUTION_UNKNOWN','MODEL_FAILING','STOPPED','RESUMED')),
+    -- 보고 서비스로 넘기는 사건 본문. 서버가 만든 값만 담고 모델의 자유 문장은 담지 않는다.
+    payload         JSONB        NOT NULL CHECK (octet_length(payload::text) <= 16384),
+    state           VARCHAR(16)  NOT NULL DEFAULT 'PENDING' CHECK (state IN
+                        ('PENDING','SENDING','ACCEPTED','FAILED','SKIPPED')),
+    attempts        SMALLINT     NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 100),
+    next_attempt_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    claimed_at      TIMESTAMPTZ,
+    -- 오류 분류 코드만. 응답 본문과 주소는 남기지 않는다.
+    last_error      VARCHAR(64),
+    report_id       VARCHAR(128),
+    -- 접수되면 이 사건의 타임라인에 NOTIFIED 를 남긴다. 사건과 무관한 통지(모드 전환)는 비어 있다.
+    incident_id     BIGINT       REFERENCES ops_incidents(id),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    accepted_at     TIMESTAMPTZ,
+    CONSTRAINT chk_ops_notifications_accepted CHECK ((state = 'ACCEPTED') = (accepted_at IS NOT NULL))
+);
+CREATE INDEX idx_ops_notifications_due ON ops_notifications (next_attempt_at, id)
+    WHERE state IN ('PENDING','SENDING');
+CREATE INDEX idx_ops_notifications_keyset ON ops_notifications (created_at DESC, id DESC);
+
+CREATE TABLE ops_runner_lease (
+    name       VARCHAR(32)  PRIMARY KEY CHECK (name IN ('ai_loop')),
+    holder     VARCHAR(64),
+    expires_at TIMESTAMPTZ,
+    renewed_at TIMESTAMPTZ,
+    CONSTRAINT chk_ops_runner_lease_pair CHECK ((holder IS NULL) = (expires_at IS NULL))
+);
+INSERT INTO ops_runner_lease (name) VALUES ('ai_loop');
+
+GRANT SELECT, INSERT, UPDATE ON ops_notifications TO app_role;
+GRANT SELECT ON ops_runner_lease TO app_role;
+GRANT UPDATE (holder, expires_at, renewed_at) ON ops_runner_lease TO app_role;
+GRANT SELECT ON ops_notifications, ops_runner_lease TO harness_role;
+```
+
+보관함은 작업 표라 상태가 바뀌지만 `app_role`에 DELETE를 주지 않는다. 사건은 드물어(자동 조치, 모드 전환, 정지) 자동으로 지우지 않고, 보존 기간은 보고 서비스의 보관함과 함께 운영자가 정한다. 넘김 재시도는 연결 실패, 408, 429, 5xx에 지수 대기로 최대 6번이고 그 밖의 4xx와 횟수 초과는 `FAILED`다. `SENDING`으로 2분 넘게 남은 행(넘기는 중에 JVM이 멈춤)은 다시 가져가 보낸다.
+
+### 10.6 적용 순서, 되돌리기, 확인
+
+저장소는 Flyway `out-of-order`를 켜지 않는다. V70 이후를 먼저 적용한 DB에는 나중에 V48~V69를 넣을 수 없다. Flyway가 낮은 번호의 미적용 파일을 무시된 것으로 보고 검증에서 기동을 멈추기 때문이다(Flyway 문서의 동작, 이 저장소에서 재현하지 않음). 그래서 V48~V69가 먼저 적용되기 전에는 V70~V73을 계속 쓸 DB에 넣지 않고, 시험은 매번 새로 만드는 Testcontainers DB에서 한다. 학교는 앱이 Flyway를 끄므로 V47·V47.1처럼 소유자 적용 단계가 필요하다.
+
+이 순서는 운영 규칙만으로 지켜지지 않는다. 로컬 스택은 앱 이미지 태그 하나를 쓰고 `chaos-api-1`이 Flyway를 켠 채 기동하므로, 이 브랜치 코드를 그 태그로 빌드하면 기존 볼륨에 V70~V73이 자동으로 들어간다. 그래서 앱에 적용 전 점검을 둔다(마이그레이션 파일이 아니라 앱 코드, `kr.exchange.config.MigrationOrderGuard`). `migrate()` 전에 Flyway `info()`를 보고, 이미 적용 이력이 있는 DB에 V70 이상을 적용하려는데 실행 파일 안에 V48~V69가 하나도 없으면 적용하지 않고 멈춘다. 빈 DB는 통과하고, 병합 뒤에는 V48~V69가 함께 들어오므로 점검이 저절로 풀린다(2026-09-26 main 병합으로 풀렸다. 점검 시험 `MigrationOrderGuardTest`의 멈춤 경로는 V48~V69를 뺀 마이그레이션 사본으로 병합 전 실행 파일을 흉내 내고, `MigrateSchema` 시험은 V47.1 DB가 병합 판으로 V48과 V70까지 적용되는 것을 본다). 스프링의 `FlywayMigrationStrategy`와 배포 창의 마이그레이션 진입점(`kr.exchange.deploy.MigrateSchema`, `deploy/compose.migrate.yml`)이 같은 점검을 부른다. 앱이 Flyway를 끄고 그 진입점도 쓰지 않는 학교에서는 소유자 적용 절차에 같은 확인(적용 이력에 V69가 있는지)을 넣는다.
+
+파일들은 표·열·행을 더하기만 한다. 예외는 V72가 V71의 사건 이벤트 종류 CHECK를 지우고 넓힌 CHECK로 다시 거는 것 하나다(V71 파일은 고치지 않는다). 되돌릴 때는 적용한 파일을 고치지 않고 새 마이그레이션으로 표를 지운다. `admin_operators.kind`와 `ai-ops` 행은 남겨도 무해하다. 이전 JAR은 새 표를 읽지 않을 뿐 기동에 영향이 없다. 관제센터를 끈 새 JAR도 새 표를 읽지 않고, 켠 JAR는 표가 없으면 기동하지 않는다(API 설계 §6-F 활성 조건). 배포 순서는 파일 적용, 새 JAR, 관제센터 설정이다.
+
+구현할 때 실제 거부 코드를 시험으로 남긴다. `app_role`로 범위 열 UPDATE와 항목 INSERT는 42501이다. 한도 표의 항목 INSERT와 DELETE, 계획 작업 창의 `ends_at` UPDATE도 42501이다. 범위 밖 값, 초기값이 있는 항목의 미설정, 하드 범위 밖의 한도, 8시간 넘는 자동 창, 정지 중의 자동, 24시간 넘거나 대상이 없는 계획 작업 창, 기한이 만료 시각을 넘는 나중에는 23514다. 조회 임계 간격(T3) 위반도 23514인데 지연 트리거라 커밋 때 난다. append-only 표의 UPDATE·DELETE, AI 신원 역할 부여, 운영자 종류 변경, 조건에 맞지 않는 티켓으로 자동 모드를 켜는 갱신은 트리거 예외(P0001)다. 자동 창 트리거가 앱이 넣은 시작·끝을 커밋 시각과 티켓 시간으로 덮어쓰는지, 자동 중 다시 켜면 활성 번호가 그대로인지도 확인한다.
+
+V73은 통지 보관함의 DELETE, 임대 행의 INSERT·DELETE와 `name` UPDATE가 42501인지, 알 수 없는 종류·상태, 16 KiB 넘는 본문, `ACCEPTED`인데 접수 시각이 없는 행, 보유자 없이 만료만 있는 임대가 23514인지, 같은 사건 id가 23505인지 시험으로 확인한다.
+
+---
+
 ## v2.1 패치 반영 사항
 
 v2.0 제출 후 잔여 검증에서 지적된 결함을 아래와 같이 수정했다. (반영 위치는 §/DDL 기준)
@@ -5451,6 +6000,46 @@ ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026
 §3 표에 V47.1 행을, §3.1에 '소유자 권한 트리거 함수의 PUBLIC 회수 (V47.1)'를 더한다. V1은 소유자 권한 함수의 PUBLIC 기본 EXECUTE를 회수한다고 정했지만 트리거 함수 셋을 목록에서 뺐고, V36이 만든 `seed_market_journal_counters`도 회수하지 않았다. PostgreSQL은 트리거 함수의 EXECUTE를 `CREATE TRIGGER` 때만 보므로, 조회 로그인은 레지스트리 두 표와 카운터 표에, `app_role` 로그인은 INSERT 권한이 없는 레지스트리 두 표에 자기 임시 표 트리거로 소유자 권한의 행을 쓸 수 있었고, 두 로그인 모두 `markets`에 없는 마켓의 저널 대역 잎을 만들 수 있었다. 잔고 표는 외래키가 막았다. 회수는 트리거 발화에 영향을 주지 않으므로 계정 생성, 체결·이벤트 적재, 마켓 생성은 그대로다.
 
 번호는 사용자가 정했다. 브랜치 `claude/per-market-leader`가 V48 이후와 이 문서의 v2.52~v2.54를 쓰고 있어, 마이그레이션은 V47과 V48 사이에 정렬되는 47.1로, 문서 판은 v2.51.1로 둔다. 그 브랜치의 V48~V52는 네 함수를 건드리지 않고, 그 브랜치가 새로 만든 소유자 권한 함수는 각자 PUBLIC을 회수한다. 표 구조, 함수 본문, `app_role` 권한은 바뀌지 않는다.
+
+## v2.51.2 패치 반영 사항
+
+관리 콘솔 MSP 관제센터(2단계)의 스키마를 구현보다 먼저 적는다. 2026-09-24 갱신. 마이그레이션 파일은 아직 없다.
+
+§10을 새로 두고 §3 표에 계획 행(V70~V73)을 더한다. 임계값 레지스트리와 append-only 변경 이력(V70), 사건과 append-only 타임라인(V71), AI 신원·모드·판단 기록·조치 요청(V72), Teams 통지 보관함(V73)이다. 요청·응답은 API 설계 v2.52.1 §6-F, 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md`에 있다.
+
+번호와 판은 겹침을 피해 정했다. V48~V69는 브랜치 `claude/per-market-leader` 몫이라 V70부터 쓰고, 그 브랜치가 이 문서의 v2.52~v2.54를 쓰므로 판은 v2.51.2다. 번호 공백은 Flyway에 문제없지만 적용 순서는 문제가 된다. `out-of-order`를 켜지 않았으므로 V70 이후를 먼저 넣은 DB에는 V48~V69를 넣을 수 없다(§10.6).
+
+권한은 앱이 과거를 지우거나 한도를 넓힐 수 없게 줬다. 임계값 표는 현재값과 판 번호 열만 UPDATE를 주고 INSERT·DELETE를 주지 않는다. 항목, 단위, 범위, AI 1회 폭은 마이그레이션만 정한다. 이력, 타임라인, 판단 기록은 `forbid_mutation`으로 append-only다. `admin_operators`에 `kind`를 더해 AI 신원(`ai-ops`)을 사람과 가르고, 트리거로 AI 신원의 역할 부여와 종류 변경을 막는다. AI 자동 모드의 최대 8시간(ADR 0035, 사용자 확정 2026-09-24)을 DB CHECK로 한 번 더 건다. 원장·저널·정산·주문 표와의 외래키와 트리거는 없고, 자산 합 0, 멱등, append-only 저널, 재생 결정론에는 닿지 않는다.
+
+2026-09-25 같은 판에 설계 검토를 반영했다. 사건 등급은 거부하지 않고 정규화한다(`critical`·`warning`·`info`·`other`). 학교에 배포하는 `Watchdog` 경보가 `severity=none`이라 종전 CHECK로는 폴러가 행을 넣지 못했다. 같은 지문의 새 시작 시각은 이전 열린 사건을 닫고 새 행을 여는 순서를 적었다. 이 순서가 없으면 열린 사건 유일 인덱스에 걸려 매 폴링이 실패한다. 초기값이 있는 임계값 항목은 미설정이 될 수 없고(CHECK), 조회 임계 두 행의 간격(T3)은 지연 제약 트리거가 커밋 때 검사한다. 앱이 사람의 변경에만 검사하면 되돌리기와 자동 되돌림이 간격을 깰 수 있었다. 자동 모드 행에는 트리거를 더해 시작을 커밋 시각으로, 끝을 티켓 시간으로 DB가 정하고, 같은 트랜잭션에서 소각한 `ops.ai.auto` 티켓만 받는다. 종전 CHECK는 앱이 넣은 시작을 믿어서 8시간 상한을 넘길 수 있었다. 조치 요청 상태에 `UNKNOWN`을 더하고, 나중에 기한이 만료 시각을 넘지 못하게 했다. 계속 쓰는 DB에 V48~V69 없이 V70 이후를 넣지 않게 하는 앱의 적용 전 점검을 §10.6에 적었다.
+
+2026-09-25 같은 판에 V70·V71을 구현했다. 파일은 §10.2·§10.3의 DDL 그대로이고 §3 표의 계획 행을 버전별 행으로 바꿨다. 거부 코드(42501, 23514, 커밋 때의 T3 23514, append-only P0001)와 앱 로그인의 IDENTITY 열 INSERT는 Testcontainers 시험(`OpsSchemaIntegrationTest`)으로 실제로 시도해 확인했다. 적용 전 점검은 스프링 기동과 배포 창의 `MigrateSchema`가 함께 부르도록 §10.6에 적었다. V72·V73은 계획으로 남는다.
+
+## v2.51.3 패치 반영 사항
+
+관제센터 AI 판단·조치 경로의 스키마(V72)를 구현보다 먼저 다시 정하고 같은 날 파일을 만들었다. 2026-09-25 갱신. 요청·응답은 API 설계 v2.52.2 §6-F, 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 7절이다. 판 번호는 v2.51.2와 같은 이유로 브랜치 `claude/per-market-leader`의 v2.52~v2.54와 겹치지 않게 v2.51.3으로 둔다.
+
+§10.4를 다시 쓰고 §3 표의 V72 계획 행을 버전별 행으로 바꿨다. 사용자 결정(2026-09-25) 세 가지를 스키마에 옮겼다. 첫째, AI 즉시 정지를 두 모드에 쓰는 정지 상태로 넓혀 모드 행에 `stopped`와 정지 칸을 더하고 정지 중에는 수동이도록 CHECK를 걸었다. 둘째, AI 한도 다섯 항목(확신도 기준, 자동 조치 상한, 임계값 항목당 횟수, 봇 부하 쿨다운, 백업 디스크 여유)을 `ops_ai_limits`와 append-only 변경 이력으로 옮기고 하드 범위를 CHECK로 걸었다. 앱 계정은 항목을 늘리거나 지울 수 없다. 셋째, 자동 조치 횟수를 하루가 아니라 자동 모드 1회 활성마다 세도록 모드 행에 활성 번호와 활성 때의 한도를 두고, 수동에서 켤 때만 트리거가 번호를 올리게 했다. 자동인 동안 새 티켓으로 다시 켜도 번호는 그대로다. 조치 요청에는 자동 실행 때의 활성 번호를 적는다.
+
+로컬 실측(설계 7-13절)에 따라 AI의 경보 보류를 운영자가 등록한 계획 작업 창 안으로 좁혔고 그 창을 `ops_maintenance_windows`에 둔다. 판단 기록의 `hypothesis`를 모델 출력의 `reason_ko`에 맞춰 `reason`으로 바꾸고, 분류 코드 `error`와 그 판단이 낸 조치 요청을 잇는 `action_key`를 더했다. 조치 요청에 정책이 제안 때 막은 상태 `DENIED`, 사유 `hold_reason`, 관찰 결과 `observe_outcome`을 더했다. 사건 이벤트 종류에 정지·재개, 한도 변경, 계획 작업 창, 정책 거부, 관찰 창의 끝을 더하려고 V71의 CHECK를 지우고 넓힌 CHECK를 다시 건다. 자동 시간은 ADR 0035에 맞춰 1·2·4·8시간만 받는다.
+
+V73 통지 보관함은 계획으로 남기되, 통지를 보고 서비스로 넘기는 안이 우선이 되어 만들지 않을 수도 있다고 §10.5에 적었다. 원장·저널·정산·주문 표와의 외래키와 트리거는 여전히 없다.
+
+V72의 제약과 권한은 Testcontainers 시험(`AiSchemaIntegrationTest`)으로 실제로 어겨 보아 확인했다. append-only 표의 수정·삭제·비우기, 앱 계정의 한도 항목 추가·삭제와 하드 범위 밖 값, 실행 하나·열린 요청 하나·나중에 기한, 창의 24시간과 대상, 같은 트랜잭션에서 소각한 `ops.ai.auto` 티켓과 활성 번호, AI 신원의 역할과 종류, 하네스 계정의 읽기 전용, 넓힌 사건 종류다.
+
+## v2.51.4 패치 반영 사항
+
+관제센터 통지 보관함과 AI 판단 주기의 단일 실행 임대(V73)를 구현보다 먼저 정하고 같은 날 파일을 만들었다. 2026-09-25 갱신. 요청·응답은 API 설계 v2.52.3 §6-F, 설계 이유는 `docs/reference/architecture/MSP_관제센터_2단계_설계.md` 4-6·7-1·7-12절이다. 판 번호는 v2.51.2와 같은 이유로 브랜치 `claude/per-market-leader`의 v2.52~v2.54와 겹치지 않게 v2.51.4로 둔다.
+
+§10.5를 다시 쓰고 §3 표의 계획 행을 V73 행으로 바꿨다. 통지를 관리 JVM이 Teams에 직접 보내지 않고 보고 서비스(`deploy/reporting`)로 넘기는 안을 택했으므로, 보관함의 상태는 Teams 전송이 아니라 넘김의 상태(`PENDING`, `SENDING`, `ACCEPTED`, `FAILED`, `SKIPPED`)다. 보고 서비스가 사건 id로 중복을 걸러 주므로 응답을 잃은 넘김은 다시 보내도 되고, v2.51.2 계획의 `UNKNOWN`(다시 보내지 않음)과 `SENT`를 뺐다. 사건 종류는 관리 JVM의 통지 포트(`AiNotifier.Kind`) 아홉 가지와 같다. 본문 16 KiB 상한과 접수 시각 CHECK를 더했다.
+
+사용자 요구(2026-09-25, 여러 앱 노드 가운데 한 곳에서만 AI 판단 주기)를 위해 임대 표 `ops_runner_lease`를 더했다. 매칭 리더와 무관하고 커넥션을 붙잡지 않는다. 앱 계정은 임대 열만 바꿀 수 있고 행을 늘리거나 지울 수 없다. 원장·저널·정산·주문 표와의 외래키와 트리거는 여전히 없다. 제약과 권한은 Testcontainers 시험(`NotificationSchemaIntegrationTest`)으로 실제로 어겨 보아 확인한다.
+
+## v2.51.5 패치 반영 사항
+
+관제센터 화면과 서버를 한 브랜치로 병합한 뒤 `capacity_plan`의 해석을 ADR 0030 사용자 정정에 맞췄다. 2026-09-25 갱신. 판 번호는 v2.51.2와 같은 이유로 v2.51.5로 둔다. 표, 열, 제약, 마이그레이션은 바뀌지 않는다.
+
+- **`capacity_plan`의 `app` 행.** 앱 계층 전체 대수다. 초기값(V32) min 2·desired 2·max 3은 늘 켜진 매칭 리더 app-1·app-2와 부하에 따라 켜고 끄는 조회 전용 app-3을 합친 2~3대다. 관제센터 AI의 `READ_NODES` 조치는 이 행의 `desired_nodes`를 1 바꾸는 app-3 켜기·끄기이고, 정책 R1이 같은 경계를 쓴다. V32 파일의 열 주석('리더를 포함한 총 앱 노드 수. 조회 전용 노드 수는 이 값에서 1을 뺀 값')은 단일 리더 때의 설명이다. 적용한 마이그레이션은 고치지 않으므로 주석은 그대로 두고 이 문서가 지금 해석을 적는다. 초기값과 경계는 서버 시험(`AppTierCapacityIntegrationTest`)이 마이그레이션한 DB에서 확인한다.
 
 ## v2.52 패치 반영 사항
 

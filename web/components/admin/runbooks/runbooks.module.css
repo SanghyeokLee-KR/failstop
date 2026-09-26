@@ -1,0 +1,455 @@
+/* 런북(관리자 설계 4-10-4, 레이아웃 §7 3라운드). 목록 칸 340px(보고서 목록과 같이 위 16px에 붙음)과 상세가 16px 간격으로
+   선다. 상세의 단계 레일은 AI 판단 상세의 세로 레일과 같은 모양이다(번호 네모와 그 가운데를 지나는 헤어라인). 실행 단추는 없다 */
+
+.layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* ===== 목록 ===== */
+.listPanel {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header-h) - var(--space-7));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+  overflow: hidden;
+}
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.listTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.listMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  align-items: baseline;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.row + .row {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.row:hover {
+  background: var(--surface-hover);
+}
+/* 고른 행. 사이드바 활성 항목과 같은 문법(왼쪽 2px 레일과 sunken 면)이다 */
+.row[aria-current="true"] {
+  background: var(--surface-sunken);
+}
+.row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  background: var(--chrome-accent);
+}
+.rowTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.rowFiring {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--color-warning-text);
+  white-space: nowrap;
+}
+.rowFiring[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.rowFiring > svg {
+  color: var(--color-warning);
+}
+.rowFiring[data-tone="danger"] > svg {
+  color: var(--color-danger);
+}
+.rowWhen {
+  grid-column: 1 / -1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.rowMeta {
+  grid-column: 1 / -1;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 고른 행의 sunken 면 위에서 secondary는 라이트에서 4.27:1이라 한 단 올린다(4.5:1 계약) */
+.row[aria-current="true"] .rowWhen,
+.row[aria-current="true"] .rowMeta {
+  color: var(--text-default);
+}
+.listFoot {
+  padding: var(--space-3) var(--space-4);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 상세 ===== */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+  animation: detailIn var(--dur-base) var(--ease-decelerate) both;
+}
+@keyframes detailIn {
+  from {
+    opacity: 0;
+  }
+}
+.detailHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.when {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+/* 누가 어디서, AI가 하지 않는 이유, 관련 경보. 칸을 칠하지 않고 헤어라인으로 가른다 */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+}
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+.fact + .fact {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+@container rbdetail (max-width: 760px) {
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fact + .fact {
+    box-shadow: inset 0 1px 0 var(--border-subtle);
+  }
+}
+.detailWrap {
+  container: rbdetail / inline-size;
+  min-width: 0;
+}
+.factKey {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.factText {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.alert {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.alert > svg {
+  position: relative;
+  top: 1px;
+  color: var(--text-secondary);
+}
+.alert[data-tone="warning"] > svg {
+  color: var(--color-warning);
+}
+.alert[data-tone="danger"] > svg {
+  color: var(--color-danger);
+}
+.alertName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.alertName code {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+}
+.alertState {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.alert[data-tone="warning"] .alertState {
+  color: var(--color-warning-text);
+}
+.alert[data-tone="danger"] .alertState {
+  color: var(--color-danger);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.sectionTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.sectionMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* 단계 레일. 번호 칸 가운데를 지나는 헤어라인이고 마지막 단계의 번호 칸에서 끝난다 */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  bottom: calc(-1 * var(--space-5));
+  left: 12px;
+  width: 1px;
+  background: var(--border-default);
+}
+.stepNo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  font-size: var(--font-dense-size);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: 2px;
+}
+.stepTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.stepText {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+/* 확인 조건. 다음 단계로 가기 전의 문턱이라 왼쪽 2px 선으로 가른다(판독 색이 아니라 무채) */
+.check {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.checkKey {
+  flex: none;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.commands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.commands li {
+  min-width: 0;
+  max-width: 100%;
+}
+.commands li > button {
+  max-width: 100%;
+}
+.noCommand {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.rollback {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.incidents {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.incident {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.incidents li:first-child .incident {
+  border-top: 0;
+}
+.incident:hover .incidentTitle {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.incidentTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.incidentWhen {
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.twoCol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+}
+@container rbdetail (max-width: 760px) {
+  .twoCol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    animation: none;
+  }
+}

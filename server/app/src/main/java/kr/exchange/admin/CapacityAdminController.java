@@ -1,22 +1,20 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
-import kr.exchange.api.common.ApiException;
+import kr.exchange.admin.msp.OpsThresholdService;
 import kr.exchange.api.common.ApiFormats;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 용량 콘솔(ADR 0015 수동 스케일링). 판정은 자동이고 실행은 사람이다.
@@ -41,23 +39,25 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
 public class CapacityAdminController {
 
-    private static final String TIER = "app";
+    private static final String TIER = CapacityPlanService.TIER;
 
 
     public record ScaleBody(String reason) {
     }
 
     private final CapacityProperties props;
-    private final NodeProbe probe;
-    private final AdminAuditService audit;
-    private final JdbcClient jdbc;
+    private final CapacityPlanService plans;
+    private final Optional<OpsThresholdService> registry;
 
-    public CapacityAdminController(CapacityProperties props, NodeProbe probe,
-                                   AdminAuditService audit, JdbcClient jdbc) {
+    /**
+     * registry 는 관제센터(exchange.msp.enabled)를 켠 배포에만 있다. 끈 배포는 지금처럼 설정의 권고 임계를
+     * 읽고 임계값 표(V70)를 건드리지 않는다. 앱이 Flyway 를 끄는 곳에서 새 JAR 가 표보다 먼저 떠도 500 을 내지 않는다.
+     */
+    public CapacityAdminController(CapacityProperties props, CapacityPlanService plans,
+                                   Optional<OpsThresholdService> registry) {
         this.props = props;
-        this.probe = probe;
-        this.audit = audit;
-        this.jdbc = jdbc;
+        this.plans = plans;
+        this.registry = registry;
     }
 
     @GetMapping
@@ -67,14 +67,12 @@ public class CapacityAdminController {
     }
 
     @PostMapping("/scale-out")
-    @Transactional
     public Map<String, Object> scaleOut(@RequestBody(required = false) ScaleBody body,
                                         HttpServletRequest request) {
         return change(+1, "capacity.scale_out", body, request);
     }
 
     @PostMapping("/scale-in")
-    @Transactional
     public Map<String, Object> scaleIn(@RequestBody(required = false) ScaleBody body,
                                        HttpServletRequest request) {
         return change(-1, "capacity.scale_in", body, request);
@@ -86,75 +84,32 @@ public class CapacityAdminController {
                                        HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.SUPER);
-
-        Plan before = plan();
-        int next = before.desired() + delta;
-        if (next < before.min() || next > before.max()) {
-            // 경계를 넘는 요청은 DB CHECK 가 막기 전에 여기서 막는다. 그래야 화면이
-            // 제약 위반 메시지 대신 사람이 읽을 수 있는 사유를 받는다.
-            audit.record(principal.operatorId(), action, TIER,
-                    AdminRequestContext.requestId(request), null, "DENIED",
-                    Map.of("desired", before.desired(), "requested", next,
-                            "min", before.min(), "max", before.max()));
-            throw new ApiException(409, "CAPACITY_OUT_OF_BOUNDS",
-                    next < before.min()
-                            ? "최소 " + before.min() + "대 아래로 축소 불가"
-                            : "최대 " + before.max() + "대 위로 증설 불가");
-        }
-
-        jdbc.sql("UPDATE capacity_plan SET desired_nodes = ?, updated_by = ?, updated_at = now() WHERE tier = ?")
-                .params(next, principal.operatorId(), TIER)
-                .update();
-
-        audit.record(principal.operatorId(), action, TIER,
-                AdminRequestContext.requestId(request), null, "OK",
-                Map.of("from", before.desired(), "to", next,
-                        "reason", body == null || body.reason() == null ? "" : body.reason()));
+        CapacityPlanService.Change change = plans.change(delta, principal.operatorId(), action,
+                body == null ? null : body.reason(), AdminRequestContext.requestId(request));
 
         Map<String, Object> out = new LinkedHashMap<>(snapshot());
-        out.put("changed_from", before.desired());
-        out.put("changed_to", next);
+        out.put("changed_from", change.from());
+        out.put("changed_to", change.to());
         return out;
     }
 
     /* ===== 상태 ===== */
 
-    private record Plan(int min, int desired, int max, String updatedBy, OffsetDateTime updatedAt) {
-    }
-
-    private Plan plan() {
-        return jdbc.sql("SELECT min_nodes, desired_nodes, max_nodes, updated_by, updated_at FROM capacity_plan WHERE tier = ?")
-                .param(TIER)
-                .query((rs, i) -> new Plan(rs.getInt(1), rs.getInt(2), rs.getInt(3),
-                        rs.getString(4), rs.getObject(5, OffsetDateTime.class)))
-                .single();
-    }
-
     private Map<String, Object> snapshot() {
-        Plan plan = plan();
+        CapacityPlanService.Plan plan = plans.plan();
         List<CapacityProperties.Node> configured = props.getNodes();
-        Map<String, NodeProbe.Observed> observed = probe.probeAll(configured);
+        CapacityPlanService.Observation observation = plans.observe();
+        Map<String, NodeProbe.Observed> observed = observation.byNode();
 
         List<Map<String, Object>> nodes = new ArrayList<>();
-        int up = 0;
-        int readServing = 0;
-        double cpuSum = 0;
-        boolean leaderUp = false;
+        int up = observation.up();
+        Double avgCpu = observation.readAvgCpu();
+        boolean leaderUp = observation.leaderUp();
         for (int i = 0; i < configured.size(); i++) {
             CapacityProperties.Node c = configured.get(i);
             NodeProbe.Observed o = observed.getOrDefault(c.getId(), NodeProbe.Observed.unreachable());
             // 계약상 떠 있어야 하는 노드는 설정 순서로 앞에서부터 희망 대수만큼이다.
             boolean expected = i < plan.desired();
-            if (o.reachable()) {
-                up++;
-                if (o.leader()) {
-                    leaderUp = true;
-                }
-                if (o.servesReads() && o.cpuRatio() != null) {
-                    readServing++;
-                    cpuSum += o.cpuRatio();
-                }
-            }
             Map<String, Object> n = new LinkedHashMap<>();
             n.put("id", c.getId());
             n.put("az", c.getAz());
@@ -173,7 +128,7 @@ public class CapacityAdminController {
             n.put("ws_clients", o.wsClients());
             nodes.add(n);
         }
-        Double avgCpu = readServing == 0 ? null : cpuSum / readServing;
+        Limits limits = limits();
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", "1.0");
@@ -195,11 +150,23 @@ public class CapacityAdminController {
         // 임계를 응답에 싣는다. 화면이 0.60 을 복제하고 있어 서버가 값을 조이면 두 곳이
         // 갈렸다. 게이지 눈금도 판정과 같은 값을 써야 한다
         Map<String, Object> thresholds = new LinkedHashMap<>();
-        thresholds.put("scale_out_cpu_ratio", props.getScaleOutCpu());
-        thresholds.put("scale_in_cpu_ratio", props.getScaleInCpu());
+        thresholds.put("scale_out_cpu_ratio", limits.scaleOut());
+        thresholds.put("scale_in_cpu_ratio", limits.scaleIn());
         out.put("thresholds", thresholds);
-        out.put("advice", advice(plan, up, avgCpu, leaderUp));
+        out.put("advice", advice(plan, up, avgCpu, leaderUp, limits, configured));
         return out;
+    }
+
+    private record Limits(double scaleOut, double scaleIn) {
+    }
+
+    /** 증설·축소 권고 임계. 관제센터를 켜면 임계값 레지스트리, 끄면 설정값이다. 응답 모양은 같다. */
+    private Limits limits() {
+        if (registry.isEmpty()) {
+            return new Limits(props.getScaleOutCpu(), props.getScaleInCpu());
+        }
+        OpsThresholdService.ReadThresholds read = registry.get().readThresholds();
+        return new Limits(read.scaleOut().doubleValue(), read.scaleIn().doubleValue());
     }
 
     /**
@@ -208,53 +175,61 @@ public class CapacityAdminController {
      * 순서가 뜻을 갖는다. 계약과 관측이 어긋난 상태가 부하보다 먼저다. 3 대여야 하는데 2 대인
      * 상황에서 "부하가 높으니 늘리세요" 를 먼저 보이면 이미 누른 버튼을 또 누르게 된다.
      */
-    private List<Map<String, Object>> advice(Plan plan, int up, Double avgCpu, boolean leaderUp) {
+    private List<Map<String, Object>> advice(CapacityPlanService.Plan plan, int up, Double avgCpu, boolean leaderUp,
+                                             Limits limits, List<CapacityProperties.Node> configured) {
         List<Map<String, Object>> out = new ArrayList<>();
 
         if (!leaderUp) {
             // 이 문구가 정확해야 한다. 노드를 늘려도 쓰기는 돌아오지 않는다. 늘어나는 노드는
             // 매칭엔진이 없는 조회 전용이다(ADR 0015 영향 절).
             out.add(card("leader_down", "danger", "주문 접수 중단",
-                    "주문을 처리하는 서버가 응답하지 않는다. 조회는 남은 서버가 계속 받는다. "
-                            + "서버를 추가해도 조회 용량만 늘고 주문은 재개되지 않는다. "
-                            + "주문 재개는 그 서버가 다시 서야 가능하다.", null));
+                    "주문을 처리하는 앱 노드가 응답하지 않습니다. 조회는 남은 앱 노드가 계속 받습니다. "
+                            + "조회 전용 노드를 켜도 조회 용량만 늘고 주문은 재개되지 않습니다. "
+                            + "주문은 그 노드가 다시 서야 재개됩니다.", null));
         }
         if (up < plan.desired()) {
-            out.add(card("under_provisioned", "warn", "서버 부족",
-                    "있어야 할 서버가 " + plan.desired() + "대인데 " + up + "대만 응답한다. "
-                            + "추가한 서버가 준비 중이거나 한 대가 멈춘 상태다.", null));
+            out.add(card("under_provisioned", "warn", "노드 부족",
+                    "있어야 할 앱 노드가 " + plan.desired() + "대인데 " + up + "대만 응답합니다. "
+                            + "켠 노드가 준비 중이거나 한 대가 멈춘 상태입니다.", null));
         }
         if (up > plan.desired()) {
-            out.add(card("over_provisioned", "warn", "서버 초과",
-                    "있어야 할 서버가 " + plan.desired() + "대인데 " + up + "대가 응답한다. "
-                            + "줄이기가 끝나지 않았고 그동안 비용이 더 나간다.", null));
+            out.add(card("over_provisioned", "warn", "노드 초과",
+                    "있어야 할 앱 노드가 " + plan.desired() + "대인데 " + up + "대가 응답합니다. "
+                            + "끄기가 끝나지 않았고 그동안 비용이 더 나갑니다.", null));
         }
         if (avgCpu == null) {
             out.add(card("no_metrics", "warn", "상태 읽기 실패",
-                    "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 "
-                            + "권고를 내지 않는다.", null));
+                    "조회를 받는 앱 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 "
+                            + "권고를 내지 않습니다.", null));
             return out;
         }
         int pct = (int) Math.round(avgCpu * 100);
-        if (avgCpu >= props.getScaleOutCpu() && plan.desired() < plan.max()) {
+        if (avgCpu >= limits.scaleOut() && plan.desired() < plan.max()) {
             out.add(card("scale_out", "warn", "조회 부하 높음",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 늘리면 부하가 "
-                            + "나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.",
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. " + nodeName(configured, plan.desired())
+                            + "를 켜면 앱 계층이 " + (plan.desired() + 1) + "대가 되어 조회가 나뉩니다. "
+                            + "켜는 데 약 17초가 걸리고 서비스는 멈추지 않습니다.",
                     "SCALE_OUT"));
-        } else if (avgCpu >= props.getScaleOutCpu()) {
-            out.add(card("at_max", "warn", "조회 부하 높음. 증설 불가",
-                    "평균 사용률 " + pct + "%인데 이미 최대 " + plan.max() + "대다. "
-                            + "최대 대수를 올리려면 비용 판정이 먼저다.", null));
-        } else if (avgCpu <= props.getScaleInCpu() && plan.desired() > plan.min()) {
+        } else if (avgCpu >= limits.scaleOut()) {
+            out.add(card("at_max", "warn", "조회 부하 높음 · 증설 불가",
+                    "평균 사용률이 " + pct + "%인데 이미 앱 계층 최대 " + plan.max() + "대입니다. "
+                            + "최대 대수를 올리려면 비용 판단이 먼저입니다.", null));
+        } else if (avgCpu <= limits.scaleIn() && plan.desired() > plan.min()) {
             out.add(card("scale_in", "info", "조회 부하 낮음",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 줄이면 비용이 "
-                            + "준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.",
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. " + nodeName(configured, plan.desired() - 1)
+                            + "를 끄면 앱 계층이 " + (plan.desired() - 1) + "대가 되어 비용이 줄고, "
+                            + "끄기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.",
                     "SCALE_IN"));
         } else {
             out.add(card("steady", "ok", "안정",
-                    "조회를 받는 서버의 평균 사용률 " + pct + "%. 조치 불요.", null));
+                    "조회를 받는 앱 노드의 평균 사용률이 " + pct + "%입니다. 할 조치가 없습니다.", null));
         }
         return out;
+    }
+
+    /** 켜고 끄는 노드는 설정 순서로 희망 대수 경계에 있는 노드다(AWS 구성에서는 app-3). */
+    private static String nodeName(List<CapacityProperties.Node> configured, int index) {
+        return index >= 0 && index < configured.size() ? configured.get(index).getId() : "조회 전용 노드";
     }
 
     private static Map<String, Object> card(String id, String level, String headline,

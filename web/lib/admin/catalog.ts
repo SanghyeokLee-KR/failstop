@@ -40,7 +40,7 @@ export const SCENARIO_CATALOG: ScenarioDef[] = [
     name: "volatile", label: "변동 확대", opsMult: 1.5, lambdaMult: 1.5,
     scale: { MARKET_MAKER: 0.6, TAKER: 1.3, TREND: 1.5, NOISE: 1.2 },
     targetBias: "0.00", autoBalance: true, strength: "0.15", intensity: "calm",
-    note: "호가를 얇게 해 같은 주문이 더 큰 이동을 만든다. 방향은 없다",
+    note: "호가를 얇게 해 같은 주문이 더 큰 이동을 만듭니다. 방향은 없습니다",
   },
   {
     name: "ramp", label: "완만한 상승", opsMult: 2.0, lambdaMult: 2.0,
@@ -52,7 +52,7 @@ export const SCENARIO_CATALOG: ScenarioDef[] = [
     name: "spike", label: "급등 폭주", opsMult: 10.0, lambdaMult: 10.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
     targetBias: "0.60", autoBalance: false, strength: "0.5", intensity: "surge",
-    note: "균형 제어를 끄고 목표 방향을 직접 넣는다. 대수는 그대로",
+    note: "균형 제어를 끄고 목표 방향을 직접 넣습니다. 대수는 그대로",
   },
   {
     /* spike 의 방향 대칭. 부하 축(OPS·λ·대수)이 spike 와 같고 bias 부호만 반대다.

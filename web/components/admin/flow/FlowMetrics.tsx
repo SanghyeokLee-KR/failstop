@@ -2,7 +2,7 @@
 
 /**
  * 지표 관제 화면(/admin/monitor)의 시계열. 위에 넓은 타임라인 한 장(체결/초, 봇 발행률)을 두고
- * 아래에 작은 카드 다섯 장을 두 줄로 깐다. 윗줄은 조회 경로(조회 사용률, 조회 노드 수, 노드 CPU)를
+ * 아래에 작은 카드 다섯 장을 두 줄로 깐다. 윗줄은 조회 경로(조회 사용률, 앱 계층 대수, 노드 CPU)를
  * 증설이 번지는 순서로, 아랫줄은 쓰기 경로의 뒤편(리더 리스 잔여, DB 복제 지연)을 넓게 둔다.
  * 어느 조작 뒤에 어느 값이 움직였는지를 한 시간축에 대 보려는 화면이다. 선 이름은 AWS 역할
  * 이름(app-1·2·3)이고 컨테이너 이름은 인스턴스 표가 맡는다.
@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { hms } from "@/lib/admin/timeText";
 import {
   ColorType,
   LineSeries,
@@ -49,13 +50,13 @@ import {
   APP_NAME,
   LEASE_TICK,
   LEASE_TTL,
-  SCALE_OUT_ADVICE,
   linePoints,
   type FlowEvent,
   type FlowSample,
   type Health,
 } from "@/lib/admin/flowSim";
 import styles from "./metrics.module.css";
+import StatusShape from "../StatusShape";
 
 const WINDOW = 150;
 /** 사건 띠의 줄 수와 줄 높이. 증설 시나리오에서 1~2초 간격으로 이어지는 사건 셋과 뒤따르는
@@ -141,29 +142,41 @@ const TIMELINE: ChartSpec = {
   scaleWidth: 64,
 };
 
-/* 윗줄은 조회 경로다. 부하가 사용률을 올리고, 운영자 승인으로 노드 수가 바뀌고, 새 노드의 CPU 가
+/**
+ * 조회 사용률 차트의 기준선. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 앱 계층 눈금과 같은 값), 재생은 로컬
+ * 조정기의 권고 임계다. 관제 값 모드에서는 리스를 두 파티션이 따로 쥐고, 복제 지연은 KB 정수로 적어 관제센터의
+ * DB 카드와 같은 자릿수다
+ */
+export interface MetricsBasis {
+  live: boolean;
+  scaleOutPct: number;
+}
+
+/* 윗줄은 조회 경로다. 부하가 사용률을 올리고, 운영자 승인으로 app-3 이 켜져 앱 계층 대수가 바뀌고, app-3 의 CPU 가
    살아나는 순서로 왼쪽에서 오른쪽으로 읽힌다. 아랫줄은 쓰기 경로의 뒤편이라 DB 전환 재생에서 함께 본다 */
-const CARDS: ChartSpec[] = [
+function cardsFor(b: MetricsBasis): ChartSpec[] {
+  const word = b.live ? "증설 임계" : "증설 권고";
+  return [
   {
     title: "조회 사용률 %",
     lines: [
-      { name: "사용률", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.util * 100, digits: 1, axisDigits: 0, unit: "%" },
+      { name: "사용률", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.util * 100, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
     ],
     scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
     refs: [
       {
         line: 0,
-        price: SCALE_OUT_ADVICE * 100,
-        title: "증설 권고",
+        price: b.scaleOutPct,
+        title: word,
         tone: "warning",
-        legend: `증설 권고 ${Math.round(SCALE_OUT_ADVICE * 100)}%`,
+        legend: `${word} ${b.scaleOutPct}%`,
       },
     ],
     scaleWidth: 56,
     span: 2,
   },
   {
-    title: "조회 노드 대",
+    title: "앱 계층 대",
     lines: [
       { name: "목표", tone: 3, dash: "dashed", width: 2, pane: 0, steps: true, pick: (s) => s.desired, digits: 0, axisDigits: 0, unit: "대" },
       { name: "등록", tone: 1, dash: "solid", width: 2, pane: 0, steps: true, under: true, pick: (s) => s.registered, digits: 0, axisDigits: 0, unit: "대" },
@@ -176,9 +189,10 @@ const CARDS: ChartSpec[] = [
   {
     title: "노드 CPU %",
     lines: [
-      { name: APP_NAME.api1, tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.cpu.api1, digits: 1, axisDigits: 0, unit: "%" },
-      { name: APP_NAME.api2, tone: 2, dash: "dashed", width: 2, pane: 0, pick: (s) => s.cpu.api2, digits: 1, axisDigits: 0, unit: "%" },
-      { name: APP_NAME.api3, tone: 3, dash: "dotted", width: 2, pane: 0, pick: (s) => s.cpu.api3, digits: 1, axisDigits: 0, unit: "%" },
+      { name: APP_NAME.api1, tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.cpu.api1, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
+      { name: APP_NAME.api2, tone: 2, dash: "dashed", width: 2, pane: 0, pick: (s) => s.cpu.api2, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
+      // 앱 계층 세 대를 모두 싣는다. app-3 은 켜져 있을 때만 값이 있어 꺼진 구간은 끊긴다
+      { name: APP_NAME.app3, tone: 3, dash: "dotted", width: 2, pane: 0, pick: (s) => s.cpu.app3, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
     ],
     // 기본 여백(위 20%)을 두면 축이 120% 까지 올라가 있을 수 없는 값을 눈금으로 보인다
     scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
@@ -187,7 +201,7 @@ const CARDS: ChartSpec[] = [
     span: 2,
   },
   {
-    title: "리더 리스 잔여 초",
+    title: b.live ? "파티션 리스 잔여 초" : "리더 리스 잔여 초",
     lines: [
       // 평시에는 2초 갱신으로 6과 5 사이를 매초 오간다. 초마다 이으면 1초 간격 톱니가 촘촘한 띠나
       // 바코드처럼 보여 정상이 오히려 요란하다. 선은 갱신 주기(2초)마다 한 점만 잇는다. 평시는 TTL 에
@@ -217,7 +231,7 @@ const CARDS: ChartSpec[] = [
     lines: [
       // 복제가 끊기면(Primary 중단, 재편입 중) 잴 상대가 없어 공백이다. 0 KB 로 그리면 가장 잘
       // 따라붙은 순간처럼 읽힌다
-      { name: "지연", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.replLagKb, digits: 1, axisDigits: 0, unit: "KB" },
+      { name: "지연", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.replLagKb, digits: b.live ? 0 : 1, axisDigits: 0, unit: "KB" },
     ],
     // 평시 2KB 안팎의 흔들림에 축이 확대해 붙지 않게 바닥 0, 천장 최소 5KB 로 둔다
     scales: [{ kind: "floor", minCeil: 5 }],
@@ -225,7 +239,8 @@ const CARDS: ChartSpec[] = [
     scaleWidth: 56,
     span: 3,
   },
-];
+  ];
+}
 
 const LINE_STYLE: Record<Dash, LineStyle> = {
   solid: LineStyle.Solid,
@@ -240,7 +255,7 @@ const DASH_ARRAY: Record<Dash, string | undefined> = {
   dotted: "0.1 4",
 };
 
-const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 type Point = LineData<Time> | WhitespaceData<Time>;
 
@@ -277,16 +292,18 @@ function toneColor(t: ChartTokens, tone: Tone): string {
 /**
  * 기준선의 선 색과 축 표지 색. 선은 그래픽이라 3:1 만 넘으면 되어 주황(--color-warning)을 그대로 쓴다.
  * 표지는 11~12px 글자를 얹으므로 4.5:1 이 필요하다. 라이브러리에 맡기면 선 색을 면으로 칠하고 글자색을
- * 밝기로 골라서, 라이트에서 흰 글자가 주황 면 위 3.09:1 로 떨어졌다. 그래서 표지 면은 경고 글자색
- * (라이트 orange-800, 흰 글자와 6.5:1)으로, 글자는 카드 면 색으로 따로 준다. 다크에서는 두 경고 토큰이
- * 같은 밝은 주황이라 면과 선이 한 색이고 어두운 글자와 9.15:1 이다. 무채색 기준선(TTL)도 같은 규칙으로
- * 글자색을 카드 면으로 고정한다
+ * 밝기로 골라서, 라이트에서 흰 글자가 주황 면 위 3.09:1 로 떨어졌다. 그래서 표지 글자는 카드 면 색으로
+ * 따로 준다.
+ *
+ * 주황은 실제 주의에만 쓴다(디자인 시스템 §12-3). 기준선은 늘 서 있는 눈금이라 평소 표지는 무채 기준선
+ * (TTL)과 같은 면이고, 선 값이 기준 이상인 동안만 표지를 경고 글자색 면(라이트 orange-800, 흰 글자와
+ * 6.5:1)으로 칠한다. 다크에서는 두 경고 토큰이 같은 밝은 주황이라 어두운 글자와 9.15:1 이다
  */
-function refFace(t: ChartTokens, tone: RefTone) {
+function refFace(t: ChartTokens, tone: RefTone, over: boolean) {
   const warning = tone === "warning";
   return {
     color: warning ? cssVar("--color-warning") : t.axisText,
-    axisLabelColor: warning ? cssVar("--color-warning-text") : t.axisText,
+    axisLabelColor: warning && over ? cssVar("--color-warning-text") : t.axisText,
     axisLabelTextColor: t.surface,
   };
 }
@@ -460,10 +477,9 @@ class CrossLabel implements ISeriesPrimitive<Time> {
   }
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
+/** 축과 십자선의 시각. 관리 콘솔 시각은 KST다(디자인 시스템 §12-12) */
 function clock(t: Time | number): string {
-  const d = new Date((t as number) * 1000);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return hms(new Date((t as number) * 1000).toISOString());
 }
 
 /* 표식 폭은 캔버스로 잰다. DOM 에 한 번 그린 뒤 재면 매초 두 번 렌더된다. 글꼴이 다 받아지기
@@ -503,11 +519,16 @@ interface Tag extends Placed {
  * 20초 안에 사건 셋이 이어질 때 네 줄로도 모자란다. 끝내 자리가 없으면 가장 먼저 비는 줄에
  * 가운데로 겹쳐 둔다.
  */
+/** 표지에 적는 짧은 말. 사건 글의 첫 토막('경보 발생', '승인', '해제')이고 전체 글은 툴팁이 싣는다 */
+function tagWord(label: string): string {
+  return label.split(" · ")[0];
+}
+
 function packTags(marks: Placed[], plotW: number): Tag[] {
   const rowEnd = new Array<number>(LANE_ROWS).fill(-Infinity);
   const out: Tag[] = [];
   for (const m of marks) {
-    const w = tagWidth(`${HEALTH_ICON[m.event.health]} ${m.event.label}`);
+    const w = tagWidth(`${HEALTH_ICON[m.event.health]} ${tagWord(m.event.label)}`);
     // 그림 영역 밖으로 나가지 않게 민다. 표식이 영역보다 넓으면 왼쪽 끝에 붙인다
     const clamp = (l: number) => Math.min(Math.max(l, 0), Math.max(0, plotW - w));
     const candidates = [clamp(m.x - w / 2), clamp(m.x), clamp(m.x - w)];
@@ -535,7 +556,8 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line">[]>([]);
-  const refLinesRef = useRef<{ line: IPriceLine; tone: RefTone }[]>([]);
+  /** 기준선마다 선 값이 기준 이상인지(over). 넘나들 때만 축 표지 색을 다시 준다 */
+  const refLinesRef = useRef<{ line: IPriceLine; tone: RefTone; spec: RefSpec; over: boolean }[]>([]);
   /** 창마다 하나씩 둔 십자선 가격 표지. 색인이 창 번호다 */
   const crossRef = useRef<CrossLabel[]>([]);
   /** 선마다 마지막 값과 그 표지를 켰는지. 십자선 표지와 눈금 비우기가 쉬는 표지의 자리를 계산할 때 읽는다 */
@@ -591,7 +613,7 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       crosshair: crosshairOptions(t),
     });
     seriesRef.current.forEach((line, i) => line.applyOptions({ color: toneColor(t, spec.lines[i].tone) }));
-    refLinesRef.current.forEach(({ line, tone }) => line.applyOptions(refFace(t, tone)));
+    refLinesRef.current.forEach(({ line, tone, over }) => line.applyOptions(refFace(t, tone, over)));
     crossRef.current.forEach((label) => label.setFace(crossFace()));
   }, [spec]);
 
@@ -730,9 +752,11 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
 
     refLinesRef.current = spec.refs.map((r) => ({
       tone: r.tone,
+      spec: r,
+      over: false,
       line: series[r.line].createPriceLine({
         price: r.price,
-        ...refFace(t, r.tone),
+        ...refFace(t, r.tone, false),
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
@@ -812,22 +836,24 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
   // 매초 줄을 통째로 싣는다. 끊김 표시는 공백이 온 뒤에야 앞 점에 달 수 있어서, 끝 점만
   // 고치는 update 로는 이미 그린 점을 되돌릴 수 없다. 600점 세 줄은 초당 한 번 싣기에 가볍다
   useEffect(() => {
-    samplesRef.current = samples;
+    // 창 밖의 표본은 싣지 않는다. 첫 점이 창의 왼쪽 끝이어야 라이브러리가 끝 눈금 글자를 창 안으로 당겨 잘리지 않는다
+    const win = samples.length > WINDOW ? samples.slice(samples.length - WINDOW) : samples;
+    samplesRef.current = win;
     originRef.current = origin;
     const chart = chartRef.current;
     const series = seriesRef.current;
     if (!chart || series.length === 0) return;
-    const last = samples.length > 0 ? samples[samples.length - 1] : undefined;
+    const last = win.length > 0 ? win[win.length - 1] : undefined;
     series.forEach((line, i) => {
       const { pick, every = 1 } = spec.lines[i];
       // 간격을 둔 선은 남길 틱의 표본만으로 공백을 판정한다. 건너뛴 틱까지 넣으면 모든 점이 공백
       // 직전으로 잡혀 선 전체가 투명해진다
-      const kept = every > 1 ? samples.filter((s) => s.at % every === 0) : samples;
+      const kept = every > 1 ? win.filter((s) => s.at % every === 0) : win;
       const byTick = new Map(linePoints(kept, pick).map((p) => [p.at, p]));
       // 선 계열은 공백을 가로질러 직선을 긋는다. 한 구간의 색은 앞 점에서 오므로 공백 직전 점을
       // 투명하게 칠해 그 구간만 지운다. 건너뛴 틱도 빈 점으로 싣는다. 빼면 이 차트만 논리 색인이
       // 절반이 되어 창 폭과 사건선 자리가 다른 카드와 어긋난다
-      const data: Point[] = samples.map((s) => {
+      const data: Point[] = win.map((s) => {
         const time = (origin + s.at) as UTCTimestamp;
         const p = byTick.get(s.at);
         if (p === undefined || p.value === null) return { time };
@@ -846,8 +872,18 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       line.setData(data);
       line.applyOptions({ lastValueVisible: shown });
     });
+    // 기준선 표지는 마지막 표본의 값이 기준 이상인 동안만 경고 면이다. 넘나드는 순간에만 색을 다시 준다
+    let refTokens: ChartTokens | null = null;
+    for (const ref of refLinesRef.current) {
+      const v = last !== undefined ? spec.lines[ref.spec.line].pick(last) : null;
+      const over = v !== null && v >= ref.spec.price;
+      if (over === ref.over) continue;
+      ref.over = over;
+      refTokens ??= readChartTokens();
+      ref.line.applyOptions(refFace(refTokens, ref.tone, over));
+    }
     // 창 폭을 고정한다. 표본이 150개가 안 되면 왼쪽이 비고 오른쪽 끝이 늘 지금이다
-    const n = samples.length;
+    const n = win.length;
     if (n > 0) chart.timeScale().setVisibleLogicalRange({ from: n - WINDOW, to: n + 1 });
     // 지금 값 표지가 움직였으니 그 밑의 눈금을 다시 고른다
     tickRefreshRef.current?.();
@@ -894,7 +930,10 @@ function Readouts({ lines, last }: { lines: LineSpec[]; last: FlowSample | undef
             </dt>
             <dd className={styles.readoutValue}>
               {v === null ? (
-                <span className={styles.missing}>미수집</span>
+                <span className={styles.missing}>
+                  <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
+                  미수집
+                </span>
               ) : (
                 <>
                   {v.toFixed(l.digits)}
@@ -994,11 +1033,12 @@ function TimelineCard({ samples, events, origin }: Props) {
               className={styles.eventTag}
               data-health={t.event.health}
               style={{ left: t.left, top: rowTop(t.row) }}
+              title={t.event.label}
             >
               <span className={styles.glyph} data-health={t.event.health}>
                 {HEALTH_ICON[t.event.health]}
               </span>
-              {t.event.label}
+              {tagWord(t.event.label)}
             </span>
           ))}
         </div>
@@ -1033,16 +1073,19 @@ function MetricCard({ spec, samples, events, origin }: Props & { spec: ChartSpec
   );
 }
 
-export default function FlowMetrics({ samples, events, origin }: Props) {
+export default function FlowMetrics({ samples, events, origin, basis }: Props & { basis: MetricsBasis }) {
+  // 기준이 바뀔 때만 새 사양을 만든다. 사양이 바뀌면 차트를 새로 세운다(useFlowChart)
+  const { live, scaleOutPct } = basis;
+  const cards = useMemo(() => cardsFor({ live, scaleOutPct }), [live, scaleOutPct]);
   return (
     <div className={styles.root}>
       <TimelineCard samples={samples} events={events} origin={origin} />
       <div className={styles.grid}>
-        {CARDS.map((spec) => (
+        {cards.map((spec) => (
           <MetricCard key={spec.title} spec={spec} samples={samples} events={events} origin={origin} />
         ))}
       </div>
-      <p className={styles.caption}>최근 150초 · 사건 사이 값은 시뮬레이션 · 값 없는 구간은 공백</p>
+      <p className={styles.caption}>{basis.live ? "최근 150초 · 관제 판 값 · 값 없는 구간은 공백" : "최근 150초 · 재생 · 사건 사이 값은 지어낸 값 · 값 없는 구간은 공백"}</p>
     </div>
   );
 }

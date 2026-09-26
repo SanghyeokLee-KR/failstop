@@ -1,0 +1,230 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "environment" : "LOCAL_DOCKER",
+    "day_zone" : "Asia/Seoul",
+    "generated_at" : "2026-09-25T03:50:04.188Z",
+    "hosts" : {
+      "state" : "READY",
+      "data" : [ {
+        "node" : "app-1",
+        "role" : "APP",
+        "actual_role" : null,
+        "instance_type" : "t4g.small",
+        "az" : "ap-northeast-2a",
+        "up" : {
+          "value" : "1",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_ratio" : {
+          "value" : "0.62",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "memory_ratio" : {
+          "value" : "0.71",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "root_free_ratio" : {
+          "value" : "0.62",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_credits" : {
+          "value" : null,
+          "sampled_at" : null,
+          "age_seconds" : null,
+          "collect" : "MISSING"
+        }
+      }, {
+        "node" : "app-2",
+        "role" : "APP",
+        "actual_role" : null,
+        "instance_type" : "t4g.small",
+        "az" : "ap-northeast-2c",
+        "up" : {
+          "value" : "1",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_ratio" : {
+          "value" : "0.58",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "memory_ratio" : {
+          "value" : "0.66",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "root_free_ratio" : {
+          "value" : "0.64",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_credits" : {
+          "value" : null,
+          "sampled_at" : null,
+          "age_seconds" : null,
+          "collect" : "MISSING"
+        }
+      }, {
+        "node" : "db-primary",
+        "role" : "DB",
+        "actual_role" : "PRIMARY",
+        "instance_type" : "t4g.small",
+        "az" : "ap-northeast-2a",
+        "up" : {
+          "value" : "1",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_ratio" : {
+          "value" : "0.31",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "memory_ratio" : {
+          "value" : "0.54",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "root_free_ratio" : {
+          "value" : "0.48",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_credits" : {
+          "value" : null,
+          "sampled_at" : null,
+          "age_seconds" : null,
+          "collect" : "MISSING"
+        }
+      }, {
+        "node" : "db-standby",
+        "role" : "DB",
+        "actual_role" : "STANDBY",
+        "instance_type" : "t4g.small",
+        "az" : "ap-northeast-2c",
+        "up" : {
+          "value" : "1",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_ratio" : {
+          "value" : "0.12",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "memory_ratio" : {
+          "value" : "0.41",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "root_free_ratio" : {
+          "value" : "0.52",
+          "sampled_at" : "2026-09-25T03:50:00.190Z",
+          "age_seconds" : 3,
+          "collect" : "OK"
+        },
+        "cpu_credits" : {
+          "value" : null,
+          "sampled_at" : null,
+          "age_seconds" : null,
+          "collect" : "MISSING"
+        }
+      }, {
+        "node" : "bot-1",
+        "role" : "BOT_OBS",
+        "actual_role" : null,
+        "instance_type" : "t4g.small",
+        "az" : "ap-northeast-2a",
+        "up" : {
+          "value" : "1",
+          "sampled_at" : "2026-09-25T03:48:29.190Z",
+          "age_seconds" : 94,
+          "collect" : "STALE"
+        },
+        "cpu_ratio" : {
+          "value" : "0.44",
+          "sampled_at" : "2026-09-25T03:48:29.190Z",
+          "age_seconds" : 94,
+          "collect" : "STALE"
+        },
+        "memory_ratio" : {
+          "value" : "0.38",
+          "sampled_at" : "2026-09-25T03:48:29.190Z",
+          "age_seconds" : 94,
+          "collect" : "STALE"
+        },
+        "root_free_ratio" : {
+          "value" : "0.23",
+          "sampled_at" : "2026-09-25T03:48:29.190Z",
+          "age_seconds" : 94,
+          "collect" : "STALE"
+        },
+        "cpu_credits" : {
+          "value" : null,
+          "sampled_at" : null,
+          "age_seconds" : null,
+          "collect" : "MISSING"
+        }
+      } ]
+    },
+    "read_tier" : {
+      "state" : "READY",
+      "data" : {
+        "mode" : "CAPACITY_PLAN",
+        "min" : 2,
+        "desired" : 2,
+        "max" : 3,
+        "observed" : 2,
+        "avg_cpu_ratio" : {
+          "value" : "0.8",
+          "sampled_at" : "2026-09-25T03:50:04.207Z",
+          "age_seconds" : 0,
+          "collect" : "OK"
+        }
+      }
+    },
+    "replication" : {
+      "state" : "READY",
+      "data" : {
+        "primary" : "db-primary",
+        "standby" : "db-standby",
+        "stream" : "STREAMING",
+        "lag_seconds" : {
+          "value" : "0.35",
+          "sampled_at" : "2026-09-25T03:49:59.190Z",
+          "age_seconds" : 4,
+          "collect" : "OK"
+        },
+        "lag_bytes" : {
+          "value" : "8192",
+          "sampled_at" : "2026-09-25T03:49:59.190Z",
+          "age_seconds" : 4,
+          "collect" : "OK"
+        },
+        "label_mismatch" : false
+      }
+    }
+  }
+}

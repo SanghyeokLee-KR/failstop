@@ -18,9 +18,8 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, Segmented, segmentedTabId, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -44,7 +43,7 @@ const REASON_LABEL: Record<ReportReason, string> = {
   ETC: "기타",
 };
 
-/** 대상 상태는 경보가 아니라 사실이다. 무채 알약으로 적고 색을 쓰지 않는다 */
+/** 대상 상태는 경보가 아니라 사실이다. 무채 상태 칩(§12-14)으로 적고 색을 쓰지 않는다 */
 const TARGET_LABEL: Record<ContentStatus, string> = {
   VISIBLE: "노출 중",
   HIDDEN: "숨김",
@@ -82,6 +81,12 @@ const DECISIONS: Decision[] = [
   { key: "delete", label: "삭제 처리", moderation: "DELETE", resolution: "ACTIONED", confirm: true },
   { key: "dismiss", label: "문제 없음", moderation: null, resolution: "DISMISSED" },
   { key: "review", label: "확인만", moderation: null, resolution: "REVIEWED" },
+];
+
+/** 표시 순서. 대상을 건드리지 않는 종결 묶음이 앞, 대상을 바꾸는 묶음이 뒤다 */
+const DECISION_GROUPS: string[][] = [
+  ["review", "dismiss"],
+  ["hide", "delete"],
 ];
 
 export default function AdminCommunityPage() {
@@ -140,17 +145,16 @@ export default function AdminCommunityPage() {
     <div className={styles.page}>
       <PageHeader
         title="커뮤니티 신고"
-        desc="회원 신고 큐. 대상 처리와 신고 종결을 함께 기록"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
       </div>
 
-      <PanelCard title="신고 목록">
+      <PanelCard title="신고 목록" actions={<span className={styles.panelMeta}>대상 처리와 신고 종결을 함께 기록합니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="reports-panel" aria-labelledby={segmentedTabId("reports-panel", status)} tabIndex={0}>
           {res.error ? (
@@ -172,7 +176,7 @@ export default function AdminCommunityPage() {
                       <span className={styles.categoryChip}>{REASON_LABEL[row.reason]}</span>
                       <span className={styles.auditNs}>{TYPE_LABEL[row.targetType]}</span>
                       {row.targetStatus && (
-                        <span className={styles.neutralPill}>{TARGET_LABEL[row.targetStatus]}</span>
+                        <StateChip tone="neutral" label={TARGET_LABEL[row.targetStatus]} />
                       )}
                       {row.targetAuthor && <span className={styles.auditNs}>{row.targetAuthor}</span>}
                       <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>
@@ -186,23 +190,35 @@ export default function AdminCommunityPage() {
                     </h3>
                     {row.detail && <p className={styles.inquiryBody}>신고 사유: {row.detail}</p>}
 
+                    {/* 조치는 오른쪽 끝에 모으고 종결만 하는 판단과 대상을 바꾸는 판단을 두 묶음으로
+                        가른다. 되돌릴 수 없는 삭제를 맨 끝에 danger로 둔다(§12-5) */}
                     {status === "PENDING" && (
-                      <div className={styles.answerActions}>
+                      <div className={styles.reportActions}>
                         {terminal && (
                           <span className={styles.formHelp}>이미 삭제된 대상. 종결만 가능</span>
                         )}
-                        {DECISIONS.filter((d) => !(terminal && d.moderation)).map((d) => (
-                          <button
-                            key={d.key}
-                            type="button"
-                            className={styles.neutralBtn}
-                            disabled={!canMod || busyId !== null}
-                            aria-busy={busyId === row.reportId}
-                            onClick={() => onPick(row, d)}
-                          >
-                            {d.label}
-                          </button>
-                        ))}
+                        {DECISION_GROUPS.map((keys) => {
+                          const group = keys
+                            .map((k) => DECISIONS.find((d) => d.key === k)!)
+                            .filter((d) => !(terminal && d.moderation));
+                          if (group.length === 0) return null;
+                          return (
+                            <span key={keys.join()} className={styles.reportGroup}>
+                              {group.map((d) => (
+                                <button
+                                  key={d.key}
+                                  type="button"
+                                  className={d.key === "delete" ? styles.dangerBtn : styles.neutralBtn}
+                                  disabled={!canMod || busyId !== null}
+                                  aria-busy={busyId === row.reportId}
+                                  onClick={() => onPick(row, d)}
+                                >
+                                  {d.label}
+                                </button>
+                              ))}
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </li>
@@ -224,7 +240,7 @@ export default function AdminCommunityPage() {
       {pendingDelete && (
         <ConfirmDialog
           title="게시물 삭제 처리"
-          description="삭제는 종료 상태. 숨김 복구로 되돌아오지 않음"
+          description="삭제하면 되돌릴 수 없습니다. 숨김과 달리 복구로 돌아오지 않습니다"
           target={pendingDelete.targetExcerpt ?? `신고 ${pendingDelete.reportId}`}
           blastRadius={`${TYPE_LABEL[pendingDelete.targetType]} 1건 영구 비공개`}
           confirmLabel="삭제 처리"

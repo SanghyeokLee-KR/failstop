@@ -18,7 +18,7 @@ import { formatTimeHMS } from "@/lib/format";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { AdminErrorState } from "./ResourceState";
-import { HEALTH_ICON } from "./ui";
+import { StateChip } from "./ui";
 import styles from "./admin.module.css";
 
 /**
@@ -35,6 +35,7 @@ const PHASE_LABEL: Record<ApprovalPhase, string> = {
   REJECTED: "거부됨",
 };
 
+/** 승인 단계의 상태 칩 색(§12-14). 만료는 판정이 아니라 꺼진 것이라 null(무채 빈 원)이다 */
 const PHASE_HEALTH: Record<ApprovalPhase, "success" | "warning" | "danger" | null> = {
   REQUESTED: "warning",
   AWAITING_EXECUTION: "warning",
@@ -233,11 +234,7 @@ export default function ApprovalList({
                 {mine && <span>본인 발급 시 발급·실행이 같은 신원으로 감사 적재</span>}
               </div>
               <div className={styles.approvalActions}>
-                {health && (
-                  <span className="status-pill" data-health={health}>
-                    {HEALTH_ICON[health]} {PHASE_LABEL.REQUESTED}
-                  </span>
-                )}
+                {health && <StateChip tone={health} label={PHASE_LABEL.REQUESTED} />}
                 {mine && <span className={styles.waitNote}>본인 발급</span>}
                 <button
                   type="button"
@@ -290,13 +287,7 @@ export default function ApprovalList({
                 {a.approverName && <span>발급 {a.approverName}</span>}
               </div>
               <div className={styles.approvalActions}>
-                {health ? (
-                  <span className="status-pill" data-health={health}>
-                    {HEALTH_ICON[health]} {PHASE_LABEL[phase]}
-                  </span>
-                ) : (
-                  <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
-                )}
+                <StateChip tone={health ?? "off"} label={PHASE_LABEL[phase]} />
 
                 {phase === "AWAITING_EXECUTION" && mine && held && (
                   <button type="button" className={styles.dangerBtn} disabled={busy === a.id} onClick={() => setExecTarget(a)}>
@@ -342,13 +333,7 @@ export default function ApprovalList({
                     {a.approverName && <span>발급 {a.approverName}</span>}
                   </div>
                   <div className={styles.approvalActions}>
-                    {health ? (
-                      <span className="status-pill" data-health={health}>
-                        {HEALTH_ICON[health]} {PHASE_LABEL[phase]}
-                      </span>
-                    ) : (
-                      <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
-                    )}
+                    <StateChip tone={health ?? "off"} label={PHASE_LABEL[phase]} />
                   </div>
                 </li>
               );

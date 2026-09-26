@@ -19,7 +19,7 @@ import RoleBadge from "@/components/admin/RoleBadge";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, StateChip } from "@/components/admin/ui";
 import styles from "@/components/admin/admin.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
@@ -56,11 +56,10 @@ export default function OperatorsPage() {
     <div className={styles.page}>
       <PageHeader
         title="운영자·역할"
-        desc="생성·상태·역할 변경은 1인 승인"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
-      <PanelCard title="운영자">
+      <PanelCard title="운영자" actions={<span className={styles.panelMeta}>생성과 상태·역할 변경은 1인 승인을 거칩니다</span>}>
         {res.error ? (
           <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
         ) : !ops ? (
@@ -82,7 +81,7 @@ export default function OperatorsPage() {
                     )}
                   </div>
                   <div className={styles.opStatus}>
-                    {op.status === "ACTIVE" ? <HealthPill health="success" label="활성" /> : <span className={styles.neutralPill}>비활성</span>}
+                    {op.status === "ACTIVE" ? <StateChip tone="success" label="활성" /> : <StateChip tone="off" label="비활성" />}
                   </div>
                   <button
                     type="button"
@@ -112,9 +111,9 @@ export default function OperatorsPage() {
               <span className={styles.opManageLabel}>
                 상태
                 {selected.status === "ACTIVE" ? (
-                  <HealthPill health="success" label="활성" />
+                  <StateChip tone="success" label="활성" />
                 ) : (
-                  <span className={styles.neutralPill}>비활성</span>
+                  <StateChip tone="off" label="비활성" />
                 )}
               </span>
               {selected.status === "ACTIVE" ? (
@@ -125,7 +124,7 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 비활성화 요청",
-                    description: "발급·실행 시 이 운영자의 세션 확립 차단",
+                    description: "승인 티켓을 발급·실행하면 이 운영자의 새 세션을 막습니다",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자 · 기존 세션 만료 시 재확립 불가",
                     confirmLabel: "비활성화 요청",
@@ -139,10 +138,10 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 활성화 요청",
-                    description: "발급·실행 시 이 운영자의 세션 확립 재허용",
+                    description: "승인 티켓을 발급·실행하면 이 운영자의 새 세션을 다시 받습니다",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자",
-                    tone: "warning",
+                    tone: "approve",
                     confirmLabel: "활성화 요청",
                   }}
                 />
@@ -158,6 +157,8 @@ export default function OperatorsPage() {
                       <RoleBadge role={r} />
                       <small>{ROLE_DESC[r]}</small>
                     </span>
+                    {/* 보유는 상태라 왼쪽 선이 아니라 칩으로 적는다(왼쪽 2px 선은 '고른 것' 한 뜻, §12-14) */}
+                    {held && <StateChip tone="neutral" shape="circle" label="보유" />}
                     <RequestButton
                       action="operators.roles"
                       payload={{ action: "operators.roles", operatorId: selected.operatorId, grant: held ? "REVOKE" : "GRANT", role: r }}
@@ -165,10 +166,10 @@ export default function OperatorsPage() {
                       onRequested={load}
                       confirm={{
                         title: held ? "역할 회수 요청" : "역할 부여 요청",
-                        description: "발급·실행 시 대상 운영자의 역할 집합 갱신",
+                        description: "승인 티켓을 발급·실행하면 대상 운영자의 역할을 바꿉니다",
                         target: `${selected.displayName} (${selected.operatorId})`,
                         blastRadius: `${ROLE_LABEL[r]} ${held ? "회수" : "부여"}`,
-                        tone: held ? "danger" : "warning",
+                        tone: held ? "danger" : "approve",
                         confirmLabel: held ? "회수 요청" : "부여 요청",
                       }}
                     />
@@ -222,7 +223,7 @@ export default function OperatorsPage() {
               }}
               confirm={{
                 title: "운영자 생성 요청",
-                description: "발급·실행 시 이 운영자를 레지스트리에 추가",
+                description: "승인 티켓을 발급·실행하면 이 운영자를 명부에 더합니다",
                 target: `${newName.trim()} (${newId.trim()})`,
                 blastRadius: "신원만 등록 · 역할은 별도 승인으로 부여",
                 confirmLabel: "생성 요청",
@@ -241,7 +242,7 @@ export default function OperatorsPage() {
           actions={actions}
           onChange={load}
           emptyLabel="대기 중인 운영자 승인 없음"
-          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행"
+          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
     </div>

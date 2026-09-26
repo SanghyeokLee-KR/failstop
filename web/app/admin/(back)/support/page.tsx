@@ -11,8 +11,7 @@ import type { AdminInquiry } from "@/lib/admin/types";
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, Segmented, segmentedTabId } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -79,15 +78,14 @@ export default function AdminSupportPage() {
     <div className={styles.page}>
       <PageHeader
         title="문의 답변"
-        desc="회원 문의. 답변은 사용자 문의 화면에 그대로 노출"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="inquiries-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="inquiries-panel" />
       </div>
 
-      <PanelCard title="문의 목록">
+      <PanelCard title="문의 목록" actions={<span className={styles.panelMeta}>답변은 회원의 문의 화면에 그대로 보입니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="inquiries-panel" aria-labelledby={segmentedTabId("inquiries-panel", status)} tabIndex={0}>
           {res.error ? (
@@ -142,7 +140,7 @@ export default function AdminSupportPage() {
                         </span>
                         <button
                           type="button"
-                          className="btn btn--primary"
+                          className={styles.approveBtn}
                           onClick={() => void submit(row)}
                           disabled={!(drafts[row.externalId] ?? "").trim() || busyId === row.externalId}
                           aria-busy={busyId === row.externalId}

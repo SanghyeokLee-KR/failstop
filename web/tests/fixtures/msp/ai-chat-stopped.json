@@ -1,0 +1,14 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "state" : "STOPPED",
+    "reason" : null,
+    "preface" : null,
+    "answer" : "AI가 정지 중이라 답하지 않습니다. 재개는 SUPER 운영자가 사유를 적어 할 수 있습니다.",
+    "citations" : [ ],
+    "evidence" : null,
+    "model" : null,
+    "latency_ms" : null
+  }
+}

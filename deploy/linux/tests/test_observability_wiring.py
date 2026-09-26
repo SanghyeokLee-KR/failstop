@@ -169,6 +169,22 @@ class MetricNameTest(unittest.TestCase):
         self.assertTrue(referenced)
         self.assertEqual(sorted(referenced - emitted), [])
 
+    def test_threshold_rules_read_items_the_registry_creates(self):
+        # 규칙이 없는 항목을 보면 게이지가 영영 없어 기본값이나 NaN으로만 판정한다. 항목은 V70만 만든다.
+        migration = text(REPO / "server/app/src/main/resources/db/migration/V70__ops_thresholds.sql")
+        seeded = set(re.findall(r"\('([a-z][a-z0-9_]*\.[a-z0-9_.]+)',", migration))
+        rules = "".join(text(path) for path in RULE_SOURCES.values())
+        rules += text(REPO / "harness/prometheus/rules/exchange-alerts.yml")
+        referenced = set(re.findall(r'exchange_ops_threshold\{key=\\?"([a-z0-9_.]+)', rules))
+        annotated = set(re.findall(r"threshold_key: \"?([a-z0-9_.]+)", rules))
+        self.assertEqual(len(seeded), 9)
+        self.assertEqual(referenced, {"host.disk_free_alert", "backup.delay_alert", "db.replication_lag_alert"})
+        self.assertEqual(sorted(referenced - seeded), [])
+        # 화면이 규칙과 항목을 잇는 주석도 같은 항목을 가리킨다.
+        self.assertEqual(annotated, referenced)
+        service = text(REPO / "server/app/src/main/java/kr/exchange/admin/msp/OpsThresholdService.java")
+        self.assertIn('GAUGE = "exchange_ops_threshold"', service)
+
     def test_application_counters_in_rules_are_registered_by_the_server(self):
         # Micrometer 1.15(Spring Boot 3.5)의 Prometheus 노출은 점을 밑줄로 바꾸고 카운터에 _total을 붙인다.
         # 2026-09-23 서버와 같은 micrometer-registry-prometheus 1.15.12로 이 규칙을 실제 스크레이프해 확인했다.

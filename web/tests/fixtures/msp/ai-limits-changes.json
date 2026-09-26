@@ -1,0 +1,31 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "data" : [ {
+      "id" : 6,
+      "key" : "bot_cooldown_min",
+      "from" : 10,
+      "to" : 20,
+      "version" : 2,
+      "changed_by" : "snap-super",
+      "approval_id" : 6,
+      "reason" : "봇 부하 조치 간격 확대",
+      "changed_at" : "2026-09-25T03:50:05.142Z"
+    }, {
+      "id" : 4,
+      "key" : "bot_cooldown_min",
+      "from" : null,
+      "to" : 10,
+      "version" : 1,
+      "changed_by" : "migration:V72",
+      "approval_id" : null,
+      "reason" : "확정값(ADR 0035)",
+      "changed_at" : "2026-09-25T03:50:01.208Z"
+    } ],
+    "pagination" : {
+      "next_cursor" : null,
+      "has_more" : false
+    }
+  }
+}

@@ -1,0 +1,156 @@
+/* 데이터베이스 화면(관리자 설계 4-10-3, 레이아웃 §7 두 칸 1 : 1). 복제 방식 표, DB 통계의 LSN, 전환 절차의 단계 레일,
+   엄격 동기 설명이다. 상태가 아닌 것(구성 중, 사람이 실행)은 헬스 색이 아니라 무채 윤곽과 형태로 가른다(§12-15) */
+
+.modes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.mode {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.mode:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.mode:last-child {
+  padding-bottom: 0;
+}
+.mode dt {
+  font-size: var(--font-caption-size);
+  line-height: 22px;
+  color: var(--text-secondary);
+}
+.mode dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  min-width: 0;
+}
+.modeValue {
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.modeNote {
+  flex-basis: 100%;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.missing {
+  color: var(--text-secondary);
+}
+.lsn {
+  font-family: var(--font-mono);
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.source {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* 전환 절차. 런북의 단계를 세로 레일로 요약한다. 번호 칸 가운데를 지나는 헤어라인은 마지막 단계에서 끝난다 */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  bottom: calc(-1 * var(--space-3));
+  left: 10px;
+  width: 1px;
+  background: var(--border-default);
+}
+.stepNo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  font-size: var(--font-dense-size);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 1px;
+}
+.stepTitle {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.stepCheck {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.who {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+
+/* 엄격 동기 설명. 적용 뒤(구성 중, 점선)와 지금 구성(실선)을 나란히 둔다. 주의 상태가 아니라 구성의 차이라 무채다 */
+.sync {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.syncCase {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.syncCase[data-kind="after"] {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.syncCase p {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+.syncHead {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}

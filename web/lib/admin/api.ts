@@ -48,6 +48,25 @@ import type {
   ReportResolution,
   ReportStatus,
   AdminTransferStatus,
+  AiDecision,
+  AiChatReply,
+  AiJudgment,
+  IncidentEvent,
+  TrendRange,
+  AiChatTurn,
+  ControlCenter,
+  OnCallEntry,
+  OpsScenarioId,
+  OpsSection,
+  PostmortemDraft,
+  ReportDesk,
+  ActionFeed,
+  ChangeInput,
+  ChangeRequest,
+  MaintenanceWindow,
+  SlaMonth,
+  WindowInput,
+  OpsFlowTapeEntry,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -55,17 +74,20 @@ export class AdminError extends Error {
   readonly code: string;
   /** 429 응답의 Retry-After(초). 폴링 백오프 근거. 없으면 null */
   readonly retryAfter: number | null;
+  /** 서버가 답한 HTTP 상태. 본문의 오류 이름이 상태와 다를 때(404인데 다른 이름) 상태로 가른다. 서버 응답이 아니면 null */
+  readonly status: number | null;
   /**
    * 에러 바디의 detail(API §2-3 에러 엔벌로프). 없으면 null. 회원 폐쇄의 409 orders_cancel_incomplete 는 여기에
    * 남은 수와 사유별 수(pending_reasons)를 싣는다(API 설계 v2.54 §6-E).
    */
   readonly detail: Record<string, unknown> | null;
-  constructor(code: string, message: string, retryAfter: number | null = null,
+  constructor(code: string, message: string, retryAfter: number | null = null, status: number | null = null,
               detail: Record<string, unknown> | null = null) {
     super(message);
     this.name = code;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.status = status;
     this.detail = detail;
   }
 }
@@ -193,6 +215,100 @@ export interface AdminApi {
   getOperators(): Promise<AdminOperator[]>;
   /** 감사 로그 한 쪽. append-only라 영구 누적이다 */
   getAudit(opts?: PageOpts): Promise<AdminPage<AuditEntry>>;
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+   * sim은 브라우저 시뮬레이터, http는 관리 API의 관제센터 서버(API 설계 §6-F, /admin/v1/msp/**)다. http는 한 판
+   * 조회에 세부 조회 몇 건을 붙여 판을 만들고(httpOps.ts), 서버에 없는 칸은 원천 연결 전으로 둔다 */
+  getControlCenter(): Promise<ControlCenter>;
+  /**
+   * 지표 관제의 박자별 기록(최근 10분). 지표 관제 화면이 들어올 때 한 번 읽어 150초 창을 채운다. 관제 시뮬레이터의 기록이라 sim만
+   * 있고 http는 null이다(실제 추이는 Grafana가 소유한다)
+   */
+  getFlowTape(): Promise<OpsFlowTapeEntry[] | null>;
+  /**
+   * 판단 한 건의 과정(근거 스냅숏, 후보, 정책 엔진 검사). 판이 판단 목록만 싣는 원천(http)에서 상세를 열 때 읽는다.
+   * sim은 판에 과정을 늘 싣으므로 판의 기록을 돌려준다. 없으면 null이다
+   */
+  getAiJudgment(id: string): Promise<AiJudgment | null>;
+  /** 사건 한 건의 기록 줄. 판에 기록이 없는 사건(http의 오래된 사건)을 열 때 읽는다. sim은 null(판에 다 있음)이다 */
+  getIncidentEvents(incidentId: string): Promise<IncidentEvent[] | null>;
+  /** 화면이 고른 추세 범위를 알린다. http는 그 범위의 추세를 세부 조회로 읽고, sim은 할 일이 없다 */
+  wantTrends(range: TrendRange): void;
+  /** 경보 확인. 확인 기록이고 경보를 끄지 않는다 */
+  ackAlert(alertId: string): Promise<void>;
+  /** 경보 보류. 최대 30분, 장애 등급 불가, 같은 경보 연속 불가(ADR 0035) */
+  silenceAlert(alertId: string, minutes: number): Promise<void>;
+  /**
+   * 사건 담당 지정(관리자 설계 4-10-2, BOT_OPS 이상, 감사 msp.incident.assign). http는 서버 경로가 3라운드 계약 초안이라
+   * 원천 연결 전으로 거절한다
+   */
+  assignIncident(incidentId: string, operatorId: string): Promise<void>;
+  /**
+   * 사후 분석 저장(BOT_OPS 이상, 감사 msp.incident.postmortem). done이면 완료하고 그 뒤로는 고치지 않는다. 해제된 사건에만
+   * 쓴다. http는 서버 경로가 계약 초안이라 원천 연결 전으로 거절한다
+   */
+  savePostmortem(incidentId: string, draft: PostmortemDraft, done: boolean): Promise<void>;
+  /** AI 조치안 결정. 승인은 실행이고, 임계값 조치안은 1인 승인 티켓(ops.threshold.set)을 발급·소각한다 */
+  decideAiProposal(proposalId: string, decision: AiDecision): Promise<void>;
+  /** 자동 실행된 조치를 되돌리기 창 안에서 되돌린다 */
+  revertAiAction(proposalId: string): Promise<void>;
+  /** 자동 모드 켜기. 사유와 유효 시간을 받아 1인 승인 티켓(ops.ai.auto)을 발급·소각한다 */
+  enableAiAuto(hours: number, reason: string): Promise<void>;
+  /** 자동에서 수동으로. 승인 없이 세션만 있으면 된다 */
+  stopAiAuto(): Promise<void>;
+  /** AI 즉시 정지. 두 모드 어디서든 승인 없이 세션만 있으면 된다 */
+  stopAi(): Promise<void>;
+  /** AI 재개. 사유를 받아 수동으로만 돌린다. 승인 티켓은 없고 SUPER가 한다 */
+  resumeAi(reason: string): Promise<void>;
+  /** Databasus 백업 즉시 실행 */
+  runBackupNow(): Promise<void>;
+  /** 시나리오 재생이 있는 원천인가. sim만 true다 */
+  readonly opsScenarios: boolean;
+  startOpsScenario(id: OpsScenarioId): Promise<void>;
+  /** 관제 시뮬레이션을 처음 상태로 되돌린다 */
+  resetOps(): Promise<void>;
+
+  /* ===== AI 상담(관리자 설계 4-6) =====
+   * http는 POST /admin/v1/msp/ai/chat이다. 서버가 질문 시점의 근거를 새로 모아 모델에 묻고, 상태를 바꾸는 호출이 없다 */
+  /** 상담의 원천. sim은 관제 판을 읽는 규칙 답, LIVE는 서버 상담 경로, NOT_CONNECTED는 서버가 없어 보내지 않음이다 */
+  readonly aiChat: "SIM" | "LIVE" | "NOT_CONNECTED";
+  /** 관제 상태를 묻는다. 조회만 하고 조치를 실행하지 않는다. recent는 최근 대화(CHAT_RECENT_TURNS개까지)다 */
+  askAi(question: string, recent: AiChatTurn[]): Promise<AiChatReply>;
+
+  /* ===== 운영 보고(관리자 설계 4-7) =====
+   * bot-1 보고 서비스의 보고와 Teams 전송 기록을 읽는다. http는 보고 서비스 읽기 프록시(GET /admin/v1/msp/reports,
+   * .../reports/status)이고, 프록시가 목록 요약만 주므로 보고 본문은 원천 연결 전이다 */
+  getReports(): Promise<OpsSection<ReportDesk>>;
+  /** Teams 연결 시험. 운영 자료를 싣지 않는 모의 메시지 한 건을 밖으로 보낸다 */
+  sendTeamsTest(): Promise<void>;
+  /** 담당자와 연락 체계. sim은 예시, http는 운영자·당번 명부 연결 전이다 */
+  getOnCall(): Promise<OpsSection<OnCallEntry[]>>;
+
+  /* ===== 조치 기록(관리자 설계 4-10-4) =====
+   * sim은 관리 어댑터의 감사 기록에 사건·판단·되돌림 이음을 붙여 옮긴다. http는 감사 로그(GET /admin/v1/audit)의 한 쪽과
+   * 조치 요청 목록(GET /admin/v1/msp/ai/actions?status=ALL)이다. 받아 온 쪽만 옮기므로 cursor로 이전 쪽을 더 읽는다 */
+  getActionRecords(cursor?: string | null): Promise<ActionFeed>;
+
+  /* ===== SLA 월간 보고(관리자 설계 4-10-5) =====
+   * 달을 골라 읽으므로 관제 판에 싣지 않는다. sim은 관제 판이 닿는 날을 판과 감사에서 세고 그 앞은 예시다. http는 월 집계 경로
+   * (GET /admin/v1/msp/sla?month=YYYY-MM)가 3라운드 계약 초안이고 외부 프로브가 없어 원천 연결 전이다 */
+  getSlaMonth(month: string): Promise<OpsSection<SlaMonth>>;
+
+  /* ===== 변경·작업(관리자 설계 4-10-4) =====
+   * 계획 작업 창은 서버 계약(API 설계 §6-F)이 있어 http도 등록·조기 종료를 보낸다. 변경 요청은 3라운드 계약 초안이라 http는
+   * 원천 연결 전으로 거절한다. 변경 요청의 승인은 승인 목록(ApprovalList)의 ops.change.approve 티켓이다 */
+  /** 변경 요청 등록(BOT_OPS 이상, 감사 msp.change.create) */
+  createChange(input: ChangeInput): Promise<ChangeRequest>;
+  /** 진행. 같은 대상의 계획 작업 창을 연다(BOT_OPS 이상, 감사 msp.change.start와 msp.window.create) */
+  startChange(id: string): Promise<void>;
+  /** 종료. 결과(완료·되돌림)를 적고 창을 닫는다(BOT_OPS 이상, 감사 msp.change.finish) */
+  finishChange(id: string, outcome: "DONE" | "ROLLED_BACK", note: string): Promise<void>;
+  /** 진행 전 요청 취소(BOT_OPS 이상, 감사 msp.change.cancel) */
+  cancelChange(id: string): Promise<void>;
+  /** 창만 따로 등록(BOT_OPS 이상, 감사 msp.window.create) */
+  createWindow(input: WindowInput): Promise<MaintenanceWindow>;
+  /** 창 조기 종료. AI 권한을 줄이는 조작이라 VIEWER 이상이다(감사 msp.window.end) */
+  endWindow(id: string): Promise<void>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

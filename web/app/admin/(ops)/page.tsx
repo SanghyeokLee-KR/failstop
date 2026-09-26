@@ -1,107 +1,88 @@
 "use client";
 
 /**
- * 읽기 전용 요약이라 파괴 액션은 각 화면과 승인 목록에서만 실행한다(§6 안전).
+ * MSP AI 관제센터(/admin, 관리자 설계 4-4). 종합 관제를 대신한다.
  *
- * 노드 목록은 이 화면이 그리지 않는다. 종전에는 getHaStatus의 노드 배열을 링크 행으로
- * 폈는데, 그 배열이 http 어댑터에서는 리스 하나로 합성한 단일 노드이고 sim에서는 서버가
- * 실재하지 않는다고 선언한 토폴로지를 지어낸 것이었다. 실제 관측이 있는 쪽은 NodeProbe를
- * 지나는 용량 화면뿐이므로 노드는 거기서 본다. 그 호출이 빠져 이 화면의 왕복도 하나 준다.
+ * Grafana와 할 일을 가른다. Grafana는 추이를 탐색하는 곳이고, 여기는 지금 값과 임계를 보고 판단하고
+ * 조치를 승인하고 기록을 남기는 곳이다. 추세는 상태 요약 칸의 작은 선 하나씩만 두고(범위 1·6·24시간)
+ * 탐색은 Grafana로 보낸다. 파괴 액션은 여기서 실행하지 않는다. AI 조치는 ADR 0035의 허용 목록뿐이다.
+ *
+ * 관제 판은 운영 관제 셸 전체가 나눠 쓰는 폴러(opsCenter)에서 읽는다. 거래 요약은 판의 거래 칸과 기존 합성 조회
+ * (getOverview, 30초 리듬)를 함께 읽는다. 판은 매초 새로 오지만 기둥마다 자기 칸만 받고(memo) 시계
+ * 글자는 그 글자를 그리는 조각만 탄다. 이 화면 머리에서 시계를 받아 아래로 내리지 않는다.
  */
 
-import { useCallback } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import type { AdminOverview } from "@/lib/admin/types";
-import PanelCard from "@/components/PanelCard";
-import Skeleton from "@/components/Skeleton";
-import ApprovalList from "@/components/admin/ApprovalList";
-import HealthHero from "@/components/admin/HealthHero";
-import DecisionFooter from "@/components/admin/DecisionFooter";
-import GrafanaLink from "@/components/admin/GrafanaLink";
-import { PageHeader, StatTile } from "@/components/admin/ui";
+import { useOpsCenter } from "@/lib/admin/opsCenter";
+import type { TrendRange } from "@/lib/admin/types";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
-import ResourceStamp from "@/components/admin/ResourceStamp";
-import { formatKRW } from "@/lib/format";
-import styles from "@/components/admin/admin.module.css";
+import AiPanel from "@/components/admin/control/AiPanel";
+import ActionsColumn from "@/components/admin/control/Actions";
+import InfraColumn from "@/components/admin/control/Infra";
+import ModeBar from "@/components/admin/control/ModeBar";
+import OpsSkeleton from "@/components/admin/control/OpsSkeleton";
+import OpsHead, { CollectState, RangeSwitch } from "@/components/admin/control/OpsHead";
+import ScenarioControl from "@/components/admin/control/ScenarioControl";
+import SummaryStrip from "@/components/admin/control/SummaryStrip";
+import ThresholdPanel from "@/components/admin/control/Thresholds";
+import TradingStrip from "@/components/admin/control/TradingStrip";
+import adminStyles from "@/components/admin/admin.module.css";
+import styles from "@/components/admin/control/control.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
-export default function AdminOverviewPage() {
-  const load = useCallback(() => getAdminApi().getOverview(), []);
-  // getOverview가 6건을 합성한다. 이 화면은 "지금 손댈 것이 있나"에 답하는 자리라
-  // 초 단위 신선도가 필요 없다. idle 리듬으로 두고 조작 직후와 새로고침에 즉시 갱신한다
-  const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, {
-    cadence: "idle",
-    isSessionError,
-  });
-  const ov = data;
+export default function ControlCenterPage() {
+  const { data, loading, failed, refresh } = useOpsCenter();
+  // 관제센터는 지금을 보는 화면이라 기본 범위는 1시간이다. 긴 범위는 앞 구간 평균에 묻혀 증감이 늦게 움직인다
+  const [range, setRange] = useState<TrendRange>(1);
+  // http 원천은 1시간 추세만 늘 읽으므로 다른 범위를 고르면 그 범위를 읽게 알린다(sim은 할 일이 없다)
+  const pickRange = useCallback(
+    (r: TrendRange) => {
+      setRange(r);
+      getAdminApi().wantTrends(r);
+      void refresh(true);
+    },
+    [refresh],
+  );
+  const loadOverview = useCallback(() => getAdminApi().getOverview(), []);
+  const ov = useAdminResource(loadOverview, { cadence: "idle", isSessionError });
+  const reloadOverview = ov.reload;
+  // 조작 뒤에는 떠 있던 조회가 조작 전 판일 수 있어 한 번 더 읽는다(force)
+  const onChanged = useCallback(() => {
+    void refresh(true);
+    reloadOverview();
+  }, [refresh, reloadOverview]);
 
   return (
-    <div className={styles.page}>
-      <PageHeader title="종합 관제" actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />} />
-
-      {loading ? (
-        <div className={styles.pageStack}>
-          {/* 히어로 min-height 128, 컴팩트 타일 96(admin.module.css data-compact 실측)과 동치로 로딩 후 시프트 0 */}
-          <Skeleton variant="card" width="100%" height={128} />
-          <div className={styles.kpiGrid} data-cols="3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} variant="card" width="100%" height={96} />
-            ))}
-          </div>
-          <Skeleton variant="card" width="100%" height={240} />
-        </div>
-      ) : error || !ov ? (
-        <AdminErrorState reason={errorReason} onRetry={reload} />
+    <div className={adminStyles.page}>
+      <OpsHead
+        title="관제센터"
+        center={data}
+        aside={
+          <>
+            <RangeSwitch range={range} onRange={pickRange} />
+            <CollectState center={data} failed={failed} />
+          </>
+        }
+        actions={<ScenarioControl scenario={data?.scenario ?? null} onChanged={onChanged} />}
+      />
+      {data === null && loading ? (
+        <OpsSkeleton />
+      ) : data === null ? (
+        <AdminErrorState onRetry={() => void refresh(true)} />
       ) : (
-        <div className={`${styles.pageStack} ${styles.staleRegion}`} data-stale={stale ? "" : undefined}>
-          <HealthHero ov={ov} />
-          <div className={styles.kpiGrid} data-cols="3">
-            <Link href="/admin/capacity" className={styles.railLink}>
-              <StatTile
-                compact
-                label="매칭 리더"
-                value={ov.leaderNodeId}
-                sub={<span title="epoch">선출 세대 {ov.epoch}</span>}
-              />
-            </Link>
-            <Link href="/admin/bots" className={styles.railLink}>
-              {/* 봇 노드 미보고를 0으로 채우면 홈이 플릿 정지를 단정한다(status 1.3 source) */}
-              <StatTile
-                compact
-                label="활성 봇"
-                value={ov.botsActive == null ? "미상" : ov.botsActive}
-                sub={ov.currentOps == null ? "상태 미보고" : `초당 ${formatKRW(ov.currentOps)}건 처리`}
-              />
-            </Link>
-            <Link href="/admin/config" className={styles.railLink}>
-              <StatTile
-                compact
-                label="중지 마켓"
-                value={ov.suspendedMarkets}
-                tone={ov.suspendedMarkets > 0 ? "warning" : undefined}
-                alarm={ov.suspendedMarkets > 0}
-              />
-            </Link>
+        <div className={`${adminStyles.pageStack} ${adminStyles.staleRegion}`} data-stale={failed ? "" : undefined}>
+          <ModeBar section={data.ai} onChanged={onChanged} />
+          <SummaryStrip summary={data.summary} alerts={data.alerts} incidents={data.incidents} trends={data.trends} range={range} />
+          <div className={styles.columns}>
+            <InfraColumn center={data} />
+            <AiPanel section={data.ai} onChanged={onChanged} />
+            <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} oncall={data.oncall} onChanged={onChanged} />
           </div>
-          <PanelCard title="승인 대기">
-            <ApprovalList
-              onChange={reload}
-              emptyLabel="대기 중이거나 실행 가능한 승인 없음"
-              emptyDesc="마켓·운영자·회원 화면에서 파괴 액션을 요청하면 여기에 적재"
-            />
-          </PanelCard>
-          <DecisionFooter
-            steps={[
-              "판정 확인",
-              <GrafanaLink key="ov" board="msp-overview" label="서비스 관제에서 추이" />,
-              <Link key="cap" href="/admin/capacity" className={styles.boardLink}>
-                용량·부하에서 조치
-              </Link>,
-            ]}
-          />
+          <ThresholdPanel section={data.thresholds} onChanged={onChanged} />
+          <TradingStrip ov={ov.data} at={ov.lastUpdatedAt} trading={data.trading} />
         </div>
       )}
     </div>

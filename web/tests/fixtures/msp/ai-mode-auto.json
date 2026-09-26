@@ -1,0 +1,35 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "mode" : "AUTO",
+    "stopped" : false,
+    "stop" : null,
+    "auto" : {
+      "since" : "2026-09-25T03:50:04.399Z",
+      "valid_until" : "2026-09-25T07:50:04.399Z",
+      "enabled_by" : "snap-super",
+      "reason" : "야간 관제",
+      "approval_id" : 1
+    },
+    "activation" : {
+      "seq" : 1,
+      "started_at" : "2026-09-25T03:50:04.399Z",
+      "auto_used" : 0,
+      "auto_cap" : 5,
+      "threshold_used" : { }
+    },
+    "cooldowns" : {
+      "READ_NODES" : null,
+      "THRESHOLD" : null,
+      "BOT_LOAD" : null
+    },
+    "observe_until" : null,
+    "llm" : {
+      "state" : "READY",
+      "provider" : "ollama-native",
+      "model" : "test-model",
+      "transport" : "LOOPBACK"
+    }
+  }
+}

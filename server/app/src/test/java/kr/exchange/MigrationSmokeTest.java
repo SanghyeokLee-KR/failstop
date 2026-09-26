@@ -739,13 +739,14 @@ class MigrationSmokeTest {
      * V55(ADR 0034 S7, DB 설계 §3.10). 모드 전환 함수의 2<->3, 선행 조건 함수, FEE_INCOME 샤드 1 트리거의 객체와 권한이다.
      * 트리거 함수는 소유자 권한(SECURITY DEFINER, search_path 고정)이고 PUBLIC EXECUTE 가 없다. 선행 조건 함수는 하네스 조회
      * 역할만 부른다. 전환 함수는 V50 그대로 앱과 PUBLIC 모두 부르지 못한다(CREATE OR REPLACE 는 권한을 바꾸지 않는다).
-     * 마이그레이션은 저장소 파일 수만큼 모두 성공했고 마지막 판이 55 다. V47.1 처럼 점이 든 판이 있어 판은 numeric 으로 비교하고
-     * 파일 이름은 V47_1__ 꼴까지 센다.
+     * 마이그레이션은 저장소 파일 수만큼 모두 성공했고 그 가운데 V55 의 성공 행이 있다. 뒤 판(V70 이후)이 더해져도 V55 자체의 성공을
+     * 본다. 파일 이름은 V47_1__ 꼴까지 센다.
      */
     @Test
     void v55PartitionProtocolCutoverObjectsAndPrivileges() throws Exception {
         try (Connection conn = open()) {
-            assertEquals(55, queryInt(conn, "SELECT max(version::numeric)::int FROM flyway_schema_history WHERE success"));
+            assertEquals(1, queryInt(conn, "SELECT count(*) FROM flyway_schema_history WHERE version = '55' AND success"),
+                    "V55 의 성공 행이 없다");
             assertEquals(migrationFiles(), queryInt(conn,
                     "SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"),
                     "성공한 마이그레이션 수가 저장소 파일 수와 다르다");

@@ -1,0 +1,103 @@
+# 관제센터 요약 칸의 기록 규칙(exchange.msp.recording)을 고정한다. 관리 경로(/actuator)와 다른 job 을 빼고
+# 계산하는지, 5xx 가 없으면 0 이고 요청이 없으면 비율·p95 가 비는지, 프로브는 가장 나쁜 대상을 따르는지 본다.
+# 입력 간격 1분·창 5분이면 rate 의 외삽 배율이 1.25 로 떨어져 기대값을 정확한 수로 적을 수 있다.
+# 학교 school-alerts.test.yml 이 같은 식을 같은 입력으로 본다.
+rule_files:
+  - ../rules/exchange-recording.yml
+
+evaluation_interval: 15s
+
+tests:
+  # 주문 경로 초당 9건(200)과 1건(503). 관리 경로와 봇 job 의 요청·5xx 는 섞이면 값이 달라지도록 크게 넣었다.
+  # 버킷은 0.1초 이하 5건, 0.25초 이하 9건, 0.5초 이하 10건이라 p95 는 0.25~0.5 구간의 가운데 0.375초다.
+  # 관리 경로 버킷(모두 0.5초 초과)이 섞이면 p95 가 0.5 로 바뀐다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200"}'
+        values: '0+540x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="503"}'
+        values: '0+60x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/actuator/prometheus",status="500"}'
+        values: '0+6000x12'
+      - series: 'http_server_requests_seconds_count{job="chaos-bots",instance="chaos-bots:8080",uri="/api/v1/orders",status="500"}'
+        values: '0+6000x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="0.1"}'
+        values: '0+300x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="0.25"}'
+        values: '0+540x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="0.5"}'
+        values: '0+600x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="+Inf"}'
+        values: '0+600x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/actuator/prometheus",status="500",le="0.5"}'
+        values: '0x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/actuator/prometheus",status="500",le="+Inf"}'
+        values: '0+6000x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_requests:rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_requests:rate5m'
+            value: 10
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_5xx:ratio5m'
+            value: 0.1
+      - expr: exchange:msp_http_p95:seconds5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_p95:seconds5m'
+            value: 0.375
+
+  # 5xx 가 한 번도 없으면 분자 시계열이 없지만 비율은 0 이다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200"}'
+        values: '0+600x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_5xx:ratio5m'
+            value: 0
+
+  # 관리 경로만 긁히고 주문 요청이 없으면 요청률은 0 이고 비율·p95 는 만들지 않는다.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200"}'
+        values: '5x12'
+      - series: 'http_server_requests_seconds_count{job="exchange-api",instance="chaos-api-1:8080",uri="/actuator/prometheus",status="200"}'
+        values: '0+60x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="0.5"}'
+        values: '5x12'
+      - series: 'http_server_requests_seconds_bucket{job="exchange-api",instance="chaos-api-1:8080",uri="/api/v1/orders",status="200",le="+Inf"}'
+        values: '5x12'
+    promql_expr_test:
+      - expr: exchange:msp_http_requests:rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_http_requests:rate5m'
+            value: 0
+      - expr: exchange:msp_http_5xx:ratio5m
+        eval_time: 10m
+        exp_samples: []
+      - expr: exchange:msp_http_p95:seconds5m
+        eval_time: 10m
+        exp_samples: []
+
+  # 창 5분 안의 표본 넷(75초 간격) 가운데 하나가 실패한 대상의 성공률 0.75 가 가장 나쁜 값이다. 다른 job 의 실패는 보지 않는다.
+  - interval: 75s
+    input_series:
+      - series: 'probe_success{job="blackbox-http",instance="http://chaos-web:80/"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox-http",instance="http://chaos-lb:8080/actuator/health/read"}'
+        values: '1 1 1 1 1 1 1 1 0'
+      - series: 'probe_success{job="blackbox-icmp",instance="chaos-api-1"}'
+        values: '0x8'
+    promql_expr_test:
+      - expr: exchange:msp_probe_success:ratio5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'exchange:msp_probe_success:ratio5m'
+            value: 0.75

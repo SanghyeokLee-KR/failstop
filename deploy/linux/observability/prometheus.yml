@@ -40,6 +40,23 @@ scrape_configs:
           role: app
           service: api
 
+  # 관리 JVM(bot-1의 봇 JVM, 관리 포트는 루프백 8081)에서 관제센터 지표만 받는다. 봇 지표는 버려 bot-1의 저장량을 지킨다.
+  # instance를 고정 이름으로 바꿔 수집 주소가 바뀌어도 시계열이 하나로 남게 한다. 규칙이 게이지의 마지막 값을 7일 쓰기 때문이다.
+  # 서버에는 관리 JVM에 관제센터(exchange.msp.enabled)를 켠 뒤에 school-alerts.yml의 OpsThresholdGaugeMissing과 함께 넣고 함께 뺀다.
+  # 먼저 넣으면 게이지가 없어 그 경보가 실제로 울린다.
+  - job_name: exchange-admin
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['127.0.0.1:8081']
+        labels: {customer: exchange, environment: aws, account: school, role: observability, node: bot-1, service: admin}
+    relabel_configs:
+      - target_label: instance
+        replacement: exchange-admin
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'exchange_ops_threshold|exchange_msp_.*'
+        action: keep
+
   - job_name: linux-host
     static_configs:
       - targets: ['172.31.2.86:9100']

@@ -1,0 +1,47 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "state" : "READY",
+    "data" : [ {
+      "id" : "daily:1790297404",
+      "kind" : "daily",
+      "created_at" : "2026-09-25T00:49:24.000Z",
+      "sent_at" : "2026-09-25T00:50:04.000Z",
+      "status" : "sent",
+      "title" : "일일 운영 보고",
+      "severity" : "P4",
+      "summary" : "경보 3건, 사람 조치 1건, AI 제안 2건",
+      "alert_state" : null,
+      "targets" : [ ],
+      "links" : {
+        "pdf" : "https://reports.failstop.example/reports/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/1790297404/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/report.pdf",
+        "html" : "https://reports.failstop.example/reports/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/1790297404/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/report.html"
+      }
+    }, {
+      "id" : "incident:1790304604",
+      "kind" : "incident",
+      "created_at" : "2026-09-25T02:50:04.000Z",
+      "sent_at" : "2026-09-25T02:50:04.000Z",
+      "status" : "sent",
+      "title" : "복제 재생 지연",
+      "severity" : "P2",
+      "summary" : "db-standby 재생 지연이 임계를 넘었습니다.",
+      "alert_state" : "firing",
+      "targets" : [ "db-standby" ],
+      "links" : null
+    }, {
+      "id" : "msp:1790308204",
+      "kind" : "msp",
+      "created_at" : "2026-09-25T03:49:04.000Z",
+      "sent_at" : null,
+      "status" : "pending",
+      "title" : "AI 조치 제안",
+      "severity" : "P3",
+      "summary" : "app-3 켜기(앱 계층 2 → 3대)",
+      "alert_state" : null,
+      "targets" : [ "app" ],
+      "links" : null
+    } ]
+  }
+}

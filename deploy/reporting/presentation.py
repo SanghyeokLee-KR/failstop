@@ -37,6 +37,9 @@ FACT_NAMES = {
     "trigger": "이번 알림 전환",
     "backup_schedule": "백업 예약 확인", "backup_restore": "백업 복원 확인",
 }
+# 보고 id 는 '종류:식별' 형식의 보관함 키다(reporter.daily_key, incident_payload, msp_events.event_payload).
+REPORT_KINDS = {"daily": "일일 보고", "incident": "경보 보고", "msp": "관제 사건", "preview": "미리보기", "test": "연결 시험"}
+AUTOMATION_UNREADABLE = "자동 조치 기록 확인 불가"
 
 
 def _text(value, limit=160):
@@ -85,6 +88,38 @@ def _events(fact, observed, trigger=False):
                        "target": target or "대상 정보 미제공", "started_at": _kst(row.get("startsAt")),
                        "ended_at": _kst(row.get("endsAt")) if status == "resolved" else None})
     return result
+
+
+def report_label(identifier):
+    """보고 id 를 사람이 읽는 이름으로 바꾼다.
+
+    예전 카드는 id 의 뒤 12자를 잘라 'daily:2026-09-24'가 'y:2026-09-24'로 보였다. 앞의 종류를 이름으로 바꾸고
+    일일 보고는 날짜 전체를, 해시·uuid 는 앞부분만 싣는다. 전체 id 는 보고 목록과 HTML·PDF 꼬리에 남는다.
+    """
+    text = _text(identifier, 120)
+    prefix, _, rest = text.partition(":")
+    name = REPORT_KINDS.get(prefix)
+    if not name or not rest:
+        return text or "보고 ID 미제공"
+    if prefix == "daily":
+        return name + " " + rest
+    return name + " " + (rest.split("-", 1)[0] if prefix == "msp" else rest[:12])
+
+
+def automation_label(automation):
+    """보고 구간에 관제센터가 자동으로 한 조치 수. 셀 수 없었으면 '없음'이 아니라 확인 불가로 적는다."""
+    if not isinstance(automation, dict) or automation.get("state") != "ok":
+        return AUTOMATION_UNREADABLE
+    counts = [automation.get(field) for field in ("executed", "reverted", "unknown")]
+    if any(type(count) is not int or count < 0 for count in counts):
+        return AUTOMATION_UNREADABLE
+    executed, reverted, unknown = counts
+    if not (executed or reverted or unknown):
+        return "자동 조치 없음"
+    parts = [f"자동 실행 {executed}건", f"자동 되돌림 {reverted}건"]
+    if unknown:
+        parts.append(f"조치 결과 확인 필요 {unknown}건")
+    return " · ".join(parts)
 
 
 def _metric(fact, observed):
@@ -322,7 +357,11 @@ def build_brief(report):
     customer = scope.get("customer") or next((event["customer"] for event in events if event["customer"]), "고객 미지정")
     environment = scope.get("environment") or next((event["environment"] for event in events if event["environment"]), "환경 미지정")
     environment = {"local-lab": "로컬 실습", "aws": "AWS"}.get(environment, environment)
-    return {"schema_version": 2, "title": title, "status": {"code": code, "label": label, "tone": tone},
+    label, automation = report_label(report.get("id")), automation_label(report.get("automation"))
+    return {"report_label": label, "automation": automation, "record_line": label + " · " + automation,
+            "automation_basis": "보고 구간에 보고 서비스가 받은 관제센터 사건 기준"
+            if automation != AUTOMATION_UNREADABLE else "관제센터 사건 기록을 읽지 못함",
+            "schema_version": 2, "title": title, "status": {"code": code, "label": label, "tone": tone},
             "customer": _text(customer, 80), "environment": _text(environment, 60),
             "lead": lead, "impact": impact, "current_state": current, "metrics": metrics[:12], "events": events[:12],
             "event_count": len(events), "timeline": timeline, "next_checks": checks[:5], "gaps": gaps[:16],
@@ -357,11 +396,13 @@ def card(report):
             details.append({"title": "해제", "value": _markdown(event["ended_at"])})
     else:
         details = [{"title": "보고 기준", "value": _markdown(brief["collected_at"])}]
+    # 영향은 대상·발생과 같은 이름-값 줄이다. 예전처럼 한 줄에 '영향  |  '를 붙이면 세로줄이 Markdown 이스케이프를 거쳐
+    # 빈 칸 뒤 '|'만 남은 표 조각처럼 보였다.
+    details.append({"title": "영향", "value": _markdown(brief["impact"])})
     body = [text(heading, size="Small", isSubtle=True),
             text(icon + " " + brief["title"], size="Large", weight="Bolder", color=color),
             text(decision["priority"] + " · " + decision["label"], weight="Bolder"),
             {"type": "FactSet", "facts": details},
-            text("영향  |  " + brief["impact"], size="Small"),
             text("담당자 조치", weight="Bolder", separator=True)]
     actions = decision["actions"]
     if brief["events"]:
@@ -380,7 +421,7 @@ def card(report):
     if brief["gaps"]:
         body.append(text("미확인 자료 " + str(len(brief["gaps"])) + "항목 · 상세 보고의 수집 범위 참조", size="Small", isSubtle=True))
     body += [text(brief["analysis_note"], size="Small", isSubtle=True, separator=True),
-             text("기록 " + brief["report_id"][-12:] + " · 자동 조치 없음", size="Small", isSubtle=True)]
+             text(brief["record_line"], size="Small", isSubtle=True)]
     result = {"type": "message", "attachments": [{"contentType": "application/vnd.microsoft.card.adaptive", "contentUrl": None,
               "content": {"$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "type": "AdaptiveCard", "version": "1.2", "body": body}}]}
     if len(json.dumps(result, ensure_ascii=False).encode()) > 26000:
@@ -422,7 +463,8 @@ def render_html(report):
     limits = [missing, *other[:3]]
     limit_html = "".join(f'<li>{clip(item, 420 if index == 0 else 150)}</li>' for index, item in enumerate(limits))
     analysis = f'<section class="analysis"><h2>참고 분석</h2><p>{clip(brief["analysis_summary"], 300)}</p></section>' if brief["analysis_summary"] else ""
-    footer = f'<footer><span>{clip(brief["report_id"], 90)} · 전체 근거는 저장 보고 참조</span><span>수집 시점 판정</span></footer>'
+    footer = (f'<footer><span>{esc(brief["record_line"])} · 보고 ID {clip(brief["report_id"], 90)}</span>'
+              '<span>수집 시점 판정</span></footer>')
     return f'''<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(brief["title"])} · 페일스톱 운영 보고</title><style>
@@ -440,7 +482,7 @@ table{{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}}th
 <section><h2>핵심 운영 지표</h2><div class="metrics">{metrics or '<p>사용 가능한 수치 자료 없음</p>'}</div></section>
 <section><h2>후속 점검 지표</h2><div class="chart-grid">{chart_cards}</div></section>{footer}</article>
 <article class="page" data-page="2"><header><div><p class="eyebrow">FOLLOW-UP / RECOMMENDED ACTIONS</p><h1>조치와 완료 조건</h1></div><span class="page-number">점검 계획 · 2 / 2</span></header>
-<section><h2>우선 확인할 사항</h2><table class="actions"><thead><tr><th>순위</th><th>권고 담당·착수</th><th>확인·조치</th><th>완료 조건</th></tr></thead><tbody>{actions}</tbody></table><p class="footnote">{esc(brief["action_note"])}</p></section>
+<section><h2>우선 확인할 사항</h2><table class="actions"><thead><tr><th>순위</th><th>권고 담당·착수</th><th>확인·조치</th><th>완료 조건</th></tr></thead><tbody>{actions}</tbody></table><p class="footnote">{esc(brief["action_note"])}<br>관제센터 자동 조치: {esc(brief["automation"])} · {esc(brief["automation_basis"])}</p></section>
 <section><h2>발생 및 해제 이력</h2><table class="events"><thead><tr><th>전환</th><th>사건 / 대상</th><th>발생 / 해제 · KST</th></tr></thead><tbody>{events}</tbody></table><p class="footnote">표시 구간의 후속 관측 자료 · 경보 발생 당시의 상태와 구분</p></section>
 {analysis}<section class="closing"><div><h2>종결 확인</h2><ul>{closures}</ul></div><div><h2>기록할 결과</h2><p>확인 대상·작업 시각·변경 내용·재확인 결과.<br>백업은 파일과 복원 기록의 ID 대조.<br>고객 영향은 요청 결과로 별도 확인.</p></div></section>
 <section class="limitations"><h2>판단 제한</h2><ul>{limit_html}</ul></section><p class="method">{esc(brief["analysis_note"])}</p>{footer}</article>

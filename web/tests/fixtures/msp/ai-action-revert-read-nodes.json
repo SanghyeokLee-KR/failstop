@@ -1,0 +1,15 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "action_id" : 3,
+    "kind" : "READ_NODES",
+    "status" : "REVERTED",
+    "deferred_until" : "2026-09-25T04:20:04.864Z",
+    "result" : {
+      "to" : 3,
+      "from" : 2
+    },
+    "revertible" : false
+  }
+}

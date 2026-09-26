@@ -18,6 +18,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { getAdminApi } from "./api";
+import { onBeat } from "./ticker";
 import type { ApprovalRequest } from "./types";
 
 /** 승인은 사람이 만들고 사람이 실행하므로 초 단위 신선도가 필요 없다 */
@@ -34,7 +35,10 @@ interface LedgerState {
   /** 마지막 읽기가 실패했는가. 받은 적이 없는데 실패했으면 빈 목록이 아니라 모르는 상태다 */
   failed: boolean;
   subscribers: number;
-  timer: ReturnType<typeof setInterval> | null;
+  /** 콘솔 공용 박자 구독을 끊는 함수. 구독자가 없으면 null이다 */
+  timer: (() => void) | null;
+  /** 다음 읽기 시각(ms) */
+  nextAt: number;
   seq: number;
 }
 
@@ -46,15 +50,18 @@ interface LedgerActions {
 }
 
 const useLedger = create<LedgerState & LedgerActions>((set, get) => {
-  /** 구독자 수에 맞춰 타이머를 다시 건다. 멱등이라 여러 번 불러도 타이머는 하나다 */
+  /**
+   * 구독자 수에 맞춰 콘솔 공용 박자(ticker.ts)를 타거나 내린다. 멱등이라 여러 번 불러도 구독은 하나다.
+   * 박자는 탭이 숨으면 멎으므로 숨은 탭은 원장을 읽지 않고, 다시 보이면 밀린 조회를 곧바로 한다
+   */
   const retime = () => {
     const { timer, subscribers } = get();
-    if (timer) clearInterval(timer);
-    if (subscribers <= 0) {
+    if (subscribers > 0 && timer === null) {
+      set({ timer: onBeat((now) => (now >= get().nextAt ? void get().refresh() : undefined)) });
+    } else if (subscribers <= 0 && timer !== null) {
+      timer();
       set({ timer: null });
-      return;
     }
-    set({ timer: setInterval(() => void get().refresh(), POLL_MS) });
   };
 
   return {
@@ -65,11 +72,12 @@ const useLedger = create<LedgerState & LedgerActions>((set, get) => {
     failed: false,
     subscribers: 0,
     timer: null,
+    nextAt: 0,
     seq: 0,
 
     async refresh() {
       const seq = get().seq + 1;
-      set({ seq });
+      set({ seq, nextAt: Date.now() + POLL_MS });
       try {
         /* 실행 대기 목록이라 ISSUED만 본다. 상태 없이 부르면 소비·만료된 이력까지 받아
            화면에서 다시 걸러야 하고, 이력이 쌓일수록 첫 쪽이 처리 대상이 아닌 행으로 찬다 */

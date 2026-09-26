@@ -42,6 +42,9 @@ public class AdminSessionController {
         }
         // 부트스트랩 경로라 필터가 통과시킨다. 미등록·비활성 발급 시도(침해 신호)는
         // @RestControllerAdvice 흡수 전에 여기서 DENIED로 감사한다(§3-6 전 액션 감사).
+        if (AdminOperatorDirectory.aiOperator(certOperator)) {
+            throw denied(certOperator, request, "ai_operator", "AI 운영자 신원은 세션을 받을 수 없습니다.");
+        }
         AdminOperatorDirectory.Operator op = operators.find(certOperator)
                 .orElseThrow(() -> denied(certOperator, request, "unknown_operator",
                         "등록되지 않은 운영자입니다."));

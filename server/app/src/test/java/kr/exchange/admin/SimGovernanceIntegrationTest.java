@@ -2,6 +2,8 @@ package kr.exchange.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.exchange.admin.msp.AiAction;
+import kr.exchange.admin.msp.AiStore;
 import kr.exchange.sim.BotFleetGovernor;
 import kr.exchange.sim.BotType;
 import kr.exchange.sim.OpsGovernor;
@@ -19,18 +21,29 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -96,6 +109,10 @@ class SimGovernanceIntegrationTest {
     AdminOperatorSeeder operatorSeeder;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    SimAdminController simAdminController;
+    @Autowired
+    BotRateControl botRate;
 
     @BeforeAll
     void seed() {
@@ -320,6 +337,61 @@ class SimGovernanceIntegrationTest {
         assertEquals("20.0", back.path("target_ops").asText());
         assertEquals(10, marketRow(back, SCENARIO_MARKET).path("applied").path("MARKET_MAKER").asInt());
         assertEquals(4, marketRow(back, SCENARIO_MARKET).path("applied").path("TREND").asInt());
+    }
+
+    /**
+     * 프리셋도 목표 OPS 를 바꾸므로 발행률 설정·관제센터 봇 부하 조치와 같은 잠금으로 줄을 서고, 그 감사가 AI 봇 부하
+     * 조치의 쿨다운 기준이 된다(관제센터 설계 7-7). 잠금을 쥔 스레드가 있으면 활성화는 그 잠금에서 기다린다.
+     */
+    @Test
+    void scenarioQueuesOnBotRateLockAndStartsAiBotLoadCooldown() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(AdminPrincipal.REQUEST_ATTRIBUTE,
+                new AdminPrincipal("op-bot", null, Set.of(AdminRole.BOT_OPS)));
+        Instant before = jdbc.sql("SELECT now()").query(OffsetDateTime.class).single().toInstant();
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Thread holder = new Thread(() -> botRate.withLock(() -> {
+            held.countDown();
+            try {
+                release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }));
+        AtomicReference<Map<String, Object>> result = new AtomicReference<>();
+        Thread caller = new Thread(() -> result.set(simAdminController.activateScenario("steady", request)));
+        try {
+            holder.start();
+            assertTrue(held.await(5, TimeUnit.SECONDS));
+            caller.start();
+            assertTrue(waitsForLockOf(caller, holder), "활성화는 발행률 잠금을 쥔 스레드를 기다린다");
+            assertNull(result.get());
+        } finally {
+            release.countDown();
+            caller.join(10_000);
+            holder.join(10_000);
+        }
+
+        assertEquals("steady", result.get().get("scenario"));
+        Instant last = new AiStore(jdbc, objectMapper).lastSameKind(AiAction.Kind.BOT_LOAD);
+        assertNotNull(last, "시나리오 활성화도 봇 부하 조치의 쿨다운을 시작시킨다");
+        assertFalse(last.isBefore(before));
+    }
+
+    /** caller 가 holder 가 쥔 모니터를 기다리며 막혀 있는가. 잠금을 거치지 않으면 곧바로 끝나 이 상태가 되지 않는다. */
+    private static boolean waitsForLockOf(Thread caller, Thread holder) throws InterruptedException {
+        ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+        for (int i = 0; i < 100; i++) {
+            ThreadInfo info = threads.getThreadInfo(caller.threadId());
+            if (info != null && info.getThreadState() == Thread.State.BLOCKED
+                    && info.getLockOwnerId() == holder.threadId()) {
+                return true;
+            }
+            Thread.sleep(50);
+        }
+        return false;
     }
 
     @Test

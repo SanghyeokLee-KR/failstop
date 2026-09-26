@@ -1,0 +1,503 @@
+/* ============================================================================
+   settings.module.css. 설정 화면(관리자 설계 4-8·4-10-7). 연동 상태 표, Teams 연결 시험, AI 한도·모드,
+   담당자·연락 체계, 호출 단계와 당번, 알림 채널, 역할·권한 행렬. 패널은 관제 화면 공용 패널(control.module.css .panel)을
+   쓰고 여기에는 표와 줄만 둔다.
+   ========================================================================== */
+
+.integrations {
+  width: 100%;
+  border-collapse: collapse;
+  word-break: keep-all;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.integrations th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  text-align: left;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.integrations td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: middle;
+}
+.integrations tr:last-child td {
+  border-bottom: 0;
+}
+.integrations th[data-num],
+.integrations td[data-num] {
+  text-align: right;
+}
+.integrations td[data-act] {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.name b {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.name span {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.state {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.state[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.state[data-tone="off"] {
+  color: var(--text-default);
+}
+/* 상태 형태(StatusShape SVG). 한 줄 상태어 안에서 줄 가운데에 서고, 글자는 기준선 정렬 그대로다 */
+.shape {
+  align-self: center;
+}
+.testWord {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.shape[data-tone="success"] {
+  color: var(--color-success);
+}
+.shape[data-tone="off"] {
+  color: var(--text-secondary);
+}
+.shape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.detail {
+  color: var(--text-default);
+  overflow-wrap: anywhere;
+}
+.checked {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.prose {
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-default);
+  word-break: keep-all;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.row > :last-child {
+  margin-left: auto;
+}
+.reason {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.tests {
+  display: flex;
+  flex-direction: column;
+}
+.test {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.test + .test {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+
+/* AI 한도 요약. 값은 표 문법(이름 왼쪽, 수치 오른쪽 tabular)이다 */
+.limits {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.limits dt {
+  color: var(--text-default);
+}
+.limits dd {
+  text-align: right;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.contacts {
+  width: 100%;
+  border-collapse: collapse;
+  word-break: keep-all;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.contacts th {
+  padding: 0 var(--space-3) var(--space-2) 0;
+  text-align: left;
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.contacts td {
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: top;
+}
+.contacts tr:last-child td {
+  border-bottom: 0;
+}
+.contacts td b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.contacts td small {
+  display: block;
+  white-space: nowrap;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 호출 단계와 당번(4-10-7). 위는 정책 단계 막대(전폭), 아래는 당번표와 호출 규칙 두 칸이다 ===== */
+.escalation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+/* 단계 칸 아래 두 줄. 누구(역할과 사람)는 읽는 글이라 default, 경로는 보조 글이다 */
+.stageWho,
+.stageHow {
+  display: block;
+}
+.stageWho {
+  color: var(--text-default);
+}
+.stageHow {
+  color: var(--text-secondary);
+}
+.escalationFoot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4) var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  align-items: start;
+}
+.subHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.subTitle {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.subMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.rotation {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.rotation th,
+.rotation td {
+  height: 44px;
+  padding: 0 var(--space-3) 0 0;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--text-default);
+}
+.rotation th {
+  width: 72px;
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.rotation td:last-child {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.duty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.duty b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.rules {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.rules dt {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.rules dd {
+  margin: 0;
+  color: var(--text-default);
+}
+
+/* ===== 알림 채널. 연동 표의 문법을 쓰고, 여러 줄 칸이 있어 위에 붙인다 ===== */
+.channels td {
+  vertical-align: top;
+}
+.channelName {
+  width: 200px;
+}
+.channelState {
+  width: 300px;
+}
+.stateStack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stateDetail {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.none {
+  color: var(--text-secondary);
+}
+
+/* ===== 역할·권한 행렬. 행은 조작, 열은 역할 다섯과 승인 티켓이다. 지금 운영자가 가진 역할의 열은 sunken 면으로 세로 띠가
+   되고, 칸의 점(8px 잉크)은 그 역할 하나로 할 수 있다는 뜻이다. 묶음 사이는 default 헤어라인, 줄 사이는 subtle이다 ===== */
+/* 행렬과 역할 설명. 판이 1400px 이상이면 설명이 행렬 오른쪽 320px 칸이 되어 조작 글과 점 사이가 줄고, 좁으면 행렬 아래로 간다.
+   컨테이너 쿼리는 자기 자신을 고치지 못해 판(section)이 컨테이너다 */
+.permPanel {
+  container-type: inline-size;
+}
+.permLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4) var(--space-7);
+  align-items: start;
+}
+@container (min-width: 1400px) {
+  .permLayout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+.matrixWrap {
+  overflow-x: auto;
+}
+.permNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* 역할 다섯의 뜻. 행렬 아래(좁은 판)에서는 여러 열로, 오른쪽 칸(넓은 판)에서는 한 열로 선다 */
+.roleList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+}
+.roleItem {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.roleItem dt {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.roleItem dd {
+  margin: 0;
+  color: var(--text-default);
+}
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.matrix thead th {
+  padding: 0 var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  text-align: left;
+  vertical-align: bottom;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.matrix thead th[data-role] {
+  width: 88px;
+  padding-top: var(--space-2);
+  text-align: center;
+  white-space: normal;
+}
+.groupHead {
+  width: 56px;
+}
+.ticketHead {
+  width: 168px;
+}
+.roleHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.roleHead b {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.roleHead code {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.holders {
+  font-weight: var(--fw-regular);
+  color: var(--text-default);
+}
+.held {
+  margin-top: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: 16px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.matrix tbody th,
+.matrix tbody td {
+  padding: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  color: var(--text-default);
+}
+.matrix tbody + tbody tr:first-child > * {
+  border-top-color: var(--border-default);
+}
+.matrix thead + tbody tr:first-child > * {
+  border-top: 0;
+}
+.group {
+  text-align: left;
+  vertical-align: top;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.matrix tbody th.group {
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+.action {
+  text-align: left;
+  font-weight: var(--fw-regular);
+}
+.actionNote {
+  margin-left: var(--space-2);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.matrix td[data-role] {
+  text-align: center;
+}
+.matrix [data-held] {
+  background: var(--surface-sunken);
+}
+/* sunken 면 위에서는 secondary를 쓰지 않는다(4.5:1 계약) */
+.matrix [data-held] .roleHead code,
+.matrix [data-held] .holders {
+  color: var(--text-default);
+}
+.allow {
+  color: var(--text-strong);
+  vertical-align: middle;
+}
+.ticket code {
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.ticket .none {
+  font-size: var(--font-dense-size);
+}

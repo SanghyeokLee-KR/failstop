@@ -1,0 +1,38 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "state" : "READY",
+    "provider" : "ollama-native",
+    "model" : "test-model",
+    "transport" : "LOOPBACK",
+    "remote_allowed" : false,
+    "server" : {
+      "version" : "0.12.3",
+      "model_loaded" : true,
+      "model_listed" : null,
+      "loaded_models" : [ {
+        "name" : "test-model",
+        "size_vram_bytes" : 13958643712,
+        "expires_at" : "2026-09-25T03:55:04.349Z"
+      } ],
+      "checked_at" : "2026-09-25T03:50:04.351Z",
+      "age_seconds" : 0
+    },
+    "calls" : {
+      "window" : 50,
+      "count" : 0,
+      "failures" : 0,
+      "latency_ms" : {
+        "p50" : null,
+        "p95" : null
+      },
+      "last_success_at" : null,
+      "last_failure" : null,
+      "by_purpose" : {
+        "judge" : 0,
+        "chat" : 0
+      }
+    }
+  }
+}

@@ -13,7 +13,7 @@ import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { AUDIT_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -71,14 +71,16 @@ function renderAction(e: AuditEntry) {
   );
 }
 
+/* 대상 칸이 가장 긴 글('CHG-106 · certbot 갱신 실패 경보 수집 적용')이라 가장 큰 몫을 받는다. 운영자와 승인 ID는 글이 짧아
+   고정 폭이다. 운영자 칸이 남는 폭을 나눠 가지면 1280 창의 대상 칸이 170px 남짓으로 줄어 글이 잘린다 */
 const COLUMNS: DataColumn<AuditEntry>[] = [
-  { key: "at", label: "시각", width: "90px", render: renderTime },
-  { key: "operator", label: "운영자", width: "minmax(120px, 1fr)", render: (e) => `${e.operatorName} (${e.operatorId})` },
-  { key: "action", label: "액션", width: "minmax(160px, 1.2fr)", render: renderAction },
+  { key: "at", label: "시각", width: "84px", align: "right", render: renderTime },
+  { key: "operator", label: "운영자", width: "124px", render: (e) => `${e.operatorName} (${e.operatorId})` },
+  { key: "action", label: "액션", width: "minmax(180px, 1.2fr)", render: renderAction },
   {
     key: "target",
     label: "대상",
-    width: "minmax(120px, 1fr)",
+    width: "minmax(200px, 1.6fr)",
     // 기록 원문 그대로 표기한다(치환 금지, DB 문자열 대조 보존). 인증서 신원만 title 주해
     render: (e) =>
       e.target.startsWith("mTLS CN=") ? <span title="운영자 인증서 신원(mTLS CN)">{e.target}</span> : e.target,
@@ -86,28 +88,24 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
   {
     key: "result",
     label: "결과",
-    width: "90px",
+    width: "72px",
+    align: "center",
     // 정상(성공)은 잉크, 이탈만 pill로 발화한다. 색 단독 금지라 기호·라벨 병기
     render: (e) =>
       e.result === "OK" ? (
         <span className={styles.stateText}>성공</span>
       ) : e.result === "ERROR" ? (
-        <span className="status-pill" data-health="warning">
-          ▲ 오류
-        </span>
+        <StateChip tone="warning" label="오류" />
       ) : (
-        <span className="status-pill" data-health="danger">
-          ■ 거부
-        </span>
+        <StateChip tone="danger" label="거부" />
       ),
   },
   {
     key: "approval",
     label: "승인 ID",
-    width: "minmax(120px, 1fr)",
-    // 부재 플레이스홀더만 tertiary(비정보 장식). 실값은 기본 잉크 유지
-    // 하이픈은 빈 칸을 메우는 장식이다. 낭독하면 "하이픈"이라는 소음만 남고 부재는
-    // 빈 셀로 이미 전달된다. aria-hidden으로 빼면 대비 기준도 장식 기준(3:1)이 맞는다
+    width: "88px",
+    // 부재 플레이스홀더는 흐린 잉크(secondary)이고 실값은 기본 잉크다. 하이픈은 빈 칸을 메우는 표시라
+    // 낭독하면 "하이픈"이라는 소음만 남고 부재는 빈 셀로 이미 전달된다
     render: (e) =>
       e.approvalId ?? (
         <span className={styles.auditNil} aria-hidden="true">
@@ -186,10 +184,9 @@ export default function AuditPage() {
     <div className={styles.page}>
       <PageHeader
         title="감사 로그"
-        desc="수정·삭제 불가 기록"
         actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
       />
-      <PanelCard title="관리 액션 감사">
+      <PanelCard title="관리 액션 감사" actions={<span className={styles.panelMeta}>고치거나 지울 수 없는 기록입니다</span>}>
         {loading ? (
           <Skeleton variant="card" width="100%" height={280} />
         ) : error ? (
@@ -252,7 +249,6 @@ export default function AuditPage() {
                 // 비인터랙티브 판독 행이라 36px 밀도로 주사 존을 좁힌다(44px 히트 타깃 규칙은 조작 요소 대상)
                 rowHeight={36}
                 ariaLabel="관리 감사 로그"
-                defaultAlign="center"
                 empty={
                   hasFilter && rows.length > 0 ? (
                     <div className="empty-state">

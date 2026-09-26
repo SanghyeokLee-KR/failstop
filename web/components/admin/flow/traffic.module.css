@@ -13,7 +13,8 @@
  * 알갱이는 transform 만 움직인다. 합성 단계에서 돌아 스타일 계산, 레이아웃, 페인트가 매 프레임
  * 생기지 않는다. 알갱이 모양은 레일의 배경 무늬라 레일이 움직여도 다시 칠하지 않는다. 움직임 자체는
  * FlowTraffic 이 Web Animations 로 건다. 여기에 animation-name 을 두지 않는다. CSS 애니메이션은 주기
- * 끝마다 React 의 animationiteration 리스너 때문에 메인 스레드를 깨운다.
+ * 끝마다 React 의 animationiteration 리스너 때문에 메인 스레드를 깨운다. 예외는 끊김·전환 표식의
+ * 등장이다. 되풀이하지 않고 한 번만 돌아 주기 끝 이벤트가 없다.
  */
 
 /* ===== 연결선 ===== */
@@ -77,8 +78,13 @@
   stroke-width: 2;
 }
 
-/* 유휴. 건강하지만 지금 지나는 것이 없다. 가는 초록 실선이다. 노드 카드의 "대기"(멈춘 부하 발생기,
-   회색 꺼짐 선)와 헷갈리지 않게 범례와 연결 목록은 이 상태를 유휴라고 부른다 */
+/* 유휴. 건강하지만 지금 지나는 것이 없다. 흐름이 없는 선은 초록이 아니라 무채 가는 실선이다(§12-4 v1.14).
+   꺼짐(성긴 회색 토막)과는 실선과 점선으로 가른다. 노드 카드의 "대기"(멈춘 부하 발생기, 회색 꺼짐 선)와
+   헷갈리지 않게 범례와 연결 목록은 이 상태를 유휴라고 부른다 */
+.conn[data-kind="idle"] {
+  color: var(--border-strong);
+}
+
 .conn[data-kind="idle"] .wire {
   stroke-width: 1;
 }
@@ -208,6 +214,8 @@
 .cut {
   position: absolute;
   transform: translate(-50%, -50%);
+  /* 나타날 때 한 번 0.6배에서 제 크기가 된다(디자인 시스템 §12-4 표식 등장) */
+  animation: cut-in var(--dur-base) var(--ease-emphasized);
   padding: 0 2px;
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-xs);
@@ -234,6 +242,15 @@
   color: var(--color-warning-text);
 }
 
+@keyframes cut-in {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 /* ===== 범례 견본 ===== */
 
 .swatch {
@@ -258,5 +275,9 @@
 
   .conn {
     transition: none;
+  }
+
+  .cut {
+    animation: none;
   }
 }

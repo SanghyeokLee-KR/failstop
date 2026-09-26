@@ -1,0 +1,12 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "action_id" : 2,
+    "kind" : "READ_NODES",
+    "status" : "REJECTED",
+    "deferred_until" : null,
+    "result" : null,
+    "revertible" : false
+  }
+}

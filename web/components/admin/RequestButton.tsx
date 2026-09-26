@@ -20,7 +20,7 @@ export interface RequestConfirm {
   description?: string;
   target?: string;
   blastRadius?: string;
-  tone?: "danger" | "warning";
+  tone?: "danger" | "approve";
   confirmLabel?: string;
 }
 
@@ -81,7 +81,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
           description={confirm.description}
           target={confirm.target}
           blastRadius={confirm.blastRadius}
-          tone={confirm.tone ?? "warning"}
+          tone={confirm.tone ?? "approve"}
           confirmLabel={confirm.confirmLabel ?? label}
           busy={false}
           onConfirm={request}

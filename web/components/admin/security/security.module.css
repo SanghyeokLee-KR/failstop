@@ -1,0 +1,244 @@
+/* 네트워크·보안(관리자 설계 4-10-3, 레이아웃 §7 3라운드). 전폭 허용 경로 표, 그 아래 두 칸 1 : 1(인증서 | 관리 접근 기록),
+   그 아래 전폭 공개 포트 점검과 경계 방화벽 안내 한 줄이다. 허용 경로 표는 설계 의도를 옮긴 읽는 표라 행에 층이 없다 */
+
+.tableWrap {
+  min-width: 0;
+  margin: 0 calc(-1 * var(--space-4));
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.cNo {
+  width: 40px;
+}
+.cFrom {
+  width: 17%;
+}
+.cTo {
+  width: 13%;
+}
+.cPort {
+  width: 10%;
+}
+.cSource {
+  width: 13%;
+}
+.cSchool {
+  width: 25%;
+}
+.table thead th {
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+.table thead th:first-child,
+.table tbody td:first-child {
+  padding-left: var(--space-4);
+}
+.table thead th:last-child,
+.table tbody td:last-child {
+  padding-right: var(--space-4);
+}
+.table tbody td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-default);
+  vertical-align: top;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.no {
+  color: var(--text-secondary);
+}
+.strong {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.port {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.none {
+  color: var(--text-secondary);
+}
+.path {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.source {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-default);
+}
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 인증서 ===== */
+.certs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cert {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.cert:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.cert:last-child {
+  padding-bottom: 0;
+}
+.certHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.certName {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.days {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.days[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.days[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.days > svg {
+  color: var(--color-success);
+}
+.days[data-tone="warning"] > svg {
+  color: var(--color-warning);
+}
+.days[data-tone="danger"] > svg {
+  color: var(--color-danger);
+}
+.certKv {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 2px var(--space-3);
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.certKv dt {
+  color: var(--text-secondary);
+}
+.certKv dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-default);
+}
+
+/* ===== 공개 포트 점검과 경계 방화벽 ===== */
+.boundary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.boundaryText {
+  flex: 1 1 480px;
+  min-width: 0;
+}
+.boundaryKey {
+  margin-right: var(--space-2);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.moreLink {
+  position: relative;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--chrome-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.moreLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.moreLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.accessFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 접속 경로와 원천 캡션. 칸이 좁으면(1280 창) 두 줄로 쌓이고 오른쪽 링크는 첫 줄에 남는다 */
+.accessNotes {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1 1 240px;
+  gap: 2px var(--space-4);
+  min-width: 0;
+}
+.pathValue {
+  color: var(--text-default);
+}

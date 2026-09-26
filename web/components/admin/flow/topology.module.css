@@ -85,7 +85,9 @@
 /* AWS 틀. 클라우드 경계라 면을 한 단 가라앉혀 카드가 떠 보이게 한다. 안쪽 틀은 면을 칠하지 않아
    이 면이 그대로 비친다. 끊김 표식과 알갱이 고리의 바탕(bg-muted)과 한 면으로 읽힌다.
    가장 바깥 묶음이라 테두리를 안쪽 틀(text-tertiary)보다 한 단 진한 secondary 로 둔다. 패널 면과
-   bg-muted 양쪽에서 4.5:1 안팎이라 3:1 을 넉넉히 넘고, 틀의 층이 바깥에서 안으로 옅어진다 */
+   bg-muted 양쪽에서 4.5:1 안팎이라 3:1 을 넉넉히 넘고, 틀의 층이 바깥에서 안으로 옅어진다.
+   다크에서는 secondary 가 화면에서 가장 밝은 선이 되어 카드보다 먼저 읽히므로 아래 다크 블록에서
+   bg-muted 쪽으로 섞어 약 3.8:1 로 낮춘다 */
 .aws {
   position: absolute;
   border: 1px solid var(--text-secondary);
@@ -136,6 +138,16 @@
   border-radius: var(--panel-radius);
 }
 
+/* 매칭 칸은 AWS 구성 요소가 아니라 역할 묶음이다. 퍼블릭·DB 칸과 같은 모양으로 두어 조회 그룹(굵은 선)과 갈린다 */
+.frame[data-kind="match"] {
+  border-radius: var(--radius-xs);
+}
+
+/* 온프레미스(연구소)는 AWS 밖의 장소다. AWS 틀처럼 면을 가라앉히지 않고 패널 면 위에 실선 틀만 둔다 */
+.frame[data-kind="onprem"] {
+  border-radius: var(--panel-radius);
+}
+
 /* 틀 이름표. 모든 틀이 왼쪽 위에 작은 표식과 이름을 둔다. 이름표 띠는 24px 이고 선은 이름표 자리를
    지나지 않게 배치했다(FlowTopology 의 BAND) */
 .frameLabel {
@@ -155,15 +167,26 @@
 
 /* 다크에서는 text-tertiary 가 bg-muted 위 5.89:1 이라 안쪽 틀 다섯 겹(엣지, 리전, VPC, 칸, bot-1)이
    민트 카드 테두리(4.89:1)만큼 진하게 읽혀 틀과 카드가 다툰다. 라이트(3.43:1)처럼 틀이 카드 뒤로
-   물러나게 bg-muted 쪽으로 25% 섞어 약 3.9:1 로 낮춘다. 3:1 은 그대로 넘는다. AWS 틀과
-   Auto Scaling 그룹은 secondary 그대로라 바깥 틀과 앱 계층이 한 단 앞에 선다 */
+   물러나게 bg-muted 쪽으로 25% 섞어 약 3.9:1 로 낮춘다. 3:1 은 그대로 넘는다.
+   AWS 틀과 Auto Scaling 그룹의 secondary 도 다크에서는 가장 밝은 선이라 카드보다 먼저 읽힌다. 60% 로
+   섞어 bg-muted 대비 3.81:1 로 낮춘다. 조정 중인 그룹의 주황 점선은 이 규칙에서 빼 상태색이 이긴다 */
 :global([data-theme="dark"]) .frame {
   border-color: color-mix(in srgb, var(--text-tertiary) 75%, var(--bg-muted));
+}
+
+:global([data-theme="dark"]) .aws,
+:global([data-theme="dark"]) .asgFrame:not([data-state="transition"]) {
+  border-color: color-mix(in srgb, var(--text-secondary) 60%, var(--bg-muted));
 }
 
 @media (prefers-color-scheme: dark) {
   :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .frame {
     border-color: color-mix(in srgb, var(--text-tertiary) 75%, var(--bg-muted));
+  }
+
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .aws,
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .asgFrame:not([data-state="transition"]) {
+    border-color: color-mix(in srgb, var(--text-secondary) 60%, var(--bg-muted));
   }
 }
 
@@ -180,17 +203,18 @@
 }
 
 .asgFrame[data-state="transition"] {
+  border-width: 2px;
   border-style: dashed;
   border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-warning-text));
 }
 
-/* 그룹 머리 단추. 틀 머리 자리(44px)를 채우고 이름(16px), min·max(14px), 지금 대수(14px) 세 줄을
-   왼쪽 정렬로 싣는다. 줄 높이를 글자 크기에 바짝 붙여 누름 자리 44px 안에 세 줄이 든다 */
+/* 그룹 머리 단추. 틀 머리 자리(48px)를 채우고 이름과 범위(16px), 지금 대수와 사용률(18px), 사용률 막대(14px)
+   세 줄을 싣는다. 줄 높이를 글자 크기에 바짝 붙여 48px 안에 세 줄이 든다 */
 .asgHead {
   position: absolute;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   gap: 0;
   padding: 0 6px;
@@ -200,6 +224,13 @@
   color: var(--text-default);
   text-align: left;
   transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+/* 머리 단추의 누르는 자리는 머리 상자(48px) 그대로다. 구성도를 줄여 보여도 설계 단위로 44px 를 넘는다 */
+.asgHead::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 /* 누를 수 있다는 표시. 면을 카드 면으로 올린다. secondary 잉크는 그 위에서도 4.5:1 을 지킨다 */
@@ -212,10 +243,20 @@
   box-shadow: 0 0 0 2px var(--chrome-accent);
 }
 
+/* 첫 줄. 이름은 왼쪽, 범위(min~max)는 오른쪽이다 */
+.asgTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 16px;
+}
+
 .asgTitle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
   font-size: var(--font-caption-size);
   line-height: 16px;
   font-weight: var(--fw-bold);
@@ -223,22 +264,95 @@
   white-space: nowrap;
 }
 
-/* 범위와 조정 기준(조회 사용률) 한 줄. 좁은 그룹에서는 FlowTopology 가 짧은 꼴을 고르고, 그래도
-   넘치면 말줄임으로 끝낸다. 숫자는 고정폭이라 매초 바뀌어도 줄 길이가 흔들리지 않는다 */
-.asgMeta {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.asgRange {
+  flex: none;
   font-size: var(--font-micro-size);
-  line-height: 14px;
+  line-height: 16px;
   font-weight: var(--fw-medium);
   color: var(--text-secondary);
   white-space: nowrap;
   font-feature-settings: var(--font-feature-num);
 }
 
+/* 둘째 줄. 지금 대수(상태)는 왼쪽, 조정 기준인 조회 사용률은 오른쪽이다. 숫자는 고정폭이라 매초 바뀌어도
+   줄 길이가 흔들리지 않는다 */
+.asgStateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 18px;
+  min-width: 0;
+}
+
+.asgUtil {
+  flex: none;
+  font-size: var(--font-micro-size);
+  line-height: 18px;
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-feature-settings: var(--font-feature-num);
+}
+
+.asgUtil .figure {
+  color: var(--text-strong);
+}
+
+/* 세 줄 높이를 16·18·14px 로 고정한다. 막대(.asgRail)가 단추 밖에서 셋째 줄 자리(34px)에 겹치므로
+   줄 높이가 흔들리면 막대와 자리가 어긋난다. 11px 글자 줄에 13px 굵은 수치가 섞이면 기준선 맞춤으로
+   줄 상자가 19px 가 되므로 줄 높이를 못 박고, 줄이 넘칠 때 flex 가 줄을 줄이지 않게 한다 */
+.asgHead > * {
+  flex: none;
+}
+
 .asgHead .status {
+  justify-content: flex-start;
+  height: 18px;
+  line-height: 18px;
+}
+
+/* 머리 단추 셋째 줄의 빈 자리. 막대는 단추 밖 .asgRail 이 이 자리에 겹쳐 그린다 */
+.asgRailSlot {
+  display: block;
+  flex: none;
+  height: 14px;
+}
+
+/* 사용률 막대와 권고 임계 한 줄. 막대는 용량 화면과 같은 MeterRail 이고 남는 폭을 다 쓴다. 옆의 임계
+   글자는 보조 라벨이라 11px 로 둔다. 자리와 폭은 FlowTopology 가 머리 단추 셋째 줄에 맞춰 준다.
+   누름은 밑의 단추가 받는다 */
+.asgRail {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+
+.asgRail > :first-child {
+  flex: 1;
+}
+
+/* 막대 트랙. MeterRail 의 트랙(--surface-sunken)은 다크에서 틀 면(--bg-muted)과 1.02:1, 머리를
+   누른 면(--surface-default)과 1.06:1 이라 막대 끝이 보이지 않아 사용률과 임계를 비례로 읽을 수 없다.
+   다크에서만 --border-default 로 올린다(틀 면 1.58:1, 누른 면 1.52:1). 채움 대 트랙은 무채 5.33:1,
+   주의 6.02:1 로 남는다. MeterRail 은 공용 계기라 여기서 덮는다 */
+:global([data-theme="dark"]) .asgRail > :first-child > :first-child {
+  background: var(--border-default);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .asgRail > :first-child > :first-child {
+    background: var(--border-default);
+  }
+}
+
+.asgRailLabel {
+  font-size: var(--font-micro-size);
   line-height: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* ===== 범례 =====
@@ -291,8 +405,10 @@
 
 /* ===== 노드 카드 =====
    위에서부터 아이콘 타일(28px), 제목, 상태 한 줄이다. AWS 그림처럼 아이콘 밑에 이름을 가운데로 적는다.
-   카드는 모두 같은 크기(높이 66px, 폭은 배치가 112~180px 로 준다)다. 좌우 여백 4px 는 가장 좁은 폭에서
-   가장 긴 상태 줄(형태와 틈을 합쳐 약 99px)이 잘리지 않는 값이다. 테두리 굵기는 1.5px 로 두고 장애만 2px 로 올린다.
+   카드는 모두 같은 크기(높이 72px, 폭은 배치가 112~180px 로 준다)다. 좌우 여백 1px 는 가장 좁은 폭에서
+   가장 긴 상태 줄 "● 10 OPS · 주문 실패"(수치 13px 굵게, 형태와 틈을 합쳐 실측 약 105px)가 잘리지 않는
+   값이다. 4px 이던 여백은 수치를 키운 뒤 6px 이 모자라 줄였다. 글자는 가운데 정렬이라 다른 카드에서는
+   여백이 줄어든 티가 나지 않는다. 테두리 굵기는 1.5px 로 두고 장애만 2px 로 올린다.
    border-box 라 굵기가 바뀌어도 바깥 크기는 그대로이고 선도 같은 가장자리에 닿는다 */
 
 .node {
@@ -302,7 +418,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 0 4px;
+  padding: 0 1px;
   border: 1.5px solid var(--text-tertiary);
   border-radius: var(--control-radius);
   background: var(--surface-default);
@@ -345,7 +461,7 @@
   box-shadow: none;
 }
 
-/* app-3 은 Auto Scaling 그룹의 +1 자리다. 꺼져 있으면 점선으로 비워 두어 한 대를 더 붙일 자리로 읽힌다 */
+/* app-3 은 Auto Scaling 그룹의 자동 증설 자리다. 꺼져 있으면 점선으로 비워 두어 부하가 오르면 켜질 자리로 읽힌다 */
 .node[data-slot="true"][data-state="stopped"] {
   border-style: dashed;
 }
@@ -356,6 +472,15 @@
   border-style: dashed;
   border-color: var(--text-tertiary);
   background: transparent;
+  box-shadow: none;
+}
+
+/* 연결 전 자리(AI 운영 보고, Teams). 단추가 아니라 누를 수 있다는 표시를 모두 뺀다 */
+.node[data-reserve="true"] {
+  cursor: default;
+}
+
+.node[data-reserve="true"]:hover {
   box-shadow: none;
 }
 
@@ -466,30 +591,155 @@
   color: var(--text-secondary);
 }
 
-/* 그룹의 +1 표식. 제목 옆 작은 알약이다 */
-.plus {
-  flex: none;
-  padding: 0 5px;
-  border: 1px solid var(--text-tertiary);
-  border-radius: var(--radius-full);
+/* ===== AI 판단 요청선 =====
+   매칭 칸과 온프레미스 ai-1 사이의 점선이다. 연결 경로를 정하지 않아 흐름 선의 모양(초록 실선)을 쓰지 않고
+   꺼짐 선과 같은 무채 점선에 선 밑 이름표를 둔다. 판단 요청과 응답 알갱이만 AI 강조색이다(§12-10) */
+.aiLink {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.aiLinkSvg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.aiLinkLine {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+}
+
+/* 판단 요청이 걸린 동안만 선이 AI 강조색이 된다. 상태가 바뀔 때만 바뀌는 표시다 */
+.aiLink[data-busy="true"] .aiLinkLine {
+  stroke: var(--ai-accent);
+}
+
+.aiLink[data-down="true"] .aiLinkLine {
+  stroke: var(--color-danger);
+}
+
+.aiLinkLabel {
+  position: absolute;
   font-size: var(--font-micro-size);
-  line-height: 13px;
-  font-weight: var(--fw-semibold);
-  color: var(--text-default);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  text-align: right;
+  word-break: keep-all;
+}
+
+.aiLink[data-busy="true"] .aiLinkLabel {
+  color: var(--ai-accent-text);
+}
+
+.aiLink[data-down="true"] .aiLinkLabel {
+  color: var(--color-danger);
+}
+
+/* 알갱이(§12-4 v1.14). 12px 채운 원 하나와 가는 쪽 반대로 따르는 투명도 .5·.25의 작은 점 둘이다. 빛과 흐림을
+   쓰지 않는다. 평소에는 보이지 않고, 요청·응답 순간에만 Web Animations 가 불투명도와 위치를 함께 움직인다 */
+.aiPacket {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: var(--radius-full);
+  background: var(--ai-accent);
+  opacity: 0;
+}
+
+.aiPacket::before,
+.aiPacket::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--ai-accent);
+}
+
+.aiPacket::before {
+  opacity: 0.5;
+}
+
+.aiPacket::after {
+  opacity: 0.25;
+}
+
+/* 요청은 매칭 칸에서 ai-1 로(왼쪽으로) 가므로 꼬리가 오른쪽, 응답은 반대다 */
+.aiPacket[data-dir="req"]::before {
+  left: 15px;
+}
+
+.aiPacket[data-dir="req"]::after {
+  left: 25px;
+}
+
+.aiPacket[data-dir="res"]::before {
+  left: -9px;
+}
+
+.aiPacket[data-dir="res"]::after {
+  left: -19px;
+}
+
+/* 움직임 줄이기에서 요청이 걸린 동안 선 가운데에 멈춰 선 점. 움직이지 않으니 꼬리를 두지 않는다 */
+.aiPacket[data-static="true"] {
+  opacity: 1;
+}
+
+.aiPacket[data-static="true"]::before,
+.aiPacket[data-static="true"]::after {
+  display: none;
+}
+
+/* ai-1 카드. 구축 전이라 연결이 시뮬레이션 가정이면 점선 테두리이고, 판단 요청을 처리하는 동안만 테두리가
+   AI 강조색이다(§12-4 v1.14) */
+.node[data-assumed="true"] {
+  border-style: dashed;
+}
+
+.node[data-busy="true"] {
+  border-color: var(--ai-accent);
+}
+
+/* 응답이 돌아온 순간 지연 값이 90%에서 제 크기가 된다. 한 번만 돈다 */
+.latency {
+  display: inline-block;
+  font-weight: var(--fw-bold);
+}
+
+.latency[data-pop="true"] {
+  animation: latencyPop var(--dur-dialog) var(--ease-decelerate);
+}
+
+@keyframes latencyPop {
+  from {
+    transform: scale(0.9);
+  }
 }
 
 /* ===== 상태 줄 ===== */
 
-/* 형태와 글자 사이는 3px 다. 가장 좁은 카드에서 긴 상태 줄이 잘리지 않게 space-1 보다 1px 좁힌다 */
+/* 형태와 글자 사이는 2px 다. 가장 좁은 카드에서 긴 상태 줄이 잘리지 않게 space-1 보다 2px 좁힌다 */
 .status {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   max-width: 100%;
   min-width: 0;
   font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
+  line-height: 18px;
   font-weight: var(--fw-medium);
   color: var(--text-secondary);
   font-feature-settings: var(--font-feature-num);
@@ -499,6 +749,28 @@
   flex: none;
 }
 
+/* 핵심 수치(CPU %, VU, OPS, 대수, 사용률). 라벨은 11px 그대로 두고 수치와 단위만 13px 굵게 올린다
+   (디자인 시스템 §12-2). 색은 상태 줄을 따른다. 실행 글자는 success-text 라 흰 면 5.81:1 이다.
+   대수는 바뀌는 순간 값 자리 배경을 헬스 플래시로 켠다. 굵은 13px 숫자는 자간을 조금 좁혀 가장 좁은
+   카드(112px)의 가장 긴 줄에 여유 약 2px 를 남긴다 */
+.figure {
+  border-radius: var(--radius-xs);
+  font-size: var(--font-caption-size);
+  line-height: 18px;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  font-feature-settings: var(--font-feature-num);
+  transition: background-color var(--dur-flash) var(--ease-standard);
+}
+
+.figure[data-flash="success"] {
+  background: var(--color-health-flash-success);
+}
+
+.figure[data-flash="warning"] {
+  background: var(--color-health-flash-warning);
+}
+
 /* 형태는 그래픽이라 3:1, 글자는 4.5:1 을 받는다. 초록 원색은 흰 면 4.27:1 이라 형태에만 쓰고
    글자는 -text 단계로 적는다 */
 .status[data-state="running"] {
@@ -506,22 +778,22 @@
 }
 
 .status[data-state="running"] .shape,
-.shape[data-state="running"] {
+.shape[data-tone="running"] {
   color: var(--color-success);
 }
 
 .status[data-state="transition"],
-.shape[data-state="transition"] {
+.shape[data-tone="transition"] {
   color: var(--color-warning-text);
 }
 
 .status[data-state="failure"],
-.shape[data-state="failure"] {
+.shape[data-tone="failure"] {
   color: var(--color-danger);
 }
 
 .status[data-state="stopped"],
-.shape[data-state="stopped"],
+.shape[data-tone="stopped"],
 .status[data-state="absent"] {
   color: var(--text-secondary);
 }
@@ -661,10 +933,99 @@
   justify-content: flex-end;
 }
 
+/* ===== 상태 전이 링 펄스 =====
+   상태가 바뀐 카드와 그룹 틀에 바깥 고리가 0에서 10px 로 퍼지며 사라진다. 한 번 --dur-pulse(900ms)에
+   두 번 돈다(디자인 시스템 §12-4). 고리 색은 새 상태의 형태 색이다. 카드의 제 그림자(--pulse-rest)를
+   고리와 함께 그려 펄스가 끝나도 그림자가 튀지 않는다. 그림자가 없는 카드와 틀은 빈 그림자다.
+   켜고 끄는 시점은 FlowTopology 의 useChangeFlags 가 정한다 */
+.node,
+.asgFrame {
+  --pulse-color: var(--text-tertiary);
+  --pulse-rest: 0 0 0 0 transparent;
+}
+
+.node {
+  --pulse-rest: var(--shadow-1);
+}
+
+.node[data-state="stopped"],
+.node[data-state="absent"] {
+  --pulse-rest: 0 0 0 0 transparent;
+}
+
+/* 팝오버를 연 노드는 선택 고리가 제 그림자다. 펄스와 움직임 줄이기의 정적 고리가 box-shadow 를 통째로
+   덮으므로 선택 고리를 --pulse-rest 에 넣어 전이 중에도 고리가 남게 한다 */
+.node[aria-expanded="true"] {
+  --pulse-rest: 0 0 0 2px var(--bg-muted), 0 0 0 4px var(--chrome-accent), var(--shadow-2);
+}
+
+.node[data-out="true"][aria-expanded="true"] {
+  --pulse-rest: 0 0 0 2px var(--surface-default), 0 0 0 4px var(--chrome-accent), var(--shadow-2);
+}
+
+.node[data-state="running"],
+.asgFrame[data-state="running"] {
+  --pulse-color: var(--color-success);
+}
+
+.node[data-state="transition"],
+.asgFrame[data-state="transition"] {
+  --pulse-color: var(--color-warning);
+}
+
+.node[data-state="failure"] {
+  --pulse-color: var(--color-danger);
+}
+
+/* 제 그림자를 앞에 두어 선택 고리가 펄스 고리 위에 그려진다. 펄스는 그 바깥으로 퍼져 보인다 */
+@keyframes pulse {
+  from {
+    box-shadow:
+      var(--pulse-rest),
+      0 0 0 0 color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+  to {
+    box-shadow:
+      var(--pulse-rest),
+      0 0 0 10px color-mix(in srgb, var(--pulse-color) 0%, transparent);
+  }
+}
+
+.node[data-pulse="true"],
+.asgFrame[data-pulse="true"] {
+  animation: pulse var(--dur-pulse) var(--ease-decelerate) 2;
+}
+
+/* 움직임 줄이기. 전이를 모두 끄고, 링 펄스 자리는 같은 1.8초 동안 3px 정적 고리로 대신한다. 움직임이
+   아니라 표시다. 플래시는 켜지 않는다 */
 @media (prefers-reduced-motion: reduce) {
   .node,
   .asgHead,
-  .asgFrame {
+  .asgFrame,
+  .figure {
     transition: none;
+  }
+
+  .node[data-pulse="true"],
+  .asgFrame[data-pulse="true"] {
+    animation: none;
+    box-shadow:
+      var(--pulse-rest),
+      0 0 0 3px color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+
+  /* 선택 고리(4px)가 3px 정적 고리를 가리므로 팝오버를 연 노드는 선택 고리 바깥 3px 까지 그린다 */
+  .node[aria-expanded="true"][data-pulse="true"] {
+    box-shadow:
+      var(--pulse-rest),
+      0 0 0 7px color-mix(in srgb, var(--pulse-color) 45%, transparent);
+  }
+
+  .figure[data-flash] {
+    background: transparent;
+  }
+
+  .latency[data-pop="true"] {
+    animation: none;
   }
 }

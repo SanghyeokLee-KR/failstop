@@ -116,7 +116,8 @@ def main():
         os.chown(target, 0, directory_group)
         target.chmod(mode)
     for name in ("reporter.py", "evidence.py", "transport.py", "secret_inputs.py", "gemini.py", "presentation.py",
-                 "intervention.py", "charts.py", "render_pdf.py", "scope.py", "artifacts.py", "console_api.py"):
+                 "intervention.py", "charts.py", "render_pdf.py", "scope.py", "artifacts.py", "console_api.py",
+                 "msp_events.py"):
         write(f"/opt/failstop/deploy/reporting/{name}", (HERE / name).read_text(encoding="utf-8"), 0, 0o644)
     write("/etc/failstop/teams-webhook", teams_url + "\n", group)
     if ai_key:

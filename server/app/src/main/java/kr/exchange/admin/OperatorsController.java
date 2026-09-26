@@ -119,6 +119,7 @@ public class OperatorsController {
         if (!OPERATOR_STATUSES.contains(status)) {
             throw new ApiException(400, "invalid_parameter", "status는 ACTIVE 또는 DISABLED여야 합니다.");
         }
+        refuseAiOperator(operatorId);
         long approvalId = approvals.consume(principal.operatorId(), body.approval_token(),
                 "operators.status", operatorId + ":" + status);
         int affected = jdbc.sql("UPDATE admin_operators SET status = ? WHERE operator_id = ?")
@@ -144,6 +145,7 @@ public class OperatorsController {
             throw new ApiException(400, "invalid_parameter", "action과 role이 필요합니다.");
         }
         AdminRole role = parseRole(body.role());
+        refuseAiOperator(operatorId);
         String grantAction = body.action().toUpperCase();
         if (!grantAction.equals("GRANT") && !grantAction.equals("REVOKE")) {
             throw new ApiException(400, "invalid_parameter", "action은 GRANT 또는 REVOKE여야 합니다.");
@@ -169,6 +171,14 @@ public class OperatorsController {
                 Map.of("grant_action", grantAction, "role", role.name()));
         return Map.of("schema_version", "1.0", "operator_id", operatorId,
                 "action", grantAction, "role", role.name(), "approval_id", approvalId);
+    }
+
+    /** AI 신원은 역할을 가질 수 없고 상태를 사람이 바꾸는 대상도 아니다(DB 설계 §10.4, 트리거가 한 번 더 막는다). */
+    private static void refuseAiOperator(String operatorId) {
+        if (AdminOperatorDirectory.aiOperator(operatorId)) {
+            throw new ApiException(403, "admin_forbidden", "AI 운영자 신원은 상태·역할 변경 대상이 아닙니다.",
+                    Map.of("reason", "ai_operator"), null);
+        }
     }
 
     private static AdminRole parseRole(String raw) {

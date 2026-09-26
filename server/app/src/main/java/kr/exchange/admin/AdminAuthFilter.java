@@ -100,13 +100,19 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             }
 
             String operatorId = sessions.verify(request.getHeader("Authorization"), certOperator);
+            if (AdminOperatorDirectory.aiOperator(operatorId)) {
+                throw forbidden("AI 운영자 신원으로는 관리 API 를 부를 수 없습니다.", "ai_operator");
+            }
             AdminOperatorDirectory.Operator op = operators.find(operatorId)
                     .orElseThrow(() -> forbidden("등록되지 않은 운영자입니다.", "unknown_operator"));
             if (!op.active()) {
                 throw forbidden("비활성 운영자입니다.", "operator_disabled");
             }
             // 세션 부트스트랩(POST /session)은 위에서 이미 통과했다. 그 외 관리 요청만 operator 키로 차감.
-            AccountRateLimiter.Decision rate = rateLimiter.acquire(operatorId, ADMIN_WEIGHT);
+            // AI 즉시 끄기와 정지는 공용 버킷을 쓰지 않는다. 화면 폴링이 버킷을 비워도 AI 를 멈출 수 있어야 한다.
+            AccountRateLimiter.Decision rate = aiKillSwitch(request)
+                    ? rateLimiter.acquire(operatorId + ":ai-manual", 1)
+                    : rateLimiter.acquire(operatorId, ADMIN_WEIGHT);
             if (!rate.allowed()) {
                 ApiException tooMany = rateLimiter.rejection(rate);
                 recordDenied(operatorId, action, request.getRequestURI(), requestId, tooMany);
@@ -161,6 +167,13 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     private static boolean isSessionBootstrap(HttpServletRequest request) {
         return "POST".equals(request.getMethod())
                 && request.getRequestURI().equals("/admin/v1/session");
+    }
+
+    /** 관제센터 즉시 끄기와 AI 정지(API §6-F 활성 조건). 신원·세션 검사와 감사는 다른 요청과 같다. */
+    static boolean aiKillSwitch(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return "POST".equals(request.getMethod())
+                && (uri.equals("/admin/v1/msp/ai/mode/manual") || uri.equals("/admin/v1/msp/ai/stop"));
     }
 
     private static ApiException forbidden(String message, String reason) {

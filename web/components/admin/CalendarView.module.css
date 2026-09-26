@@ -1,0 +1,289 @@
+/* 달력 보기(디자인 시스템 §12-15). 칸은 1px 헤어라인 한 줄로 가르고 면을 칠하지 않는다. 상태는 막대의 형태와 윤곽이 싣고
+   헬스 색은 실제로 되돌린 막대(주의)에만 쓴다. 판 폭이 좁으면(칸이 좁으면) 막대 글을 변경 요청 id로 줄인다 */
+
+.calendar {
+  container: cal / inline-size;
+  min-width: 0;
+}
+.grid {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+  animation: calIn 120ms var(--ease-standard) both;
+}
+@keyframes calIn {
+  from {
+    opacity: 0;
+  }
+}
+.head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border-subtle);
+}
+.weekday {
+  padding: var(--space-2) var(--space-2) 6px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 한 주는 날짜 줄, 막대 세 줄, 남는 줄이다. 칸은 모든 줄에 걸쳐 서고 막대는 그 위에 겹쳐 선다 */
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 30px repeat(3, 22px) minmax(10px, 1fr);
+  min-height: 100px;
+}
+.week + .week {
+  border-top: 1px solid var(--border-subtle);
+}
+/* 항목이 없는 주는 날짜 줄만 둔다. 그 주에도 막대 세 줄 자리를 두면 달력 대부분이 빈 칸이다 */
+.week[data-empty] {
+  grid-template-rows: 30px minmax(0, 1fr);
+  min-height: 48px;
+}
+.cell {
+  position: relative;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 6px var(--space-2);
+  cursor: pointer;
+  outline-offset: -2px;
+}
+.cell + .cell {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+.cell:hover {
+  background: var(--surface-hover);
+}
+.cell[data-skeleton] {
+  cursor: default;
+}
+.cell[data-skeleton]:hover {
+  background: none;
+}
+/* 고른 날. 사이드바 활성 항목처럼 sunken 면이다. sunken 위에서는 secondary를 쓰지 않는다(4.5:1 계약) */
+.cell[aria-selected="true"] {
+  background: var(--surface-sunken);
+}
+.cell[aria-selected="true"] .date,
+.cell[aria-selected="true"] .more {
+  color: var(--text-strong);
+}
+.date {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-caption-size);
+  line-height: 1;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.cell[data-other] .date {
+  color: var(--text-secondary);
+  font-weight: var(--fw-regular);
+}
+/* 오늘. 크롬 악센트 1px 윤곽 네모와 같은 색 글자다 */
+.cell[data-today] .date {
+  border-color: var(--chrome-accent);
+  color: var(--chrome-accent);
+}
+.dayBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+.more {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+/* ===== 막대 ===== */
+.bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 20px;
+  margin: 1px 4px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  line-height: 18px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.bar:hover {
+  background: var(--surface-hover);
+}
+/* 앞 주에서 이어 온 막대는 왼쪽 모서리를, 다음 주로 이어지는 막대는 오른쪽 모서리를 곧게 둔다 */
+.bar[data-cont] {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.bar[data-more] {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.barShape {
+  flex: none;
+}
+.barLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 칸이 좁으면(달력 620px 아래, 1280 창의 칸 약 76px) 형태 기호를 거두고 요청 코드만 둔다. 상태는 막대의 윤곽(점선은 승인
+   대기, 악센트는 진행 중, 주의는 롤백)과 굵기가 싣고, 글 전체는 툴팁과 고른 날의 목록이 싣는다 */
+@container cal (max-width: 620px) {
+  .barShape {
+    display: none;
+  }
+  .bar {
+    margin: 1px 3px;
+    padding: 0 4px;
+  }
+}
+/* 상태별 모양(§12-15 항목 칩). 승인 대기는 점선, 예정은 실선 무채, 진행 중은 악센트 윤곽에 sunken 면 */
+.bar[data-state="REQUESTED"] {
+  border: 1px dashed var(--border-strong);
+}
+.bar[data-state="APPROVED"] {
+  border-color: var(--border-default);
+}
+.bar[data-state="IN_PROGRESS"] {
+  border-color: var(--chrome-accent);
+  background: var(--surface-sunken);
+}
+.bar[data-state="IN_PROGRESS"] .barShape {
+  color: var(--chrome-accent);
+}
+/* 끝난 막대는 굵기를 한 단 낮춰 물러서게 한다. 막대는 고른 날의 sunken 칸 위에도 걸치므로 글자를 secondary로 낮추지
+   않는다(sunken 위 4.27:1). 형태 기호만 무채로 둔다 */
+.bar[data-state="DONE"],
+.bar[data-state="CANCELED"] {
+  font-weight: var(--fw-regular);
+}
+.bar[data-state="DONE"] .barShape,
+.bar[data-state="CANCELED"] .barShape {
+  color: var(--text-secondary);
+}
+.bar[data-state="ROLLED_BACK"] {
+  border-color: var(--color-warning-text);
+  color: var(--color-warning-text);
+}
+.bar[data-state="CANCELED"] .barLabel {
+  text-decoration: line-through;
+}
+
+/* ===== 달 머리 ===== */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.monthTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.navBtns {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.navBtn,
+.navToday {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--panel-radius);
+  background: var(--surface-control);
+  color: var(--text-strong);
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+}
+.navBtn::after,
+.navToday::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.navBtn:hover,
+.navToday:hover:not(:disabled) {
+  background: var(--surface-control-hover);
+}
+.navToday {
+  padding: 0 var(--space-3);
+}
+
+/* ===== 범례 ===== */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.legendItem[data-state="IN_PROGRESS"] .barShape {
+  color: var(--chrome-accent);
+}
+.legendItem[data-state="ROLLED_BACK"] .barShape {
+  color: var(--color-warning);
+}
+.legendItem[data-state="DONE"] .barShape,
+.legendItem[data-state="CANCELED"] .barShape,
+.legendItem[data-state="REQUESTED"] .barShape,
+.legendItem[data-state="APPROVED"] .barShape {
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid {
+    animation: none;
+  }
+}

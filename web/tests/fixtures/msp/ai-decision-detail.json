@@ -1,0 +1,269 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "id" : 4,
+    "decided_at" : "2026-09-25T03:50:04.700Z",
+    "mode" : "MANUAL",
+    "outcome" : "PROPOSED",
+    "error" : null,
+    "model" : "test-model",
+    "prompt_version" : "msp-ai/4",
+    "evidence" : {
+      "mode" : "MANUAL",
+      "alerts" : [ {
+        "node" : "app-1",
+        "severity" : "warning",
+        "silenced" : false,
+        "alertname" : "ReadTierCpuHigh",
+        "component" : "app",
+        "starts_at" : "2026-09-25T03:37:54.248Z",
+        "threshold" : {
+          "key" : "read.scale_out_cpu",
+          "value" : "0.6",
+          "metric" : "read_tier.avg_cpu",
+          "observed" : {
+            "value" : "0.8",
+            "collect" : "OK",
+            "age_seconds" : 0
+          }
+        },
+        "fingerprint" : "a1b2c3d4e5f60001",
+        "planned_window" : false
+      }, {
+        "node" : "db-standby",
+        "severity" : "critical",
+        "silenced" : false,
+        "alertname" : "PostgresReplicationLagHigh",
+        "component" : "database",
+        "starts_at" : "2026-09-25T03:09:54.248Z",
+        "threshold" : null,
+        "fingerprint" : "a1b2c3d4e5f60002",
+        "planned_window" : false
+      }, {
+        "node" : "bot-1",
+        "severity" : "other",
+        "silenced" : false,
+        "alertname" : "LinuxServiceOdd",
+        "component" : "os",
+        "starts_at" : "2026-09-25T02:19:54.248Z",
+        "threshold" : null,
+        "fingerprint" : "a1b2c3d4e5f60003",
+        "planned_window" : false
+      }, {
+        "node" : "db-primary",
+        "severity" : "warning",
+        "silenced" : true,
+        "alertname" : "LinuxInodesLow",
+        "component" : "storage",
+        "starts_at" : "2026-09-25T00:49:54.248Z",
+        "threshold" : null,
+        "mountpoint" : "/",
+        "fingerprint" : "a1b2c3d4e5f60004",
+        "planned_window" : false
+      }, {
+        "node" : "app-2",
+        "severity" : "warning",
+        "silenced" : false,
+        "alertname" : "LinuxMemoryHigh",
+        "component" : "os",
+        "starts_at" : "2026-09-25T03:24:54.248Z",
+        "threshold" : {
+          "key" : "host.mem_alert",
+          "value" : null,
+          "metric" : "host_memory_max",
+          "observed" : {
+            "value" : "0.71",
+            "collect" : "STALE",
+            "age_seconds" : 95
+          }
+        },
+        "fingerprint" : "a1b2c3d4e5f60005",
+        "planned_window" : false
+      }, {
+        "node" : "app-2",
+        "severity" : "warning",
+        "silenced" : false,
+        "alertname" : "AppHttpLatencyHigh",
+        "component" : "app",
+        "starts_at" : "2026-09-25T03:44:54.248Z",
+        "threshold" : null,
+        "fingerprint" : "a1b2c3d4e5f60007",
+        "planned_window" : false
+      } ],
+      "limits" : {
+        "auto_cap" : 5,
+        "confidence_pct" : 80,
+        "bot_cooldown_min" : 10,
+        "threshold_per_item" : 2,
+        "backup_disk_free_pct" : 30
+      },
+      "schema" : "msp-evidence/2",
+      "catalog" : [ {
+        "action" : "NO_ACTION"
+      }, {
+        "max" : 3,
+        "action" : "READ_NODE_ADD_ONE",
+        "desired" : 2
+      }, {
+        "action" : "THRESHOLD_LOWER",
+        "targets" : [ {
+          "key" : "read.scale_in_cpu",
+          "max" : "0.5",
+          "min" : "0.05",
+          "value" : "0.3",
+          "max_step" : "0.05"
+        }, {
+          "key" : "read.scale_out_cpu",
+          "max" : "0.85",
+          "min" : "0.2",
+          "value" : "0.6",
+          "max_step" : "0.05"
+        } ]
+      } ],
+      "metrics" : {
+        "availability" : {
+          "value" : "0.9995",
+          "collect" : "OK",
+          "age_seconds" : 7
+        },
+        "bot_host_cpu" : {
+          "value" : "0.44",
+          "collect" : "STALE",
+          "age_seconds" : 95
+        },
+        "host_cpu_max" : {
+          "value" : "0.62",
+          "collect" : "STALE",
+          "age_seconds" : 95
+        },
+        "http_5xx_ratio" : {
+          "value" : "0.0012",
+          "collect" : "OK",
+          "age_seconds" : 6
+        },
+        "host_memory_max" : {
+          "value" : "0.71",
+          "collect" : "STALE",
+          "age_seconds" : 95
+        },
+        "http_p95_seconds" : {
+          "value" : "0.184",
+          "collect" : "OK",
+          "age_seconds" : 6
+        },
+        "backup_age_seconds" : {
+          "value" : "10800",
+          "collect" : "STALE",
+          "age_seconds" : 95
+        },
+        "host_root_free_min" : {
+          "value" : "0.23",
+          "collect" : "STALE",
+          "age_seconds" : 95
+        },
+        "replication_lag_seconds" : {
+          "value" : "0.35",
+          "collect" : "OK",
+          "age_seconds" : 5
+        }
+      },
+      "bot_rate" : {
+        "source" : "unknown",
+        "target_ops" : null
+      },
+      "read_tier" : {
+        "max" : 3,
+        "min" : 2,
+        "avg_cpu" : {
+          "value" : "0.8",
+          "collect" : "OK",
+          "age_seconds" : 0
+        },
+        "desired" : 2,
+        "observed" : 2,
+        "below_scale_in_since" : null
+      },
+      "thresholds" : [ {
+        "key" : "backup.delay_alert",
+        "unit" : "seconds",
+        "value" : "93600",
+        "in_use" : false
+      }, {
+        "key" : "bot.capacity_guard",
+        "unit" : "ratio",
+        "value" : null,
+        "in_use" : false
+      }, {
+        "key" : "db.replication_lag_alert",
+        "unit" : "seconds",
+        "value" : null,
+        "in_use" : true
+      }, {
+        "key" : "host.cpu_alert",
+        "unit" : "ratio",
+        "value" : null,
+        "in_use" : false
+      }, {
+        "key" : "host.cpu_credit_alert",
+        "unit" : "credits",
+        "value" : null,
+        "in_use" : false
+      }, {
+        "key" : "host.disk_free_alert",
+        "unit" : "ratio",
+        "value" : "0.15",
+        "in_use" : false
+      }, {
+        "key" : "host.mem_alert",
+        "unit" : "ratio",
+        "value" : null,
+        "in_use" : false
+      }, {
+        "key" : "read.scale_in_cpu",
+        "unit" : "ratio",
+        "value" : "0.3",
+        "in_use" : true
+      }, {
+        "key" : "read.scale_out_cpu",
+        "unit" : "ratio",
+        "value" : "0.6",
+        "in_use" : true
+      } ],
+      "environment" : "LOCAL_DOCKER",
+      "collected_at" : "2026-09-25T03:50:04.690Z",
+      "alerts_collect" : "OK",
+      "recent_actions" : [ {
+        "actor" : "OPERATOR",
+        "action" : "THRESHOLD_RAISE",
+        "status" : "REVERTED",
+        "target" : "read.scale_in_cpu",
+        "executed_at" : "2026-09-25T03:50:04.583Z"
+      } ],
+      "alerts_polled_at" : "2026-09-25T03:50:04.676Z"
+    },
+    "evidence_sha256" : "475d0abaefbdc16499c8a6f889df50cc7f1991544c2214b99f30d6af9a863ff9",
+    "oldest_sample_at" : "2026-09-25T03:48:29.190Z",
+    "output_raw" : "{\"situation_ko\":\"조회를 받는 앱 노드의 평균 CPU가 0.82로 증설 임계 0.60 이상입니다.\",\"reason_ko\":\"app-3를 켜서 앱 계층을 2대에서 3대로 늘리면 조회 부하가 나뉩니다.\",\"action\":\"READ_NODE_ADD_ONE\",\"target\":\"app\",\"value\":\"\",\"confidence\":0.9}",
+    "output_sha256" : "d739a81f075f8e300cb86fda8121b1e8dc2275e7a7810fa801cb710dc83abda2",
+    "output_truncated" : false,
+    "situation" : "조회를 받는 앱 노드의 평균 CPU가 0.82로 증설 임계 0.60 이상입니다.",
+    "reason" : "app-3를 켜서 앱 계층을 2대에서 3대로 늘리면 조회 부하가 나뉩니다.",
+    "confidence" : "0.9",
+    "latency_ms" : 1,
+    "incident_id" : 2,
+    "actions" : [ {
+      "id" : 2,
+      "kind" : "READ_NODES",
+      "verb" : "READ_NODE_ADD_ONE",
+      "params" : {
+        "delta" : 1
+      },
+      "status" : "PROPOSED",
+      "consecutive" : 2,
+      "hold_rule" : null,
+      "hold_reason" : null
+    } ],
+    "dropped" : [ ]
+  }
+}

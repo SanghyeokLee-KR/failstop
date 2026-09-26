@@ -15,11 +15,10 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
-import { PageHeader, PermissionNote } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, Segmented, segmentedTabId, StateChip } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -126,12 +125,13 @@ export default function AdminMembersPage() {
       key: "status",
       label: "상태",
       width: "88px",
-      // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 알약으로 세운다
+      align: "center",
+      // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 무채 상태 칩(§12-14)으로 세운다
       render: (m) =>
         m.status === "ACTIVE" ? (
           <span className={styles.stateText}>정상</span>
         ) : (
-          <span className={styles.neutralPill}>{STATUS_LABEL[m.status]}</span>
+          <StateChip tone="neutral" label={STATUS_LABEL[m.status]} />
         ),
     },
     /* 활동 요약 3열(§6-E v2.35). 상세를 열어야 보이던 값을 목록으로 올린다.
@@ -141,6 +141,7 @@ export default function AdminMembersPage() {
       key: "openOrders",
       label: "미체결",
       width: "88px",
+      align: "right",
       render: (m) =>
         m.openOrderCount > 0 ? (
           <span className="num">{formatCount(m.openOrderCount)}</span>
@@ -152,6 +153,7 @@ export default function AdminMembersPage() {
       key: "assetKinds",
       label: "보유 종류",
       width: "96px",
+      align: "right",
       render: (m) =>
         m.assetKinds > 0 ? (
           <span className="num">{formatCount(m.assetKinds)}</span>
@@ -163,6 +165,7 @@ export default function AdminMembersPage() {
       key: "lastOrderAt",
       label: "최근 주문",
       width: "116px",
+      align: "right",
       // 주문 이력이 없으면 시각이 아니라 없음이다. 0시로 채우면 1970년이 뜬다
       render: (m) =>
         m.lastOrderAt ? (
@@ -175,11 +178,13 @@ export default function AdminMembersPage() {
       key: "createdAt",
       label: "가입",
       width: "116px",
+      align: "right",
       render: (m) => <span className="num">{formatHistoryTime(new Date(m.createdAt).toISOString())}</span>,
     },
     {
       key: "actions",
       label: "조치",
+      align: "right",
       // 버튼 하나(56px)만 담는다. 좌우 4px만 남긴다
       width: "64px",
       render: (m) => {
@@ -215,17 +220,16 @@ export default function AdminMembersPage() {
     <div className={styles.page}>
       <PageHeader
         title="회원 운영"
-        desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 1인 승인"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
+        <Segmented items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
       </div>
 
-      <PanelCard title="회원 목록">
+      <PanelCard title="회원 목록" actions={<span className={styles.panelMeta}>정지·복구는 곧바로 반영하고 폐쇄는 1인 승인을 거칩니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="members-panel" aria-labelledby={segmentedTabId("members-panel", filter)} tabIndex={0}>
           {res.error ? (
@@ -239,7 +243,7 @@ export default function AdminMembersPage() {
             </div>
           ) : (
             // 이메일 버튼의 44px 히트에 행 구분선 1px를 더한 높이다(admin.module.css .linkCell)
-            <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" defaultAlign="center" />
+            <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" />
           )}
           <Pager
             page={page}
@@ -293,8 +297,8 @@ export default function AdminMembersPage() {
               ) : (
                 <div className={styles.controlRow}>
                   <p className={styles.formHelp}>
-                    폐쇄는 미체결 주문 {formatCount(detail.openOrderCount)}건을 전량 취소하고 세션을 끊는다.
-                    되돌릴 수 없다.
+                    폐쇄는 미체결 주문 {formatCount(detail.openOrderCount)}건을 전량 취소하고 세션을 끊습니다.
+                    되돌릴 수 없습니다.
                   </p>
                   <RequestButton
                     action="members.close"
@@ -302,7 +306,7 @@ export default function AdminMembersPage() {
                     label="폐쇄 요청"
                     confirm={{
                       title: "회원 폐쇄 요청",
-                      description: "승인·실행 뒤 되돌릴 수 없음. 미체결 주문 전량 취소",
+                      description: "승인·실행하면 되돌릴 수 없습니다. 미체결 주문을 모두 취소합니다",
                       target: detail.email,
                       blastRadius: `미체결 ${detail.openOrderCount}건 취소 · 세션 전량 폐기`,
                       tone: "danger",
@@ -321,7 +325,7 @@ export default function AdminMembersPage() {
               if (selected) void loadDetail(selected);
             }}
             emptyLabel="대기 중인 폐쇄 승인 없음"
-            emptyDesc="위에서 요청하면 여기에서 발급·실행"
+            emptyDesc="위에서 요청하면 여기에서 발급하고 실행합니다"
           />
         </PanelCard>
       )}

@@ -1,0 +1,43 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "data" : [ {
+      "id" : 2,
+      "kind" : "READ_NODES",
+      "verb" : "READ_NODE_ADD_ONE",
+      "target" : "app",
+      "identity_key" : "READ_NODES:+1",
+      "params" : {
+        "delta" : 1
+      },
+      "confidence" : "0.9",
+      "reason" : "app-3를 켜서 앱 계층을 2대에서 3대로 늘리면 조회 부하가 나뉩니다.",
+      "status" : "PROPOSED",
+      "hold_rule" : null,
+      "hold_reason" : null,
+      "consecutive" : 2,
+      "auto" : false,
+      "deferred_until" : null,
+      "decided_by" : null,
+      "decided_at" : null,
+      "approval_id" : null,
+      "executed_by" : null,
+      "executed_at" : null,
+      "result" : null,
+      "observe_until" : null,
+      "observe_outcome" : null,
+      "reverted_by" : null,
+      "reverted_at" : null,
+      "created_at" : "2026-09-25T03:50:04.700Z",
+      "expires_at" : "2026-09-25T04:50:04.700Z",
+      "first_decision_id" : 4,
+      "last_decision_id" : 5,
+      "revertible" : false
+    } ],
+    "pagination" : {
+      "next_cursor" : null,
+      "has_more" : false
+    }
+  }
+}

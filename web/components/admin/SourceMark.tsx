@@ -17,6 +17,7 @@
  */
 
 import styles from "./admin.module.css";
+import StatusShape from "./StatusShape";
 
 export type SourceState = "MISSING" | "NO_SOURCE" | "NOT_RUN" | "NOT_APPLIED";
 
@@ -30,7 +31,15 @@ const WORD: Record<SourceState, string> = {
 export default function SourceMark({ state, note }: { state: SourceState; note?: string }) {
   return (
     <span className={styles.sourceMark} data-state={state}>
-      {WORD[state]}
+      {/* 미수집은 무채 ◌ 형태를 앞에 둔다(§12-3). 뿌리가 flex라 형태와 말을 한 칸으로 묶는다 */}
+      {state === "MISSING" ? (
+        <span>
+          <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
+          {WORD[state]}
+        </span>
+      ) : (
+        WORD[state]
+      )}
       {note && <span className={styles.sourceNote}>{note}</span>}
     </span>
   );

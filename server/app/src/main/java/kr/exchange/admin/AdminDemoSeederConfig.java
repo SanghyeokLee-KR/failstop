@@ -42,7 +42,7 @@ public class AdminDemoSeederConfig {
                     });
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new IllegalStateException("관리 데모 운영자 시드가 쓰기 재개를 기다리다 인터럽트됨", e);
+                    throw new IllegalStateException("관리 데모 운영자 시드가 쓰기 재개를 기다리는 중에 인터럽트됨", e);
                 }
                 running = true;
             }

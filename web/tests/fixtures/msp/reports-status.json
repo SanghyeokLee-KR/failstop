@@ -1,0 +1,32 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "state" : "READY",
+    "data" : {
+      "reporting" : {
+        "delivery_enabled" : true,
+        "counts" : {
+          "pending" : 1,
+          "processing" : 0,
+          "queued" : 0,
+          "sending" : 0,
+          "sent" : 14,
+          "dead" : 0
+        },
+        "last_sent_at" : "2026-09-25T02:50:04.000Z",
+        "last_attempt" : {
+          "at" : "2026-09-25T02:50:04.000Z",
+          "status" : "sent",
+          "error" : null
+        },
+        "oldest_pending_age_seconds" : 12,
+        "last_daily_sent_at" : "2026-09-25T00:50:04.000Z"
+      },
+      "outbox" : {
+        "counts" : { },
+        "last_accepted_at" : null
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "status" : 409,
+  "body" : {
+    "error" : {
+      "name" : "ai_action_not_open",
+      "message" : "이미 처리되었거나 처리할 수 없는 AI 조치 요청입니다.",
+      "detail" : null,
+      "trace_id" : null,
+      "request_id" : "a8580664-8fbc-490c-833a-5a82ab0439d6",
+      "retry_after" : null
+    }
+  }
+}

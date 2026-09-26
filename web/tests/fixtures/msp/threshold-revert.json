@@ -1,0 +1,14 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "key" : "host.mem_alert",
+    "from" : "0.85",
+    "to" : null,
+    "version" : 3,
+    "change_id" : 13,
+    "via" : "REVERT",
+    "approval_id" : 5,
+    "revert_of" : 12
+  }
+}

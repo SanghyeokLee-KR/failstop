@@ -1,0 +1,74 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "data" : [ {
+      "id" : 7,
+      "decided_at" : "2026-09-25T03:50:04.941Z",
+      "mode" : "MANUAL",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 1
+    }, {
+      "id" : 6,
+      "decided_at" : "2026-09-25T03:50:04.846Z",
+      "mode" : "MANUAL",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 1
+    }, {
+      "id" : 5,
+      "decided_at" : "2026-09-25T03:50:04.721Z",
+      "mode" : "MANUAL",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 1
+    }, {
+      "id" : 4,
+      "decided_at" : "2026-09-25T03:50:04.700Z",
+      "mode" : "MANUAL",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 1
+    }, {
+      "id" : 3,
+      "decided_at" : "2026-09-25T03:50:04.671Z",
+      "mode" : "MANUAL",
+      "outcome" : "NO_ACTION",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.7",
+      "latency_ms" : 1
+    }, {
+      "id" : 2,
+      "decided_at" : "2026-09-25T03:50:04.528Z",
+      "mode" : "AUTO",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 2
+    }, {
+      "id" : 1,
+      "decided_at" : "2026-09-25T03:50:04.472Z",
+      "mode" : "AUTO",
+      "outcome" : "PROPOSED",
+      "error" : null,
+      "model" : "test-model",
+      "confidence" : "0.9",
+      "latency_ms" : 4
+    } ],
+    "pagination" : {
+      "next_cursor" : null,
+      "has_more" : false
+    }
+  }
+}

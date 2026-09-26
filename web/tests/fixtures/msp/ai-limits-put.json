@@ -1,0 +1,14 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "key" : "bot_cooldown_min",
+    "from" : 10,
+    "to" : 20,
+    "version" : 2,
+    "change_id" : 6,
+    "applies" : "NOW",
+    "effective" : 20,
+    "mode" : "MANUAL"
+  }
+}

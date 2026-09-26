@@ -96,6 +96,9 @@ jobs:
           node-version: "22"
       - name: check design tokens
         run: node scripts/check-tokens.mjs
+      # 카피 종결형 규칙은 평면마다 다르다(관리 콘솔 합니다체, 그 밖 명사형). 규칙 자체를 따로 시험한다
+      - name: test copy tone rule
+        run: node --test scripts/tests/copy-tone.test.mjs
 
   # 브라우저 게이트는 계산된 스타일과 배치를 본다. 토큰 게이트가 값과 소비 규칙을 정적으로
   # 지키는 동안에도 통과해버린 회귀가 있었다. 실제 렌더가 아니면 안 보이는 종류다.

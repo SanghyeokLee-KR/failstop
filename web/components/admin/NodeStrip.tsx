@@ -17,21 +17,32 @@
 
 import type { CapacityNode } from "@/lib/admin/types";
 import { MeterRail } from "./instruments/MeterRail";
-import { HealthPill, type Health } from "./ui";
+import { StateChip, type Health } from "./ui";
 import styles from "./admin.module.css";
+import StatusShape from "./StatusShape";
 
 function heapRatio(n: CapacityNode): number | null {
   if (n.heapUsedBytes === null || n.heapMaxBytes === null || n.heapMaxBytes <= 0) return null;
   return n.heapUsedBytes / n.heapMaxBytes;
 }
 
-function stateOf(n: CapacityNode): { health: Health; label: string } {
+/** 받는 일. 매칭 리더(app-1·app-2)는 주문과 조회를 함께 받고, 자동 증설 노드(app-3)는 조회만 받는다 */
+function dutyOf(n: CapacityNode): string {
+  if (n.leader) return n.servesReads ? "주문+조회" : "주문";
+  return "조회";
+}
+
+function stateOf(n: CapacityNode): { health: Health; label: string; off?: true } {
+  // 기동과 내림은 장애가 아니라 대수를 맞추는 중이다. 응답 여부보다 먼저 읽어야 기동 중인 노드가 '응답 없음'으로 보이지 않는다
+  if (n.lifecycle === "PENDING") return { health: "warning", label: "기동 중" };
+  if (n.lifecycle === "DRAINING") return { health: "warning", label: "내리는 중" };
   if (!n.reachable) {
-    // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다
-    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐" };
+    // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다.
+    // 중지는 판정이 아니라 운영자·정책이 내린 상태라 초록 점이 아니라 무채 ○로 적는다(§12-3)
+    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐", off: true };
   }
-  if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: n.leader ? "주문+조회" : "조회" };
-  return { health: "success", label: n.leader ? "주문+조회" : "조회" };
+  if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: dutyOf(n) };
+  return { health: "success", label: dutyOf(n) };
 }
 
 function pct(v: number | null): string {
@@ -52,6 +63,20 @@ function requestRate(n: CapacityNode, rps: number | null): string {
   return rps === null ? "표본 부족" : count(rps, "건");
 }
 
+/**
+ * 미수집은 값을 받지 못했다는 사실이라 무채 ◌ 형태를 앞에 둔다(§12-3). 형태는 낭독하지 않는다.
+ * 값 칸이 세로 flex라 형태와 글자를 한 span으로 묶어야 두 줄로 갈라지지 않는다
+ */
+function Reading({ text }: { text: string }) {
+  if (text !== "미수집") return <>{text}</>;
+  return (
+    <span>
+      <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
+      {text}
+    </span>
+  );
+}
+
 export default function NodeStrip({
   nodes,
   perSecond,
@@ -66,10 +91,10 @@ export default function NodeStrip({
   return (
     <div className={styles.nodeStrip}>
       <div className={styles.nodeStripHead} aria-hidden="true">
-        <span>서버</span>
+        <span>노드</span>
         <span>구성</span>
         <span>사용률</span>
-        <span>메모리</span>
+        <span title="호스트 메모리가 아니라 앱의 JVM 힙 사용률입니다">JVM 힙</span>
         <span>초당 요청</span>
         <span>동시 접속</span>
       </div>
@@ -81,38 +106,57 @@ export default function NodeStrip({
           <div key={n.id} className={styles.nodeStripRow} data-leader={n.leader || undefined} data-health={st.health}>
             <span className={styles.nodeStripId}>
               <strong>{n.id}</strong>
-              <HealthPill health={st.health} label={st.label} />
+              {/* 중지는 판정이 아니라 꺼진 것이라 무채 빈 원 칩이다(§12-14 StateChip) */}
+              <StateChip tone={st.off ? "off" : st.health} label={st.label} />
             </span>
             <span className={styles.nodeStripMeta}>
               {n.az || "구역 미지정"} · {n.instanceType || "사양 미지정"}
-              {!n.scalable && <span className={styles.capacityTag}>증설 불가</span>}
-              {!n.expected && <span className={styles.capacityTag}>계약 밖</span>}
+              {!n.scalable && (
+                <span className={styles.capacityTag}>
+                  <StateChip tone="neutral" label="고정 · ASG 밖" />
+                </span>
+              )}
+              {!n.expected && (
+                <span className={styles.capacityTag}>
+                  <StateChip tone="neutral" label="희망 대수 밖" />
+                </span>
+              )}
             </span>
             {n.reachable ? (
               <>
-                <span className={`${styles.nodeStripValue} num`}>
-                  {pct(n.cpuRatio)}
+                {/* 막대와 수치를 한 줄에 둔다. 수치가 막대 위에 뜨면 행의 다른 수치와 기준선이 어긋난다.
+                    증설 임계는 조회를 받는 앱 노드의 평균에 거는 선이라 조회를 받는 노드에만 긋는다 */}
+                <span className={`${styles.nodeStripValue} ${styles.nodeStripUtil} num`}>
                   {n.cpuRatio !== null && (
-                    // 세로 flex의 flex-end 안에서 레일은 고유 폭이 없어 0으로 무너진다.
-                    // 폭을 소유하는 래퍼를 둬 칼럼 폭을 그대로 물려준다
                     <span className={styles.nodeStripRail}>
                       <MeterRail
                         value={n.cpuRatio}
                         max={1}
-                        threshold={cpuMark}
-                        tone={n.cpuRatio >= cpuMark ? "warning" : undefined}
+                        threshold={n.servesReads || n.scalable ? cpuMark : undefined}
+                        tone={(n.servesReads || n.scalable) && n.cpuRatio >= cpuMark ? "warning" : undefined}
                       />
                     </span>
                   )}
+                  <span className={styles.nodeStripUtilNum}>
+                    <Reading text={pct(n.cpuRatio)} />
+                  </span>
                 </span>
-                <span className={`${styles.nodeStripValue} num`}>{pct(heap)}</span>
-                <span className={`${styles.nodeStripValue} num`}>{requestRate(n, rps)}</span>
-                <span className={`${styles.nodeStripValue} num`}>{count(n.wsClients, "명")}</span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={pct(heap)} />
+                </span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={requestRate(n, rps)} />
+                </span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={count(n.wsClients, "명")} />
+                </span>
               </>
             ) : (
               // 관측 네 칸을 한 칸으로 합쳐 비운다. 칸마다 "미수집"을 네 번 적으면
               // 읽는 쪽이 네 개의 실패로 읽는다. 실패는 하나다. 서버가 대답하지 않는 것이다.
-              <span className={styles.nodeStripNote}>{n.expected ? "상태 읽기 불가" : "현재 대수에서 미사용"}</span>
+              <span className={styles.nodeStripNote}>
+                {n.lifecycle === "PENDING" ? "준비되면 값을 읽습니다" : n.expected ? "상태 읽기 불가" : "현재 대수에서 미사용"}
+              </span>
             )}
           </div>
         );

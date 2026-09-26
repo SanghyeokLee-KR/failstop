@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import sqlite3
@@ -15,7 +16,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from console_api import list_reports
+import msp_events
+from console_api import delivery_status, list_reports
 from evidence import collect, timestamp
 from artifacts import options as artifact_options, publish as publish_artifacts, read_file as read_artifact
 from presentation import card, render_html
@@ -24,6 +26,7 @@ from transport import RequestFailure, json_request, redact, request, restricted_
 KST = dt.timezone(dt.timedelta(hours=9), "Asia/Seoul")
 MAX_BODY = 65536
 LEASE_SECONDS = 300
+AUTOMATION_KINDS = {"AUTO_EXECUTED": "executed", "AUTO_REVERTED": "reverted", "EXECUTION_UNKNOWN": "unknown"}
 
 
 def delivery_enabled():
@@ -58,6 +61,7 @@ def load_config(path):
         if type(value) is not int or not lower <= value <= upper:
             raise ValueError("invalid_" + name)
     artifact_options(config)
+    msp_events.console_url(config)
     return config
 
 
@@ -168,6 +172,25 @@ class Store:
                        "ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated=excluded.updated",
                        (report_id, status, time.time()))
 
+    def automation(self, start, end, scope=None):
+        """[start, end) 에 발생한 관제센터 사건 가운데 자동 실행·자동 되돌림·결과 모름 수.
+
+        이 서비스가 받은 사건(`msp:` 작업, 전송 상태와 무관)만 센다. 관리 JVM 이 아직 넘기지 못한 사건은 빠진다.
+        발생 시각은 JVM 시각이고 받은 시각은 뒤에 오므로, 시계 차이 1시간을 두고 받은 시각으로 먼저 거른다.
+        저장된 사건 하나라도 해석하지 못하면 예외를 그대로 올려 호출자가 '확인 불가'로 적게 한다.
+        """
+        counts = dict.fromkeys(AUTOMATION_KINDS.values(), 0)
+        with self.connect() as db:
+            rows = db.execute("SELECT payload FROM jobs WHERE kind='msp' AND created>=?", (start - 3600,)).fetchall()
+        for row in rows:
+            event = json.loads(row["payload"])["event"]
+            if scope and any(event["scope"][field] != value for field, value in scope.items()):
+                continue
+            field = AUTOMATION_KINDS.get(event["kind"])
+            if field and start <= dt.datetime.fromisoformat(event["occurred_at"].replace("Z", "+00:00")).timestamp() < end:
+                counts[field] += 1
+        return {"state": "ok", **counts}
+
     def reserve_ai(self, key, config):
         now = time.time()
         local = dt.datetime.fromtimestamp(now, KST)
@@ -258,6 +281,19 @@ class Store:
                 "artifacts": artifacts}
 
 
+def automation_summary(store, facts):
+    """보고 구간의 관제센터 자동 조치 수. 셀 수 없으면 0건으로 채우지 않고 확인 불가로 남긴다."""
+    end, seconds = facts.get("window_end"), facts.get("window_seconds")
+    # NaN 창은 모든 비교가 거짓이라 0건(없음)으로 보이므로 유한한 수만 받는다.
+    if store is None or any(type(value) not in (int, float) or not math.isfinite(value) for value in (end, seconds)):
+        return {"state": "unavailable"}
+    scope = facts.get("scope") if isinstance(facts.get("scope"), dict) else None
+    try:
+        return store.automation(end - seconds, end, scope or None)
+    except (sqlite3.Error, ValueError, KeyError, TypeError, AttributeError, OverflowError):
+        return {"state": "unavailable"}
+
+
 def retry_delay(header, attempts):
     delay = min(900, 5 * 2 ** min(attempts, 8))
     if header:
@@ -278,28 +314,37 @@ def drain_one(store, config, sender, key=None):
     try:
         if job["report"]:
             report = json.loads(job["report"])
+        elif job["kind"] == "msp":
+            # 관제센터 사건은 관리 JVM 이 근거를 이미 정리해 넘긴다. 다시 수집하거나 AI 분석을 붙이지 않는다.
+            report = msp_events.report(job["id"], json.loads(job["payload"]))
+            if not store.save_report(job, report):
+                return True
         else:
             payload = json.loads(job["payload"])
             facts = collect(config, payload.get("window_end", time.time()), payload.get("incident"))
             report = {"id": job["id"], "kind": job["kind"], "evidence": facts,
-                      "analysis": analyze(facts, config, store, job["id"])}
+                      "analysis": analyze(facts, config, store, job["id"]),
+                      "automation": automation_summary(store, facts)}
             if not store.save_report(job, report):
                 return True
-        message = card(report)
-        artifact_state = None
-        try:
-            links = publish_artifacts(report, config)
-            if links:
-                message["attachments"][0]["content"]["actions"] = links
-                artifact_state = "ready"
-        except Exception:
-            # Third-party font/render errors must not terminate incident delivery.
-            # Persist only the safe status, never exception text containing paths or keys.
-            artifact_state = "failed"
-            message["attachments"][0]["content"]["body"].append(
-                {"type": "TextBlock", "text": "PDF 생성 실패 · 상세 보고 재생성 필요", "wrap": True, "color": "Warning"})
-        if artifact_state:
-            store.artifact_status(report["id"], artifact_state)
+        if report.get("kind") == "msp":
+            message = msp_events.card(report, config)
+        else:
+            message = card(report)
+            artifact_state = None
+            try:
+                links = publish_artifacts(report, config)
+                if links:
+                    message["attachments"][0]["content"]["actions"] = links
+                    artifact_state = "ready"
+            except Exception:
+                # Third-party font/render errors must not terminate incident delivery.
+                # Persist only the safe status, never exception text containing paths or keys.
+                artifact_state = "failed"
+                message["attachments"][0]["content"]["body"].append(
+                    {"type": "TextBlock", "text": "PDF 생성 실패 · 상세 보고 재생성 필요", "wrap": True, "color": "Warning"})
+            if artifact_state:
+                store.artifact_status(report["id"], artifact_state)
         sender(message)
         store.finish(job, "sent")
     except RequestFailure as error:
@@ -391,7 +436,15 @@ class Handler(BaseHTTPRequestHandler):
         return hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + self.server.token)
 
     def do_GET(self):
-        if urlsplit(self.path).path == "/console/reports":
+        if self.path == "/console/status":
+            if not self.authenticated():
+                self.send_result(401, {"error": "unauthorized"})
+                return
+            try:
+                self.send_result(200, delivery_status(self.server.store, delivery_enabled()))
+            except sqlite3.Error:
+                self.send_result(503, {"error": "storage_error"})
+        elif urlsplit(self.path).path == "/console/reports":
             if not self.authenticated():
                 self.send_result(401, {"error": "unauthorized"})
                 return
@@ -439,11 +492,16 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_result(404, {"error": "not_found"})
 
+    # 수신 경로마다 본문 해석, 작업 종류, 거부 코드. /msp/events 는 관제센터 AI 사건을 같은 보관함으로 받는다.
+    ROUTES = {"/alerts": (incident_payload, "incident", "invalid_alert_body"),
+              "/msp/events": (msp_events.event_payload, "msp", "invalid_event")}
+
     def do_POST(self):
         self.close_connection = True
-        if self.path != "/alerts":
+        if self.path not in self.ROUTES:
             self.send_result(404, {"error": "not_found"})
             return
+        parse, kind, invalid = self.ROUTES[self.path]
         if not self.authenticated():
             self.send_result(401, {"error": "unauthorized"})
             return
@@ -465,11 +523,11 @@ class Handler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length)
             if len(raw) != length:
                 raise ValueError("incomplete_body")
-            key, payload = incident_payload(json.loads(raw))
-            created = self.server.store.enqueue(key, "incident", payload)
+            key, payload = parse(json.loads(raw))
+            created = self.server.store.enqueue(key, kind, payload)
             self.send_result(202, {"accepted": True, "duplicate": not created, "id": key})
         except (ValueError, UnicodeError, TimeoutError):
-            self.send_result(400, {"error": "invalid_alert_body"})
+            self.send_result(400, {"error": invalid})
         except sqlite3.Error:
             self.send_result(503, {"error": "storage_error"})
 
@@ -493,6 +551,11 @@ def main():
         report_id = "preview:" + uuid.uuid4().hex
         store = Store(args.state) if config.get("analyzer") == "gemini" else None
         report = {"id": report_id, "kind": "preview", "evidence": facts, "analysis": analyze(facts, config, store, report_id)}
+        if store is None and Path(args.state).is_file():
+            # 미리보기는 보관함을 새로 만들지 않는다. 있는 보관함을 열지 못하면 자동 조치 수는 확인 불가로 둔다.
+            with contextlib.suppress(sqlite3.Error, OSError):
+                store = Store(args.state)
+        report["automation"] = automation_summary(store, facts)
         output = {"report": report, "card": card(report)}
         if args.output:
             Path(args.output).write_text(render_html(report) if args.format == "html" else encode(output), encoding="utf-8")

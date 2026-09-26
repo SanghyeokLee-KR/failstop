@@ -10,6 +10,16 @@ import java.util.Set;
 /** admin_operators·operator_roles 조회. 운영자 신원과 효력 역할의 권위 소스. */
 public class AdminOperatorDirectory {
 
+    /**
+     * 관제센터 AI 의 운영자 신원(V72, kind='AI'). 세션을 받을 수 없고 역할을 가질 수 없다. 이름으로 가르는 것은
+     * 관제센터를 끈 배포가 V72 의 열을 읽지 않게 하기 위해서다. V72 가 이 이름을 AI 행으로 선점한다.
+     */
+    public static final String AI_OPERATOR = "ai-ops";
+
+    public static boolean aiOperator(String operatorId) {
+        return AI_OPERATOR.equals(operatorId);
+    }
+
     public record Operator(long id, String operatorId, String displayName, String status,
                            Set<AdminRole> roles) {
 

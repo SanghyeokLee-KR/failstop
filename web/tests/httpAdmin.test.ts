@@ -462,6 +462,7 @@ interface OverviewFixture {
   leaderAlive?: boolean;
   checks?: { check_name: string; ok: boolean }[];
   approvals?: { approval_id: number; expires_at: string }[];
+  leases?: Record<string, unknown>[];
 }
 
 /** getOverview가 부르는 여섯 경로를 주소로 가려 응답한다. 순서나 동시성에 기대지 않는다 */
@@ -473,7 +474,12 @@ function withOverview(fx: OverviewFixture, run: (api: HttpAdminApi, paths: strin
     paths.push(path);
     switch (path) {
       case "/admin/v1/ha/status":
-        return { lease: { holder: "app-1", epoch: 7, leader_alive: fx.leaderAlive ?? true }, command_watermark: 10, trades_count: 3 };
+        return {
+          lease: { holder: "app-1", epoch: 7, leader_alive: fx.leaderAlive ?? true },
+          ...(fx.leases ? { leases: fx.leases } : {}),
+          command_watermark: 10,
+          trades_count: 3,
+        };
       case "/admin/v1/ha/invariants":
         return {
           schema_version: "1.0",
@@ -531,6 +537,21 @@ test("종합: 리더 생존과 정기 검사 전부 통과면 정상이고 합�
     assert.equal(ov.lastVerdict, "UNKNOWN");
     assert.equal(paths.length, 6);
     assert.equal(new Set(paths).size, 6);
+  });
+});
+
+test("종합: 리스 행을 거래 요약 띠가 읽도록 옮기고 파티션 리더 모드(P3)는 자원마다 한 행이다", async () => {
+  await withOverview({}, async (api) => {
+    const ov = await api.getOverview();
+    assert.deepEqual(ov.leases.map((l) => [l.resource, l.holder, l.epoch]), [["matching-engine", "app-1", 7]]);
+  });
+  const leases = [
+    { resource: "matching-p0", holder: "node-a", epoch: 21, leader_alive: true, lease_remaining_ms: 8400, markets: ["KRW-BTC"] },
+    { resource: "matching-p1", holder: "node-b", epoch: 22, leader_alive: true, lease_remaining_ms: 7000, markets: ["KRW-ETH"] },
+  ];
+  await withOverview({ leases }, async (api) => {
+    const ov = await api.getOverview();
+    assert.deepEqual(ov.leases.map((l) => [l.resource, l.holder, l.epoch]), [["matching-p0", "node-a", 21], ["matching-p1", "node-b", 22]]);
   });
 });
 

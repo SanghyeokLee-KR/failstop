@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SimAdminApi } from "../lib/admin/simAdmin";
 import { INVARIANT_DEFS } from "../lib/admin/catalog";
+import type { OpsTrading } from "../lib/admin/types";
 
 test("복구 이력 시드는 스파크 게이트(n>=3)를 채우고 최신순이다", async () => {
   const api = new SimAdminApi();
@@ -41,17 +42,25 @@ test("세션 없이는 종합을 읽지 못한다", async () => {
   await assert.rejects(async () => api.getOverview());
 });
 
-test("HA 상태의 리스 표는 목의 단일 리더(matching-engine) 한 행이다", async () => {
+test("HA 상태의 리스 표는 관제 판의 파티션 리더와 같은 matching-p0·matching-p1 행이다", async () => {
   const api = new SimAdminApi();
   await api.establishSession("op-01");
   const ha = await api.getHaStatus();
-  assert.equal(ha.leases?.length, 1);
-  const lease = ha.leases![0];
-  assert.equal(lease.resource, "matching-engine");
-  assert.equal(lease.holder, ha.leaderNodeId);
-  assert.equal(lease.epoch, ha.epoch);
-  assert.ok(lease.markets.length > 0, "리더가 덮는 마켓이 비었다");
-  // 목은 리스 만료 시각을 추적하지 않는다. 지어내지 않는다
-  assert.equal(lease.leaseRemainingMs, null);
-  assert.equal(lease.leaseUntil, null);
+  const section = (await api.getControlCenter()).trading;
+  assert.equal(section.state, "READY");
+  const trading = (section as { data: OpsTrading }).data;
+  assert.deepEqual(ha.leases?.map((l) => l.resource), trading.leaders.map((l) => `matching-${l.partition}`));
+  assert.deepEqual(ha.leases?.map((l) => l.resource), ["matching-p0", "matching-p1"]);
+  for (const [i, lease] of ha.leases!.entries()) {
+    const leader = trading.leaders[i];
+    assert.equal(lease.holder, leader.node);
+    assert.equal(lease.epoch, leader.epoch);
+    assert.deepEqual(lease.markets, ha.nodes[i].ownedMarkets);
+    assert.ok(lease.markets.length > 0, "리더가 덮는 마켓이 비었다");
+    // 목은 리스 만료 시각을 추적하지 않는다. 지어내지 않는다
+    assert.equal(lease.leaseRemainingMs, null);
+    assert.equal(lease.leaseUntil, null);
+  }
+  assert.equal(ha.epoch, Math.max(...ha.leases!.map((l) => l.epoch)));
+  assert.deepEqual((await api.getOverview()).leases, ha.leases, "거래 요약 띠가 읽는 종합의 리스 행도 같다");
 });

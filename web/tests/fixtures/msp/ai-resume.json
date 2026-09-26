@@ -1,0 +1,9 @@
+{
+  "status" : 200,
+  "body" : {
+    "schema_version" : "1.0",
+    "stopped" : false,
+    "changed" : true,
+    "mode" : "MANUAL"
+  }
+}

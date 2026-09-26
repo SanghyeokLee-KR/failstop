@@ -7,11 +7,13 @@ import time
 from urllib.parse import parse_qsl, urlsplit
 
 import artifacts
+import msp_events
 from presentation import build_brief
 from transport import redact
 
 SCOPE = re.compile(r"[a-zA-Z0-9_.-]{1,80}")
 LINK_TTL_SECONDS = 3600
+JOB_STATES = ("pending", "processing", "queued", "sending", "sent", "dead")
 
 
 def parse_query(path):
@@ -116,20 +118,30 @@ def list_reports(store, config, path, now=None):
                 payload = json.loads(row["payload"])
                 if report_scope(report, payload) != (customer, environment):
                     continue
-                if report is None:
-                    report = {"id": row["id"], "kind": row["kind"], "evidence": {
-                        "scope": {"customer": customer, "environment": environment},
-                        "collected_at": payload.get("window_end"), "facts": [
-                            {"id": "trigger", "status": "ok", "records": payload.get("incident", [])}]}}
-                brief = build_brief(report)
-                entry = {"id": row["id"], "kind": row["kind"], "created": row["created"],
-                         "sent": row["sent"], "status": row["status"], "title": redact(brief["title"]),
-                         "severity": brief["intervention"]["priority"],
-                         "summary": redact(brief["lead"] + " · " + brief["impact"]),
-                         "alertState": brief["status"]["code"] if brief["status"]["code"] in {"firing", "resolved"} else None,
-                         "targets": list(dict.fromkeys(redact(event["target"]) for event in brief["events"])),
-                         "customer": customer, "environment": environment,
-                         "links": stored_links(row["id"], row["artifact_status"], settings, secret, now)}
+                if row["kind"] == "msp":
+                    # 관제센터 AI 사건은 근거 보고가 아니라 짧은 통지라 PDF·HTML 이 없다.
+                    brief = msp_events.brief(report or msp_events.report(row["id"], payload))
+                    entry = {"id": row["id"], "kind": row["kind"], "created": row["created"],
+                             "sent": row["sent"], "status": row["status"], "title": redact(brief["title"]),
+                             "severity": brief["priority"], "summary": redact(brief["impact"]),
+                             "alertState": None, "targets": [redact(brief["target"])],
+                             "customer": customer, "environment": environment,
+                             "links": {"pdf": None, "html": None}}
+                else:
+                    if report is None:
+                        report = {"id": row["id"], "kind": row["kind"], "evidence": {
+                            "scope": {"customer": customer, "environment": environment},
+                            "collected_at": payload.get("window_end"), "facts": [
+                                {"id": "trigger", "status": "ok", "records": payload.get("incident", [])}]}}
+                    brief = build_brief(report)
+                    entry = {"id": row["id"], "kind": row["kind"], "created": row["created"],
+                             "sent": row["sent"], "status": row["status"], "title": redact(brief["title"]),
+                             "severity": brief["intervention"]["priority"],
+                             "summary": redact(brief["lead"] + " · " + brief["impact"]),
+                             "alertState": brief["status"]["code"] if brief["status"]["code"] in {"firing", "resolved"} else None,
+                             "targets": list(dict.fromkeys(redact(event["target"]) for event in brief["events"])),
+                             "customer": customer, "environment": environment,
+                             "links": stored_links(row["id"], row["artifact_status"], settings, secret, now)}
             except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
                 # Corrupt or unscoped historical records cannot establish a customer boundary.
                 continue
@@ -137,3 +149,20 @@ def list_reports(store, config, path, now=None):
             if len(result) == limit:
                 break
     return {"state": "ok", "reports": result}
+
+
+def delivery_status(store, enabled, now=None):
+    """전송 상태 요약(관제센터 설정의 Teams 연동 상태). 작업 상태별 수와 마지막 전송·시도만 싣고 보고 본문은 싣지 않는다."""
+    now = time.time() if now is None else now
+    stats = store.stats()
+    with store.connect() as db:
+        last_sent = db.execute("SELECT MAX(sent) FROM jobs WHERE status='sent'").fetchone()[0]
+        attempt = db.execute("SELECT finished,status,error FROM job_attempts ORDER BY finished DESC LIMIT 1").fetchone()
+    oldest = stats["oldest_pending"]
+    return {"state": "ok", "delivery_enabled": bool(enabled),
+            "counts": {state: stats["counts"].get(state, 0) for state in JOB_STATES},
+            "last_sent_at": last_sent,
+            "last_attempt": {"at": attempt["finished"], "status": attempt["status"], "error": attempt["error"]}
+            if attempt else None,
+            "oldest_pending_age_seconds": max(0.0, now - oldest) if oldest else None,
+            "last_daily_sent_at": stats["last_daily_sent"]}

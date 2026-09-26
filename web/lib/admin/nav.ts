@@ -12,43 +12,89 @@
 
 import type { AdminIconName } from "@/components/admin/icons";
 
+import type { OpsBadgeKind } from "./navBadges";
+
+/** 운영 관제 메뉴 옆 상태 배지의 종류와 판정은 navBadges.ts에 있다(시험이 화면 부품 없이 판정을 본다) */
+export type { OpsBadgeKind };
+
 export interface AdminNavItem {
   href: string;
   label: string;
   icon: AdminIconName;
   /** 하위 경로까지 활성으로 볼지. 루트 경로는 정확히 일치할 때만 활성이다 */
   exact?: boolean;
+  /** 운영 관제 메뉴 옆 상태 배지. 관제 판에서 읽는다 */
+  badge?: OpsBadgeKind;
 }
 
 export interface AdminNavGroup {
   label: string;
   items: AdminNavItem[];
+  /** 처음에는 접어 둔다. 운영자가 펴거나 접은 선택은 묶음마다 기억하고 이 기본보다 앞선다 */
+  closedByDefault?: boolean;
 }
 
-/** 운영 관제. 인프라 상태와 조작, 그리고 시연 */
+/**
+ * 운영 관제. 사이드바 전체를 MSP 관점으로 짠 3라운드 구조다(관리자 설계 4-10-1). 관제는 보고 판단하는 자리,
+ * 인프라는 판독, 조치는 바꾸고 기록하는 자리, 보고는 밖에 내놓는 결과, 시연은 재생이다.
+ * 열여덟 항목을 모두 펴면 1280x800 창의 목록 자리를 넘으므로 관제 밖의 묶음은 접은 채로 시작하고, 지금
+ * 화면이 든 묶음은 사이드바가 펴 둔다.
+ */
 export const OPS_NAV: AdminNavGroup[] = [
   {
-    label: "상황",
-    items: [{ href: "/admin", label: "종합 관제", icon: "overview", exact: true }],
+    label: "관제",
+    items: [
+      { href: "/admin", label: "관제센터", icon: "overview", exact: true },
+      { href: "/admin/incidents", label: "경보·사건", icon: "incidents", badge: "incidents" },
+      { href: "/admin/ai", label: "AI 판단", icon: "ai", badge: "ai" },
+    ],
   },
   {
-    label: "조작",
+    label: "인프라",
+    closedByDefault: true,
     items: [
+      { href: "/admin/hosts", label: "서버·노드", icon: "hosts", badge: "hosts" },
+      { href: "/admin/database", label: "데이터베이스", icon: "database", badge: "database" },
       { href: "/admin/capacity", label: "용량·부하", icon: "monitoring" },
+      { href: "/admin/security", label: "네트워크·보안", icon: "security", badge: "security" },
+    ],
+  },
+  {
+    label: "조치",
+    closedByDefault: true,
+    items: [
+      { href: "/admin/thresholds", label: "임계값 관리", icon: "thresholds", badge: "thresholds" },
+      { href: "/admin/changes", label: "변경·작업", icon: "changes", badge: "changes" },
+      { href: "/admin/actions", label: "조치 기록", icon: "actions" },
+      { href: "/admin/runbooks", label: "런북", icon: "runbooks" },
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },
     ],
   },
   {
-    label: "시연",
+    label: "보고",
+    closedByDefault: true,
     items: [
-      { href: "/admin/drill", label: "상황별 대본", icon: "drill" },
+      { href: "/admin/reports", label: "보고서", icon: "reports" },
+      { href: "/admin/sla", label: "SLA 월간 보고", icon: "sla" },
+      { href: "/admin/cost", label: "비용", icon: "cost", badge: "cost" },
+    ],
+  },
+  {
+    label: "시연",
+    closedByDefault: true,
+    items: [
       // 시안. 값은 시뮬레이션이고 백엔드에 연결하지 않았다(flowSim.ts)
       { href: "/admin/flow", label: "서비스 흐름", icon: "flow" },
       // 서비스 흐름과 같은 재생 주행의 추이. 흐름 화면에서 걸어 둔 재생이 여기 차트로 이어진다(flowRun.ts)
       { href: "/admin/monitor", label: "지표 관제", icon: "metrics" },
+      // 관제 판과 따로 도는 재생 세계. 관제센터의 값을 바꾸지 않는다(관리자 설계 4-10-6)
+      { href: "/admin/scenarios", label: "시나리오", icon: "scenarios" },
     ],
   },
 ];
+
+/** 운영 관제 바닥 줄의 화면. 연동 상태와 연락 체계는 자주 오지 않는 자리라 묶음 밖 바닥에 둔다 */
+export const OPS_FOOT: AdminNavItem[] = [{ href: "/admin/settings", label: "설정", icon: "settings" }];
 
 /** 백오피스. 제품 운영이라 실험 대상이 아니다 */
 export const BACK_NAV: AdminNavGroup[] = [

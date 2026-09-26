@@ -12,9 +12,8 @@ import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
-import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { PageHeader } from "@/components/admin/ui";
+import { PageHeader, Segmented, segmentedTabId } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -92,6 +91,7 @@ export default function AdminTransfersPage() {
         key: "amount",
         label: "금액",
         width: "160px",
+        align: "right",
         sortValue: (r) => Number(r.amount),
         firstDir: "desc",
         render: (r) => (
@@ -104,6 +104,7 @@ export default function AdminTransfersPage() {
         key: "created",
         label: "요청 시각",
         width: "120px",
+        align: "right",
         sortValue: (r) => r.createdAt,
         firstDir: "desc",
         render: (r) => <span className="num">{formatTimeHMS(new Date(r.createdAt).toISOString())}</span>,
@@ -112,11 +113,11 @@ export default function AdminTransfersPage() {
         key: "status",
         label: "상태",
         width: "110px",
+        align: "center",
         render: (r) =>
           r.status === "REQUESTED" ? (
-            <span className="status-pill" data-health="warning">
-              대기
-            </span>
+            /* 대기는 처리할 차례라는 뜻이지 이상 상태가 아니다. 상태색 대신 굵은 잉크로 둔다(§12-10) */
+            <span className={styles.queueWait}>대기</span>
           ) : r.status === "COMPLETED" ? (
             /* 완료는 조치가 끝난 행이다. 운영자가 볼 곳은 대기뿐이라 완료까지 색을 쓰면
                큐에서 처리 대상을 골라내는 일이 오히려 어려워진다 */
@@ -130,19 +131,21 @@ export default function AdminTransfersPage() {
         key: "action",
         label: "처리",
         width: "168px",
+        align: "right",
         render: (r) =>
           r.status === "REQUESTED" ? (
             <div className={styles.rowActions}>
+              {/* 긍정 확정 하나만 브랜드 면, 되돌릴 수 없는 거절은 danger 테두리다(§12-5) */}
               <button
                 type="button"
-                className="btn btn--secondary"
+                className={styles.approveBtn}
                 onClick={() => setPending({ row: r, action: "approve" })}
               >
                 승인
               </button>
               <button
                 type="button"
-                className="btn btn--secondary"
+                className={styles.dangerBtn}
                 onClick={() => setPending({ row: r, action: "reject" })}
               >
                 거절
@@ -160,16 +163,15 @@ export default function AdminTransfersPage() {
     <div className={styles.page}>
       <PageHeader
         title="출금 승인"
-        desc="회원 원화 출금 요청. 승인하면 잠긴 금액 출금, 되돌릴 수 없음"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
+        <Segmented items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
       </div>
 
-      <PanelCard title="요청 목록">
+      <PanelCard title="요청 목록" actions={<span className={styles.panelMeta}>승인하면 잠긴 금액을 출금하고 되돌릴 수 없습니다</span>}>
         {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
         <div role="tabpanel" id="transfers-panel" aria-labelledby={segmentedTabId("transfers-panel", status)} tabIndex={0}>
           {res.error ? (
@@ -189,7 +191,6 @@ export default function AdminTransfersPage() {
               rows={rows}
               rowKey={(r) => r.externalId}
               ariaLabel="출금 요청 목록"
-              defaultAlign="center"
             />
           )}
 
@@ -202,17 +203,14 @@ export default function AdminTransfersPage() {
           title={pending.action === "approve" ? "출금 승인" : "출금 거절"}
           description={
             pending.action === "approve"
-              ? "잠긴 금액 즉시 출금. 되돌릴 수 없음"
-              : "잠금 해제. 요청자 가용 잔고로 환원"
+              ? "잠긴 금액을 곧바로 출금합니다. 되돌릴 수 없습니다"
+              : "잠금을 풀어 요청자의 가용 잔고로 돌려놓습니다"
           }
           target={`${pending.row.userEmail} · ${formatKRW(pending.row.amount)}원`}
           blastRadius="요청자 1명"
           confirmLabel={pending.action === "approve" ? "승인 확정" : "거절 확정"}
-          tone={
-            pending.action === "approve" && Number(pending.row.amount) >= Number(HIGH_AMOUNT)
-              ? "danger"
-              : "warning"
-          }
+          // 확정은 채운 단추 하나다(§12-5). 거절과 고액 출금 승인은 되돌릴 수 없는 쪽이라 danger다
+          tone={pending.action === "reject" || Number(pending.row.amount) >= Number(HIGH_AMOUNT) ? "danger" : "approve"}
           busy={busy}
           onConfirm={confirm}
           onClose={close}

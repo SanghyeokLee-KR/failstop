@@ -116,6 +116,7 @@ jobs:
           prom/prometheus:v3.13.0
           test rules
           /etc/prometheus/tests/exchange-alerts.test.yml
+          /etc/prometheus/tests/exchange-recording.test.yml
 
       # Patroni 실험 스택의 스크레이프 설정과 경보(Patroni 설계 7-3). 카오스 스택 Prometheus 가 읽지 않게
       # harness/patroni/prometheus 에 따로 둔다. 같은 마운트 형상으로 설정·규칙·유닛 시험을 함께 본다.
