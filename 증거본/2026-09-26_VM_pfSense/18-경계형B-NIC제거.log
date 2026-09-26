@@ -1,0 +1,36 @@
+# 2026-09-26 20:57:15 KST · 작업 PC(DEV-PC) · VM 정상 종료 뒤 NAT(NIC1)·host-only(NIC3) 제거
+> ssh edge01 'sudo systemctl poweroff'
+> ssh app01 'sudo systemctl poweroff'
+> ssh app02 'sudo systemctl poweroff'
+> ssh db01 'sudo systemctl poweroff'
+> ssh db02 'sudo systemctl poweroff'
+> ssh ops01 'sudo systemctl poweroff'
+> VBoxManage modifyvm EDGE01 --nic1 none --nic3 none
+EDGE01: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm APP01 --nic1 none --nic3 none
+APP01: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm APP02 --nic1 none --nic3 none
+APP02: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm DB01 --nic1 none --nic3 none
+DB01: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm DB02 --nic1 none --nic3 none
+DB02: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm OPS01 --nic1 none --nic3 none
+OPS01: VMState="poweroff" nic1="none" intnet2="lab-lan" nic2="intnet" nic3="none" 
+
+# 2026-09-26 21:18:10 1차 NIC 제거 뒤 pfSense 경유 SSH 실패 → 원인: sshd ListenAddress·Nginx listen 이 host-only 주소(192.168.56.x)에 묶여 있었음(00-common-setup.sh, 10-edge01-setup.sh).
+# 조치: host-only NIC 임시 재연결 → sshd 를 lab-lan 주소로, EDGE01 Nginx listen·Host 헤더·인증서 SAN 을 192.168.56.10 으로, 앱 CORS·WS 오리진을 https://192.168.56.10 으로, OPS01 blackbox CA 갱신 → NIC 재제거.
+> VBoxManage modifyvm EDGE01 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm APP01 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm APP02 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm DB01 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm DB02 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+> VBoxManage modifyvm OPS01 --nic3 none → nic1="none" nic2="intnet" nic3="none" 
+DB01 SSH 실패
+DB02 pfSense 경유 SSH OK: db02.lab 192.168.10.32/24 sshd=192.168.10.32:22 
+APP01 pfSense 경유 SSH OK: app01.lab 192.168.10.21/24 sshd=192.168.10.21:22 
+APP02 pfSense 경유 SSH OK: app02.lab 192.168.10.22/24 sshd=192.168.10.22:22 
+EDGE01 pfSense 경유 SSH OK: edge01.lab 192.168.10.11/24 sshd=192.168.10.11:22 
+OPS01 pfSense 경유 SSH OK: ops01.lab 192.168.10.41/24 sshd=192.168.10.41:22 
+# 21:2x DB01 실패 원인: 새 주소 192.168.10.31 의 호스트 키 확인 질문이 BatchMode 에서 거절됨(방화벽·sshd 문제 아님).
+# 조치: 작업 PC ~/.ssh/config 의 edge01~ops01 항목에 StrictHostKeyChecking accept-new 추가 → ssh db01 성공(20·21번 캡처에서 사용).

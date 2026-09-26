@@ -1,0 +1,38 @@
+# 2026-09-26 19:35:56 KST · 작업 PC(DEV-PC) · VirtualBox 7.2.8r173730
+# ISO: pfSense-CE-2.7.2-RELEASE-amd64.iso.gz SHA-256 883fb7bc...cd9e4 (Netgate 게시값과 일치)
+> pwsh -NoProfile -File create-pfsense-vm.ps1 -IsoPath D:\마지막 프로젝트\vm-lab\iso\pfSense-CE-2.7.2-RELEASE-amd64.iso
+Virtual machine 'pfsense-fw' is created and registered.
+UUID: 4984817d-1dc9-4ec5-9209-7002a0ca2ad8
+Settings file: 'C:\Users\DEV-PC\VirtualBox VMs\pfsense-fw\pfsense-fw.vbox'
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+Medium created. UUID: 278f7a7b-8384-4399-a2c6-840ac9517ea6
+생성 완료: pfsense-fw
+
+memory=2048
+cpus=1
+nic1="nat"
+nictype1="82540EM"
+intnet2="lab-lan"
+nic2="intnet"
+nictype2="82540EM"
+hostonlyadapter3="VirtualBox Host-Only Ethernet Adapter"
+nic3="hostonly"
+nictype3="82540EM"
+
+부팅: & 'C:\Program Files\Oracle\VirtualBox\VBoxManage.exe' startvm pfsense-fw --type gui
+설치가 끝나면 ISO를 뗀다:
+  & 'C:\Program Files\Oracle\VirtualBox\VBoxManage.exe' storageattach pfsense-fw --storagectl SATA --port 1 --device 0 --type dvddrive --medium none
+
+> VBoxManage startvm pfsense-fw --type gui  (19:36:04)
+Waiting for VM "pfsense-fw" to power on...
+VM "pfsense-fw" has been successfully started.
+> (19:39:11) 설치 프로그램 이탈로 Amnesiac 로그인 화면. 디스크 2MB(미설치) 확인 뒤 재시작: VBoxManage controlvm pfsense-fw reset
+> (19:41:43) 설치 완료 확인(디스크 859MB). 재부팅 전 ISO 분리: VBoxManage storageattach pfsense-fw --storagectl SATA --port 1 --device 0 --type dvddrive --medium emptydrive
+VBoxManage.exe: error: Could not unmount the currently mounted media/drive (VERR_PDM_MEDIA_LOCKED)
+VBoxManage.exe: error: Details: code E_FAIL (0x80004005), component ConsoleWrap, interface IConsole, callee IUnknown
+VBoxManage.exe: error: Context: "UnmountMedium(Bstr(pszCtl).raw(), port, device, fForceUnmount)" at line 434 of file VBoxManageStorageController.cpp
+VBoxManage.exe: error: No DVD/Floppy Drive attached to the controller 'SATA'at the port: 1, device: 0
+"SATA-1-0"="D:\\마지막 프로젝트\\vm-lab\\iso\\pfSense-CE-2.7.2-RELEASE-amd64.iso"
+> 게스트가 매체를 잠가 실패(VERR_PDM_MEDIA_LOCKED). --forceunmount로 재시도
+"SATA-1-0"="emptydrive"
+> (19:43:49) 실수: 설치 CD 위에서 도는 설치 후 셸이 살아 있는 상태에서 ISO를 강제 분리해 'vm_fault: pager read error, pid 1 (init)' 반복. 디스크 설치는 분리 전에 끝남. 강제 재시작으로 디스크 부팅: VBoxManage controlvm pfsense-fw reset

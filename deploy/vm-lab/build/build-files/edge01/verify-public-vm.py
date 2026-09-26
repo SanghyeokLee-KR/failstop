@@ -10,10 +10,12 @@
 
 실행:
   python3 verify-public-vm.py
-  EDGE01_BASE=https://192.168.56.11 python3 verify-public-vm.py
+  EDGE01_BASE=https://192.168.56.10 python3 verify-public-vm.py
   EDGE01_CA=/tmp/edge01.crt python3 verify-public-vm.py   # 작업 PC 에서 돌릴 때
 
-정본 진입 주소는 https://192.168.56.11 하나다. 기본값이 그 값이므로 보통은 변수를 주지 않는다.
+정본 진입 주소는 pfSense 경계형 전환(2026-09-26) 뒤 https://192.168.56.10 하나다.
+기본값이 그 값이므로 보통은 변수를 주지 않는다. 전환 전 구축 단계에서는
+EDGE01_BASE=https://192.168.56.11 을 준다.
 lab-lan 주소로도 확인하려면 정본 경로를 먼저 통과시킨 뒤 보조 경로 점검용으로만 돌린다.
   EDGE01_BASE=https://192.168.10.11 python3 verify-public-vm.py   # 보조 경로 점검용
 그 결과를 정본 경로의 검증 결과로 옮겨 적지 않는다.
@@ -27,7 +29,7 @@ import ssl
 import urllib.error
 import urllib.request
 
-BASE = os.environ.get('EDGE01_BASE', 'https://192.168.56.11')
+BASE = os.environ.get('EDGE01_BASE', 'https://192.168.56.10')
 HTTP_BASE = BASE.replace('https://', 'http://', 1)
 CA_FILE = os.environ.get('EDGE01_CA', '/etc/pki/tls/certs/edge01.crt')
 

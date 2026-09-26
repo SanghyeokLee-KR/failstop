@@ -1,0 +1,46 @@
+# 2026-09-26 20:47:15 KST · 작업 PC → 각 VM(host-only로 접속) · sudo bash boundary-phase-a.sh
+> ssh ops@192.168.56.11 'sudo bash -s ' < boundary-phase-a.sh
+## edge01.lab 2026-09-26 20:47:17 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+default via 192.168.10.1 dev enp0s8 proto static metric 103 
+nameserver 192.168.10.1
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns
+> ssh ops@192.168.56.21 'sudo bash -s ' < boundary-phase-a.sh
+## app01.lab 2026-09-26 20:47:43 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+default via 192.168.10.1 dev enp0s8 proto static metric 102 
+nameserver 192.168.10.1
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns
+> ssh ops@192.168.56.22 'sudo bash -s ' < boundary-phase-a.sh
+## app02.lab 2026-09-26 20:48:09 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+default via 192.168.10.1 dev enp0s8 proto static metric 103 
+nameserver 192.168.10.1
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns
+> ssh ops@192.168.56.31 'sudo bash -s ' < boundary-phase-a.sh
+## db01.lab 2026-09-26 20:48:35 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+default via 192.168.10.1 dev enp0s8 proto static metric 103 
+nameserver 192.168.10.1
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns
+> ssh ops@192.168.56.32 'sudo bash -s ' < boundary-phase-a.sh
+## db02.lab 2026-09-26 20:49:01 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+default via 192.168.10.1 dev enp0s8 proto static metric 102 
+nameserver 192.168.10.1
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns
+> ssh ops@192.168.56.41 'sudo bash -s ops' < boundary-phase-a.sh
+## ops01.lab 2026-09-26 20:49:28 KST
+		iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+		iifname "enp0s8" ip saddr 192.168.10.1 udp dport 514 counter packets 0 bytes 0 accept comment "pfSense 원격 로그"
+default via 192.168.10.1 dev enp0s8 proto static metric 103 
+nameserver 192.168.10.1
+rsyslogd: End of config validation run. Bye.
+UNCONN 0      0      192.168.10.41:514       0.0.0.0:*    users:(("rsyslogd",pid=2803,fd=4))
+DNS 실패
+^? 192.168.10.1                  0   7     0     -     +0ns[   +0ns] +/-    0ns

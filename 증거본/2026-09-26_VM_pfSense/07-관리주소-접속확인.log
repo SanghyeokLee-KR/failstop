@@ -1,0 +1,39 @@
+# 2026-09-26 19:49:11 KST · 작업 PC(192.168.56.1) → pfSense 관리 주소
+> Test-Connection 192.168.56.10 -Count 2
+
+Address Latency   Status
+------- -------   ------
+              0 TimedOut
+              0 TimedOut
+
+
+> Test-NetConnection 192.168.56.10 -Port 443
+
+RemoteAddress RemotePort TcpTestSucceeded
+------------- ---------- ----------------
+192.168.56.10        443            False
+
+
+
+# 19:51:25 콘솔에서 easyrule pass opt1 tcp 192.168.56.1 192.168.56.10 443 적용 뒤(사용자 실행)
+> Test-NetConnection 192.168.56.10 -Port 443
+
+RemoteAddress RemotePort TcpTestSucceeded
+------------- ---------- ----------------
+192.168.56.10        443             True
+
+
+> curl.exe -skI https://192.168.56.10/ --max-time 8
+HTTP/1.1 200 OK
+Server: nginx
+Date: Sat, 26 Sep 2026 10:51:37 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Frame-Options: SAMEORIGIN
+> Test-NetConnection 192.168.56.10 -Port 22 (규칙 밖 포트, 차단 기대)
+
+RemoteAddress RemotePort TcpTestSucceeded
+------------- ---------- ----------------
+192.168.56.10         22            False
+
+
