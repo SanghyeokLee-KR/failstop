@@ -1,0 +1,214 @@
+{
+  "scenario": "E-P1",
+  "run_id": "DBFAIL-20260927-104153",
+  "verdict": "FAIL",
+  "times": {
+    "T0": 1790505733.481,
+    "T_back": 1790505782.981,
+    "T_suspend": 1790505738.007,
+    "T_resume": 1790505804.0,
+    "T_promote": 1790505758.615,
+    "T_sync": 1790505804.372,
+    "T_down": 1790505738.007,
+    "T_reads": 1790505762.905,
+    "T5": 1790505807.234,
+    "T_first_trade_after_resume": 1790505807.234,
+    "T_sync_lost": 1790505758.615
+  },
+  "derived": {
+    "db_failover_s": 25.134,
+    "read_recovery_s": 29.424,
+    "resume_delay_s": -0.372,
+    "trade_resume_delay_s": 2.862,
+    "suspend_detect_s": 4.526,
+    "haproxy_down_s": 4.526
+  },
+  "axes": [
+    {
+      "id": "promote_s",
+      "value": 25.134,
+      "limit": "<= 30",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "reads_after_promote_s",
+      "value": 4.29,
+      "limit": "<= 10",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "resume_after_sync_s",
+      "value": -0.372,
+      "limit": "<= 5",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "t5_after_sync_s",
+      "value": 2.862,
+      "limit": "<= 30",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "app_epoch_increase",
+      "value": 1,
+      "limit": "== 1",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_fencing_rejections",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_demotions",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "lease_acquire_expired",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "검토 R5"
+    },
+    {
+      "id": "confirmed_writes_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "멤버 walsender 시작 1790505800.077(승격 뒤 41.46초), 스레드별 새 Primary 시도 {1: True, 2: True, 3: True, 4: True}"
+    },
+    {
+      "id": "status_reports_suspension",
+      "value": true,
+      "limit": "true",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "rejoin_nodes_consistent",
+      "value": false,
+      "limit": "== True",
+      "pass": false,
+      "time_axis": false,
+      "note": "E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 rewind)"
+    },
+    {
+      "id": "post_invariants",
+      "value": null,
+      "limit": null,
+      "pass": null,
+      "time_axis": false,
+      "note": "사후 권위 run 없음"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    },
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 3081,
+    "post_resume_acked_30s": 4861,
+    "last_alive": {
+      "1": 1790505907.194,
+      "2": 1790505907.194,
+      "3": 1790505907.194,
+      "4": 1790505907.194
+    },
+    "not_acked_reasons": {
+      "unknown: connection_lost: consuming input failed:": 4,
+      "failed: ERROR 25006 cannot execute INSERT in a r": 16
+    },
+    "verify": {
+      "acked": 21527,
+      "failed": 16,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "172.18.0.17/32",
+          "172.18.0.18/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "172.18.0.17/32": [
+            1790505716.146,
+            1790505733.527
+          ],
+          "172.18.0.18/32": [
+            1790505800.121,
+            1790505907.555
+          ]
+        }
+      },
+      "pass": true,
+      "present": 21527,
+      "server": "172.18.0.18/32",
+      "unknown": 4,
+      "unknown_present": 0
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": false,
+    "reasons": [],
+    "unknown_sources": []
+  },
+  "extra": {
+    "acked_between_promote_and_cluster_sync": 752,
+    "nonmember_walsenders": []
+  }
+}

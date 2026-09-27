@@ -1,0 +1,175 @@
+{
+  "uid": "msp-demo-app-cpu",
+  "title": "시연 · 앱 서버 CPU",
+  "description": "로컬 시연 영상 전용(harness/grafana/build-local-msp.py 규칙 11). 앱 계층 증설 장면의 CPU 확대 화면이다.",
+  "tags": [
+    "msp",
+    "local-demo"
+  ],
+  "editable": false,
+  "schemaVersion": 39,
+  "timezone": "Asia/Seoul",
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "고객사",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{role=~\"app|reader|data|standby|probe|host\"}, customer)",
+        "current": {
+          "text": "exchange",
+          "value": "exchange"
+        }
+      },
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{customer=\"$customer\",role=~\"app|reader|data|standby|probe|host\"}, environment)",
+        "current": {
+          "text": "local-lab",
+          "value": "local-lab"
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "CPU 사용률 · 앱 서버",
+      "description": "로컬 시연 전용. 03 · AWS·서버의 'CPU 사용률 · 고객 호스트'와 같은 식에서 역할만 앱(app·reader)으로 좁혔다. 받은 코어 전체가 100%다. 학교 AWS 판에는 없다.",
+      "gridPos": {
+        "h": 24,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "max": 100
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app-1"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "앱 서버 1"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app-2"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "앱 서버 2"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "app-3"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "앱 서버 3"
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) (((container_cpu_percent{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader\",job=\"cstats\"} / (container_cpu_limit_cores{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader\",job=\"cstats\"} > 0)) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",job=\"cstats\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=\"cstats\"}) < 90)) == 1) and on(instance,job) (failstop_container_collection_success{customer=\"$customer\",environment=\"$environment\",job=\"cstats\"} == 1))))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code",
+          "interval": "5s"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 1
+    }
+  ]
+}

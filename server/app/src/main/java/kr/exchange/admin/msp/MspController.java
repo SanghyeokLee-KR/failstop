@@ -42,14 +42,16 @@ public class MspController {
     private static final Set<String> VOLATILE = Set.of("generated_at", "age_seconds", "last_poll_at", "checked_at");
 
     private final MspBoard board;
+    private final MspFlow flow;
     private final IncidentStore incidents;
     private final OpsThresholdService thresholds;
     private final MspReporting reporting;
     private final ObjectMapper mapper;
 
-    public MspController(MspBoard board, IncidentStore incidents, OpsThresholdService thresholds,
+    public MspController(MspBoard board, MspFlow flow, IncidentStore incidents, OpsThresholdService thresholds,
                          MspReporting reporting, ObjectMapper mapper) {
         this.board = board;
+        this.flow = flow;
         this.incidents = incidents;
         this.thresholds = thresholds;
         this.reporting = reporting;
@@ -78,6 +80,13 @@ public class MspController {
                     Map.of("field", "range", "constraint", "enum"), null);
         }
         return board.trendsView(r);
+    }
+
+    /** 서비스 흐름·지표 관제의 최근 150초 실측(2초 격자). 격자마다 값이 바뀌어 ETag 를 붙이지 않는다. */
+    @GetMapping("/flow")
+    public Map<String, Object> flow(HttpServletRequest request) {
+        viewer(request);
+        return flow.view();
     }
 
     @GetMapping("/reports")

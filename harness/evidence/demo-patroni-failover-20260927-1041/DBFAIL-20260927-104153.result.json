@@ -1,0 +1,43 @@
+{
+  "action": "run",
+  "run_id": "DBFAIL-20260927-104153",
+  "verdict": "FAIL",
+  "old_primary": "db-1",
+  "new_primary": "db-2",
+  "promote_s": 25.134,
+  "reads_back_s": 29.424,
+  "write_outage_s": 65.993,
+  "db_write_gap_s": 66.594,
+  "return_at_s": 49.5,
+  "resume_s": 70.519,
+  "first_trade_s": 73.753,
+  "orders_checked": 899,
+  "trades_checked": 595,
+  "acked_writes_checked": 21527,
+  "lost": 0.0,
+  "detail": {
+    "acked_missing": 0,
+    "visible_orders_missing": 0,
+    "visible_trades_missing": 0,
+    "k6_acks": 0,
+    "c16_violations": null,
+    "write_codes": {
+      "502": 20,
+      "503": 5,
+      "423": 41
+    },
+    "epoch": "31->32",
+    "timeline": "7->8",
+    "rejoin": "rewind",
+    "reinit_s": null,
+    "standby_back_s": null,
+    "error": null
+  },
+  "failed_axes": [
+    "rejoin_nodes_consistent"
+  ],
+  "not_judged_axes": [
+    "post_invariants"
+  ],
+  "evidence": "C:\\dev\\exchange\\harness\\evidence\\demo-patroni-failover-20260927-1041"
+}

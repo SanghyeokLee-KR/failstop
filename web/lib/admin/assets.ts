@@ -53,7 +53,7 @@ export function assetRows(c: ControlCenter): AssetRow[] {
     if (ref.kind === "host") {
       const h = ref.host;
       return {
-        id: h.id, kind: "host", role: ROLE_SHORT[h.role], location: h.az || "미확인", type: h.instanceType || "미확인",
+        id: h.id, kind: "host", role: h.roleKnown === false ? "DB · 역할 미수집" : ROLE_SHORT[h.role], location: h.az || "미확인", type: h.instanceType || "미확인",
         asset: h.asset ?? null, collect: h.collect, responding: collected.get(h.id)?.ok ?? false, collectedAt: h.collectedAt, diskUsedPct: h.diskUsedPct, assumed: false,
       };
     }
@@ -68,7 +68,7 @@ export function assetRows(c: ControlCenter): AssetRow[] {
     }
     const a = ref.server;
     return {
-      id: a.id, kind: "ai", role: "로컬 LLM", location: "온프레미스 · 연구소", type: a.hardware,
+      id: a.id, kind: "ai", role: "로컬 LLM", location: "온프레미스", type: a.hardware,
       asset: null, collect: a.assumed ? "ASSUMED" : a.link === "OK" ? "LIVE" : "MISSING", responding: false, collectedAt: a.collectedAt, diskUsedPct: null, assumed: a.assumed,
     };
   });

@@ -9,6 +9,7 @@ import {
   asgView,
   availability,
   createFlow,
+  dbEdgeTier,
   describeScenario,
   edgeFlows,
   edgeTier,
@@ -86,7 +87,7 @@ test("리더 중단은 리스 만료 뒤 대기 노드를 승격하고 세대를
   assert.equal(state.apps.api1.status, "killed");
   assert.equal(nodeViews(state, CPU).api1.state, "failure");
   for (const x of window(samples, t0, 1, 8)) assert.equal(x.trades, 0);
-  assert.ok(window(samples, t0, 9, 15).every((x) => x.trades > 0));
+  assert.ok(window(samples, t0, 9, 15).every((x) => x.trades !== null && x.trades > 0));
   assert.ok(window(samples, t0, 1, 8).some((x) => x.lease === 0));
   for (const x of window(samples, t0, 1, 20)) assert.equal(x.cpu.api1, null);
 });
@@ -154,7 +155,7 @@ test("Primary 중단은 사람이 승격하고 접속을 옮긴 뒤에야 쓰기
   assert.equal(state.replicating, false);
   // 자동 페일오버가 없으니 접속 전환과 리스 재획득 전까지 체결은 실제 0 이다
   for (const x of window(samples, t0, 1, 21)) assert.equal(x.trades, 0);
-  assert.ok(window(samples, t0, 22, 30).every((x) => x.trades > 0));
+  assert.ok(window(samples, t0, 22, 30).every((x) => x.trades !== null && x.trades > 0));
   // 복제 상대가 없으니 복제 지연은 미수집이고, 앱 프로세스는 살아 있어 CPU 는 끊기지 않는다
   for (const x of window(samples, t0, 1, 35)) assert.equal(x.replLagKb, null);
   for (const x of samples) assert.notEqual(x.cpu.api1, null);
@@ -211,22 +212,22 @@ test("조회 부하는 권고를 띄우고 증설·축소가 측정 순서대로
   assert.ok(window(samples, t0, 24, 61).every((x) => x.registered === 3));
   assert.ok(window(samples, t0, 61, 100).every((x) => x.registered === 2));
   assert.ok(window(samples, t0, 12, 24).every((x) => x.desired === 3 && x.registered === 2));
-  assert.ok(window(samples, t0, 24, 31).some((x) => x.util > 0.7));
+  assert.ok(window(samples, t0, 24, 31).some((x) => x.util !== null && x.util > 0.7));
   for (const x of window(samples, t0, 0, 13)) assert.equal(x.cpu.app3, null);
   assert.ok(window(samples, t0, 14, 60).every((x) => x.cpu.app3 !== null));
   // 조회는 app-1·app-2 가 함께 받으므로 조회 부하가 두 리더의 CPU 도 민다
   assert.ok(window(samples, t0, 8, 20).every((x) => (x.cpu.api1 ?? 0) > 40 && (x.cpu.api2 ?? 0) > 40));
   // app-3 이 합류해 예열이 끝나면 세 노드가 나눠 받아 사용률이 내려간다
-  assert.ok(window(samples, t0, 40, 60).every((x) => x.util < 0.3));
+  assert.ok(window(samples, t0, 40, 60).every((x) => x.util !== null && x.util < 0.3));
 });
 
 test("봇 급증은 쓰기 경로만 밀고 조회 권고를 띄우지 않는다", () => {
   const { state, samples } = run(startScenario(run(createFlow(), 5).state, "traffic"), 65);
   assert.ok(labels(state).includes(`봇 ${SURGE_OPS} OPS`));
   assert.equal(labels(state).some((x) => x.startsWith("증설 권고")), false);
-  const peak = Math.max(...samples.map((x) => x.trades));
+  const peak = Math.max(...samples.map((x) => x.trades ?? 0));
   assert.ok(peak > 17 && peak < 19.5, `peak ${peak}`);
-  assert.ok(samples.every((x) => x.util < SCALE_OUT_ADVICE));
+  assert.ok(samples.every((x) => x.util !== null && x.util < SCALE_OUT_ADVICE));
 });
 
 test("재생 중에는 다른 재생을 시작하지 않는다", () => {
@@ -376,4 +377,6 @@ test("매칭 리더가 멈추면 그 노드의 조회도 빠지고 그룹은 조
 
 test("흐름 단계는 경계에서 갈린다", () => {
   assert.deepEqual([0, 1, 19.9, 20, 149, 150, 400].map(edgeTier), [0, 1, 1, 2, 2, 3, 3]);
+  // 주 DB 커밋 선은 평소 커밋(초당 약 230)이 가장 가는 단계에 든다
+  assert.deepEqual([0, 1, 230, 299, 300, 400, 999, 1000].map(dbEdgeTier), [0, 1, 1, 1, 2, 2, 2, 3]);
 });

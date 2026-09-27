@@ -41,6 +41,20 @@ class CanvasContractTests(unittest.TestCase):
         self.assertTrue(all(item["matcher"]["id"] == "byFrameRefID"
                             for item in panel["fieldConfig"]["overrides"]))
 
+    def test_replication_mode_is_measured_not_a_fixed_label(self):
+        base = {"primary": "min(p)", "standby": "min(s)", "replication": "min(r)"}
+        fixed = {item["name"]: item for item in db_replication_panel(base)["options"]["root"]["elements"]}
+        self.assertEqual(fixed["replication-title"]["config"]["text"], {"mode": "fixed", "fixed": "복제 방식 미수집"})
+        panel = db_replication_panel({**base, "replication_mode": "max(m)"})
+        elements = {item["name"]: item for item in panel["options"]["root"]["elements"]}
+        self.assertEqual(elements["replication-title"]["config"]["text"],
+                         {"mode": "field", "field": "replication_mode", "fixed": "복제 방식 미수집"})
+        ref = next(t["refId"] for t in panel["targets"] if t["legendFormat"] == "replication_mode")
+        props = next(o["properties"] for o in panel["fieldConfig"]["overrides"] if o["matcher"]["options"] == ref)
+        options = next(p["value"] for p in props if p["id"] == "mappings")[0]["options"]
+        self.assertEqual((options["2"]["text"], options["1"]["text"]), ("엄격 동기 복제", "비동기 복제"))
+        self.assertFalse(any(p["id"] == "unit" for p in props))
+
     def test_native_elements_respect_theme_and_canvas_bounds(self):
         for panel in (service_path_panel({}), db_replication_panel({}),
                       service_path_panel({}, h=4), db_replication_panel({}, h=4)):

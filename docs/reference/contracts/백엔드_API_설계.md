@@ -1,4 +1,4 @@
-# API 설계 (v2.60)
+# API 설계 (v2.64)
 
 2026-09-20 학교 배포 예외: 관리 UI의 단일 운영자는 HTTPS 비밀번호 게이트웨이로 로그인하며 내부 관리 API는 기존 mTLS·단기 세션 검사를 유지한다. 3-6절의 PC별 인증서 전제와 달리 앱 Nginx가 신뢰 경계에 포함된다. 운영자 한 명과 `VIEWER`·`BOT_OPS`에 한정한 [ADR 0031](../adr/0031-school-admin-password-gateway.md)을 함께 읽는다. 거래 API·서명·승인 검증 규칙은 바꾸지 않는다.
 
@@ -585,7 +585,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 
 - **브라우저 관리 콘솔 세션(v2.9 신설, 반결탁 보존)**: 브라우저 관리 콘솔은 `admin_secret` HMAC 서명을 만들 수 없고(secret_key 브라우저 미전달 계약, §3-7·웹 화면명세서 §6.1), §3-7 데모 세션은 `scope=TRADE` 고정이라 관리 평면에 쓸 수 없다. 브라우저 관리 경로는 다음으로 인증한다.
   - **1차 인증(mTLS)**: 운영자별 mTLS 클라이언트 인증서(`CN=operator_id`)로 관리 평면(`admin.exchange.local`)에 접속한다. 인증서 CN이 `operator_id`의 권위 소스이며 바디 자가신고 값이 아니다(v2.4). 사설키는 각 운영자 워크스테이션에만 존재하고 서버는 CA 공개키로 검증만 한다(전 운영자 키를 보유하는 단일 컴포넌트 없음).
-  - **관리 세션 발급·사용**: mTLS 통과 시 서버가 인증서 신원에 바인딩된 단기 관리자 세션 토큰을 발급한다(payload에 `typ:admin_session`, `operator_id`는 인증서 CN 유래, `scope:admin`, 짧은 `exp`). 세션은 mTLS 신원에서 유래하고 운영자가 신원을 자가신고하지 않는다. 관리 평면 전용이며 거래 평면·데모 세션과 자격을 공유하지 않는다. 후속 요청은 세션 토큰으로 인증하되, HMAC canonical·`query_hash`·nonce는 적용하지 않고 서버가 세션 서명·`exp`·`scope`와 mTLS 인증 주체 일치만 검증한다(§3-7 데모 세션 검증과 동형, 단 mTLS 게이트·`scope=admin`). 만료·서명 불일치·mTLS 실패는 `401 jwt_verification`.
+  - **관리 세션 발급·사용**: mTLS 통과 시 서버가 인증서 신원에 바인딩된 단기 관리자 세션 토큰을 발급한다(payload에 `typ:admin_session`, `operator_id`는 인증서 CN 유래, `scope:admin`, 짧은 `exp`). 세션은 mTLS 신원에서 유래하고 운영자가 신원을 자가신고하지 않는다. 관리 평면 전용이며 거래 평면·데모 세션과 자격을 공유하지 않는다. 후속 요청은 세션 토큰으로 인증하되, HMAC canonical·`query_hash`·nonce는 적용하지 않고 서버가 세션 서명·`exp`·`scope`와 mTLS 인증 주체 일치만 검증한다(§3-7 데모 세션 검증과 동형, 단 mTLS 게이트·`scope=admin`). 만료·서명 불일치·mTLS 실패는 `401 jwt_verification`. 세션 원장(`admin_sessions`의 폐기·만료)과 운영자 원장(`admin_operators`·`operator_roles`)이 DB 장애로 닿지 않으면, 조회 요청(GET·HEAD)만 위 검증을 먼저 통과했고 10분 안에 원장에서 확인한 세션·운영자로 받는다. 그 밖의 요청과 원장에서 확인한 적 없는 세션은 `503 service_unavailable`(Retry-After 1)이다(v2.64).
   - **조회 vs 파괴 액션**: 조회류는 단독 운영자 세션으로 가능하다. approval_token 필수 액션(위 완결 열거)은 요청 운영자와 **다른** 운영자가 자신의 mTLS 세션으로 `POST /admin/v1/approvals`를 호출해 발급한 토큰을 동반해야 한다. 발급 요청과 대상 액션 요청은 각각 서로 다른 운영자의 mTLS 인증 주체에서 `operator_id`를 도출하며, 서버는 발급 주체 ≠ 사용 주체를 인증서 CN 기준으로 검증한다(반결탁: 서로 다른 운영자 사설키 점유로만 요청·승인이 성립, 단일 컴포넌트가 전 키 미보유, operator_id는 인증 주체 유래).
   - **경계**: 봇·외부 머신 클라이언트는 기존 mTLS + `admin_secret` HMAC 서명 경로(위 서명 규정)를 그대로 사용한다. 브라우저 관리 세션은 브라우저 콘솔 전용 경로이며 HMAC 서명 경로의 검증 순서·에러 계약을 바꾸지 않는다. 데모 mTLS 인증서 발급 절차는 관리자 설계 §1-6.
 
@@ -1654,6 +1654,7 @@ app-3 켜기, 축소는 app-3 끄기다. 권고 문장도 이 말로 쓴다(v2.5
 |---|---|---|---|---|
 | GET | `/admin/v1/msp/overview` | 한 판: 원천 상태, 요약, 요약 추세(24시간), 호스트, 조회 계층, 복제, 활성 경보, 오늘 사건, 운영 작업, 임계값 현재값, AI 요약, AI 서버 상태. `ETag`·`If-None-Match`로 304 | VIEWER+ | 불요 |
 | GET | `/admin/v1/msp/trends` | 요약 추세(`range` `1h`·`6h`·`24h`, 기본 `24h`)와 이전 구간 대비 증감 | VIEWER+ | 불요 |
+| GET | `/admin/v1/msp/flow` | 서비스 흐름·지표 관제의 최근 150초 실측(2초 격자): 앱·DB 노드, 조회 수용과 요청 제한 거절(429), 체결과 주문·취소, 복제 지연, 진입 검사, 앱 계층 희망 대수, 봇 목표 발행률(v2.61) | VIEWER+ | 불요 |
 | GET | `/admin/v1/msp/hosts` | 호스트, 조회 계층, DB 복제 | VIEWER+ | 불요 |
 | GET | `/admin/v1/msp/alerts` | 활성 경보와 확인·보류 상태(마지막 폴링 결과) | VIEWER+ | 불요 |
 | POST | `/admin/v1/msp/alerts/{fingerprint}/ack` | 경보 확인 기록. Alertmanager 상태를 바꾸지 않는다 | BOT_OPS+ | 불요 |
@@ -1719,7 +1720,7 @@ app-3 켜기, 축소는 app-3 끄기다. 권고 문장도 이 말로 쓴다(v2.5
   "replication":{"state":"READY","data":{"primary":"db-primary","standby":"db-standby","stream":"STREAMING",
     "lag_seconds":{"value":"0.2","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
     "lag_bytes":{"value":"0","sampled_at":"2026-09-24T08:59:50.000Z","age_seconds":10,"collect":"OK"},
-    "label_mismatch":false}},
+    "label_mismatch":false,"mode":"ASYNC","promotion":null}},
   "alerts":{"state":"READY","data":[
     {"fingerprint":"5f3c2a9e0b1d4c77","alertname":"LinuxDiskSpaceLow","severity":"warning","node":"db-primary",
      "summary":"디스크 여유 공간 부족 · 임계 미만","starts_at":"2026-09-24T08:40:00.000Z","state":"FIRING",
@@ -1752,7 +1753,7 @@ app-3 켜기, 축소는 app-3 끄기다. 권고 문장도 이 말로 쓴다(v2.5
 - **원천 상태.** `sources`의 `prometheus`는 설정이 없으면 `NOT_CONNECTED`, 질의 묶음 전체가 실패하면 `UNAVAILABLE`(`reason`: `timeout`, `unreachable`, `http_status`, `response_limit`, `query_failed`, `bad_response`)이다. 일부 질의만 실패하면 `READY`이고 그 질의를 쓰는 칸만 `UNAVAILABLE`이다. `alertmanager`는 마지막 폴링이 성공했으면 `READY`와 `last_poll_at`, 그 폴링에서 쓰기에 실패한 경보 수 `write_failures`를 싣는다. 마지막 폴링이 실패했거나 기동 뒤 아직 폴링하지 않았으면 `UNAVAILABLE`(`reason`, 폴링 전이면 `not_polled`)이고 `last_poll_at`은 마지막 성공 시각이다. `teams`는 보고 서비스(`exchange.msp.reporting.url`)를 거치므로 `via:"reporting"`을 싣고, 보고 서비스 설정이 없으면 `NOT_CONNECTED`, 전송 상태 조회가 실패하면 `UNAVAILABLE`(`reason`)이다. `READY`면 보고 서비스의 전송 켬 여부 `delivery_enabled`, 마지막 전송 시각 `last_sent_at`, 보내지 않은 작업 수 `pending`과 관제센터 통지 보관함의 `outbox`(`pending`, `failed`)를 싣는다. 전송이 꺼져 있어도 `READY`다. 화면이 '전송 꺼짐'을 따로 보인다.
 - **경보 칸.** `alerts`는 `{state, last_poll_at, data}`다. 마지막 폴링이 실패하면 지난 목록을 내지 않고 `UNAVAILABLE`이다. 항목은 `{fingerprint, alertname, severity, node, role, component, mountpoint, summary, starts_at, state, incident_id, threshold_key, acked_by, acked_at, silence}`이고, `silence`는 `{silence_id, ends_at, actor, by}` 또는 `null`이다. `state`는 Alertmanager가 사일런스로 누른 경보면 `SILENCED`, 확인된 사건이면 `ACKED`, 나머지는 `FIRING`이다. 쓰기에 실패해 사건이 없는 경보는 `incident_id`가 `null`이다. `summary`는 사람이 읽는 화면용 규칙 주석이고, AI 판단·상담 근거에는 싣지 않는다(v2.52.6, 아래 'AI 판단과 모델 출력').
 - **조회 계층 칸.** `read-capacity.mode=NONE`이면 `NOT_CONNECTED`(`source=read_capacity`)다. `ASG_POLICY`면 `READY`이고 `data`는 `{mode, scaling_owner:"ASG", scaling_basis:"request_count_per_target"}`다. 대수는 AWS API를 읽지 않으므로 싣지 않는다. `CAPACITY_PLAN`이면 `data`는 `{mode, min, desired, max, observed, avg_cpu_ratio}`다. `min`·`desired`·`max`는 `capacity_plan`, `observed`와 `avg_cpu_ratio`(측정 객체)는 §6-A-a의 노드 조회로 잰 값이다. 노드 조회는 거래 노드를 부르므로 한 판과 세부 조회가 `cache-ttl`(기본 10초) 동안 한 번의 조회를 함께 쓰고, `sampled_at`은 그 조회를 한 시각이다(v2.52.3). AI 판단의 근거는 이 캐시를 쓰지 않고 판단마다 노드를 잰다.
-- **복제 칸.** `primary`·`standby`는 `pg_wal_position_in_recovery`가 0·1인 노드다. `stream`은 복제 지표의 `state` 라벨을 대문자로 옮긴 값(`STREAMING` 등)이고 없으면 `null`이다. `label_mismatch`는 수집 설정의 `role` 라벨(`data`는 Primary, `standby`는 Standby)이 recovery 지표와 다를 때 `true`다.
+- **복제 칸.** `primary`·`standby`는 `pg_wal_position_in_recovery`가 0·1인 노드다. `stream`은 복제 지표의 `state` 라벨을 대문자로 옮긴 값(`STREAMING` 등)이고 없으면 `null`이다. `label_mismatch`는 수집 설정의 `role` 라벨(`data`는 Primary, `standby`는 Standby)이 recovery 지표와 다를 때 `true`다. `mode`는 복제 방식(v2.63)이다. Primary가 보는 `pg_replication_client_sent_replay_bytes`의 `sync_state`가 동기(`sync`·`quorum`)인 상대가 하나라도 있으면 `SYNC`, 비동기 상대만 있으면 `ASYNC`, 복제 상대가 없거나 질의가 실패하면 `null`이다. Grafana 복제 방식 칸과 같은 식이다. `promotion`은 승격 방식(v2.63)이다. 설정의 Patroni job(`exchange.msp.prometheus.patroni-job`, 기본 `patroni`)이 `patroni_primary` 계열을 내면 `AUTO`, `patroni_is_paused`가 1이면 자동 승격이 멈춘 것이라 `MANUAL`, Patroni 지표가 없으면 `null`이다. 지표가 없다는 것만으로 수동 승격이라 단정하지 않는다. 수집이 끊긴 Patroni와 Patroni가 없는 배치(학교 AWS, ADR 0024)를 가를 수 없고, Patroni가 곧 승격할 때 '수동'이라 적으면 사람이 따로 승격해 Primary 두 대를 만들 수 있다. 그래서 학교 AWS의 수동 승격은 설계(ADR 0024)로 알 뿐 수집값이 아니고, 화면은 '승격 방식 미확인'이라 적는다. Patroni job은 고객 자원 집계(수집 대상 수)에 넣지 않는다.
 - **임계값 칸.** 항목은 `{key, unit, value, default, min, max, ai_max_step, version, updated_by, updated_at, in_use, rule_value}`다. `gauge_scraped`는 Prometheus를 읽지 못하면 `null`이다. `in_use`는 아래 표로 정한다.
 
 | 항목 | `in_use`가 `true`인 조건 |
@@ -1886,7 +1887,7 @@ app-3 켜기, 축소는 app-3 끄기다. 권고 문장도 이 말로 쓴다(v2.5
 
 판단 결과 `outcome`은 `PROPOSED`, `NO_ACTION`, `INVALID_OUTPUT`, `MODEL_ERROR`, `EVIDENCE_STALE`이다. 모델 호출이 실패하면 `MODEL_ERROR`이고 `error`에 분류 코드(`timeout`, `unreachable`, `http_status`, `bad_response`, `response_limit`, `remote_address`)를 싣는다. 모델이 적재 중이면 판단을 기록하지 않고 다음 주기로 넘긴다. 출력이 16 KiB를 넘거나 JSON이 아니거나 필드와 형이 맞지 않거나 자유 문장에 링크 표기가 있으면 `INVALID_OUTPUT`이다. 조치 이름이 여덟 가지 밖이거나(`UNKNOWN_KIND`, 예: `DB_PROMOTE`), 값 형식이 틀리거나(`BAD_PARAMS`), 범위 밖이거나(`OUT_OF_RANGE`), 이 환경에서 쓸 수 없는 종류거나(`UNAVAILABLE_KIND`), 대상이 지금 없거나(`STALE_TARGET`), 임계값의 올림·내림이 값과 반대면(`DIRECTION_MISMATCH`) 그 조치를 버리고 판단 상세의 `dropped`에 남기며 결과는 `NO_ACTION`이다. 한 판단의 조치는 하나다.
 
-남은 조치는 정책 엔진이 제안 때 종류별 규칙과 방향 전제를 검사한다. 방향 전제는 결정적 코드 규칙이다. app-3 켜기(앱 계층 증설)는 근거의 조회 평균 CPU가 증설 임계 이상일 때만(D1), app-3 끄기(축소)는 축소 임계 미만이 설정 시간(기본 10분) 이상 이어질 때만(D2), 임계값 변경은 둔하게 하는 방향이면 그 항목의 경보가 울리는 중이 아니고 근거 지표가 임계를 넘지 않았을 때만(D3) 받는다. 봇 부하 줄이기는 bot-1 CPU(`bot_host_cpu`)가 봇 용량 보호 임계(`bot.capacity_guard`) 이상일 때만(D4, v2.52.5) 받고, 임계가 미설정이거나 CPU를 모르면 받지 않는다. 경보 보류는 활성 `warning` 경보만(S1), 봇 부하는 줄이는 방향만(B1) 받는다. 막히면 요청은 `DENIED`로 남고 `hold_rule`에 규칙 id, `hold_reason`에 사유(예: '방향 모순: 조회 평균 CPU 0.82가 축소 임계 0.30 미만이 아닙니다')를 적는다. 연속 두 번 같은 판단(A4)은 무작위 흔들림을 거르지만 같은 입력에 같은 오답을 내는 결정적 설정의 체계적 오답은 막지 못하므로, 방향 전제가 그 몫을 한다.
+남은 조치는 정책 엔진이 제안 때 종류별 규칙과 방향 전제를 검사한다. 방향 전제는 결정적 코드 규칙이다. app-3 켜기(앱 계층 증설)는 근거의 조회 평균 CPU가 증설 임계 이상일 때만(D1), app-3 끄기(축소)는 축소 임계 미만이 설정 시간(기본 10분) 이상 이어질 때만(D2), 임계값 변경은 둔하게 하는 방향이면 그 항목의 경보가 울리는 중이 아니고 근거 지표가 임계를 넘지 않았을 때만(D3) 받는다. 봇 부하 줄이기는 bot-1 CPU(`bot_host_cpu`)가 봇 용량 보호 임계(`bot.capacity_guard`) 이상일 때만(D4, v2.52.5) 받고, 임계가 미설정이거나 CPU를 모르면 받지 않는다. 경보 보류는 활성 `warning` 경보만(S1), 봇 부하는 줄이는 방향만(B1) 받는다. 막히면 요청은 `DENIED`로 남고 `hold_rule`에 규칙 id, `hold_reason`에 사유(예: '방향 모순: 조회 평균 CPU 0.82가 축소 임계 0.30 미만이 아닙니다')를 적는다. 연속 두 번 같은 판단(A4)은 무작위 흔들림을 거르지만 같은 입력에 같은 오답을 내는 결정적 설정의 체계적 오답은 막지 못하므로, 방향 전제가 그 몫을 한다. 방향 전제, 관제 판 조회 계층 칸과 용량 화면 권고가 읽는 조회 평균 CPU는 관리 API의 노드 관측(`NodeProbe`)이 낸다. 노드마다 누적 CPU 시간(`process_cpu_time_ns_total`)의 최근 약 30초 차를 경과 시간과 할당 코어 수로 나눈 비율의 평균이다(v2.62). 첫 관측이나 앱 재기동 직후처럼 5초 넘게 떨어진 표본이 없으면 그 순간의 사용률(`process_cpu_usage`)을 쓴다.
 
 조치 요청 상태는 `PROPOSED`, `DEFERRED`, `EXECUTING`, `APPROVED`(사람 승인 실행), `AUTO_EXECUTED`, `FAILED`, `UNKNOWN`(실행이 중간에 끊겨 결과를 원천에서 대조하지 못함), `REJECTED`, `DENIED`(정책이 제안 때 막음), `WITHDRAWN`(뒤 판단이 제안하지 않음), `EXPIRED`(만료 또는 정지), `REVERTED`, `AUTO_REVERTED`다. `WITHDRAWN`과 `EXPIRED`는 `DEFERRED`에도 같다. 나중에는 요청의 만료 시각을 늘리지 않고(`minutes`는 만료 시각에서 자른다), 나중에로 둔 요청은 자동 실행하지 않으며 사람의 승인으로만 실행된다. 같은 조치는 그 요청이 끝난 뒤에도 나중에 시각까지 자동 실행하지 않는다. VIEWER의 나중에가 AI의 실행 기회를 늘리지 않게 하기 위해서다. `UNKNOWN`은 서버가 원천(Alertmanager 사일런스 목록)과 다시 대조해 결과를 채우거나 `FAILED`로 닫는다. 임계값 조치 요청(`THRESHOLD`)은 판단 때의 현재값(`params.from`)에서 새 값으로 바꾸는 요청이다. 같은 새 값을 내는 판단이 이어져도 그 사이에 현재값이 바뀌었으면 열린 요청을 `WITHDRAWN`으로 닫고 새 요청을 만들어 연속 판단을 처음부터 센다(v2.52.4). 그래서 요청의 `verb`(올림·내림)와 `params.from`은 마지막 판단의 현재값과 맞는다.
 
@@ -1960,6 +1961,37 @@ Alertmanager 경보는 폴러 한 곳이 15초마다 읽고 조회 경로는 그
 - `current`·`previous`는 각 구간에서 `null`이 아닌 점의 평균(`aggregate:"mean"`)이고 `samples`는 평균에 쓴 점의 수다. `delta`는 `current - previous`이고 한쪽이 없으면 `null`이다. 평균은 step 간격 표본의 평균이라 step보다 짧은 변동은 거칠게 반영된다. `p95_seconds`의 평균은 5분 p95 값들의 평균이지 구간 전체의 p95가 아니다.
 - `active_alerts`는 사건 표에서 각 점의 시각에 열려 있던 사건 수다(생존 신호 경보는 사건이 아니다). 관제센터가 멈춘 동안은 마지막으로 안 상태가 이어진다. `incidents`는 구간을 24칸(`bucket_seconds`)으로 나눈 칸별 시작 사건 수이고 `current`·`previous`는 구간 합(`aggregate:"sum"`)이다.
 - 값의 표기는 측정 객체와 같다. 비율은 넷째 자리, 초는 셋째 자리까지의 십진 문자열이고 `active_alerts`의 평균은 첫째 자리 십진 문자열, 사건 수는 정수다.
+
+**서비스 흐름 실측(v2.61).** 관리 콘솔의 서비스 흐름과 지표 관제가 http 원천에서 그리는 최근 150초다(관리자 설계 4-2, 2026-09-27 사용자 결정). 서버는 Prometheus를 2초 격자로 읽고, 화면은 이 경로를 2초마다 부른다. 한 판(`overview`)과 달리 격자마다 값이 바뀌므로 `ETag`를 붙이지 않는다.
+
+```json
+// GET /admin/v1/msp/flow → 200 (로컬 Docker, 배열은 76점 가운데 뒤 두 점만 적음)
+{ "schema_version":"1.0","environment":"LOCAL_DOCKER","generated_at":"2026-09-27T08:54:18.564Z",
+  "window":{"start":"2026-09-27T08:51:48.000Z","end":"2026-09-27T08:54:18.000Z","step_seconds":2},
+  "flow":{"state":"READY","data":{
+    "apps":[{"node":"app-1","role":"app","up":[true,true],"cpu_ratio":["0.07","0.065"],
+             "read_rate":["0.1","0.1"],"read_rejected_rate":["0","0"],"write_rate":["17.9","18"],
+             "leader":[true,true],"epoch":[20,20],
+             "write_state":["ACTIVE","ACTIVE"],"lease_age_seconds":["1.36","0.5"]}],
+    "dbs":[{"node":"db-1","reachable":[true,true],"up":[true,true],"in_recovery":[false,false],
+            "connections":[50,50],"xact_rate":["232.5","230"]}],
+    "trades_per_second":["4.4","4.8"],"order_rate":["10","10"],
+    "read_rate":["0.1","0.1"],"read_rejected_rate":["0","0"],"replication_lag_bytes":["0","0"],
+    "replication_mode":["SYNC","SYNC"],"promotion":["AUTO","AUTO"],
+    "probes":[{"service":"alb","success":[true,true]},{"service":"cloudfront","success":[true,true]}],
+    "failed":[]}},
+  "read_tier":{"state":"READY","data":{"mode":"CAPACITY_PLAN","min":2,"max":3,"desired":[2,2]}},
+  "bots":{"state":"READY","data":{"source":"published","target_ops":"25","sampled_at":"2026-09-27T08:54:17.000Z"}} }
+```
+
+- 격자. 끝은 지금을 2초의 배수로 내린 시각이고 시작은 끝 - 150초다. 배열의 i번째 값은 `start + i × step_seconds`의 값이며 양 끝을 포함해 76점이다. 표본이 없는 점은 `null`이고 0으로 채우지 않는다. 질의가 돌지 않았거나 실패한 항목은 배열 대신 `null`이고, 실패한 질의 이름은 `failed`에 싣는다. 앱 노드 목록을 얻는 `up` 질의가 실패하면 칸 전체가 `UNAVAILABLE`이다.
+- 앱 노드. 설정의 앱 job 선택자로 고른 수집 대상이고 `node` 라벨이 없는 대상은 싣지 않는다. `role`은 수집 대상의 역할 라벨이다(로컬은 `app`과 조회 전용 `reader`). `up`이 `true`가 아닌 점에서는 그 노드의 다른 값을 싣지 않는다. `cpu_ratio`는 `process_cpu_usage`다. 로드밸런서 조회 경로(`/api/v1/(markets|trades|candles)`) 요청은 둘로 나눈다. `read_rate`는 앱이 받아 처리한 것(상태 코드가 429가 아닌 응답), `read_rejected_rate`는 앱의 요청 제한이 거절한 것(429)의 초당 수다. `write_rate`는 그 밖의 업무 요청(주문·취소·계좌·호가 등, 로드밸런서 쓰기 경로)의 초당 요청이다. 떠 있는 노드에 요청이 없으면 0이다. 초당 수는 모두 10초 창의 `rate`다. 앱 수집 간격 2초의 다섯 배라 2초마다 읽는 CPU와 같은 박자로 움직이고, 부하가 멈추면 10초 안에 0으로 내려간다. `leader`와 `epoch`는 리더 리스 지표, `write_state`는 쓰기 가능 상태(§2-5-e의 `ACTIVE`·`SUSPENDED`·`UNREACHABLE`), `lease_age_seconds`는 리스를 쥔 노드가 마지막으로 갱신한 뒤 지난 초다.
+- DB 노드. DB job 선택자의 수집 대상을 `node` 라벨로 묶는다. `reachable`은 수집기 `up`, `up`은 `pg_up`이다. Primary·Standby는 설정이나 노드 이름이 아니라 `in_recovery`(`pg_wal_position_in_recovery`)로 정한다(ADR 0032). DB가 응답하지 않는 점에서는 역할, `connections`(`pg_stat_database_numbackends` 합), `xact_rate`(커밋 트랜잭션/초)를 싣지 않는다. DB job 설정이 없으면 `dbs`는 `null`이다.
+- 합친 값. `trades_per_second`는 체결 카운터의 초당 증가, `order_rate`는 앱 계층이 받은 주문·취소 요청(`POST|DELETE /api/v1/orders*`)의 초당 수로 봇 발행률(OPS)이 세는 호출과 같다. 앱 노드가 하나라도 떠 있고 셀 것이 없으면 0이다. `read_rate`·`read_rejected_rate`는 앱 계층 전체의 조회 수용과 거절이고, 격자마다 떠 있는 노드 값의 합이라 노드별 배열을 더한 값과 같다. 떠 있는 노드가 없는 점은 `null`이다. `replication_lag_bytes`는 Primary가 보고한 복제 상대의 재생 바이트 지연이고 복제 상대가 없으면 `null`이다. `replication_mode`와 `promotion`은 격자마다의 복제 방식(`SYNC`·`ASYNC`)과 승격 방식(`AUTO`·`MANUAL`)으로 한 판 복제 칸의 `mode`·`promotion`과 같은 식이고, 모르는 점은 `null`이다(v2.63). `probes`는 진입 검사(`probe_success`)를 `service` 라벨마다 가장 나쁜 대상으로 묶는다. 로컬 Docker는 AWS의 CloudFront·ALB 자리를 같은 일을 하는 웹 입구·로드밸런서 검사(`service` `cloudfront`·`alb`·`edge`)로 잰다. 대상 주소(`instance`)는 싣지 않는다.
+- `read_tier`. `CAPACITY_PLAN`이면 용량 계획의 최소·최대와 격자마다의 희망 대수다. 희망 대수는 감사 기록의 용량 변경(`capacity.scale_out`·`capacity.scale_in`, 결과 `OK`, 전후 대수)으로 복원한다. 창 안의 첫 변경 전은 그 변경 전 대수, 변경 뒤는 변경 뒤 대수, 창 안에 변경이 없으면 지금 대수다. `ASG_POLICY`는 대수를 싣지 않고, 조회 계층이 없으면 `NOT_CONNECTED`다.
+- `bots`. 봇 목표 발행률이다. 관리 JVM에 거버너가 있으면 `local`, 봇 노드가 발행한 상태가 10초 안이면 `published`, 둘 다 아니면 `unknown`이고 `target_ops`가 `null`이다.
+- 원천 부하. 질의는 코드의 명명 range 질의 20개뿐이고 설정의 job 선택자 말고는 어떤 값도 PromQL에 들어가지 않는다. 같은 격자의 요청은 공유 캐시로 한 번만 읽는다(수명 2초). 희망 대수 복원과 봇 목표도 같은 격자 동안 공유한다. 화면은 숨은 탭에서 부르지 않고, 이 경로가 없는 배포(404)는 60초마다만 다시 확인한다.
+- DB 칸의 실패. 희망 대수(용량 감사)와 봇 목표는 관리 JVM의 DB에서 읽는다. 주 DB가 멈추거나 바뀌는 동안 그 읽기가 실패해도 흐름 조회는 200이고 `read_tier`·`bots`만 `UNAVAILABLE`(`reason` `database_unavailable`)이며 Prometheus 원천의 `flow`는 그대로다. 실패 직후 5초는 DB를 다시 부르지 않아 요청마다 커넥션 대기(3초)를 치르지 않는다. 한 판(`overview`)과 세부 조회의 DB 칸(조회 계층, 경보, 오늘 사건, 운영 작업, 임계값, AI, Teams 원천)도 같다(2026-09-27 시연 11회차에서 주 DB 전환 동안 흐름 조회가 500을 낸 결함의 수정, `DbGuard`).
 
 **AI 상담.** 운영자가 현재 상태를 자연어로 묻는 칸이다. 읽기 전용이다. 서버는 질문 시점의 근거를 새로 만들어 모델에 주되 조치 카탈로그를 넣지 않고, 이 경로에서 상태를 바꾸는 호출(조치 요청, 승인, 보류, 임계값, 모드, 한도)을 하지 않는다. 질문이나 답에 '조치해 달라'는 문장이 있어도 명령으로 해석하지 않으며, 모델은 그런 질문에 관제센터의 AI 조치안 카드나 해당 화면을 안내한다.
 
@@ -2921,3 +2953,40 @@ ADR 0036(DB 자동 전환을 Patroni 엄격 동기 2노드로)의 응답 계약�
 같은 날 설계 검토 지적을 반영해 이 판을 고쳤다. 버전은 그대로 v2.60이다. 대응 근거는 Patroni 설계 14절이다. (1) `423`의 뜻을 '확정 미접수'에서 '이 시도는 이 노드에서 쓰지 않음'으로 좁혔다. 인그레스가 10초 뒤 다시 보낸 시도의 `423`이면 앞선 시도(기본 풀의 출금, 앞선 대기가 길어 10초를 넘긴 접수)가 재개 뒤 커밋될 수 있다. 클라이언트는 재개 뒤 같은 키로 다시 내거나 재조회하고 새 키로 다시 내지 않는다(§2-3, §2-5-e, §4-B-4 (a), §7-6). (2) SUSPENDED를 DB 쪽 확인(`'*'`나 탐지 커밋의 `SyncRep` 대기)이 있을 때로 좁혔다. 한 노드만 느린 경우에 그 노드가 `423`을 내며 중단이 풀리지 않는 것을 막는다. `'*'`인 동안에는 재개하지 않는다(§2-5-e 상태·재개). (3) 게이트 필터를 수용 제한 필터 앞(order 4)으로 옮겼다. 뒤에 두면 중단 직전에 걸린 요청이 쥔 허가 때문에 중단 동안의 주문이 `429`를 받는다(§2-5-e 응답). (4) 확정 응답 보류를 더했다. ACTIVE가 아니거나 '재확인 전'인 노드는 by-client 재조회의 '접수됨'과 V47 커밋 회수의 `201`을 `409 order_in_progress`로 미룬다. 크래시 재시작 뒤 복제되지 않은 행이 보이기 때문이다(§2-5-e, §4-B-4 (a)). (5) 좀비 판정 정지를 SUSPENDED로 좁히고 UNREACHABLE 게이트 거절을 수요로 센다(§2-5-e 좀비 판정). (1)~(5)는 2026-09-25 설계를 맡은 AI가 정했고 사용자 확인 대상이다(설계 13절 13·14·16·17).
 
 같은 날 코드 단계 뒤의 코드 검토를 반영해 이 판을 다시 고쳤다. 버전은 그대로 v2.60이다. (6) 게이트의 대상 경로는 필터 등록이 정하고 게이트가 원시 요청 URI로 다시 가리지 않는다고 적었다. 원시 URI로 가리던 첫 코드는 `;` 매개변수나 퍼센트 인코딩으로 적은 쓰기를 게이트 없이 컨트롤러에 보냈다(§2-5-e 대상). (7) 같은 키 재전송의 재생 `200`이 확정 응답 보류의 대상이 아닌 근거(재생 트랜잭션 자신의 동기 커밋)와, 이체 재생은 아직 대상이 아니라는 것을 적었다(§2-5-e 확정 응답 보류). 응답 코드와 모양은 바뀌지 않는다.
+
+## v2.61 패치 반영 사항
+
+관리 콘솔의 서비스 흐름·지표 관제가 http 원천에서 그리는 실측 경로를 더하고 같은 날 구현했다. 2026-09-27 사용자 결정이고, 시연 영상에서 부하 시험(봇 주문 증가와 조회 부하, app-3 켜기)과 DB 장애(주 DB 중지와 자동 승격, 거래 재개)를 지금 스택의 값으로 보이기 위해서다.
+
+- **§6-F에 `GET /admin/v1/msp/flow`를 더한다.** 최근 150초를 2초 격자로 싣는 읽기 전용 조회이고 VIEWER+, 승인 티켓 없음이다. 앱 노드별 조회 경로 요청(수용과 요청 제한 거절 429를 나눔)·쓰기 경로 요청과 CPU, 앱 계층 전체의 조회 수용·거절, 리더와 쓰기 가능 상태, DB 노드별 응답·역할(recovery)·연결·커밋, 체결과 주문·취소 요청, 복제 지연, 진입 검사, 용량 감사로 복원한 희망 대수, 봇 목표 발행률을 싣는다(위 '서비스 흐름 실측').
+- **값의 표기는 관제센터 규칙을 따른다.** 비율·초·초당 건수는 십진 문자열, 연결 수·세대·대수는 정수, 상태는 불리언이나 열거형이다. 읽지 못한 점은 `null`이고 0으로 채우지 않는다.
+- 로컬 Docker의 CloudFront·ALB 자리를 웹 입구·로드밸런서 검사로 잰다는 것과 조회 경로의 경로 목록은 이 판의 구현이 정했다(로드밸런서 설정 `harness/nginx/nginx.conf`와 같은 목록). 같은 날 로컬 관리 평면 컨테이너에 배포해 실제 경로로 확인했다.
+- 같은 날 사용자 결정으로 조회 요청을 수용과 요청 제한 거절(429)로 나눴다. 부하 시험에서 앱의 요청 제한이 조회의 35~40%를 거절했고, 거절은 처리 비용이 작아 합친 요청 수만으로는 CPU와 어긋나 보였기 때문이다. `read_rate`의 뜻이 조회 경로 전체에서 수용으로 바뀌고 `read_rejected_rate`와 전체 합 두 항목이 붙었다. 이 항목을 모르는 화면은 새 항목을 버리므로 배포 순서와 무관하다.
+
+## v2.62 패치 반영 사항
+
+방향 전제(D1·D2와 조회 CPU 임계를 다루는 D3), 관제 판 조회 계층 칸, 용량 화면 권고(6-A-a절)가 읽는 조회 평균 CPU를 순간값에서 최근 약 30초 평균으로 바꿨다(6-F절 정책 엔진). 응답의 모양과 필드는 그대로이고 값의 뜻만 바뀐다. 2026-09-27 시연 녹화에서 앱 계층 CPU 경보(1분 평균)와 AI 근거가 53~62%였는데, 승인 순간 방향 검사가 순간값 0.4214를 읽어 app-3 켜기를 방향 모순으로 막았다. 같은 시각 Prometheus의 30초 평균은 0.56~0.61이었다.
+
+- 순간값(`process_cpu_usage`)은 JVM이 직전 호출 이후의 짧은 구간을 잰 값이다. Prometheus 수집과 관리 API 관측이 같은 JVM을 번갈아 부르면 그 구간이 수백 ms로 줄어 크게 흔들린다.
+- 관리 API는 노드마다 누적 CPU 시간 표본을 90초까지 쌓고, 30초 넘게 지난 표본 가운데 가장 최근 것과의 차로 비율을 낸다. 그런 표본이 없으면 가장 오래된 표본을 쓰되 5초보다 가까우면 순간값을 쓴다. 카운터가 5초 넘게 지나 줄었으면 앱 재기동으로 보고 표본을 버린다. 동시에 보낸 관측의 응답 순서가 뒤바뀌어 5초 안에 조금 작은 값이 오면 표본으로 쌓지 않는다.
+- 30초는 경보의 1분 창보다 짧게 잡아 증설 뒤 CPU 하락이 판단에 늦지 않게 한 값이고, 2026-09-27 설계를 맡은 AI가 정했다. 구현은 `server/app/src/main/java/kr/exchange/admin/NodeProbe.java`, 시험은 `NodeProbeTest`다. 같은 날 로컬 관리 평면에 배포했다.
+
+## v2.63 패치 반영 사항
+
+관제 판 복제 칸(§6-F 한 판의 `replication`)과 흐름 조회(`GET /admin/v1/msp/flow`)에 복제 방식과 승격 방식을 수집값으로 더했다. 2026-09-27 시연 8회차 영상에서 로컬 시연 스택(Patroni 엄격 동기 두 노드, ADR 0036)인데 관제센터 DB 카드가 'PostgreSQL 17 · 비동기 복제 · 승격은 수동', Standby 줄이 'Standby · 비동기 복제'로 나왔다. 화면의 고정 문자열이었고, 사용자가 앞서 '비동기 복제가 아니라 엄격 복제'라고 바로잡았다. Grafana는 이미 수집값으로 적는다.
+
+- **`replication.mode`**(`SYNC`·`ASYNC`·`null`). Primary가 보는 `sync_state`로 정한다. 동기 상대가 하나라도 있으면 `SYNC`다.
+- **`replication.promotion`**(`AUTO`·`MANUAL`·`null`). Patroni 지표로 정한다. Patroni 지표가 없으면 `null`이고 수동으로 단정하지 않는다(근거는 §6-F 복제 칸).
+- **흐름 조회의 `replication_mode`·`promotion`.** 같은 식을 2초 격자로 읽는다. 명명 range 질의는 20개가 됐다.
+- **설정 `exchange.msp.prometheus.patroni-job`**(기본 `patroni`). 다른 job 선택자와 같은 모양만 받고, 비우면 승격 방식을 질의하지 않는다.
+- 필드를 더했을 뿐 기존 필드의 뜻은 그대로다. 이 필드를 모르는 화면은 새 필드를 버린다. 화면은 모르는 값을 '복제 방식 미수집'·'승격 방식 미확인'으로 적고 sim 판은 수집값을 싣지 않는다(관리자 설계 4-4).
+- 같은 날 결함 수정. 주 DB 전환 동안 흐름 조회가 500을 내어 화면이 마지막 값에 멈췄다. DB에 기대는 칸의 실패를 그 칸의 `UNAVAILABLE`(`database_unavailable`)로 가두고 응답은 200으로 낸다(§6-F 흐름 조회의 'DB 칸의 실패', 한 판에도 같다). 응답 모양은 그대로다.
+
+## v2.64 패치 반영 사항
+
+관리 요청 인증(§3-6 관리 세션)이 DB 장애 동안 조회를 멈추지 않게 했다. 2026-09-27 시연 12회차에서 주 DB를 끈 동안 관리 요청마다 세션 원장 조회가 커넥션 획득 3초를 기다린 뒤 500으로 끝났고, 흐름 조회까지 막혀 화면이 주 DB 끊김을 그리지 못했다.
+
+- **조회 요청의 원장 유예.** 서명·`exp`·`scope`·mTLS 신원 대조는 늘 먼저 통과해야 한다. 그 뒤 세션·운영자 원장 조회가 DB 장애로 실패하면 조회 요청(GET·HEAD)만 10분 안의 마지막 원장 확인을 쓴다. 폐기·비활성화도 DB 쓰기라 DB가 닿지 않는 동안에는 원장이 바뀌지 않으므로, 마지막 확인과 원장이 어긋날 수 있는 것은 장애 직전 한 요청 간격 안의 변경뿐이다. 폐기된 세션을 원장에서 확인하면 기억한 확인도 지운다.
+- **그 밖의 요청은 503.** 변경 요청과 원장에서 확인한 적 없는 세션은 `503 service_unavailable`(Retry-After 1)이다. 종전에는 처리되지 않은 예외로 500이었다.
+- **로컬 관리 평면의 커넥션 획득 대기.** 요청 하나가 세션·운영자·감사·DB 칸에서 차례로 DB를 만나 3초씩 쌓였다(흐름 조회 한 번 12초). 시연 스택의 관리 평면(`chaos-admin`)만 획득 대기를 0.5초로 줄였다(`harness/docker-compose.demo-admin.yml`). 거래 노드의 3초는 그대로다.
+- 확인 범위: 원장 유예 단위 시험 8건, 관리 평면 통합 시험 32건(`AdminPlaneIntegrationTest`·`AdminSplitPlaneIntegrationTest`), 로컬 스택의 주 DB 강제 종료 두 번. 두 번째 훈련에서 흐름 화면은 멈추지 않았고 주 DB 카드가 종료 9초 뒤 '중지'로 바뀌었다(첫 훈련은 획득 대기 3초라 23초).

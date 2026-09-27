@@ -45,16 +45,41 @@ class CollectorTests(unittest.TestCase):
             self.assertIn("failstop_container_collection_success 0", containers.sample())
 
     def test_missing_container_network_is_not_zero(self):
-        with patch.object(containers, "_api", side_effect=[[{"Id": "one", "Names": ["/app"]}], {}]):
+        # 목록 → one-shot 통계 → 컨테이너 설정(코어 상한) 순서로 부른다
+        with patch.object(containers, "_api", side_effect=[[{"Id": "one", "Names": ["/app"]}], {}, {}]):
             result = containers.sample()
         self.assertNotIn('container_net_rx_bytes{name="app"}', result)
         self.assertNotIn('container_net_tx_bytes{name="app"}', result)
 
     def test_real_zero_container_network_is_preserved(self):
         with patch.object(containers, "_api", side_effect=[[{"Id": "one", "Names": ["/app"]}],
-                                                         {"networks": {"eth0": {"rx_bytes": 0, "tx_bytes": 0}}}]):
+                                                         {"networks": {"eth0": {"rx_bytes": 0, "tx_bytes": 0}}}, {}]):
             result = containers.sample()
         self.assertIn('container_net_rx_bytes{name="app"} 0', result)
+
+    def test_cpu_is_the_delta_between_collection_cycles(self):
+        # one-shot 은 기다리지 않는 대신 precpu 가 비어 있다. 처음 본 주기에는 CPU 를 내지 않고
+        # 다음 주기부터 직전 누적값과의 차로 낸다(2코어 상한 컨테이너가 코어 하나를 쓰면 100, 상한 2)
+        def stats(total, system):
+            return {"cpu_stats": {"cpu_usage": {"total_usage": total}, "system_cpu_usage": system, "online_cpus": 8}}
+        info = {"HostConfig": {"NanoCpus": 2_000_000_000}}
+        listing = [{"Id": "one", "Names": ["/app"]}]
+        containers._prev_cpu.clear()
+        calls = []
+
+        def api(path, answers=iter([listing, stats(1_000, 80_000), info, listing, stats(6_000, 120_000), info])):
+            calls.append(path)
+            return next(answers)
+
+        with patch.object(containers, "_api", side_effect=api):
+            first = containers.sample()
+            second = containers.sample()
+        self.assertNotIn('container_cpu_percent{name="app"}', first)
+        self.assertIn('container_cpu_limit_cores{name="app"} 2', first)
+        # (6000-1000)/(120000-80000) × 8코어 × 100 = 100
+        self.assertIn('container_cpu_percent{name="app"} 100', second)
+        self.assertTrue(all("one-shot=true" in c for c in calls if "/stats" in c))
+        containers._prev_cpu.clear()
 
     def test_empty_inventory_requires_explicit_option(self):
         inventory = {name: [] for name in targets.GROUPS}

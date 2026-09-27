@@ -190,6 +190,14 @@ Prometheus는 15초마다 수집하며 보존 조건은 7일·2GiB다. 먼저 �
 
 서버는 기존 Role로 파일을 내려받아 해시를 대조한 후 `/opt/exchange-web/releases/20260919`에 풀고 `current` 링크를 연결했다. 파일은 root 소유 0644, 디렉터리는 0755로 정리했다. `/etc/nginx/nginx.conf.before-exchange`에 설치 기본 설정을 보관하고 새 설정의 `nginx -t`를 통과한 뒤 `nginx`를 enable·start했다. 원복할 때는 우선 Nginx를 중지하고 기존 설정·배포 링크를 대조한다. 앱·DB 서비스를 함께 내릴 이유는 없다.
 
+## 발표 자료를 여는 방법
+
+발표 화면은 `https://www.sang.it.kr/deck/`이다. 2026-09-28 앱 서버의 공개 Nginx에 `/deck/` 경로로 올렸다. 발표 전용 t3.small을 규칙대로 준비했지만(보안 그룹 `sg-0ccf2f39fa40ef49c`, 키 페어 `2026-ai-kopo-04-deck-ssh-01`) 계정 전체의 표준 인스턴스 vCPU 한도 16개가 차서 시작이 거부됐고, 사용자가 앱 서버에 함께 두기로 정했다. 역할을 합친 것은 이 한도 때문이며 발표가 끝나면 되돌린다. 준비한 보안 그룹과 키 페어는 쓰이지 않은 채 남아 있다.
+
+파일은 `/opt/exchange-deck/releases/20260928`에 root 소유 0644·0755로 두고 `current` 링크로 가리킨다. 설정 원본은 [발표 자료 경로](../../deploy/linux/app/nginx-deck.conf)이고 서버의 `/etc/nginx/exchange-deck.conf`로 설치해 HTTPS 서버에 include 한 줄을 더했다. GET만 받고, 슬라이드를 같은 출처 iframe으로 싣기 때문에 이 경로만 `X-Frame-Options SAMEORIGIN`이다. 시연 영상은 13회차 편집본이며 부분 요청(206)으로 재생된다.
+
+자료를 고칠 때는 파일을 SSM 경유 SSH로 `/tmp`에 올린 뒤 `sudo install -o root -g root -m 0644`로 같은 자리에 덮는다. 되돌릴 때는 include 한 줄과 `/etc/nginx/exchange-deck.conf`를 지우고 `nginx.conf.before-deck`와 비교한 뒤 `nginx -t`·reload 하고 `/opt/exchange-deck`를 지운다. 명령·결과·화면은 [증거본](../../증거본/2026-09-27_학교AWS_발표서버/README.md)에 있다.
+
 ## Grafana에 접속하기
 
 현재 주소는 `https://www.sang.it.kr/grafana/`다. 기존 `dltkdgur` 계정으로 로그인한다. 익명 접근과 회원가입은 허용하지 않는다. 앱 Nginx가 봇 사설 주소의 3000으로 전달하며 봇 SG의 해당 포트는 앱 SG만 허용한다. 공개 3000 포트나 PC 터널은 필요 없다. 사용자 로그인 후 실제 DB 복제 패널과 Linux 지표를 확인했다. 비인증 API는 401이다.

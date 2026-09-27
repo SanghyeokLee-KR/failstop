@@ -148,6 +148,11 @@ Q["primary_utilization"] = "(" + Q["db_utilization"] + ") and on(instance) (" + 
 Q["standby_utilization"] = "(" + Q["db_utilization"] + ") and on(instance) (" + Q["db_recovery"] + " == 1)"
 streaming = value("pg_replication_client_sent_replay_bytes", DB, 'state="streaming"')
 Q["replication_status"] = "min((" + streaming + " >= bool 0) or (0 * " + Q["wal_gap"] + "))"
+# 복제 방식. Primary 가 보는 pg_stat_replication.sync_state 실측이다. 동기(sync·quorum) 상대가 하나라도 있으면 2,
+# 비동기 상대만 있으면 1, 복제 상대가 없으면 계열이 없다(미수집). 화면 문구는 msp_canvas.REPLICATION_MODE_MAPPING 이다
+sync_clients = value("pg_replication_client_sent_replay_bytes", DB, 'sync_state=~"sync|quorum"')
+async_clients = value("pg_replication_client_sent_replay_bytes", DB, 'sync_state="async"')
+Q["replication_mode"] = "max((0 * " + sync_clients + " + 2) or (0 * " + async_clients + " + 1))"
 Q["serviceable"] = Q["app_serviceable"]
 Q["alerts_count"] = Q["alert_count"]
 Q["instance_p95"] = Q["instance_latency"]
@@ -263,6 +268,7 @@ DB_REPLICATION = {
     "primary": SERVICE_PATH["primary"],
     "standby": SERVICE_PATH["standby"],
     "replication": Q["replication_status"],
+    "replication_mode": Q["replication_mode"],
     "wal_gap": "max(" + Q["wal_gap"] + ")",
     "primary_connections": "sum(" + Q["primary_connections"] + ")",
     "standby_connections": "sum(" + Q["standby_connections"] + ")",

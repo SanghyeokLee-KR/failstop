@@ -58,7 +58,8 @@ public class MspProperties {
         }
         sourceUri("prometheus-url", prometheusUrl);
         sourceUri("alertmanager-url", alertmanagerUrl);
-        for (String job : List.of(prometheus.hostJobs, prometheus.appJob, prometheus.dbJob, prometheus.probeJob)) {
+        for (String job : List.of(prometheus.hostJobs, prometheus.appJob, prometheus.dbJob, prometheus.probeJob,
+                prometheus.patroniJob)) {
             if (!job.isEmpty() && !JOB_SELECTOR.matcher(job).matches()) {
                 throw new IllegalStateException("exchange.msp.prometheus 의 job 선택자가 허용 모양이 아니다: " + job);
             }
@@ -491,6 +492,9 @@ public class MspProperties {
         private String appJob = "exchange-api";
         private String dbJob = "postgres";
         private String probeJob = "blackbox-http";
+        // Patroni REST /metrics 의 수집 job. 이 job 의 지표가 있으면 DB 승격 방식을 자동(Patroni)으로 적는다. 없는 배치(학교 AWS,
+        // ADR 0024)는 질의 결과가 비어 승격 방식이 미확인이다. 고객 자원 집계(수집 대상 수)에는 넣지 않는다
+        private String patroniJob = "patroni";
 
         public String getHostJobs() {
             return hostJobs;
@@ -522,6 +526,14 @@ public class MspProperties {
 
         public void setProbeJob(String probeJob) {
             this.probeJob = probeJob == null ? "" : probeJob.trim();
+        }
+
+        public String getPatroniJob() {
+            return patroniJob;
+        }
+
+        public void setPatroniJob(String patroniJob) {
+            this.patroniJob = patroniJob == null ? "" : patroniJob.trim();
         }
     }
 

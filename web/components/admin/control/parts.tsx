@@ -162,15 +162,17 @@ export function PanelHead({ title, id, meta, actions }: { title: ReactNode; id?:
   );
 }
 
+// 로컬 스택은 배지를 그리지 않는다(2026-09-27 사용자 결정: 시연 영상 화면을 비워 둔다). 학교·개인 AWS 배지는 그대로다
 const ENV_WORD: Record<OpsEnvironment, string> = {
   SIMULATOR: "시뮬레이터",
-  LOCAL_DOCKER: "로컬 Docker",
+  LOCAL_DOCKER: "",
   SCHOOL_AWS: "학교 AWS",
   PERSONAL_AWS: "개인 AWS",
   UNKNOWN: "환경 미확인",
 };
 
 export function EnvBadge({ env }: { env: OpsEnvironment }) {
+  if (!ENV_WORD[env]) return null;
   return (
     <span className={styles.envBadge} data-env={env}>
       <span className="sr-only">환경 </span>

@@ -143,7 +143,7 @@
   border-radius: var(--radius-xs);
 }
 
-/* 온프레미스(연구소)는 AWS 밖의 장소다. AWS 틀처럼 면을 가라앉히지 않고 패널 면 위에 실선 틀만 둔다 */
+/* 온프레미스는 AWS 밖의 장소다. AWS 틀처럼 면을 가라앉히지 않고 패널 면 위에 실선 틀만 둔다 */
 .frame[data-kind="onprem"] {
   border-radius: var(--panel-radius);
 }

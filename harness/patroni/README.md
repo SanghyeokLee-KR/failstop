@@ -100,6 +100,19 @@ E-P2c(멤버가 아닌 복제 연결), E-P8a·b(DB 호스트 영구 손실과 �
 
 대시보드는 [db-ha-patroni.json](../grafana/dashboards/db-ha-patroni.json)이다. 이 스택에는 Grafana 를 두지 않았다. Prometheus(59190)를 데이터 소스로 붙여 쓴다.
 
+## 시연 스택의 Patroni 판(2026-09-27)
+
+시연 영상용 스택(compose 프로젝트 `exchange-chaos`)도 DB 계층을 이 구성으로 바꿨다. 이 폴더의 이미지(`exchange-patroni-db:local`), HAProxy 설정, 실험 값(Patroni 20·5·5, 엄격 동기, `--no-slot`)을 그대로 쓰고, 오버레이 [docker-compose.demo-patroni.yml](../docker-compose.demo-patroni.yml)과 노드 설정 [patroni.demo.yml](patroni.demo.yml)이 다른 점(scope, `samenet` pg_hba, `pg_stat_statements`, `max_connections` 250, 2코어·2GiB 상한)을 더한다. 컨테이너는 `chaos-etcd-1~3`, `chaos-db-1·2`(멤버 이름 `db-1`·`db-2`), `chaos-haproxy-1·2·3·b`, `chaos-db-toolbox`, `chaos-db-1·2-exporter`다. 종전 `chaos-pg`·대기 DB는 멈춘 채 남아 있다.
+
+| 할 일 | 명령(`C:\dev\exchange`) |
+|---|---|
+| 처음 한 번 옮기기(데이터 이전, 되돌리기는 머리 주석) | `pwsh -NoProfile -File harness/scripts/demo-patroni-migrate.ps1` |
+| 재부팅 뒤 올리기 | `pwsh -NoProfile -File harness/scripts/demo-obs-up.ps1` |
+| 상태·주 DB 강제 종료·복귀·초기화 | `pwsh -NoProfile -File harness/scripts/demo-db-failover.ps1 -Action status\|kill\|return\|reset` |
+| 측정 한 회차(E-P1 도구로 승격·재개 시각과 유실 대조) | `pwsh -NoProfile -File harness/scripts/demo-db-failover.ps1 -Action run` |
+
+주의할 점. 옛 주 DB의 되감기(`pg_rewind`)가 성공해도 되감은 노드가 마지막 공통 체크포인트부터 다시 읽을 WAL을 찾지 못해 예비로 붙지 못할 수 있다. Patroni가 되감기 전 단일 사용자 모드 크래시 복구에서 새 체크포인트를 쓰며 자기 옛 WAL 세그먼트를 재활용하고, 새 주 DB도 `wal_keep_size` 16MB라 그 세그먼트를 지운 뒤이기 때문이다(2026-09-27 시연 스택 첫 측정 회차, 로그 `requested WAL segment ... has already been removed`). `remove_data_directory_on_rewind_failure`는 `pg_rewind` 자체가 실패할 때만 걸리므로 이 경우 Patroni가 스스로 풀지 못하고, 엄격 동기라 그동안 쓰기가 멈춘다. `demo-db-failover.ps1`의 `return`·`reset`·`run`은 그 로그가 보이거나 60초 안에 붙지 않으면 `patronictl reinit`으로 다시 만든다. 실험 스택 E-P1 회차들은 되감기로 붙었으므로 WAL 생성량(시연 스택은 봇·k6·ACK 기록기)이나 체크포인트 간격에 따라 갈린다고 본다. AWS 적용 전에 `wal_keep_size`(ADR 0036 결정 4)나 재초기화 절차를 다시 정해야 한다.
+
 ## 기록
 
 - 기동 확인(E-P 아님): [patroni-stack-smoke-20260925](../evidence/patroni-stack-smoke-20260925/README.md). Standby 정지와 Primary 강제 종료에서 탐지기 전이, 쓰기 게이트 423, 리스 획득 시점, pg_rewind 재합류를 한 번씩 봤다.

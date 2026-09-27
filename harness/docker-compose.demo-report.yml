@@ -1,0 +1,12 @@
+# 시연 알림 오버레이. 시연 부하 경보(prometheus/demo-rules/load-alerts.yml)를 보고 서비스로 보내도록 Alertmanager 설정만 바꾼다.
+# 경로 기준은 harness/ 다(docker-compose.chaos.yml, docker-compose.demo-obs.yml과 같이 쓴다).
+#
+#   docker compose -p exchange-chaos -f harness/docker-compose.chaos.yml -f harness/docker-compose.demo-obs.yml \
+#     -f harness/docker-compose.demo-report.yml --env-file harness/.env.chaos --profile obs up -d --no-deps chaos-alertmanager
+#
+# 보고 서비스는 호스트에서 돈다(harness/scripts/demo-reporting-local.py serve, 9088). 수신 토큰은 그 스크립트가 만든다.
+services:
+  chaos-alertmanager:
+    volumes:
+      - ./alertmanager/alertmanager.demo.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./demo/reporting.local/reporter-token:/etc/alertmanager/reporting/reporter-token:ro

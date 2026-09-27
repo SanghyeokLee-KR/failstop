@@ -5,8 +5,8 @@
  * 왼쪽 칸은 DB 묶음(Primary·Standby와 복제), 복제 방식, DB 통계, 느린 질의이고 오른쪽 칸은 백업(Databasus), 전환 절차(DB 수동
  * 승격 런북), 엄격 동기 설명이다(레이아웃 §7 두 칸 1 : 1).
  *
- * 복제 방식은 두 원천에서 같은 사실이다(비동기 복제와 수동 승격, Patroni 자동 전환은 다른 브랜치에서 구성 중). DB 통계는 sim
- * 예시이고 http는 원천 연결 전이다. 느린 질의는 pg_stat_statements를 적재하지 않아 두 원천 모두 연결 전이다. DB 승격과 복제
+ * 복제 방식과 승격 방식은 http면 관제 판의 수집값(Primary가 보는 sync_state, Patroni 지표)이고 모르면 미수집·미확인이다.
+ * sim은 시뮬레이터의 지금 구성(비동기 복제와 수동 승격, ADR 0024) 설명이다. DB 통계는 sim 예시이고 http는 원천 연결 전이다. 느린 질의는 pg_stat_statements를 적재하지 않아 두 원천 모두 연결 전이다. DB 승격과 복제
  * 재구성은 사람이 SSM 세션에서 하고 AI 금지 목록 1이다. 이 화면에는 승격 단추가 없다.
  */
 
@@ -36,37 +36,97 @@ const STREAM_WORD: Record<Replication["stream"], { tone: "success" | "warning" |
   STOPPED: { tone: "danger", word: "끊김" },
 };
 
-/** 복제 방식. 지금 구성과 적용 전 구성을 한 표에 가른다. 두 원천이 같은 사실이다 */
+/**
+ * 복제 방식. 복제, 전환, 자동 전환을 한 표에 가른다. http 판은 수집값이고 모르면 미수집·미확인이다(지어내지 않는다). 칸이 있는데
+ * 수집값이 없으면(undefined) sim 판이라 시뮬레이터의 지금 구성 설명(ADR 0024, 자동 전환 구성 중) 그대로다
+ */
 function ReplicationMode({ repl }: { repl: OpsSection<Replication> }) {
   const stream = repl.state === "READY" ? STREAM_WORD[repl.data.stream] : null;
+  const data = repl.state === "READY" ? repl.data : null;
+  const sim = data !== null && data.mode === undefined;
+  const mode = data?.mode ?? null;
+  const promotion = data?.promotion ?? null;
+  const replValue = sim
+    ? DB_TOPOLOGY.mode === "ASYNC" ? "비동기 스트리밍" : "엄격 동기"
+    : mode === "SYNC" ? "엄격 동기" : mode === "ASYNC" ? "비동기 스트리밍" : "복제 방식 미수집";
+  const replNote = sim || mode === "ASYNC"
+    ? "Primary를 잃으면 지연 동안 쓰인 기록을 함께 잃을 수 있습니다 · ADR 0024"
+    : mode === "SYNC"
+      ? "동기 Standby가 WAL을 쓴 뒤에만 커밋을 확인하고, Standby가 없으면 쓰기를 멈춥니다 · ADR 0036"
+      : "Primary가 보고한 복제 상대가 없거나 복제 원천을 읽지 못했습니다";
+  const failover: { value: string; chip: ReactNode; note: string } = sim
+    ? {
+        value: "수동 승격",
+        chip: <StateChip tone="neutral" shape="ring" label="사람이 실행" />,
+        note: "운영자가 옛 Primary를 격리하고 Standby를 승격합니다. AI 금지 목록 1이라 어느 모드에서도 AI가 하지 않습니다",
+      }
+    : promotion === "AUTO"
+      ? {
+          value: "자동 승격",
+          chip: <StateChip tone="success" label="Patroni가 실행" />,
+          note: "Patroni가 동기 Standby만 승격합니다. AI 금지 목록 1이라 어느 모드에서도 AI가 승격하지 않습니다",
+        }
+      : promotion === "MANUAL"
+        ? {
+            value: "수동 승격",
+            chip: <StateChip tone="warning" label="Patroni 일시 정지" />,
+            note: "Patroni가 일시 정지라 자동 승격이 멈췄습니다. 운영자가 승격합니다",
+          }
+        : {
+            value: "승격 방식 미확인",
+            chip: <StateChip tone="off" shape="dashed" label="Patroni 지표 없음" />,
+            note: "Patroni 지표가 없어 승격 방식을 확인하지 못했습니다. 지표가 없다고 수동 승격으로 단정하지 않습니다",
+          };
+  const auto: { chip: ReactNode; note: string } = sim
+    ? {
+        chip: <StateChip tone="off" shape="dashed" label={DB_TOPOLOGY.failover === "PATRONI" ? "적용" : "구성 중"} />,
+        note: "다른 작업 브랜치에서 설계·구현 중이고 이 환경에 적용하지 않았습니다 · ADR 0036",
+      }
+    : promotion !== null
+      ? { chip: <StateChip tone="success" label="적용" />, note: "이 환경의 Patroni 지표(patroni_primary)로 확인했습니다 · ADR 0036" }
+      : { chip: <StateChip tone="off" shape="dashed" label="지표 없음" />, note: "이 환경에서 Patroni 지표를 읽지 못했습니다 · ADR 0036" };
   return (
     <dl className={dbStyles.modes}>
       <div className={dbStyles.mode}>
         <dt>복제</dt>
         <dd>
-          <span className={dbStyles.modeValue}>{DB_TOPOLOGY.mode === "ASYNC" ? "비동기 스트리밍" : "엄격 동기"}</span>
+          <span className={dbStyles.modeValue}>{replValue}</span>
           {stream ? <StateChip tone={stream.tone} label={stream.word} /> : <StateChip tone="off" shape="dashed" label="복제 원천 연결 전" />}
-          <span className={dbStyles.modeNote}>Primary를 잃으면 지연 동안 쓰인 기록을 함께 잃을 수 있습니다 · ADR 0024</span>
+          <span className={dbStyles.modeNote}>{replNote}</span>
         </dd>
       </div>
       <div className={dbStyles.mode}>
         <dt>전환</dt>
         <dd>
-          <span className={dbStyles.modeValue}>수동 승격</span>
-          <StateChip tone="neutral" shape="ring" label="사람이 실행" />
-          <span className={dbStyles.modeNote}>운영자가 옛 Primary를 격리하고 Standby를 승격합니다. AI 금지 목록 1이라 어느 모드에서도 AI가 하지 않습니다</span>
+          <span className={dbStyles.modeValue}>{failover.value}</span>
+          {failover.chip}
+          <span className={dbStyles.modeNote}>{failover.note}</span>
         </dd>
       </div>
       <div className={dbStyles.mode}>
         <dt>자동 전환</dt>
         <dd>
           <span className={dbStyles.modeValue}>Patroni · 엄격 동기</span>
-          <StateChip tone="off" shape="dashed" label={DB_TOPOLOGY.failover === "PATRONI" ? "적용" : "구성 중"} />
-          <span className={dbStyles.modeNote}>다른 작업 브랜치에서 설계·구현 중이고 이 환경에 적용하지 않았습니다 · ADR 0036</span>
+          {auto.chip}
+          <span className={dbStyles.modeNote}>{auto.note}</span>
         </dd>
       </div>
     </dl>
   );
+}
+
+/** 복제 방식 표의 출처. 수집값을 싣지 않는 sim 판은 시뮬레이터의 구성이다 */
+function modeSource(repl: OpsSection<Replication>): string {
+  return repl.state === "READY" && repl.data.mode === undefined ? "시뮬레이터 구성 · ADR 0024" : "수집값 · 복제 상대의 sync_state와 Patroni 지표";
+}
+
+/** DB 묶음 아래 한 줄. 잃을 수 있는 범위는 복제 방식에 달려 있어 수집값으로 가른다(sim 판은 ADR 0024 비동기) */
+function lagLead(repl: OpsSection<Replication>): string {
+  const head = "지연 경보 기준은 임계값 관리의 복제 지연 경보입니다.";
+  const mode = repl.state === "READY" ? repl.data.mode : null;
+  if (mode === "SYNC") return `${head} 엄격 동기라 확인받은 커밋은 Standby에도 있습니다.`;
+  if (mode === "ASYNC" || mode === undefined) return `${head} 지연만큼이 수동 승격 때 잃을 수 있는 범위입니다.`;
+  return head;
 }
 
 /** DB 통계 칸 하나. 원천이 없으면(http) 값 자리에 '◌'과 원천 연결 전이다 */
@@ -133,10 +193,10 @@ export default function DatabasePage() {
                   );
                 }}
               </SectionBody>
-              <p className={styles.lead}>지연 경보 기준은 임계값 관리의 복제 지연 경보입니다. 지연만큼이 수동 승격 때 잃을 수 있는 범위입니다.</p>
+              <p className={styles.lead}>{lagLead(data.replication)}</p>
             </section>
             <section className={styles.panel} aria-labelledby="db-mode">
-              <PanelHead id="db-mode" title="복제 방식" meta="두 데이터 원천에서 같은 사실" />
+              <PanelHead id="db-mode" title="복제 방식" meta={modeSource(data.replication)} />
               <ReplicationMode repl={data.replication} />
             </section>
             <DbStatsPanel section={data.database} repl={data.replication} />

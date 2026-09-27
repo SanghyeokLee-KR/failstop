@@ -1,0 +1,90 @@
+{
+  "metrics": {
+    "before": {
+      "demotions": 7.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 6.0,
+      "gate_423": 260.0,
+      "gate_503": 105.0,
+      "probe_unconfirmed": 0.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 1.0,
+      "unavailable": 1.0
+    },
+    "after": {
+      "demotions": 8.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 7.0,
+      "gate_423": 321.0,
+      "gate_503": 170.0,
+      "probe_unconfirmed": 0.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 1.0,
+      "unavailable": 1.0
+    }
+  },
+  "invalid": {
+    "cpu_samples": [
+      60.0,
+      88.0,
+      56.0,
+      43.0,
+      94.0
+    ],
+    "foreign_processes": [
+      "java-gradle(pid 36936, 375ms/2s)",
+      "java-gradle(pid 36936, 344ms/2s)"
+    ],
+    "etcd_leader_changes": 0.0,
+    "fsync_p99_s": 0.14762666666666852,
+    "peer_rtt_p99_s": 0.001584
+  },
+  "post_promotion": {
+    "node": "chaos-api-1",
+    "fencing_rejections": 0.0,
+    "demotions": 0.0
+  },
+  "orders_500": 0,
+  "stale_write_delta": 0,
+  "rejoin": {
+    "old_primary": "chaos-db-1",
+    "method": "rewind",
+    "scope": "before_t0",
+    "nodes": {
+      "chaos-db-1": {
+        "cutoff": "2026-09-27T14:11:13.788Z",
+        "command_journal": 670898,
+        "event_journal": 1172747,
+        "orders": 578093,
+        "trades": 362698,
+        "max_cmd_seq": 670898
+      },
+      "chaos-db-2": {
+        "cutoff": "2026-09-27T14:11:13.788Z",
+        "command_journal": 670898,
+        "event_journal": 1172747,
+        "orders": 578093,
+        "trades": 362698,
+        "max_cmd_seq": 670898
+      }
+    },
+    "equal": true
+  },
+  "t5": 1790518359.621,
+  "first_trade_after_resume": 1790518359.621,
+  "duplicate_coid_orders": 0,
+  "syncrep_waiters_after_resume": 0,
+  "visible_before": {
+    "orders_checked": 963,
+    "orders_present": 963,
+    "orders_missing": 0,
+    "trades_checked": 639,
+    "trades_present": 639,
+    "trades_missing": 0
+  },
+  "failsafe_max": 0.0
+}

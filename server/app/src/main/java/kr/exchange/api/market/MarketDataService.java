@@ -445,10 +445,96 @@ public class MarketDataService {
     public List<Map<String, Object>> candles(MarketDirectory.Market market, String unit,
                                              int count, Cursors.Cursor cursor) {
         long sec = UNIT_SECONDS.get(unit);
-        // 첫 페이지는 시각 하한을 두지 않는다. 하한을 두면 밀도 낮은 마켓의 sparse 이력이 잘려
-        // has_more가 조기 false가 된다. 커서가 있으면 상한(cursor.ts + 한 버킷)을 줘 created_at
-        // 파티션 프루닝을 붙인다. 넘겨 담기는 체결은 전부 HAVING이 버리는 버킷에만 속해 결과가
-        // 불변이다.
+        if (cursor != null) {
+            // 과거 페이지는 사용자가 차트를 되감을 때만 온다. 캐시하지 않고 종전 그대로 읽는다.
+            return candleQuery(market, sec, count, cursor, null);
+        }
+        LatestTrade latest = latestTrade(market);
+        if (latest == null) {
+            return List.of();
+        }
+        String key = market.id() + ":" + unit + ":" + count;
+        CandlePage hit = candleCache.get(key);
+        if (hit != null && hit.fresh(latest)) {
+            return copyRows(hit.rows());
+        }
+        Object lock = fillLocks.computeIfAbsent("candles:" + key, k -> new Object());
+        synchronized (lock) {
+            // 잠금을 잡는 사이에 다른 스레드가 같은 최신 체결 기준으로 채웠을 수 있다. 다시 본다.
+            CandlePage again = candleCache.get(key);
+            if (again != null && again.fresh(latest)) {
+                return copyRows(again.rows());
+            }
+            List<Map<String, Object>> rows = firstPage(market, sec, count, latest);
+            candleCache.put(key, new CandlePage(latest, rows, System.currentTimeMillis() + CANDLE_CACHE_TTL_MS));
+            return copyRows(rows);
+        }
+    }
+
+    /**
+     * 첫 페이지 캔들 캐시. 차트를 여는 요청은 대부분 같은 마켓·단위·개수의 첫 페이지라 한 번 집계한 값을
+     * 나눠 쓴다. 값은 그 마켓의 최신 체결(created_at, id)이 캐시를 채울 때와 같을 때만 다시 쓴다. 새 체결이
+     * 들어오면 바로 다시 집계하므로 호가·시세 캐시와 달리 새 체결이 늦게 보이지 않는다.
+     *
+     * TTL(2초)은 최신 체결보다 이른 시각으로 늦게 커밋된 체결을 놓치는 틈의 상한이다. 체결은 지우거나
+     * 고치지 않으므로 최신 체결이 같으면 결과가 같고, 이 틈만 시간으로 덮는다(24시간 시세 캐시와 같은 2초).
+     *
+     * 캐시가 없을 때의 비용. 2026-09-27 로컬 실측에서 조회 부하 초당 약 300건 가운데 캔들 집계가 건당 평균
+     * 186ms로 DB 총 실행시간 1위였고(10만 8천 회, 2만 초), DB가 평균 9.7코어·최대 14.8코어를 썼다. DB를
+     * 학교 AWS와 같은 2코어로 묶자 처리량이 초당 58건으로 떨어졌다.
+     */
+    private final ConcurrentHashMap<String, CandlePage> candleCache = new ConcurrentHashMap<>();
+
+    private static final long CANDLE_CACHE_TTL_MS = 2_000;
+
+    private record LatestTrade(OffsetDateTime at, long id) {
+    }
+
+    private record CandlePage(LatestTrade latest, List<Map<String, Object>> rows, long expiresAt) {
+        boolean fresh(LatestTrade now) {
+            return latest.equals(now) && expiresAt > System.currentTimeMillis();
+        }
+    }
+
+    /** 마켓의 최신 체결. idx_trades_market_time 의 첫 행이라 캐시 판정에 드는 비용이 작다. 이력이 없으면 null. */
+    private LatestTrade latestTrade(MarketDirectory.Market market) {
+        return jdbc.sql("""
+                        SELECT created_at, id FROM trades WHERE market_id = ?
+                        ORDER BY created_at DESC, id DESC LIMIT 1
+                        """)
+                .params(market.id())
+                .query((rs, rowNum) -> new LatestTrade(rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
+                .optional()
+                .orElse(null);
+    }
+
+    /**
+     * 첫 페이지. 먼저 최신 체결이 속한 버킷부터 count 개 버킷만큼의 구간만 읽는다(하한을 버킷 경계에 맞춰
+     * 구간 안 버킷은 모두 온전하다). 그 구간에 체결 있는 버킷이 count 개면 전체 이력을 읽은 결과의 앞 count
+     * 개와 같다. 모자라면 밀도 낮은 마켓이라 과거에 버킷이 더 있을 수 있으므로 하한 없이 다시 읽는다. 그래서
+     * sparse 이력과 has_more 판정(행 수 == count)은 종전과 같다.
+     */
+    private List<Map<String, Object>> firstPage(MarketDirectory.Market market, long sec, int count, LatestTrade latest) {
+        long latestBucket = Math.floorDiv(latest.at().toInstant().getEpochSecond(), sec) * sec;
+        OffsetDateTime lower = OffsetDateTime.ofInstant(
+                Instant.ofEpochSecond(latestBucket - (count - 1) * sec), ZoneOffset.UTC);
+        List<Map<String, Object>> recent = candleQuery(market, sec, count, null, lower);
+        return recent.size() == count ? recent : candleQuery(market, sec, count, null, null);
+    }
+
+    /** 캐시에 둔 행은 컨트롤러가 cursor_ts 를 지우므로 요청마다 행을 복사해 넘긴다. */
+    private static List<Map<String, Object>> copyRows(List<Map<String, Object>> rows) {
+        List<Map<String, Object>> copy = new ArrayList<>(rows.size());
+        rows.forEach(r -> copy.add(new LinkedHashMap<>(r)));
+        return copy;
+    }
+
+    /**
+     * 버킷 집계 SQL. 하한(lower)이 없으면 그 마켓의 전체 이력을 읽는다. 커서가 있으면 상한(cursor.ts + 한 버킷)을
+     * 줘 created_at 파티션 프루닝을 붙인다. 넘겨 담기는 체결은 전부 HAVING이 버리는 버킷에만 속해 결과가 불변이다.
+     */
+    private List<Map<String, Object>> candleQuery(MarketDirectory.Market market, long sec, int count,
+                                                  Cursors.Cursor cursor, OffsetDateTime lower) {
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
                 "WITH bucketed AS (\n"
@@ -457,6 +543,10 @@ public class MarketDataService {
                 + "    FROM trades WHERE market_id = ?\n");
         params.add(sec);
         params.add(market.id());
+        if (lower != null) {
+            sql.append("      AND created_at >= ?\n");
+            params.add(lower);
+        }
         if (cursor != null) {
             sql.append("      AND created_at < ?\n");
             params.add(cursor.ts().plusSeconds(sec));

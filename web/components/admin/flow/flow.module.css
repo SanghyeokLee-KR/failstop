@@ -181,6 +181,7 @@
 /* 확대 상자. 속 상자를 설계 폭으로 배치하고 왼쪽 위를 기준으로 확대·축소한다. 겉 상자가 확대된
    크기를 차지해 가운데 정렬이 그 크기를 기준으로 된다 */
 .stageBody {
+  position: relative;
   min-width: 0;
   display: flex;
   justify-content: center;
@@ -212,6 +213,7 @@
 .sourceChip {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
@@ -220,6 +222,21 @@
   line-height: var(--font-caption-line);
   font-weight: var(--fw-medium);
   white-space: nowrap;
+}
+
+/* 실측 값이 옛 값인 동안(수집 실패·지연). 관제센터 머리의 지연 칩과 같은 주의 글자와 테두리다 */
+.sourceChip[data-kind="stale"] {
+  color: var(--color-warning-text);
+  box-shadow: inset 0 0 0 1px var(--color-warning-text);
+}
+
+/* 실측 값이 옛 값인 동안 무대를 흐리게 덮는다(MeasuredMark.StaleVeil). 누름은 아래로 흘려보낸다 */
+.staleVeil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--surface-default) 55%, transparent);
+  pointer-events: none;
 }
 
 /* ===== 상황 자막 =====

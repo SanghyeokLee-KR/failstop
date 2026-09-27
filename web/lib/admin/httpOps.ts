@@ -138,6 +138,8 @@ interface WireReplication {
   primary?: string | null;
   standby?: string | null;
   stream?: string | null;
+  mode?: string | null;
+  promotion?: string | null;
   lag_seconds?: WireMeasure;
   lag_bytes?: WireMeasure;
   label_mismatch?: boolean;
@@ -523,17 +525,29 @@ function summaryOf(s: WireSummary): OpsSummary {
   };
 }
 
-/**
- * 호스트 역할. DB는 설정의 배치 역할이 아니라 recovery 지표로 정한 실제 역할을 쓴다. 실제 역할을 모르면(지표 없음)
- * 노드 이름으로 자리만 정하고 수집 상태는 서버가 준 그대로 둔다
- */
+/** 호스트 역할. DB는 설정의 배치 역할이 아니라 recovery 지표로 정한 실제 역할을 쓴다. 모르는 DB의 자리는 hostsOf가 정한다 */
 function hostRole(h: WireHost): OpsHostRole {
-  if (h.role === "DB") {
-    if (h.actual_role === "PRIMARY") return "DB_PRIMARY";
-    if (h.actual_role === "STANDBY") return "DB_STANDBY";
-    return /standby|replica/i.test(h.node ?? "") ? "DB_STANDBY" : "DB_PRIMARY";
-  }
+  if (h.role === "DB") return h.actual_role === "STANDBY" ? "DB_STANDBY" : "DB_PRIMARY";
   return h.role === "BOT_OBS" ? "BOT_OBS" : "APP";
+}
+
+const knownDbRole = (h: WireHost) => h.actual_role === "PRIMARY" || h.actual_role === "STANDBY";
+
+/**
+ * 호스트 목록. DB는 recovery 지표로 정한 실제 역할(actual_role)의 자리에 앉는다. 멈춘 노드처럼 실제 역할을 모르는 DB는
+ * 노드 이름으로 짐작하지 않고 남은 자리에 목록 순서대로 앉히며 roleKnown을 false로 둔다. 이름으로 짐작하면 역할이 이름에
+ * 없는 배치(db-1·db-2)에서 전환 중에 두 대가 모두 Primary로 잡혀 DB 묶음과 복제 칸이 사라진다. 수집 상태는 서버가 준 그대로다
+ */
+function hostsOf(list: WireHost[]): OpsHost[] {
+  const measured = new Set(list.filter((h) => h.role === "DB" && knownDbRole(h)).map((h) => h.actual_role));
+  const free: OpsHostRole[] = [];
+  if (!measured.has("PRIMARY")) free.push("DB_PRIMARY");
+  if (!measured.has("STANDBY")) free.push("DB_STANDBY");
+  return list.map((h) => {
+    const host = hostOf(h);
+    if (h.role !== "DB" || knownDbRole(h)) return host;
+    return { ...host, role: free.shift() ?? "DB_STANDBY" };
+  });
 }
 
 function hostOf(h: WireHost): OpsHost {
@@ -543,6 +557,7 @@ function hostOf(h: WireHost): OpsHost {
   return {
     id: h.node ?? "",
     role: hostRole(h),
+    ...(h.role === "DB" ? { roleKnown: knownDbRole(h) } : {}),
     instanceType: h.instance_type ?? "",
     az: h.az ?? "",
     collect: down ? "MISSING" : collectOf(h.up),
@@ -605,6 +620,9 @@ function replicationOf(r: WireReplication): Replication {
     stream: stream === "STREAMING" ? "STREAMING" : stream === "" ? "STOPPED" : "CATCHUP",
     lagBytes: mval(r.lag_bytes),
     lagSec: mval(r.lag_seconds),
+    // 수집값만 옮긴다. 모르는 값이나 이 항목을 싣지 않는 서버는 null이고 화면이 미수집·미확인으로 적는다(sim 문구로 가지 않는다)
+    mode: r.mode === "SYNC" || r.mode === "ASYNC" ? r.mode : null,
+    promotion: r.promotion === "AUTO" || r.promotion === "MANUAL" ? r.promotion : null,
   };
 }
 
@@ -1509,7 +1527,7 @@ function newest(times: (string | null | undefined)[]): string | null {
 
 /** 서버 한 판과 세부 조회 묶음을 관제 판으로 만든다. 같은 입력이면 같은 판이 나온다(now는 쿨다운 판정에만 쓴다) */
 export function boardOf(w: WireOverview, x: OpsExtrasSnapshot, now: number): ControlCenter {
-  const hosts = section(w.hosts, "Prometheus 호스트 지표", (list: WireHost[]) => list.map(hostOf));
+  const hosts = section(w.hosts, "Prometheus 호스트 지표", hostsOf);
   const hostIds = new Set(hosts.state === "READY" ? hosts.data.map((h) => h.id) : []);
   const alertsW = w.alerts;
   const alerts = section(alertsW, "Alertmanager 경보", (list: WireAlert[]) => list.map((a) => alertOf(a, hostIds)));

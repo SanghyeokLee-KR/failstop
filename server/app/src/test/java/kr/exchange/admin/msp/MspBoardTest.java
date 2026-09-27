@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 호스트·복제 칸의 측정 객체(API 설계 §6-F). 값의 수집 시각은 Prometheus 평가 시각이 아니라 그 대상의
@@ -84,6 +85,54 @@ class MspBoardTest {
         assertEquals("0.25", lag.get("value"));
         assertEquals(time(EVAL - 20), lag.get("sampled_at"), "postgres 대상 둘 가운데 오래된 쪽이다");
         assertEquals("1024", measurement(replication, "lag_bytes").get("value"));
+        assertEquals("SYNC", replication.get("mode"), "Primary 가 보는 sync_state 가 동기다");
+        assertEquals("AUTO", replication.get("promotion"), "Patroni 지표가 있다");
+    }
+
+    @Test
+    void 복제_방식과_승격_방식은_수집값만_계약_이름으로_옮기고_모르면_null_이다() {
+        assertEquals("SYNC", MspBoard.replicationMode(2.0));
+        assertEquals("ASYNC", MspBoard.replicationMode(1.0));
+        assertNull(MspBoard.replicationMode(null), "복제 상대가 없으면 모른다");
+        assertEquals("AUTO", MspBoard.promotion(1.0));
+        assertEquals("MANUAL", MspBoard.promotion(2.0), "Patroni 일시 정지면 자동 승격이 멈췄다");
+        assertNull(MspBoard.promotion(null), "Patroni 지표가 없다고 수동으로 단정하지 않는다");
+
+        MspProperties props = props();
+        props.getPrometheus().setPatroniJob("");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> replication = (Map<String, Object>) ((Map<String, Object>) board(props).hostsView()
+                .get("replication")).get("data");
+        assertTrue(replication.containsKey("promotion"));
+        assertNull(replication.get("promotion"), "Patroni job 을 비우면 질의하지 않고 미확인이다");
+        assertEquals("SYNC", replication.get("mode"));
+    }
+
+    @Test
+    void 용량_계획을_DB_에서_읽지_못해도_호스트_판은_나오고_조회_계층만_unavailable_이다() {
+        MspProperties props = props();
+        props.getReadCapacity().setMode(MspProperties.ReadCapacityMode.CAPACITY_PLAN);
+        int[] calls = {0};
+        kr.exchange.admin.CapacityPlanService broken = new kr.exchange.admin.CapacityPlanService(null, null, null, null, null) {
+            @Override
+            public Plan plan() {
+                calls[0]++;
+                throw new org.springframework.jdbc.CannotGetJdbcConnectionException("주 DB 전환 중");
+            }
+        };
+        PrometheusClient client = new PrometheusClient(prom.uri(), props.getPrometheus(), Duration.ofSeconds(2),
+                Duration.ofSeconds(10), new ObjectMapper(), pool, new SourceCache(clock, new SimpleMeterRegistry()));
+        MspBoard board = new MspBoard(props, client, null, null, null, broken, clock, null, null, null, null, null, null, null);
+
+        Map<String, Object> view = board.hostsView();
+        assertEquals(Map.of("state", "UNAVAILABLE", "reason", DbGuard.REASON), view.get("read_tier"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> replication = (Map<String, Object>) view.get("replication");
+        assertEquals("READY", replication.get("state"), "Prometheus 원천의 복제 칸은 그대로다");
+        board.hostsView();
+        assertEquals(1, calls[0], "실패 직후에는 DB 를 다시 부르지 않는다");
+        assertTrue(DbGuard.database(new RuntimeException(new java.sql.SQLException("x"))));
+        assertTrue(!DbGuard.database(new IllegalStateException("코드 결함")), "DB 가 아닌 예외는 가리지 않는다");
     }
 
     @Test
@@ -192,6 +241,13 @@ class MspBoardTest {
         if (query.contains("pg_wal_position_in_recovery")) {
             return vector(series("{\"node\":\"db-primary\",\"role\":\"data\"}", "0"),
                     series("{\"node\":\"db-standby\",\"role\":\"data\"}", "1"));
+        }
+        // 복제 방식(동기 상대 2)과 승격 방식(Patroni 자동 1). 복제 지연 바이트와 같은 지표라 먼저 가른다
+        if (query.contains("sync_state")) {
+            return vector(series("{}", "2"));
+        }
+        if (query.contains("patroni_primary")) {
+            return vector(series("{}", "1"));
         }
         if (query.contains("pg_replication_client_replay_lag_seconds")) {
             return vector(series("{\"node\":\"db-primary\",\"application_name\":\"standby\",\"state\":\"streaming\"}", "0.25"));

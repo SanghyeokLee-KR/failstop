@@ -527,7 +527,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "복제 지연(바이트)",
-      "description": "Primary 의 WAL 위치에서 각 Standby 가 받은(flush)·재생한 위치를 뺀 값.",
+      "description": "Primary 의 WAL 위치에서 각 Standby 가 받은(flush)·재생한 위치를 뺀 값. Standby 계열만 그린다(Primary 의 received·replayed 는 0 이라 빼면 WAL 위치 전체가 지연처럼 보였다). 서로 다른 순간에 읽어 생기는 음수는 0 으로 자른다.",
       "gridPos": {
         "x": 12,
         "y": 4,
@@ -569,14 +569,14 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(patroni_xlog_location) - on() group_right() patroni_xlog_received_location",
+          "expr": "clamp_min((max(patroni_xlog_location) - on() group_right() patroni_xlog_received_location) and on(instance) (patroni_replica == 1), 0)",
           "legendFormat": "flush {{instance}}",
           "editorMode": "code",
           "range": true
         },
         {
           "refId": "B",
-          "expr": "max(patroni_xlog_location) - on() group_right() patroni_xlog_replayed_location",
+          "expr": "clamp_min((max(patroni_xlog_location) - on() group_right() patroni_xlog_replayed_location) and on(instance) (patroni_replica == 1), 0)",
           "legendFormat": "replay {{instance}}",
           "editorMode": "code",
           "range": true

@@ -67,6 +67,7 @@ import type {
   SlaMonth,
   WindowInput,
   OpsFlowTapeEntry,
+  FlowMeasured,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -225,6 +226,11 @@ export interface AdminApi {
    * 있고 http는 null이다(실제 추이는 Grafana가 소유한다)
    */
   getFlowTape(): Promise<OpsFlowTapeEntry[] | null>;
+  /**
+   * 서비스 흐름·지표 관제의 실측(관리자 설계 4-2, GET /admin/v1/msp/flow). 관리 API가 Prometheus에서 읽은 최근 150초다. http만
+   * 있고 sim은 null이다(sim의 두 화면은 관제 시뮬레이터의 한 판을 그린다). 흐름 조회가 없는 배포(404)는 모든 칸이 연결 전이다
+   */
+  getFlowMeasured(): Promise<FlowMeasured | null>;
   /**
    * 판단 한 건의 과정(근거 스냅숏, 후보, 정책 엔진 검사). 판이 판단 목록만 싣는 원천(http)에서 상세를 열 때 읽는다.
    * sim은 판에 과정을 늘 싣으므로 판의 기록을 돌려준다. 없으면 null이다

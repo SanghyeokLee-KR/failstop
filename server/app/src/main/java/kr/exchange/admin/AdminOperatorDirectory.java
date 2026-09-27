@@ -1,7 +1,9 @@
 package kr.exchange.admin;
 
+import kr.exchange.journal.DbOutageErrors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -33,9 +35,41 @@ public class AdminOperatorDirectory {
     }
 
     private final JdbcClient jdbc;
+    private final LedgerGrace<Operator> known;
 
     public AdminOperatorDirectory(JdbcClient jdbc) {
+        this(jdbc, Clock.systemUTC());
+    }
+
+    AdminOperatorDirectory(JdbcClient jdbc, Clock clock) {
         this.jdbc = jdbc;
+        this.known = new LedgerGrace<>(clock, AdminSessionService.LEDGER_GRACE);
+    }
+
+    /**
+     * 관리 요청 인증의 운영자 조회. 세션 원장과 같은 규칙으로, 조회가 DB 장애로 실패하면 조회 요청(readOnly)에 한해 유예
+     * 시간 안에 읽은 운영자(상태·역할 포함)를 쓰고 그 밖에는 503 이다(AdminSessionService.verify).
+     */
+    public Optional<Operator> findForRequest(String operatorId, boolean readOnly) {
+        Optional<Operator> op;
+        try {
+            op = find(operatorId);
+        } catch (RuntimeException e) {
+            if (!DbOutageErrors.isOutage(e)) {
+                throw e;
+            }
+            Optional<Operator> last = readOnly ? known.recent(operatorId) : Optional.empty();
+            if (last.isPresent()) {
+                return last;
+            }
+            throw AdminSessionService.ledgerUnavailable();
+        }
+        if (op.isPresent()) {
+            known.confirm(operatorId, op.get());
+        } else {
+            known.forget(operatorId);
+        }
+        return op;
     }
 
     public Optional<Operator> find(String operatorId) {

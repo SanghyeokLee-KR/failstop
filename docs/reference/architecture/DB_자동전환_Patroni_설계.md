@@ -126,7 +126,7 @@ DCS 설정(`patronictl edit-config`로 바꾸는 값)과 노드 설정을 나눠
 | `wal_level`, `hot_standby`, `wal_log_hints` | replica, on, on | 되감기 전제(학교 클러스터는 데이터 체크섬도 켜져 있다) |
 | `synchronous_commit` | on | 원격 flush. 리스 갱신만 트랜잭션 한정으로 local(4-6) |
 | `max_wal_senders`, `max_replication_slots`, `max_slot_wal_keep_size` | 4, 4, 4GB(로컬 1GB) | 기존 설정 유지. 로컬은 디스크가 작다 |
-| `wal_keep_size`, `archive_mode` | 16MB, off | Patroni 4.1.5는 `wal_keep_size`를 16MB 아래로 받지 않고 설정 검증에서 기본값 128MB로 되돌린다([실험 스택 README](../../../harness/patroni/README.md)). 그래서 받는 가장 작은 값을 둔다. 되감기를 위해 WAL 보존을 늘리지 않는다는 ADR 0025의 판단과 아카이브 비채택은 그대로다. Standby가 잠깐 끊겼을 때 필요한 WAL은 멤버 슬롯이 붙잡는다(위 `use_slots`) |
+| `wal_keep_size`, `archive_mode` | 1GB, off | 2026-09-27 사용자 결정으로 16MB에서 1GB로 올렸다([ADR 0036](../adr/0036-patroni-strict-sync-db-failover.md) 결정 4). 16MB는 Patroni 4.1.5가 받는 가장 작은 값이었다(그 아래는 설정 검증에서 기본값 128MB로 되돌린다, [실험 스택 README](../../../harness/patroni/README.md)). 로컬 시연 스택의 첫 장애 회차에서 되감긴 옛 Primary가 마지막 공통 체크포인트의 REDO 지점부터 읽을 WAL이 두 노드에서 이미 재활용돼 약 10분 재합류하지 못했다. 1GB는 ADR 0025 재진입 산정식에 시연 스택 값(`checkpoint_timeout` 5분, WAL 최대 약 0.85MB/s)을 넣은 약 255MB의 세 배를 넘는다. 아카이브 비채택은 그대로다. Standby가 잠깐 끊겼을 때 필요한 WAL은 멤버 슬롯도 붙잡는다(위 `use_slots`) |
 | `idle_in_transaction_session_timeout` | 10s | 기존 값 |
 | `client_connection_check_interval` | 2s(새 값) | 클라이언트가 먼저 죽은 잠금 대기를 정리한다(2-6 I·K). 정리하지 않으면 재개 뒤 아무도 모르는 쓰기가 커밋된다 |
 | `tcp_keepalives_idle`·`interval`·`count` | 5·2·3 | 기존 값 |

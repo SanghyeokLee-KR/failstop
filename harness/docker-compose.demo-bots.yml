@@ -1,0 +1,52 @@
+# 시연 영상용 시장 봇 배치. 리플(KRW-XRP) 1분봉과 호가창이 화면에서 활발히 움직이도록 봇을 리플에 몬다
+# (2026-09-27 사용자 요청: 비트코인·이더리움 봇은 줄이고 리플에 집중).
+#
+# 기동(C:\dev\exchange, 카오스 스택이 떠 있는 상태). 봇 컨테이너만 다시 만든다:
+#   docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.demo-bots.yml \
+#     --env-file harness/.env.chaos up -d --no-deps chaos-bots
+# 되돌리기는 이 파일을 빼고 같은 명령을 다시 실행한다(application.yml 의 3마켓 기본 배치로 돌아간다).
+#
+# 봇 수는 관리 API(PUT /admin/v1/sim/scale)로 바꿀 수 없다. 봇은 별도 JVM이고 관리 평면이 큐로 넘기는 명령은
+# 시나리오와 목표 OPS 둘뿐이라(SimCommandConsumer) 마켓별 대수는 기동 설정으로만 바뀐다.
+#
+# 환경 변수로 목록(exchange.sim.markets)을 주면 application.yml 의 목록 전체를 대신하므로 세 마켓을 모두 적는다.
+# initial-price 는 봇이 처음 호가를 낼 기준가다. 지금 시세와 멀면 재기동 직후 차트가 기준가 쪽으로 튀므로
+# 다시 띄우기 직전 시세(GET /api/v1/ticker)에 가깝게 둔다. 시장 조성·체결 봇 수 0은 기본값 2로 바뀌므로 최소 1이다.
+services:
+  chaos-bots:
+    environment:
+      # 전역 주문+취소 상한(기본 10). 봇 수요가 이보다 작으면 수요만큼만 낸다.
+      # 평상시는 기본값 그대로 두고, 부하 시험 때 운영자가 콘솔 봇 관리 화면에서 한도와 국면 프리셋으로 올린다
+      EXCHANGE_SIM_TARGET_OPS: "10"
+      # 시장 조성 봇의 호가 갱신 주기(기본 3000ms, AWS 크레딧 절약값). 시연에서는 호가창이 자주 바뀌게 1.5초로 둔다
+      EXCHANGE_SIM_MARKETMAKER_REQUOTEMS: "1500"
+      EXCHANGE_SIM_MARKETS_0_SYMBOL: KRW-BTC
+      EXCHANGE_SIM_MARKETS_0_INITIALPRICE: "82508000"
+      EXCHANGE_SIM_MARKETS_0_MMCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_0_TAKERCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_0_TRENDCOUNT: "0"
+      EXCHANGE_SIM_MARKETS_0_NOISECOUNT: "0"
+      EXCHANGE_SIM_MARKETS_0_QUOTESIZE: "0.01"
+      EXCHANGE_SIM_MARKETS_0_QTYSTEP: "0.001"
+      EXCHANGE_SIM_MARKETS_0_BASEFUNDING: "100"
+      EXCHANGE_SIM_MARKETS_1_SYMBOL: KRW-ETH
+      EXCHANGE_SIM_MARKETS_1_INITIALPRICE: "4588000"
+      EXCHANGE_SIM_MARKETS_1_MMCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_1_TAKERCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_1_TRENDCOUNT: "0"
+      EXCHANGE_SIM_MARKETS_1_NOISECOUNT: "0"
+      EXCHANGE_SIM_MARKETS_1_QUOTESIZE: "0.05"
+      EXCHANGE_SIM_MARKETS_1_QTYSTEP: "0.01"
+      EXCHANGE_SIM_MARKETS_1_BASEFUNDING: "5000"
+      # 리플: 시장 조성 2, 체결 1, 추세 1, 노이즈 1(평상시). 처음에는 MEME 레짐과 체결 3·추세 2·노이즈 3, 한도 25로
+      # 띄웠으나 1분에 6%씩 움직여 사용자가 너무 빠르다고 판단했다(2026-09-27). 평상시는 기본 레짐으로 두고
+      # 부하 시험 때만 콘솔에서 올린다
+      EXCHANGE_SIM_MARKETS_2_SYMBOL: KRW-XRP
+      EXCHANGE_SIM_MARKETS_2_INITIALPRICE: "1074"
+      EXCHANGE_SIM_MARKETS_2_MMCOUNT: "2"
+      EXCHANGE_SIM_MARKETS_2_TAKERCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_2_TRENDCOUNT: "1"
+      EXCHANGE_SIM_MARKETS_2_NOISECOUNT: "1"
+      EXCHANGE_SIM_MARKETS_2_QUOTESIZE: "10"
+      EXCHANGE_SIM_MARKETS_2_QTYSTEP: "8"
+      EXCHANGE_SIM_MARKETS_2_BASEFUNDING: "10000000"

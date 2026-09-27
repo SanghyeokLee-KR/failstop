@@ -15,6 +15,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,6 +92,22 @@ class AppTierCapacityIntegrationTest {
         assertEquals(2, done.result().path("from").asInt());
         assertEquals(3, done.result().path("to").asInt());
         assertEquals(3, rig.desired());
+    }
+
+    @Test
+    void 희망_대수_이력은_감사_기록의_전후_대수를_시각_순서로_읽고_거부는_뺀다() {
+        Instant before = rig.jdbc.sql("SELECT now()").query(OffsetDateTime.class).single().toInstant();
+        rig.capacity.change(1, AiRig.SUPER, "capacity.scale_out", "시험", "req-shift-out");
+        rig.capacity.change(-1, AiRig.SUPER, "capacity.scale_in", "시험", "req-shift-in");
+        assertThrows(ApiException.class, () -> rig.capacity.change(-1, AiRig.SUPER, "capacity.scale_in", "시험",
+                "req-shift-denied"));
+
+        List<CapacityPlanService.Shift> shifts = rig.capacity.shiftsSince(before);
+
+        assertEquals(List.of(List.of(2, 3), List.of(3, 2)), shifts.stream().map(s -> List.of(s.from(), s.to())).toList(),
+                "최소 아래로 줄이려던 거부(DENIED)는 대수를 바꾸지 않았으므로 이력이 아니다");
+        assertTrue(!shifts.get(1).at().isBefore(shifts.get(0).at()));
+        assertEquals(List.of(), rig.capacity.shiftsSince(shifts.get(1).at().plusSeconds(1)));
     }
 
     @Test

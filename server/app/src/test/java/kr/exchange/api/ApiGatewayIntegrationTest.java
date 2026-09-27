@@ -642,6 +642,11 @@ class ApiGatewayIntegrationTest {
         JsonNode d1 = page1.path("data");
         assertEquals(2, d1.size());
         assertTrue(page1.path("pagination").path("has_more").asBoolean());
+        // 첫 페이지 캐시: 같은 요청을 다시 받아도 데이터와 커서가 같다. 컨트롤러가 행의 cursor_ts 를 지우므로
+        // 캐시가 행을 그대로 넘기면 두 번째 응답의 next_cursor 가 깨진다(MarketDataService.copyRows).
+        JsonNode page1Again = objectMapper.readTree(
+                rest.getForEntity("/api/v1/candles/1m?market=KRW-BTC&count=2", String.class).getBody());
+        assertEquals(page1.toString(), page1Again.toString(), "캐시된 첫 페이지도 데이터·커서가 같다");
         String cursor = page1.path("pagination").path("next_cursor").asText();
         JsonNode d2 = candlesData("/api/v1/candles/1m?market=KRW-BTC&count=2&cursor=" + cursor);
         String lastP1 = d1.get(d1.size() - 1).path("candle_time").asText();

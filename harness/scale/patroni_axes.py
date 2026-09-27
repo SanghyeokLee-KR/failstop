@@ -401,7 +401,7 @@ def common_integrity(facts):
     return out
 
 
-def failover_axes(timeline, times, observe, records, facts, new_primary_ip):
+def failover_axes(timeline, times, observe, records, facts, new_primary_ip, members=MEMBERS):
     pre, post = timeline.get('pre', {}), timeline.get('post', {})
     out = [
         upper('promote_s', diff(times['T_promote'], times['T0']), 30),
@@ -413,15 +413,20 @@ def failover_axes(timeline, times, observe, records, facts, new_primary_ip):
         equals('post_promotion_fencing_rejections', (facts.get('post_promotion') or {}).get('fencing_rejections'), 0),
         equals('post_promotion_demotions', (facts.get('post_promotion') or {}).get('demotions'), 0),
         equals('lease_acquire_expired', metric_delta(facts, 'lease_acquire_expired'), 0, note='검토 R5'),
-        confirmed_without_member_axis(records, times, new_primary_ip),
+        confirmed_without_member_axis(records, times, new_primary_ip, members),
         status_true_axis(observe, times),
+        # 범위 before_t0 는 봇을 멈추지 않은 시연 회차가 주입 10초 전까지 만든 행만 센 것이다(demo-db-failover.ps1 Get-RejoinFacts).
         equals('rejoin_nodes_consistent', (facts.get('rejoin') or {}).get('equal'), True,
-               note='E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 %s)' % (facts.get('rejoin') or {}).get('method')),
+               note='E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 %s, 범위 %s)' % (
+                   (facts.get('rejoin') or {}).get('method'), (facts.get('rejoin') or {}).get('scope') or 'all')),
     ]
     return out + common_integrity(facts)
 
 
-def judge(scenario, timeline, observe, records, verify, facts):
+def judge(scenario, timeline, observe, records, verify, facts, members=None):
+    # Patroni 멤버 이름(walsender 의 application_name). 인자 > timeline.json 의 members > 실험 스택 기본값 순이다.
+    # 시연 스택(harness/scripts/demo-db-failover.ps1)의 멤버는 db-1·db-2 다.
+    members = tuple(members or timeline.get('members') or MEMBERS)
     times = derive_times(timeline, observe, facts)
     new_primary = (timeline.get('post') or {}).get('patroni_leader')
     new_primary_ip = (timeline.get('db_ips') or {}).get(new_primary)
@@ -429,10 +434,10 @@ def judge(scenario, timeline, observe, records, verify, facts):
     ack_axes, ack_summary = ackrec_axes(timeline, times, records, verify)
     extra = {}
     if scenario in ('E-P1', 'E-P3a', 'E-P3b', 'E-P5'):
-        axes += failover_axes(timeline, times, observe, records, facts, new_primary_ip)
+        axes += failover_axes(timeline, times, observe, records, facts, new_primary_ip, members)
         axes += ack_axes
         extra['acked_between_promote_and_cluster_sync'] = confirmed_between_record(records, times)
-        extra['nonmember_walsenders'] = ar.nonmember_walsenders(records, MEMBERS, times.get('T0'), times.get('T_sync'))[:20]
+        extra['nonmember_walsenders'] = ar.nonmember_walsenders(records, members, times.get('T0'), times.get('T_sync'))[:20]
         if scenario in ('E-P3a', 'E-P3b'):
             overlap = ar.acked_overlap(records) if records else None
             axes.append(equals('two_primaries_confirmed_overlap', None if overlap is None else len(overlap['overlaps']), 0,
@@ -555,6 +560,7 @@ def main(argv=None):
     parser.add_argument('--scenario', required=True)
     parser.add_argument('--dir', required=True, help='회차 원시 폴더(timeline.json, observe.jsonl, ackrec.jsonl, ...)')
     parser.add_argument('--out', required=True)
+    parser.add_argument('--members', help='Patroni 멤버 이름을 쉼표로(기본은 timeline.json 의 members, 없으면 patroni-db-1,patroni-db-2)')
     args = parser.parse_args(argv)
     d = args.dir
     timeline = load_json(os.path.join(d, 'timeline.json'))
@@ -564,7 +570,8 @@ def main(argv=None):
     records = load_jsonl(os.path.join(d, 'ackrec.jsonl'))
     verify = load_json(os.path.join(d, 'ackrec-verify.json'))
     facts = load_json(os.path.join(d, 'facts.json'), {})
-    result = judge(args.scenario, timeline, observe, records, verify, facts)
+    members = [m.strip() for m in args.members.split(',') if m.strip()] if args.members else None
+    result = judge(args.scenario, timeline, observe, records, verify, facts, members)
     text = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=False)
     with open(args.out, 'w', encoding='utf-8') as fh:
         fh.write(text + '\n')

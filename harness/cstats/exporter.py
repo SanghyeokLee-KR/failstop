@@ -10,7 +10,14 @@ cAdvisor 를 쓰지 않는 이유는 실측이다. Docker Desktop(WSL2) 에서 c
 종류를 타지 않는다. `docker stats` 가 쓰는 것과 같은 원천이다.
 
 CPU 계산은 `docker stats` 와 같은 식이다. 델타 기반이고 코어 수를 곱한다. 곧 100 이
-1코어다. 절대값이며 컨테이너 캡 대비 비율이 아니다.
+1코어다. 절대값이며 컨테이너 캡 대비 비율이 아니다. 캡 대비 비율이 필요한 화면(로컬 MSP 03 보드)은
+container_cpu_limit_cores 로 나눈다. 부하 측정 스크립트(harness/scale)는 절대값을 그대로 쓴다.
+
+델타 창은 `docker stats` 의 1초가 아니라 이 수집기의 한 주기(쉬는 5초 + 한 바퀴)다. 도커 API 의
+stream=false 는 컨테이너마다 두 번째 표본을 1~2초 기다려, 컨테이너가 29개인 시연 스택에서 한 바퀴가
+약 60초였다. 그래서 새로 뜬 app-3 이 1분 가까이 늦게 보였고 값도 1분에 한 번 1초 창으로만 바뀌었다
+(2026-09-27 시연 녹화 8회차). 지금은 one-shot 으로 기다리지 않고 한 번 읽고, 직전 주기에 읽은 누적값과의
+차로 CPU 를 낸다. 컨테이너를 처음 본 주기(새 컨테이너, 수집기 재시작)에는 CPU 를 내지 않는다.
 """
 import json
 import socket
@@ -44,9 +51,10 @@ def _api(path):
     return json.loads(body)
 
 
-def _cpu_percent(st):
-    """docker stats 와 같은 식. 코어 수를 곱하므로 100 이 1코어다."""
-    c, p = st.get('cpu_stats', {}), st.get('precpu_stats', {})
+def _cpu_percent(st, prev):
+    """docker stats 와 같은 식. 코어 수를 곱하므로 100 이 1코어다. prev 는 같은 컨테이너의 직전 주기
+    cpu_stats 다(one-shot 응답의 precpu_stats 는 비어 있다). 없으면 값을 내지 않는다."""
+    c, p = st.get('cpu_stats', {}), prev or {}
     cu = c.get('cpu_usage', {}).get('total_usage')
     pu = p.get('cpu_usage', {}).get('total_usage')
     cs, ps = c.get('system_cpu_usage'), p.get('system_cpu_usage')
@@ -59,16 +67,44 @@ def _cpu_percent(st):
     return d_c / d_s * n * 100.0
 
 
+def _cpu_limit(info, st):
+    """컨테이너에 준 코어 수. --cpus(NanoCpus), CPU 할당량(CpuQuota/CpuPeriod), cpuset 순으로 보고,
+    상한이 없으면 컨테이너가 보는 호스트 코어 수다. container_cpu_percent 를 이 값으로 나누면 AWS 호스트
+    CPU 처럼 받은 코어 전체가 100 이 된다(2코어 DB 가 200% 로 보이지 않는다)."""
+    host = info.get('HostConfig') or {}
+    nano = host.get('NanoCpus') or 0
+    if nano > 0:
+        return nano / 1e9
+    quota, period = host.get('CpuQuota') or 0, host.get('CpuPeriod') or 0
+    if quota > 0 and period > 0:
+        return quota / period
+    cpuset = host.get('CpusetCpus') or ''
+    if cpuset:
+        count = 0
+        for part in cpuset.split(','):
+            first, _, last = part.partition('-')
+            count += int(last) - int(first) + 1 if last else 1
+        return count
+    c = st.get('cpu_stats', {})
+    return c.get('online_cpus') or len(c.get('cpu_usage', {}).get('percpu_usage') or []) or None
+
+
+_prev_cpu = {}   # 컨테이너 id → 직전 주기 cpu_stats(수집 스레드만 쓴다)
+
+
 def collect():
     rows = []
+    seen = {}
     for c in _api('/containers/json'):
         name = (c.get('Names') or ['/?'])[0].lstrip('/')
         try:
-            st = _api('/containers/%s/stats?stream=false' % c['Id'])
+            st = _api('/containers/%s/stats?stream=false&one-shot=true' % c['Id'])
+            info = _api('/containers/%s/json' % c['Id'])
         except Exception as error:
             # 일부 컨테이너를 빠뜨린 합계를 정상 사용량으로 게시하지 않는다.
             raise RuntimeError('container stats unavailable') from error
-        cpu = _cpu_percent(st)
+        cpu = _cpu_percent(st, _prev_cpu.get(c['Id']))
+        seen[c['Id']] = st.get('cpu_stats', {})
         mem = st.get('memory_stats', {})
         used = mem.get('usage')
         # cache 는 회수 가능하다. 빼지 않으면 사용량이 실제보다 크게 보인다.
@@ -81,17 +117,22 @@ def collect():
         rows.append({
             'name': name,
             'container_cpu_percent': cpu,
+            'container_cpu_limit_cores': _cpu_limit(info, st),
             'container_mem_bytes': used,
             'container_mem_limit_bytes': mem.get('limit'),
             'container_net_rx_bytes': rx,
             'container_net_tx_bytes': tx,
             'container_pids': (st.get('pids_stats') or {}).get('current'),
         })
+    # 한 바퀴를 다 읽은 뒤에만 바꾼다. 중간에 실패한 주기는 직전 누적값을 그대로 두어 다음 주기의 창이 길어질 뿐이다
+    _prev_cpu.clear()
+    _prev_cpu.update(seen)
     return rows
 
 
 HELP = {
     'container_cpu_percent': '컨테이너 CPU 사용률. 100 이 1코어다(docker stats 규약)',
+    'container_cpu_limit_cores': '컨테이너에 준 CPU 코어 수. 상한이 없으면 호스트 코어 수다',
     'container_mem_bytes': '컨테이너 메모리 사용량. inactive_file 을 뺀 값이다',
     'container_mem_limit_bytes': '컨테이너 메모리 상한',
     'container_net_rx_bytes': '수신 누적 바이트',

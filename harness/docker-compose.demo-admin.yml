@@ -1,0 +1,115 @@
+# 로컬 시연용 관리 평면 관제센터(MSP) 설정. compose.yaml의 chaos-admin에 관제 모듈 설정만 얹는다.
+#
+# 기동(저장소 루트, 카오스 스택이 떠 있는 상태):
+#   docker compose -f compose.yaml -f harness/docker-compose.demo-admin.yml --env-file harness/.env.chaos \
+#     --profile admin up -d --no-deps --wait chaos-admin
+#
+# 왜 compose.yaml을 고치지 않는가. chaos-admin은 카오스 게이트(run-s5-gate.ps1)도 띄운다. 그 실험은
+# 관제 모듈이 꺼진 관리 평면을 전제로 하므로 기본값을 바꾸지 않고 시연에서만 이 파일을 겹친다.
+#
+# AWS로 옮길 때 바뀌는 값은 환경(ENVIRONMENT), 원천 주소 둘, 조회 계층 방식(READ_CAPACITY_MODE),
+# LLM 주소와 평문 허용뿐이다. 호스트 이름(node)과 job 이름은 AWS 수집 규약
+# (deploy/linux/observability/prometheus.yml)과 같게 두어 질의가 그대로 통한다.
+services:
+  chaos-admin:
+    environment:
+      # Patroni 전환(2026-09-27, harness/scripts/demo-patroni-migrate.ps1). 관리 평면은 AWS 에서 bot-1 에 있으므로 bot-1 역할의 HAProxy
+      # (chaos-haproxy-b)로 현재 Primary 에 붙는다. 쓰기를 받는 앱 프로세스라 쓰기 가능 탐지를 켠다(Patroni 설계 4-3, 관리 평면 변경은
+      # 거래 일시 중단 동안 423). 되돌리기는 그 스크립트 머리 주석에 있다(이 두 줄과 아래 DB 호스트 두 칸).
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-haproxy-b:5000/exchange
+      # 커넥션 획득 대기(application.yml 3초)를 관리 평면만 줄인다. 관제 화면 요청 하나가 세션 원장·운영자·감사·용량 칸에서
+      # 차례로 DB 를 만나, 주 DB 가 죽은 동안 3초씩 쌓여 흐름 조회 한 번이 12초 걸렸다(2026-09-27 장애 훈련). 이 프로세스는
+      # 주문을 받지 않으므로 빨리 실패하고 마지막 원장 확인(AdminSessionService)과 DbGuard 로 넘어간다
+      SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT: "500"
+      EXCHANGE_WRITE_AVAILABILITY_ENABLED: "true"
+      EXCHANGE_MSP_ENABLED: "true"
+      # 화면 환경 배지의 원천. 서버가 짐작하지 않는다(MSP 설계 3절)
+      EXCHANGE_MSP_ENVIRONMENT: LOCAL_DOCKER
+      EXCHANGE_MSP_PROMETHEUS_URL: http://chaos-prometheus:9090
+      EXCHANGE_MSP_ALERTMANAGER_URL: http://chaos-alertmanager:9093
+      # 용량 화면의 노드 표기. 시연 앱 노드는 AWS 앱 노드와 같은 2 vCPU·2GiB 다(docker-compose.demo-obs.yml, 2026-09-27
+      # 사용자 결정). 목록을 환경 변수로 주면 application.yml(admin-chaos)의 목록 전체를 대신하므로 세 노드를 다 적는다
+      EXCHANGE_CAPACITY_NODES_0_ID: chaos-api-1
+      EXCHANGE_CAPACITY_NODES_0_AZ: ap-northeast-2a
+      EXCHANGE_CAPACITY_NODES_0_INSTANCETYPE: 2vCPU/2GiB
+      EXCHANGE_CAPACITY_NODES_0_BASEURL: http://chaos-api-1:8080
+      EXCHANGE_CAPACITY_NODES_0_ENGINE: "true"
+      EXCHANGE_CAPACITY_NODES_0_SCALABLE: "false"
+      EXCHANGE_CAPACITY_NODES_1_ID: chaos-api-2
+      EXCHANGE_CAPACITY_NODES_1_AZ: ap-northeast-2c
+      EXCHANGE_CAPACITY_NODES_1_INSTANCETYPE: 2vCPU/2GiB
+      EXCHANGE_CAPACITY_NODES_1_BASEURL: http://chaos-api-2:8080
+      EXCHANGE_CAPACITY_NODES_1_ENGINE: "true"
+      EXCHANGE_CAPACITY_NODES_1_SCALABLE: "false"
+      EXCHANGE_CAPACITY_NODES_2_ID: chaos-api-3
+      EXCHANGE_CAPACITY_NODES_2_AZ: ap-northeast-2c
+      EXCHANGE_CAPACITY_NODES_2_INSTANCETYPE: 2vCPU/2GiB
+      EXCHANGE_CAPACITY_NODES_2_BASEURL: http://chaos-api-3:8080
+      EXCHANGE_CAPACITY_NODES_2_ENGINE: "false"
+      # 로컬은 조정기(harness/asg/capacity_reconciler.py)가 희망 대수를 실현한다. AWS는 ASG_POLICY다
+      EXCHANGE_MSP_READ_CAPACITY_MODE: CAPACITY_PLAN
+      # 시뮬레이터와 같은 목표(가용성 99.5%, p95 400ms, 5xx 1%). 운영 목표값은 아직 정하지 않았다(설계 12절 5)
+      EXCHANGE_MSP_SLO_AVAILABILITY_RATIO: "0.995"
+      EXCHANGE_MSP_SLO_P95_SECONDS: "0.4"
+      EXCHANGE_MSP_SLO_ERROR_RATIO: "0.01"
+      # 호스트 카드. node 값은 Prometheus의 node 라벨과 같아야 한다(AWS와 같은 이름)
+      EXCHANGE_MSP_HOSTS_0_NODE: app-1
+      EXCHANGE_MSP_HOSTS_0_ROLE: APP
+      EXCHANGE_MSP_HOSTS_0_AZ: ap-northeast-2a
+      EXCHANGE_MSP_HOSTS_1_NODE: app-2
+      EXCHANGE_MSP_HOSTS_1_ROLE: APP
+      EXCHANGE_MSP_HOSTS_1_AZ: ap-northeast-2c
+      # Patroni 전환. DB 노드 이름은 AWS 개인 계정 계획의 호스트 이름(db-1, db-2)이다. 어느 쪽이 Primary 인지는 이름이 아니라
+      # recovery 지표(pg_wal_position_in_recovery)로 서버가 정한다(ADR 0032, MspBoard actual_role). 종전 값은 db-primary·db-standby.
+      EXCHANGE_MSP_HOSTS_2_NODE: db-1
+      EXCHANGE_MSP_HOSTS_2_ROLE: DB
+      EXCHANGE_MSP_HOSTS_2_AZ: ap-northeast-2a
+      EXCHANGE_MSP_HOSTS_3_NODE: db-2
+      EXCHANGE_MSP_HOSTS_3_ROLE: DB
+      EXCHANGE_MSP_HOSTS_3_AZ: ap-northeast-2c
+      # AI 판단·상담 모델. 이 PC의 Ollama(RTX 4090)다. DGX Spark가 오면 주소와 모델만 바꾼다.
+      # 컨테이너에서 호스트는 루프백이 아니라 사설 주소(host.docker.internal)라 평문 http는
+      # allow-insecure-http가 있어야 받고, 그때 AI는 수동 모드만 된다(자동 켜기 거부, 설계 3절)
+      # 모델은 gpt-oss:20b(12GB)다. qwen3.6:35b-a3b(21GB)는 이 PC에서 시연 스택·브라우저와 GPU 24GB를 나누면
+      # 여유가 없어 공유 메모리로 밀리고 프롬프트 처리가 초당 19토큰까지 떨어졌다(2026-09-27 실측, 판단 호출 30초 초과).
+      # gpt-oss는 think를 low·medium·high로 받는다. low에서는 선택지(희망 2대·최대 3대)를 잘못 읽고 증설을 빼는 판단이 나와(2026-09-27 녹화 2회차) medium으로 둔다
+      EXCHANGE_MSP_LLM_PROVIDER: ollama-native
+      EXCHANGE_MSP_LLM_BASE_URL: http://host.docker.internal:11434
+      EXCHANGE_MSP_LLM_MODEL: gpt-oss:20b
+      EXCHANGE_MSP_LLM_THINK: medium
+      # 상담 답은 medium 에서 약 4천 토큰(초당 약 165토큰)을 만들어 25~30초가 걸린다. 30초면 2026-09-27 녹화 9회차처럼
+      # 제한에 걸려 '시간 초과'가 나므로 설정이 받는 최대(45초, MspProperties.Llm.MAX_TIMEOUT)로 둔다
+      EXCHANGE_MSP_LLM_TIMEOUT: 45s
+      EXCHANGE_MSP_LLM_ALLOW_INSECURE_HTTP: "true"
+      # 관리 지표(임계값 레지스트리 게이지 exchange_ops_threshold·exchange_msp_*)를 AWS처럼 평문 8081로 낸다.
+      # AWS는 같은 호스트의 Prometheus가 루프백으로 읽지만 여기서는 다른 컨테이너라 컨테이너 망에만 연다(호스트 미공개)
+      MANAGEMENT_SERVER_PORT: "8081"
+      MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+      MANAGEMENT_SERVER_SSL_ENABLED: "false"
+      # 보고 서비스(호스트 9088, harness/scripts/demo-reporting-local.py). 토큰은 파일 경로로만 받는다.
+      # 보고서 링크 기점(artifact-base-url)은 https만 받으므로 로컬에서는 두지 않는다(콘솔 목록에 링크 없음)
+      EXCHANGE_MSP_REPORTING_URL: http://host.docker.internal:9088
+      EXCHANGE_MSP_REPORTING_TOKEN_FILE: /run/secrets/reporter-token
+      EXCHANGE_MSP_REPORTING_ENVIRONMENT: local-lab
+    volumes:
+      - ./harness/demo/reporting.local/reporter-token:/run/secrets/reporter-token:ro
+    # 관리 지표 포트를 따로 두면 actuator가 8081로 옮겨 가므로 상태 검사도 그쪽을 본다
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/liveness || exit 1"]
+
+  # 로컬 관리 관문. 학교 AWS 앱 Nginx와 같은 역할이다(비밀번호 로그인 → 내부 mTLS, harness/nginx/admin-gw.conf).
+  # 브라우저는 http://localhost:3000 한 출처만 보고, 웹은 호스트 3001의 개발 서버(harness/scripts/demo-web-local.cmd)다.
+  # 준비물은 harness/scripts/demo-admin-gw-init.sh 가 만든다. chaos-web(full·web 프로파일)과 3000번을 함께 쓰지 않는다.
+  chaos-admin-gw:
+    image: nginx:1.29
+    container_name: chaos-admin-gw
+    volumes:
+      - ./harness/nginx/admin-gw.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./harness/nginx/admin-gw-upstream.conf:/etc/nginx/admin-gw-upstream.conf:ro
+      - ./harness/demo/admin-gw.local:/etc/nginx/admin-gw:ro
+    ports: ["3000:8080"]
+    depends_on:
+      chaos-admin: { condition: service_healthy }
+    restart: unless-stopped
+    profiles: [admin]
+    networks: [chaos-net]

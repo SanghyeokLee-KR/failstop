@@ -1,0 +1,81 @@
+# 로컬 MSP 시연의 DB 계층 수집 잡, Patroni 판(ADR 0036: chaos-db-1·2 엄격 동기, etcd 세 표, 노드별 HAProxy).
+# harness/docker-compose.demo-patroni.yml 이 /etc/prometheus/demo-scrape/db.yml 로 마운트해 비동기 판(db-async.yml)을 대신한다.
+# 잡 이름은 비동기 판과 같고(postgres, blackbox-icmp, blackbox-tcp) Patroni 스택 전용 잡(patroni, etcd, haproxy)을 더한다.
+# 잡 이름과 지표는 실험 스택(harness/patroni/prometheus/prometheus.patroni.yml)과 같아 DB 자동 전환 보드(db-ha-patroni.json)가
+# 그대로 읽힌다.
+#
+# 라벨. node 는 AWS 개인 계정 계획의 호스트 이름이다(db-1, db-2, app-N, bot-1). postgres 잡의 role 은 MSP 화면·보고 서비스의 고객 자원
+# 범위(role=~"...data|standby...")에 들기 위한 부트스트랩 배치 라벨이다. 전환 뒤에는 실제 역할과 다를 수 있고, 화면과 관리 평면은
+# 실제 역할을 pg_wal_position_in_recovery 로 가른다(ADR 0032). patroni·etcd·haproxy 잡에는 role 을 붙이지 않는다. 고객 자원 집계
+# (수집 대상 수, 수집률)에 들어가지 않게 하려는 것이다.
+scrape_configs:
+  # 두 노드 모두 harness/prometheus/pg-queries.yaml 에 Patroni 질의 둘을 붙인 파일을 쓴다(harness/demo/patroni.local/pg-queries.yaml).
+  - job_name: postgres
+    static_configs:
+      - targets: ["chaos-db-1-exporter:9187"]
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, role: data, node: db-1 }
+      - targets: ["chaos-db-2-exporter:9187"]
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, role: standby, node: db-2 }
+
+  # Patroni REST /metrics. 역할(patroni_primary·patroni_replica), 동기 Standby, 타임라인, 복제 위치, failsafe 가 나온다.
+  - job_name: patroni
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['chaos-db-1:8008']
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, node: db-1 }
+      - targets: ['chaos-db-2:8008']
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, node: db-2 }
+
+  # etcd 는 메트릭 전용 리스너(2381)로 읽는다. 멤버마다 AWS 에서 놓일 호스트를 node 로 적는다.
+  - job_name: etcd
+    static_configs:
+      - targets: ['chaos-etcd-1:2381']
+        labels: { stack: chaos, customer: exchange, service: etcd, environment: local-lab, account: local, node: db-1 }
+      - targets: ['chaos-etcd-2:2381']
+        labels: { stack: chaos, customer: exchange, service: etcd, environment: local-lab, account: local, node: db-2 }
+      - targets: ['chaos-etcd-3:2381']
+        labels: { stack: chaos, customer: exchange, service: etcd, environment: local-lab, account: local, node: bot-1 }
+
+  # 노드별 HAProxy 사이드카의 내장 Prometheus 내보내기. pg_write 백엔드의 서버 상태가 Primary 전환을 보여 준다.
+  - job_name: haproxy
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['chaos-haproxy-1:8404']
+        labels: { stack: chaos, customer: exchange, service: haproxy, environment: local-lab, account: local, node: app-1 }
+      - targets: ['chaos-haproxy-2:8404']
+        labels: { stack: chaos, customer: exchange, service: haproxy, environment: local-lab, account: local, node: app-2 }
+      - targets: ['chaos-haproxy-3:8404']
+        labels: { stack: chaos, customer: exchange, service: haproxy, environment: local-lab, account: local, node: app-3 }
+      - targets: ['chaos-haproxy-b:8404']
+        labels: { stack: chaos, customer: exchange, service: haproxy, environment: local-lab, account: local, node: bot-1 }
+
+  # 계층 프로브(L3·L4). 비동기 판의 토식·chaos-pg 자리를 앱 노드의 HAProxy 와 두 DB 로 바꾼다. 장애 시연에서 강제로 끈 DB 는
+  # 여기서 실패로 잡힌다(ProbeL3Unreachable·ProbeL4ConnectFailed). 그것이 실제 장애의 관측이다.
+  - job_name: blackbox-icmp
+    metrics_path: /probe
+    scrape_interval: 10s
+    params:
+      module: [icmp]
+    static_configs:
+      - targets: [chaos-lb, chaos-api-1, chaos-api-2, chaos-haproxy-1, chaos-haproxy-2, chaos-db-1, chaos-db-2]
+        labels: { stack: chaos, customer: exchange, service: probe, layer: l3 }
+    relabel_configs: &probe_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: '(?:https?://)?([^:/]+).*'
+        target_label: host
+      - target_label: __address__
+        replacement: chaos-blackbox:9115
+
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    scrape_interval: 10s
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: [chaos-lb:8080, chaos-api-1:8080, chaos-api-2:8080, chaos-haproxy-1:5000, chaos-haproxy-2:5000, chaos-db-1:5432, chaos-db-2:5432]
+        labels: { stack: chaos, customer: exchange, service: probe, layer: l4 }
+    relabel_configs: *probe_relabel

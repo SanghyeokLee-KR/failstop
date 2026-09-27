@@ -1,0 +1,231 @@
+{
+  "scenario": "E-P1",
+  "run_id": "DBFAIL-20260927-090240",
+  "verdict": "INCONCLUSIVE",
+  "times": {
+    "T0": 1790499804.449,
+    "T_back": 1790499834.946,
+    "T_suspend": 1790499810.234,
+    "T_resume": 1790500411.235,
+    "T_promote": 1790499825.316,
+    "T_sync": 1790500411.889,
+    "T_down": 1790499808.243,
+    "T_reads": 1790499829.761,
+    "T5": null,
+    "T_first_trade_after_resume": null,
+    "T_sync_lost": 1790499825.316
+  },
+  "derived": {
+    "db_failover_s": 20.867,
+    "read_recovery_s": 25.312,
+    "resume_delay_s": -0.654,
+    "trade_resume_delay_s": null,
+    "suspend_detect_s": 5.785,
+    "haproxy_down_s": 3.794
+  },
+  "axes": [
+    {
+      "id": "promote_s",
+      "value": 20.867,
+      "limit": "<= 30",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "reads_after_promote_s",
+      "value": 4.445,
+      "limit": "<= 10",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "resume_after_sync_s",
+      "value": -0.654,
+      "limit": "<= 5",
+      "pass": true,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "t5_after_sync_s",
+      "value": null,
+      "limit": "<= 30",
+      "pass": null,
+      "time_axis": true,
+      "note": null
+    },
+    {
+      "id": "app_epoch_increase",
+      "value": 1,
+      "limit": "== 1",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_fencing_rejections",
+      "value": null,
+      "limit": "== 0",
+      "pass": null,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_promotion_demotions",
+      "value": null,
+      "limit": "== 0",
+      "pass": null,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "lease_acquire_expired",
+      "value": 0.0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "검토 R5"
+    },
+    {
+      "id": "confirmed_writes_before_member",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "멤버 walsender 시작 1790500404.418(승격 뒤 579.10초), 스레드별 새 Primary 시도 {1: True, 2: True, 3: True, 4: True}"
+    },
+    {
+      "id": "status_reports_suspension",
+      "value": true,
+      "limit": "true",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "rejoin_nodes_consistent",
+      "value": true,
+      "limit": "== True",
+      "pass": true,
+      "time_axis": false,
+      "note": "E-P6a: 옛 Primary 재합류 뒤 두 노드의 주요 표 건수·합(방법 rewind)"
+    },
+    {
+      "id": "post_invariants_gated",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": null
+    },
+    {
+      "id": "post_invariants_named",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "{\"C01_ASSET_CONSERVATION\": 0, \"C02_BAL_VS_LEDGER\": 0, \"C05_CMD_GAPLESS\": 0, \"C07P_DUP_ORDER_JOURNAL\": 0, \"C13A_ORDER_MATERIALIZED\": 0, \"C14_LOCKED_RESERVATION\": 0, \"C17_REPLAY_DETERMINISM\": 0, \"C31_RESERVATION_LINK\": 0}"
+    },
+    {
+      "id": "c16_rpo_records",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "C16(loadtest_acks 대조)"
+    },
+    {
+      "id": "stale_epoch_writes",
+      "value": null,
+      "limit": "== 0",
+      "pass": null,
+      "time_axis": false,
+      "note": "구 epoch 쓰기 증분"
+    },
+    {
+      "id": "order_500",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "주문 500(앱 지표·관측 쓰기·k6)"
+    },
+    {
+      "id": "ackrec_rpo",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "acked 인데 최종 Primary 에 없는 번호"
+    },
+    {
+      "id": "ackrec_failed_present",
+      "value": 0,
+      "limit": "== 0",
+      "pass": true,
+      "time_axis": false,
+      "note": "failed 로 분류했는데 있는 번호(분류 결함)"
+    }
+  ],
+  "ackrec": {
+    "pre_acked_30s": 5417,
+    "post_resume_acked_30s": 1853,
+    "last_alive": {
+      "1": 1790500421.508,
+      "2": 1790500421.508,
+      "3": 1790500421.508,
+      "4": 1790500421.508
+    },
+    "not_acked_reasons": {
+      "unknown: connection_lost: consuming input failed:": 4,
+      "failed: ERROR 25006 cannot execute INSERT in a r": 12,
+      "unknown: socket_timeout": 24
+    },
+    "verify": {
+      "acked": 10480,
+      "failed": 12,
+      "failed_present": [],
+      "failed_present_count": 0,
+      "interleaved": {
+        "returned_to": [],
+        "server_order": [
+          "172.18.0.24/32",
+          "172.18.0.25/32"
+        ]
+      },
+      "missing": [],
+      "missing_count": 0,
+      "never_attempted_present": [],
+      "overlap": {
+        "overlaps": [],
+        "spans": {
+          "172.18.0.24/32": [
+            1790499762.336,
+            1790499804.496
+          ],
+          "172.18.0.25/32": [
+            1790500404.425,
+            1790500422.117
+          ]
+        }
+      },
+      "pass": true,
+      "present": 10505,
+      "server": "172.18.0.25/32",
+      "unknown": 28,
+      "unknown_present": 25
+    },
+    "vacuous": []
+  },
+  "invalid": {
+    "time_axes_invalid": false,
+    "reasons": [],
+    "unknown_sources": []
+  },
+  "extra": {
+    "acked_between_promote_and_cluster_sync": 1321,
+    "nonmember_walsenders": []
+  }
+}

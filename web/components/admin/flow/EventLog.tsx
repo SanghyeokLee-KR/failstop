@@ -87,7 +87,7 @@ export default function EventLog({ events, origin, visible = true }: EventLogPro
           본문 스크롤 높이를 늘린다. 한 화면에 맞춘 서비스 흐름에서 세로 스크롤이 생기던 이유다 */}
       <div className="sr-only">
         <table>
-          <caption>재생 사건 · 최근 {MAX_TABLE_ROWS}건</caption>
+          <caption>사건 · 최근 {MAX_TABLE_ROWS}건</caption>
           <thead>
             <tr>
               <th scope="col">시각</th>

@@ -1,0 +1,42 @@
+# 로컬 MSP 시연의 DB 계층 수집 잡, 비동기 판(ADR 0024: chaos-pg 한 대 + 비동기 대기 DB chaos-pg-standby).
+# harness/docker-compose.demo-obs.yml 이 /etc/prometheus/demo-scrape/db.yml 로 마운트하고 prometheus.demo.yml 의
+# scrape_config_files 가 읽는다. Patroni 판(db-patroni.yml)을 겹치면 같은 경로를 덮어 이 파일은 읽히지 않는다.
+# 잡과 라벨은 2026-09-27 까지 prometheus.demo.yml 에 있던 것을 그대로 옮겼다.
+scrape_configs:
+  # 두 exporter 모두 harness/prometheus/pg-queries.yaml(학교 AWS 와 같은 파일)을 적용한다.
+  # 역할(role)은 배치 라벨이다. 실제 Primary·Standby 판정은 화면이 pg_wal_position_in_recovery 로 한다.
+  - job_name: postgres
+    static_configs:
+      - targets: ["chaos-pg-exporter:9187"]
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, role: data, node: db-primary }
+      - targets: ["chaos-pg-standby-exporter:9187"]
+        labels: { stack: chaos, customer: exchange, service: db, environment: local-lab, account: local, role: standby, node: db-standby }
+
+  - job_name: blackbox-icmp
+    metrics_path: /probe
+    scrape_interval: 10s
+    params:
+      module: [icmp]
+    static_configs:
+      - targets: [chaos-lb, chaos-api-1, chaos-api-2, chaos-toxiproxy, chaos-pg]
+        labels: { stack: chaos, customer: exchange, service: probe, layer: l3 }
+    relabel_configs: &probe_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: '(?:https?://)?([^:/]+).*'
+        target_label: host
+      - target_label: __address__
+        replacement: chaos-blackbox:9115
+
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    scrape_interval: 10s
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: [chaos-lb:8080, chaos-api-1:8080, chaos-api-2:8080, chaos-toxiproxy:15432, chaos-toxiproxy:25432, chaos-pg:5432]
+        labels: { stack: chaos, customer: exchange, service: probe, layer: l4 }
+    relabel_configs: *probe_relabel

@@ -21,7 +21,7 @@ import { MeterRail } from "../instruments/MeterRail";
 import { Modal } from "../layer/Layer";
 import StatusShape, { GLYPH_SHAPE } from "../StatusShape";
 import { Segmented, SimMark, StateChip } from "../ui";
-import { HOST_KIND } from "../control/Infra";
+import { hostKind } from "../control/Infra";
 import { Ago, GaugeRow, SEVERITY_SHAPE, useClock } from "../control/parts";
 import { EventRow } from "../control/Timeline";
 import controlStyles from "../control/control.module.css";
@@ -53,7 +53,7 @@ function stateOf(ref: NodeRef, reg: ThresholdRegistry | null, tierHot: boolean):
 function roleLine(ref: NodeRef): string {
   if (ref.kind === "host") {
     const part = ref.host.partition ? ` · ${ref.host.partition.id}` : "";
-    return `${HOST_KIND[ref.host.role]}${part}`;
+    return `${hostKind(ref.host)}${part}`;
   }
   if (ref.kind === "read") return "Spring Boot · 조회 전용 · 앱 계층 Auto Scaling(0~1대)";
   return `${ref.server.hardware} · 로컬 LLM(${ref.server.runtime}) · 온프레미스`;
@@ -311,7 +311,7 @@ export default function NodeDetail({ center, id, sim, onMove, onClose, onOpenInc
                 )}
                 <dt>규격 · AZ</dt>
                 <dd className="num">
-                  {node.kind === "host" ? `${node.host.instanceType} · ${node.host.az}` : node.kind === "read" ? `${node.node.instanceType} · ${node.node.az}` : `${node.server.hardware} · 연구소`}
+                  {node.kind === "host" ? `${node.host.instanceType} · ${node.host.az}` : node.kind === "read" ? `${node.node.instanceType} · ${node.node.az}` : `${node.server.hardware} · 온프레미스`}
                 </dd>
                 <dt>수집</dt>
                 <dd className="num">

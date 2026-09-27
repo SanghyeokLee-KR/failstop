@@ -15,6 +15,30 @@ LABELS = {"immediate": "즉시 대응 필요", "scheduled": "담당자 조치 �
 RANK = {"immediate": 1, "scheduled": 2, "verify": 3, "monitor": 4}
 # 이 권고는 보고 서비스가 실행하지 않는다는 뜻이다. 관제센터의 자동 조치 수는 보고마다 따로 센다(presentation.automation_label).
 POLICY_NOTE = "수집 시점의 권고 기준 · 담당 역할·착수 시점은 SLA나 작업 배정이 아님 · 보고 서비스는 조치를 실행하지 않음"
+# 경보 이름의 한국어 표기. 카드·보고서 제목(presentation)과 권고 항목의 대상 이름이 같은 표를 쓴다.
+# 표에 없는 경보는 '운영 경보'로 적는다
+ALERT_NAMES = {
+    "DatabaseBackupUnknownOrStale": "최근 DB 백업 확인 경보",
+    "LinuxDiskSpaceLow": "디스크 여유 공간 부족",
+    "LinuxInodesLow": "파일 생성 여유 부족",
+    "LinuxServiceFailed": "Linux 서비스 실패",
+    "LinuxHostUnreachable": "Linux 호스트 수집 중단",
+    "LinuxCollectorFailed": "Linux 지표 일부 수집 실패",
+    "LinuxLogCollectionStale": "호스트 운영 기록 수집 지연",
+    "LinuxTargetsMissing": "Linux 수집 대상 미등록",
+    "DatabaseReplicationUnknown": "DB 복제 상태 미확인",
+    "DatabaseExporterUnavailable": "DB 수집 경로 장애",
+    "DatabaseConnectionFailed": "DB 접속 장애",
+    "DatabaseMetricsMissing": "DB 지표 일부 누락",
+    "SpringMetricsUnavailable": "Spring 서비스 수집 중단",
+    "OperationsDailyReportMissing": "일일 보고 전달 지연",
+    "OperationsReportDeliveryFailed": "운영 보고 전달 실패",
+    "OperationsIntegrationCheck": "운영 보고 연결 시험",
+    "TradeSilence": "거래 발생 없음",
+    # 관제센터 부하 경보(harness/prometheus/demo-rules/load-alerts.yml). 관리 콘솔 시뮬레이터와 같은 이름이다
+    "AppTierCpuHigh": "앱 계층 CPU 높음",
+    "ServiceLatencyHigh": "응답 지연 증가",
+}
 
 
 def database_role(labels):
@@ -189,7 +213,7 @@ def assess(report, now=None):
                     subject + " 대상과 실제 요청 경로 점검", "경보 조건 해소와 대상·요청 경로 재확인", [fact_id])
             elif name not in storage_findings:
                 code = "verify" if any(word in name for word in ("Missing", "Unknown", "Stale", "Collector")) else "scheduled"
-                subject = database_alert_name(name, labels) or "운영 경보"
+                subject = database_alert_name(name, labels) or ALERT_NAMES.get(name, "운영 경보")
                 add(code, subject + " 발생", "해당 서비스 운영 담당", "금일 점검 권고",
                     "경보 발생 조건·대상·최근 변경 확인", "경보 상태 재확인과 미확인 항목 보완", [fact_id])
 

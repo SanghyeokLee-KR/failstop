@@ -20,6 +20,9 @@
  * 비고는 Docker 대역의 사실(앱 지표 미수집, 재생 제외) 대신 관제 판에서 읽히는 다음 볼 것을 적는다. 같은 줄의 CPU 가
  * 관제 판의 값인데 비고가 Docker 대역을 말하면 한 줄이 두 세계를 말한다. 컨테이너와 포트 열은 역할을 맡을
  * 로컬 컨테이너의 대응표라 두 모드에서 같다.
+ *
+ * 실측 모드(state.measured)는 포트 열 대신 초당 건수 열을 둔다. 앱 노드는 받은 요청, DB 는 커밋, 봇은 주문·취소, 부하는
+ * 조회 경로 요청이다. CPU 는 앱 노드만 읽고, DB 컨테이너 대응은 구성이 바뀌는 중이라 미확인으로 적는다.
  */
 
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -39,6 +42,7 @@ import {
   type NodeState,
   type NodeView,
 } from "@/lib/admin/flowSim";
+import { measuredNote, nodeTotal, rateText, tierRates } from "@/lib/admin/flowMeasured";
 import StatusShape, { type StatusShapeKind } from "../StatusShape";
 import { StateChip, type ChipTone } from "../ui";
 import { FlowIcon, type FlowIconName } from "./FlowIcon";
@@ -108,6 +112,8 @@ const STATE_WORD: Record<NodeState, string> = {
   transition: "전환 중",
   absent: "미구축",
 };
+/** 실측 모드의 점선 원은 짓지 않은 자리가 아니라 값을 받지 못한 칸이라 미수집이다(구성도와 같은 말) */
+const stateWord = (st: NodeState, measured: boolean) => (measured && st === "absent" ? "미수집" : STATE_WORD[st]);
 
 /* CPU 열에서 컨테이너가 아닌 줄. 컨테이너 CPU 는 chaos-cstats 가 재므로 호스트 프로세스와 이 대역에
    없는 구성 요소(CloudFront)에는 잴 대상 자체가 없다 */
@@ -154,7 +160,7 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
       label: "컨테이너",
       width: "minmax(0, 1.15fr)",
       align: "left",
-      render: (r) => <ContainerCell value={viewOf(r.id).container} />,
+      render: (r) => <ContainerCell value={viewOf(r.id).container} missing={state.measured ? "미확인" : "없음"} />,
     },
     {
       key: "role",
@@ -176,20 +182,32 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
         const detail = statusDetail(state, r.id, v);
         return (
           <span className={styles.statusCell} title={detail ?? undefined}>
-            <NodeStateChip state={v.state} />
+            <NodeStateChip state={v.state} measured={state.measured !== null} />
             {detail !== null && <span className={styles.statusDetail}>{detail}</span>}
           </span>
         );
       },
     },
-    {
-      key: "port",
-      label: "포트",
-      // 수치 두 열은 가장 긴 값(:58080, 재생 제외)에 맞춘 폭이다. 남는 폭은 이름 칸의 트리 들임에 준다
-      width: "56px",
-      align: "right",
-      render: (r) => <span className={r.port === "없음" ? styles.instDim : "num"}>{r.port}</span>,
-    },
+    state.measured
+      ? {
+          key: "rate",
+          label: "초당 건수",
+          width: "64px",
+          align: "right",
+          render: (r) => {
+            const v = measuredRate(state, r.id);
+            if (v === undefined) return <span className={styles.instDim}>없음</span>;
+            return v === null ? <span className={styles.instDim}>미수집</span> : <span className="num">{rateText(v)}</span>;
+          },
+        }
+      : {
+          key: "port",
+          label: "포트",
+          // 수치 두 열은 가장 긴 값(:58080, 재생 제외)에 맞춘 폭이다. 남는 폭은 이름 칸의 트리 들임에 준다
+          width: "56px",
+          align: "right",
+          render: (r) => <span className={r.port === "없음" ? styles.instDim : "num"}>{r.port}</span>,
+        },
     {
       key: "cpu",
       label: "CPU",
@@ -200,6 +218,15 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
           return (
             <span className={styles.instDim} title="컨테이너 아님 · chaos-cstats 수집 대상 밖">
               없음
+            </span>
+          );
+        }
+        // 실측 모드는 앱 노드의 프로세스 CPU 만 읽는다
+        if (state.measured && !isApp(r.id)) {
+          return (
+            <span className={styles.instDim} title="이 화면은 앱 노드 CPU만 읽습니다">
+              <span aria-hidden="true"><StatusShape kind="dashed" /> </span>
+              미수집
             </span>
           );
         }
@@ -271,11 +298,11 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
 }
 
 /** 상태 칸. 칩은 관리 콘솔 한 벌이고, 감싼 칸의 data-state 는 미구축 줄의 이름 잉크를 내리는 표지다 */
-function NodeStateChip({ state }: { state: NodeState }) {
+function NodeStateChip({ state, measured }: { state: NodeState; measured: boolean }) {
   const chip = STATE_CHIP[state];
   return (
     <span className={styles.stateCell} data-state={state}>
-      <StateChip tone={chip.tone} shape={chip.shape} label={STATE_WORD[state]} />
+      <StateChip tone={chip.tone} shape={chip.shape} label={stateWord(state, measured)} />
     </span>
   );
 }
@@ -287,8 +314,8 @@ function NodeStateChip({ state }: { state: NodeState }) {
  * 자르지 않기 위해서다. 덧말을 맨 글자로 둘째 줄에 두면 11px 한글의 가로획(ㅗ, ㅡ)이 한 줄로 이어져
  * 밑줄 친 링크처럼 읽혔다
  */
-function ContainerCell({ value }: { value: string | null }) {
-  if (value === null) return <span className={styles.instDim}>없음</span>;
+function ContainerCell({ value, missing }: { value: string | null; missing: string }) {
+  if (value === null) return <span className={styles.instDim}>{missing}</span>;
   const parts = value.split(" · ");
   const ids = parts.filter((p) => /^[\x21-\x7e]+$/.test(p));
   const quals = parts.filter((p) => !/^[\x21-\x7e]+$/.test(p));
@@ -311,6 +338,33 @@ function ContainerCell({ value }: { value: string | null }) {
 }
 
 /**
+ * 실측 모드의 초당 건수 열. 앱 노드는 받은 요청, DB 는 커밋, 봇은 주문·취소, 부하는 조회 경로 요청이다. 셀 건수가 없는 줄
+ * (CloudFront, Auto Scaling, 관측)은 undefined 이고, 셀 건수는 있는데 값을 못 읽었으면 null 이다
+ */
+function measuredRate(s: FlowState, id: RowId): number | null | undefined {
+  const m = s.measured;
+  if (m === null) return undefined;
+  const rates = tierRates(m);
+  switch (id) {
+    case "api1":
+    case "api2":
+    case "app3":
+      return nodeTotal(m.apps[id]);
+    case "alb":
+      return rates.total;
+    case "pg1":
+    case "pg2":
+      return m.dbs[id].xact;
+    case "bot":
+      return m.orders;
+    case "load":
+      return rates.sent;
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Auto Scaling 그룹 줄의 값. 그룹은 켜지고 꺼지는 노드가 아니라 목표 대수를 맞추는 묶음이라 상태는
  * 실행과 전환 중 둘뿐이다. 역할 칸에는 그룹이 움직이는 app-3 과 앱 계층의 하한·상한을 적는다
  */
@@ -330,7 +384,7 @@ function groupView(a: AsgView): RowView {
  */
 function statusDetail(s: FlowState, id: RowId, view: RowView): string | null {
   if (isApp(id) && s.apps[id].status === "running" && view.state === "running") return null;
-  const word = STATE_WORD[view.state];
+  const word = stateWord(view.state, s.measured !== null);
   const rest = view.status.split(" · ").filter((seg) => seg !== word && seg !== `${word} 중`);
   return rest.length > 0 ? rest.join(" · ") : null;
 }
@@ -373,6 +427,7 @@ function liveNote(s: FlowState, id: RowId): string | null {
 
 /** 비고 열. 지금 상태에서 운영자가 다음에 볼 것, 또는 이 대역의 한계를 한 줄로 적는다 */
 function noteText(s: FlowState, id: RowId, asg: AsgView): string {
+  if (s.measured) return measuredNote(s, id);
   const live = s.live ? liveNote(s, id) : null;
   if (live !== null) return live;
   switch (id) {

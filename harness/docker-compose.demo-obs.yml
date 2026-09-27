@@ -1,0 +1,218 @@
+# 로컬 MSP 관제 시연 오버레이. 카오스 스택에 학교 AWS 와 같은 MSP 대시보드 7개와 그 수집 경로를 얹는다.
+#
+# 기동은 harness/scripts/demo-obs-up.ps1 한 곳에서 한다. 직접 부를 때는 이 파일을 반드시 두 번째 -f 로 둔다.
+# 상대 경로는 첫 파일(harness/docker-compose.chaos.yml)의 폴더 기준이다.
+#   docker compose -p exchange-chaos -f harness/docker-compose.chaos.yml -f harness/docker-compose.demo-obs.yml \
+#     --env-file harness/.env.chaos --env-file harness/demo/obs.local/obs.env --profile obs up -d --wait
+# obs.env 는 복제·감시 계정의 로컬 전용 비밀번호 파일이다. demo-obs-up.ps1 이 없으면 무작위 값으로 만들고
+# 값을 출력하지 않는다(*.local 이라 Git 이 무시한다).
+#
+# 왜 오버레이인가. 기본 chaos 파일은 카오스 실험 9종의 권위 토폴로지다. 대기 DB 와 수집기를 기본 파일에 넣으면
+# 그 실험들이 다른 스택을 보게 된다. 이 파일을 빼고 기본 파일만으로 다시 올리면 종전 구성으로 돌아간다.
+# 단, DB 쪽 준비(pg_stat_statements 사전 로드, failstop_monitor·repl 계정, 복제 pg_hba 한 줄, 복제 슬롯)는
+# chaos-pgdata 볼륨 안의 PostgreSQL 설정이라 오버레이를 빼도 남는다. 되돌리는 절차는 demo-obs-up.ps1 머리 주석에 있다.
+#
+# 관리 평면(chaos-admin·chaos-admin-gw)은 compose.yaml + docker-compose.demo-admin.yml 이 --no-deps 로 따로 띄운다.
+# 그 명령에서 --no-deps 를 빼면 compose 가 의존 서비스(chaos-api-1 등)를 이 오버레이가 없는 설정으로 다시 만든다.
+services:
+  # 응답 시간 P95 패널과 exchange:msp_http_p95:seconds5m 규칙은 http.server.requests 히스토그램 버킷이 있어야 한다.
+  # dev 프로파일은 요약(summary)만 내므로 AWS 앱 노드(deploy/compose.node-app.yml)와 같은 값을 준다. 동작은 바꾸지 않는다.
+  # relay 오버레이도 SPRING_APPLICATION_JSON 을 쓴다. 둘을 함께 겹치면 뒤의 파일 값만 남는다.
+  # 앱 노드 크기는 AWS 앱 노드(t3.small, 2 vCPU·2GiB)와 같게 둔다(2026-09-27 사용자 결정). 기본 카오스 설정의 1 vCPU·1GiB 는
+  # 카오스 게이트 실험의 기준이라 그대로 두고 시연에서만 덮는다. 1 vCPU 에서는 CFS 스로틀(측정 구간의 약 9.5%) 동안 요청이
+  # 조회 동시 한도(노드당 12)를 넘게 쌓여, 조회 부하를 올려도 CPU 가 약 40%에서 멈추고 429 만 늘었다(18:46~18:56 k6 실측)
+  chaos-api-1:
+    deploy: { resources: { limits: { memory: 2g, cpus: "2.0" } } }
+    environment:
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
+  chaos-api-2:
+    deploy: { resources: { limits: { memory: 2g, cpus: "2.0" } } }
+    environment:
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
+  chaos-api-3:
+    deploy: { resources: { limits: { memory: 2g, cpus: "2.0" } } }
+    environment:
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
+
+  # 기본 설정의 상위 집합(prometheus.demo.yml)으로 바꾼다. 같은 컨테이너 경로를 덮으므로 기본 마운트를 대신한다.
+  # demo-rules/ 는 시연 부하 경보(AppTierCpuHigh·ServiceLatencyHigh)다. 카오스 실험 규칙(rules/)과 섞지 않는다.
+  # --web.enable-lifecycle 은 설정을 고친 뒤 재생성 없이 POST /-/reload 로 다시 읽게 하려는 것이다.
+  # Alertmanager(chaos-alertmanager)의 수신 경로는 이 파일이 아니라 docker-compose.demo-report.yml 이 바꾼다.
+  # DB 계층 수집 잡은 demo-scrape/db.yml 자리에서 읽는다. 여기서는 비동기 판을 두고, docker-compose.demo-patroni.yml 을 겹치면
+  # 같은 경로에 Patroni 판이 들어간다(prometheus.demo.yml 머리 주석).
+  # demo-sd 는 조정기(capacity_reconciler.py --sd-file)가 쓰는 조회 노드 대상 파일 폴더다. 파일 하나가 아니라 폴더를 마운트한다.
+  # 조정기는 새 파일로 바꿔 쓰는데(이름 바꾸기) 파일 하나를 마운트하면 컨테이너가 옛 파일을 계속 본다. demo-obs-up.ps1 이 만든다.
+  chaos-prometheus:
+    volumes:
+      - ./prometheus/prometheus.demo.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/demo-rules:/etc/prometheus/demo-rules:ro
+      - ./prometheus/demo-scrape/db-async.yml:/etc/prometheus/demo-scrape/db.yml:ro
+      - ./demo/prometheus-sd.local:/etc/prometheus/demo-sd:ro
+    command: ["--storage.tsdb.retention.time=2h", "--config.file=/etc/prometheus/prometheus.yml", "--web.enable-lifecycle"]
+
+  # MSP 화면 7개를 'MSP 운영' 폴더로 읽는다(학교 AWS 의 grafana-msp-dashboards.yml 과 같은 폴더 이름).
+  # 옛 복사본 dashboards/10~15 는 생성기(deploy/observability/tests/build-msp-dashboards.py)의 산출물이고 다른
+  # 곳(deploy/compose.node-observability.yml 등)이 참조하므로 지우지 않는다. 같은 uid 가 두 번 올라오지 않게
+  # 증명 대시보드만 파일 단위로 마운트한다. dashboards/ 에 증명 대시보드를 더하면 여기에도 한 줄 더한다.
+  # demo-obs-up.ps1 이 빠진 파일을 확인한다.
+  chaos-grafana:
+    volumes: !override
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning-msp/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards/01-integrity.json:/var/lib/grafana/dashboards/01-integrity.json:ro
+      - ./grafana/dashboards/02-recovery.json:/var/lib/grafana/dashboards/02-recovery.json:ro
+      - ./grafana/dashboards/03-load-slo.json:/var/lib/grafana/dashboards/03-load-slo.json:ro
+      - ./grafana/dashboards/04-system.json:/var/lib/grafana/dashboards/04-system.json:ro
+      - ./grafana/dashboards/05-ops.json:/var/lib/grafana/dashboards/05-ops.json:ro
+      - ./grafana/dashboards/db-ha-patroni.json:/var/lib/grafana/dashboards/db-ha-patroni.json:ro
+      - ./grafana/dashboards-msp:/var/lib/grafana/dashboards-msp:ro
+
+  # primary exporter 를 감시 전용 계정으로 바꾼다. 학교 AWS 와 같은 failstop_monitor(pg_monitor, 읽기 전용)다.
+  # 앱과 같은 exchange 계정으로 읽으면 SQL·세션 통계의 '수집 계정 제외'가 수집기 자신의 SQL 을 빼지 못한다.
+  # 계정은 demo-obs-up.ps1 이 deploy/observability/provision-monitor.sql 로 만든다.
+  chaos-pg-exporter:
+    environment: !override
+      DATA_SOURCE_URI: "chaos-pg:5432/exchange?sslmode=disable"
+      DATA_SOURCE_USER: failstop_monitor
+      DATA_SOURCE_PASS: ${DEMO_MONITOR_PASSWORD:-}
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/pg-queries.yaml
+
+  # 비동기 스트리밍 대기 DB(db-standby). 학교 AWS 와 같이 synchronous_standby_names 를 쓰지 않는다.
+  # 초기화는 AWS 대기 노드와 같은 deploy/pg-standby-entrypoint.sh 다. PGDATA 가 비었을 때만 복제 슬롯
+  # db_standby 로 베이스백업을 받고, 이후 기동은 받은 WAL 을 이어 재생한다. 슬롯·계정·pg_hba 는 demo-obs-up.ps1 이 먼저 만든다.
+  # cluster_name 은 primary 의 pg_stat_replication.application_name 이 되어 화면 범례에 db-standby 로 나온다.
+  # hot_standby_feedback 은 대기 DB 에서 도는 백업(pg_dump)이 재생 충돌로 취소되지 않게 한다.
+  # max_connections 는 primary(200)보다 작으면 대기 DB 가 뜨지 않는다.
+  # 두 DB의 크기를 학교 AWS(t3.small, 2 vCPU·2GiB)와 같게 묶는다(2026-09-27 사용자 결정). 제한이 없으면 조회 부하에서
+  # chaos-pg가 이 PC의 16코어 가운데 평균 9.7코어·최대 14.8코어를 써서(같은 날 리허설 실측), AWS의 2코어 DB에서 생길 병목이
+  # 가려진다. 기본 compose를 고치지 않고 시연 오버레이에서만 겹친다. 적용된 뒤 처음 up하면 chaos-pg가 한 번 다시 만들어진다.
+  chaos-pg:
+    cpus: 2
+    mem_limit: 2g
+    memswap_limit: 2g
+
+  chaos-pg-standby:
+    cpus: 2
+    mem_limit: 2g
+    memswap_limit: 2g
+    image: postgres:17-alpine
+    container_name: chaos-pg-standby
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: chaos-pg
+      PRIMARY_PORT: "5432"
+      REPL_USER: repl
+      REPL_PASSWORD: ${DEMO_REPL_PASSWORD:-}
+      REPL_SLOT: db_standby
+    entrypoint: ["/bin/sh", "/usr/local/bin/pg-standby-entrypoint.sh"]
+    command:
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "compute_query_id=auto"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "pg_stat_statements.track_utility=off"
+      - "-c"
+      - "cluster_name=db-standby"
+      - "-c"
+      - "hot_standby_feedback=on"
+    volumes:
+      - ../deploy/pg-standby-entrypoint.sh:/usr/local/bin/pg-standby-entrypoint.sh:ro
+      - chaos-pgstandby-data:/var/lib/postgresql/data
+    shm_size: 256m
+    depends_on:
+      chaos-pg: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CHAOS_PG_USER:-exchange} -d ${CHAOS_PG_DB:-exchange}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 180s
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+  chaos-pg-standby-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: chaos-pg-standby-exporter
+    environment:
+      DATA_SOURCE_URI: "chaos-pg-standby:5432/exchange?sslmode=disable"
+      DATA_SOURCE_USER: failstop_monitor
+      DATA_SOURCE_PASS: ${DEMO_MONITOR_PASSWORD:-}
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/pg-queries.yaml
+    volumes:
+      - ./prometheus/pg-queries.yaml:/etc/pg-queries.yaml:ro
+    depends_on:
+      chaos-pg-standby: { condition: service_healthy }
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+  # Docker 호스트(Docker Desktop VM) 한 대의 node_exporter. 학교 AWS 와 같은 v1.10.2 다.
+  # pid: host 와 / 읽기 전용 마운트로 VM 의 CPU·메모리·디스크 통계와 마운트 표를 읽는다. 컨테이너들의 데이터는
+  # VM 의 /var/lib(ext4) 한 디스크에 있다. Docker Desktop 은 / 를 공유 전파로 올리지 않아 rslave 를 쓸 수 없다.
+  # 네트워크 수집기(netdev·netstat·sockstat)는 끈다. 이 컨테이너의 망 이름공간 값이라 호스트 값이 아니다.
+  # systemd 수집기도 끈다. VM 에 systemd 가 없다. textfile 은 백업 작업(chaos-db-backup)이 쓰는 결과 지표다.
+  chaos-node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.10.2
+    container_name: chaos-node-exporter
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.filesystem
+      - --collector.diskstats
+      - --collector.loadavg
+      - --collector.stat
+      - --collector.time
+      - --collector.uname
+      - --collector.vmstat
+      - --collector.filefd
+      - --collector.pressure
+      - --collector.textfile
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|mnt|tmp|parent-distro|usr/lib/wsl|usr/lib/modules|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tracefs|tmpfs|9p)$
+    volumes:
+      - /:/host:ro
+      - chaos-demo-textfile:/textfile:ro
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+  # 실제 백업. 대기 DB 에서 exchange DB 를 pg_dump 로 받고 pg_restore --list 로 목차를 확인한 뒤에만 성공으로 친다.
+  # 성공 시각은 완료한 백업의 기록에서 읽어 node_exporter textfile 로 낸다. 백업하지 않은 시각을 쓰지 않는다.
+  # 학교 AWS 의 db-backup.py 는 물리 베이스백업과 pg_verifybackup 까지 하므로 last_verify_success 를 낸다. 이 작업은
+  # 논리 덤프라 그 지표를 내지 않는다. 절차는 harness/scripts/demo-db-backup.sh 머리 주석에 있다.
+  chaos-db-backup:
+    image: postgres:17-alpine
+    container_name: chaos-db-backup
+    entrypoint: ["/bin/sh", "/opt/demo/demo-db-backup.sh"]
+    environment:
+      PGHOST: chaos-pg-standby
+      PGPORT: "5432"
+      PGUSER: ${CHAOS_PG_USER:-exchange}
+      PGPASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+      PGDATABASE: ${CHAOS_PG_DB:-exchange}
+      BACKUP_INTERVAL_SECONDS: ${DEMO_BACKUP_INTERVAL_SECONDS:-21600}
+      BACKUP_KEEP: "2"
+    volumes:
+      - ./scripts/demo-db-backup.sh:/opt/demo/demo-db-backup.sh:ro
+      - chaos-demo-backups:/backups
+      - chaos-demo-textfile:/textfile
+    depends_on:
+      chaos-pg-standby: { condition: service_healthy }
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+volumes:
+  chaos-pgstandby-data:
+  chaos-demo-textfile:
+  chaos-demo-backups:

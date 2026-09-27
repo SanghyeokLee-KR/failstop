@@ -18,6 +18,12 @@ STATUS_MAPPING = [
         "match": "null+nan", "result": {"text": "미수집", "color": GRAY},
     }},
 ]
+# msp_queries.Q["replication_mode"] 의 값. 이 프로젝트의 동기 구성은 Patroni 엄격 동기(ADR 0036,
+# synchronous_mode_strict)뿐이라 동기를 '엄격 동기 복제'로 적는다. 엄격 여부 자체는 지표가 아니라 설정으로 확인한다
+REPLICATION_MODE_MAPPING = {"type": "value", "options": {
+    "2": {"text": "엄격 동기 복제"},
+    "1": {"text": "비동기 복제"},
+}}
 
 
 def _placement(left, top, width, height):
@@ -174,8 +180,10 @@ def db_replication_panel(expressions, *, x=0, y=0, w=12, h=6, id=None):
                     _text(field + "-value", "미수집", detail_left, 80, width, 13, field=field, size=14),
                 ])
     elements.extend([
-        _text("replication-title", "비동기 복제", 34, 3 if compact else 9, 32,
-              25 if compact else 13, size=12 if compact else 13),
+        # 복제 방식은 sync_state 실측이다. 식이 없거나 계열이 없으면 고정 문구(미수집)가 남는다
+        _text("replication-title", "복제 방식 미수집", 34, 3 if compact else 9, 32,
+              25 if compact else 13, size=12 if compact else 13,
+              field="replication_mode" if expressions.get("replication_mode") else None),
         _text("replication-state", "미수집", 34, 32 if compact else 25, 32,
               25 if compact else 13, field="replication", size=12 if compact else 13),
     ])
@@ -190,13 +198,20 @@ def db_replication_panel(expressions, *, x=0, y=0, w=12, h=6, id=None):
             _text("wal-gap-value", "미수집", 34, 80, 32, 13, field="wal_gap", size=15),
         ])
     keys = ["primary", "standby", "replication", "wal_gap", "primary_connections",
-            "standby_connections", "primary_utilization", "standby_utilization"]
+            "standby_connections", "primary_utilization", "standby_utilization", "replication_mode"]
     queries = {key: expressions[key] for key in keys if expressions.get(key)}
     panel = _panel("DB 복제 구성 · 현재 역할", queries, elements, x, y, w, h, id,
-                   "Primary/Standby는 in_recovery 실측으로 선택. 복제 상태와 WAL 거리는 별도 지표. "
-                   "자료 부재는 미수집이며 복제 정상 또는 무손실 판정 제외. 자동 승격 미적용.")
+                   "Primary/Standby는 in_recovery 실측으로 선택. 복제 방식(동기·비동기)은 sync_state 실측이고, "
+                   "동기는 Patroni 엄격 동기(ADR 0036)로 표기. 복제 상태와 WAL 거리는 별도 지표. "
+                   "자료 부재는 미수집이며 복제 정상 또는 무손실 판정 제외.")
     query_refs = {target["legendFormat"]: target["refId"] for target in panel["targets"]}
-    for key in keys[3:]:
+    if "replication_mode" in query_refs:
+        panel["fieldConfig"]["overrides"].append({
+            "matcher": {"id": "byFrameRefID", "options": query_refs["replication_mode"]}, "properties": [
+                {"id": "mappings", "value": [deepcopy(REPLICATION_MODE_MAPPING)]},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "text"}},
+            ]})
+    for key in keys[3:-1]:
         if not expressions.get(key):
             continue
         unit = "bytes" if key == "wal_gap" else "percent" if key.endswith("_utilization") else (

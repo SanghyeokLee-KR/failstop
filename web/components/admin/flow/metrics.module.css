@@ -13,6 +13,7 @@
 
 /* 도구 줄과 지표 묶음. 도구 줄이 바로 아래 타임라인에 붙어 읽히도록 페이지 간격보다 좁게 둔다 */
 .metricsGroup {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

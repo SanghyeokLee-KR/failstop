@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.LongAdder;
  *   1. mTLS 신원(인증서 CN 유래 operator_id) 도출. 없으면 401.
  *   2. POST /admin/v1/session은 세션 발급 부트스트랩이라 mTLS 신원만 요구하고 통과시킨다.
  *   3. 그 외 요청은 유효한 관리 세션을 요구하고, 세션 operator를 현재 mTLS 신원과 재대조한다.
+ *      세션·운영자 원장이 DB 장애로 닿지 않으면 조회 요청만 유예 시간 안의 원장 확인으로 받고 그 밖에는 503이다.
  *   4. 인증 통과·실패 전부 admin_audit_log에 적재한다(전 액션 감사).
  */
 public class AdminAuthFilter extends OncePerRequestFilter {
@@ -99,11 +100,13 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String operatorId = sessions.verify(request.getHeader("Authorization"), certOperator);
+            // 조회 요청은 DB 가 닿지 않는 동안에도 마지막 원장 확인으로 받는다. 관제 화면이 DB 장애를 그리는 동안 멈추지 않게 한다
+            boolean readOnly = readOnly(request);
+            String operatorId = sessions.verify(request.getHeader("Authorization"), certOperator, readOnly);
             if (AdminOperatorDirectory.aiOperator(operatorId)) {
                 throw forbidden("AI 운영자 신원으로는 관리 API 를 부를 수 없습니다.", "ai_operator");
             }
-            AdminOperatorDirectory.Operator op = operators.find(operatorId)
+            AdminOperatorDirectory.Operator op = operators.findForRequest(operatorId, readOnly)
                     .orElseThrow(() -> forbidden("등록되지 않은 운영자입니다.", "unknown_operator"));
             if (!op.active()) {
                 throw forbidden("비활성 운영자입니다.", "operator_disabled");
@@ -162,6 +165,12 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             return "DENIED";
         }
         return "OK";
+    }
+
+    /** 상태를 바꾸지 않는 메서드. 원장이 닿지 않을 때 마지막 원장 확인으로 받을 수 있는 요청이다 */
+    static boolean readOnly(HttpServletRequest request) {
+        String method = request.getMethod();
+        return "GET".equals(method) || "HEAD".equals(method);
     }
 
     private static boolean isSessionBootstrap(HttpServletRequest request) {

@@ -82,7 +82,7 @@ function checkWorld(c: ControlCenter, sim: OpsSim, now: number, where: string): 
   // 앱 계층 CPU: 관제센터 앱 계층·서비스 흐름·지표 관제·용량
   assert.deepEqual(tier.nodes.map((n) => n.id), ["app-3"], `${where}: 자동 증설 노드는 app-3 하나`);
   assert.deepEqual(tier.fixed, ["app-1", "app-2"], `${where}: 고정 앱 노드`);
-  assert.equal(Math.round(sample.util * 100), tier.avgCpuPct ?? 0, `${where}: 앱 평균 사용률`);
+  assert.equal(Math.round((sample.util ?? 0) * 100), tier.avgCpuPct ?? 0, `${where}: 앱 평균 사용률`);
   assert.equal(cap.readAvgCpuRatio === null ? null : Math.round(cap.readAvgCpuRatio * 100), tier.avgCpuPct, `${where}: 용량 화면 조회 평균`);
   for (const n of tier.nodes) {
     const id = READ_OF[n.id];

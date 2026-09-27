@@ -91,6 +91,7 @@ import type {
   WindowInput,
   SlaMonth,
   OpsFlowTapeEntry,
+  FlowMeasured,
 } from "./types";
 import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 
@@ -1002,6 +1003,11 @@ export class SimAdminApi implements AdminApi {
   getFlowTape(): Promise<OpsFlowTapeEntry[] | null> {
     this.auth("VIEW");
     return Promise.resolve(this.ops.flowTape(Date.now()));
+  }
+
+  /** sim의 두 화면은 관제 시뮬레이터의 한 판을 그린다. 실측은 http 원천에만 있다 */
+  getFlowMeasured(): Promise<FlowMeasured | null> {
+    return Promise.resolve(null);
   }
 
   getControlCenter(): Promise<ControlCenter> {

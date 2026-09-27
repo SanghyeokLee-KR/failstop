@@ -1,0 +1,46 @@
+# 시연 부하 경보. 관리 콘솔 시뮬레이터가 내던 '앱 계층 CPU 높음'·'응답 지연 증가'(web/lib/admin/opsSim.ts 1347·1353행)를
+# 실제 규칙으로 둔다. 발화하면 Alertmanager가 보고 서비스(/alerts)로 넘기고, 보고 서비스가 온프레미스 모델의 참고
+# 분석과 PDF·HTML을 붙여 Teams로 보낸다(harness/alertmanager/alertmanager.demo.yml).
+#
+# 카오스 실험 스택의 기본 규칙(rules/)에 넣지 않는다. 실험 부하에서 울리면 실험 판정의 통지 경로가 바뀐다.
+# 시연 오버레이(harness/docker-compose.demo-obs.yml)만 이 폴더를 마운트한다.
+#
+# 기준값은 코드에 박지 않는다. 증설 기준은 관리 평면 임계값 레지스트리의 read.scale_out_cpu(exchange-admin 수집 잡의
+# exchange_ops_threshold 게이지, 시연 0.50·계약 0.60)이고, 응답 목표는 관제센터 SLO와 같은 p95 0.4초다.
+# 레지스트리 게이지가 없으면 scalar()가 NaN이라 CPU 경보는 울리지 않는다(없는 기준을 0으로 보지 않는다).
+# 기준은 최근 15분 안의 마지막 값을 쓴다. 종전의 [7d] 최댓값은 기준을 내리면 7일 동안 옛 높은 값이 남았다
+# (2026-09-27 0.60→0.50). 15분은 관리 평면을 다시 만드는 동안 게이지가 잠깐 비어도 기준이 끊기지 않게 하는 폭이다.
+# CPU는 노드마다 1분 평균을 낸 뒤 평균한다. 15초 표본 하나가 기준 아래로 튀면 for 1m이 처음부터 다시 세어 경보가 깜빡였다(2026-09-27 리허설).
+groups:
+  - name: demo-load
+    rules:
+      - alert: AppTierCpuHigh
+        expr: >-
+          avg(avg_over_time(process_cpu_usage{job="exchange-api",customer="exchange",environment="local-lab",role=~"app|reader"}[1m]))
+            > scalar(max(last_over_time(exchange_ops_threshold{key="read.scale_out_cpu"}[15m])))
+        for: 1m
+        labels:
+          severity: warning
+          customer: exchange
+          environment: local-lab
+          role: app
+          service: api
+          # 카드의 '대상' 칸(deploy/reporting/presentation.py가 name 라벨을 대상으로 쓴다). 합계 경보라 노드 이름이 없다
+          name: 앱 계층
+        annotations:
+          summary: 앱 계층 CPU 높음
+          description: '앱 계층 평균 CPU가 {{ $value | humanizePercentage }}로 조회 증설 기준을 1분 넘게 넘었습니다.'
+      - alert: ServiceLatencyHigh
+        expr: exchange:msp_http_p95:seconds5m > 0.4
+        for: 1m
+        labels:
+          severity: warning
+          customer: exchange
+          environment: local-lab
+          role: app
+          service: api
+          # 카드의 '대상' 칸(deploy/reporting/presentation.py가 name 라벨을 대상으로 쓴다). 합계 경보라 노드 이름이 없다
+          name: 앱 계층
+        annotations:
+          summary: 응답 지연 증가
+          description: '업무 요청 응답 p95가 {{ $value | humanizeDuration }}로 목표 400ms를 1분 넘게 넘었습니다.'

@@ -242,7 +242,8 @@ function readCpu(c: ControlCenter): Draft {
     if (inTh !== null && avg <= inTh && tier.nodes.some((n) => n.state === "IN_SERVICE")) parts.push(`축소 임계 ${inTh}% 아래라 app-3를 끌 여유가 있습니다.`);
   }
   // 앱 평균에는 DB가 들지 않는다. DB가 원인이라고 오해하지 않게 함께 적는다
-  const primary = hosts.find((h) => h.role === "DB_PRIMARY");
+  // 역할을 모르는 DB(멈춘 노드)가 Primary 자리에 있으면 Primary라고 적지 않는다
+  const primary = hosts.find((h) => h.role === "DB_PRIMARY" && h.roleKnown !== false);
   if (primary) parts.push(`앱 평균에는 DB가 들지 않습니다(${primary.id} ${primary.cpuPct ?? "미수집"}%).`);
   return { answer: parts.join(" "), evidence: ev.slice(0, 5) };
 }

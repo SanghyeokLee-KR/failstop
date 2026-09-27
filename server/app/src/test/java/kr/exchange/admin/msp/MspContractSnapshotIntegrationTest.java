@@ -677,6 +677,9 @@ class MspContractSnapshotIntegrationTest {
         } else if (q.contains("pg_up")) {
             out.put(Map.of("node", "db-primary"), 1.0);
             out.put(Map.of("node", "db-standby"), 1.0);
+        } else if (q.contains("sync_state")) {
+            // 복제 방식. 이 판은 학교 AWS 모양(ADR 0024)이라 비동기 상대 하나이고 Patroni 지표가 없다(승격 방식 미확인)
+            out.put(Map.of(), 1.0);
         } else if (q.contains("pg_replication_client_replay_lag_seconds")) {
             out.put(Map.of("node", "db-primary", "application_name", "db_standby", "state", "streaming"), 0.35);
         } else if (q.contains("pg_replication_client_sent_replay_bytes")) {

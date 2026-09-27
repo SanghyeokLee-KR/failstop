@@ -21,7 +21,7 @@ export default function AiServerPanel({ section }: { section: OpsSection<AiServe
       <PanelHead
         id="ai-server"
         title="AI 서버 · ai-1"
-        meta={section.state === "READY" && section.data.assumed ? "구축 전 · 연결 경로 결정 전" : "온프레미스 · 연구소"}
+        meta={section.state === "READY" && section.data.assumed ? "구축 전 · 연결 경로 결정 전" : "온프레미스"}
         actions={section.state === "READY" && section.data.assumed ? <SimMark kind="assumed" /> : undefined}
       />
       {section.state !== "READY" ? (

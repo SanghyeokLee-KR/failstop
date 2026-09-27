@@ -1,0 +1,28 @@
+apiVersion: 1
+
+# 로컬 MSP 시연(harness/docker-compose.demo-obs.yml)의 대시보드 프로비저닝. 기본 provider.yaml 을 대신한다.
+# 증명 대시보드는 종전과 같은 '증명' 폴더, MSP 화면 7개는 학교 AWS(deploy/linux/observability/grafana-msp-dashboards.yml)와
+# 같은 'MSP 운영' 폴더다. MSP 화면의 원본은 harness/grafana/build-local-msp.py 가 만드는 dashboards-msp/ 다.
+# UI 편집 잠금(allowUiUpdates:false)은 기본 설정과 같다. 바꿀 때는 생성기를 고쳐 다시 만든다.
+providers:
+  - name: exchange-proof
+    orgId: 1
+    folder: 증명
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+
+  - name: local-msp
+    orgId: 1
+    folder: MSP 운영
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards-msp
+      foldersFromFilesStructure: false

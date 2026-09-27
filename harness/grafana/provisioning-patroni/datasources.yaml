@@ -1,0 +1,31 @@
+apiVersion: 1
+
+# Patroni 시연 스택용 데이터 소스. harness/docker-compose.demo-patroni.yml 이 기본 파일
+# (harness/grafana/provisioning/datasources/datasources.yaml) 자리에 겹친다. 다른 점은 pg-proof 의 주소 하나다.
+# 기본 파일은 chaos-pg 를 보는데 Patroni 판에서는 chaos-pg 가 멈춰 있으므로, 현재 Primary 로 보내는 bot-1 역할의
+# HAProxy(chaos-haproxy-b:5000)를 본다. 기본 파일을 바꾸면 이 파일도 같이 맞춘다.
+
+# uid 고정: 대시보드 JSON이 uid로 데이터소스를 참조한다(§5-4 참조 안정성).
+datasources:
+  - name: prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://chaos-prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 2s          # exchange-api 잡 스크레이프 간격과 정합
+
+  # pg-proof: DB 원본 직조회(invariant_checks·recovery_runs·harness.failover_runs). 현재 Primary 를 읽는다.
+  - name: pg-proof
+    uid: pg-proof
+    type: postgres
+    access: proxy
+    url: chaos-haproxy-b:5000
+    user: ${GF_PG_PROOF_USER}
+    jsonData:
+      database: exchange
+      sslmode: disable
+      postgresVersion: 1700
+    secureJsonData:
+      password: ${GF_PG_PROOF_PASSWORD}

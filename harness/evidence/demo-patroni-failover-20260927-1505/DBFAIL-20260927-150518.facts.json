@@ -1,0 +1,87 @@
+{
+  "metrics": {
+    "before": {
+      "demotions": 11.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 9.0,
+      "gate_423": 300.0,
+      "gate_503": 33.0,
+      "probe_unconfirmed": 0.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 1.0,
+      "unavailable": 1.0
+    },
+    "after": {
+      "demotions": 12.0,
+      "lease_acquire_expired": 0.0,
+      "renew_rejected": 9.0,
+      "gate_423": 369.0,
+      "gate_503": 132.0,
+      "probe_unconfirmed": 0.0,
+      "definitive_deferred": 0.0,
+      "orders_500": 0.0,
+      "commit_recovered": 0.0,
+      "unresolved": 2.0,
+      "unavailable": 1.0
+    }
+  },
+  "invalid": {
+    "cpu_samples": [
+      50.0,
+      43.0,
+      33.0,
+      30.0,
+      36.0
+    ],
+    "foreign_processes": [],
+    "etcd_leader_changes": 0.0,
+    "fsync_p99_s": 0.0029325964688784404,
+    "peer_rtt_p99_s": 0.0015833156807895316
+  },
+  "post_promotion": {
+    "node": "chaos-api-1",
+    "fencing_rejections": 0.0,
+    "demotions": 0.0
+  },
+  "orders_500": 0,
+  "stale_write_delta": 0,
+  "rejoin": {
+    "old_primary": "chaos-db-1",
+    "method": "rewind",
+    "scope": "before_t0",
+    "nodes": {
+      "chaos-db-1": {
+        "cutoff": "2026-09-27T15:05:31.639Z",
+        "command_journal": 715695,
+        "event_journal": 1253569,
+        "orders": 617444,
+        "trades": 389280,
+        "max_cmd_seq": 715695
+      },
+      "chaos-db-2": {
+        "cutoff": "2026-09-27T15:05:31.639Z",
+        "command_journal": 715695,
+        "event_journal": 1253569,
+        "orders": 617444,
+        "trades": 389280,
+        "max_cmd_seq": 715695
+      }
+    },
+    "equal": true
+  },
+  "t5": 1790521639.091,
+  "first_trade_after_resume": 1790521639.091,
+  "duplicate_coid_orders": 0,
+  "syncrep_waiters_after_resume": 0,
+  "visible_before": {
+    "orders_checked": 974,
+    "orders_present": 974,
+    "orders_missing": 0,
+    "trades_checked": 661,
+    "trades_present": 661,
+    "trades_missing": 0
+  },
+  "failsafe_max": 0.0
+}

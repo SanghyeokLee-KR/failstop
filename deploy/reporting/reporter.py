@@ -121,6 +121,18 @@ def analyze(facts, config, store=None, report_id=None):
             result = fallback_analysis(facts, "AI 응답을 확보하지 못해 수집한 사실로 보고했습니다.")
             result["error"] = code
             return result
+    if mode == "ollama":
+        # 온프레미스 모델(로컬 GPU·DGX Spark). 비용이 없어 호출 한도 장부를 쓰지 않고, 실패하면 사실만 보고한다
+        try:
+            from onprem_llm import analyze as onprem_analyze
+            result, usage = onprem_analyze(facts, config)
+            validated = validate_analysis(result, facts)
+            return {"mode": "ollama", "model": usage["model"], "usage": usage,
+                    "reason": "온프레미스 모델이 수집 근거로 작성한 분석입니다. 원인 가설과 권고는 담당자가 확인합니다.", **validated}
+        except (RequestFailure, ValueError, OSError) as error:
+            result = fallback_analysis(facts, "온프레미스 AI 응답을 확보하지 못해 수집한 사실로 보고했습니다.")
+            result["error"] = error.code if isinstance(error, RequestFailure) else "configuration_or_response_invalid"
+            return result
     if mode != "remote":
         raise ValueError("invalid_analyzer")
     try:

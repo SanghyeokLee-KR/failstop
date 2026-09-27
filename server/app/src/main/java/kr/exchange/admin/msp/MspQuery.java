@@ -24,13 +24,15 @@ enum MspQuery {
     DB_UP(Need.DB),
     REPLICATION_LAG_SECONDS(Need.DB),
     REPLICATION_LAG_BYTES(Need.DB),
+    REPLICATION_MODE(Need.DB),
+    DB_PROMOTION(Need.PATRONI),
     BACKUP_LAST_SUCCESS(Need.HOST),
     BACKUP_VERIFY_OK(Need.HOST),
     DAILY_REPORT_LAST_TRIGGER(Need.HOST),
     THRESHOLD_GAUGE_COUNT(Need.NONE),
     THRESHOLD_RULE_VALUE(Need.NONE);
 
-    private enum Need { NONE, ANY, HOST, APP, DB, PROBE }
+    private enum Need { NONE, ANY, HOST, APP, DB, PROBE, PATRONI }
 
     static final String RULE_HTTP_REQUESTS = "exchange:msp_http_requests:rate5m";
     static final String RULE_HTTP_5XX = "exchange:msp_http_5xx:ratio5m";
@@ -57,6 +59,7 @@ enum MspQuery {
             case APP -> !jobs.getAppJob().isEmpty();
             case DB -> !jobs.getDbJob().isEmpty();
             case PROBE -> !jobs.getProbeJob().isEmpty();
+            case PATRONI -> !jobs.getPatroniJob().isEmpty();
         };
     }
 
@@ -85,6 +88,8 @@ enum MspQuery {
                     + "(pg_replication_client_replay_lag_seconds{" + db + "})";
             case REPLICATION_LAG_BYTES -> "max by(node, application_name, state) "
                     + "(pg_replication_client_sent_replay_bytes{" + db + "})";
+            case REPLICATION_MODE -> replicationMode(db);
+            case DB_PROMOTION -> promotion("job=~\"" + jobs.getPatroniJob() + "\"");
             case BACKUP_LAST_SUCCESS -> "max(failstop_db_backup_last_success_timestamp_seconds{" + host + "})";
             case BACKUP_VERIFY_OK -> "min(failstop_db_backup_last_verify_success{" + host + "})";
             case DAILY_REPORT_LAST_TRIGGER -> "max(node_systemd_timer_last_trigger_seconds{" + host
@@ -93,6 +98,26 @@ enum MspQuery {
             // 경보 규칙이 지금 쓰는 값이다. 규칙과 같은 식이라 게이지가 끊긴 뒤에도 마지막 값을 7일 본다.
             case THRESHOLD_RULE_VALUE -> "max by(key) (last_over_time(" + OpsThresholdService.GAUGE + "[7d]))";
         };
+    }
+
+    /**
+     * 복제 방식. Primary 가 보는 pg_stat_replication.sync_state 다. 동기(sync·quorum) 상대가 하나라도 있으면 2, 비동기 상대만
+     * 있으면 1, 복제 상대가 없으면 계열이 없다. Grafana 의 복제 방식 칸(deploy/observability/tests/msp_queries.py
+     * replication_mode)과 같은 식이다.
+     */
+    static String replicationMode(String db) {
+        String bytes = "pg_replication_client_sent_replay_bytes{" + db;
+        return "max((0 * max(" + bytes + ",sync_state=~\"sync|quorum\"}) + 2) or (0 * max(" + bytes
+                + ",sync_state=\"async\"}) + 1))";
+    }
+
+    /**
+     * 승격 방식. Patroni 가 지표를 내면(어느 멤버든 patroni_primary 계열이 있으면) 자동 승격 1, Patroni 가 일시 정지(pause)면
+     * 자동 승격이 멈춘 것이라 2 다. Patroni 지표가 없으면 계열이 없고 미확인이다. 없다는 것만으로 수동 승격이라 단정하지 않는다.
+     */
+    static String promotion(String patroni) {
+        return "(1 + (max(patroni_is_paused{" + patroni + "}) or on() vector(0))) and on() (count(patroni_primary{"
+                + patroni + "}) > 0)";
     }
 
     static String allJobs(MspProperties.Prometheus jobs) {

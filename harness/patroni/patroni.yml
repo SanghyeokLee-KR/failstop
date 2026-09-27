@@ -39,8 +39,10 @@ bootstrap:
         max_replication_slots: 4
         # 멤버 슬롯이 WAL 을 붙잡는 상한. 로컬은 디스크가 작다(AWS 4GB).
         max_slot_wal_keep_size: 1GB
-        # ADR 0025 는 0 이지만 Patroni 4.1.5 는 16MB 아래를 받지 않고 128MB 로 되돌린다(설정 검증). 받는 가장 작은 값이다.
-        wal_keep_size: 16MB
+        # ADR 0025 는 0 이지만 Patroni 4.1.5 는 16MB 아래를 받지 않고 128MB 로 되돌린다(설정 검증). 2026-09-25 의
+        # E-P1~E-P7 기록은 16MB 로 돌렸다. 2026-09-27 사용자 결정으로 1GB 로 올렸다(시연 장애에서 되감긴 옛 주 DB 가
+        # 다시 읽을 WAL 이 재활용돼 재합류가 막힘. 근거와 산정은 patroni.demo.yml 같은 줄 주석)
+        wal_keep_size: 1GB
         archive_mode: "off"
         idle_in_transaction_session_timeout: 10s
         # 클라이언트가 먼저 끊은 잠금 대기를 정리한다. 0 이면 그 대기가 재개 뒤 실행돼 아무도 모르는 쓰기가 커밋된다(사전 확인 K).

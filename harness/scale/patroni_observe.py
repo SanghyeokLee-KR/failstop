@@ -13,6 +13,9 @@
 
 돌리는 법(실행기 ep-lib.ps1 이 부른다):
   python harness/scale/patroni_observe.py --out <dir>/observe.jsonl --stop-file <dir>/observe.stop --keys <dir>/keys.json
+대상 주소는 기본이 실험 스택(exchange-patroni, 59xxx 루프백)이다. 시연 스택(harness/scripts/demo-db-failover.ps1)은 주소를 준다.
+  --lb http://127.0.0.1:58080 --node api-1=http://127.0.0.1:18080 --node api-2=http://127.0.0.1:28080
+  --patroni http://127.0.0.1:18008 --patroni http://127.0.0.1:28008 --haproxy haproxy-1=http://127.0.0.1:18404 ...
 시험:
   python -m unittest discover -s harness/scale -p "test_*.py"
 """
@@ -315,6 +318,19 @@ def member_session(lb=LB, http=request, email=None):
     return data['access_token'], email
 
 
+def named_urls(values, default):
+    """name=url 목록. 주지 않으면 기본값(실험 스택)이다."""
+    if not values:
+        return default
+    out = []
+    for v in values:
+        name, sep, url = v.partition('=')
+        if not sep or not name or not url:
+            raise SystemExit('name=url 형식이 아니다: %s' % v)
+        out.append((name, url.rstrip('/')))
+    return tuple(out)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Patroni 실험 관측기')
     parser.add_argument('--out', required=True)
@@ -323,16 +339,25 @@ def main(argv=None):
     parser.add_argument('--pool', action='store_true')
     parser.add_argument('--withdraw', action='store_true')
     parser.add_argument('--withdraw-stop-file', help='이 파일이 생기면 출금 요청기만 멈춘다(사후 run 전 쓰기 정지)')
+    parser.add_argument('--lb', default=LB, help='LB 주소. 기본은 실험 스택')
+    parser.add_argument('--node', action='append', help='앱 노드 name=url(여러 번). 기본은 실험 스택 두 노드')
+    parser.add_argument('--patroni', action='append', help='Patroni REST 주소(여러 번). 앞에서부터 답하는 쪽을 쓴다')
+    parser.add_argument('--haproxy', action='append', help='HAProxy 통계 name=url(여러 번)')
     args = parser.parse_args(argv)
     keys = []
     if args.keys:
         with open(args.keys, encoding='utf-8') as fh:
             keys = json.load(fh)
+    lb = args.lb.rstrip('/')
+    nodes = named_urls(args.node, NODES)
+    patroni = tuple(u.rstrip('/') for u in args.patroni) if args.patroni else PATRONI
+    haproxy = named_urls(args.haproxy, HAPROXY)
     journal = Journal(args.out)
     stop = threading.Event()
-    obs = Observer(journal, stop, keys=keys)
+    obs = Observer(journal, stop, keys=keys, lb=lb, nodes=nodes, patroni=patroni, haproxy=haproxy)
     journal.write({'kind': 'start', 't': round(time.time(), 3), 'pool': args.pool, 'withdraw': args.withdraw,
-                   'signed_reads': bool(keys)})
+                   'signed_reads': bool(keys), 'lb': lb, 'nodes': [n for n, _ in nodes], 'patroni': list(patroni),
+                   'haproxy': [n for n, _ in haproxy]})
     loops = [(0.5, obs.cluster), (1.0, obs.status), (2.0, obs.status_lb), (1.0, obs.reads), (1.0, obs.write),
              (1.0, obs.haproxy_state)]
     if args.pool:
@@ -342,9 +367,9 @@ def main(argv=None):
     wd_stop = threading.Event()
     requester = None
     if args.withdraw:
-        token, email = member_session()
+        token, email = member_session(lb=lb)
         journal.write({'kind': 'withdraw_start', 't': round(time.time(), 3), 'email': email})
-        requester = WithdrawRequester(journal, wd_stop, token)
+        requester = WithdrawRequester(journal, wd_stop, token, lb=lb)
         wd_obs = Observer(journal, wd_stop)
         threads.append(threading.Thread(target=wd_obs.every, args=(1.0, requester.tick), name='obs-withdraw',
                                         daemon=True))

@@ -12,7 +12,7 @@ import { useOpsDetail } from "@/lib/admin/detailStore";
 import { useOpsPick } from "@/lib/admin/opsCenter";
 import type { ControlCenter, IncidentEventKind } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
-import { HOST_KIND } from "./Infra";
+import { hostKind } from "./Infra";
 import { stamp } from "@/lib/admin/timeText";
 import styles from "./control.module.css";
 
@@ -40,7 +40,7 @@ function indexOf(c: ControlCenter): Hit[] {
   const stampOf = (iso: string) => stamp(iso, Number.isFinite(boardAt) ? boardAt : Date.now());
   if (c.hosts.state === "READY") {
     for (const h of c.hosts.data) {
-      out.push({ id: `h-${h.id}`, group: "서버", title: h.id, meta: `${HOST_KIND[h.role]}${h.partition ? ` · ${h.partition.id}` : ""}`, href: "/admin/hosts", open: { kind: "node", id: h.id } });
+      out.push({ id: `h-${h.id}`, group: "서버", title: h.id, meta: `${hostKind(h)}${h.partition ? ` · ${h.partition.id}` : ""}`, href: "/admin/hosts", open: { kind: "node", id: h.id } });
     }
   }
   if (c.readTier.state === "READY") {

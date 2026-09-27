@@ -1,0 +1,43 @@
+{
+  "scenario": "E-P1",
+  "run_id": "DBFAIL-20260927-090240",
+  "stack": "exchange-chaos(demo, Patroni)",
+  "members": [
+    "db-1",
+    "db-2"
+  ],
+  "pre": {
+    "patroni_leader": "db-1",
+    "timeline": 1,
+    "sync": [
+      "db-2"
+    ],
+    "epoch": 20,
+    "app_leader": "chaos-api-1"
+  },
+  "db_ips": {
+    "db-1": "172.18.0.24/32",
+    "db-2": "172.18.0.25/32"
+  },
+  "haproxy_server": {
+    "db-1": "db-1",
+    "db-2": "db-2"
+  },
+  "t0": 1790499804.449,
+  "injected": "chaos-db-1",
+  "role_injected": "primary",
+  "sync_member": "db-1",
+  "t_back": 1790499834.946,
+  "hold_s": 30.5,
+  "t_resume_hint": null,
+  "post": {
+    "patroni_leader": "db-2",
+    "timeline": 2,
+    "sync": [
+      "db-1"
+    ],
+    "epoch": 21,
+    "app_leader": "chaos-api-2"
+  },
+  "t_end": 1790500421.806
+}

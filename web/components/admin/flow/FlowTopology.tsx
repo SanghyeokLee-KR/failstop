@@ -5,13 +5,14 @@
  * exchange-chaos 스택이 그 역할을 맡는다(2026-09-23 사용자 결정). 카드에는 아이콘, AWS 역할 이름,
  * 상태 한 줄만 둔다. 이름은 관제센터와 같다(app-1·app-2·app-3, db-primary·db-standby, bot-1, load-1,
  * ai-1). 그 역할을 대신하는 컨테이너 이름, 포트, 리스 같은 세부는 카드를 눌러 여는 팝오버에만 싣는다.
- * 재생하지 않는 동안의 값은 관제 판(opsCenter)에서 옮긴 관제 값이고, 재생 중에는 flowSim 의 재생 값이다
- * (flowRun 의 두 모드). ai-1 카드와 판단 요청선은 어느 모드에서나 관제 판을 읽는다.
+ * 재생하지 않는 동안의 값은 관제 판(opsCenter)에서 옮긴 관제 값이고, 재생 중에는 flowSim 의 재생 값이다.
+ * http 원천은 관리 API 흐름 조회의 실측이고(flowMeasured) 재생 단추가 없다. ai-1 카드와 판단 요청선은 어느 모드에서나
+ * 관제 판을 읽는다.
  *
  * 그림의 뼈대는 사용자가 준 거래소 인프라 그림을 따르고, 칸은 정해 둔 격자에 맞춘다.
  *  - 구성도 세로 가운데 아래를 지나는 가로줄(주축) 하나에 사용자, CloudFront, ALB, Auto Scaling 그룹의
  *    app-3, Primary, Standby 가 선다. 사용자 경로, app-3 조회선, 그 조회 SQL 선, 복제선이 모두 곧은 가로선이다.
- *  - 열은 왼쪽부터 다섯이다. 0열은 AWS 틀 밖이다. 위에서부터 온프레미스(연구소) 틀의 ai-1, 주축의 사용자,
+ *  - 열은 왼쪽부터 다섯이다. 0열은 AWS 틀 밖이다. 위에서부터 온프레미스 틀의 ai-1, 주축의 사용자,
  *    bot-1 칸 높이의 Teams 자리가 선다. 1열 엣지 칸은 AWS 틀 안이지만 리전 밖에서 CloudFront 한 장만 감싼다.
  *    서울 리전 틀 안의 VPC 틀에 2열(load-1 과 퍼블릭 칸의 ALB), 3열(매칭 칸과 Auto Scaling 그룹),
  *    4열(DB 칸의 Primary 와 Standby)이 서고, 맨 아래 bot-1 칸이 2~4열을 받친다.
@@ -61,6 +62,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import adminStyles from "@/components/admin/admin.module.css";
 import StatusShape, { type StatusShapeKind } from "@/components/admin/StatusShape";
@@ -102,6 +104,16 @@ import {
   type TargetId,
 } from "@/lib/admin/flowSim";
 import { replayBase, useFlowRun } from "@/lib/admin/flowRun";
+import {
+  MEASURED_AI_TITLE,
+  MEASURED_BOT_FRAME,
+  measuredCardTitle,
+  measuredDbTitle,
+  measuredEdgeWhat,
+  measuredEdges,
+  measuredRows,
+} from "@/lib/admin/flowMeasured";
+import { promotionWord } from "@/lib/admin/replicationWords";
 import type { IntegrationState } from "@/lib/admin/integrations";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import { hm } from "@/lib/admin/timeText";
@@ -163,6 +175,11 @@ const STATE_WORD: Record<NodeState, string> = {
 };
 /** 범례에 싣는 노드 상태. 미구축은 지금 그림에 없어 뺀다 */
 const LEGEND_STATES: NodeState[] = ["running", "transition", "failure", "stopped"];
+/**
+ * 상태어. 실측 모드의 점선 윤곽은 짓지 않은 자리가 아니라 원천에서 값을 받지 못한 칸이라 미수집이라고 적는다
+ * (2026-09-27 사용자 결정: 원천이 없거나 일부만 와도 같은 도면에 그 칸만 미수집)
+ */
+const stateWord = (st: NodeState, measured: boolean) => (measured && st === "absent" ? "미수집" : STATE_WORD[st]);
 
 /* ===== 배치 ===== */
 
@@ -293,7 +310,7 @@ interface Layout {
   asgHead: Box;
   db: Box;
   host: Box;
-  /** 온프레미스(연구소) 틀과 ai-1 카드. ai-1 은 흐름 노드가 아니라 NodeId 에 넣지 않는다 */
+  /** 온프레미스 틀과 ai-1 카드. ai-1 은 흐름 노드가 아니라 NodeId 에 넣지 않는다 */
   onprem: Box;
   ai: Box;
   nodes: Record<NodeId, Box>;
@@ -635,6 +652,25 @@ const TIER_WORD: Record<EdgeTier, string> = { 0: "", 1: "약", 2: "중", 3: "강
  */
 function edgeText(id: EdgeId, s: FlowState, views: Record<NodeId, NodeView>, f: EdgeFlow): string {
   const name = (key: NodeId) => views[key].name;
+  if (s.measured) {
+    const primary = primaryDb(s) ?? s.endpoint;
+    const ends: Record<EdgeId, [string, string]> = {
+      "users-cdn": [name("users"), name("cdn")],
+      "cdn-alb": [name("cdn"), name("alb")],
+      "bot-alb": [name("bot"), name("alb")],
+      "load-alb": [name("load"), name("alb")],
+      "alb-api1": [name("alb"), name("api1")],
+      "alb-api2": [name("alb"), name("api2")],
+      "alb-read": [name("alb"), `Auto Scaling 그룹 ${name("app3")}`],
+      "app-db": ["매칭 칸", name(primary)],
+      "read-db": [`Auto Scaling 그룹 ${name("app3")}`, name(primary)],
+      repl: [name(primary), name(otherDb(primary))],
+      "scrape-app": ["앱 계층", name("obs")],
+      "scrape-db": ["DB 계층", name("obs")],
+    };
+    const word = f.kind === "flow" ? `${KIND_WORD.flow} ${TIER_WORD[f.tier]}` : KIND_WORD[f.kind];
+    return `${ends[id][0]} → ${ends[id][1]} · ${measuredEdgeWhat(id, s)} · ${word}`;
+  }
   const src = primaryDb(s) ?? s.endpoint;
   const ends: Record<EdgeId, [string, string, string]> = {
     "users-cdn": [name("users"), name("cdn"), "요청 · 목표 구성"],
@@ -698,9 +734,11 @@ const isDb = (id: PopKey): id is DbId => id === "pg1" || id === "pg2";
 
 /** 카드에 보이는 제목. bot-1 칸의 두 카드는 칸 이름표가 bot-1 을 이미 적어 뒷부분만 둔다 */
 function cardTitle(key: NodeId, v: NodeView, s: FlowState): string {
-  if (isDb(key)) return DB_TITLE[s.db[key]];
+  // 실측 모드의 DB 제목은 recovery 지표로 읽은 역할만 적는다. 멈춘 DB 가 옛 Primary 였는지는 모르므로 중지라고만 적는다
+  if (isDb(key)) return s.measured ? measuredDbTitle(s, key) : DB_TITLE[s.db[key]];
   if (key === "bot" || key === "obs") return v.name.replace(/^bot-1 · /, "");
-  return v.name;
+  // 실측 모드는 호스트 이름 대신 한글 역할 이름(앱 서버 N, 부하 발생기)이다. 호스트 이름은 팝오버 제목에 남는다
+  return measuredCardTitle(key, s) ?? v.name;
 }
 
 function Tile({ icon, size = 18 }: { icon: TileIcon; size?: number }) {
@@ -719,8 +757,8 @@ function Tile({ icon, size = 18 }: { icon: TileIcon; size?: number }) {
   );
 }
 
-/** 실행 중 노드의 상태 줄에서 키울 핵심 수치. 숫자와 단위(%, VU, OPS, 대)만이다 */
-const FIGURE_RE = /(\d+(?:\.\d+)?)(\s?(?:%|VU|OPS|대))/;
+/** 실행 중 노드의 상태 줄에서 키울 핵심 수치. 숫자와 단위(%, VU, OPS, 대, 초당 건수 /s)만이다 */
+const FIGURE_RE = /(\d+(?:\.\d+)?)(\s?(?:%|VU|OPS|대|\/s))/;
 /** Auto Scaling 상태 줄의 대수. 가동이면 "3대", 조정 중이면 "2 → 3대"(등록 → 목표)다 */
 const ASG_FIGURE_RE = /\d+(?: → \d+)?대/;
 
@@ -833,14 +871,17 @@ function popoverStyle(b: Box, width: number, popH: number): CSSProperties {
  * 둔 노드를 화면 낭독기가 매번 다시 읽으므로 싣지 않는다. 나머지 상태 줄은 사건 때만 바뀐다
  */
 function nodeLabel(id: NodeId, v: NodeView, s: FlowState): string {
-  const words = [v.name, v.container ?? "대응 컨테이너 없음", v.role, STATE_WORD[v.state]];
+  const word = stateWord(v.state, s.measured !== null);
+  const words = [v.name, v.container ?? "대응 컨테이너 없음", v.role, word];
   // bot-1 칸 이름표는 "bot-1" 로 줄였다. 두 카드가 한 호스트에 함께 선다는 사실은 이름에 싣는다
   if (id === "bot" || id === "obs") words.splice(1, 0, "bot-1 한 호스트");
   // DB 카드의 제목은 지금 역할이다("Standby 재편입"). 이름이나 역할 줄에 그 말이 없으면 따로 싣는다
   const title = cardTitle(id, v, s);
   if (!words.some((w) => w.includes(title))) words.splice(1, 0, title);
   const cpuLine = (isEngine(id) || isRead(id)) && s.apps[id].status === "running" && v.state === "running";
-  if (!cpuLine && v.status !== STATE_WORD[v.state]) words.push(v.status);
+  // 실측 모드의 초당 건수 줄(ALB 요청, 봇 주문, load-1 조회)도 2초마다 바뀌어 싣지 않는다. 값은 팝오버가 적는다
+  const rateLine = s.measured !== null && v.state === "running" && v.status.includes("/s");
+  if (!cpuLine && !rateLine && v.status !== word) words.push(v.status);
   return words.join(" · ");
 }
 
@@ -991,16 +1032,28 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
   const wires = useMemo(() => buildWires(L, endpoint, replSrc), [L, endpoint, replSrc]);
   const reserveWires = useMemo(() => buildReserveWires(L), [L]);
   // 선 상태는 매초 다시 구하지만 서명 문자열은 상태나 단계가 바뀔 때만 달라진다
-  const flows = useMemo(() => edgeFlows(state), [state]);
+  const flows = useMemo(() => (state.measured ? measuredEdges(state) : edgeFlows(state)), [state]);
   const sig = trafficSignature(flows);
   const asg = asgView(state);
   // 그룹이 app-3 켜기·끄기 기준으로 삼는 앱 계층 사용률. 지표 관제의 "조회 사용률 %" 그래프와 같은 표본(마지막 값)을
-  // 정수로 골라 두 화면의 숫자가 어긋나지 않는다. 정수라 값이 바뀔 때만 다시 그린다
-  const util = useFlowRun((r) => Math.round((r.samples[r.samples.length - 1]?.util ?? 0) * 100));
+  // 정수로 골라 두 화면의 숫자가 어긋나지 않는다. 정수라 값이 바뀔 때만 다시 그린다. 실측에서 CPU 를 잰 노드가
+  // 없으면(표본 없음 포함) null 이고 화면은 미수집이다. 재생·관제 값은 첫 표본 전에 0 이다
+  const util = useFlowRun((r) => {
+    const u = r.samples[r.samples.length - 1]?.util;
+    if (typeof u === "number") return Math.round(u * 100);
+    return r.mode === "measured" ? null : 0;
+  });
+  const utilPct = util ?? 0;
   // 증설 기준. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 앱 계층 눈금과 같은 값), 재생은 로컬 조정기의 권고 임계다
   const live = state.live;
-  const advice = live ? Math.round(live.scaleOut * 100) : Math.round(SCALE_OUT_ADVICE * 100);
-  const adviceWord = live ? "증설" : "권고";
+  const measured = state.measured;
+  // 실측 모드의 증설 임계는 관제 판의 임계값 관리 값이다. 아직 못 읽었으면 눈금을 긋지 않는다
+  const advice = live
+    ? Math.round(live.scaleOut * 100)
+    : measured
+      ? measured.scaleOut === null ? null : Math.round(measured.scaleOut * 100)
+      : Math.round(SCALE_OUT_ADVICE * 100);
+  const adviceWord = live || measured ? "증설" : "권고";
   /** 재생을 걸 세계. 관제 값 모드에서는 재생 세계의 첫 상태로 막힘과 설명을 판정한다 */
   const replayState = (id: ScenarioId, target?: TargetId) => (mode === "live" ? replayBase(id, target) : state);
   // 상태가 바뀐 카드와 그룹 틀에 링 펄스를, 등록 대수가 바뀐 숫자에 플래시를 켠다. 처음 받은 값은 전이가
@@ -1050,11 +1103,13 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
         sub: "capacity_reconciler.py · 호스트",
         state: asg.state,
         status: asg.status,
-        rows: live
+        rows: measured
+          ? measuredRows("asg", state, util)
+          : live
           ? [
               ["그룹", "app-3 한 대 · 0~1대 · 조회 전용"],
               ["앱 계층", `app-1 · app-2 고정과 app-3 · min ${asg.min} · max ${asg.max}`],
-              ["조회 사용률", `${util}% · 증설 임계 ${advice}%`],
+              ["조회 사용률", `${utilPct}% · 증설 임계 ${advice}%`],
               ["목표", `앱 ${asg.desired}대`],
               ["등록", `앱 ${asg.registered}대 · ALB 조회 대상`],
               ["매칭 리더", "app-1 · app-2 는 그룹 밖 · 늘 켜져 있고 조회도 받음"],
@@ -1065,7 +1120,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           : [
               ["그룹", "app-3 한 대 · 0~1대 · 조회 전용"],
               ["앱 계층", `app-1 · app-2 고정과 app-3 · min ${asg.min} · max ${asg.max}`],
-              ["조회 사용률", `${util}% · 증설 권고 ${advice}%`],
+              ["조회 사용률", `${utilPct}% · 증설 권고 ${advice}%`],
               ["목표", `앱 ${asg.desired}대`],
               ["등록", `앱 ${asg.registered}대 · ALB 조회 대상`],
               ["매칭 리더", "app-1 · app-2 는 그룹 밖 · 늘 켜져 있고 조회도 받음"],
@@ -1074,14 +1129,20 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
               ["증설 권고", `조회 사용률 ${advice}% 이상 · 로컬 조정기 값 · 관제 임계와 별개`],
               ["승인", "운영자 app-3 켜기·끄기 승인 뒤 조정"],
             ],
-        actions: [{ id: "scale", tone: "neutral" }],
+        // 실측 모드는 재생을 걸지 않는다. app-3 켜기·끄기는 용량·부하 화면과 AI 조치안 승인이 한다
+        actions: measured ? [] : [{ id: "scale", tone: "neutral" }],
+        foot: measured ? (
+          <Link href="/admin/capacity" className={adminStyles.boardLink}>
+            용량·부하에서 조정
+          </Link>
+        ) : undefined,
       };
     }
     if (key === "ai") {
       const a = ai.server;
       const rows: [string, string][] = a
         ? [
-            ["위치", "연구소 · AWS 밖 · 온프레미스"],
+            ["위치", "AWS 밖 · 온프레미스"],
             ["장비", `${a.hardware} · 통합 메모리 ${a.memTotalGb}GB`],
             ["실행", `${a.runtime} · 로컬 LLM`],
             ["적재 모델", a.model],
@@ -1094,7 +1155,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
             ["구축", "ADR 0038 · 구축 전"],
           ]
         : [
-            ["위치", "연구소 · AWS 밖 · 온프레미스"],
+            ["위치", "AWS 밖 · 온프레미스"],
             ["원천", ai.source ?? "관제 판 확인 중"],
             ["구축", "ADR 0038 · 구축 전"],
           ];
@@ -1111,11 +1172,28 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
     const v = views[key];
     const head = {
       icon: ICON[key],
-      title: isDb(key) ? `${DB_TITLE[state.db[key]]} · ${v.name}` : v.name,
-      sub: v.container ?? "대응 컨테이너 없음",
+      // 제목이 호스트 이름과 다르면(DB 역할, 실측 모드의 한글 역할 이름) 둘을 함께 적는다
+      title: isDb(key) || measuredCardTitle(key, state) ? `${cardTitle(key, v, state)} · ${v.name}` : v.name,
+      sub: v.container ?? (measured ? "Prometheus 수집 대상" : "대응 컨테이너 없음"),
       state: v.state,
       status: v.status,
     };
+    // 실측 모드는 재생을 걸지 않는다. 판독 줄만 싣고, 봇은 발행률을 바꾸는 봇 플릿 화면으로 보낸다
+    if (measured) {
+      return {
+        ...head,
+        rows: measuredRows(key, state, util),
+        actions: [],
+        foot:
+          key === "bot" ? (
+            <Link href="/admin/bots" className={adminStyles.boardLink}>
+              봇 플릿에서 조정
+            </Link>
+          ) : key === "obs" && grafanaConfigured() ? (
+            <GrafanaLink board="msp-service" label="Grafana 추이" />
+          ) : undefined,
+      };
+    }
     switch (key) {
       case "users":
         return {
@@ -1384,14 +1462,16 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           <span className={styles.titleRow}>
             <span className={styles.title}>{cardTitle(key, v, state)}</span>
           </span>
-          <Status state={v.state} text={v.status} />
+          {/* 실측에서 값을 받지 못한 칸은 보고 경로 자리와 같은 점선 윤곽에 ◌ 미수집이다 */}
+          <Status state={v.state} text={measured && v.state === "absent" ? `◌ ${v.status}` : v.status} />
         </button>
         {popover(key, box)}
       </Fragment>
     );
   };
 
-  const asgLabel = `Auto Scaling group · app-3 · 0~1대 · 앱 계층 min ${asg.min} · max ${asg.max} · ${live ? "증설 임계" : "증설 권고"} ${advice}% · ${asg.status} · ${STATE_WORD[asg.state]}`;
+  const adviceText = advice === null ? `${adviceWord} 임계 미수집` : `${adviceWord} ${advice}%`;
+  const asgLabel = `Auto Scaling group · app-3 · 0~1대 · 앱 계층 min ${asg.min} · max ${asg.max} · ${live || measured ? "증설 임계" : "증설 권고"} ${advice === null ? "미수집" : `${advice}%`} · ${asg.state === "absent" ? "미수집" : `${asg.status} · ${STATE_WORD[asg.state]}`}`;
   const countTone = countFlash.n ? (asg.state === "transition" ? "warning" : "success") : undefined;
   const aiLabel = `ai-1 · 온프레미스 AI 서버 · ${ai.server ? `${ai.server.hardware} · ${ai.server.runtime}` : "원천 연결 전"} · ${STATE_WORD[ai.state]}${ai.state === "running" ? ` · ${ai.status}` : ""}${ai.server?.assumed ? " · 구축 전이라 연결은 시뮬레이션 가정" : ""}`;
 
@@ -1420,6 +1500,12 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
                   {STATE_WORD[st]}
                 </span>
               ))}
+              {measured && (
+                <span className={styles.legendItem}>
+                  <StatusShape kind="dashed" tone="absent" className={styles.shape} />
+                  미수집
+                </span>
+              )}
               <span className={styles.legendItem}>
                 <span className={styles.railSwatch} />
                 리더
@@ -1438,7 +1524,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           </span>
         </div>
         <div className={styles.frame} data-kind="onprem" style={boxStyle(L.onprem)} aria-hidden="true">
-          <FrameLabel icon="building">온프레미스 · 연구소</FrameLabel>
+          <FrameLabel icon="building">온프레미스</FrameLabel>
         </div>
         <div className={styles.frame} data-kind="edge" style={boxStyle(L.edge)} aria-hidden="true">
           <FrameLabel icon="globe">엣지</FrameLabel>
@@ -1461,7 +1547,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
         {/* bot-1 칸의 이름표도 다른 틀처럼 왼쪽 위다. 시장 봇 선이 ALB 가운데 세로줄로 칸 윗변을 지나는
             자리(956px 에서 칸 왼쪽 끝에서 67px)보다 앞에서 끝나게 "bot-1"(끝이 약 53px)만 적는다 */}
         <div className={styles.frame} data-kind="host" style={boxStyle(L.host)} aria-hidden="true">
-          <FrameLabel icon="server">bot-1</FrameLabel>
+          <FrameLabel icon="server">{measured ? MEASURED_BOT_FRAME : "bot-1"}</FrameLabel>
         </div>
         {/* Auto Scaling 그룹(app-3). 자동 증설 자리를 강조하는 틀이라 테두리를 한 단 굵고 진하게 두고, 조정 중이면
             주황 점선으로 바꾼다. 머리는 단추라 눌러 그룹의 범위와 조정 방법을 연다 */}
@@ -1517,11 +1603,13 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           <span className={styles.asgStateRow}>
             <span className={styles.status} data-state={asg.state}>
               <StateShape state={asg.state} />
-              <span className={styles.statusText}>{withFigure(asg.status, ASG_FIGURE_RE, countTone)}</span>
+              <span className={styles.statusText}>
+                {asg.state === "absent" ? `◌ ${asg.status}` : withFigure(asg.status, ASG_FIGURE_RE, countTone)}
+              </span>
             </span>
             <span className={styles.asgUtil}>
               {L.asgWide ? "사용률 " : ""}
-              <span className={styles.figure}>{util}%</span>
+              {util === null ? "미수집" : <span className={styles.figure}>{util}%</span>}
             </span>
           </span>
           {/* 셋째 줄은 사용률 막대 자리만 잡는다. 막대(MeterRail)는 div 라 단추의 내용이 될 수 없어
@@ -1541,9 +1629,9 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           })}
           aria-hidden="true"
         >
-          <MeterRail value={util} max={100} threshold={advice} tone={util >= advice ? "warning" : undefined} />
+          <MeterRail value={utilPct} max={100} threshold={advice ?? undefined} tone={advice !== null && util !== null && util >= advice ? "warning" : undefined} />
           <span className={styles.asgRailLabel}>
-            {adviceWord} {advice}%
+            {adviceText}
           </span>
         </div>
         {popover("asg", L.asgHead)}
@@ -1568,7 +1656,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
         >
           <Tile icon="chip" />
           <span className={styles.titleRow}>
-            <span className={styles.title}>ai-1</span>
+            <span className={styles.title}>{measured ? MEASURED_AI_TITLE : "ai-1"}</span>
             {/* 구축 전이라 연결과 값은 시뮬레이터의 가정이다. 상태 줄 끝의 '가정' 두 글자로는 읽히지 않아 표식으로 단다.
                 카드 폭(112px)에 '시뮬레이션 가정'을 다 쓰면 제목 ai-1이 잘려 표식은 '가정'만 보이고 원문은 툴팁이 싣는다 */}
             {ai.server?.assumed && <SimMark kind="assumed" short="가정" />}
@@ -1595,7 +1683,7 @@ export default function FlowTopology({ state, views, onPick, delivery }: FlowTop
           {EDGE_IDS.map((id) => (
             <li key={id}>{edgeText(id, state, views, flows[id])}</li>
           ))}
-          <li>{`DB 승격 · 자동 페일오버 없음 · 수동 승격`}</li>
+          <li>{measured ? `DB ${promotionWord(measured.promotion)} · 역할은 recovery 지표로 판정 · 콘솔은 DB 전환을 실행하지 않음` : "DB 승격 · 자동 페일오버 없음 · 수동 승격"}</li>
           <li>{`매칭 app-1·app-2 ↔ ai-1 · 판단 요청 · 연결 경로 결정 전${ai.server?.assumed ? " · 시뮬레이션 가정" : ""} · ${ai.server?.busy ? "요청 처리 중" : ai.status}`}</li>
           <li>{`bot-1 관측 → AI 운영 보고 → Microsoft Teams · ${delivery.state === "CONNECTED" ? `${report.report.text} · ${report.teams.text}` : delivery.state === "ERROR" ? "전송 실패" : "보고 서비스 연결 전"}`}</li>
         </ul>

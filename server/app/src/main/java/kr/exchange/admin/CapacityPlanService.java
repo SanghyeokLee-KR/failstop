@@ -4,7 +4,9 @@ import kr.exchange.api.common.ApiException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +22,10 @@ public class CapacityPlanService {
     }
 
     public record Change(int from, int to) {
+    }
+
+    /** 희망 대수가 바뀐 한 번. at 은 감사 행의 시각이다 */
+    public record Shift(Instant at, int from, int to) {
     }
 
     /**
@@ -103,6 +109,23 @@ public class CapacityPlanService {
                             : "앱 계층은 최대 " + before.max() + "대 위로 늘릴 수 없습니다.");
         }
         return new Change(before.desired(), outcome.next());
+    }
+
+    /**
+     * since 이후의 희망 대수 변경을 시각 순으로 돌려준다. 사람과 AI 의 변경, AI 조치 되돌림이 모두 change() 를 지나
+     * 같은 감사 코드와 전후 대수를 남기므로 감사 기록이 곧 희망 대수의 이력이다.
+     */
+    public List<Shift> shiftsSince(Instant since) {
+        return jdbc.sql("""
+                        SELECT created_at, (detail->>'from')::int AS from_nodes, (detail->>'to')::int AS to_nodes
+                        FROM admin_audit_log
+                        WHERE action IN ('capacity.scale_out', 'capacity.scale_in') AND result = 'OK' AND target = ?
+                          AND created_at >= ? AND detail->>'from' IS NOT NULL AND detail->>'to' IS NOT NULL
+                        ORDER BY created_at, id
+                        """)
+                .params(TIER, since.atOffset(ZoneOffset.UTC))
+                .query((rs, i) -> new Shift(rs.getObject(1, OffsetDateTime.class).toInstant(), rs.getInt(2), rs.getInt(3)))
+                .list();
     }
 
     /** 노드를 호출 시점에 잰다. 저장한 값을 쓰지 않는다(NodeProbe 주석). */

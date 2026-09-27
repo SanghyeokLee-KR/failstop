@@ -105,12 +105,27 @@ import type {
   WindowInput,
   SlaMonth,
   OpsFlowTapeEntry,
+  FlowMeasured,
 } from "./types";
+import { absentFlow, flowMeasuredOf, type WireFlow } from "./httpFlow";
 
 /** 마켓 심볼 -> 한글명. 서버 config/markets는 한글명을 싣지 않아 표시용으로만 조인한다 */
 const COIN_NAME = new Map(COIN_META.map((c) => [c.market, c.koreanName]));
 /** 불변식 check_name -> 라벨. 서버 invariants는 라벨을 싣지 않는다 */
 const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
+/**
+ * 비밀번호를 실어 보내도 되는 주소인가. https는 받는다. http는 이 PC 안에서만 오가는 루프백
+ * (localhost, 127.0.0.1, [::1])일 때만 받는다. 로컬 시연 관문(harness/nginx/admin-gw.conf)이
+ * http://localhost:3000 에서 학교 AWS와 같은 비밀번호 로그인을 받기 때문이다. 루프백 통신은 망을
+ * 지나지 않고 브라우저도 이 출처를 보안 컨텍스트로 본다. 다른 호스트의 http는 종전대로 막는다.
+ */
+function passwordTransportOk(url: URL): boolean {
+  if (url.protocol === "https:") return true;
+  if (url.protocol !== "http:") return false;
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
 /** 커서 쪽 요청 질의문자열. 빈 값은 붙이지 않아 URL이 조건마다 달라지지 않는다 */
 function pageQuery(opts: PageOpts, extra: Record<string, string> = {}): string {
   const q = new URLSearchParams(extra);
@@ -783,8 +798,8 @@ export class HttpAdminApi implements AdminApi {
     if (password !== undefined) {
       this.endSession();
       const origin = typeof window !== "undefined" ? window.location.origin : undefined;
-      const protocol = this.base ? new URL(this.base, origin).protocol : origin ? new URL(origin).protocol : "";
-      if (protocol !== "https:") {
+      const target = this.base ? new URL(this.base, origin) : origin ? new URL(origin) : null;
+      if (!target || !passwordTransportOk(target)) {
         throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS 전용");
       }
       if (!certId?.trim() || certId.includes(":") || !password) {
@@ -1070,9 +1085,19 @@ export class HttpAdminApi implements AdminApi {
   readonly opsScenarios = false;
   private readonly ops = new OpsFeed(<T,>(path: string) => this.http<T>(path));
 
-  /** 지표 관제의 박자별 기록은 관제 시뮬레이터에만 있다. 실측 추이는 Grafana가 소유한다 */
+  /** 지표 관제의 박자별 기록은 관제 시뮬레이터에만 있다. http의 두 화면은 흐름 조회(getFlowMeasured)의 150초 창을 그린다 */
   getFlowTape(): Promise<OpsFlowTapeEntry[] | null> {
     return Promise.resolve(null);
+  }
+
+  async getFlowMeasured(): Promise<FlowMeasured | null> {
+    try {
+      return flowMeasuredOf(await this.http<WireFlow>("/admin/v1/msp/flow"));
+    } catch (e) {
+      // 흐름 조회가 없는 배포다(관제 모듈이 꺼졌거나 이 경로 전의 판). 오류 본문의 이름은 배포마다 달라 상태로 가른다
+      if (e instanceof AdminError && (e.status === 404 || e.code === "not_found")) return absentFlow();
+      throw e;
+    }
   }
 
   async getControlCenter(): Promise<ControlCenter> {

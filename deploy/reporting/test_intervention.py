@@ -61,6 +61,16 @@ class InterventionTest(unittest.TestCase):
             self.assertIn("고객 영향 미확인", result["limitations"][0])
             self.assertEqual(result["actions"][0]["priority"], "P1")
 
+    def test_firing_warning_alert_names_its_subject(self):
+        report = complete_report()
+        fact(report, "alerts")["records"] = [{"labels": {"alertname": "AppTierCpuHigh", "severity": "warning"},
+                                                "status": "firing", "startsAt": (NOW - dt.timedelta(minutes=2)).isoformat()}]
+        result = assess(report)
+        self.assertEqual(result["code"], "scheduled")
+        self.assertIn("앱 계층 CPU 높음 발생", result["reason"])
+        fact(report, "alerts")["records"][0]["labels"]["alertname"] = "UnlistedAlert"
+        self.assertIn("운영 경보 발생", assess(report)["reason"])
+
     def test_firing_critical_alert_can_escalate_when_metrics_are_missing(self):
         report = complete_report()
         report["evidence"]["facts"] = [fact(report, "alerts")]

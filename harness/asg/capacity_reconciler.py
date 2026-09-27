@@ -21,9 +21,19 @@ CPU 를 보지 않고 임계도 없다.
 격리 스택이다. 같은 조정 규칙을 두 곳에 쓰려고 노드 이름·포트·컨테이너를 상수에서 인자로
 옮겼다. 기본값이 `ex` 라 종전 호출은 그대로 돈다.
 
+수집 대상 파일(--sd-file). 조회 노드를 붙이고 뗄 때 Prometheus file_sd 대상 파일을 함께 고친다. AWS 에서 ASG 인스턴스가
+서비스 검색으로 수집 대상에 들고 나는 자리다. 종전 시연 설정은 Prometheus 가 컨테이너 이름(chaos-api-3)을 DNS 로 찾았는데,
+멈춘 컨테이너 이름에 도커 DNS 가 NXDOMAIN 대신 시간 초과를 돌려주는 때가 있고 Prometheus 는 조회 실패 때 이전 대상을 유지해
+멈춘 노드의 up=0 이 남았다(2026-09-27 17:3x, 보고서가 '수집 대상 7/8 응답'으로 나옴). 파일에는 축소 자리(--pool 에서
+--min-pool 뒤) 노드 가운데 조회 업스트림에 들어 있고 실행 중인 것만 적는다. 붙일 때는 헬스를 통과해 업스트림에 넣은 뒤에,
+뗄 때는 드레인 창이 끝나고 컨테이너를 멈추기 직전에 뺀다. 매 주기에도 실제 상태와 맞춘다(내용이 같으면 쓰지 않는다).
+
 사용:
   python harness/asg/capacity_reconciler.py --lb-conf <경로> --log <경로>
   python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <경로>
+  python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <경로> \
+      --pg-container chaos-db-toolbox --sd-file harness/demo/prometheus-sd.local/reader.json
+      (시연 스택. DB 가 Patroni 면 희망 대수를 chaos-db-toolbox 의 psql 로 현재 Primary 에서 읽는다)
   python harness/asg/capacity_reconciler.py --once        한 주기만 돌고 끝낸다
 
 산출: --log 경로에 JSON Lines. 한 줄이 한 번의 조치다.
@@ -31,6 +41,7 @@ CPU 를 보지 않고 임계도 없다.
 
 import argparse
 import json
+import os
 import sys
 import time
 
@@ -101,6 +112,23 @@ def exists(name):
     return out.strip() == name
 
 
+def sd_content(nodes, port):
+    """Prometheus file_sd 형식. 대상이 없으면 빈 목록이다(빈 목록도 올바른 파일이다)."""
+    groups = [{'targets': ['%s:%d' % (n, port) for n in nodes]}] if nodes else []
+    return json.dumps(groups, ensure_ascii=False, indent=2) + '\n'
+
+
+def write_atomic(path, text):
+    """같은 폴더의 임시 파일에 쓴 뒤 이름을 바꾼다. Prometheus 가 반쯤 쓴 파일을 읽지 않게 한다.
+    임시 파일은 .tmp 로 끝나 수집 대상 글롭(*.json)에 걸리지 않는다."""
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)
+    tmp = os.path.join(folder, '.%s.%d.tmp' % (os.path.basename(path), os.getpid()))
+    with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 class Reconciler:
 
     def __init__(self, a):
@@ -109,6 +137,7 @@ class Reconciler:
         self.log_f = open(a.log, 'a', encoding='utf-8')
         self.t0 = time.time()
         self.key = None
+        self.sd_written = None
 
     def emit(self, kind, **kw):
         rec = {'t': round(time.time() - self.t0, 1), 'kind': kind}
@@ -127,7 +156,23 @@ class Reconciler:
         return [n for n in [ctl.LEADER] + ctl.POOL
                 if self.lb.active(n) and ctl.running(n)]
 
+    def sync_sd(self):
+        """수집 대상 파일을 실제 상태에 맞춘다. 축소 자리 노드 가운데 업스트림에 있고 실행 중인 것만 적는다.
+        --min-pool 앞머리(chaos 의 쓰기 백업 api-2)는 늘 떠 있어 정적 수집 대상이므로 적지 않는다."""
+        path = getattr(self.a, 'sd_file', None)
+        if not path:
+            return
+        nodes = [n for n in ctl.POOL[self.a.min_pool:] if self.lb.active(n) and ctl.running(n)]
+        text = sd_content(nodes, getattr(self.a, 'sd_port', 8080))
+        if text == self.sd_written:
+            return
+        write_atomic(path, text)
+        self.sd_written = text
+        self.emit('sd.write', targets=','.join(nodes) or '-')
+
     def step(self):
+        # 조정보다 먼저 파일을 맞춘다. 희망 대수를 읽지 못한 주기에도 멈춘 노드가 대상에 남지 않는다.
+        self.sync_sd()
         desired = desired_from_db(self.a.pg_container, self.a.database, self.a.user)
         if desired is None:
             self.emit('plan.unreadable', note='capacity_plan 을 읽지 못했다. 이번 주기는 건너뛴다')
@@ -177,6 +222,8 @@ class Reconciler:
         self.lb.reload()
         self.emit('add.done', node=target, total=len(self.members()),
                   elapsed=round(time.time() - t0, 1))
+        # 헬스를 통과해 업스트림에 넣은 뒤에 수집 대상에 넣는다. 기동 중인 노드를 넣으면 그동안 up=0 이 수집 누락으로 보인다.
+        self.sync_sd()
 
     def remove(self):
         # 뒤에서부터 뺀다. 리더는 목록에 없으므로 절대 대상이 되지 않는다.
@@ -193,6 +240,9 @@ class Reconciler:
         self.lb.reload()
         self.emit('remove.drain', node=target, window=self.a.drain)
         time.sleep(self.a.drain)
+        # 멈추기 전에 수집 대상에서 뺀다. 멈춘 뒤에 빼면 다음 파일 읽기(5초)까지 멈춘 노드의 up=0 이 남는다.
+        # 업스트림에서 이미 빠졌으므로 파일에서도 빠진다(sync_sd 는 업스트림 기준이다).
+        self.sync_sd()
         # 2단계. 창이 끝난 뒤에 내린다. 순서를 뒤집으면 옛 워커가 아직 그 노드의 응답을
         # 기다리는 중일 수 있다.
         ctl.sh(['docker', 'stop', target], check=False, timeout=60)
@@ -202,7 +252,8 @@ class Reconciler:
     def run(self):
         self.emit('start', stack=self.a.stack, interval=self.a.interval, drain=self.a.drain,
                   once=self.a.once, nodes=len(ctl.POOL) + 1, leader=ctl.LEADER,
-                  pool=','.join(ctl.POOL), min_pool=self.a.min_pool, mode=self.a.start_mode)
+                  pool=','.join(ctl.POOL), min_pool=self.a.min_pool, mode=self.a.start_mode,
+                  pg=self.a.pg_container, sd=getattr(self.a, 'sd_file', None) or '-')
         end = time.time() + self.a.duration
         while True:
             try:
@@ -243,6 +294,8 @@ def main():
     p.add_argument('--drain', type=float, default=15, help='connection draining 창')
     p.add_argument('--launch-budget', type=float, default=90)
     p.add_argument('--node-cpus', type=float, help='새 노드에 줄 vCPU. run 모드에서만 쓴다')
+    p.add_argument('--sd-file', help='Prometheus file_sd 대상 파일. 주면 조회 노드를 붙이고 뗄 때 함께 고친다')
+    p.add_argument('--sd-port', type=int, default=8080, help='대상 파일에 적을 컨테이너 포트(호스트 포트가 아니다)')
     p.add_argument('--once', action='store_true', help='한 주기만 돌고 끝낸다')
     a = p.parse_args()
 

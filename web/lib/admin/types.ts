@@ -752,6 +752,11 @@ export interface OpsPartition {
 export interface OpsHost {
   id: string;
   role: OpsHostRole;
+  /**
+   * DB 역할을 recovery 지표로 확인했는가. false 면 멈췄거나 지표가 없어 역할을 모르는 DB 이고, role 은 남은 자리(Primary 나
+   * Standby)만 뜻한다. 화면은 역할을 미수집으로 적는다. DB 가 아니거나 시뮬레이터 판이면 없다
+   */
+  roleKnown?: boolean;
   instanceType: string;
   az: string;
   collect: OpsCollect;
@@ -884,13 +889,25 @@ export interface ReadTier {
 
 export type ReplicationStream = "STREAMING" | "CATCHUP" | "STOPPED";
 
-/** DB 복제. 비동기라 지연 동안 쓰인 기록은 Primary를 잃으면 함께 잃을 수 있다(ADR 0024) */
+/** 복제 방식 실측. Primary가 보는 pg_stat_replication.sync_state가 동기(sync·quorum)면 SYNC, 비동기면 ASYNC다 */
+export type ReplicationSync = "SYNC" | "ASYNC";
+/** 승격 방식 실측. Patroni 지표가 있으면 AUTO(자동 승격), Patroni가 일시 정지면 MANUAL(자동 승격 멈춤)이다 */
+export type DbPromotion = "AUTO" | "MANUAL";
+
+/**
+ * DB 복제. 비동기(ADR 0024)면 지연 동안 쓰인 기록은 Primary를 잃으면 함께 잃을 수 있고, 엄격 동기(ADR 0036)면 Standby가
+ * WAL을 쓴 뒤에만 커밋을 확인한다. 어느 쪽인지는 mode가 적는다
+ */
 export interface Replication {
   primary: string;
   standby: string;
   stream: ReplicationStream;
   lagBytes: number | null;
   lagSec: number | null;
+  /** 복제 방식. http 판은 수집값이고 복제 상대가 없거나 모르면 null이다. sim 판은 싣지 않는다(시뮬레이터의 ADR 0024 구성) */
+  mode?: ReplicationSync | null;
+  /** 승격 방식. http 판은 수집값이고 Patroni 지표가 없으면 null(미확인)이다. sim 판은 싣지 않는다 */
+  promotion?: DbPromotion | null;
 }
 
 export type AlertSeverity = "critical" | "warning" | "info";
@@ -1299,6 +1316,93 @@ export interface OpsFlowTapeEntry {
   serving: number;
   /** 복제가 끊겼으면 null이다 */
   lagBytes: number | null;
+}
+
+/* ===== 서비스 흐름 실측(관리자 설계 4-2, API 설계 §6-F '흐름') =====
+ * 관리 API가 Prometheus에서 읽은 최근 150초를 2초 격자로 받는다. 배열의 i번째 값은 start + i × step 초의 값이고, 값이 없는 점은
+ * null이다. 배열 전체가 null이면 그 질의가 돌지 않았거나 실패했다(failed) */
+
+/** 앱 노드의 쓰기 가능 상태(API 설계 §2-5-e). ACTIVE가 아니면 공개 상태는 거래 일시 중단이다 */
+export type FlowWriteState = "ACTIVE" | "SUSPENDED" | "UNREACHABLE";
+
+export interface FlowMeasuredApp {
+  /** Prometheus 수집 대상의 node 라벨(app-1). 역할 라벨이 reader면 조회 전용 app-3 자리다 */
+  node: string;
+  role: string | null;
+  up: (boolean | null)[];
+  /** 프로세스 CPU(0..1) */
+  cpu: (number | null)[] | null;
+  /** 로드밸런서 조회 경로(markets·trades·candles) 요청 가운데 앱이 받아 처리한 것(429가 아닌 응답)/초 */
+  reads: (number | null)[] | null;
+  /** 조회 경로 요청 가운데 앱의 요청 제한이 거절한 것(429)/초. 이 값을 싣지 않는 서버면 null이다 */
+  readsRejected: (number | null)[] | null;
+  /** 그 밖의 업무 요청/초(주문·취소·계좌·호가). 로드밸런서 쓰기 경로로 매칭 리더에 간다 */
+  writes: (number | null)[] | null;
+  leader: (boolean | null)[] | null;
+  epoch: (number | null)[] | null;
+  write: (FlowWriteState | null)[] | null;
+  /** 리더 리스를 마지막으로 갱신한 뒤 지난 초. 리스가 없는 노드는 null이다 */
+  leaseAge: (number | null)[] | null;
+}
+
+export interface FlowMeasuredDb {
+  node: string;
+  /** DB 지표 수집기가 응답하는가 */
+  reachable: (boolean | null)[];
+  /** PostgreSQL이 응답하는가(pg_up) */
+  up: (boolean | null)[] | null;
+  /** recovery 중이면 Standby, 아니면 Primary. 역할은 노드 이름이 아니라 이 값으로 정한다 */
+  inRecovery: (boolean | null)[] | null;
+  connections: (number | null)[] | null;
+  /** 커밋 트랜잭션/초 */
+  xact: (number | null)[] | null;
+}
+
+export interface FlowMeasuredSeries {
+  apps: FlowMeasuredApp[];
+  /** DB 수집 설정이 없으면 null이다 */
+  dbs: FlowMeasuredDb[] | null;
+  trades: (number | null)[] | null;
+  /** 앱 계층이 받은 주문·취소 요청/초. 봇 발행률(OPS)이 세는 호출과 같다 */
+  orders: (number | null)[] | null;
+  /** 앱 계층 전체의 조회 수용·거절(429)/초. 격자마다 떠 있는 노드 값의 합이다. 싣지 않는 서버면 null이다 */
+  readRate: (number | null)[] | null;
+  readRejectedRate: (number | null)[] | null;
+  replLagBytes: (number | null)[] | null;
+  /** 격자마다의 복제 방식과 승격 방식. 복제 상대나 Patroni 지표가 없는 점은 null, 질의가 없거나 실패하면 배열 전체가 null이다 */
+  replicationMode: (ReplicationSync | null)[] | null;
+  promotion: (DbPromotion | null)[] | null;
+  /** 진입 검사. service 라벨(cloudfront·alb·edge)마다 가장 나쁜 대상의 성공 여부다. 설정이 없으면 null */
+  probes: { service: string; success: (boolean | null)[] }[] | null;
+  /** 실패한 질의 이름 */
+  failed: string[];
+}
+
+export interface FlowMeasuredTier {
+  mode: "CAPACITY_PLAN" | "ASG_POLICY";
+  min: number | null;
+  max: number | null;
+  /** 격자마다의 희망 대수. ASG가 대수를 소유하면 null이다 */
+  desired: (number | null)[] | null;
+}
+
+export interface FlowMeasuredBots {
+  /** local은 관리 JVM의 거버너, published는 봇 노드가 발행한 상태, unknown은 둘 다 없거나 늙은 상태다 */
+  source: string;
+  targetOps: number | null;
+  sampledAt: string | null;
+}
+
+export interface FlowMeasured {
+  environment: OpsEnvironment;
+  generatedAt: string;
+  /** 격자의 첫 시각(epoch 초), 간격(초), 점 수 */
+  start: number;
+  step: number;
+  points: number;
+  flow: OpsSection<FlowMeasuredSeries>;
+  readTier: OpsSection<FlowMeasuredTier>;
+  bots: OpsSection<FlowMeasuredBots>;
 }
 
 export interface AiJudgment {

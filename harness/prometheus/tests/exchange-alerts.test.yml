@@ -392,3 +392,43 @@ tests:
               duration: "2m"
               dashboard: "MSP 종합 (msp-overview)"
               runbook: "지연만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"
+
+  # 복제 모드 경보. Patroni 가 없는 스택(ADR 0024 비동기)에서 동기로 떠 있으면 1분 뒤 울린다.
+  - interval: 10s
+    input_series:
+      - series: 'pg_replication_client_sent_replay_bytes{job="postgres",node="db-primary",application_name="db-standby",state="streaming",sync_state="sync"}'
+        values: "0x12"
+    alert_rule_test:
+      - eval_time: 90s
+        alertname: ReplicationSyncStateUnexpected
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: db
+              job: postgres
+              node: db-primary
+              application_name: db-standby
+              state: streaming
+              sync_state: sync
+            exp_annotations:
+              summary: "복제 모드가 async 가 아니다"
+              metric: "pg_replication_client_sent_replay_bytes{sync_state}"
+              value: "sync"
+              threshold: "sync_state != async"
+              duration: "1m"
+              dashboard: "MSP 종합 (msp-overview)"
+              runbook: "ADR 0024 는 상시면을 비동기로 규정한다. 동기로 떠 있으면 정책과 배선이 갈렸다"
+
+  # Patroni 가 관리하는 클러스터(ADR 0036 엄격 동기)에서는 동기가 정책이라 조용하다.
+  - interval: 10s
+    input_series:
+      - series: 'pg_replication_client_sent_replay_bytes{job="postgres",node="db-1",application_name="db-2",state="streaming",sync_state="sync"}'
+        values: "0x12"
+      - series: 'patroni_primary{job="patroni",node="db-1",scope="exchange-chaos-demo",name="db-1"}'
+        values: "1x12"
+      - series: 'patroni_primary{job="patroni",node="db-2",scope="exchange-chaos-demo",name="db-2"}'
+        values: "0x12"
+    alert_rule_test:
+      - eval_time: 90s
+        alertname: ReplicationSyncStateUnexpected
+        exp_alerts: []

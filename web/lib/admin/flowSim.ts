@@ -33,7 +33,17 @@
  */
 
 import { tradesPerSec } from "./opsSim";
-import type { ControlCenter, IncidentEvent, OpsFlowTapeEntry, OpsHost } from "./types";
+import type {
+  ControlCenter,
+  DbPromotion,
+  FlowWriteState,
+  IncidentEvent,
+  OpsEnvironment,
+  OpsFlowTapeEntry,
+  OpsHost,
+  OpsSection,
+  ReplicationSync,
+} from "./types";
 
 export type Health = "success" | "warning" | "danger";
 /** 매칭 노드(app-1·2). 쓰기와 리더 리스를 다룬다 */
@@ -95,19 +105,24 @@ export interface AppNode {
 export interface FlowSample {
   at: number;
   /** 체결 건수/초. DB 체결 행 기준이라 쓰기 공백 동안의 0 은 결측이 아니라 실제 0 이다 */
-  trades: number;
-  botOps: number;
-  /** 리더 리스 잔여 초. 보유자가 없으면 0 */
-  lease: number;
+  trades: number | null;
+  /** 봇 발행률. 실측 모드는 앱 계층이 받은 주문·취소 요청/초다 */
+  botOps: number | null;
+  /** 리더 리스 잔여 초. 보유자가 없으면 0. 실측 모드는 재지 않는다 */
+  lease: number | null;
   /** 앱 노드 CPU. 꺼진 컨테이너는 잴 것이 없어 미수집이다 */
   cpu: Record<AppId, number | null>;
-  /** 앱 계층 조회 사용률(0..1). app-3 켜기·끄기의 기준이다 */
-  util: number;
-  /** 앱 계층 대수(2~3). 목표는 capacity_plan.desired_nodes, 등록은 LB 조회 업스트림에 든 수 */
-  desired: number;
-  registered: number;
+  /** 앱 계층 조회 사용률(0..1). app-3 켜기·끄기의 기준이다. 실측 모드는 떠 있는 앱 노드의 평균 CPU 다 */
+  util: number | null;
+  /** 앱 계층 대수(2~3). 목표는 capacity_plan.desired_nodes, 등록은 LB 조회 업스트림에 든 수(실측 모드는 떠 있는 앱 노드 수) */
+  desired: number | null;
+  registered: number | null;
   /** DB 복제 지연 KB. 복제가 끊겼으면 잴 상대가 없어 미수집이다 */
   replLagKb: number | null;
+  /** 노드별 조회 경로 요청 가운데 수용한 것(429가 아닌 응답)/초. 실측 모드만 싣는다 */
+  reads?: Record<AppId, number | null>;
+  /** 노드별 요청 제한 거절(429)/초. 실측 모드만 싣는다 */
+  rejected?: Record<AppId, number | null>;
 }
 
 /** 관제 값 모드의 파티션 리더(ADR 0034). 재생은 단일 리더라 쓰지 않는다 */
@@ -133,6 +148,67 @@ export interface FlowLive {
   readRate: number;
   /** 앱이 아닌 노드의 호스트 CPU(서버·노드 화면과 같은 값). 인스턴스 표의 CPU 칸이 쓴다 */
   hostCpu: { pg1: number | null; pg2: number | null; bot: number | null };
+}
+
+/** 실측 모드의 앱 노드 한 자리. 마지막 격자의 값이고, 그 자리에 수집 대상이 없으면 node 가 null 이다 */
+export interface MeasuredApp {
+  node: string | null;
+  up: boolean | null;
+  /** CPU % */
+  cpu: number | null;
+  /** 조회 경로 요청 가운데 수용한 것/초, 요청 제한이 거절한 것(429)/초, 그 밖의 업무(쓰기 경로) 요청/초 */
+  reads: number | null;
+  rejected: number | null;
+  writes: number | null;
+  leader: boolean | null;
+  epoch: number | null;
+  write: FlowWriteState | null;
+  leaseAge: number | null;
+}
+
+/** 실측 모드의 DB 한 자리. 역할은 노드 이름이 아니라 recovery 지표로 정한다(primary) */
+export interface MeasuredDb {
+  node: string | null;
+  reachable: boolean | null;
+  up: boolean | null;
+  primary: boolean | null;
+  connections: number | null;
+  xact: number | null;
+}
+
+/**
+ * 실측 모드(http 원천)에서만 있는 값. 관리 API 흐름 조회의 마지막 격자를 흐름 자리(api1·api2·app3, pg1·pg2)에 옮긴다.
+ * 시뮬레이션과 재생에서는 null 이다
+ */
+export interface MeasuredFacts {
+  env: OpsEnvironment;
+  /** 마지막 격자의 시각(ISO) */
+  at: string;
+  /** 흐름 칸의 상태. 연결 전·실패면 source 가 붙일 원천이나 사유를 적는다 */
+  flow: OpsSection<unknown>["state"];
+  source: string | null;
+  apps: Record<AppId, MeasuredApp>;
+  dbs: Record<DbId, MeasuredDb>;
+  /** 진입 검사. CloudFront·ALB 자리는 로컬에서 같은 일을 하는 웹 입구·로드밸런서의 검사다 */
+  probes: { cloudfront: boolean | null; alb: boolean | null; edge: boolean | null };
+  trades: number | null;
+  orders: number | null;
+  /** 앱 계층 전체의 조회 수용·거절(429)/초. 서버가 낸 합이고, 싣지 않는 서버면 null 이라 노드 값을 더한다(tierRates) */
+  tierReads: number | null;
+  tierRejected: number | null;
+  targetOps: number | null;
+  botSource: string | null;
+  lagBytes: number | null;
+  /** 복제 방식과 승격 방식(흐름 조회의 마지막 격자). 모르면 null 이다 */
+  replMode: ReplicationSync | null;
+  promotion: DbPromotion | null;
+  tier: { mode: "CAPACITY_PLAN" | "ASG_POLICY" | null; min: number | null; max: number | null; desired: number | null };
+  /** 임계값 관리의 증설·축소 임계(0..1). 관제 판을 아직 못 읽었으면 null 이다 */
+  scaleOut: number | null;
+  scaleIn: number | null;
+  /** 지금 거래가 멈췄는가(쓰기 리더 없음 또는 리더의 쓰기 가능 상태가 ACTIVE 아님). 모르면 null */
+  suspended: boolean | null;
+  failed: string[];
 }
 
 export interface FlowState {
@@ -164,6 +240,7 @@ export interface FlowState {
   adviceOut: boolean;
   events: FlowEvent[];
   live: FlowLive | null;
+  measured: MeasuredFacts | null;
 }
 
 const otherEngine = (id: EngineId): EngineId => (id === "api1" ? "api2" : "api1");
@@ -373,6 +450,7 @@ export function createFlow(leader: EngineId = "api1"): FlowState {
     adviceOut: false,
     events: [],
     live: null,
+    measured: null,
   };
 }
 
@@ -604,7 +682,7 @@ const HEALTH_OF: Record<NodeState, Health> = {
   absent: "success",
 };
 
-function view(name: string, container: string | null, role: string, status: string, state: NodeState): NodeView {
+export function view(name: string, container: string | null, role: string, status: string, state: NodeState): NodeView {
   return { name, container, role, status, state, health: HEALTH_OF[state] };
 }
 
@@ -692,20 +770,23 @@ export interface AsgView {
   desired: number;
   /** 조회 업스트림에 든 앱 노드 수 */
   registered: number;
-  /** 목표와 등록이 다르거나 노드가 기동·드레이닝 중이면 전환 중이다 */
-  state: "running" | "transition";
+  /** 목표와 등록이 다르거나 노드가 기동·드레이닝 중이면 전환 중이다. 실측 원천이 없으면 absent(미수집)다 */
+  state: "running" | "transition" | "absent";
   /** 머리 한 줄. 짧은 명사로 둔다 */
   status: string;
 }
 
 export function asgView(s: FlowState): AsgView {
   const registered = APP_IDS.filter((a) => s.apps[a].inRead).length;
+  if (s.measured !== null && s.measured.flow !== "READY") {
+    return { min: s.measured.tier.min ?? 2, max: s.measured.tier.max ?? 3, desired: s.desired, registered, state: "absent", status: "미수집" };
+  }
   // 그룹이 움직이는 것은 app-3 뿐이다. 매칭 리더가 멈춰 등록이 줄어든 것은 그룹의 조정이 아니라 그 카드의 장애다
   const moving = READ_IDS.some((a) => s.apps[a].status === "booting" || s.apps[a].status === "draining");
   const transition = moving || s.apps.app3.inRead !== (s.desired === 3);
   return {
-    min: s.live?.min ?? 2,
-    max: s.live?.max ?? 3,
+    min: s.live?.min ?? s.measured?.tier.min ?? 2,
+    max: s.live?.max ?? s.measured?.tier.max ?? 3,
     desired: s.desired,
     registered,
     state: transition ? "transition" : "running",
@@ -888,6 +969,20 @@ export function edgeTier(rate: number): EdgeTier {
   if (rate <= 0) return 0;
   if (rate < EDGE_TIER_STEPS[0]) return 1;
   if (rate < EDGE_TIER_STEPS[1]) return 2;
+  return 3;
+}
+
+/**
+ * 주 DB 커밋을 싣는 선(매칭 칸 → 주 DB, 복제)의 단계 경계(초당 커밋). 주 DB 에는 리스 갱신·쓰기 탐지·저널처럼 요청 수와 따로
+ * 도는 커밋이 늘 있어, 요청 선의 경계를 쓰면 평소에도 가장 굵은 단계에 붙어 부하가 와도 더 굵어질 자리가 없다. 로컬 스택의
+ * 평소(초당 약 230)가 1단계, 부하 시험에서 봇을 두 배로 올린 때(약 400)가 2단계에 들게 잡았다
+ */
+export const DB_EDGE_TIER_STEPS = [300, 1000] as const;
+
+export function dbEdgeTier(rate: number): EdgeTier {
+  if (rate <= 0) return 0;
+  if (rate < DB_EDGE_TIER_STEPS[0]) return 1;
+  if (rate < DB_EDGE_TIER_STEPS[1]) return 2;
   return 3;
 }
 

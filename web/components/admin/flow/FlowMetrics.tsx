@@ -17,6 +17,9 @@
  *
  * 창은 여섯 차트 모두 최근 150초로 고정하고 스크롤·확대를 막았다. 시연 중 손이 스쳐 창이
  * 밀리면 사건 표식이 화면 밖으로 나가고 카드끼리 시각이 어긋난다.
+ *
+ * 실측 모드(http)는 관리 API 흐름 조회의 2초 격자를 그린다. 타임라인의 둘째 창은 봇 목표 발행률 대비 주문·취소
+ * 요청이고, 리스 카드 대신 노드별 조회 요청을 둔다(measuredCards).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -50,7 +53,9 @@ import {
   APP_NAME,
   LEASE_TICK,
   LEASE_TTL,
+  SCALE_OUT_ADVICE,
   linePoints,
+  type AppId,
   type FlowEvent,
   type FlowSample,
   type Health,
@@ -58,7 +63,8 @@ import {
 import styles from "./metrics.module.css";
 import StatusShape from "../StatusShape";
 
-const WINDOW = 150;
+/** 차트 창(초). 표본 간격(step)으로 나눈 수만큼 표본을 싣는다 */
+const WINDOW_SEC = 150;
 /** 사건 띠의 줄 수와 줄 높이. 증설 시나리오에서 1~2초 간격으로 이어지는 사건 셋과 뒤따르는
     권고 사건을 선 좌우 배치까지 써서 겹치지 않게 놓는 최소 줄 수다. 표식 높이가 17px 이라 줄 사이에
     1px 만 남긴다. 사건이 없을 때도 이 높이를 잡아 두어 첫 사건이 들어올 때 차트가 밀려 내려가지 않는다 */
@@ -145,31 +151,127 @@ const TIMELINE: ChartSpec = {
 /**
  * 조회 사용률 차트의 기준선. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 앱 계층 눈금과 같은 값), 재생은 로컬
  * 조정기의 권고 임계다. 관제 값 모드에서는 리스를 두 파티션이 따로 쥐고, 복제 지연은 KB 정수로 적어 관제센터의
- * DB 카드와 같은 자릿수다
+ * DB 카드와 같은 자릿수다. 실측 모드는 임계를 아직 못 읽었으면 기준선을 긋지 않고, 봇 목표 발행률을 주문 창에 긋는다
  */
 export interface MetricsBasis {
   live: boolean;
-  scaleOutPct: number;
+  measured: boolean;
+  scaleOutPct: number | null;
+  targetOps: number | null;
+}
+
+const utilPct = (s: FlowSample) => (s.util === null ? null : s.util * 100);
+
+/* 실측 모드. 위 타임라인은 쓰기 경로(봇 주문·취소 요청과 체결), 아래 윗줄은 조회 경로가 번지는 순서(앱 평균 CPU,
+   앱 계층 대수, 노드 CPU), 아랫줄은 노드별 조회 수용과 요청 제한 거절(429), DB 복제 지연이다. 리더 리스는 재지 않아 노드 팝오버에 둔다 */
+function measuredTimeline(b: MetricsBasis): ChartSpec {
+  const target = b.targetOps;
+  return {
+    title: "타임라인",
+    lines: [
+      TIMELINE.lines[0],
+      { name: "주문·취소/초", tone: 2, dash: "dashed", width: 2, pane: 1, pick: (s) => s.botOps, digits: 1, axisDigits: 0, unit: "" },
+    ],
+    // 목표선이 창 밖으로 나가지 않게 천장을 목표보다 조금 위로 둔다
+    scales: [{ kind: "floor", minCeil: 10 }, { kind: "floor", minCeil: Math.max(20, (target ?? 0) * 1.15) }],
+    refs: target === null ? [] : [{ line: 1, price: target, title: "목표", tone: "neutral", legend: `봇 목표 ${target} OPS` }],
+    stretch: [1.2, 1],
+    scaleWidth: 64,
+  };
+}
+
+function measuredCards(b: MetricsBasis): ChartSpec[] {
+  const line = (id: AppId, tone: Tone, dash: Dash, pick: (s: FlowSample) => number | null, digits: number, unit: string): LineSpec =>
+    ({ name: APP_NAME[id], tone, dash, width: 2, pane: 0, pick, digits, axisDigits: 0, unit });
+  return [
+    {
+      title: "앱 평균 CPU %",
+      lines: [{ name: "평균", tone: 1, dash: "solid", width: 2, pane: 0, pick: utilPct, digits: 0, axisDigits: 0, unit: "%" }],
+      scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
+      refs: b.scaleOutPct === null ? [] : [{ line: 0, price: b.scaleOutPct, title: "증설 임계", tone: "warning", legend: `증설 임계 ${b.scaleOutPct}%` }],
+      scaleWidth: 56,
+      span: 2,
+    },
+    {
+      title: "앱 계층 대",
+      lines: [
+        { name: "목표", tone: 3, dash: "dashed", width: 2, pane: 0, steps: true, pick: (s) => s.desired, digits: 0, axisDigits: 0, unit: "대" },
+        { name: "가동", tone: 1, dash: "solid", width: 2, pane: 0, steps: true, under: true, pick: (s) => s.registered, digits: 0, axisDigits: 0, unit: "대" },
+      ],
+      scales: [{ kind: "fixed", min: 0, max: 4, top: 0.08 }],
+      refs: [],
+      scaleWidth: 56,
+      span: 2,
+    },
+    {
+      title: "노드 CPU %",
+      lines: [
+        line("api1", 1, "solid", (s) => s.cpu.api1, 0, "%"),
+        line("api2", 2, "dashed", (s) => s.cpu.api2, 0, "%"),
+        line("app3", 3, "dotted", (s) => s.cpu.app3, 0, "%"),
+      ],
+      scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
+      refs: [],
+      scaleWidth: 56,
+      span: 2,
+    },
+    {
+      title: "노드 조회 수용/초",
+      lines: [
+        // 조회 부하는 초당 수천 건이라 소수점 없이 적는다
+        line("api1", 1, "solid", (s) => s.reads?.api1 ?? null, 0, ""),
+        line("api2", 2, "dashed", (s) => s.reads?.api2 ?? null, 0, ""),
+        line("app3", 3, "dotted", (s) => s.reads?.app3 ?? null, 0, ""),
+      ],
+      scales: [{ kind: "floor", minCeil: 10 }],
+      refs: [],
+      scaleWidth: 56,
+      span: 2,
+    },
+    {
+      // 앱의 요청 제한이 거절한 조회(429). app-3 가 합류하면 두 대의 거절이 주는 것이 이 차트에 보인다
+      title: "노드 거절/초 · 요청 제한",
+      lines: [
+        line("api1", 1, "solid", (s) => s.rejected?.api1 ?? null, 0, ""),
+        line("api2", 2, "dashed", (s) => s.rejected?.api2 ?? null, 0, ""),
+        line("app3", 3, "dotted", (s) => s.rejected?.app3 ?? null, 0, ""),
+      ],
+      scales: [{ kind: "floor", minCeil: 10 }],
+      refs: [],
+      scaleWidth: 56,
+      span: 2,
+    },
+    {
+      title: "DB 복제 지연 KB",
+      lines: [{ name: "지연", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.replLagKb, digits: 0, axisDigits: 0, unit: "KB" }],
+      scales: [{ kind: "floor", minCeil: 5 }],
+      refs: [],
+      scaleWidth: 56,
+      span: 2,
+    },
+  ];
 }
 
 /* 윗줄은 조회 경로다. 부하가 사용률을 올리고, 운영자 승인으로 app-3 이 켜져 앱 계층 대수가 바뀌고, app-3 의 CPU 가
    살아나는 순서로 왼쪽에서 오른쪽으로 읽힌다. 아랫줄은 쓰기 경로의 뒤편이라 DB 전환 재생에서 함께 본다 */
 function cardsFor(b: MetricsBasis): ChartSpec[] {
+  if (b.measured) return measuredCards(b);
   const word = b.live ? "증설 임계" : "증설 권고";
+  const scaleOutPct = b.scaleOutPct ?? Math.round(SCALE_OUT_ADVICE * 100);
   return [
   {
     title: "조회 사용률 %",
     lines: [
-      { name: "사용률", tone: 1, dash: "solid", width: 2, pane: 0, pick: (s) => s.util * 100, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
+      { name: "사용률", tone: 1, dash: "solid", width: 2, pane: 0, pick: utilPct, digits: b.live ? 0 : 1, axisDigits: 0, unit: "%" },
     ],
     scales: [{ kind: "fixed", min: 0, max: 100, top: 0.06 }],
     refs: [
       {
         line: 0,
-        price: b.scaleOutPct,
+        price: scaleOutPct,
         title: word,
         tone: "warning",
-        legend: `${word} ${b.scaleOutPct}%`,
+        legend: `${word} ${scaleOutPct}%`,
       },
     ],
     scaleWidth: 56,
@@ -552,7 +654,9 @@ function packTags(marks: Placed[], plotW: number): Tag[] {
  * 차트 하나를 만들고 표본을 싣고 사건 좌표를 잰다. 카드 여섯 장이 같은 규칙을 따라야 시각이
  * 맞으므로 한 곳에 모았다. spec 은 모듈 상수라 차트는 마운트 때 한 번만 만든다.
  */
-function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[], origin: number) {
+function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[], origin: number, step: number) {
+  const size = Math.ceil(WINDOW_SEC / step);
+  const stepRef = useRef(step);
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line">[]>([]);
@@ -582,7 +686,7 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       let x = ts.timeToCoordinate((originRef.current + event.at) as UTCTimestamp);
       // 첫 표본보다 앞선 틱(재생 직후 틱 0)의 사건은 시간축에 그 시각이 없다. 표본이 1초마다
       // 하나씩 이어지므로 논리 색인으로 좌표를 구한다
-      if (x === null && first !== undefined) x = ts.logicalToCoordinate((event.at - first) as Logical);
+      if (x === null && first !== undefined) x = ts.logicalToCoordinate(((event.at - first) / stepRef.current) as Logical);
       if (x === null || x < 0 || x > plotW) return;
       marks.push({ key: `${event.at}-${i}`, x, event });
     });
@@ -837,9 +941,10 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
   // 고치는 update 로는 이미 그린 점을 되돌릴 수 없다. 600점 세 줄은 초당 한 번 싣기에 가볍다
   useEffect(() => {
     // 창 밖의 표본은 싣지 않는다. 첫 점이 창의 왼쪽 끝이어야 라이브러리가 끝 눈금 글자를 창 안으로 당겨 잘리지 않는다
-    const win = samples.length > WINDOW ? samples.slice(samples.length - WINDOW) : samples;
+    const win = samples.length > size ? samples.slice(samples.length - size) : samples;
     samplesRef.current = win;
     originRef.current = origin;
+    stepRef.current = step;
     const chart = chartRef.current;
     const series = seriesRef.current;
     if (!chart || series.length === 0) return;
@@ -884,11 +989,11 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
     }
     // 창 폭을 고정한다. 표본이 150개가 안 되면 왼쪽이 비고 오른쪽 끝이 늘 지금이다
     const n = win.length;
-    if (n > 0) chart.timeScale().setVisibleLogicalRange({ from: n - WINDOW, to: n + 1 });
+    if (n > 0) chart.timeScale().setVisibleLogicalRange({ from: n - size, to: n + 1 });
     // 지금 값 표지가 움직였으니 그 밑의 눈금을 다시 고른다
     tickRefreshRef.current?.();
     measure();
-  }, [samples, origin, spec, measure]);
+  }, [samples, origin, spec, measure, size, step]);
 
   // 사건만 새로 생긴 경우(재생 시작 버튼)에도 표식을 바로 다시 놓는다
   useEffect(() => {
@@ -982,17 +1087,27 @@ interface Props {
   events: FlowEvent[];
   /** 틱 0 의 벽시계 초. 틱을 그대로 시간축에 올리면 1970년 눈금이 찍힌다 */
   origin: number;
+  /** 표본 간격(초). 재생과 관제 값은 1, 실측은 서버 격자 2 다 */
+  step: number;
 }
 
-function TimelineCard({ samples, events, origin }: Props) {
-  const { hostRef, frame } = useFlowChart(TIMELINE, samples, events, origin);
+function TimelineCard({ spec, samples, events, origin, step }: Props & { spec: ChartSpec }) {
+  const { hostRef, frame } = useFlowChart(spec, samples, events, origin, step);
   const tags = useMemo(() => packTags(frame.marks, frame.plotW), [frame.marks, frame.plotW]);
   const last = samples.length > 0 ? samples[samples.length - 1] : undefined;
-  const paneNames = TIMELINE.lines.map((l) => l.name);
+  const paneNames = spec.lines.map((l) => l.name);
 
   return (
-    <PanelCard title={TIMELINE.title} actions={<ShapeLegend />}>
-      <Readouts lines={TIMELINE.lines} last={last} />
+    <PanelCard
+      title={spec.title}
+      actions={
+        <>
+          {spec.refs.length > 0 && <RefLegend refs={spec.refs} />}
+          <ShapeLegend />
+        </>
+      }
+    >
+      <Readouts lines={spec.lines} last={last} />
       <div className={styles.timeline} style={{ paddingTop: LANE_PX }}>
         {/* 사건 띠. 그림 영역 폭만큼 옅은 면을 깔고 이름은 오른쪽 축 칸에 둔다. 축 칸은 표식이 들어가지
             않는 자리라 이름이 표식과 겹치지 않는다. 비어 있을 때는 빈 띠가 아니라 사건 없음으로 읽힌다 */}
@@ -1049,8 +1164,8 @@ function TimelineCard({ samples, events, origin }: Props) {
   );
 }
 
-function MetricCard({ spec, samples, events, origin }: Props & { spec: ChartSpec }) {
-  const { hostRef, frame } = useFlowChart(spec, samples, events, origin);
+function MetricCard({ spec, samples, events, origin, step }: Props & { spec: ChartSpec }) {
+  const { hostRef, frame } = useFlowChart(spec, samples, events, origin, step);
   const last = samples.length > 0 ? samples[samples.length - 1] : undefined;
 
   return (
@@ -1073,19 +1188,29 @@ function MetricCard({ spec, samples, events, origin }: Props & { spec: ChartSpec
   );
 }
 
-export default function FlowMetrics({ samples, events, origin, basis }: Props & { basis: MetricsBasis }) {
+const CAPTION = {
+  measured: "최근 150초 · Prometheus 실측 · 2초 격자 · 값 없는 구간은 공백",
+  live: "최근 150초 · 관제 판 값 · 값 없는 구간은 공백",
+  replay: "최근 150초 · 재생 · 사건 사이 값은 지어낸 값 · 값 없는 구간은 공백",
+};
+
+export default function FlowMetrics({ samples, events, origin, step, basis }: Props & { basis: MetricsBasis }) {
   // 기준이 바뀔 때만 새 사양을 만든다. 사양이 바뀌면 차트를 새로 세운다(useFlowChart)
-  const { live, scaleOutPct } = basis;
-  const cards = useMemo(() => cardsFor({ live, scaleOutPct }), [live, scaleOutPct]);
+  const { live, measured, scaleOutPct, targetOps } = basis;
+  const cards = useMemo(() => cardsFor({ live, measured, scaleOutPct, targetOps }), [live, measured, scaleOutPct, targetOps]);
+  const timeline = useMemo(
+    () => (measured ? measuredTimeline({ live, measured, scaleOutPct, targetOps }) : TIMELINE),
+    [live, measured, scaleOutPct, targetOps],
+  );
   return (
     <div className={styles.root}>
-      <TimelineCard samples={samples} events={events} origin={origin} />
+      <TimelineCard spec={timeline} samples={samples} events={events} origin={origin} step={step} />
       <div className={styles.grid}>
         {cards.map((spec) => (
-          <MetricCard key={spec.title} spec={spec} samples={samples} events={events} origin={origin} />
+          <MetricCard key={spec.title} spec={spec} samples={samples} events={events} origin={origin} step={step} />
         ))}
       </div>
-      <p className={styles.caption}>{basis.live ? "최근 150초 · 관제 판 값 · 값 없는 구간은 공백" : "최근 150초 · 재생 · 사건 사이 값은 지어낸 값 · 값 없는 구간은 공백"}</p>
+      <p className={styles.caption}>{CAPTION[measured ? "measured" : live ? "live" : "replay"]}</p>
     </div>
   );
 }

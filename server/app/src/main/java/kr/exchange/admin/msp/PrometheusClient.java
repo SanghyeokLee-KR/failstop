@@ -13,7 +13,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +25,8 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * Prometheus instant·range query 와 명명 질의 묶음(설계 4-1·4-6·4-7). 읽기는 공유 캐시를 거친다. instant 묶음은
- * cache-ttl 동안, 추세 range 질의는 계열·범위별로 step 에 맞춘 수명 동안 공유하고, 같은 키의 동시 요청은 원천을 한 번만
- * 부른다. 운영자가 늘어도 Prometheus 부하는 수명마다 한 벌을 넘지 않는다.
+ * cache-ttl 동안, 추세 range 질의는 계열·범위별로 step 에 맞춘 수명 동안, 흐름 묶음은 격자 끝마다 step 동안 공유하고,
+ * 같은 키의 동시 요청은 원천을 한 번만 부른다. 운영자가 늘어도 Prometheus 부하는 수명마다 한 벌을 넘지 않는다.
  */
 public class PrometheusClient {
 
@@ -55,6 +54,19 @@ public class PrometheusClient {
      * NaN 이면 키가 없다. failure 가 있으면 values 는 비었다.
      */
     public record Matrix(Instant start, Instant end, Duration step, Map<Long, Double> values, String failure) {
+    }
+
+    /** range 질의 결과의 시계열 하나. values 는 격자 시각(epoch 초)마다 값이고 표본이 없거나 NaN 이면 키가 없다. */
+    public record RangeSeries(Map<String, String> labels, Map<Long, Double> values) {
+    }
+
+    /** 흐름 묶음 한 벌. Snapshot 과 같이 results 는 성공, failures 는 그 질의만 실패, failure 는 모두 실패의 분류다. */
+    public record Frames(Instant start, Instant end, Duration step, Map<FlowQuery, List<RangeSeries>> results,
+                         Map<FlowQuery, String> failures, String failure) {
+
+        public boolean ran(FlowQuery query) {
+            return results.containsKey(query) || failures.containsKey(query);
+        }
     }
 
     private final URI base;
@@ -97,6 +109,14 @@ public class PrometheusClient {
                 range.cacheTtl(), () -> loadRange(query, range, end));
     }
 
+    /**
+     * 흐름 묶음 한 벌(API 설계 §6-F '흐름'). end 는 step 의 배수로 내린 격자의 끝이고 캐시 키에 들어가 같은 격자의 요청은
+     * 한 번의 읽기를 함께 쓴다. 수명은 step 이다.
+     */
+    public SourceCache.Cached<Frames> frames(Instant start, Instant end, Duration step) {
+        return cache.get("prometheus:flow:" + end.getEpochSecond(), step, () -> loadFrames(start, end, step));
+    }
+
     private Snapshot load() {
         Instant started = clock.instant();
         Map<MspQuery, Future<List<Series>>> pending = new EnumMap<>(MspQuery.class);
@@ -108,10 +128,35 @@ public class PrometheusClient {
         }
         Map<MspQuery, List<Series>> results = new EnumMap<>(MspQuery.class);
         Map<MspQuery, String> failures = new EnumMap<>(MspQuery.class);
+        collect(pending, results, failures);
+        String failure = results.isEmpty() && !failures.isEmpty() ? failures.values().iterator().next() : null;
+        return new Snapshot(started, Collections.unmodifiableMap(results), Collections.unmodifiableMap(failures),
+                failure);
+    }
+
+    private Frames loadFrames(Instant start, Instant end, Duration step) {
+        long from = start.getEpochSecond();
+        long to = end.getEpochSecond();
+        long every = step.toSeconds();
+        Map<FlowQuery, Future<List<RangeSeries>>> pending = new EnumMap<>(FlowQuery.class);
+        for (FlowQuery query : FlowQuery.values()) {
+            if (query.available(jobs)) {
+                String promql = query.promql(jobs);
+                pending.put(query, pool.submit(() -> queryRange(promql, from, to, every)));
+            }
+        }
+        Map<FlowQuery, List<RangeSeries>> results = new EnumMap<>(FlowQuery.class);
+        Map<FlowQuery, String> failures = new EnumMap<>(FlowQuery.class);
+        collect(pending, results, failures);
+        String failure = results.isEmpty() && !failures.isEmpty() ? failures.values().iterator().next() : null;
+        return new Frames(start, end, step, Collections.unmodifiableMap(results), Collections.unmodifiableMap(failures),
+                failure);
+    }
+
+    /** 던진 질의를 묶음 상한 안에서 거둔다. 상한을 넘긴 질의는 끊고 그 질의만 실패로 적는다. */
+    private <K extends Enum<K>, V> void collect(Map<K, Future<V>> pending, Map<K, V> results, Map<K, String> failures) {
         long deadline = System.nanoTime() + bundleDeadline.toNanos();
-        Iterator<Map.Entry<MspQuery, Future<List<Series>>>> it = pending.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<MspQuery, Future<List<Series>>> entry = it.next();
+        for (Map.Entry<K, Future<V>> entry : pending.entrySet()) {
             try {
                 long left = Math.max(0, deadline - System.nanoTime());
                 results.put(entry.getKey(), entry.getValue().get(left, TimeUnit.NANOSECONDS));
@@ -125,9 +170,6 @@ public class PrometheusClient {
                 failures.put(entry.getKey(), "timeout");
             }
         }
-        String failure = results.isEmpty() && !failures.isEmpty() ? failures.values().iterator().next() : null;
-        return new Snapshot(started, Collections.unmodifiableMap(results), Collections.unmodifiableMap(failures),
-                failure);
     }
 
     /** instant query 한 건. 벡터와 스칼라만 받는다. 스칼라는 라벨 없는 시계열 하나로 돌려준다. */
@@ -148,23 +190,36 @@ public class PrometheusClient {
         long step = range.step().toSeconds();
         long end = endAt.getEpochSecond();
         long start = end - range.duration().multipliedBy(2).toSeconds() + step;
-        URI uri = URI.create(base + "/api/v1/query_range?query="
-                + URLEncoder.encode(query.promql(jobs), StandardCharsets.UTF_8)
-                + "&start=" + start + "&end=" + end + "&step=" + step);
         Instant from = Instant.ofEpochSecond(start);
         Instant to = Instant.ofEpochSecond(end);
         try {
-            cache.called("prometheus", "query_range");
-            JsonNode data = data(http.get(uri));
-            JsonNode result = data.path("result");
-            if (!"matrix".equals(data.path("resultType").asText()) || !result.isArray() || result.size() > 1) {
+            List<RangeSeries> series = queryRange(query.promql(jobs), start, end, step);
+            if (series.size() > 1) {
                 throw new SourceException("bad_response", false);
             }
-            Map<Long, Double> values = new TreeMap<>();
-            JsonNode points = result.isEmpty() ? mapper.createArrayNode() : result.get(0).path("values");
+            return new Matrix(from, to, range.step(), series.isEmpty() ? Map.of() : series.get(0).values(), null);
+        } catch (SourceException e) {
+            return new Matrix(from, to, range.step(), Map.of(), e.reason());
+        }
+    }
+
+    /** range query 한 건. 점은 [start, end] 안의 step 격자에만 있어야 하고 계열마다 MAX_RANGE_POINTS 를 넘지 않는다. */
+    List<RangeSeries> queryRange(String promql, long start, long end, long step) {
+        URI uri = URI.create(base + "/api/v1/query_range?query=" + URLEncoder.encode(promql, StandardCharsets.UTF_8)
+                + "&start=" + start + "&end=" + end + "&step=" + step);
+        cache.called("prometheus", "query_range");
+        JsonNode data = data(http.get(uri));
+        JsonNode result = data.path("result");
+        if (!"matrix".equals(data.path("resultType").asText()) || !result.isArray()) {
+            throw new SourceException("bad_response", false);
+        }
+        List<RangeSeries> out = new ArrayList<>(result.size());
+        for (JsonNode item : result) {
+            JsonNode points = item.path("values");
             if (!points.isArray() || points.size() > MAX_RANGE_POINTS) {
                 throw new SourceException("bad_response", false);
             }
+            Map<Long, Double> values = new TreeMap<>();
             for (JsonNode point : points) {
                 long at = instant(point.path(0)).getEpochSecond();
                 double value = number(point.path(1));
@@ -175,10 +230,9 @@ public class PrometheusClient {
                     values.put(at, value);
                 }
             }
-            return new Matrix(from, to, range.step(), Collections.unmodifiableMap(values), null);
-        } catch (SourceException e) {
-            return new Matrix(from, to, range.step(), Map.of(), e.reason());
+            out.add(new RangeSeries(labels(item), Collections.unmodifiableMap(values)));
         }
+        return out;
     }
 
     private JsonNode data(SourceHttp.Response response) {
@@ -206,16 +260,20 @@ public class PrometheusClient {
         }
         List<Series> out = new ArrayList<>(result.size());
         for (JsonNode item : result) {
-            Map<String, String> labels = new LinkedHashMap<>();
-            item.path("metric").fields().forEachRemaining(f -> {
-                if (!"__name__".equals(f.getKey())) {
-                    labels.put(f.getKey(), f.getValue().asText());
-                }
-            });
             JsonNode sample = item.path("value");
-            out.add(new Series(Collections.unmodifiableMap(labels), number(sample.path(1)), instant(sample.path(0))));
+            out.add(new Series(labels(item), number(sample.path(1)), instant(sample.path(0))));
         }
         return out;
+    }
+
+    private static Map<String, String> labels(JsonNode item) {
+        Map<String, String> labels = new LinkedHashMap<>();
+        item.path("metric").fields().forEachRemaining(f -> {
+            if (!"__name__".equals(f.getKey())) {
+                labels.put(f.getKey(), f.getValue().asText());
+            }
+        });
+        return Collections.unmodifiableMap(labels);
     }
 
     private static double number(JsonNode node) {

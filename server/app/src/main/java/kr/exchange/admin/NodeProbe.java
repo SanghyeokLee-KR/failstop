@@ -5,10 +5,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 앱 계층 노드 인벤토리의 관측면. "실제로 무엇이 떠 있고 어떤 상태인가" 를 매번 물어본다.
@@ -26,6 +29,21 @@ import java.util.concurrent.CompletableFuture;
  */
 public class NodeProbe {
 
+    /*
+     * 사용률은 순간값(process_cpu_usage)이 아니라 누적 CPU 시간(process_cpu_time_ns_total)의 최근 약 30초 차로 낸다.
+     * process_cpu_usage 는 JVM 이 직전 호출 이후 짧은 구간을 잰 값이라 Prometheus 수집과 이 관측이 번갈아 부르면 수백 ms
+     * 창이 되어 크게 흔들린다. 2026-09-27 시연 녹화에서 경보(1분 평균 CPU)와 AI 근거가 53~62% 인데 승인 순간의 방향 검사
+     * (AiPolicy D1)가 이 값 0.4214 를 읽어 증설을 막았다. 창은 경보(1분)보다 짧게 두어 증설 뒤 하락도 제때 보이게 한다.
+     */
+    static final long CPU_WINDOW_NANOS = Duration.ofSeconds(30).toNanos();
+    /** 이보다 짧은 간격의 차는 흔들림이 커서 쓰지 않는다(첫 관측 직후는 순간값을 쓴다) */
+    static final long CPU_MIN_SPAN_NANOS = Duration.ofSeconds(5).toNanos();
+    static final long CPU_KEEP_NANOS = Duration.ofSeconds(90).toNanos();
+
+    record CpuSample(long wallNanos, double cpuNanos) {
+    }
+
+    private final Map<String, Deque<CpuSample>> cpuHistory = new ConcurrentHashMap<>();
     private final HttpClient http;
     private final Duration timeout;
 
@@ -43,7 +61,8 @@ public class NodeProbe {
      * @param reachable       액추에이터가 응답했는가. false 면 나머지 값은 뜻이 없다
      * @param leader          readiness 200. 쓰기를 받는 노드다
      * @param servesReads     read 그룹 200. 조회 타겟그룹에 남을 수 있는 상태다
-     * @param cpuRatio        할당 코어 대비 사용률 0~1. 코어 수로 이미 나눈 값이다
+     * @param cpuRatio        할당 코어 대비 사용률 0~1. 코어 수로 이미 나눈 값이다. 최근 약 30초 평균이고, 첫 관측이나
+     *                        재기동 직후처럼 5초 넘는 표본 차가 없으면 순간값(process_cpu_usage)이다
      * @param cpuCount        그 노드가 보는 코어 수
      * @param heapUsedBytes   힙 사용량
      * @param heapMaxBytes    힙 상한. 동시 접속 상한이 이 값에서 유도된다
@@ -93,17 +112,64 @@ public class NodeProbe {
                         // 화면이 판단할 근거가 없다.
                         return Observed.unreachable();
                     }
+                    Integer cores = intGauge(text, "system_cpu_count");
+                    Double averaged = windowRatio(cpuHistory.computeIfAbsent(node.getId(), id -> new ArrayDeque<>()),
+                            System.nanoTime(), gauge(text, "process_cpu_time_ns_total"), cores);
                     return new Observed(true,
                             readiness.join() != null && readiness.join() == 200,
                             read.join() != null && read.join() == 200,
-                            gauge(text, "process_cpu_usage"),
-                            intGauge(text, "system_cpu_count"),
+                            averaged != null ? averaged : gauge(text, "process_cpu_usage"),
+                            cores,
                             longSum(text, "jvm_memory_used_bytes", "area=\"heap\""),
                             longSum(text, "jvm_memory_max_bytes", "area=\"heap\""),
                             sum(text, "http_server_requests_seconds_count", null),
                             gauge(text, "exchange_ws_clients"));
                 })
                 .exceptionally(ex -> Observed.unreachable());
+    }
+
+    /**
+     * 누적 CPU 시간 표본을 노드별로 쌓고, 약 30초 전 표본과의 차로 사용률(0~1)을 낸다. 30초보다 오래된 표본이 없으면
+     * 가장 오래된 표본을 쓰되 그 간격이 5초보다 짧으면 null 을 돌려 호출자가 순간값을 쓰게 한다. 값을 지어내지 않으므로
+     * 카운터나 코어 수가 없으면 null 이다.
+     *
+     * 카운터가 줄어드는 경우는 두 가지다. 화면 갱신과 승인 검사처럼 동시에 보낸 관측은 응답 처리 순서가 뒤바뀔 수 있어
+     * 직전 표본보다 조금 작은 값이 5초 안에 온다. 이 표본은 쌓지 않고 계산에만 쓴다. 5초 넘게 지나 줄었으면 앱이 다시
+     * 떠 카운터를 처음부터 센 것이므로 표본을 버리고 새로 쌓는다.
+     */
+    static Double windowRatio(Deque<CpuSample> history, long now, Double cpuNanos, Integer cores) {
+        if (cpuNanos == null || cores == null || cores <= 0) {
+            return null;
+        }
+        synchronized (history) {
+            CpuSample last = history.peekLast();
+            boolean behind = last != null && cpuNanos < last.cpuNanos();
+            if (behind && now - last.wallNanos() >= CPU_MIN_SPAN_NANOS) {
+                history.clear();
+                behind = false;
+            }
+            if (!behind) {
+                history.addLast(new CpuSample(now, cpuNanos));
+            }
+            while (history.size() > 1 && now - history.peekFirst().wallNanos() > CPU_KEEP_NANOS) {
+                history.pollFirst();
+            }
+            CpuSample ref = null;
+            for (CpuSample s : history) {
+                if (now - s.wallNanos() >= CPU_WINDOW_NANOS) {
+                    ref = s; // 30초보다 오래된 표본 가운데 가장 최근 것
+                }
+            }
+            if (ref == null) {
+                CpuSample oldest = history.peekFirst();
+                if (now - oldest.wallNanos() < CPU_MIN_SPAN_NANOS) {
+                    return null;
+                }
+                ref = oldest;
+            }
+            double ratio = (cpuNanos - ref.cpuNanos()) / ((double) (now - ref.wallNanos()) * cores);
+            return Math.max(0.0, Math.min(1.0, ratio));
+        }
     }
 
     private CompletableFuture<Integer> status(String url) {

@@ -1,0 +1,122 @@
+# 시연 스택(compose 프로젝트 exchange-chaos)의 Patroni 노드 설정. harness/docker-compose.demo-patroni.yml 이 이 파일을
+# 이미지에 구운 실험 설정(/patroni/patroni.yml) 자리에 마운트한다. 두 노드가 같은 파일을 쓰고 노드마다 다른 값(이름, 연결 주소,
+# 비밀번호)은 compose 의 PATRONI_* 환경 변수로 준다. 환경 변수가 이 파일의 같은 키를 덮는다.
+#
+# 실험 스택 설정(patroni.yml, E-P1~E-P6 이 판정한 값)과 다른 점은 다섯이다. 나머지 값은 같다.
+#   1. scope·etcd 주소가 시연 스택 이름이다(exchange-chaos-demo, chaos-etcd-N). 실험 스택과 키가 섞이지 않는다.
+#   2. pg_hba 를 망 대역 대신 samenet 으로 연다. 시연 스택은 chaos-net 한 망이라 실험 스택처럼 DB 망과 앱 망을 가르지 않는다.
+#      복제 연결은 replicator 비밀번호(harness/patroni/.env.patroni)를 가진 두 DB 노드만 붙는다.
+#   3. 관측·백업을 위해 pg_stat_statements 사전 로드와 hot_standby_feedback 을 켠다(종전 chaos-pg·chaos-pg-standby 와 같다).
+#   4. max_connections 가 250 이다(아래 산식).
+#   5. shared_buffers 를 학교 DB 값(256MB, Patroni 설계 9-4)으로 둔다. 컨테이너 상한은 2코어·2GiB 다(2026-09-27 사용자 결정).
+#
+# bootstrap.dcs 는 클러스터를 처음 만들 때만 etcd 에 쓴다. 그 뒤의 변경은 patronictl edit-config 로 한다.
+scope: exchange-chaos-demo
+namespace: /service/
+
+restapi:
+  listen: 0.0.0.0:8008
+  # 인증은 변경 메서드(POST·PUT·PATCH·DELETE)에만 걸린다. 조회(GET·OPTIONS)는 HAProxy 확인과 관측이 쓴다.
+  # 사용자·비밀번호는 PATRONI_RESTAPI_USERNAME·PATRONI_RESTAPI_PASSWORD 로 받는다.
+
+etcd3:
+  # 세 멤버(db-1, db-2, bot-1 역할). 과반은 둘이다.
+  hosts: chaos-etcd-1:2379,chaos-etcd-2:2379,chaos-etcd-3:2379
+
+bootstrap:
+  dcs:
+    # loop_wait + 2 x retry_timeout <= ttl. 실험 스택과 같은 로컬 값이다(AWS 는 기본값 30·10·10, 설계 3-2).
+    ttl: 20
+    loop_wait: 5
+    retry_timeout: 5
+    maximum_lag_on_failover: 1048576
+    # 사용자 결정(ADR 0036): 엄격 동기. 동기 후보가 없으면 synchronous_standby_names = '*' 로 두어 쓰기를 멈춘다.
+    synchronous_mode: true
+    synchronous_mode_strict: true
+    synchronous_node_count: 1
+    # etcd 과반을 잃어도 Primary 가 REST 로 모든 멤버에 닿으면 Primary 를 유지한다(E-P4b).
+    failsafe_mode: true
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        wal_log_hints: "on"
+        synchronous_commit: "on"
+        max_wal_senders: 4
+        max_replication_slots: 4
+        max_slot_wal_keep_size: 1GB
+        # 2026-09-27 사용자 결정으로 16MB → 1GB. 시연 장애 1회차에서 pg_rewind 는 성공했으나 되감긴 옛 주 DB 가
+        # 다시 읽을 WAL(분기 전 마지막 공통 체크포인트부터)이 양쪽에서 이미 재활용돼 재합류가 약 10분 막혔다.
+        # 필요량은 checkpoint_timeout(5분) × WAL 생성 속도(로컬 최대 약 0.85MB/s) ≈ 255MB 이고 1GB 는 3배 넘는 여유다
+        # (산정식은 ADR 0025 재진입 조건). 운영 중 클러스터 값은 DCS 에 있어 patronictl edit-config 로 바꿨다
+        wal_keep_size: 1GB
+        archive_mode: "off"
+        idle_in_transaction_session_timeout: 10s
+        # 클라이언트가 먼저 끊은 잠금 대기를 정리한다(설계 2-6 K).
+        client_connection_check_interval: 2s
+        tcp_keepalives_idle: 5
+        tcp_keepalives_interval: 2
+        tcp_keepalives_count: 3
+        # 연결 예산. 앱 노드 셋이 요청·리스·append 풀을 다 쥔 합(3 x 48) + 봇 26 + 관리 평면 32 + 쓰기 가능 탐지(엔진 노드·봇·관리
+        # 평면마다 탐지 연결과 확인 연결 1개씩, 10) + 수집기 두 노드(failstop_monitor 연결 상한 4씩) + 백업·도구·ACK 기록기(7)
+        # + Patroni 자체(노드마다 2~3) = 약 230 이다. 종전 chaos-pg 의 200 은 app-3 을 최소 유휴로 셌고 탐지 연결이 없던 값이다.
+        # superuser_reserved_connections 3 을 더해 250 으로 둔다. 평소 사용은 40~60 이다(2026-09-27 chaos-pg 실측 idle 40).
+        max_connections: 250
+        superuser_reserved_connections: 3
+        shared_buffers: 256MB
+        effective_cache_size: 1GB
+        # MSP DB 화면의 SQL 통계(harness/prometheus/pg-queries.yaml 의 pg_ops_sql*)가 읽는다. 종전 chaos-pg 와 같은 값이다.
+        shared_preload_libraries: pg_stat_statements
+        compute_query_id: auto
+        pg_stat_statements.track: top
+        pg_stat_statements.track_utility: "off"
+        # Standby 에서 도는 논리 백업(harness/scripts/demo-db-backup.sh)이 재생 충돌로 끊기지 않게 한다.
+        hot_standby_feedback: "on"
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+  # 클러스터를 처음 만든 뒤 앱 계정·앱 DB·수집기 계정·ACK 기록기 DB 를 만든다. 이미지에 구운 스크립트를 그대로 쓰고 계정 이름과
+  # 비밀번호는 compose 가 넘긴다(앱 계정은 종전 chaos-pg 의 계정, 수집기는 failstop_monitor).
+  post_bootstrap: /patroni/post_bootstrap.sh
+
+postgresql:
+  listen: 0.0.0.0:5432
+  data_dir: /var/lib/postgresql/data/pgdata
+  bin_dir: /usr/lib/postgresql/17/bin
+  pgpass: /tmp/pgpass
+  # Patroni 자신의 로컬 연결(복제 연결 포함)은 유닉스 소켓으로 한다.
+  use_unix_socket: true
+  use_unix_socket_repl: true
+  authentication:
+    superuser:
+      username: postgres
+    replication:
+      username: replicator
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+  # 옛 Primary 를 되감아 붙이고, 되감기가 실패하면 새 베이스백업으로 다시 만든다.
+  remove_data_directory_on_rewind_failure: true
+  create_replica_methods:
+    - basebackup
+  # '*' 아래에서 백업 WAL 스트림이 동기 대기 서버가 되지 않게 한다(ADR 0036 결정 4, 사전 확인 M·N).
+  basebackup:
+    - no-slot
+    - checkpoint: fast
+  # samenet 은 서버가 직접 붙은 망(chaos-net)의 주소다. 복제는 replicator 만, 나머지는 SCRAM 이다.
+  pg_hba:
+    - local all all trust
+    - local replication all trust
+    - host replication replicator samenet scram-sha-256
+    - host all all samenet scram-sha-256
+
+watchdog:
+  # Docker Desktop 에는 /dev/watchdog 이 없다. AWS 는 softdog 과 required 다(설계 9-1).
+  mode: "off"
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

@@ -34,8 +34,33 @@ test("HTTP와 잘못된 아이디는 비밀번호를 전송하지 않는다", as
   globalThis.fetch = async () => { calls += 1; return new Response("{}", { status: 401 }); };
   try {
     await assert.rejects(new HttpAdminApi("http://admin.example.test").establishSession("operator", "secret"));
+    // 이름에 localhost가 들어가도 루프백이 아니면 막는다
+    await assert.rejects(new HttpAdminApi("http://localhost.example.test").establishSession("operator", "secret"));
+    await assert.rejects(new HttpAdminApi("http://127.0.0.1.example.test").establishSession("operator", "secret"));
     await assert.rejects(new HttpAdminApi("https://admin.example.test").establishSession("bad:name", "secret"));
     assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("이 PC의 루프백 관문은 http여도 비밀번호 로그인을 받는다", async () => {
+  const original = globalThis.fetch;
+  const auth: (string | null)[] = [];
+  globalThis.fetch = async (_url, init) => {
+    auth.push(new Headers(init?.headers).get("Authorization"));
+    return new Response(JSON.stringify({
+      operator_id: "op-01", display_name: "운영자", roles: ["SUPER"],
+      token: "short-session", expires_at: new Date(Date.now() + 60000).toISOString(),
+    }), { status: 200 });
+  };
+  try {
+    for (const base of ["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"]) {
+      const api = new HttpAdminApi(base);
+      await api.establishSession("op-01", "test-password");
+      assert.equal(api.getSession()?.operatorId, "op-01", base);
+    }
+    assert.deepEqual(auth, Array(3).fill(`Basic ${btoa("op-01:test-password")}`));
   } finally {
     globalThis.fetch = original;
   }

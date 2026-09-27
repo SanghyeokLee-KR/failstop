@@ -9,9 +9,10 @@
  * 두 화면은 같은 주행을 본다(lib/admin/flowRun.ts). 서비스 흐름에서 DB 전환을 걸고 이 화면으로
  * 넘어오면 그 전환이 차트에 이어져 있다. 머리의 일시정지·초기화도 같은 주행에 걸린다.
  *
- * 백엔드에 연결하지 않았다. 재생하지 않는 동안은 관제 시뮬레이터의 한 판에서 쌓은 표본이라 관제센터와 같은
- * 값이고, 재생 중에는 lib/admin/flowSim.ts 의 재생 값이다. 실제 추이는 Grafana 가 소유한다(ADR 0032). 로컬
- * Docker 스택이 AWS 역할을 대신하므로 이름은 AWS 이름으로 적고 컨테이너 이름은 표에 따로 둔다.
+ * http 원천은 실측 모드 하나다. 관리 API 흐름 조회가 Prometheus 에서 읽은 최근 150초(2초 격자)를 그대로 그린다
+ * (2026-09-27 사용자 결정). sim 원천은 관제 시뮬레이터의 한 판에서 쌓은 표본이라 관제센터와 같은 값이고, 재생 중에는
+ * lib/admin/flowSim.ts 의 재생 값이다. 150초보다 긴 추이와 탐색은 Grafana 가 맡는다. 로컬 Docker 스택이 AWS 역할을
+ * 대신하므로 이름은 AWS 이름으로 적고 컨테이너 이름은 표에 따로 둔다.
  */
 
 import dynamic from "next/dynamic";
@@ -21,6 +22,7 @@ import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import { PageHeader, SimMark } from "@/components/admin/ui";
+import MeasuredMark, { StaleVeil } from "@/components/admin/flow/MeasuredMark";
 import { isAdminHttp } from "@/lib/admin/api";
 import { hms } from "@/lib/admin/timeText";
 import FlowRunControls from "@/components/admin/flow/FlowRunControls";
@@ -28,6 +30,7 @@ import InstanceTable from "@/components/admin/flow/InstanceTable";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/flow/metrics.module.css";
 import { SCALE_OUT_ADVICE, nodeViews, type FlowEvent, type Health } from "@/lib/admin/flowSim";
+import { measuredViews } from "@/lib/admin/flowMeasured";
 import { useFlowClock, useFlowRun } from "@/lib/admin/flowRun";
 
 /* 차트 라이브러리는 브라우저에서만 돈다. 서버 렌더에서 빼고, 불러오는 동안 1280px 화면에서 잰
@@ -58,15 +61,27 @@ export default function MonitorPage() {
   const origin = useFlowRun((r) => r.origin);
   const state = useFlowRun((r) => r.state);
   const samples = useFlowRun((r) => r.samples);
+  // 표본 간격. 실측은 서버 격자(2초), 재생과 관제 값은 1초다
+  const step = useFlowRun((r) => r.measured?.board?.step ?? 1);
 
   // 마지막 표본의 CPU 가 표와 구성도의 지금 값이다. 관제 값 모드는 첫 판이 오기 전에 표본이 없다(waiting)
   const cpuNow = samples[samples.length - 1]?.cpu ?? NO_CPU;
   // 조회 사용률 차트의 기준선. 관제 값이면 임계값 관리의 증설 임계, 재생이면 로컬 조정기의 권고 임계다
+  // 실측은 관제 판의 증설 임계를 아직 못 읽었으면 기준선을 긋지 않고, 봇 목표 발행률을 주문 창에 긋는다
+  const measured = state.measured;
   const basis = useMemo(
-    () => ({ live: state.live !== null, scaleOutPct: Math.round((state.live?.scaleOut ?? SCALE_OUT_ADVICE) * 100) }),
-    [state.live],
+    () => ({
+      live: state.live !== null,
+      measured: measured !== null,
+      scaleOutPct: measured
+        ? measured.scaleOut === null ? null : Math.round(measured.scaleOut * 100)
+        : Math.round((state.live?.scaleOut ?? SCALE_OUT_ADVICE) * 100),
+      targetOps: measured?.targetOps ?? null,
+    }),
+    [state.live, measured],
   );
-  const views = useMemo(() => nodeViews(state, cpuNow), [state, cpuNow]);
+  // 실측 원천이 없거나 일부만 와도 같은 차트와 표를 그리고 값이 없는 칸만 미수집이다(2026-09-27 사용자 결정)
+  const views = useMemo(() => (measured ? measuredViews(state) : nodeViews(state, cpuNow)), [state, measured, cpuNow]);
 
   // 같은 틱에 사건 둘이 겹치면(재생 첫 단계와 권고) 마지막 하나만 읽히지 않게 그 틱의 사건을 모두 싣는다
   const lastEvent = state.events[state.events.length - 1];
@@ -82,26 +97,35 @@ export default function MonitorPage() {
     <div className={`${adminStyles.page} ${styles.page}`}>
       <PageHeader
         title="지표 관제"
-        mark={mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
-        actions={<FlowRunControls />}
+        mark={mode === "measured" ? <MeasuredMark /> : mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
+        actions={mode === "measured" ? undefined : <FlowRunControls />}
       />
 
       <div className={styles.metricsGroup}>
+        {/* 흐름 조회가 실패하거나 늦어 값이 옛 값이면 차트를 흐리게 덮는다. 머리 칩이 지연을 적는다 */}
+        {mode === "measured" && <StaleVeil />}
         {/* 제목 없는 도구 줄. Grafana 링크는 주소가 빌드에 없으면 그려지지 않으므로 조건으로 뺀다.
             서비스 흐름 링크는 늘 있어 줄이 비는 일이 없다 */}
         <div className={styles.toolbar}>
           {/* 운영 관제 화면은 머리에 설명 줄을 두지 않는다(레이아웃 §7). 값의 세계는 도구 줄 첫머리에 한 번 적는다 */}
-          <span className={styles.toolbarNote}>{mode === "replay" ? "서비스 흐름과 같은 재생 주행" : "관제센터와 같은 관제 판 값"} · 실제 추이는 Grafana</span>
+          <span className={styles.toolbarNote}>
+            {mode === "measured" ? "최근 150초 Prometheus 실측 · 긴 추이는 Grafana" : `${mode === "replay" ? "서비스 흐름과 같은 재생 주행" : "관제센터와 같은 관제 판 값"} · 실제 추이는 Grafana`}
+          </span>
           {grafanaConfigured() && <GrafanaLink board="msp-service" label="Grafana 실제 추이" />}
           <Link href="/admin/flow" className={adminStyles.boardLink}>
             서비스 흐름 보기
           </Link>
+          {mode === "measured" && (
+            <Link href="/admin/bots" className={adminStyles.boardLink}>
+              봇 플릿 조정
+            </Link>
+          )}
         </div>
         {/* 초기화마다 열쇠가 바뀌어 차트를 새로 만든다. 이전 주행의 원점으로 잡은 시간축이 남지 않는다 */}
         {waiting ? (
           <Skeleton variant="chart" width="100%" height={METRICS_PX} />
         ) : (
-          <FlowMetrics key={key} samples={samples} events={state.events} origin={origin} basis={basis} />
+          <FlowMetrics key={key} samples={samples} events={state.events} origin={origin} step={step} basis={basis} />
         )}
       </div>
 
@@ -114,7 +138,7 @@ export default function MonitorPage() {
         {announce}
       </p>
       <table className="sr-only">
-        <caption>재생 사건</caption>
+        <caption>{mode === "measured" ? "실측 사건" : "재생 사건"}</caption>
         <thead>
           <tr>
             <th scope="col">시각</th>

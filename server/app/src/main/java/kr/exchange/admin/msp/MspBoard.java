@@ -5,6 +5,7 @@ import kr.exchange.api.common.ApiFormats;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -41,6 +42,10 @@ public class MspBoard {
     private final MspTrends trends;
     private final AiServerStatus aiServer;
     private final MspReporting reporting;
+    /** DB 에 기대는 칸의 실패를 그 칸에 가둔다 */
+    private final DbGuard db;
+    /** DB 읽기가 실패한 뒤 DB 칸을 곧바로 unavailable 로 내는 시간 */
+    static final Duration DB_COOLDOWN = Duration.ofSeconds(5);
 
     /**
      * prometheus 와 poller 는 원천 주소가 없으면, llm 은 LLM 설정이 없으면 null 이다. 그 칸은 연결 전으로 낸다.
@@ -65,8 +70,13 @@ public class MspBoard {
         this.trends = trends;
         this.aiServer = aiServer;
         this.reporting = reporting;
+        this.db = new DbGuard(clock, DB_COOLDOWN);
     }
 
+    /**
+     * 한 판. DB 에 기대는 칸(조회 계층의 용량 계획, 경보의 사건 대응, 오늘 사건, 운영 작업, 임계값, AI, Teams 원천)은 DbGuard 로
+     * 감싼다. 주 DB 전환 동안 그 읽기가 실패해도 한 판은 200 이고 그 칸만 database_unavailable 이다(API 설계 §6-F)
+     */
     public Map<String, Object> overview() {
         Instant now = clock.instant();
         PrometheusClient.Snapshot metrics = metrics();
@@ -75,13 +85,13 @@ public class MspBoard {
         out.put("summary", summary(metrics, now));
         out.put("trends", trends.section(MspTrends.Range.H24));
         out.put("hosts", hosts(metrics, now));
-        out.put("read_tier", readTier(now));
+        out.put("read_tier", db.section(() -> readTier(now)));
         out.put("replication", replication(metrics, now));
-        out.put("alerts", alerts());
-        out.put("incidents", MspSections.ready(incidentsToday(now)));
-        out.put("ops", ops(metrics));
-        out.put("thresholds", thresholds(metrics));
-        out.put("ai", ai());
+        out.put("alerts", db.section(this::alerts));
+        out.put("incidents", db.section(() -> MspSections.ready(incidentsToday(now))));
+        out.put("ops", db.section(() -> ops(metrics)));
+        out.put("thresholds", db.section(() -> thresholds(metrics)));
+        out.put("ai", db.section(this::ai));
         out.put("ai_server", aiServer.view());
         return out;
     }
@@ -91,20 +101,20 @@ public class MspBoard {
         PrometheusClient.Snapshot metrics = metrics();
         Map<String, Object> out = header(now);
         out.put("hosts", hosts(metrics, now));
-        out.put("read_tier", readTier(now));
+        out.put("read_tier", db.section(() -> readTier(now)));
         out.put("replication", replication(metrics, now));
         return out;
     }
 
     public Map<String, Object> alertsView() {
         Map<String, Object> out = header(clock.instant());
-        out.put("alerts", alerts());
+        out.put("alerts", db.section(this::alerts));
         return out;
     }
 
     public Map<String, Object> opsView() {
         Map<String, Object> out = header(clock.instant());
-        out.put("ops", ops(metrics()));
+        out.put("ops", db.section(() -> ops(metrics())));
         return out;
     }
 
@@ -116,7 +126,7 @@ public class MspBoard {
 
     public Map<String, Object> thresholdsView() {
         Map<String, Object> out = header(clock.instant());
-        out.put("thresholds", thresholds(metrics()));
+        out.put("thresholds", db.section(() -> thresholds(metrics())));
         return out;
     }
 
@@ -165,7 +175,14 @@ public class MspBoard {
         Map<String, Object> databasus = source("databasus");
         databasus.put("state", "NOT_CONNECTED");
         out.add(databasus);
-        out.add(reporting.teamsSource());
+        // Teams 원천은 알림 보관함 건수를 DB 에서 읽는다. DB 가 멈춘 동안에는 그 원천만 unavailable 이다
+        out.add(db.call(reporting::teamsSource, () -> {
+            Map<String, Object> teams = source("teams");
+            teams.put("via", "reporting");
+            teams.put("state", "UNAVAILABLE");
+            teams.put("reason", DbGuard.REASON);
+            return teams;
+        }));
         return out;
     }
 
@@ -306,7 +323,24 @@ public class MspBoard {
         data.put("lag_seconds", aggregate(metrics, MspQuery.REPLICATION_LAG_SECONDS, dbJob, now, MspSections.Unit.SECONDS));
         data.put("lag_bytes", aggregate(metrics, MspQuery.REPLICATION_LAG_BYTES, dbJob, now, MspSections.Unit.INTEGER));
         data.put("label_mismatch", mismatch);
+        // 복제 방식과 승격 방식은 수집값으로만 적는다. 모르면 null 이고 화면이 미수집·미확인으로 적는다(지어내지 않는다)
+        data.put("mode", replicationMode(single(metrics, MspQuery.REPLICATION_MODE)));
+        data.put("promotion", promotion(single(metrics, MspQuery.DB_PROMOTION)));
         return MspSections.ready(data);
+    }
+
+    /** 복제 방식 값(2 동기, 1 비동기)을 계약 이름으로. 복제 상대가 없거나 질의가 실패했으면 null 이다 */
+    static String replicationMode(Double code) {
+        return code == null ? null : code == 2 ? "SYNC" : code == 1 ? "ASYNC" : null;
+    }
+
+    /**
+     * 승격 방식 값(1 Patroni 자동, 2 Patroni 일시 정지)을 계약 이름으로. Patroni 지표가 없으면 null(미확인)이다. 지표가 없다는
+     * 것만으로 수동 승격이라 단정하지 않는다. 수집이 끊긴 Patroni 와 Patroni 가 없는 배치(학교 AWS, ADR 0024)를 가를 수 없고,
+     * Patroni 가 곧 승격할 때 화면이 '수동'이라 적으면 사람이 따로 승격해 두 Primary 를 만드는 사고로 이어질 수 있다
+     */
+    static String promotion(Double code) {
+        return code == null ? null : code == 1 ? "AUTO" : code == 2 ? "MANUAL" : null;
     }
 
     /* ===== 경보와 사건 ===== */

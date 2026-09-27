@@ -1,0 +1,103 @@
+# 시연 오버레이 알림 설정(harness/docker-compose.demo-report.yml이 alertmanager.yml 대신 마운트한다).
+# 기본 설정과 같고, 시연 부하 경보 두 개(prometheus/demo-rules/load-alerts.yml)만 보고 서비스(/alerts)로 보낸다.
+# 보고 서비스가 온프레미스 모델의 참고 분석과 PDF·HTML을 붙여 Teams로 보낸다. 학교 AWS에서 경보가 보고 서비스로
+# 가는 길과 같은 모양이다. 나머지 경보는 종전처럼 chat 수신처로 간다.
+# 수신 토큰은 파일로만 받는다(harness/scripts/demo-reporting-local.py가 만든 harness/demo/reporting.local/reporter-token).
+# 알람 통지 경로. 종전에는 이것이 없어 알람 13개가 울려도 사람이 화면을 열기 전까지
+# 아무도 몰랐다(기획안 운영 관점 결손 1번). Prometheus 가 발화한 알람을 여기로 보내고
+# 이곳이 채팅으로 밀어낸다.
+#
+# 웹훅 URL 을 이 파일에 적지 않는다. URL 자체가 열쇠라 가진 사람은 누구나 채널에 글을
+# 쓸 수 있다. secrets/discord_webhook_url 파일에서 읽고 그 파일은 커밋하지 않는다.
+#
+# Teams 대신 Discord 를 쓰는 이유. Teams 의 웹훅(Power Automate 워크플로)은 이 계정에서
+# 참여자 2명 이상을 요구했다. 운영자가 1인인 구성에서 성립하지 않는다. Discord 는 1인
+# 서버에서 채널 웹훅을 바로 발급한다. 알람이 사람에게 닿는다는 사실은 같고 경로만 다르다.
+# 되돌리려면 discord_configs 를 msteamsv2_configs 로 바꾸고 URL 파일명을 맞춘다.
+route:
+  # 같은 알람이 여러 노드에서 동시에 뜨면 한 장으로 묶는다. 노드 수만큼 알림이 오면
+  # 사람이 읽지 않게 된다.
+  group_by: ['alertname', 'component']
+  # 첫 발화 뒤 30초를 모아 보낸다. 연쇄로 뜨는 알람을 한 번에 보기 위해서다.
+  group_wait: 30s
+  # 같은 묶음에 새 알람이 붙으면 5분마다 갱신을 보낸다.
+  group_interval: 5m
+  # 해소되지 않은 알람의 재알림 주기. 4시간은 근무 중 두 번 이상 눈에 띄되 도배가 되지
+  # 않는 값으로 잡았다. 실측 근거는 없다. 운영하며 조정 대상이다.
+  repeat_interval: 4h
+  receiver: chat
+
+  routes:
+    # 시연 부하 경보는 보고 서비스로만 보낸다(continue 없음)
+    - matchers:
+        - customer = "exchange"
+        - environment = "local-lab"
+        - alertname =~ "AppTierCpuHigh|ServiceLatencyHigh"
+      receiver: reporting
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 4h
+    # 무결성과 리더 부재는 서비스가 멈춘 상태다. 모으는 시간을 줄이고 재알림을 당긴다.
+    - matchers:
+        - severity = "critical"
+      receiver: chat
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: reporting
+    webhook_configs:
+      - url: http://host.docker.internal:9088/alerts
+        send_resolved: true
+        max_alerts: 20
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/alertmanager/reporting/reporter-token
+  - name: chat
+    discord_configs:
+      - webhook_url_file: /etc/alertmanager/secrets/discord_webhook_url
+        send_resolved: true
+        username: failstop 알람
+        # MSP 통지 규약. 심각도·서비스·대상·현재값·임계값·지속시간·링크만 싣는다.
+        # 원인 추정은 본문에 넣지 않는다. 그 판단은 Runbook 과 사후 분석 문서가 소유한다.
+        title: '[{{ if eq .Status "resolved" }}RESOLVED{{ else }}{{ .CommonLabels.severity | toUpper }}{{ end }}] {{ .CommonLabels.alertname }}'
+        message: |
+          {{ range .Alerts }}
+          {{- if eq .Status "resolved" }}
+          Service: {{ if .Labels.component }}{{ .Labels.component }}{{ else }}exchange{{ end }}
+          {{ if .Labels.instance }}Target: {{ .Labels.instance }}
+          {{ end }}Status: recovered
+          Downtime: {{ .EndsAt.Sub .StartsAt }}
+          {{- else }}
+          Service: {{ if .Labels.component }}{{ .Labels.component }}{{ else }}exchange{{ end }}
+          {{ if .Labels.instance }}Target: {{ .Labels.instance }}
+          {{ end }}{{ .Annotations.metric }}: {{ .Annotations.value }}
+          Threshold: {{ .Annotations.threshold }}
+          Duration: {{ .Annotations.duration }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+
+          Dashboard: {{ .Annotations.dashboard }}
+          Runbook: {{ .Annotations.runbook }}
+          {{- end }}
+          {{ end }}
+
+inhibit_rules:
+  # 거래소가 죽으면 체결도 멈춘다. 둘이 같이 뜨면 원인은 앞이므로 뒤를 누른다.
+  - source_matchers:
+      - alertname = "LeaderAbsent"
+    target_matchers:
+      - alertname = "TradeSilence"
+    equal: []
+  # 계층 프로브. 아래 계층이 실패한 호스트에서 위 계층 실패는 결과일 뿐이라 원인 계층 알람만 남긴다.
+  - source_matchers:
+      - alertname = "ProbeL3Unreachable"
+    target_matchers:
+      - alertname =~ "ProbeL4ConnectFailed|ProbeL7Failed"
+    equal: [host]
+  - source_matchers:
+      - alertname = "ProbeL4ConnectFailed"
+    target_matchers:
+      - alertname = "ProbeL7Failed"
+    equal: [host]

@@ -41,9 +41,12 @@ def main():
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--enable-delivery", action="store_true", help="Enable approved Teams delivery explicitly")
     parser.add_argument("--secret-file", required=True)
-    parser.add_argument("--analyzer", choices=("mock", "facts-only", "gemini"), default="mock")
+    parser.add_argument("--analyzer", choices=("mock", "facts-only", "gemini", "ollama"), default="mock")
     parser.add_argument("--ai-secret-file")
     parser.add_argument("--ai-model", default="gemini-3.1-flash-lite")
+    # 온프레미스 분석(ollama). 루프백·사설 대역만 받고, 사설망 평문 http는 아래 선택을 명시해야 받는다(onprem_llm.py)
+    parser.add_argument("--ai-base-url", default="http://127.0.0.1:11434")
+    parser.add_argument("--ai-allow-insecure-http", action="store_true")
     parser.add_argument("--bind", default="127.0.0.1")
     parser.add_argument("--prometheus-url", default="http://127.0.0.1:59090")
     parser.add_argument("--alertmanager-url", default="http://127.0.0.1:59093")
@@ -57,6 +60,12 @@ def main():
                            args.customer, args.environment)
     config.update(prometheus_url=args.prometheus_url, alertmanager_url=args.alertmanager_url,
                   analyzer=args.analyzer, ai_model=args.ai_model)
+    if args.analyzer == "ollama":
+        from onprem_llm import DEFAULT_MODEL, chat_url
+        model = DEFAULT_MODEL if args.ai_model == parser.get_default("ai_model") else args.ai_model
+        config.update(ai_model=model, ai_base_url=args.ai_base_url, ai_think=False,
+                      ai_allow_insecure_http=bool(args.ai_allow_insecure_http))
+        chat_url(config)  # 주소 규칙 위반을 설치 때 멈춘다
     if args.artifact_base_url:
         from artifacts import options
         config["artifacts"] = {"enabled": True, "public_base_url": args.artifact_base_url,
@@ -115,7 +124,7 @@ def main():
         target.mkdir(parents=True, exist_ok=True)
         os.chown(target, 0, directory_group)
         target.chmod(mode)
-    for name in ("reporter.py", "evidence.py", "transport.py", "secret_inputs.py", "gemini.py", "presentation.py",
+    for name in ("reporter.py", "evidence.py", "transport.py", "secret_inputs.py", "gemini.py", "onprem_llm.py", "presentation.py",
                  "intervention.py", "charts.py", "render_pdf.py", "scope.py", "artifacts.py", "console_api.py",
                  "msp_events.py"):
         write(f"/opt/failstop/deploy/reporting/{name}", (HERE / name).read_text(encoding="utf-8"), 0, 0o644)

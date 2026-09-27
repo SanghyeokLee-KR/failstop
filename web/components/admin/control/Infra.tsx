@@ -25,6 +25,7 @@ import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { useOpsDetail } from "@/lib/admin/detailStore";
 import { appTierHot, hostState, infraCounts, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
 import { joinDots } from "@/lib/admin/text";
+import { promotionWord, replicationWord, standbyWord } from "@/lib/admin/replicationWords";
 import GrafanaLink from "../GrafanaLink";
 import { useChangeFlags } from "../useChangeFlags";
 import { MeterRail } from "../instruments/MeterRail";
@@ -40,6 +41,17 @@ export const HOST_KIND: Record<OpsHostRole, string> = {
   DB_STANDBY: "PostgreSQL 17 · Standby",
   BOT_OBS: "시장 봇 · 관측",
 };
+
+/**
+ * 호스트의 정체 한 줄. recovery 지표로 역할을 확인하지 못한 DB(멈춘 노드 등)는 자리 이름 대신 역할 미수집이다. 역할을 확인한
+ * http 판의 DB 는 한글 역할 이름(주 DB·예비 DB, 2026-09-27 사용자 요청)이고, 역할 확인 여부를 싣지 않는 sim 판은 그대로다
+ */
+export function hostKind(host: OpsHost): string {
+  if (host.roleKnown === false) return "PostgreSQL 17 · 역할 미수집";
+  if (host.roleKnown === true) return host.role === "DB_PRIMARY" ? "PostgreSQL 17 · 주 DB" : "PostgreSQL 17 · 예비 DB";
+  return HOST_KIND[host.role];
+}
+
 /** bot-1이 시장 봇과 함께 싣는 관측 서비스 */
 const BOT_SERVICES = "Prometheus · Grafana · Alertmanager · 보고";
 
@@ -109,13 +121,13 @@ export function HostCard({ host, reg, alertRefs, board = true, tierHot = false }
       data-tone={s.tone === "success" ? undefined : s.tone}
       data-focus={lit ? "" : undefined}
       data-pulse={pulse ? "" : undefined}
-      aria-label={`${host.id} · ${HOST_KIND[host.role]} · ${s.word}`}
+      aria-label={`${host.id} · ${hostKind(host)} · ${s.word}`}
     >
       <div className={styles.hostTop}>
         <NodeName id={host.id} />
         <StateWord s={s} />
       </div>
-      <span className={styles.hostKind}>{HOST_KIND[host.role]}</span>
+      <span className={styles.hostKind}>{hostKind(host)}</span>
       {host.partition && (
         <span className={styles.partition} title={`${host.partition.id} · ${host.partition.markets.join(" · ")}`}>
           <b>{host.partition.id}</b>
@@ -150,7 +162,7 @@ const STREAM: Record<Replication["stream"], { word: string; tone: "success" | "w
 };
 
 /** DB 묶음의 한쪽. 호스트를 가리키는 근거는 묶음 전체가 아니라 이 칸만 켠다(§12-9 근거 칩) */
-function DbSide({ host, reg, lit }: { host: OpsHost; reg: ThresholdRegistry | null; lit: boolean }) {
+function DbSide({ host, reg, lit, standby }: { host: OpsHost; reg: ThresholdRegistry | null; lit: boolean; standby: string }) {
   const s = hostState(host, reg);
   return (
     <div className={styles.dbSide} data-tone={s.tone === "success" ? undefined : s.tone} data-focus={lit ? "" : undefined}>
@@ -158,7 +170,13 @@ function DbSide({ host, reg, lit }: { host: OpsHost; reg: ThresholdRegistry | nu
         <NodeName id={host.id} />
         <StateWord s={s} />
       </div>
-      <span className={styles.hostKind}>{host.role === "DB_PRIMARY" ? "Primary · 쓰기" : "Standby · 비동기 복제"}</span>
+      <span className={styles.hostKind}>
+        {host.roleKnown === false
+          ? "역할 미수집"
+          : host.role === "DB_PRIMARY"
+            ? host.roleKnown ? "주 DB · 쓰기" : "Primary · 쓰기"
+            : standby}
+      </span>
       <Gauges host={host} reg={reg} />
       <span className={`${styles.dbCollected} num`}>{host.collectedAt === null ? "◌ 미수집" : <Ago at={host.collectedAt} prefix="수집 " />}</span>
     </div>
@@ -166,8 +184,9 @@ function DbSide({ host, reg, lit }: { host: OpsHost; reg: ThresholdRegistry | nu
 }
 
 /**
- * DB 두 대를 한 묶음에 나란히 두고 사이에 복제 방향·지연·상태를 적는다. 비동기 복제라 지연 동안 쓰인
- * 기록은 Primary를 잃으면 함께 잃을 수 있다(ADR 0024). 승격은 사람이 한다
+ * DB 두 대를 한 묶음에 나란히 두고 사이에 복제 방향·지연·상태를 적는다. 복제 방식과 승격 방식은 http 판의 수집값이다
+ * (replicationWords). 비동기면 지연 동안 쓰인 기록을 Primary와 함께 잃을 수 있고(ADR 0024), 엄격 동기면 Standby가 WAL을
+ * 쓴 뒤에만 커밋을 확인한다(ADR 0036). sim 판은 시뮬레이터의 ADR 0024 구성 문구다
  */
 export function DbPair({ primary, standby, repl, reg, alertRefs }: {
   primary: OpsHost;
@@ -178,6 +197,9 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
 }) {
   const focus = useOpsFocus((s) => s.ref);
   const r = repl.state === "READY" ? repl.data : null;
+  // 복제 칸이 없으면 방식도 모른다(null). 칸이 있는데 값이 없으면(undefined) sim 판이다
+  const mode = r ? r.mode : null;
+  const promotion = r ? r.promotion : null;
   const lagTh = th(reg, "db.replication_lag_alert");
   const late = r !== null && r.lagSec !== null && lagTh !== null && r.lagSec >= lagTh;
   const st = r ? STREAM[r.stream] : null;
@@ -190,7 +212,7 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
   return (
     <article className={styles.dbPair} data-tone={tone} data-focus={lit ? "" : undefined} data-pulse={pulse ? "" : undefined} aria-label="데이터베이스 · PostgreSQL 17 Primary·Standby">
       <div className={styles.dbPairHead}>
-        <span className={styles.hostKind}>{joinDots("PostgreSQL 17 · 비동기 복제 · 승격은 수동")}</span>
+        <span className={styles.hostKind}>{joinDots(`PostgreSQL 17 · ${replicationWord(mode)} · ${promotionWord(promotion)}`)}</span>
         {st && (
           <span className={styles.nodeState} data-tone={st.tone}>
             <Shape tone={st.tone}>{st.mark}</Shape>
@@ -199,7 +221,7 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
         )}
       </div>
       <div className={styles.dbPairBody}>
-        <DbSide host={primary} reg={reg} lit={litPrimary} />
+        <DbSide host={primary} reg={reg} lit={litPrimary} standby={standbyWord(mode)} />
         <div className={styles.replLink} aria-label={r ? `복제 ${primary.id}에서 ${standby.id}로, 지연 ${r.lagSec === null ? "미수집" : lagWord(r.lagSec)}` : "복제 원천 연결 전"}>
           <span className={styles.replArrow} aria-hidden="true" />
           {r ? (
@@ -216,7 +238,7 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
             <span aria-hidden="true"><StatusShape kind="dashed" /> 연결 전</span>
           )}
         </div>
-        <DbSide host={standby} reg={reg} lit={litStandby} />
+        <DbSide host={standby} reg={reg} lit={litStandby} standby={standbyWord(mode)} />
       </div>
       {r && (
         <div className={styles.lag}>
@@ -460,7 +482,7 @@ export function InfraGroups({ center, board = false, wide = false }: { center: C
           <HostCard key={h.id} host={h} reg={reg} alertRefs={alertRefs} board={board} />
         ))}
       </Group>
-      <Group area="ai" label="온프레미스 · 연구소" note="구축 전">
+      <Group area="ai" label="온프레미스" note="구축 전">
         <AiServerCard section={center.aiServer} />
       </Group>
     </div>

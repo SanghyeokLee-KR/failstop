@@ -169,6 +169,50 @@ test("서버 한 판: 칸마다 단위를 화면 단위로 옮기고, 서버에 
   assert.match(desk.situation, /불러오지 못했습니다/);
 });
 
+test("DB 역할: recovery 지표로 모르는 DB는 이름으로 짐작하지 않고 남은 자리에 앉혀 역할 미수집으로 둔다", () => {
+  const w = body<WireOverview>("overview-full");
+  const withDbs = (dbs: [string, string | null][]): WireOverview => {
+    const hosts = w.hosts as { state: string; data: { node: string; role: string; actual_role: string | null }[] };
+    const others = hosts.data.filter((h) => h.role !== "DB");
+    const template = hosts.data.find((h) => h.role === "DB") as (typeof hosts.data)[number];
+    const data = [...others.slice(0, 2), ...dbs.map(([node, actual]) => ({ ...template, node, actual_role: actual })), ...others.slice(2)];
+    return { ...w, hosts: { ...hosts, data } } as WireOverview;
+  };
+  const roles = (x: WireOverview) =>
+    ready(boardOf(x, emptyExtras(), Date.parse(w.generated_at ?? "")).hosts, "hosts")
+      .filter((h) => h.role !== "APP" && h.role !== "BOT_OBS")
+      .map((h) => [h.id, h.role, h.roleKnown]);
+
+  // 전환 중: 옛 Primary(db-1)가 멈춰 역할을 모르고 db-2가 승격됐다. 두 대가 모두 Primary로 잡히지 않는다
+  assert.deepEqual(roles(withDbs([["db-1", null], ["db-2", "PRIMARY"]])), [["db-1", "DB_STANDBY", false], ["db-2", "DB_PRIMARY", true]]);
+  // 승격 전: Primary 가 멈추고 Standby 만 역할을 안다
+  assert.deepEqual(roles(withDbs([["db-1", null], ["db-2", "STANDBY"]])), [["db-1", "DB_PRIMARY", false], ["db-2", "DB_STANDBY", true]]);
+  // 둘 다 모르면 목록 순서대로 자리만 앉힌다. 이름에 standby 가 들어 있어도 짐작하지 않는다
+  assert.deepEqual(roles(withDbs([["db-standby", null], ["db-primary", null]])), [["db-standby", "DB_PRIMARY", false], ["db-primary", "DB_STANDBY", false]]);
+  // 역할을 아는 판은 그대로다
+  assert.deepEqual(roles(w), [["db-primary", "DB_PRIMARY", true], ["db-standby", "DB_STANDBY", true]]);
+});
+
+test("DB 복제·승격 방식: 수집값만 옮기고 없거나 모르는 값은 null 이라 sim 문구로 가지 않는다", () => {
+  const w = body<WireOverview>("overview-full");
+  const at = Date.parse(w.generated_at ?? "");
+  const withRepl = (extra: Record<string, unknown>): WireOverview => {
+    const r = w.replication as { state: string; data: Record<string, unknown> };
+    return { ...w, replication: { ...r, data: { ...r.data, ...extra } } } as WireOverview;
+  };
+  const repl = (x: WireOverview) => ready(boardOf(x, emptyExtras(), at).replication, "replication");
+
+  const sync = repl(withRepl({ mode: "SYNC", promotion: "AUTO" }));
+  assert.deepEqual([sync.mode, sync.promotion], ["SYNC", "AUTO"]);
+  const paused = repl(withRepl({ mode: "ASYNC", promotion: "MANUAL" }));
+  assert.deepEqual([paused.mode, paused.promotion], ["ASYNC", "MANUAL"]);
+  const odd = repl(withRepl({ mode: "QUORUM", promotion: null }));
+  assert.deepEqual([odd.mode, odd.promotion], [null, null], "모르는 값은 짐작하지 않는다");
+  // 이 항목을 싣지 않는 서버(고정 자료 그대로)도 null 이다. undefined 는 sim 판의 뜻이라 섞지 않는다
+  const old = repl(w);
+  assert.deepEqual([old.mode, old.promotion], [null, null]);
+});
+
 test("관제 모듈만 켜고 원천이 없는 서버: 칸마다 원천 설정 없음이고 사건 0건은 빈 목록이 사실이다", () => {
   const w = body<WireOverview>("overview-bare");
   const c = boardOf(w, emptyExtras(), Date.now());

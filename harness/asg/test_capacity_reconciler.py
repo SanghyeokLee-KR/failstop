@@ -127,6 +127,61 @@ class ChaosStackTest(unittest.TestCase):
         self.assertIn(['docker', 'stop', 'chaos-api-3'], self.commands)
         self.assertNotIn(['docker', 'stop', 'chaos-api-2'], self.commands)
 
+    def sd(self):
+        with open(os.path.join(self.dir, 'sd', 'reader.json'), encoding='utf-8') as f:
+            return json.load(f)
+
+    def test_sd_file_lists_read_node_only_after_it_is_registered(self):
+        self.desired = 3
+        self.healthy.side_effect = [False, True]
+        r = self.make(sd_file=os.path.join(self.dir, 'sd', 'reader.json'), sd_port=8080)
+
+        r.step()
+        self.assertEqual([], self.sd())       # 기동은 했지만 헬스를 통과하지 못했다. 대상이 아니다
+        r.step()
+
+        self.assertEqual([{'targets': ['chaos-api-3:8080']}], self.sd())
+        # 쓰기 백업(api-2)은 min_pool 앞머리라 정적 수집 대상이다. 파일에 적지 않는다
+        self.assertNotIn('chaos-api-2', json.dumps(self.sd()))
+
+    def test_sd_file_drops_read_node_before_it_is_stopped(self):
+        self.running['chaos-api-3'] = True
+        sd_path = os.path.join(self.dir, 'sd', 'reader.json')
+        r = self.make(sd_file=sd_path, sd_port=8080)
+        with mock.patch.object(ctl, 'sh', return_value=''):
+            r.lb.set_down('chaos-api-3', False)
+            r.lb.reload()
+        r.sync_sd()
+        self.assertEqual([{'targets': ['chaos-api-3:8080']}], self.sd())
+        seen_at_stop = []
+        original = self.sh
+
+        def sh(args, check=True, timeout=120):
+            if args[:2] == ['docker', 'stop']:
+                seen_at_stop.append(self.sd())
+            return original(args, check, timeout)
+
+        with mock.patch.object(ctl, 'sh', side_effect=sh):
+            r.step()
+
+        self.assertEqual([[]], seen_at_stop)
+        self.assertEqual([], self.sd())
+
+    def test_sd_file_is_not_rewritten_when_unchanged(self):
+        sd_path = os.path.join(self.dir, 'sd', 'reader.json')
+        r = self.make(sd_file=sd_path, sd_port=8080)
+        r.step()
+        r.step()
+        writes = [e for e in self.events() if e['kind'] == 'sd.write']
+        self.assertEqual(1, len(writes))
+        self.assertEqual([], self.sd())
+
+    def test_no_sd_file_writes_nothing(self):
+        r = self.make()
+        r.step()
+        self.assertFalse(os.path.exists(os.path.join(self.dir, 'sd')))
+        self.assertNotIn('sd.write', [e['kind'] for e in self.events()])
+
     def test_stop_records_that_duration_ran_out(self):
         r = self.make(once=False, duration=0)
         with mock.patch.object(r, 'step'):

@@ -7,8 +7,8 @@
 import type { DbStats, FailoverMode, ReplicationMode } from "./types";
 
 /**
- * 지금 구성. 비동기 복제와 수동 승격이다(ADR 0024). Patroni 엄격 동기 자동 전환(ADR 0036)은 다른 작업 브랜치에서
- * 설계·구현 중이라 이 저장소에는 번호만 있고 이 환경에 적용하지 않았다
+ * sim 판의 지금 구성. 비동기 복제와 수동 승격이다(ADR 0024). http 판은 이 값을 쓰지 않고 관제 판의 수집값(복제 상대의
+ * sync_state, Patroni 지표)을 쓴다(데이터베이스 화면의 복제 방식 표, replicationWords)
  */
 export const DB_TOPOLOGY: { mode: ReplicationMode; failover: FailoverMode } = { mode: "ASYNC", failover: "PATRONI_BUILDING" };
 

@@ -6,11 +6,12 @@
  * 그 역할을 대신한다. Docker 에서 먼저 되면 같은 화면을 AWS 로 옮긴다(2026-09-23 사용자 결정).
  * 노드 이름은 AWS 역할 이름이고, 그 역할을 맡은 컨테이너나 호스트 프로세스는 구성도가 옆에 적는다.
  *
- * 백엔드에 연결하지 않았다. 주행은 lib/admin/flowRun.ts 가 지표 관제(/admin/monitor)와 함께 들고 있고 두 모드가
- * 있다. 재생하지 않는 동안은 관제 시뮬레이터의 한 판에서 옮긴 관제 값이라 관제센터와 같은 숫자를 그린다. 노드를
- * 눌러 재생을 걸면 로컬 Docker 에서 잰 기록의 사건 순서를 재생하고 사건 사이의 값은 lib/admin/flowSim.ts 가
- * 지어낸다. 머리에는 설명 줄을 두지 않는다(2026-09-23 사용자 결정). 값의 출처는 화면 머리의 표식(시뮬레이션,
- * 재생 중에는 '재생 · 관제 값과 별개')과 무대 머리 줄 맨 왼쪽의 출처가 보여 준다.
+ * 주행은 lib/admin/flowRun.ts 가 지표 관제(/admin/monitor)와 함께 들고 있다. http 원천은 실측 모드 하나다. 관리 API
+ * 흐름 조회(GET /admin/v1/msp/flow)가 Prometheus 에서 읽은 최근 150초를 2초마다 받아 그리고 재생 단추를 두지 않는다
+ * (2026-09-27 사용자 결정, lib/admin/flowMeasured.ts). sim 원천은 관제 시뮬레이터의 한 판에서 옮긴 관제 값이고, 노드를
+ * 눌러 재생을 걸면 로컬 Docker 에서 잰 기록의 사건 순서를 재생하고 사건 사이의 값은 lib/admin/flowSim.ts 가 지어낸다.
+ * 머리에는 설명 줄을 두지 않는다(2026-09-23 사용자 결정). 값의 출처는 화면 머리의 표식(실측이면 환경 배지와 출처 칩,
+ * sim 이면 시뮬레이션, 재생 중에는 '재생 · 관제 값과 별개')과 무대 머리 줄 맨 왼쪽의 출처가 보여 준다.
  *
  * 무대 머리 줄은 출처 칩, 재생 중에만 서는 상황 자막, 크게 보기 순서다(관리자 설계 7-10 (i)). 자막이
  * 재생 표지와 같은 내용을 실어 이 화면의 머리 조작은 표지 없이 일시정지와 초기화만 둔다.
@@ -18,18 +19,15 @@
  * 이 화면은 구성도만 둔다. 사건 기록 목록도 사용자 요청으로 뺐고 보조기술용 알림만 남겼다. 체결률, 리스, CPU, 사용률 추이는 지표 관제로 옮겼고, 리더·세대·
  * Primary 같은 판독 줄도 사용자 요청으로 뺐다. 그 값은 노드 팝오버에 있다.
  *
- * 채택하려면 결정부터 다시 봐야 한다. ADR 0032 와 docs/reference/adr/0099-current-architecture.md 는
- * 추이를 Grafana 에 맡기고 콘솔이 그리지 않게 했다. 원천 없이 지어낸 토폴로지는 8276cd7 에서
- * 버렸고, 카오스 주입 화면은 186570f 에서 걷어냈다. 시안으로 보여 주는 것까지가 이 파일의 범위다.
- *
  * 재생은 화면 안의 일이다. 컨테이너에 명령을 보내지 않고, 같은 일을 실제로 일으키는 호스트
- * 명령은 대화상자에서 복사만 할 수 있다.
+ * 명령은 대화상자에서 복사만 할 수 있다. 실측 화면도 조치를 보내지 않는다. 봇 발행률은 봇 플릿 화면에서 바꾼다.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import { PageHeader, SimMark } from "@/components/admin/ui";
+import MeasuredMark, { StaleVeil } from "@/components/admin/flow/MeasuredMark";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import FlowTopology, { type FlowPick } from "@/components/admin/flow/FlowTopology";
 import FlowRunControls from "@/components/admin/flow/FlowRunControls";
@@ -41,6 +39,7 @@ import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/flow/flow.module.css";
 import { getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { availability, describeScenario, nodeViews } from "@/lib/admin/flowSim";
+import { measuredViews } from "@/lib/admin/flowMeasured";
 import { replayBase, useFlowClock, useFlowRun } from "@/lib/admin/flowRun";
 import { teamsDelivery } from "@/lib/admin/integrations";
 
@@ -128,7 +127,9 @@ export default function FlowPage() {
     setPick(null);
   };
 
-  const views = useMemo(() => nodeViews(state, cpuNow), [state, cpuNow]);
+  // 실측 원천이 연결 전이거나 읽지 못했어도 같은 구성도를 그리고 값을 받지 못한 칸만 미수집이다(2026-09-27 사용자 결정).
+  // 빈 상자 한 장으로 바꾸지 않는다. 원천의 상태는 화면 머리의 출처 칩과 관측 카드가 적는다
+  const views = useMemo(() => (state.measured ? measuredViews(state) : nodeViews(state, cpuNow)), [state, cpuNow]);
   // 관제 값 모드에서 고른 재생은 재생 세계의 첫 상태에서 설명하고 막힘을 판정한다
   const pickBase = pick === null ? null : mode === "live" ? replayBase(pick.id, pick.target) : state;
 
@@ -200,8 +201,8 @@ export default function FlowPage() {
     <div className={styles.root}>
       <PageHeader
         title="서비스 흐름"
-        mark={mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
-        actions={<FlowRunControls indicator={false} />}
+        mark={mode === "measured" ? <MeasuredMark /> : mode === "replay" ? <SimMark kind="replay" /> : isAdminHttp() ? undefined : <SimMark />}
+        actions={mode === "measured" ? undefined : <FlowRunControls indicator={false} />}
       />
 
       <PanelCard srTitle="서비스 구성">
@@ -218,7 +219,7 @@ export default function FlowPage() {
             <div className={styles.stageCaption}>
               <FlowCaption />
             </div>
-            {expanded && <FlowRunControls indicator={false} />}
+            {expanded && mode !== "measured" && <FlowRunControls indicator={false} />}
             {expanded ? (
               <button ref={closeBtnRef} type="button" className={adminStyles.neutralBtn} onClick={closeExpanded}>
                 닫기
@@ -232,6 +233,8 @@ export default function FlowPage() {
           {/* 겉 상자는 확대된 크기만큼 자리를 잡고, 속 상자는 설계 폭으로 배치한 뒤 통째로 확대한다.
               크게 보기를 열고 닫아도 같은 요소라 구성도는 다시 붙지 않는다 */}
           <div className={styles.stageBody} ref={bodyRef}>
+            {/* 흐름 조회가 실패하거나 늦어 값이 옛 값이면 흐리게 덮는다. 무대 머리 칩이 '수집 실패 · N초 전 값'을 적는다 */}
+            {mode === "measured" && <StaleVeil />}
             <div className={styles.zoomBox} style={{ width: zoom.w * zoom.k, height: zoom.h * zoom.k }}>
               <div ref={innerRef} className={styles.zoomInner} style={{ width: zoom.w, transform: `scale(${zoom.k})` }}>
                 {waiting ? (

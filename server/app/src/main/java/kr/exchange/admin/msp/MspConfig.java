@@ -144,6 +144,12 @@ public class MspConfig {
         return new MspTrends(props, prometheus.getIfAvailable(), incidents, cache);
     }
 
+    @Bean
+    public MspFlow mspFlow(MspProperties props, ObjectProvider<PrometheusClient> prometheus,
+                           CapacityPlanService capacity, BotRateControl botRate, SourceCache cache) {
+        return new MspFlow(props, prometheus.getIfAvailable(), capacity, botRate, cache);
+    }
+
     /* ===== 보고 서비스(설계 7-12) ===== */
 
     /** 보고 서비스 주소가 있을 때만 선다. 주소가 루프백·사설이 아니거나 토큰 파일을 읽지 못하면 기동을 멈춘다. */

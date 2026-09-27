@@ -6,28 +6,9 @@ import math
 import re
 
 from charts import build_charts, render_svg
-from intervention import DISK_FREE, INODE_FREE, assess, database_alert_name, database_role
+from intervention import ALERT_NAMES, DISK_FREE, INODE_FREE, assess, database_alert_name, database_role
 
 KST = dt.timezone(dt.timedelta(hours=9))
-ALERT_NAMES = {
-    "DatabaseBackupUnknownOrStale": "최근 DB 백업 확인 경보",
-    "LinuxDiskSpaceLow": "디스크 여유 공간 부족",
-    "LinuxInodesLow": "파일 생성 여유 부족",
-    "LinuxServiceFailed": "Linux 서비스 실패",
-    "LinuxHostUnreachable": "Linux 호스트 수집 중단",
-    "LinuxCollectorFailed": "Linux 지표 일부 수집 실패",
-    "LinuxLogCollectionStale": "호스트 운영 기록 수집 지연",
-    "LinuxTargetsMissing": "Linux 수집 대상 미등록",
-    "DatabaseReplicationUnknown": "DB 복제 상태 미확인",
-    "DatabaseExporterUnavailable": "DB 수집 경로 장애",
-    "DatabaseConnectionFailed": "DB 접속 장애",
-    "DatabaseMetricsMissing": "DB 지표 일부 누락",
-    "SpringMetricsUnavailable": "Spring 서비스 수집 중단",
-    "OperationsDailyReportMissing": "일일 보고 전달 지연",
-    "OperationsReportDeliveryFailed": "운영 보고 전달 실패",
-    "OperationsIntegrationCheck": "운영 보고 연결 시험",
-    "TradeSilence": "거래 발생 없음",
-}
 FACT_NAMES = {
     "target_up": "지표 수집 응답", "disk_available": "디스크 여유", "inode_free": "inode 여유",
     "io_time": "디스크 I/O 사용", "network_errors": "수신 네트워크 오류", "services_failed": "실패 서비스",
@@ -292,7 +273,7 @@ def build_brief(report):
     if not facts:
         gaps = ["운영 근거 미수신"]
     checks = [item["task"] for item in intervention["actions"]]
-    generated = analysis.get("mode") in ("remote", "gemini")
+    generated = analysis.get("mode") in ("remote", "gemini", "ollama")
     ai_checks = []
     if generated:
         for item in analysis.get("next_checks", [])[:3]:
@@ -336,6 +317,7 @@ def build_brief(report):
     note = {"mock": "모의 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
             "remote": "AI 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
             "gemini": "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
+            "ollama": "온프레미스 AI 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
             "facts-only": "수집 근거로 판정 · AI 분석 없음"}.get(mode, "분석 방식 확인 필요")
     if mode == "facts-only":
         reason = str(analysis.get("reason", ""))
