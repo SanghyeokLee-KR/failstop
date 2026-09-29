@@ -1,0 +1,173 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 06-3 결과 요약</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --ai: #C6C0F2;
+    --warm: #E8C07A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 {
+    position: absolute; left: 130px; top: 164px; margin: 0;
+    font-size: 58px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em;
+    animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
+  }
+  h1 em { font-style: normal; color: var(--ok); }
+  h1 em.w { color: var(--warm); }
+
+  /* 목표 장과 같은 표에 결과·판정·측정 환경을 채운다 */
+  .dek { position: absolute; left: 130px; top: 240px; margin: 0; font-size: 24px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+  .req { position: absolute; left: 130px; top: 296px; border-collapse: collapse; table-layout: fixed; width: 1660px; }
+  .req th { text-align: left; font-weight: 400; font-size: 22px; color: var(--ink-3); letter-spacing: .04em; padding: 0 0 10px; border-bottom: 1px solid var(--card); }
+  .req td { padding: 4px 22px 4px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+  .req tr:last-child td { border-bottom: 0; }
+  .req col.k { width: 208px; } .req col.r { width: 222px; } .req col.t { width: 212px; } .req col.v { width: 588px; } .req col.j { width: 132px; }
+  .fq { margin: 0 0 0 22px; font-size: 22px; line-height: 1.2; color: var(--c); white-space: nowrap; }
+  .req tbody tr { animation: fade .5s ease-out both; }
+  .kind { display: flex; align-items: center; gap: 12px; font-size: 23px; line-height: 1.15; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .kind i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; transform: translateY(1px); }
+  .kind.cont { color: transparent; } .kind.cont i { background: transparent; }
+  .ha { --c: var(--brand); } .dr { --c: var(--ok); } .el { --c: var(--ai); } .op { --c: var(--warm); }
+  .rq { font-size: 22px; line-height: 1.4; color: var(--ink-2); word-break: keep-all; white-space: nowrap; }
+  .tg { font-size: 22px; font-weight: 600; color: var(--c); white-space: nowrap; }
+  .tg code { font-family: var(--mono); font-weight: 500; font-size: 22px; }
+  .req .tg .ab { font-size: 22px; }
+  .val { font-size: 23px; line-height: 1.25; color: var(--ink); word-break: keep-all; }
+  .val code { font-family: var(--mono); font-size: 23px; font-weight: 500; }
+  .val small { display: block; font-size: 22px; line-height: 1.2; color: var(--ink-3); margin-top: 1px; white-space: nowrap; }
+  .mk { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 600; padding: 3px 12px 4px 10px; border-radius: 6px; white-space: nowrap; animation: stamp .45s cubic-bezier(.2,.9,.3,1.3) both; }
+  .mk svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .mk.ok { color: var(--ok); background: rgba(45,209,150,.1); border: 1px solid rgba(45,209,150,.35); }
+  .mk.part { color: var(--warm); background: rgba(232,192,122,.08); border: 1px solid rgba(232,192,122,.4); }
+
+
+  .cons {
+    position: absolute; left: 130px; right: 130px; bottom: 64px;
+    display: grid; grid-template-columns: auto repeat(4, max-content); justify-content: space-between; gap: 0 26px; align-items: baseline;
+    padding-top: 16px; border-top: 1px solid var(--card);
+    animation: fade .7s 1.3s ease-out both;
+  }
+  .cons .k { font-size: 22px; color: var(--warm); }
+  .cons p { margin: 0; font-size: 22px; line-height: 1.45; color: var(--ink-2); word-break: keep-all; }
+  .cons p b { display: block; font-weight: 500; color: var(--ink); }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes stamp { from { opacity: 0; transform: scale(1.35); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">결과</span>06-3</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>요구사항 일곱 중 <em>다섯 달성</em>, <em class="w">둘 부분 달성</em></h1>
+
+  <p class="dek">장애·트래픽 수치는 로컬 Docker에서 실험마다 1~2회 쟀고, 실제 운영과 알림은 학교 AWS·VM에서 확인</p>
+
+  <table class="req">
+    <colgroup><col class="k"><col class="r"><col class="t"><col class="v"><col class="j"><col></colgroup>
+    <thead><tr><th>기준</th><th>상황</th><th>목표</th><th>결과</th><th>판정</th><th>측정 환경</th></tr></thead>
+    <tbody>
+      <tr class="el"><td><div class="kind"><i></i>탄력성</div><div class="fq">늘어도 버티는지</div></td><td class="rq">조회가 몰릴 때</td><td class="tg">조회 서버 <code>0 ↔ 1</code>대</td>
+        <td class="val">세 대가 <code>1/3</code>씩, 켜고 끌 때 오류 <code>0</code><small>실험 도구가 정해진 순서로 켜고 끔 · 지표 기반 자동 증설은 아직</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+      <tr class="ha"><td><div class="kind"><i></i>고가용성</div><div class="fq">멈춰도 이어지는지</div></td><td class="rq">거래 서버 한 대 멈춤</td><td class="tg">30초 안<span class="ab">RTO</span></td>
+        <td class="val"><code>11~13</code>초<small>남은 서버가 마켓 6개를 넘겨받음 · 2회</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+      <tr class="ha"><td><div class="kind cont"><i></i>고가용성</div></td><td class="rq">주 DB 멈춤</td><td class="tg">승격에 사람 개입 0회</td>
+        <td class="val">승격 <code>23</code>초, 주문 재개 <code>66</code>초<small>재개는 옛 DB가 예비로 다시 붙은 뒤</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+      <tr class="dr"><td><div class="kind"><i></i>재해 복구</div><div class="fq">잃어도 되살리는지</div></td><td class="rq">DB 장애 중 받은 주문</td><td class="tg">유실 0건<span class="ab">RPO</span></td>
+        <td class="val">유실 <code>0</code> · 중복 <code>0</code><small>DB 장애 실험 모든 회차</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+      <tr class="dr"><td><div class="kind cont"><i></i>재해 복구</div></td><td class="rq">DB를 통째로 잃음</td><td class="tg">원본과 일치</td>
+        <td class="val">테이블 <code>109</code>개 일치<small>거래 데이터 없는 DB · 표 3개만 행 수 대조</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></td></tr>
+      <tr class="op"><td><div class="kind"><i></i>운영 기본</div><div class="fq">알리고 막는지</div></td><td class="rq">서버·DB·디스크 이상</td><td class="tg">막힌 길 통과 0<br>발생·해제 알림</td>
+        <td class="val">Teams에 발생·해제 보고 도착 · 막힌 길 접속 모두 거절<small>예비 DB·앱 정지, 디스크 부족 · 보고 요약은 Gemini</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS · VM</span></td></tr>
+      <tr class="op"><td><div class="kind"><i></i>AI 관제</div><div class="fq">맡겨도 안전한지</div></td><td class="rq">AI가 조치를 제안할 때</td><td class="tg">잘못된 실행 0회</td>
+        <td class="val">111번 판단 중 잘못 실행될 조치 <code>0</code><small>명령이 든 경보 12/12에 조치 안 함</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC · RTX 4090</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="cons">
+    <div class="k">남은 한계</div>
+    <p><b>DB 한 대를 잃으면</b>예비 DB가 다시 붙을 때까지 새 주문 중단</p>
+    <p><b>DB를 통째로 잃으면</b>마지막 백업 뒤 주문은 복구 불가</p>
+    <p><b>조회 서버의 한계</b>13배 부하에선 7.4% 거절 · 자동 증설 확인 전</p>
+    <p><b>측정 횟수</b>실험마다 1~2회 · 반복 안정성 확인 전</p>
+  </div>
+</div>
+
+<!-- 발표 노트(35초): 목표 장의 일곱 요구사항에 결과를 채웠다. 수치마다 측정 환경을 붙였다. 탄력성: 조회 서버 몫 33.5%, 켜고 끌 때 오류 0(로컬). 켜고 끄기는 실험 실행기가 정해진 순서로 했고 지표 기반 자동 실행(CloudWatch·ASG)은 확인 전이라 '부분'. 거래 서버 인계(두 리더 구조): 12.866초(09-26 S7 관문 Q2)와 10.982초(재현 시연) 두 번. DB: 자동 승격 22.75초, 조회 복구 26.67초, 주문 재개 66.14초(E-P1), 유실·중복 0(Patroni E-P1~E-P6 전 회차, 실험마다 1회, E-P5는 2회, E-P3은 a·b 각 1회). 복원: VM 실습망 Databasus로 테이블 109개와 표 3개 행 수(47·22·3) 대조. 거래 데이터가 없는 DB라 '부분'. 운영 기본: 학교 EC2에서 예비 DB 정지, 앱 정지, 시험용 파일시스템 부족을 감지해 Teams 발생·해제 보고(2026-09-20, 요약은 Gemini API). 막힌 길 접속: VM 실습망 pfSense 허용·차단 시험 ①~③(09-26, 증거본 2026-09-26_VM_pfSense 19~21)에서 막아야 할 길(작업 PC→DB 5432·앱 8080, 웹→DB 5432, 앱1→앱2 8080, DB→외부 443)은 모두 거절됐고 허용한 길(웹 443, 웹→앱, 앱→DB)은 연결됐다. 그래서 측정 환경이 학교 AWS · VM. AI 관제: 개발 PC RTX 4090·Ollama, qwen3.6:35b-a3b로 111회 판단 중 잘못 실행될 조치 0, 주입 시나리오 12/12 조치 안 함, 3회 같은 결정 37/37(09-25). 비교 모델 gpt-oss:20b는 2회. 개인 AWS에서 재측정하면 같은 표에 값을 덧붙인다. 질의 대비(테이블 109개): VM DB에 적용된 마이그레이션 47개 기준 public 104개 + harness(시험 기록) 5개. public 104개 중 절반인 52개는 파티션(체결·원장·outbox를 2026-07~2027-08 월별 14칸+기본 1칸씩 45개, 명령·이벤트 저널 번호 구간 7개)이고, 실제 기능 표는 52개. 현재 코드(마이그레이션 61개)로 새로 만들면 AI 관제·운영 표가 더해져 public 약 120개. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+  // 줄이 차례로 나타나고, 판정 표시는 줄보다 조금 늦게 찍힌다
+  document.querySelectorAll('.req tbody tr').forEach((tr, k) => {
+    tr.style.animationDelay = (0.3 + k * 0.1) + 's';
+    const mk = tr.querySelector('.mk'); if (mk) mk.style.animationDelay = (0.55 + k * 0.1) + 's';
+  });
+})();
+</script>

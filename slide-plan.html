@@ -1,0 +1,501 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 01 기획 배경</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --ai: #C6C0F2;
+    --data: #5CCFE6;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 {
+    position: absolute; left: 130px; top: 164px; margin: 0;
+    font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em;
+    animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .dek { position: absolute; left: 130px; top: 254px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+
+  /* 네 가지 이유. → 를 누를 때마다 한 칸씩 나오고, 지금 칸의 그림만 움직인다. 지난 칸은 끝 장면으로 멈춰 흐리게 남는다 */
+  .beats { position: absolute; left: 130px; right: 130px; top: 330px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 48px; }
+  .beat {
+    position: relative; border-top: 2px solid var(--line); padding-top: 20px;
+    opacity: 0; transform: translateY(18px);
+    transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
+  }
+  .beat.in { opacity: .62; transform: none; }
+  .beat.on, .stage.all .beat { opacity: 1; }
+  .beat .run { position: absolute; left: 0; top: -2px; width: 100%; height: 2px; background: var(--c); transform: scaleX(0); transform-origin: left; transition: transform .9s .1s cubic-bezier(.2,.7,.2,1); }
+  .beat.in .run { transform: scaleX(1); }
+  .b1 { --c: var(--brand); } .b2 { --c: var(--data); } .b3 { --c: var(--bad); } .b4 { --c: var(--ai); }
+  .lb { display: flex; align-items: baseline; gap: 12px; margin: 0; font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .lb b { font-family: var(--mono); font-weight: 500; color: var(--c); }
+  .beat h2 { margin: 10px 0 0; font-size: 42px; font-weight: 600; line-height: 1.2; letter-spacing: -.015em; white-space: nowrap; }
+  .say { margin: 18px 0 0; font-size: 23px; line-height: 1.45; color: var(--ink-2); white-space: nowrap; }
+
+  .scene { display: block; width: 379px; height: 250px; margin-top: 20px; overflow: visible; }
+  .scene text { font-family: var(--sans); }
+  .scene .tx { font-size: 24px; fill: var(--ink); }
+  .scene .sm { font-size: 22px; fill: var(--ink-3); }
+  .scene .n { font-family: var(--mono); font-weight: 500; fill: var(--bad); }
+  .scene .ai { fill: var(--ai); font-weight: 600; }
+  .scene .box { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; transition: stroke .35s, fill .35s; }
+  .scene .box.hot { stroke: var(--bad); fill: #2A1F29; }
+  .scene .box.good { stroke: var(--ok); }
+  .scene .wire { fill: none; stroke: #3A465A; stroke-width: 2; transition: stroke .35s, opacity .35s; }
+  .scene .wire.dead { stroke: var(--bad); opacity: .35; }
+  .scene .dot { fill: var(--glow); }
+  .scene .dot.w { fill: var(--warm); }
+  .scene .flag { font-size: 22px; font-weight: 600; opacity: 0; transition: opacity .35s; }
+  .scene .flag.on { opacity: 1; }
+  .scene .x { stroke: var(--bad); stroke-width: 3.4; stroke-linecap: round; opacity: 0; transition: opacity .25s; }
+  .scene .x.on { opacity: 1; }
+  .scene .fade { opacity: 0; transition: opacity .45s; }
+  .scene .fade.on { opacity: 1; }
+  .scene .gbg { fill: #222A38; }
+  /* 장면 1: 서비스 가동 막대(칸 하나가 0.3초) */
+  .scene .bar.ok { fill: var(--ok); opacity: .8; }
+  .scene .bar.w { fill: var(--warm); }
+  /* 장면 2: 국내 거래소 관례대로 오름 빨강, 내림 파랑 */
+  .scene .base { stroke: var(--line); stroke-width: 1.4; }
+  .scene .body, .scene .wick { opacity: 0; transition: opacity .25s; }
+  .scene .body.on, .scene .wick.on { opacity: 1; }
+  .scene .body.up { fill: var(--bad); } .scene .body.dn { fill: var(--brand); }
+  .scene .wick { stroke-width: 2; } .scene .wick.up { stroke: var(--bad); } .scene .wick.dn { stroke: var(--brand); }
+  .scene .vol { fill: #4A576E; opacity: 0; transition: opacity .25s, fill .3s; }
+  .scene .vol.on { opacity: 1; }
+  .scene .vol.hi { fill: var(--warm); }
+  /* 장면 4: 운영 기록이 한 줄씩 쌓이고, 사람은 승인 단추만 누른다 */
+  .scene .row { opacity: 0; transform: translateX(-10px); transition: opacity .4s, transform .4s cubic-bezier(.2,.7,.2,1); }
+  .scene .row.on { opacity: 1; transform: none; }
+  .scene .btn { fill: transparent; stroke: var(--ink-2); stroke-width: 1.6; transition: fill .2s; }
+  .scene .btn.press { fill: rgba(45,209,150,.22); stroke: var(--ok); }
+  .scene .bt { font-size: 24px; font-weight: 600; fill: var(--ink); }
+
+  /* 마지막 → : 네 칸에서 선이 내려와 한 점에 모이고, 목표 한 줄이 나온다. 밑줄 색이 어느 칸에서 왔는지 알려 준다 */
+  .merge { position: absolute; left: 130px; top: 806px; width: 1660px; height: 112px; overflow: visible; }
+  .merge .m { fill: none; stroke: var(--c); stroke-width: 1.8; opacity: .8; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .9s cubic-bezier(.4,0,.2,1); }
+  .merge .s { fill: var(--c); opacity: 0; transition: opacity .3s; }
+  .merge .p { fill: var(--ink); opacity: 0; transition: opacity .3s; }
+  .stage.all .merge .m { stroke-dashoffset: 0; }
+  .stage.all .merge .s { opacity: 1; }
+  .stage.all .merge .p { opacity: 1; transition-delay: .8s; }
+  .goal {
+    position: absolute; left: 130px; right: 130px; top: 922px; margin: 0;
+    text-align: center; white-space: nowrap;
+    font-size: 34px; font-weight: 600; letter-spacing: -.01em;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .stage.all .goal { opacity: 1; transform: none; transition-delay: .7s; }
+  .goal .k { display: inline-block; font-size: 22px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px 3px; margin-right: 20px; vertical-align: 6px; }
+  .goal .q { color: var(--ink-2); font-weight: 500; }
+  .goal .u { position: relative; }
+  .goal .u::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 2.5px; border-radius: 2px; background: var(--ink-3); opacity: .9; transform: scaleX(0); transform-origin: left; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+  .stage.all .goal .u::after { transform: scaleX(1); }
+  .stage.all .goal .b3::after { transition-delay: 1.2s; }
+  .stage.all .goal .b2::after { transition-delay: 1.4s; }
+  .stage.all .goal .b4::after { transition-delay: 1.6s; }
+  .stage.all .goal .b1::after { transition-delay: 1.8s; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">기획 배경</span>01</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>30만 원 예산으로, 몰려도 멈춰도 버티는 고가용성 인프라</h1>
+  <p class="dek">이를 보여 주려고 실제 돈 없이 12개 마켓(BTC·ETH 등)을 사고파는 모의 거래소를 직접 만들어 운영</p>
+
+  <div class="beats">
+    <!-- 01 고가용성: 서버 한 대가 멈춰도 요청은 남은 서버로 가고, 서비스 가동 막대는 끊기지 않는다 -->
+    <section class="beat b1">
+      <i class="run" aria-hidden="true"></i>
+      <p class="lb"><b>01</b>보여 주고 싶었던 역량</p>
+      <h2>고가용성</h2>
+      <svg class="scene" id="s1" viewBox="0 0 379 250" role="img" aria-label="요청이 로드밸런서를 거쳐 서버 두 대로 나뉘다가 서버 1이 멈추면 서버 2로만 가고, 아래 서비스 가동 막대는 끊기지 않는 장면">
+        <defs><clipPath id="s1-clip"><rect x="84" y="176" width="295" height="46"/></clipPath></defs>
+        <path class="wire" d="M44 84 H70"/>
+        <path class="wire" id="s1-wa" d="M130 84 L180 42"/>
+        <path class="wire" d="M130 84 L180 126"/>
+        <g id="s1-dots"></g>
+        <image href="assets/tint/ui-users-side.svg" x="0" y="62" width="44" height="44"/>
+        <rect class="box" x="70" y="58" width="60" height="52" rx="10"/>
+        <image href="assets/tint/ui-arrows-split-glow.svg" x="84" y="68" width="32" height="32"/>
+        <rect class="box" id="s1-a" x="180" y="16" width="199" height="52" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="196" y="26" width="32" height="32"/>
+        <text class="tx" x="240" y="50">서버 1</text>
+        <path class="x" id="s1-x" d="M349 35 L361 47 M361 35 L349 47"/>
+        <rect class="box" id="s1-b" x="180" y="100" width="199" height="52" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="196" y="110" width="32" height="32"/>
+        <text class="tx" x="240" y="134">서버 2</text>
+        <text class="sm" x="0" y="207">서비스</text>
+        <g id="s1-bars" clip-path="url(#s1-clip)"></g>
+        <text class="flag" id="s1-f" x="379" y="247" text-anchor="end" style="fill:var(--ok)">한 대가 멈춰도 계속</text>
+      </svg>
+      <p class="say">어느 한 곳이 고장 나도<br>서비스는 계속 돌아가게</p>
+    </section>
+
+    <!-- 02 거래소: 가격이 뛰면 접속이 한꺼번에 몰리고, 체결된 주문 한 건은 그대로 자산이다 -->
+    <section class="beat b2">
+      <i class="run" aria-hidden="true"></i>
+      <p class="lb"><b>02</b>그래서 고른 서비스</p>
+      <h2>가상화폐 거래소</h2>
+      <svg class="scene" id="s2" viewBox="0 0 379 250" role="img" aria-label="가격 캔들이 하나씩 그려지다 마지막 캔들이 치솟고 아래 접속 막대가 함께 뛰며, 체결된 주문 한 건이 보호되는 장면">
+        <line class="base" x1="0" y1="166" x2="232" y2="166"/>
+        <g id="s2-c"></g>
+        <g id="s2-v"></g>
+        <text class="flag" id="s2-f" x="379" y="160" text-anchor="end" style="fill:var(--warm)">접속 급증</text>
+        <g class="fade" id="s2-rc">
+          <rect class="box" x="0" y="192" width="379" height="54" rx="10"/>
+          <image href="assets/tint/ui-receipt-glow.svg" x="14" y="203" width="32" height="32"/>
+          <text class="tx" x="58" y="227">매수 0.5 BTC 체결</text>
+        </g>
+        <image class="fade" id="s2-lock" href="assets/tint/ui-shield-check-glow.svg" x="333" y="203" width="32" height="32"/>
+      </svg>
+      <p class="say">사람이 한꺼번에 몰리고<br>주문 기록 하나도 잃으면 안 됨</p>
+    </section>
+
+    <!-- 03 일부러 만든 두 순간: 끝의 두 결과 장(트래픽 급증, DB 장애)과 같은 이름을 쓴다. 답은 다음 장 -->
+    <section class="beat b3">
+      <i class="run" aria-hidden="true"></i>
+      <p class="lb"><b>03</b>일부러 만든 두 순간</p>
+      <h2>몰릴 때, 멈출 때</h2>
+      <svg class="scene" id="s3" viewBox="0 0 379 250" role="img" aria-label="01 요청이 점점 몰려 거래 서버 사용량이 한계에 닿아 응답이 늦어지고, 02 주 DB가 멈춰 주문이 DB 앞에 쌓이는 장면">
+        <text class="sm" x="0" y="22"><tspan class="n">01</tspan> 트래픽 급증</text>
+        <text class="flag" id="s3-f1" x="379" y="22" text-anchor="end" style="fill:var(--bad)">응답 지연</text>
+        <path class="wire" d="M40 70 H176"/>
+        <g id="s3-da"></g>
+        <image href="assets/tint/ui-users-side.svg" x="0" y="50" width="40" height="40"/>
+        <rect class="box" id="s3-s" x="176" y="42" width="203" height="56" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="190" y="52" width="32" height="32"/>
+        <text class="tx" x="232" y="76">거래 서버</text>
+        <rect class="gbg" x="190" y="87" width="175" height="4" rx="2"/>
+        <rect id="s3-g" x="190" y="87" width="0" height="4" rx="2"/>
+
+        <text class="sm" x="0" y="150"><tspan class="n">02</tspan> DB 장애</text>
+        <text class="flag" id="s3-f2" x="379" y="150" text-anchor="end" style="fill:var(--bad)">주문 멈춤</text>
+        <path class="wire" d="M40 198 H228"/>
+        <g id="s3-db"></g>
+        <image href="assets/tint/ui-receipt-side.svg" x="0" y="178" width="40" height="40"/>
+        <rect class="box" id="s3-p" x="228" y="170" width="151" height="56" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="240" y="182" width="32" height="32"/>
+        <text class="tx" x="280" y="206">주 DB</text>
+        <path class="x" id="s3-x" d="M355 188 L367 200 M367 188 L355 200"/>
+      </svg>
+      <p class="say">로컬에서 장애를 일부러 일으켜<br>버티는지 직접 확인</p>
+    </section>
+
+    <!-- 04 AI 관제: 04-6 AI 관제 장의 실제 화면과 같은 흐름(경보 → 원인 조회 급증 → 조회 서버 켜기 제안 → 사람 승인) -->
+    <section class="beat b4">
+      <i class="run" aria-hidden="true"></i>
+      <p class="lb"><b>04</b>운영 인력을 줄이려고</p>
+      <h2>AI 관제</h2>
+      <svg class="scene" id="s4" viewBox="0 0 379 250" role="img" aria-label="경보가 오면 AI가 원인을 짚어 조회 서버를 켜자고 제안하고, 사람은 승인 단추 한 번으로 실행하는 장면">
+        <g class="row" id="s4-r1"><image href="assets/tint/ui-bell-glow.svg" x="0" y="8" width="32" height="32"/><text class="tx" x="46" y="33">경보 · 응답이 느려짐</text></g>
+        <g class="row" id="s4-r2"><path class="wire" d="M16 46 V64"/><image href="assets/tint/ollama-ai.svg" x="0" y="70" width="32" height="32"/><text class="tx" x="46" y="95"><tspan class="ai">AI</tspan> · 원인은 조회 급증</text></g>
+        <g class="row" id="s4-r3"><path class="wire" d="M16 108 V126"/><image href="assets/tint/ui-message-ai.svg" x="0" y="132" width="32" height="32"/><text class="tx" x="46" y="157">제안 · 조회 서버 켜기</text></g>
+        <g class="row" id="s4-r4">
+          <path class="wire" d="M16 170 V190"/>
+          <image href="assets/tint/ui-users-side.svg" x="0" y="196" width="32" height="32"/>
+          <rect class="btn" id="s4-btn" x="46" y="190" width="84" height="44" rx="8"/>
+          <text class="bt" x="88" y="220" text-anchor="middle">승인</text>
+          <text class="flag" id="s4-ok" x="146" y="220" style="fill:var(--ok)">실행 · Teams 보고</text>
+        </g>
+      </svg>
+      <p class="say">AI가 원인을 짚어 제안하고,<br>실행은 사람이 승인</p>
+    </section>
+  </div>
+
+  <svg class="merge" viewBox="0 0 1660 112" aria-hidden="true">
+    <path class="m b1" pathLength="1" d="M189.5 4 C189.5 70 830 44 830 106"/>
+    <path class="m b2" pathLength="1" d="M616.5 4 C616.5 64 830 50 830 106"/>
+    <path class="m b3" pathLength="1" d="M1043.5 4 C1043.5 64 830 50 830 106"/>
+    <path class="m b4" pathLength="1" d="M1470.5 4 C1470.5 70 830 44 830 106"/>
+    <circle class="s b1" cx="189.5" cy="4" r="3.5"/><circle class="s b2" cx="616.5" cy="4" r="3.5"/>
+    <circle class="s b3" cx="1043.5" cy="4" r="3.5"/><circle class="s b4" cx="1470.5" cy="4" r="3.5"/>
+    <circle class="p" cx="830" cy="106" r="5"/>
+  </svg>
+  <p class="goal"><span class="k">목표</span><span class="q">30만 원 예산으로,</span> <span class="u b3">몰려도 멈춰도 버티고</span> <span class="u b2">거래 기록을 지키며</span> <span class="u b4">AI가 함께 운영하는</span> <span class="u b1">고가용성 인프라</span></p>
+</div>
+
+<!-- 발표 노트(50초): → 네 번. 칸이 하나씩 나오고, 마지막 → 에서 네 칸의 선이 모여 목표 한 줄이 된다. (제목) 결론부터 말씀드리면 목표는 30만 원 예산으로 몰려도 멈춰도 버티는 고가용성 인프라입니다. (01) 저는 제가 만들 수 있는 인프라 역량을 한 번에 보여 주고 싶었고, 그 중심을 고가용성으로 잡았습니다. 어느 한 곳이 고장 나도 서비스가 계속 돌아가게 하는 것입니다. (→ 02) 그래서 사람이 한꺼번에 몰리고 주문 기록 하나도 잃으면 안 되는 서비스, 가상화폐 거래소를 골랐습니다. 실제 돈 없이 12개 마켓을 사고파는 모의 거래소를 직접 만들었습니다. (→ 03) 이 거래소에 요청이 몰리는 순간과 DB가 멈추는 순간을 로컬에서 일부러 만들어, 인프라가 버티는지 직접 확인했습니다. (→ 04) 그리고 운영 인력을 줄이려고 AI 관제를 넣었습니다. AI가 경보의 원인을 짚어 조치를 제안하고, 실행은 사람이 승인합니다. (→ 목표) 정리하면 목표는 30만 원 예산으로, 몰려도 멈춰도 버티고 거래 기록을 지키며, AI가 함께 운영하는 고가용성 인프라입니다. 제목이 이 목표이고, 네 칸은 그 이유입니다. 사실 확인: 캔들·접속 막대·'매수 0.5 BTC 체결'은 설명용 그림이고 측정값이 아니다. 04의 흐름(경보 → 원인 조회 급증 → 조회 서버 켜기 제안 → 승인)은 04-6 AI 관제 장의 실제 화면과 같다. 기본은 사람이 승인해야 실행되고, 자동 모드도 허용 목록의 조치만 한도 안에서 한다(ADR 0035). 03의 두 순간은 06 결과 장의 '순간 01 트래픽 급증', '순간 02 DB 장애'와 마무리 장으로 이어진다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const on = (id, v = true) => $(id).classList.toggle('on', v);
+  const cls = (id, c, v = true) => $(id).classList.toggle(c, v);
+  const mk = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+  const along = (pts, d) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1);
+      if (d <= L) return [x1 + (x2 - x1) * d / L, y1 + (y2 - y1) * d / L];
+      d -= L;
+    }
+    return pts[pts.length - 1];
+  };
+  // 점 여러 개가 꺾인 선을 따라 일정한 속도로 움직인다
+  function Dots(layer) {
+    const parts = [];
+    return {
+      send(pts, c = 'dot', speed = .28) {
+        const el = mk('circle', { r: 5, class: c, cx: pts[0][0], cy: pts[0][1] }, layer);
+        parts.push({ el, pts, L: lenOf(pts), b: performance.now(), speed });
+      },
+      tick(now) {
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const p = parts[i], d = (now - p.b) * p.speed;
+          if (d >= p.L) { p.el.remove(); parts.splice(i, 1); continue; }
+          const [x, y] = along(p.pts, d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y);
+        }
+      },
+      clear() { parts.forEach(p => p.el.remove()); parts.length = 0; },
+    };
+  }
+
+  // 장면 1(8초 되풀이): 요청이 두 서버로 나뉘다 2.4초에 서버 1이 멈추면 서버 2로만 간다.
+  // 아래 가동 막대는 0.3초마다 한 칸씩 흐르고, 넘겨받는 순간의 두 칸만 노랗다
+  const S1_A = [[44, 84], [70, 84], [130, 84], [180, 42], [214, 42]];
+  const S1_B = [[44, 84], [70, 84], [130, 84], [180, 126], [214, 126]];
+  const BAR_MS = 300, BAR_P = 13, BAR_R = 370, BAR_L = 84;
+  const s1 = {
+    dots: Dots($('s1-dots')), bars: [], t0: 0, last: 0, lastBar: 0, n: 0, st: 0,
+    state(st) {
+      this.st = st;
+      cls('s1-a', 'hot', st >= 1); on('s1-x', st >= 1); cls('s1-wa', 'dead', st >= 1);
+      cls('s1-b', 'good', st >= 2); on('s1-f', st >= 2);
+    },
+    bar(c, born) { const el = mk('rect', { y: 184, width: 9, height: 30, rx: 2, class: 'bar ' + c }, $('s1-bars')); this.bars.push({ el, born }); return el; },
+    clear() { this.dots.clear(); this.bars.forEach(b => b.el.remove()); this.bars = []; this.state(0); this.t0 = 0; },
+    tick(now) {
+      if (!this.t0) {
+        this.t0 = now; this.last = now; this.lastBar = now;
+        for (let k = 0; k < 24; k++) this.bar('ok', now - k * BAR_MS);
+      }
+      let t = (now - this.t0) / 1000;
+      if (t > 8) { this.t0 = now; t = 0; this.state(0); }
+      if (this.st < 1 && t > 2.4) this.state(1);
+      if (this.st < 2 && t > 3.0) this.state(2);
+      if (now - this.last > 380 && t < 7.4) { this.last = now; this.n++; this.dots.send(this.st < 1 && this.n % 2 ? S1_A : S1_B); }
+      this.dots.tick(now);
+      if (now - this.lastBar > BAR_MS) { this.lastBar = now; this.bar(t > 2.4 && t < 3.0 ? 'w' : 'ok', now); }
+      this.bars = this.bars.filter(b => {
+        const x = BAR_R - (now - b.born) / BAR_MS * BAR_P;
+        if (x < BAR_L - BAR_P) { b.el.remove(); return false; }
+        b.el.setAttribute('x', x.toFixed(1)); return true;
+      });
+    },
+    still() {
+      this.state(2);
+      for (let k = 0; k < 23; k++) this.bar(k === 9 || k === 10 ? 'w' : 'ok', 0).setAttribute('x', BAR_R - k * BAR_P);
+    },
+  };
+
+  // 장면 2(8.4초 되풀이): 캔들이 하나씩 그려지다 2.4초에 마지막 캔들이 치솟고 아래 접속 막대가 함께 뛴다.
+  // 이어서 체결된 주문 한 건이 나오고 잠긴다. 좌표는 SVG의 y 값(작을수록 높은 가격)이며 설명용 그림이다
+  const CANDLES = [[112, 100, 96, 118], [100, 108, 96, 114], [108, 94, 90, 112], [94, 102, 88, 106], [102, 90, 84, 106], [90, 98, 86, 104], [98, 86, 80, 102], [88, 82, 78, 94]];
+  const VOL = [10, 14, 9, 15, 11, 10, 16, 12];
+  const SPIKE_C = 14, SPIKE_V = 46, VOL_B = 166;
+  const s2 = {
+    t0: 0, cs: [], vs: [],
+    build() {
+      CANDLES.forEach(([o, c, h, l], k) => {
+        const x = 6 + k * 28, up = c < o, dir = up ? 'up' : 'dn';
+        const wick = mk('line', { x1: x + 8, x2: x + 8, y1: h, y2: l, class: 'wick ' + dir }, $('s2-c'));
+        const body = mk('rect', { x, width: 16, y: Math.min(o, c), height: Math.max(2, Math.abs(o - c)), rx: 1.5, class: 'body ' + dir }, $('s2-c'));
+        this.cs.push({ wick, body, o, c, h });
+        this.vs.push(mk('rect', { x, width: 16, y: VOL_B - VOL[k], height: VOL[k], rx: 1.5, class: 'vol' }, $('s2-v')));
+      });
+    },
+    show(k) {
+      this.cs.forEach((cd, i) => { const v = i < k; cd.body.classList.toggle('on', v); cd.wick.classList.toggle('on', v); this.vs[i].classList.toggle('on', v); });
+    },
+    spike(p) {
+      const k = CANDLES.length - 1, cd = this.cs[k], c = cd.c + (SPIKE_C - cd.c) * p;
+      cd.body.setAttribute('y', c.toFixed(1)); cd.body.setAttribute('height', Math.max(2, cd.o - c).toFixed(1));
+      cd.wick.setAttribute('y1', Math.min(cd.h, c - 8).toFixed(1));
+      const vh = VOL[k] + (SPIKE_V - VOL[k]) * p;
+      this.vs[k].setAttribute('y', (VOL_B - vh).toFixed(1)); this.vs[k].setAttribute('height', vh.toFixed(1));
+      this.vs[k].classList.toggle('hi', p > .5);
+    },
+    clear() { this.t0 = 0; this.show(0); this.spike(0); on('s2-f', false); on('s2-rc', false); on('s2-lock', false); },
+    tick(now) {
+      if (!this.t0) this.t0 = now;
+      let t = (now - this.t0) / 1000;
+      if (t > 8.4) { this.clear(); this.t0 = now; t = 0; }
+      this.show(Math.max(0, Math.min(8, Math.floor((t - .1) / .22) + 1)));
+      this.spike(Math.max(0, Math.min(1, (t - 2.4) / .5)));
+      on('s2-f', t > 2.8); on('s2-rc', t > 3.6); on('s2-lock', t > 4.4);
+    },
+    still() { this.show(8); this.spike(1); on('s2-f'); on('s2-rc'); on('s2-lock'); },
+  };
+  s2.build();
+
+  // 장면 3(10초 되풀이): 01 요청 간격이 점점 짧아져 거래 서버 사용량이 한계에 닿고(응답 지연),
+  // 02 이어서 주문이 주 DB로 가다 6.6초에 주 DB가 멈추면 DB 앞에 쌓인다(주문 멈춤). 버티는 방법은 다음 장
+  const S3_A = [[40, 70], [176, 70], [200, 70]];
+  const s3 = {
+    da: Dots($('s3-da')), ob: [], stack: [], t0: 0, la: 0, lb: 0, load: 0, down: false,
+    gauge(v) {
+      const g = $('s3-g'); g.setAttribute('width', (175 * v).toFixed(1));
+      g.style.fill = v > .82 ? 'var(--bad)' : v > .6 ? 'var(--warm)' : 'var(--ok)';
+      cls('s3-s', 'hot', v > .82); on('s3-f1', v > .82);
+    },
+    pile(el) {
+      const i = this.stack.length;
+      if (i >= 9) { el.remove(); return; }
+      el.setAttribute('cx', 214 - (i % 3) * 13); el.setAttribute('cy', 198 - Math.floor(i / 3) * 13);
+      this.stack.push(el);
+    },
+    clear() {
+      this.da.clear(); this.ob.forEach(o => o.el.remove()); this.stack.forEach(e => e.remove());
+      this.ob = []; this.stack = []; this.t0 = 0; this.load = 0; this.down = false;
+      this.gauge(0); on('s3-x', false); cls('s3-p', 'hot', false); on('s3-f2', false);
+    },
+    tick(now) {
+      if (!this.t0) { this.t0 = now; this.la = now; this.lb = now; }
+      let t = (now - this.t0) / 1000;
+      if (t > 10) { this.clear(); this.t0 = now; this.la = now; this.lb = now; t = 0; }
+      if (t < 5.4) {
+        const gap = Math.max(70, 520 - t * 100);
+        if (now - this.la > gap) { this.la = now; this.da.send(S3_A, 'dot', .3); }
+        this.load += (Math.min(1, 1000 / gap / 11) - this.load) * .05;
+      }
+      this.gauge(this.load);
+      this.da.tick(now);
+      if (t > 4.8 && t < 9.4 && now - this.lb > 340) {
+        this.lb = now;
+        this.ob.push({ el: mk('circle', { r: 5, class: 'dot w', cx: 40, cy: 198 }, $('s3-db')), b: now });
+      }
+      if (!this.down && t > 6.6) { this.down = true; on('s3-x'); cls('s3-p', 'hot'); }
+      on('s3-f2', this.down && t > 7.0);
+      this.ob = this.ob.filter(o => {
+        const x = 40 + (now - o.b) * .26;
+        if (this.down && x >= 214) { this.pile(o.el); return false; }
+        if (x >= 244) { o.el.remove(); return false; }
+        o.el.setAttribute('cx', x.toFixed(1)); return true;
+      });
+    },
+    still() {
+      this.load = .92; this.gauge(.92); this.down = true; on('s3-x'); cls('s3-p', 'hot'); on('s3-f2');
+      for (let i = 0; i < 6; i++) this.pile(mk('circle', { r: 5, class: 'dot w' }, $('s3-db')));
+    },
+  };
+
+  // 장면 4(8.6초 되풀이): 경보 → AI 판단 → 제안이 차례로 쌓이고, 사람은 승인 단추만 누른다
+  const s4 = {
+    t0: 0,
+    set(k, press, ok) { for (let i = 1; i <= 4; i++) on('s4-r' + i, i <= k); cls('s4-btn', 'press', press); on('s4-ok', ok); },
+    clear() { this.t0 = 0; this.set(0, false, false); },
+    tick(now) {
+      if (!this.t0) this.t0 = now;
+      let t = (now - this.t0) / 1000;
+      if (t > 8.6) { this.t0 = now; t = 0; }
+      this.set(t > 3.0 ? 4 : t > 2.1 ? 3 : t > 1.2 ? 2 : t > .3 ? 1 : 0, t > 4.1, t > 4.5);
+    },
+    still() { this.set(4, true, true); },
+  };
+
+  // 단계: 0~3은 칸 하나씩, 4는 네 칸이 모두 밝아지고 목표 한 줄
+  const beats = [...document.querySelectorAll('.beat')];
+  const scenes = [s1, s2, s3, s4];
+  const LAST = 4;
+  let cur = -1, active = null;
+  function show(i) {
+    cur = i;
+    beats.forEach((b, k) => { b.classList.toggle('in', k <= i); b.classList.toggle('on', k === i); });
+    stage.classList.toggle('all', i === LAST);
+    scenes.forEach((s, k) => { s.clear(); if (k < i) s.still(); });
+    active = i < LAST ? scenes[i] : null;
+  }
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 주소가 #last로 열리면(뒤 장에서 돌아온 경우) 목표까지 다 보인 모습으로 연다
+  show(location.hash === '#last' || reduce ? LAST : 0);
+  if (!reduce) {
+    const loop = now => { if (active) active.tick(now); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+  // 덱에서 → 는 다음 칸, ← 는 앞 칸. 끝에 닿으면 false를 돌려 장을 넘긴다
+  window.deckStep = d => { const n = cur + d; if (n < 0 || n > LAST) return false; show(n); return true; };
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>

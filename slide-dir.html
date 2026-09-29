@@ -1,0 +1,425 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 01 설계 방향</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --ai: #C6C0F2;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 {
+    position: absolute; left: 130px; top: 164px; margin: 0;
+    font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em;
+    animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .dek { position: absolute; left: 130px; top: 254px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+
+  /* 세 기준. 기준마다 구조 그림이 저절로 장애·증설 장면을 되풀이한다 */
+  .cols { position: absolute; left: 130px; right: 130px; top: 330px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 44px; }
+  .col { position: relative; display: flex; flex-direction: column; border-top: 2px solid var(--c-dim); padding-top: 22px; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; transition: border-color .4s; }
+  .col.play { border-top-color: var(--c); }
+  .col .fig { transition: opacity .5s; }
+  .col:not(.play) .fig { opacity: .5; }
+  .col .run { position: absolute; left: 0; top: -2px; height: 2px; width: 100%; background: var(--glow); transform-origin: left; transform: scaleX(0); opacity: 0; }
+  .col.play .run { opacity: .9; animation: run var(--dur, 10s) linear both; }
+  @keyframes run { to { transform: scaleX(1); } }
+  .col:nth-child(1) { animation-delay: .3s; } .col:nth-child(2) { animation-delay: .45s; } .col:nth-child(3) { animation-delay: .6s; }
+  .ha { --c: var(--brand); --c-dim: rgba(121,167,250,.32); } .dr { --c: var(--ok); --c-dim: rgba(45,209,150,.32); } .el { --c: var(--ai); --c-dim: rgba(198,192,242,.32); }
+  .en { font-family: var(--mono); font-size: 17px; letter-spacing: .12em; color: var(--ink-4); }
+  .ko { display: flex; align-items: baseline; gap: 14px; margin: 0; font-size: 38px; font-weight: 600; letter-spacing: -.01em; }
+  .ko .q { margin-left: auto; font-size: 22px; font-weight: 500; color: var(--qc); border: 1px solid var(--qc); border-radius: 5px; padding: 2px 10px; white-space: nowrap; opacity: .9; }
+  .el .ko .q { --qc: #C6C0F2; } .ha .ko .q, .dr .ko .q { --qc: var(--bad); }
+  .say { margin: 8px 0 0; font-size: 30px; font-weight: 600; color: var(--c); letter-spacing: -.01em; }
+  .def { margin: 4px 0 0; font-size: 22px; color: var(--ink-3); }
+  .fig { display: block; width: 520px; height: 350px; margin-top: 12px; overflow: visible; }
+  .fig text { font-family: var(--sans); }
+  .fig .lb { font-size: 22px; fill: var(--ink); }
+  .fig .sm { font-size: 22px; fill: var(--ink-3); }
+  /* 탄력성 그림의 두 갈래 선 이름(범례 대신 선 위에 직접 쓴다). 색은 움직이는 점과 같다 */
+  .fig .br { font-size: 22px; font-weight: 500; }
+  .fig .box { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; transition: stroke .35s, fill .35s, opacity .35s; }
+  .fig .box.hot { stroke: var(--bad); fill: #2A1F29; }
+  .fig .box.good { stroke: var(--ok); }
+  .fig .box.ghost { stroke-dasharray: 6 5; fill: transparent; opacity: .7; }
+  .fig .wire { fill: none; stroke: #3A465A; stroke-width: 2; transition: stroke .35s, opacity .35s; }
+  .fig .wire.sync { stroke: var(--side); stroke-width: 1.6; }
+  .fig .wire.dead { stroke: var(--bad); opacity: .35; }
+  .fig .wire.good { stroke: var(--ok); }
+  .fig .wire.ghost { stroke-dasharray: 5 6; }
+  .fig .dim { opacity: .35; transition: opacity .35s; }
+  .fig .dot { fill: var(--glow); }
+  .fig .dot.w { fill: var(--warm); }
+  .fig .dot.ok { fill: var(--ok); }
+  .fig .flag { font-size: 22px; font-weight: 600; opacity: 0; transition: opacity .35s; }
+  .fig .flag.on { opacity: 1; }
+  .fig .x { stroke: var(--bad); stroke-width: 3.4; stroke-linecap: round; opacity: 0; transition: opacity .25s; }
+  .fig .x.on { opacity: 1; }
+  .fig .gbg { fill: #222A38; }
+  .fig .fade { transition: opacity .5s; }
+
+  .so { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .so .k { font-size: 22px; color: var(--c); letter-spacing: .02em; }
+  .so p { margin: 4px 0 0; font-size: 24px; white-space: nowrap; line-height: 1.45; color: var(--ink); word-break: keep-all; }
+
+  .foot {
+    position: absolute; left: 130px; right: 130px; bottom: 64px;
+    display: flex; align-items: baseline; gap: 28px;
+    padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 24px; color: var(--ink-2); animation: fade .8s 1.1s ease-out both;
+  }
+  .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .foot b { font-weight: 600; color: var(--ink); margin-right: 10px; }
+  .foot .m { margin-left: auto; color: var(--ink-3); font-size: 22px; white-space: nowrap; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">기획 배경</span>01</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>늘어도, 멈춰도, 잃어도 버티는 구조</h1>
+  <p class="dek">두 질문을 운영 기준 셋으로 나누고, 기준마다 버티는 구조부터 설계</p>
+
+  <div class="cols">
+    <!-- 탄력성: 주문은 늘 고정된 거래 서버로, 조회가 몰릴 때만 조회 서버가 켜졌다 꺼진다 -->
+    <section class="col el">
+      <i class="run" aria-hidden="true"></i>
+      <h2 class="ko">탄력성<span class="q">질문 01</span></h2>
+      <p class="say">늘어도 버틴다</p>
+      <svg class="fig" id="el" viewBox="0 0 520 350" role="img" aria-label="주문은 고정된 거래 서버로만 가고, 조회가 몰리면 조회 서버가 자동으로 켜져 조회를 나눠 받고 줄어들면 꺼지는 구조">
+        <path class="wire" d="M52 166 H86 M170 166 H190 V84 H250"/>
+        <path class="wire ghost" id="el-w2" d="M190 166 V248 H250"/>
+        <g id="el-dots"></g>
+        <image href="assets/tint/ui-users-side.svg" x="8" y="144" width="42" height="42"/>
+        <text class="sm" x="30" y="212" text-anchor="middle">사용자</text>
+        <rect class="box" x="86" y="136" width="84" height="60" rx="10"/>
+        <image href="assets/tint/ui-arrows-split-glow.svg" x="110" y="148" width="36" height="36"/>
+        <text class="sm" x="128" y="224" text-anchor="middle">로드밸런서</text>
+        <text class="br" x="220" y="70" text-anchor="middle" style="fill:var(--warm)">주문</text>
+        <text class="br" x="220" y="234" text-anchor="middle" style="fill:var(--glow)">조회</text>
+        <rect class="box" id="el-a" x="250" y="56" width="196" height="56" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="266" y="68" width="32" height="32"/>
+        <text class="lb" x="308" y="91">거래 서버 1·2</text>
+        <text class="sm" x="348" y="140" text-anchor="middle">마켓을 반씩 맡는 두 리더</text>
+        <rect class="gbg" x="462" y="80" width="50" height="10" rx="5"/>
+        <rect id="el-g" x="462" y="80" width="0" height="10" rx="5"/>
+        <text class="sm" x="487" y="68" text-anchor="middle">CPU</text>
+        <rect class="box ghost" id="el-r" x="250" y="220" width="196" height="56" rx="10"/>
+        <image href="assets/tint/ui-server-2-glow.svg" x="285" y="232" width="32" height="32" id="el-ri" class="dim"/>
+        <text class="lb" x="327" y="255" id="el-rt" style="fill:var(--ink-3)">조회 서버</text>
+        <text class="sm" x="348" y="304" text-anchor="middle" id="el-rc">평소 0대</text>
+        <text class="flag" id="el-f" x="512" y="254" text-anchor="end" style="fill:var(--ok)">증설</text>
+      </svg>
+      <div class="so"><div class="k">그래서</div><p>주문은 두 리더에 고정, 조회 서버만 켜고 끔</p></div>
+    </section>
+
+    <!-- 고가용성: 거래 서버 하나가 멈추면 로드밸런서가 비켜 가고, 주 DB가 멈추면 예비 DB가 승격 -->
+    <section class="col ha">
+      <i class="run" aria-hidden="true"></i>
+      <h2 class="ko">고가용성<span class="q">질문 02</span></h2>
+      <p class="say">멈춰도 이어진다</p>
+      <svg class="fig" id="ha" viewBox="0 0 520 350" role="img" aria-label="로드밸런서가 상태 확인으로 멈춘 거래 서버를 비켜 가고 다른 거래 서버가 리더를 넘겨받으며, 주 DB가 멈추면 예비 DB가 주 DB로 승격하는 구조">
+        <path class="wire" d="M52 82 H108"/>
+        <path class="wire" id="ha-w1" d="M204 82 L262 40"/>
+        <path class="wire" d="M204 82 L262 124"/>
+        <path class="wire" id="ha-bus-a" d="M362 150 V190 H160 V226"/>
+        <path class="wire good fade" id="ha-bus-b" d="M362 150 V190 H390 V226" style="opacity:0"/>
+        <path class="wire sync" id="ha-sync" d="M250 247 H300 M250 257 H300"/>
+        <g id="ha-dots"></g>
+        <image href="assets/tint/ui-users-side.svg" x="8" y="60" width="42" height="42"/>
+        <text class="sm" x="30" y="128" text-anchor="middle">사용자</text>
+        <rect class="box" x="108" y="52" width="96" height="60" rx="10"/>
+        <image href="assets/tint/ui-arrows-split-glow.svg" x="138" y="64" width="36" height="36"/>
+        <text class="sm" x="156" y="140" text-anchor="middle">로드밸런서</text>
+        <g id="ha-s1g"><rect class="box" id="ha-s1" x="262" y="14" width="222" height="52" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="301" y="24" width="32" height="32"/>
+        <text class="lb" x="343" y="47">거래 서버 1</text></g>
+        <path class="x" id="ha-x1" d="M459 33 L473 47 M473 33 L459 47"/>
+        <rect class="box" id="ha-s2" x="262" y="98" width="222" height="52" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="301" y="108" width="32" height="32"/>
+        <text class="lb" x="343" y="131">거래 서버 2</text>
+        <text class="flag" id="ha-f1" x="374" y="177" style="fill:var(--ok)">마켓 6개 인계</text>
+        <rect class="box" id="ha-p" x="70" y="226" width="180" height="52" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="112" y="236" width="32" height="32"/>
+        <text class="lb" x="154" y="259">주 DB</text>
+        <path class="x" id="ha-x2" d="M222 245 L236 259 M236 245 L222 259"/>
+        <rect class="box" id="ha-s" x="300" y="226" width="180" height="52" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="332" y="236" width="32" height="32" id="ha-si"/>
+        <text class="lb" id="ha-st" x="374" y="259" data-s-name="예비 DB" data-s-x="374" data-s-ix="332" data-p-name="주 DB" data-p-x="384" data-p-ix="342">예비 DB</text>
+        <text class="sm" x="275" y="306" text-anchor="middle" id="ha-cap">동기 복제</text>
+        <text class="flag" id="ha-f2" x="390" y="306" text-anchor="middle" style="fill:var(--ok)">자동 승격</text>
+        <text class="flag" id="ha-f3" x="390" y="333" text-anchor="middle" style="fill:var(--warm);font-weight:500">주문은 예비 DB가 붙은 뒤</text>
+      </svg>
+      <div class="so"><div class="k">그래서</div><p>남은 거래 서버가 넘겨받고, DB는 자동 전환 뒤 재개</p></div>
+    </section>
+
+    <!-- 재해 복구: 두 DB에 기록된 뒤에만 확인, 서버 밖 백업을 복원해 대조 -->
+    <section class="col dr">
+      <i class="run" aria-hidden="true"></i>
+      <h2 class="ko">재해 복구<span class="q">질문 02</span></h2>
+      <p class="say">잃어도 되살린다</p>
+      <svg class="fig" id="dr" viewBox="0 0 520 350" role="img" aria-label="주문이 주 DB와 예비 DB 두 곳에 기록된 뒤에만 확인을 돌려주고, 주 DB 백업을 서버 밖에 보관했다가 복원해 원본과 대조하는 구조">
+        <path class="wire" d="M52 50 H70 M236 50 H290"/>
+        <path class="wire sync" d="M359 76 V118 M371 76 V118"/>
+        <path class="wire" d="M440 50 H482 V214 H118 V246 M216 272 H290"/>
+        <g id="dr-dots"></g>
+        <image href="assets/tint/ui-receipt-side.svg" x="8" y="29" width="42" height="42"/>
+        <text class="sm" x="29" y="98" text-anchor="middle">주문</text>
+        <rect class="box" x="70" y="24" width="166" height="52" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="90" y="34" width="32" height="32"/>
+        <text class="lb" x="132" y="57">거래 서버</text>
+        <rect class="box" x="290" y="24" width="150" height="52" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="317" y="34" width="32" height="32"/>
+        <text class="lb" x="359" y="57">주 DB</text>
+        <rect class="box" x="290" y="118" width="150" height="52" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="307" y="128" width="32" height="32"/>
+        <text class="lb" x="349" y="151">예비 DB</text>
+        <text class="sm" x="383" y="102">동기 복제</text>
+        <text class="flag on" id="dr-f1" x="70" y="110" style="fill:var(--ok)">두 곳에 기록 뒤 확인</text>
+        <text class="sm" x="452" y="200" text-anchor="middle">백업</text>
+        <rect class="box" x="20" y="246" width="196" height="52" rx="10"/>
+        <image href="assets/tint/ui-box-glow.svg" x="43" y="256" width="32" height="32"/>
+        <text class="lb" x="85" y="279">서버 밖 보관</text>
+        <text class="sm" x="253" y="258" text-anchor="middle">복원</text>
+        <rect class="box" id="dr-v" x="290" y="246" width="150" height="52" rx="10"/>
+        <image href="assets/tint/ui-file-check-glow.svg" x="307" y="256" width="32" height="32"/>
+        <text class="lb" x="349" y="279">검증 DB</text>
+        <text class="flag on" id="dr-f2" x="365" y="326" text-anchor="middle" style="fill:var(--ok)">원본과 대조</text>
+      </svg>
+      <div class="so"><div class="k">그래서</div><p>두 곳에 기록, 서버 밖 백업, 복원 확인</p></div>
+    </section>
+  </div>
+
+  <div class="foot"><span class="k">낱말 풀이</span><span><b>마켓</b>BTC·ETH 같은 거래 종목(12개)</span><span><b>리더</b>한 마켓의 주문 순서를 정하는 서버 · 두 거래 서버가 6개씩</span><span class="m">수치는 06 결과</span></div>
+</div>
+
+<!-- 발표 노트(45초): 그림은 탄력성 → 고가용성 → 재해 복구 순서로 하나씩 움직인다(윗선이 밝은 칸이 지금 도는 그림). 아래 줄의 낱말 풀이(마켓·리더)를 먼저 짚는다. 두 질문을 운영 기준 셋으로 나눴다. 질문 01(트래픽)은 탄력성, 질문 02(DB 장애)는 고가용성과 재해 복구. 탄력성: 주문은 마켓마다 리더 한 서버가 처리하고, 12개 마켓을 반씩 나눠 거래 서버 두 대가 리더를 맡는다. 서버를 늘려도 한 마켓의 주문 처리는 빨라지지 않으므로 늘리는 것은 조회 서버뿐. 고가용성: 거래 서버 한 대가 멈추면 남은 서버가 그 마켓 6개를 넘겨받고, 주 DB가 멈추면 Patroni가 예비 DB를 승격한다(엄격 동기라 주문은 예비 DB가 다시 붙은 뒤 재개). 재해 복구: 주문은 두 DB에 기록된 뒤에만 확인을 돌려주고, DB를 통째로 잃을 때를 위해 서버 밖에 백업을 두고 실제로 복원해 대조한다. 수치는 06 결과. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const on = (id, v = true) => $(id).classList.toggle('on', v);
+  const cls = (id, c, v = true) => $(id).classList.toggle(c, v);
+
+  // 점 하나가 꺾인 선을 따라 일정한 속도로 움직인다
+  const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+  const along = (pts, d) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1);
+      if (d <= L) return [x1 + (x2 - x1) * d / L, y1 + (y2 - y1) * d / L];
+      d -= L;
+    }
+    return pts[pts.length - 1];
+  };
+  function Scene(layerId) {
+    const layer = $(layerId), parts = [];
+    return {
+      send(pts, c = 'dot', speed = .3, done) {
+        const el = document.createElementNS(NS, 'circle'); el.setAttribute('r', 5); el.setAttribute('class', c);
+        el.setAttribute('cx', pts[0][0]); el.setAttribute('cy', pts[0][1]);
+        layer.appendChild(el); parts.push({ el, pts, L: lenOf(pts), b: performance.now(), speed, done });
+      },
+      tick(now) {
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const p = parts[i], d = (now - p.b) * p.speed;
+          if (d >= p.L) { p.el.remove(); parts.splice(i, 1); p.done && p.done(); continue; }
+          const [x, y] = along(p.pts, d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y);
+        }
+      },
+      clear() { parts.forEach(p => p.el.remove()); parts.length = 0; },
+    };
+  }
+
+  // 고가용성 장면(11초): 2.2초 거래 서버 1 멈춤, 5.6초 주 DB 멈춤, 6.9초 예비 DB 승격
+  // 예비 DB가 주 DB로 바뀌면 이름이 짧아지므로 아이콘과 이름을 상자 가운데로 다시 맞춘다(좌표는 그림의 data 값)
+  const haName = up => {
+    const t = $('ha-st'), k = up ? 'p' : 's';
+    t.textContent = t.dataset[k + 'Name']; t.setAttribute('x', t.dataset[k + 'X']); $('ha-si').setAttribute('x', t.dataset[k + 'Ix']);
+  };
+  const ha = { sc: Scene('ha-dots'), t0: 0, last: 0, n: 0, st: 0 };
+  function haReset(now) {
+    ha.sc.clear(); ha.t0 = now; ha.last = now; ha.st = 0;
+    cls('ha-s1', 'hot', false); on('ha-x1', false); on('ha-f1', false); cls('ha-w1', 'dead', false); cls('ha-s2', 'good', false);
+    cls('ha-p', 'hot', false); on('ha-x2', false); cls('ha-bus-a', 'dead', false); $('ha-bus-b').style.opacity = 0;
+    cls('ha-s', 'good', false); haName(false); on('ha-f2', false); on('ha-f3', false); cls('ha-sync', 'dead', false); $('ha-cap').style.opacity = 1;
+  }
+  function haTick(now) {
+    const t = (now - ha.t0) / 1000;
+    if (ha.st < 1 && t > 2.2) { ha.st = 1; cls('ha-s1', 'hot'); on('ha-x1'); cls('ha-w1', 'dead'); }
+    if (ha.st < 2 && t > 3.0) { ha.st = 2; on('ha-f1'); cls('ha-s2', 'good'); }
+    if (ha.st < 3 && t > 5.6) { ha.st = 3; cls('ha-p', 'hot'); on('ha-x2'); cls('ha-bus-a', 'dead'); cls('ha-sync', 'dead'); $('ha-cap').style.opacity = 0; }
+    if (ha.st < 4 && t > 6.9) { ha.st = 4; cls('ha-s', 'good'); haName(true); on('ha-f2'); on('ha-f3'); $('ha-bus-b').style.opacity = 1; }
+    if (now - ha.last > 420 && t < 10.2) {
+      ha.last = now; ha.n++;
+      const down = ha.st >= 1, top = !down && ha.n % 2;
+      ha.sc.send([[52, 82], [108, 82], [204, 82], top ? [262, 40] : [262, 124], top ? [300, 40] : [300, 124]]);
+    }
+    ha.sc.tick(now);
+  }
+
+  // 재해 복구 장면(8.4초): 주문 → 주 DB → 예비 DB 복제 → 확인이 돌아온다. 이어서 백업 → 서버 밖 보관 → 복원 → 일치.
+  // 설명 깃발(두 곳에 기록 뒤 확인, 원본과 대조)은 늘 보인다.
+  const dr = { sc: Scene('dr-dots'), t0: 0, st: 0 };
+  function drReset(now) { dr.sc.clear(); dr.t0 = now; dr.st = 0; cls('dr-v', 'good', false); }
+  function drTick(now) {
+    const t = (now - dr.t0) / 1000;
+    if (dr.st < 1 && t > .3) {
+      dr.st = 1;
+      dr.sc.send([[52, 50], [70, 50], [236, 50], [290, 50], [320, 50]], 'dot w', .32, () => {
+        dr.sc.send([[365, 76], [365, 128]], 'dot w', .16, () => {
+          dr.sc.send([[320, 50], [236, 50], [70, 50], [40, 50]], 'dot ok', .34);
+        });
+      });
+    }
+    if (dr.st < 2 && t > 3.6) {
+      dr.st = 2;
+      dr.sc.send([[440, 50], [482, 50], [482, 214], [118, 214], [118, 256]], 'dot', .36, () => {
+        dr.sc.send([[216, 272], [300, 272]], 'dot', .2, () => cls('dr-v', 'good'));
+      });
+    }
+    dr.sc.tick(now);
+  }
+
+  // 탄력성 장면(12초): 조회가 몰리면 조회 서버가 켜져 나눠 받고, 빠지면 꺼진다. 주문은 늘 거래 서버로
+  const el = { sc: Scene('el-dots'), t0: 0, lr: 0, lw: 0, n: 0, up: false, g: .15 };
+  const EL_A = [[52, 166], [86, 166], [170, 166], [190, 166], [190, 84], [250, 84], [290, 84]];
+  const EL_R = [[52, 166], [86, 166], [170, 166], [190, 166], [190, 248], [250, 248], [290, 248]];
+  function gauge(v) {
+    const g = $('el-g'); g.setAttribute('width', (50 * v).toFixed(1));
+    g.style.fill = v > .82 ? 'var(--bad)' : v > .6 ? 'var(--warm)' : 'var(--ok)';
+  }
+  function setUp(v) {
+    el.up = v; cls('el-r', 'ghost', !v); cls('el-r', 'good', v); cls('el-w2', 'ghost', !v);
+    $('el-ri').classList.toggle('dim', !v); $('el-rt').style.fill = v ? 'var(--ink)' : 'var(--ink-3)';
+    $('el-rc').textContent = v ? '몰릴 때 1대' : '평소 0대';
+    const f = $('el-f'); f.textContent = v ? '증설' : '축소'; f.style.fill = v ? 'var(--ok)' : 'var(--ink-2)';
+    f.classList.add('on'); clearTimeout(el.ft); el.ft = setTimeout(() => f.classList.remove('on'), 2200);
+  }
+  function elReset(now) {
+    el.sc.clear(); el.t0 = now; el.lr = now; el.lw = now;
+    if (el.up) { el.up = false; cls('el-r', 'ghost'); cls('el-r', 'good', false); cls('el-w2', 'ghost'); $('el-ri').classList.add('dim'); $('el-rt').style.fill = 'var(--ink-3)'; $('el-rc').textContent = '평소 0대'; }
+    on('el-f', false);
+  }
+  function elTick(now) {
+    const t = (now - el.t0) / 1000;
+    const surge = t > 2.6 && t < 8.6;
+    const rgap = surge ? 150 : 650;           // 조회 간격
+    if (now - el.lr > rgap && t < 11.5) {
+      el.lr = now; el.n++;
+      el.sc.send(el.up && el.n % 2 ? EL_R : EL_A, 'dot', .3);
+    }
+    if (now - el.lw > 900 && t < 11.5) { el.lw = now; el.sc.send(EL_A, 'dot w', .3); }
+    if (!el.up && t > 5.0 && t < 9) setUp(true);
+    if (el.up && t > 9.8) setUp(false);
+    // 거래 서버 사용량: 조회를 혼자 받을 때 높다
+    const per = (1000 / rgap) * (el.up ? .5 : 1) + 1.1;
+    el.g += (Math.min(1, per / 7.5) - el.g) * .05;
+    gauge(el.g);
+    el.sc.tick(now);
+  }
+
+  const cols = { el: document.querySelector('.col.el'), ha: document.querySelector('.col.ha'), dr: document.querySelector('.col.dr') };
+  if (reduce) {
+    // 움직임을 줄인 환경: 각 구조의 마지막 상태만 보인다
+    cls('ha-s1', 'hot'); on('ha-x1'); on('ha-f1'); cls('ha-p', 'hot'); on('ha-x2'); cls('ha-s', 'good'); haName(true); on('ha-f2'); $('ha-bus-b').style.opacity = 1; cls('ha-bus-a', 'dead');
+    cls('dr-v', 'good');
+    cls('el-r', 'ghost', false); cls('el-r', 'good'); cls('el-w2', 'ghost', false); $('el-ri').classList.remove('dim'); $('el-rt').style.fill = 'var(--ink)'; $('el-rc').textContent = '몰릴 때 1대';
+    Object.values(cols).forEach(c => c.classList.add('play'));
+    return;
+  }
+  gauge(el.g); cls('dr-v', 'good');
+  // 한 번에 한 그림만 움직인다: 탄력성 → 고가용성 → 재해 복구 → 다시 처음. 쉬는 그림은 기본 상태로 멈춰 있다.
+  const ORDER = [
+    { k: 'el', dur: 12000, reset: elReset, tick: elTick, rest: () => { elReset(performance.now()); el.g = .15; gauge(el.g); } },
+    { k: 'ha', dur: 11000, reset: haReset, tick: haTick, rest: () => haReset(performance.now()) },
+    { k: 'dr', dur: 8400, reset: drReset, tick: drTick, rest: () => { dr.sc.clear(); cls('dr-v', 'good'); } },
+  ];
+  let cur = -1, t0 = 0;
+  function next(now) {
+    if (cur >= 0) { ORDER[cur].rest(); cols[ORDER[cur].k].classList.remove('play'); }
+    cur = (cur + 1) % ORDER.length; t0 = now;
+    const o = ORDER[cur], c = cols[o.k];
+    c.style.setProperty('--dur', o.dur + 'ms');
+    c.classList.remove('play'); void c.offsetWidth; c.classList.add('play');
+    o.reset(now);
+  }
+  const loop = now => {
+    if (cur < 0 || now - t0 > ORDER[cur].dur + 500) next(now);
+    ORDER[cur].tick(now);
+    requestAnimationFrame(loop);
+  };
+  setTimeout(() => requestAnimationFrame(loop), 900);
+})();
+</script>

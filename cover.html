@@ -1,0 +1,247 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 표지</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  /* 어두운 방 기준. 불 켠 방에서도 덜 뜨도록 바탕을 순흑보다 한 단계 밝히고 선을 굵게 둔다. */
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ai: #C6C0F2;
+    --ok: #2DD196;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: radial-gradient(860px 620px at 76% 48%, rgba(121,167,250,.07), transparent 70%), var(--stage);
+    overflow: hidden;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(186,196,209,.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(186,196,209,.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(820px 640px at 75% 50%, #000 25%, transparent 78%);
+    mask-image: radial-gradient(820px 640px at 75% 50%, #000 25%, transparent 78%);
+  }
+
+  /* 머리 줄: 본문 장에서도 같은 자리에 둔다 */
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    animation: fade .9s .1s ease-out both;
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink-3); }
+
+  .copy { position: absolute; left: 130px; top: 320px; width: 1120px; }
+  .eyebrow {
+    font-family: var(--sans); font-size: 25px; font-weight: 500; letter-spacing: .01em; color: var(--brand);
+    animation: rise .9s .35s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .stage h1 { margin: 26px 0 0; font-weight: 700; font-size: 68px; line-height: 1.18; letter-spacing: -.02em; }
+  h1 .ln { display: block; overflow: hidden; padding-bottom: 8px; }
+  h1 .ln > span { display: inline-block; animation: lift 1.1s cubic-bezier(.2,.8,.2,1) both; }
+  h1 .ln:nth-child(1) > span { animation-delay: .5s; }
+  h1 .ln:nth-child(2) > span { animation-delay: .64s; }
+  h1 .ai { color: var(--ai); }
+  .sub {
+    margin: 34px 0 0; font-size: 28px; line-height: 1.5; font-weight: 400; color: var(--ink-2);
+    animation: rise 1s .95s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .who {
+    position: absolute; left: 130px; bottom: 92px;
+    display: flex; align-items: center; gap: 18px;
+    font-size: 26px; color: var(--ink-2);
+    animation: fade 1s 1.2s ease-out both;
+  }
+  .who b { color: var(--ink); font-weight: 600; }
+  .who .bar { width: 1px; height: 22px; background: var(--line); }
+
+  /* 그림: AWS 와 앱·DB·관측, 옆의 AI. 어디에 두는지(온프레미스)는 구성 장에서 보여 준다. */
+  .art { position: absolute; inset: 0; pointer-events: none; animation: art 1.5s .45s cubic-bezier(.2,.7,.2,1) both; transform-origin: 1470px 510px; }
+  .art svg { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  .orbit { fill: none; stroke: #66789A; stroke-opacity: .38; stroke-width: 1.6; stroke-dasharray: 2 10; }
+  .wire { fill: none; stroke: #6A86BA; stroke-opacity: .8; stroke-width: 2.4; }
+  .wire.dash { stroke-dasharray: 3 8; stroke-opacity: .6; }
+  .card { fill: rgba(255,255,255,.035); stroke: var(--card); stroke-width: 1.8; }
+  .card.ai { stroke: #8C84D0; fill: rgba(198,192,242,.05); }
+  .icon.ai { stroke: var(--ai); }
+  .cap.ai { fill: #A9A2DE; }
+  .icon { fill: none; stroke: var(--glow); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .cap { font-family: var(--mono); font-size: 22px; fill: var(--ink-3); }
+  .cap.ko { font-family: var(--sans); }
+  .cloud-core { fill: rgba(22,30,46,.9); stroke: var(--glow); stroke-width: 3; }
+  .cloud-halo { fill: none; stroke: var(--brand); stroke-width: 10; opacity: .22; filter: url(#blur); }
+  .cloud-cap { font-family: var(--mono); font-size: 24px; font-weight: 500; letter-spacing: .12em; fill: var(--glow); text-anchor: middle; }
+  .node-dot { fill: var(--glow); }
+  .spark { fill: #D6E5FF; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:hover { color: var(--ink); }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  @keyframes lift { from { transform: translateY(105%); } to { transform: none; } }
+  @keyframes art { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    #sparks { display: none; }
+  }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage cover" id="stage">
+  <div class="grid"></div>
+
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"></div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="copy">
+    <div class="eyebrow">직접 만든 모의 가상자산 거래소 ‘페일스톱’</div>
+    <h1>
+      <span class="ln"><span>Linux·AWS 기반 인프라 운영 및</span></span>
+      <span class="ln"><span class="ai">온프레미스 AI 관제 시스템 구축</span></span>
+    </h1>
+    <p class="sub">사람이 몰려도, DB가 멈춰도 버티는 운영 환경과 근거를 대는 AI 관제</p>
+  </div>
+
+  <div class="who"><b>이상혁</b><span class="bar" aria-hidden="true"></span>개인 프로젝트<span class="bar" aria-hidden="true"></span>한국폴리텍대학교 광명융합기술교육원 · 데이터분석과<span class="bar" aria-hidden="true"></span>2026.10.16</div>
+
+  <div class="art" aria-hidden="true">
+    <svg viewBox="0 0 1920 1080">
+      <defs>
+        <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+      </defs>
+
+      <ellipse class="orbit" cx="1470" cy="510" rx="330" ry="250"/>
+      <circle class="node-dot" cx="1470" cy="260" r="3.5" opacity=".6"/>
+      <circle class="node-dot" cx="1140" cy="510" r="3" opacity=".45"/>
+
+      <!-- 선: 카드에서 구름으로 -->
+      <path class="wire" id="w-app" d="M1222 468 V528 Q1222 553 1247 553 H1360"/>
+      <path class="wire" id="w-obs" d="M1662 366 V470 Q1662 505 1627 505 H1588"/>
+      <path class="wire" id="w-db" d="M1440 588 V705 Q1440 735 1410 735 H1373"/>
+      <path class="wire dash" id="w-ai" d="M1476 588 V788 Q1476 814 1502 814 H1631"/>
+      <path class="wire dash" id="w-met" d="M1300 405 Q1390 330 1470 322 H1581"/>
+
+      <!-- AWS -->
+      <path class="cloud-halo" d="M1352 588 A52 52 0 0 1 1358 486 A72 72 0 0 1 1440 428 A88 88 0 0 1 1582 466 A62 62 0 0 1 1588 588 Z"/>
+      <path class="cloud-core" d="M1352 588 A52 52 0 0 1 1358 486 A72 72 0 0 1 1440 428 A88 88 0 0 1 1582 466 A62 62 0 0 1 1588 588 Z"/>
+      <text class="cloud-cap" x="1470" y="540">AWS</text>
+
+      <!-- app -->
+      <rect class="card" x="1143" y="354" width="158" height="114" rx="12"/>
+      <g class="icon" transform="translate(1204 372)">
+        <rect x="0" y="0" width="52" height="14" rx="4"/><rect x="0" y="20" width="52" height="14" rx="4"/><rect x="0" y="40" width="52" height="14" rx="4"/>
+        <path d="M8 7h.01M14 7h.01M8 27h.01M14 27h.01M8 47h.01M14 47h.01M33 7h11M33 27h11M33 47h11"/>
+      </g>
+      <text class="cap ko" x="1159" y="454">거래 서버</text>
+
+      <!-- 관측 -->
+      <rect class="card" x="1582" y="252" width="158" height="114" rx="12"/>
+      <path class="icon" d="M1624 320 H1700 M1628 306 H1642 V296 H1656 V302 H1670 V282 H1684 V289 H1698"/>
+      <text class="cap ko" x="1598" y="352">관측</text>
+
+      <!-- db -->
+      <rect class="card" x="1215" y="681" width="158" height="114" rx="12"/>
+      <g class="icon" transform="translate(1283 697)">
+        <ellipse cx="22" cy="7" rx="22" ry="7"/>
+        <path d="M0 7v40c0 3.9 9.8 7 22 7s22-3.1 22-7V7M0 20c0 3.9 9.8 7 22 7s22-3.1 22-7M0 34c0 3.9 9.8 7 22 7s22-3.1 22-7"/>
+      </g>
+      <text class="cap ko" x="1231" y="781">DB</text>
+
+      <!-- ai-1 -->
+      <rect class="card ai" x="1632" y="760" width="158" height="114" rx="12"/>
+      <g class="icon ai" transform="translate(1686 780)">
+        <rect x="5" y="5" width="40" height="40" rx="5"/>
+        <path d="M14 0v5M25 0v5M36 0v5M14 45v5M25 45v5M36 45v5M0 14h5M0 25h5M0 36h5M45 14h5M45 25h5M45 36h5"/>
+      </g>
+      <text x="1711" y="813" text-anchor="middle" style="font-family:var(--sans);font-size:22px;font-weight:600;fill:#C6C0F2">AI</text>
+      <text class="cap ai ko" x="1648" y="860">AI 서버</text>
+
+      <circle class="node-dot" cx="1373" cy="735" r="4"/>
+      <circle class="node-dot" cx="1662" cy="395" r="4"/>
+
+      <g id="sparks"></g>
+    </svg>
+  </div>
+</div>
+
+<!-- 발표 노트(15초): 제목과 이름, 개인 프로젝트. 직접 만든 모의 거래소 페일스톱을, 사람이 몰려도 DB가 멈춰도 버티는 운영 환경으로 옮긴 이야기. 시간 배분: 발표 12분 25초(표지 15초, 목차 10초, 기획 배경 1분 30초, 목표 35초, 구성 50초, 설계와 구현 5분 5초[구축 30·Docker 35·네트워크 45·VM 40·AWS 60·Linux 운영 45·AI 50], 테스트 30초, 결과 2분 5초, 시연 소개 20초, 트러블슈팅 45초, 마무리 20초) + 시연 7분. 도면 장은 → 세 번으로 흐름 셋만 재생한다. N 키로 발표자 노트 창, E 키로 원본·증거 단추를 켠다. 실행: 덱 폴더를 HTTP로 연다(실행 방법.txt). 파일을 더블클릭하면 장 안 단계가 동작하지 않는다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // 카드에서 AWS 로 빛 한 점이 천천히 흐른다. 한 번에 하나만.
+  const NS = 'http://www.w3.org/2000/svg';
+  const layer = document.getElementById('sparks');
+  const wires = ['w-app', 'w-obs', 'w-ai', 'w-db'].map(id => document.getElementById(id));
+  let i = 0;
+  function send() {
+    const path = wires[i++ % wires.length];
+    const len = path.getTotalLength();
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('r', '4'); dot.setAttribute('class', 'spark');
+    layer.appendChild(dot);
+    const t0 = performance.now(), dur = 2000;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const pt = path.getPointAtLength(len * e);
+      dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y);
+      dot.setAttribute('opacity', Math.min(1, p * 6, (1 - p) * 6).toFixed(2));
+      if (p < 1) requestAnimationFrame(step); else dot.remove();
+    };
+    requestAnimationFrame(step);
+  }
+  setTimeout(() => { send(); setInterval(send, 2400); }, 2000);
+})();
+</script>

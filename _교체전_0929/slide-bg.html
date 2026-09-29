@@ -1,0 +1,307 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 01 기획 배경</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 {
+    position: absolute; left: 130px; top: 164px; margin: 0;
+    font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em;
+    animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .dek { position: absolute; left: 130px; top: 254px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+
+  /* 두 질문. 결과 없이 문제 장면만 보인다. 그림은 저절로 되풀이된다 */
+  .qs { position: absolute; left: 130px; right: 130px; top: 336px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .q { border-top: 2px solid var(--card); padding-top: 26px; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
+  .q:nth-child(1) { animation-delay: .35s; }
+  .q:nth-child(2) { animation-delay: .55s; }
+  .q .no { display: flex; align-items: baseline; gap: 14px; font-size: 22px; color: var(--ink-3); }
+  .q .no b { font-family: var(--mono); font-weight: 500; font-size: 22px; color: var(--brand); }
+  .q:nth-child(1) .no b { color: #C6C0F2; } .q:nth-child(2) .no b { color: var(--bad); }
+  .q h2 { margin: 14px 0 0; font-size: 44px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; word-break: keep-all; }
+  .q h2 em { font-style: normal; color: var(--glow); }
+  .q:nth-child(1) h2 em { color: #C6C0F2; }
+  .q:nth-child(2) h2 em { color: var(--bad); }
+  .scene { display: block; width: 790px; height: 270px; margin-top: 18px; }
+  .scene text { font-family: var(--sans); }
+  .scene .lb { font-size: 22px; fill: var(--ink-2); }
+  .scene .sm { font-size: 22px; fill: var(--ink-3); }
+  .scene .box { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; transition: stroke .3s, fill .3s; }
+  .scene .box.hot { stroke: var(--bad); fill: #2A1F29; }
+  .scene .wire { fill: none; stroke: #3A465A; stroke-width: 2; }
+  .scene .dot { fill: var(--glow); }
+  .scene .dot.stuck { fill: var(--warm); }
+  .scene .dot.lost { fill: var(--bad); }
+  .scene .gbg { fill: #222A38; }
+  .scene .gfill { transition: fill .3s; }
+  .scene .flag { font-size: 22px; font-weight: 600; opacity: 0; transition: opacity .35s; }
+  .scene .flag.on { opacity: 1; }
+  .scene .x { stroke: var(--bad); stroke-width: 4; stroke-linecap: round; opacity: 0; transition: opacity .25s; }
+  .scene .x.on { opacity: 1; }
+
+  .chk { margin: 22px 0 0; padding: 0; list-style: none; display: flex; gap: 0 30px; }
+  .chk li { border-left: 2px solid var(--line); padding: 2px 0 2px 16px; font-size: 23px; white-space: nowrap; line-height: 1.4; color: var(--ink-2); word-break: keep-all; }
+
+  .foot {
+    position: absolute; left: 130px; right: 130px; bottom: 64px;
+    display: flex; align-items: baseline; gap: 28px;
+    padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 25px; color: var(--ink); animation: fade .8s 1.2s ease-out both;
+  }
+  .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">기획 배경</span>01</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>거래소가 흔들리는 두 순간</h1>
+  <p class="dek">실제 돈 없이 가상 자산 12개 마켓(BTC·ETH 등)을 사고파는 모의 거래소 ‘페일스톱’, 운영 환경에 올리기 전에 답해야 할 두 질문</p>
+
+  <div class="qs">
+    <section class="q">
+      <div class="no"><b>01</b>트래픽 급증</div>
+      <h2>사람이 몰리면,<br><em>어디서 먼저</em> 막히는가</h2>
+      <svg class="scene" id="s1" viewBox="0 0 790 270" role="img" aria-label="사용자 요청이 로드밸런서를 거쳐 거래 서버 두 대로 몰리고, 서버 CPU 사용량이 한계에 닿아 응답이 늦어지는 장면">
+        <path class="wire" d="M84 60 L282 135 M84 135 H282 M84 210 L282 135"/>
+        <path class="wire" d="M382 135 L470 75 M382 135 L470 195"/>
+        <g id="s1-dots"></g>
+        <g>
+          <image href="assets/tint/ui-users-side.svg" x="36" y="36" width="46" height="46"/>
+          <image href="assets/tint/ui-users-side.svg" x="36" y="111" width="46" height="46"/>
+          <image href="assets/tint/ui-users-side.svg" x="36" y="186" width="46" height="46"/>
+          <text class="sm" x="59" y="262" text-anchor="middle">사용자</text>
+        </g>
+        <rect class="box" x="282" y="103" width="100" height="64" rx="10"/>
+        <image href="assets/tint/ui-arrows-split-glow.svg" x="314" y="117" width="36" height="36"/>
+        <text class="sm" x="332" y="197" text-anchor="middle">로드밸런서</text>
+        <rect class="box" id="s1-b1" x="470" y="45" width="190" height="60" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="492" y="59" width="32" height="32"/>
+        <text class="lb" x="536" y="82">거래 서버 1</text>
+        <rect class="box" id="s1-b2" x="470" y="165" width="190" height="60" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="492" y="179" width="32" height="32"/>
+        <text class="lb" x="536" y="202">거래 서버 2</text>
+        <text class="sm" x="690" y="46">CPU</text>
+        <rect class="gbg" x="690" y="66" width="92" height="12" rx="6"/>
+        <rect class="gfill" id="s1-g1" x="690" y="66" width="0" height="12" rx="6"/>
+        <rect class="gbg" x="690" y="186" width="92" height="12" rx="6"/>
+        <rect class="gfill" id="s1-g2" x="690" y="186" width="0" height="12" rx="6"/>
+        <text class="flag" id="s1-late" x="736" y="140" text-anchor="middle" style="fill:var(--bad)">응답 지연</text>
+      </svg>
+      <ul class="chk">
+        <li>무엇을 늘리는가</li>
+        <li>언제 늘리고 줄이는가</li>
+        <li>주문 처리도 늘릴 수 있는가</li>
+      </ul>
+    </section>
+
+    <section class="q">
+      <div class="no"><b>02</b>DB 장애</div>
+      <h2>DB가 멈추면,<br><em>받은 주문</em>은 어떻게 되는가</h2>
+      <svg class="scene" id="s2" viewBox="0 0 790 270" role="img" aria-label="주문이 거래 서버를 거쳐 주 DB에 기록되다가 주 DB가 멈추자 주문이 거래 서버 앞에 쌓여 기다리는 장면">
+        <path class="wire" d="M84 135 H230 M420 135 H540"/>
+        <g id="s2-dots"></g>
+        <image href="assets/tint/ui-users-side.svg" x="36" y="111" width="46" height="46"/>
+        <text class="sm" x="59" y="188" text-anchor="middle">사용자</text>
+        <rect class="box" x="230" y="105" width="190" height="60" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="261" y="119" width="32" height="32"/>
+        <text class="lb" x="305" y="142">거래 서버</text>
+        <rect class="box" id="s2-db" x="540" y="105" width="190" height="60" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="586" y="119" width="32" height="32"/>
+        <text class="lb" x="630" y="142">주 DB</text>
+        <path class="x" id="s2-x" d="M700 116 L720 136 M720 116 L700 136"/>
+        <text class="flag" id="s2-wait" x="474" y="72" text-anchor="middle" style="fill:var(--warm)">주문 대기</text>
+        <text class="flag" id="s2-q" x="635" y="72" text-anchor="middle" style="fill:var(--bad)">확인받은 주문은?</text>
+        <text class="flag" id="s2-when" x="478" y="196" text-anchor="middle" style="fill:var(--warm)">언제 다시 받는가?</text>
+      </svg>
+      <ul class="chk">
+        <li>확인받은 주문은 남는가</li>
+        <li>사람 없이 전환되는가</li>
+        <li>언제 다시 받는가</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="foot"><span class="k">목적</span>두 순간을 직접 만들어 답을 확인하는 운영 환경, 그리고 근거를 대고 먼저 판단을 제안하는 AI 관제</div>
+</div>
+
+<!-- 발표 노트(45초): 거래소는 멈추면 주문을 못 받고, 잃으면 자산 기록이 어긋나는 서비스. 운영 환경에 올리기 전에 두 순간에 답해야 했다. 첫째, 사람이 몰리면 어디서 먼저 막히고 무엇을 늘려야 하는가. 둘째, DB가 멈추면 이미 확인받은 주문은 남는가, 사람 없이 전환되는가, 언제 다시 받는가. 이 장에는 결과를 두지 않는다. 답(구조)은 다음 장, 수치는 06 결과 장. 학교 제출 요약서의 기획 배경(DB 장애: 요청은 언제 회복되는가 / 트래픽 급증: 병목은 어디에서 시작되는가)과 같은 질문이다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 꺾인 선 위의 위치
+  const along = (pts, d) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1);
+      if (d <= L) return [x1 + (x2 - x1) * d / L, y1 + (y2 - y1) * d / L];
+      d -= L;
+    }
+    return pts[pts.length - 1];
+  };
+  const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+  const dot = (layer, cls = 'dot', r = 5) => { const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', r); c.setAttribute('class', cls); layer.appendChild(c); return c; };
+
+  // 장면 1: 요청이 점점 몰리고, 두 서버의 사용량 막대가 차오르다 응답 지연이 뜬다. 10초마다 되풀이
+  const s1 = { layer: $('s1-dots'), parts: [], t0: 0, last: 0, n: 0, load: [0, 0] };
+  const S1_SRC = [[84, 60], [84, 135], [84, 210]];
+  const S1_DST = [[[470, 75], [530, 75]], [[470, 195], [530, 195]]];
+  const gColor = v => v > .82 ? 'var(--bad)' : v > .6 ? 'var(--warm)' : 'var(--ok)';
+  function step1(now) {
+    const t = (now - s1.t0) / 1000;
+    if (t > 10) {  // 되풀이
+      s1.parts.forEach(p => p.el.remove()); s1.parts = []; s1.t0 = now; s1.last = now; s1.load = [0, 0];
+      $('s1-late').classList.remove('on'); $('s1-b1').classList.remove('hot'); $('s1-b2').classList.remove('hot');
+    }
+    const tt = Math.min(t, 6.5);
+    const gap = Math.max(55, 520 - tt * 75);          // 보내는 간격이 점점 짧아진다
+    if (t < 7.5 && now - s1.last > gap) {
+      s1.last = now; s1.n++;
+      const k = s1.n % 2, src = S1_SRC[s1.n % 3];
+      const pts = [src, [282, 135], [382, 135], ...S1_DST[k]];
+      s1.parts.push({ el: dot(s1.layer), pts, L: lenOf(pts), b: now, k });
+    }
+    s1.parts = s1.parts.filter(p => {
+      const d = (now - p.b) * 0.42;
+      if (d >= p.L) { p.el.remove(); return false; }
+      const [x, y] = along(p.pts, d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y); return true;
+    });
+    // 사용량은 서버 한 대에 들어오는 요청 속도를 처리 한계(초당 5건으로 둔 그림용 값)로 나눈 값을 천천히 따라간다
+    const per = t < 7.5 ? 1000 / gap / 2 : 0;
+    for (let k = 0; k < 2; k++) {
+      const target = Math.min(1, per / 5 * (k ? .96 : 1));
+      s1.load[k] += (target - s1.load[k]) * 0.05;
+      const v = s1.load[k];
+      const g = $('s1-g' + (k + 1)); g.setAttribute('width', (92 * v).toFixed(1)); g.style.fill = gColor(v);
+      $('s1-b' + (k + 1)).classList.toggle('hot', v > .82);
+    }
+    $('s1-late').classList.toggle('on', Math.max(...s1.load) > .82);
+  }
+
+  // 장면 2: 주문이 주 DB로 들어가다 DB가 멈추면 거래 서버 앞에 쌓인다. 10초마다 되풀이
+  const s2 = { layer: $('s2-dots'), parts: [], stack: [], t0: 0, last: 0, down: false };
+  const S2_PATH = [[84, 135], [230, 135], [420, 135], [540, 135]];
+  function reset2(now) {
+    s2.parts.forEach(p => p.el.remove()); s2.stack.forEach(el => el.remove());
+    s2.parts = []; s2.stack = []; s2.t0 = now; s2.last = now; s2.down = false;
+    $('s2-db').classList.remove('hot'); $('s2-x').classList.remove('on');
+    $('s2-q').classList.remove('on'); $('s2-when').classList.remove('on'); $('s2-wait').classList.remove('on');
+  }
+  function step2(now) {
+    const t = (now - s2.t0) / 1000;
+    if (t > 10) reset2(now);
+    if (!s2.down && t > 3.2) {  // 주 DB 멈춤
+      s2.down = true; $('s2-db').classList.add('hot'); $('s2-x').classList.add('on');
+      s2.parts.forEach(p => { if (p.d > 190 + 146) { p.el.setAttribute('class', 'dot lost'); p.dead = now; } });
+    }
+    if (s2.down && t > 4.2) $('s2-q').classList.add('on');
+    if (s2.down && t > 5.4) $('s2-when').classList.add('on');
+    if (t < 8.6 && now - s2.last > 330) {
+      s2.last = now;
+      s2.parts.push({ el: dot(s2.layer), d: 0, b: now });
+    }
+    s2.parts = s2.parts.filter(p => {
+      if (p.dead) { const a = 1 - (now - p.dead) / 700; if (a <= 0) { p.el.remove(); return false; } p.el.style.opacity = a; return true; }
+      p.d = (now - p.b) * 0.3;
+      const stopAt = 190 + 146 + 4;   // 거래 서버 오른쪽 끝
+      if (s2.down && p.d >= stopAt - 1) {
+        // 멈춘 주문은 거래 서버 위로 한 줄씩 쌓인다
+        const i = s2.stack.length, el = p.el; el.setAttribute('class', 'dot stuck'); $('s2-wait').classList.add('on');
+        el.setAttribute('cx', 446 + (i % 5) * 14); el.setAttribute('cy', 118 - Math.floor(i / 5) * 14);
+        if (i < 15) s2.stack.push(el); else el.remove();
+        return false;
+      }
+      if (p.d >= lenOf(S2_PATH)) { p.el.remove(); return false; }
+      const [x, y] = along(S2_PATH, p.d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y); return true;
+    });
+  }
+
+  if (reduce) {
+    // 움직임을 줄인 환경: 문제 장면의 마지막 상태만 보인다
+    ['s1-late', 's2-q', 's2-when', 's2-x'].forEach(id => $(id).classList.add('on'));
+    $('s1-g1').setAttribute('width', 88); $('s1-g1').style.fill = 'var(--bad)';
+    $('s1-g2').setAttribute('width', 84); $('s1-g2').style.fill = 'var(--bad)';
+    $('s2-db').classList.add('hot');
+    return;
+  }
+  const loop = now => { if (!s1.t0) { s1.t0 = now; s1.last = now; reset2(now); } step1(now); step2(now); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+})();
+</script>

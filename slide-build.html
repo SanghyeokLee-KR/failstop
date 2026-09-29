@@ -1,0 +1,163 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04 구축 순서</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --ai: #C6C0F2;
+    --warm: #E8C07A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 { position: absolute; left: 130px; top: 164px; margin: 0; font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
+  .dek { position: absolute; left: 130px; top: 250px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+
+  /* 네 단계 타임라인: 선이 왼쪽에서 오른쪽으로 차오르고, 마디마다 완료 표시가 찍힌다 */
+  .tl { position: absolute; left: 130px; right: 130px; top: 360px; }
+  .rail { position: absolute; left: 36px; right: 36px; top: 35px; height: 3px; background: var(--line); border-radius: 2px; }
+  .rail i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: rgba(45,209,150,.8); border-radius: 2px; transform-origin: left; animation: fill 1.6s .5s cubic-bezier(.45,.1,.2,1) both; }
+  .steps { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 40px; }
+  .st { position: relative; animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  .st:nth-child(1) { animation-delay: .5s; } .st:nth-child(2) { animation-delay: .85s; } .st:nth-child(3) { animation-delay: 1.2s; } .st:nth-child(4) { animation-delay: 1.55s; }
+  .node { position: relative; width: 72px; height: 72px; border-radius: 16px; background: #1A2130; border: 1.6px solid var(--card); display: grid; place-items: center; }
+  .node img { width: 40px; height: 40px; }
+  .node b { position: absolute; right: -9px; bottom: -9px; width: 28px; height: 28px; border-radius: 50%; background: var(--ok); display: grid; place-items: center; box-shadow: 0 0 0 4px var(--stage); animation: pop .4s cubic-bezier(.2,.9,.3,1.4) both; }
+  .st:nth-child(1) .node b { animation-delay: 1.0s; } .st:nth-child(2) .node b { animation-delay: 1.35s; } .st:nth-child(3) .node b { animation-delay: 1.7s; } .st:nth-child(4) .node b { animation-delay: 2.05s; }
+  .node b svg { width: 16px; height: 16px; fill: none; stroke: #0F131B; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+  .no { margin-top: 26px; font-family: var(--mono); font-size: 22px; color: var(--ink-3); }
+  .st h2 { margin: 6px 0 0; font-size: 38px; font-weight: 600; letter-spacing: -.01em; }
+  .env2 { margin-top: 10px; }
+  .row { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .row .k { font-size: 22px; color: var(--ink-3); letter-spacing: .02em; }
+  .row p { margin: 6px 0 0; font-size: 26px; line-height: 1.4; color: var(--ink); word-break: keep-all; }
+  .row.chk p { color: var(--ink-2); }
+  .end { position: absolute; right: 130px; top: 318px; display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; color: var(--ok); animation: fade .6s 2.2s ease-out both; }
+  .end i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+
+  .foot { position: absolute; left: 130px; right: 130px; bottom: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 24px; color: var(--ink-2); animation: fade .8s 2.3s ease-out both; }
+  .foot b { font-weight: 500; color: var(--ink); }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>네 단계로 쌓아 올린 운영 환경</h1>
+  <p class="dek">PC 한 대에서 부수고 재 보며 시작해, AWS에 배포하기까지</p>
+  <div class="end"><i aria-hidden="true"></i>AWS 배포 완료</div>
+
+  <div class="tl">
+    <div class="rail" aria-hidden="true"><i></i></div>
+    <div class="steps">
+      <section class="st">
+        <div class="node"><img src="assets/tint/docker-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
+        <div class="no">01</div>
+        <h2>Docker 실험</h2>
+        <div class="env2"><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></div>
+        <div class="row"><div class="k">만든 것</div><p>실제와 같은 구성을 PC 한 대에</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>장애와 부하를 재현해 수치 측정</p></div>
+      </section>
+      <section class="st">
+        <div class="node"><img src="assets/tint/cisco-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
+        <div class="no">02</div>
+        <h2>망 설계</h2>
+        <div class="env2"><span class="env"><img src="assets/tint/cisco-side.svg" alt="">Packet Tracer</span></div>
+        <div class="row"><div class="k">만든 것</div><p>역할별로 망을 나눈 논리 설계</p></div>
+        <div class="row"><div class="k">정한 것</div><p>필요한 길만 여는 허용·차단 규칙</p></div>
+      </section>
+      <section class="st">
+        <div class="node"><img src="assets/tint/linux-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
+        <div class="no">03</div>
+        <h2>Linux VM</h2>
+        <div class="env2"><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></div>
+        <div class="row"><div class="k">만든 것</div><p>방화벽, 서버별 규칙, DB 백업</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>허용·차단 시험과 백업 복원</p></div>
+      </section>
+      <section class="st">
+        <div class="node"><img src="assets/tint/amazonwebservices-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
+        <div class="no">04</div>
+        <h2>AWS 배포</h2>
+        <div class="env2"><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS → 개인 AWS</span></div>
+        <div class="row"><div class="k">만든 것</div><p>역할별 서버, 자동 증설·전환</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>학교 계정 운영, 개인 계정 배포</p></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="foot"><b>뒤 결과 장의 수치</b>는 이 단계들에서 잰 값이고, 장마다 어디서 쟀는지 같은 표시(<span class="env" style="padding:1px 9px 2px 7px"><img src="assets/tint/docker-side.svg" alt="" style="width:22px;height:22px">로컬 Docker</span>)로 밝힘</div>
+</div>
+
+<!-- 발표 노트(30초): 네 단계로 쌓았다. 01 Docker로 PC 한 대에 실제와 같은 구성을 만들어 장애와 부하를 재현했다(실험마다 1~2회). 06 결과의 수치 대부분이 여기서 나왔다. 02 Packet Tracer로 망을 역할별로 나누고 허용·차단 규칙을 설계했다. 03 Linux VM에서 pfSense 방화벽과 서버별 nftables, Databasus 백업을 구성하고 허용·차단과 복원을 시험했다. 04 AWS는 학교 계정에서 Linux 운영과 장애 알림(Teams)을 확인했고, 개인 계정에 최종 구성으로 배포했다(발표 시점 기준 완료, 사용자 결정 2026-09-26·27). 결과 장마다 측정 환경을 칩으로 밝힌다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+})();
+</script>

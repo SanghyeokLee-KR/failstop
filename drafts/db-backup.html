@@ -1,0 +1,646 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-6 DB 백업·시점 복구 1:N</title>
+<!-- 초안(drafts). 덱 폴더의 공통 파일을 한 단계 위(../)에서 읽는다. 덱 본편(루트)으로 옮길 때는 ../ 를 지우고, 장 번호(04-6)와 index.html SLIDES·목차를 함께 고친다 -->
+<link rel="stylesheet" href="../assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ai: #C6C0F2;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --term: #0C1016;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  /* 제목 상자 위 158px, 부제 244px(모든 본문 장 공통, deck.css), 본문은 300px 아래 */
+  .title { position: absolute; left: 130px; right: 130px; top: 158px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 244px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+  .tag { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; transition: border-color .2s, color .2s; }
+  button.tag:hover { border-color: var(--card); color: var(--ink-2); }
+  button.tag:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+
+  /* 원본 캡처 창(E 키로 켠 발표자 도구에서만 열린다). 왼쪽 목록, 오른쪽 캡처나 설정 원문. 04-3 VM 장의 백업 증거 창과 같은 캡처를 쓴다 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+  .fig::backdrop { background: rgba(8,10,15,.86); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 18px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 18px; }
+  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 18px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .bar .x:hover { border-color: var(--card); }
+  .ev { background: rgba(15,19,27,.97); }
+  .ev .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; gap: 18px; padding: 0 24px 24px; }
+  .ev ol { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .ev li button { width: 100%; text-align: left; font-family: var(--sans); font-size: 18px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
+  .ev li button:hover { border-color: var(--card); color: var(--ink); }
+  .ev li button.cur { border-color: var(--glow); color: var(--ink); background: rgba(168,200,255,.06); }
+  .ev li .no { font-family: var(--mono); font-size: 18px; color: var(--ink-3); }
+  .ev li .st { font-size: 18px; color: var(--ok); } .ev li .st.t { color: var(--ink-3); }
+  .ev .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 10px; }
+  .ev .cap { font-size: 18px; color: var(--ink-3); } .ev .cap b { color: var(--ink); font-weight: 600; font-size: 18px; margin-right: 10px; }
+  .ev .shot { flex: 1; min-height: 0; display: grid; place-items: center; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--term); }
+  .ev .shot img { max-width: 100%; max-height: 100%; }
+  .ev .shot.txt { place-items: start stretch; }
+  .ev .intro { max-width: 1120px; padding: 32px 44px; font-size: 26px; line-height: 1.6; color: var(--ink-2); word-break: keep-all; }
+  .ev .intro section + section { margin-top: 28px; }
+  .ev .intro h3 { margin: 0 0 8px; font-size: 26px; font-weight: 600; color: var(--glow); }
+  .ev .intro p { margin: 0 0 12px; }
+  .ev .intro p:last-child { margin-bottom: 0; }
+  .ev pre.code { margin: 0; padding: 26px 32px; font-family: var(--mono); font-size: 22px; line-height: 1.5; color: var(--ink-2); white-space: pre; }
+
+  /* 도면: VM 실습망에서 실제로 구성한 백업 길(주 DB → 관제 서버의 Databasus → 웹 진입 서버 SFTP 보관소)과
+     복원 검증 길(보관소 → 임시 DB → 원본 대조), 시점 복구 시간 축. viewBox와 같은 크기로 그린다 */
+  .topo { position: absolute; left: 110px; top: 284px; width: 1210px; height: 740px; animation: fade 1s .3s ease-out both; }
+  .topo text { font-family: var(--sans); fill: var(--ink-2); }
+  .topo .nm { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .topo .sm { font-size: 22px; fill: var(--ink-3); }
+  .topo .lb { font-size: 22px; fill: var(--ink-2); }
+  .topo .zl { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .topo .zl .sm { font-weight: 400; }
+  .topo .st { font-size: 22px; font-weight: 600; transition: fill .3s; }
+  .topo .st.ok { fill: var(--ok); } .topo .st.wa { fill: var(--warm); } .topo .st.no { fill: var(--bad); }
+  .topo .st.gl { fill: var(--glow); } .topo .st.mu { fill: var(--ink-3); }
+  .box { fill: var(--stage); stroke: var(--card); stroke-width: 1.6; transition: stroke .35s, fill .35s, opacity .35s; }
+  .box.good { stroke: var(--ok); }
+  .box.hot { stroke: var(--bad); }
+  .box.ghost { fill: transparent; stroke-dasharray: 7 6; }
+  #tmp { transition: opacity .4s; }
+  #tmp.off { opacity: .42; }
+  .wire { fill: none; stroke: var(--card); stroke-width: 2; }
+  .wire.cmp { stroke: var(--side); stroke-dasharray: 3 6; }
+  /* 서버 방화벽(nftables) 칩: 04-3 VM 장과 같은 모양. 백업 길이 지나면 초록, 막히면 빨강 */
+  .nft rect { fill: none; stroke: var(--line); stroke-width: 1.4; transition: stroke .25s, fill .25s; }
+  .topo .nft text { font-family: var(--mono); font-size: 22px; fill: var(--ink-3); }
+  .nft.ok rect { stroke: var(--ok); fill: rgba(45,209,150,.1); } .topo .nft.ok text { fill: var(--ok); }
+  .nft.no rect { stroke: var(--bad); fill: rgba(255,122,122,.12); } .topo .nft.no text { fill: var(--bad); }
+  /* 보관 파일: 점선은 보존 정책의 자리, 채운 것은 증거에 남은 백업 */
+  /* <use>로 그린 기호는 안쪽 path에 선택자가 닿지 않으므로 use 자체에 상속 속성(fill·stroke)을 준다 */
+  .file { fill: none; stroke: var(--card); stroke-width: 1.5; stroke-dasharray: 3 3; transition: stroke .3s, fill .3s; }
+  .file.have { stroke: var(--ok); stroke-dasharray: none; fill: rgba(45,209,150,.14); }
+  .file.new { animation: land .6s ease-out; }
+  @keyframes land { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+  /* 시점 복구 시간 축 */
+  .axis { fill: none; stroke: var(--card); stroke-width: 2; }
+  .mk { fill: var(--stage); stroke: var(--side); stroke-width: 1.5; stroke-dasharray: 3 3; transition: stroke .3s, fill .3s; }
+  .mk.pick { stroke: var(--glow); stroke-dasharray: none; fill: rgba(168,200,255,.16); }
+  .gone { fill: url(#hatch); stroke: var(--line); stroke-width: 1; }
+  #cur { opacity: 0; transition: opacity .25s; }
+  #cur.on { opacity: 1; }
+  #cur-line { stroke: var(--warm); stroke-width: 2.4; }
+  #cur-t { font-size: 22px; font-weight: 600; fill: var(--warm); }
+  #lost { fill: rgba(255,122,122,.18); stroke: var(--bad); stroke-width: 1.2; }
+  #lost-t { font-size: 22px; fill: var(--bad); }
+  #back { fill: none; stroke: var(--glow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* 흐름 확인 효과: 선택 고리, 지나간 길, 점, 막힘 표시 */
+  .hit { fill: transparent; cursor: pointer; }
+  .hit:hover { fill: rgba(168,200,255,.05); }
+  .hit:focus { outline: none; }
+  .hit:focus-visible { outline: none; stroke: var(--brand); stroke-width: 2; }
+  .ring { fill: none; stroke-width: 2.4; stroke-dasharray: 5 4; opacity: 0; transition: opacity .2s; }
+  .ring.on { opacity: 1; }
+  .ring.src { stroke: var(--glow); }
+  .ring.ok { stroke: var(--ok); stroke-dasharray: none; }
+  .ring.no { stroke: var(--bad); stroke-dasharray: none; }
+  .ring.hop { stroke: var(--glow); stroke-dasharray: none; stroke-width: 3; animation: hop .5s ease-out; }
+  @keyframes hop { 0% { stroke-width: 7; opacity: .4; } 100% { stroke-width: 3; opacity: 1; } }
+  .trail { fill: none; stroke: var(--glow); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; opacity: .45; }
+  .trail.ok { stroke: var(--ok); }
+  .trail.cmp { stroke: var(--side); stroke-width: 4; }
+  .trail.no { stroke: var(--bad); }
+  .pkt { fill: var(--glow); }
+  .pkt.ok { fill: var(--ok); } .pkt.cmp { fill: var(--side); } .pkt.no { fill: var(--bad); }
+  .burst { fill: none; stroke: var(--bad); stroke-width: 3; opacity: 0; }
+  .burst.on { animation: burst .6s ease-out both; }
+  @keyframes burst { from { opacity: 1; r: 18; } to { opacity: 0; r: 44; } }
+  .spark { fill: var(--glow); }
+
+  /* 오른쪽: 흐름 확인(결과·빠른 버튼)과 복구 절차 */
+  .side { position: absolute; left: 1372px; right: 130px; top: 300px; display: flex; flex-direction: column; gap: 18px; }
+  .blk { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  .blk:nth-child(1) { animation-delay: .5s; }
+  .blk:nth-child(2) { animation-delay: .65s; }
+  .blk .k { font-size: 22px; line-height: 1.3; color: var(--ink-3); letter-spacing: .02em; }
+  .res { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 11px 18px; height: 128px; overflow: hidden; box-sizing: border-box; background: rgba(255,255,255,.02); transition: border-color .25s; }
+  .res .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .res .fr { min-width: 0; font-size: 22px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .res .fr b { font-weight: 600; color: var(--ink); }
+  .res .ph { color: var(--ink-3); }
+  .res .vd { flex: none; font-size: 30px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; color: var(--ink-3); }
+  .res .why { margin-top: 6px; font-size: 22px; line-height: 1.4; color: var(--ink-3); word-break: keep-all; white-space: pre-line; }
+  .res.ok { border-color: rgba(45,209,150,.55); } .res.ok .vd { color: var(--ok); }
+  .res.no { border-color: rgba(255,122,122,.6); } .res.no .vd { color: var(--bad); }
+  .res.wa { border-color: rgba(232,192,122,.6); } .res.wa .vd { color: var(--warm); }
+  .res.na .vd { color: var(--side); }
+  .quick { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .quick button { font-family: var(--sans); font-size: 22px; line-height: 1.25; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; white-space: nowrap; transition: border-color .2s, color .2s, background .2s; }
+  .quick button:hover { border-color: var(--card); color: var(--ink); }
+  .quick button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .quick button i { font-style: normal; font-size: 22px; }
+  .quick button i.y { color: var(--ok); } .quick button i.w { color: var(--warm); } .quick button i.n { color: var(--bad); }
+  .quick button.cur { border-color: var(--glow); color: var(--ink); background: rgba(168,200,255,.06); }
+
+  /* 복구 절차: 단계마다 실제로 해 본 결과를 오른쪽에 둔다. 해 보지 않은 단계는 '기록 없음' */
+  .seq { margin-top: 10px; background: var(--term); border: 1px solid var(--line); border-radius: 10px; padding: 8px 18px 10px; font-size: 22px; line-height: 1.42; color: var(--ink-2); }
+  .seq .row, .seq .ft { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: baseline; white-space: nowrap; margin: 0 -10px; padding: 1px 10px; border-radius: 5px; transition: background .25s, opacity .25s; }
+  /* 값에 한글이 섞여 있어 고정폭 글꼴 대신 본문 글꼴(숫자 폭 고정)으로 쓴다 */
+  .seq .t { font-variant-numeric: tabular-nums; }
+  .seq .row.g .t { color: var(--ok); } .seq .row.m .t { color: var(--ink-2); } .seq .row.s .t { color: var(--side); }
+  .seq .ft { margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--line); border-radius: 0; color: var(--ink-3); }
+  .seq .ft .t { color: var(--ink-2); }
+  .seq.focus .row { opacity: .45; }
+  .seq .row.on { opacity: 1 !important; background: rgba(168,200,255,.08); }
+  .seq .row.on.g { background: rgba(45,209,150,.12); }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .fs:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .spark { display: none; }
+  }
+</style>
+<link rel="stylesheet" href="../deck.css">
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-6</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>비실시간 1:N, 서버 밖 백업과 시점 복구</h1>
+    <button class="tag orig" id="open-ev" type="button" aria-haspopup="dialog"><img src="../assets/tint/ui-file-check-side.svg" alt="">원본 캡처<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env" style="margin-left:14px"><img src="../assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
+  </div>
+  <p class="dek">정해진 시각마다 주 DB를 백업해 웹 진입 서버에 쌓고, 고른 백업 시점으로 되살려 원본과 대조</p>
+
+  <dialog class="fig ev" id="ev" aria-label="Databasus 백업 원본 캡처와 설정">
+    <div class="bar"><b>Databasus 백업 · 서버 밖 보관 · 복원 검증</b><span>증거본 2026-09-26_VM_Databasus · 설정 원문</span><button class="x" id="close-ev" type="button">닫기 (Esc)</button></div>
+    <div class="body"><ol id="ev-list"></ol><div class="pane"><div class="cap" id="ev-cap"></div><div class="shot" id="ev-shot"></div></div></div>
+  </dialog>
+
+  <svg class="topo" viewBox="0 0 1210 740" role="img" aria-label="관제 서버의 Databasus가 주 DB를 읽기 전용 계정으로 백업해 암호화한 파일을 웹 진입 서버의 SFTP 보관소에 쌓고, 보관한 백업을 임시 DB에 복원해 원본과 대조하며, 시점 복구는 보관한 백업 시각으로만 되돌리는 구성">
+    <defs>
+      <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V8" stroke="#46536A" stroke-width="2"/></pattern>
+      <!-- 파일 기호: 오른쪽 위 모서리를 접은 종이 -->
+      <path id="doc" d="M0 0H18L26 8V34H0Z M18 0V8H26"/>
+      <path id="docs" d="M-8 -11H4L8 -7V11H-8Z M4 -11V-7H8"/>
+    </defs>
+
+    <!-- 연결선: 백업 길 두 가닥(위), 복원 검증 길(아래). 점선은 사람이 주 DB에서 직접 센 원본 대조 -->
+    <path class="wire" d="M320 145H455M755 145H890"/>
+    <path class="wire" d="M1040 250V393H755"/>
+    <path class="wire cmp" d="M455 393H250V250"/>
+    <text class="lb" x="387" y="131" text-anchor="middle">5432</text>
+    <text class="sm" x="387" y="174" text-anchor="middle">읽기 전용</text>
+    <text class="lb" x="822" y="131" text-anchor="middle">SFTP 22</text>
+    <text class="sm" x="822" y="174" text-anchor="middle">암호화 파일</text>
+    <text class="sm" x="1052" y="330">백업 가져오기</text>
+    <text class="sm" x="262" y="330">원본과 대조</text>
+
+    <!-- 주 DB -->
+    <rect class="box" id="b-db" x="20" y="40" width="300" height="210" rx="12"/>
+    <image href="../assets/tint/postgresql-glow.svg" x="42" y="64" width="36" height="36"/>
+    <text class="nm" x="90" y="90">주 DB</text>
+    <text class="sm" x="90" y="122">PostgreSQL 17</text>
+    <text class="st mu" id="s-db" x="42" y="172">거래 DB</text>
+    <g class="nft" id="nft-db"><rect x="42" y="196" width="128" height="32" rx="16"/><text x="106" y="219" text-anchor="middle">nftables</text></g>
+
+    <!-- 관제 서버: Databasus 본체와 복원 검증 에이전트. 관리 화면은 이 서버의 루프백에만 열린다 -->
+    <rect class="box" id="b-ops" x="455" y="40" width="300" height="210" rx="12"/>
+    <image href="../assets/tint/prometheus-glow.svg" x="477" y="64" width="36" height="36"/>
+    <text class="nm" x="525" y="90">관제 서버</text>
+    <text class="sm" x="525" y="122">Databasus v3.59.0</text>
+    <text class="st gl" id="s-ops" x="477" y="172">매일 09:00 논리 백업</text>
+    <text class="sm" x="477" y="210">화면은 SSH 터널로만</text>
+
+    <!-- 웹 진입 서버: 셸 없는 SFTP 전용 계정의 보관소. 파일 일곱 자리는 보존 7일의 자리이고, 증거 시점에 있던 백업은 한 벌이다 -->
+    <rect class="box" id="b-edge" x="890" y="40" width="300" height="210" rx="12"/>
+    <image href="../assets/tint/nginx-glow.svg" x="912" y="64" width="36" height="36"/>
+    <text class="nm" x="960" y="90">웹 진입 서버</text>
+    <text class="sm" x="960" y="122">SFTP 전용 · 셸 없음</text>
+    <g id="files">
+      <use class="file" href="#doc" x="912" y="140"/><use class="file" href="#doc" x="948" y="140"/><use class="file" href="#doc" x="984" y="140"/>
+      <use class="file" href="#doc" x="1020" y="140"/><use class="file" href="#doc" x="1056" y="140"/><use class="file" href="#doc" x="1092" y="140"/>
+      <use class="file" href="#doc" x="1128" y="140"/>
+    </g>
+    <text class="sm" x="912" y="212">7일 보존</text>
+    <g class="nft" id="nft-edge"><rect x="1046" y="194" width="128" height="32" rx="16"/><text x="1110" y="217" text-anchor="middle">nftables</text></g>
+
+    <!-- 임시 DB: 복원 검증 때만 관제 서버에 떴다가 지워진다 -->
+    <g id="tmp" class="off">
+      <rect class="box ghost" id="b-tmp" x="455" y="318" width="300" height="150" rx="12"/>
+      <image href="../assets/tint/postgresql-glow.svg" x="477" y="342" width="36" height="36"/>
+      <text class="nm" x="525" y="368">임시 DB</text>
+      <text class="sm" x="525" y="400">복원 검증 때만</text>
+      <text class="st mu" id="s-tmp" x="477" y="446">지금은 없음</text>
+    </g>
+
+    <!-- 시점 복구: 보존 정책(매일 09:00, 7일)의 백업 시각으로만 되돌린다. 점선 파일은 정책의 자리이고 실행 기록이 아니다 -->
+    <text class="zl" x="20" y="570">시점 복구<tspan class="sm" dx="10">· 매일 09:00 백업을 7일 보존 · 그 백업 시각으로만 되돌림</tspan></text>
+    <rect class="gone" x="60" y="656" width="150" height="24"/>
+    <path class="axis" d="M60 668H1180"/>
+    <g id="marks">
+      <use class="mk" href="#docs" x="250" y="668"/><use class="mk" href="#docs" x="375" y="668"/><use class="mk" href="#docs" x="500" y="668"/>
+      <use class="mk" href="#docs" x="625" y="668"/><use class="mk" href="#docs" x="750" y="668"/><use class="mk" href="#docs" x="875" y="668"/>
+      <use class="mk" href="#docs" x="1000" y="668"/>
+    </g>
+    <text class="sm" x="250" y="642" text-anchor="middle">6일 전</text>
+    <text class="sm" x="1000" y="642" text-anchor="middle">오늘</text>
+    <text class="sm" x="135" y="712" text-anchor="middle">7일 지나면 삭제</text>
+    <!-- 고른 시각: 세로선은 날짜 표기(642)와 아래 설명(712) 사이에만 그어 글자를 가로지르지 않는다 -->
+    <g id="cur">
+      <rect id="lost" x="0" y="656" width="0" height="24"/>
+      <path id="back" d="M0 0"/>
+      <path id="cur-line" d="M0 652V690"/>
+      <text id="cur-t" x="0" y="606" text-anchor="middle">원하는 시각</text>
+      <text id="lost-t" x="0" y="722" text-anchor="middle">못 살리는 변경</text>
+    </g>
+
+    <!-- 효과층 -->
+    <g id="fx" aria-hidden="true">
+      <rect class="ring" id="ring-db" x="14" y="34" width="312" height="222" rx="15"/>
+      <rect class="ring" id="ring-ops" x="449" y="34" width="312" height="222" rx="15"/>
+      <rect class="ring" id="ring-edge" x="884" y="34" width="312" height="222" rx="15"/>
+      <rect class="ring" id="ring-tmp" x="449" y="312" width="312" height="162" rx="15"/>
+      <g id="trails"></g>
+      <circle class="burst" id="burst" cx="0" cy="0" r="18"/>
+      <circle class="pkt" id="pkt" r="8" cx="-20" cy="-20"/>
+    </g>
+    <!-- 이 장에는 늘 흐르는 점을 두지 않는다. 백업은 정해진 시각에만 도는 비실시간 작업이다 -->
+    <g id="hits">
+      <rect class="hit" data-id="db" x="20" y="40" width="300" height="210" rx="12" tabindex="0" role="button" aria-label="주 DB: 백업 보기"/>
+      <rect class="hit" data-id="ops" x="455" y="40" width="300" height="210" rx="12" tabindex="0" role="button" aria-label="관제 서버: 백업 보기"/>
+      <rect class="hit" data-id="edge" x="890" y="40" width="300" height="210" rx="12" tabindex="0" role="button" aria-label="웹 진입 서버: 복원 검증 보기"/>
+      <rect class="hit" data-id="tmp" x="455" y="318" width="300" height="150" rx="12" tabindex="0" role="button" aria-label="임시 DB: 복원 검증 보기"/>
+      <rect class="hit" id="axis-hit" x="60" y="596" width="1120" height="136" rx="10" tabindex="0" role="button" aria-label="시간 축: 되돌릴 시각 고르기"/>
+    </g>
+  </svg>
+
+  <div class="side">
+    <section class="blk">
+      <div class="k">흐름 확인<span class="hint orig"> · 시간 축을 눌러 시각 고르기</span></div>
+      <div class="res" id="res" aria-live="polite">
+        <div class="top"><div class="fr" id="res-fr"><span class="ph">주 DB 하나에 백업 여러 벌</span></div><div class="vd" id="res-vd"></div></div>
+        <div class="why" id="res-why">매일 한 벌씩 서버 밖에 쌓고 7일 보존</div>
+      </div>
+      <div class="quick" id="quick">
+        <button type="button" data-s="B">매일 09:00 백업 <i class="y">보관</i></button>
+        <button type="button" data-s="V">보관 백업으로 복원 <i class="y">일치</i></button>
+        <button type="button" data-s="T">백업 사이 시각으로 <i class="w">앞 백업까지</i></button>
+        <button type="button" data-s="X">웹 진입 서버 → 주 DB <i class="n">차단</i></button>
+      </div>
+    </section>
+    <section class="blk">
+      <div class="k">복구 절차 · 실행 기록</div>
+      <div class="seq" id="seq">
+        <div class="row m"><span>되돌릴 백업 고르기</span><span class="t">보관 1벌</span></div>
+        <div class="row g"><span>새 DB에 복원</span><span class="t">종료 코드 0</span></div>
+        <div class="row g"><span>원본과 대조</span><span class="t">표 109 일치</span></div>
+        <div class="row s"><span>앱 연결을 복원 DB로</span><span class="t">기록 없음</span></div>
+        <div class="ft"><span>복원 검증 09-26 23:12</span><span class="t">수동 1회</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 발표 노트(40초): 둘째는 비실시간 1:N이다. 실시간 복제는 사람이 잘못 지운 데이터까지 곧바로 예비 DB에 옮기고, 두 DB를 함께 잃는 장애도 막지 못한다. 그래서 관제 서버의 Databasus가 매일 09:00에 주 DB를 읽기 전용 계정으로 논리 백업하고, 파일을 암호화해 웹 진입 서버의 SFTP 전용 계정으로 보낸다. 주 DB 하나에 백업이 하루 한 벌씩 7일치 쌓인다(1:N).
+→ 세 번: ① 백업: 첫 백업 0.45 MB(원본 3.05 MB)가 웹 진입 서버에 474,053바이트 파일로 도착했다 ② 복원 검증: 보관한 백업을 임시 DB에 되살려 pg_restore 종료 코드 0, 표 109개. 주 DB에서 직접 센 표 109개(104+5), 세 표의 행 수 47·22·3과 같았다 ③ 시점 복구: 보관한 백업 시각으로만 되돌린다. 백업과 백업 사이의 변경은 살리지 못한다(PITR·물리 백업은 켜지 않음).
+세부(질문 대비): 방화벽은 백업 길만 연다. 주 DB의 5432는 관제 서버의 읽기 전용 계정 하나(SSL 필수), 웹 진입 서버의 22는 관제 서버 주소에서 오는 dbbackup 계정 하나다(셸 없음, /srv/db-backup 안에 갇힌 SFTP, 공개키 인증). 웹 진입 서버에서 주 DB 5432로는 연결이 막힌다(응답 없이 시간 초과, pfSense 증거 20번 시험). Databasus 화면은 관제 서버 루프백(127.0.0.1:4005)에만 열려 SSH 터널로 접속한다. 복원 검증 에이전트는 관제 서버에 두고, 검증 때만 임시 PostgreSQL 컨테이너가 떴다 지워진다. Databasus는 Apache License 2.0 오픈소스라 라이선스 비용이 없다.
+사실 범위: VM 실습망(2026-09-26, 증거본 2026-09-26_VM_Databasus)의 결과다. 보관 위치는 웹 진입 서버 한 곳이고 두 번째 보관 위치는 구성하지 않았다(S3는 개인 계정 단계로 미룬 설계, deploy/vm-lab/databasus/02-배치설계.md). 한 백업을 여러 저장소에 동시에 두는 기능이 되는지도 확인하지 않았다. 증거 시점의 백업은 수동으로 만든 1벌(09-26 22:58)이고 매일 09:00 예약 실행 기록은 없다. 복원 검증도 수동 1회(23:12)이며, 복원한 DB로 앱 연결을 옮기는 운영 복구는 하지 않았다. VM 거래 DB에는 거래 데이터가 없어 대량 복원 시간은 모른다. 백업 암호 키(databasus-data의 secret.key)를 어디에 따로 보관할지 정하지 않았다(잃으면 백업을 열 수 없음). 실패 알림 대상은 연결하지 않았고, 검증 에이전트는 systemd 유닛이 없다. 웹 진입 서버를 보관소로 쓴 것은 실습망에 전용 백업 서버가 없어서이고, 운영 배치로는 S3나 전용 SFTP 서버를 쓴다(databasus/05-보고서.md 7장). VM DB에는 V47.1이 적용되지 않아 읽기 전용 계정이 SECURITY DEFINER 함수 네 개를 실행할 수 있다는 경고가 남아 있다(사용자 결정으로 기록만). 시간 축의 일곱 자리와 보관소의 점선 파일은 보존 정책(1주)을 그린 것이며 실제로 쌓인 백업 수가 아니다. 복구 절차 표의 '보관 1벌'이 증거 시점의 실제 수다.
+호스트명: 주 DB=DB01, 관제 서버=OPS01, 웹 진입 서버=EDGE01. -->
+
+<script src="../deck.js"></script>
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+  const $ = id => document.getElementById(id);
+  const tools = () => document.body.classList.contains('tools');
+
+  // ---------- 원본 캡처 창 ----------
+  // 캡처는 04-3 VM 장의 Databasus 증거와 같은 발표용 사본(assets/evidence)이다. '00 소개'는 사용자가 쓴 소개 글(2026-09-27)을 그대로 쓴다.
+  // 뒤의 두 항목은 캡처가 아니라 저장소 설정 파일의 원문이다.
+  const EV = [
+    { t: '소개', k: '글', d: 'Databasus가 무엇이고 여기서 무엇을 했는지', intro: [
+      ['Databasus', ['오픈소스 기반의 셀프호스팅 데이터베이스 백업 도구입니다. 본 실습에서는 v3.59.0을 관제 서버에 컨테이너로 구성하여 PostgreSQL 데이터베이스 백업에 사용하였습니다.']],
+      ['역할', ['주 데이터베이스를 매일 논리 백업하고 암호화한 뒤, 백업 원본 서버와 분리된 웹 진입 서버의 SFTP 전용 계정으로 전송하여 7일간 보관하도록 구성하였습니다.',
+                '백업 데이터의 실제 복구 가능 여부를 확인하기 위해 임시 데이터베이스에 복원하였으며, 원본과 비교하여 테이블 109개의 존재 여부와 주요 테이블 3개의 행 수를 대조하여 복구 결과를 검증하였습니다.']],
+      ['라이선스', ['Apache License 2.0']],
+    ] },
+    { f: 'db-01-pre.png', t: '시작 전 상태', d: '관제 서버의 Databasus 컨테이너 정상, 화면은 127.0.0.1:4005에만 열림, 주 DB의 읽기 전용 계정, 보관소는 비어 있음' },
+    { f: 'db-04-storage.png', t: '외부 보관소 연결', d: '웹 진입 서버의 SFTP 전용 계정(셸 없음, 폴더에 갇힘)에 연결 성공' },
+    { f: 'db-05-db-form.png', t: 'DB 등록', d: '주 DB 192.168.10.31, 읽기 전용 계정, SSL 필수(비밀번호 칸은 비운 채 캡처)' },
+    { f: 'db-06-ro-warning.png', t: '권한 경고', d: '읽기 전용 계정에 TEMP·SECURITY DEFINER 실행 권한이 남았다는 경고. 원인은 VM DB에 V47.1 미적용, 기록하고 진행' },
+    { f: 'db-07-schedule.png', t: '일정·암호화·보존', d: '매일 09:00 논리 백업, 파일 암호화, 7일 보존' },
+    { f: 'db-08-backup-ok.png', t: '첫 백업 성공', d: '0.45 MB(원본 3.05 MB), 성공' },
+    { f: 'db-09-offhost.png', t: '서버 밖 도착', d: '웹 진입 서버에 백업 파일이 실제로 생기고, 관제 서버의 SFTP 접속이 로그에 남음' },
+    { f: 'db-10-verify-ok.png', t: '복원 검증 성공', d: '에이전트가 임시 DB에 복원하고 성공 보고' },
+    { f: 'db-11-verify-rows.png', t: '복원 결과', d: 'pg_restore 종료 코드 0, 테이블 109개, 테이블별 행 수' },
+    { f: 'db-12-crosscheck.png', t: '원본과 대조', d: '주 DB에서 직접 센 테이블 104+5=109개 일치, 표 3개 행 수 같음, 임시 컨테이너는 정리됨' },
+    { f: 'pf-10-test-lan.png', t: '웹 진입 서버 → 주 DB 막힘', d: 'pfSense 증거 20번 서버 사이 시험: 웹→DB 5432 TIMEOUT(같은 망이라 주 DB의 nftables가 판정)' },
+    { t: '보관 계정 제한 원문', k: '설정', d: 'deploy/vm-lab/build/build-files/ops/edge01-db-backup-sshd.conf · edge01-db-backup-sftp.nft', pre:
+`# /etc/ssh/sshd_config.d/30-db-backup.conf (웹 진입 서버)
+AllowUsers ops@192.168.56.0/24 dbbackup@192.168.10.41
+
+Match User dbbackup
+    ChrootDirectory /srv/db-backup
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+    PermitTTY no
+    PubkeyAuthentication yes
+
+# /etc/vm-lab/firewall.d/30-db-backup-sftp.nft (웹 진입 서버)
+add rule inet vmlab roles iifname "enp0s8" ip saddr 192.168.10.41 tcp dport 22
+    ct state new counter accept comment "Databasus 백업 SFTP(OPS01)"` },
+    { t: '포트 표 원문', k: '설정', d: 'deploy/vm-lab/build/00-주소계획.md 포트 표(발췌)', pre:
+`| 목적지 | 포트     | 허용 출발지                | 비고
+| EDGE01 | TCP 22   | 192.168.10.41(OPS01)       | Databasus 백업의 서버 밖 보관(SFTP).
+|        |          |                            | AllowUsers가 이 출발지에 dbbackup 계정만 허용,
+|        |          |                            | 셸 없이 /srv/db-backup에 갇힌 SFTP만 된다
+| DB01   | TCP 5432 | APP01, APP02, DB02, OPS01  | 거래 DB와 리스. 복제 연결 포함.
+|        |          |                            | OPS01은 Databasus의 읽기 전용 백업 계정 하나뿐
+| OPS01  | TCP 4005 | 루프백만                   | Databasus 관리 화면. 127.0.0.1:4005, SSH 터널로 접속` },
+  ];
+  const openEv = (() => {
+    const dlg = $('ev'), list = $('ev-list'), cap = $('ev-cap'), shot = $('ev-shot');
+    const no = i => String(i).padStart(2, '0');
+    const pick = i => {
+      const it = EV[i];
+      list.querySelectorAll('button').forEach((b, j) => b.classList.toggle('cur', i === j));
+      cap.innerHTML = `<b>${no(i)} ${it.t}</b>${it.d}`;
+      shot.classList.toggle('txt', !it.f);
+      if (it.intro) shot.innerHTML = `<div class="intro">${it.intro.map(([k, v]) => `<section><h3>${k}</h3>${v.map(p => `<p>${p}</p>`).join('')}</section>`).join('')}</div>`;
+      else if (it.pre) { shot.innerHTML = '<pre class="code"></pre>'; shot.firstChild.textContent = it.pre; }
+      else shot.innerHTML = `<img src="../assets/evidence/${it.f}" alt="${it.t} 캡처">`;
+      shot.scrollTop = 0;
+    };
+    EV.forEach((it, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<button type="button"><span class="no">${no(i)}</span><span>${it.t}</span><span class="st${it.f ? '' : ' t'}">${it.f ? '캡처' : it.k}</span></button>`;
+      li.querySelector('button').addEventListener('click', () => pick(i));
+      list.appendChild(li);
+    });
+    $('close-ev').addEventListener('click', () => dlg.close());
+    dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+    return () => { pick(0); try { dlg.showModal(); } catch (e) { dlg.setAttribute('open', ''); } };
+  })();
+  $('open-ev').addEventListener('click', () => { if (tools()) openEv(); });
+
+  // ---------- 도면 상태 ----------
+  // 수치는 증거본 2026-09-26_VM_Databasus의 캡처 설명과 README만 따른다. 앱 연결을 복원 DB로 옮기는 단계는 실행 기록이 없다.
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const trails = $('trails'), pkt = $('pkt'), burst = $('burst'), res = $('res');
+  let token = 0, raf = 0, timers = [];
+  const later = (fn, ms) => { const my = token; timers.push(setTimeout(() => { if (my === token) fn(); }, reduce ? 0 : ms)); };
+  const idle = $('idle'); const stopIdle = () => { if (idle) idle.style.display = 'none'; };
+  function stopAll() {
+    token++; cancelAnimationFrame(raf); timers.forEach(clearTimeout); timers = [];
+    trails.textContent = ''; stopIdle();
+    pkt.getAnimations?.().forEach(a => a.cancel());
+    pkt.setAttribute('class', 'pkt'); pkt.setAttribute('cx', -20); pkt.setAttribute('cy', -20);
+    burst.classList.remove('on');
+    document.querySelectorAll('.topo .ring').forEach(r => r.setAttribute('class', 'ring'));
+    document.querySelectorAll('#quick button').forEach(q => q.classList.remove('cur'));
+  }
+  const markQuick = s => document.querySelectorAll('#quick button').forEach(q => q.classList.toggle('cur', q.dataset.s === s));
+  // 선택 고리. 지나가는 자리(hop)는 잠깐 빛났다가 사라지고, 결과 고리(ok·no·src)는 남는다
+  const ring = (id, cls) => {
+    const r = $('ring-' + id); if (!r) return;
+    r.setAttribute('class', 'ring'); void r.getBBox(); r.setAttribute('class', 'ring on ' + cls);
+    if (cls === 'hop') later(() => { if (r.getAttribute('class') === 'ring on hop') r.setAttribute('class', 'ring'); }, 900);
+  };
+  const st = (id, t, c) => { const e = $(id); e.textContent = t; e.setAttribute('class', 'st ' + c); };
+  const nft = (id, c) => $('nft-' + id).setAttribute('class', 'nft' + (c ? ' ' + c : ''));
+  const files = n => $('files').querySelectorAll('.file').forEach((f, i) => f.setAttribute('class', 'file' + (i < n ? ' have' : '')));
+  function show(cls, fr, vd, why) {
+    res.className = 'res' + (cls ? ' ' + cls : '');
+    $('res-fr').innerHTML = fr; $('res-vd').textContent = vd; $('res-why').textContent = why;
+  }
+  function seq(on) {
+    const box = $('seq');
+    box.classList.toggle('focus', on.length > 0);
+    box.querySelectorAll('.row').forEach((r, i) => r.classList.toggle('on', on.includes(i)));
+  }
+  // 증거 시점의 보관소에는 백업이 한 벌 있었다(09-26 22:58). 백업 장면 전에는 비워 두고 장면이 끝나면 한 벌을 채운다
+  let stored = 0;
+  function base() {
+    st('s-db', '거래 DB', 'mu'); st('s-ops', '매일 09:00 논리 백업', 'gl'); st('s-tmp', '지금은 없음', 'mu');
+    $('tmp').setAttribute('class', 'off'); $('b-tmp').setAttribute('class', 'box ghost');
+    nft('db', ''); nft('edge', ''); files(stored);
+    ['b-db', 'b-ops', 'b-edge'].forEach(id => $(id).setAttribute('class', 'box'));
+    clearCursor(); seq([]);
+  }
+
+  // 꺾인 선을 따라 점이 일정한 속도로 움직이고 지나간 길은 선으로 남는다. instant면 끝 모습을 바로 그린다.
+  function run(path, cls, done, instant) {
+    const my = token;
+    const tr = document.createElementNS(NS, 'polyline'); tr.setAttribute('class', 'trail' + (cls ? ' ' + cls : '')); trails.appendChild(tr);
+    pkt.setAttribute('class', 'pkt' + (cls ? ' ' + cls : ''));
+    const seg = []; let total = 0;
+    for (let i = 1; i < path.length; i++) {
+      const [x1, y1] = path[i - 1], [x2, y2] = path[i];
+      const L = Math.hypot(x2 - x1, y2 - y1); seg.push({ x1, y1, x2, y2, L, at: total }); total += L;
+    }
+    const t0 = performance.now(), speed = .62;
+    const step = now => {
+      if (my !== token) return;
+      const d = reduce || instant ? total : Math.min(total, (now - t0) * speed);
+      const pts = [path[0]]; let pos = path[0];
+      for (const g of seg) {
+        if (d >= g.at + g.L) { pts.push([g.x2, g.y2]); pos = [g.x2, g.y2]; continue; }
+        const f = g.L ? (d - g.at) / g.L : 1; pos = [g.x1 + (g.x2 - g.x1) * f, g.y1 + (g.y2 - g.y1) * f]; pts.push(pos); break;
+      }
+      tr.setAttribute('points', pts.map(p => p.join(',')).join(' '));
+      pkt.setAttribute('cx', pos[0]); pkt.setAttribute('cy', pos[1]);
+      if (d < total) raf = requestAnimationFrame(step); else done && done();
+    };
+    raf = requestAnimationFrame(step);
+  }
+  function chain(list, instant, done) {
+    const my = token;
+    const next = i => {
+      if (my !== token) return;
+      if (i >= list.length) { done && done(); return; }
+      const [path, cls, hold, arrive] = list[i];
+      run(path, cls, () => { arrive && arrive(); if (instant) next(i + 1); else later(() => next(i + 1), hold || 0); }, instant);
+    };
+    next(0);
+  }
+
+  // ---------- 시점 복구 시간 축 ----------
+  // 보존 정책의 백업 시각(매일 09:00) 일곱 자리. 고른 시각보다 앞선 가장 가까운 백업으로만 되돌린다.
+  const MK = [250, 375, 500, 625, 750, 875, 1000];
+  const DAY = ['6일 전', '5일 전', '4일 전', '3일 전', '2일 전', '어제', '오늘'];
+  function clearCursor() {
+    $('cur').setAttribute('class', '');
+    document.querySelectorAll('#marks .mk').forEach(m => m.setAttribute('class', 'mk'));
+  }
+  function pickTime(x) {
+    x = Math.max(70, Math.min(1170, x));
+    const g = $('cur'); g.setAttribute('class', 'on');
+    $('cur-line').setAttribute('d', `M${x} 652V690`);
+    $('cur-t').setAttribute('x', Math.max(80, Math.min(1130, x)));
+    document.querySelectorAll('#marks .mk').forEach(m => m.setAttribute('class', 'mk'));
+    const k = MK.reduce((a, m, i) => (m <= x + 6 ? i : a), -1);
+    const lost = $('lost'), lt = $('lost-t'), back = $('back');
+    if (k < 0) {
+      lost.setAttribute('x', 60); lost.setAttribute('width', 0); back.setAttribute('d', 'M0 0'); lt.textContent = '';
+      show('no', '<b>7일보다 앞</b> 시각', '없음', '보존 7일이 지나 지운 뒤라\n되돌릴 백업이 없음');
+      seq([0]);
+      return;
+    }
+    const m = MK[k];
+    document.querySelectorAll('#marks .mk')[k].setAttribute('class', 'mk pick');
+    if (Math.abs(x - m) <= 6) {
+      lost.setAttribute('width', 0); back.setAttribute('d', 'M0 0'); lt.textContent = '';
+      show('ok', `<b>${DAY[k]} 09:00</b> 백업 시각`, '그대로', '그 백업으로 되돌림\n그 뒤의 변경은 복원 못 함');
+    } else {
+      lost.setAttribute('x', m); lost.setAttribute('width', x - m);
+      back.setAttribute('d', `M${x} 687H${m + 12}M${m + 19} 682L${m + 12} 687L${m + 19} 692`);
+      lt.setAttribute('x', Math.max(150, Math.min(1110, (m + x) / 2))); lt.textContent = '못 살리는 변경';
+      show('wa', '<b>시점 복구</b> · 백업 사이', '앞 백업까지', `${DAY[k]} 09:00 백업으로 되돌림\n그 뒤 변경은 복원 못 함(PITR 안 켬)`);
+    }
+    seq([0]);
+  }
+
+  // ---------- 장면 ----------
+  const SCENE = {
+    // 매일 09:00 백업: 관제 서버가 주 DB를 읽기 전용으로 읽어 암호화하고 웹 진입 서버에 올린다
+    B: instant => {
+      stopAll(); base(); markQuick('B');
+      show('', '<b>매일 09:00</b> 백업', '백업 중…', '');
+      chain([
+        [[[320, 145], [455, 145]], '', 260, () => { nft('db', 'ok'); st('s-db', '읽기 전용으로 읽힘', 'gl'); ring('ops', 'hop'); st('s-ops', '파일 암호화', 'gl'); }],
+        [[[755, 145], [890, 145]], 'ok', 0, () => {
+          nft('edge', 'ok'); ring('edge', 'ok'); stored = 1; files(1);
+          if (!instant) $('files').querySelector('.file').classList.add('new');
+          show('ok', '<b>매일 09:00</b> 백업', '보관', '읽기 전용 계정으로 떠서 파일 암호화\n첫 백업 0.45 MB(원본 3.05 MB) 도착');
+        }],
+      ], instant);
+    },
+    // 복원 검증: 보관한 백업을 가져와 임시 DB에 되살리고, 사람이 주 DB에서 직접 센 값과 대조한다
+    V: instant => {
+      stopAll(); stored = Math.max(stored, 1); base(); markQuick('V');
+      $('tmp').setAttribute('class', ''); $('b-tmp').setAttribute('class', 'box ghost good');
+      seq([1, 2]);
+      show('', '<b>보관 백업</b> → 임시 DB', '복원 중…', '');
+      st('s-tmp', '복원 중 · pg_restore', 'gl');
+      chain([
+        [[[1040, 250], [1040, 393], [755, 393]], '', 360, () => { nft('edge', 'ok'); ring('tmp', 'hop'); st('s-tmp', '표 109개 · 종료 코드 0', 'ok'); }],
+        [[[455, 393], [250, 393], [250, 250]], 'cmp', 500, () => {
+          ring('db', 'ok'); st('s-db', '표 109개 · 47·22·3', 'ok');
+          show('ok', '<b>복원 검증</b> · 원본 대조', '일치', '임시 DB에 되살림 · 종료 코드 0\n주 DB와 표 109개·세 표 행 수 같음');
+        }],
+      ], instant, () => { if (instant) st('s-tmp', '검증 뒤 정리됨', 'mu'); else later(() => { st('s-tmp', '검증 뒤 정리됨', 'mu'); $('tmp').setAttribute('class', 'off'); $('b-tmp').setAttribute('class', 'box ghost'); }, 1400); });
+    },
+    // 시점 복구: 백업과 백업 사이의 시각을 고르면 그 앞 백업으로만 되돌린다
+    T: () => { stopAll(); stored = Math.max(stored, 1); base(); markQuick('T'); pickTime(566); },
+    // 보관소 서버에서 주 DB로 직접 붙기: 주 DB의 nftables가 막는다(pfSense 증거 20번 시험)
+    X: instant => {
+      stopAll(); base(); markQuick('X');
+      show('', '<b>웹 진입 서버</b> → <b>주 DB</b>', '전송 중…', '');
+      ring('edge', 'src');
+      run([[1040, 250], [1040, 288], [106, 288], [106, 228]], '', () => {
+        pkt.setAttribute('class', 'pkt no'); trails.lastChild && trails.lastChild.setAttribute('class', 'trail no');
+        nft('db', 'no'); ring('db', 'no'); st('s-db', '5432 막힘 · 응답 없음', 'no');
+        if (!instant && !reduce) { burst.setAttribute('cx', 106); burst.setAttribute('cy', 228); burst.classList.remove('on'); void burst.getBBox(); burst.classList.add('on'); }
+        show('no', '<b>웹 진입 서버</b> → <b>주 DB</b>', '차단', '주 DB 방화벽은 5432를 정한 서버에만\n보관소 서버는 주 DB에 직접 못 붙음');
+      }, instant);
+    },
+  };
+  document.querySelectorAll('#quick button').forEach(q => q.addEventListener('click', () => {
+    const k = STEPS.indexOf(q.dataset.s); if (k >= 0) cur = k;
+    SCENE[q.dataset.s]();
+  }));
+  const HIT = { db: 'B', ops: 'B', edge: 'V', tmp: 'V' };
+  document.querySelectorAll('.topo .hit[data-id]').forEach(h => {
+    const go = () => { const s = HIT[h.dataset.id]; const k = STEPS.indexOf(s); if (k >= 0) cur = k; SCENE[s](); };
+    h.addEventListener('click', go);
+    h.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  });
+  // 시간 축: 누른 자리의 시각으로 되돌리면 어느 백업까지 가는지 보인다
+  const axisHit = $('axis-hit');
+  const svg = document.querySelector('.topo');
+  axisHit.addEventListener('click', e => {
+    const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+    const q = p.matrixTransform(svg.getScreenCTM().inverse());
+    stopAll(); stored = Math.max(stored, 1); base(); cur = 2; pickTime(q.x);
+  });
+  axisHit.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); stopAll(); stored = Math.max(stored, 1); base(); cur = 2; pickTime(566); } });
+
+  // ---------- 발표자 단계 ----------
+  // → 를 누를 때마다 백업, 복원 검증, 시점 복구를 하나씩 보이고, 목록 밖으로 나가면 false를 돌려 장을 넘긴다.
+  // 저절로 재생하지 않는다. 주소가 #last로 열리면 마지막 단계의 끝 모습을 바로 보인다.
+  const STEPS = ['B', 'V', 'T'];
+  let cur = -1;
+  window.deckStep = d => {
+    const n = cur + d;
+    if (n < 0 || n >= STEPS.length) return false;
+    cur = n; SCENE[STEPS[n]]();
+    return true;
+  };
+  base();
+  if (location.hash === '#last') { cur = STEPS.length - 1; stored = 1; SCENE[STEPS[cur]](true); }
+})();
+</script>
