@@ -29,6 +29,22 @@ def report(events=None):
                                    {"id": "alerts", "kind": "alerts", "status": "ok", "records": []}]}}
 
 
+def midnight_report(status, summary, **analysis):
+    """UTC 15시대에 울린 경보다. 한국 시간으로는 날짜가 하루 넘어간 0시대다(시연 13회차 보고와 같은 시각)."""
+    alert = {"labels": {"alertname": "AppTierCpuHigh"}, "status": status, "startsAt": "2026-09-27T15:03:46.132Z",
+             "endsAt": "2026-09-27T15:05:06.132Z" if status == "resolved" else "0001-01-01T00:00:00Z"}
+    # 현재 경보 목록의 진행 중 경보는 Prometheus가 붙인 유효 기한(발생 4분 뒤)을 endsAt으로 갖는다.
+    active = {**alert, "status": {"state": "active"}, "endsAt": "2026-09-27T15:07:46.132Z"}
+    collected = dt.datetime(2026, 9, 27, 15, 6, 1, tzinfo=dt.timezone.utc)
+    return {"id": "incident:midnight", "kind": "incident",
+            "analysis": {"mode": "ollama", "model": "gpt-oss:20b", "summary": summary, "observations": [],
+                         "hypotheses": [], "next_checks": [], **analysis},
+            "evidence": {"collected_at": collected.isoformat(), "window_end": collected.timestamp(), "window_seconds": 900,
+                         "facts": [{"id": "trigger", "kind": "alert_trigger", "status": "ok", "records": [alert]},
+                                   {"id": "alerts", "kind": "alerts", "status": "ok",
+                                    "records": [active] if status == "firing" else []}]}}
+
+
 class PresentationTests(unittest.TestCase):
     def test_card_names_customer_and_environment_for_daily_or_incident(self):
         item = report()
@@ -323,6 +339,47 @@ class PresentationTests(unittest.TestCase):
             self.assertEqual(item["value"], "50.00% 여유")
             self.assertNotIn("-1000", item["detail"])
             self.assertIn("구간 통계 해석 불가", item["detail"])
+
+    def test_ai_utc_clock_labeled_kst_is_rewritten_to_the_next_kst_day(self):
+        value = midnight_report("resolved", "앱 계층 CPU 높음 경보가 2026-09-27 15:03:46(KST)에서 15:05:06(KST)까지 "
+                                            "발생했으며, 15:05:06(KST)에 해제되었습니다.")
+        expected = "앱 계층 CPU 높음 경보가 2026-09-28 00:03 KST에서 00:05 KST까지 발생했으며, 00:05 KST에 해제되었습니다."
+        self.assertEqual(build_brief(value)["analysis_summary"], expected)
+        for rendered in (json.dumps(card(value), ensure_ascii=False), render_html(value)):
+            self.assertIn(expected, rendered)
+            self.assertNotIn("15:03", rendered)
+            self.assertNotIn("15:05", rendered)
+
+    def test_ai_kst_clock_with_utc_date_gets_the_kst_date(self):
+        value = midnight_report("firing", "앱 계층 CPU 높음 경보가 2026-09-27 00:03:46(KST)에 발생해 활성 상태입니다.")
+        self.assertEqual(build_brief(value)["analysis_summary"],
+                         "앱 계층 CPU 높음 경보가 2026-09-28 00:03 KST에 발생해 활성 상태입니다.")
+
+    def test_ai_sentence_with_a_time_the_report_does_not_show_is_dropped(self):
+        # 모델이 현재 경보 목록의 유효 기한을 해제 시각처럼 옮겨 쓴 시연 13회차 발생 보고의 문장이다.
+        value = midnight_report("firing", "앱 계층 CPU 높음 경보가 2026-09-27 00:03:46(KST) 발생하여 2026-09-27 00:07:46(KST)까지 "
+                                          "활성 상태를 유지하고 있습니다. 요청률과 지연을 함께 확인해야 합니다.",
+                                hypotheses=[{"text": "00:07 KST에 배포가 있었을 가능성", "evidence": ["trigger"]},
+                                            {"text": "트래픽 증가 가능성", "evidence": ["trigger"]}],
+                                next_checks=[{"text": "15:03 UTC 전후 로그를 확인합니다.", "evidence": ["trigger"]},
+                                             {"text": "23:10 KST 백업 작업을 확인합니다.", "evidence": ["trigger"]}])
+        brief = build_brief(value)
+        self.assertEqual(brief["analysis_summary"], "요청률과 지연을 함께 확인해야 합니다.")
+        self.assertEqual(brief["ai_notes"], ["미확인 가설: 트래픽 증가 가능성"])
+        self.assertEqual(brief["ai_checks"], ["00:03 KST 전후 로그를 확인합니다."])
+        rendered = render_html(value) + json.dumps(card(value), ensure_ascii=False)
+        self.assertNotIn("00:07", rendered)
+        self.assertNotIn("2026-09-27 00:03", rendered)
+
+    def test_ai_offset_time_and_korean_clock_use_the_report_time_format(self):
+        value = midnight_report("resolved", "2026-09-28T00:03:46+09:00에 발생한 경보가 오전 12시 5분에 해제됐습니다.")
+        self.assertEqual(build_brief(value)["analysis_summary"],
+                         "2026-09-28 00:03 KST에 발생한 경보가 00:05 KST에 해제됐습니다.")
+
+    def test_ai_time_on_the_kst_day_before_the_report_keeps_that_date(self):
+        value = midnight_report("resolved", "경보가 14:55(KST)에 발생했습니다.")
+        value["evidence"]["facts"][0]["records"][0]["startsAt"] = "2026-09-27T14:55:00Z"
+        self.assertEqual(build_brief(value)["analysis_summary"], "경보가 2026-09-27 23:55 KST에 발생했습니다.")
 
 
 if __name__ == "__main__":
