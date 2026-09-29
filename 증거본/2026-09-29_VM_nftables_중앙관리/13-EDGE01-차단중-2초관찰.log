@@ -1,0 +1,75 @@
+# 2026-09-29 02:26:32 KST 작업 PC(DEV-PC) 관찰 시작. 2초 간격. web = https://192.168.10.10/api/v1/markets 응답 코드, ssh = 작업 PC에서 edge01 로 새 SSH 연결(ConnectTimeout 3초)
+02:26:32 web=200 ssh=ok
+02:26:35 web=200 ssh=ok
+02:26:37 web=200 ssh=ok
+02:26:39 web=200 ssh=ok
+02:26:41 web=200 ssh=ok
+02:26:43 web=200 ssh=ok
+02:26:46 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:26:50 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:26:54 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:26:58 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:02 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:06 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:10 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:14 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:18 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:22 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:26 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:30 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:34 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:38 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:42 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:46 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:50 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:54 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:27:58 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:28:02 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:28:06 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:28:10 web=200 ssh=FAIL banner exchange: Connection to UNKNOWN port -1: Connection refused
+02:28:14 web=200 ssh=ok
+02:28:17 web=200 ssh=ok
+02:28:19 web=200 ssh=ok
+02:28:22 web=200 ssh=ok
+02:28:24 web=200 ssh=ok
+02:28:26 web=200 ssh=ok
+02:28:28 web=200 ssh=ok
+02:28:30 web=200 ssh=ok
+02:28:32 web=200 ssh=ok
+02:28:35 web=200 ssh=ok
+02:28:37 web=200 ssh=ok
+02:28:39 web=200 ssh=ok
+02:28:41 web=200 ssh=ok
+02:28:43 web=200 ssh=ok
+02:28:46 web=200 ssh=ok
+02:28:48 web=200 ssh=ok
+02:28:50 web=200 ssh=ok
+02:28:52 web=200 ssh=ok
+02:28:54 web=200 ssh=ok
+02:28:56 web=200 ssh=ok
+02:28:59 web=200 ssh=ok
+02:29:01 web=200 ssh=ok
+02:29:03 web=200 ssh=ok
+02:29:05 web=200 ssh=ok
+02:29:07 web=200 ssh=ok
+02:29:10 web=200 ssh=ok
+02:29:12 web=200 ssh=ok
+02:29:14 web=200 ssh=ok
+02:29:16 web=200 ssh=ok
+02:29:18 web=200 ssh=ok
+02:29:20 web=200 ssh=ok
+02:29:23 web=200 ssh=ok
+02:29:25 web=200 ssh=ok
+02:29:27 web=200 ssh=ok
+02:29:29 web=200 ssh=ok
+02:29:31 web=200 ssh=ok
+02:29:34 web=200 ssh=ok
+02:29:36 web=200 ssh=ok
+02:29:38 web=200 ssh=ok
+02:29:40 web=200 ssh=ok
+02:29:42 web=200 ssh=ok
+02:29:44 web=200 ssh=ok
+02:29:47 web=200 ssh=ok
+02:29:49 web=200 ssh=ok
+02:29:51 web=200 ssh=ok
+# 02:29:53 관찰 끝

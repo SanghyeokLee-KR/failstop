@@ -1,0 +1,11 @@
+## 2026-09-29 KST  EDGE01 되돌리기 시험(13) 동안 열어 둔 비상용 SSH 세션의 원문 출력. 작업 PC(DEV-PC)의 ssh.exe 로 edge01 에 "sudo bash -s" 세션을 적용 전(02:26:17)에 열고,
+## 표준 입력으로 명령을 넣어 받았다. 새 연결만 거절하는 시험 규칙(02:26:45~02:28:14) 동안 이 세션은 이미 맺은 연결(ct state established)이라 끊기지 않았다.
+## 복구에 쓸 일은 없었다. 02:29:19 에 보낸 명령의 출력: 시험 규칙(admin) 0줄, 되돌리기 유닛의 journald 기록.
+
+lifeline-ready edge01.lab 02:26:17 2
+lifeline-alive 02:29:19 roles-test-rule=0
+2026-09-29T02:26:44+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-022644.timer - nft-central 자동 되돌리기 20260929-022644.
+2026-09-29T02:28:14+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-022644.service - nft-central 자동 되돌리기 20260929-022644.
+2026-09-29T02:28:14+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-022644.service: Deactivated successfully.
+2026-09-29T02:28:14+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-022644.timer: Deactivated successfully.
+lifeline ended exit=0

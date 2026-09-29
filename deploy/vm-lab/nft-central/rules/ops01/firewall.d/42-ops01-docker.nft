@@ -1,0 +1,26 @@
+# OPS01 의 Databasus 컨테이너용 방화벽 규칙. 배치 위치는 /etc/vm-lab/firewall.d/42-ops01-docker.nft 다.
+#
+# 왜 필요한가
+#   Databasus 는 상류가 컨테이너 배포만 제공해 Docker 로 올린다. 컨테이너는 브리지 뒤의 별도
+#   네트워크 이름공간에 있고, 컨테이너가 DB01 이나 외부 보관소로 나가는 패킷은 forward 훅을 지난다.
+#   공통 기반의 inet vmlab forward 체인은 policy drop 이므로 규칙이 없으면 그 통신이 끊긴다.
+#   Docker 가 만든 ip filter FORWARD 의 accept 는 다른 계통이라 이 drop 을 대신하지 못한다.
+#   nftables 는 여러 계통의 기본 체인을 모두 평가하고 한 곳에서 drop 이면 패킷이 끝난다.
+#
+# 인터페이스 이름을 databasus0 으로 고정한 이유
+#   compose 의 기본 브리지 이름은 br-<네트워크ID 앞 12자> 이고 네트워크를 다시 만들면 바뀐다.
+#   처음에는 docker0 을 가리켰는데 compose 가 전용 네트워크를 따로 만들어 규칙이 하나도 맞지 않았다.
+#   docker-compose.yml 의 driver_opts 로 이름을 고정하고 여기서 그 이름을 쓴다.
+#   두 파일 중 하나만 고치면 다시 끊기므로 이름을 바꿀 때는 반드시 함께 고친다.
+#
+# 무엇을 열지 않는가
+#   4005 를 밖으로 열지 않는다. 게시 주소를 127.0.0.1:4005 로 묶었고 input 체인에 4005 허용
+#   규칙을 두지 않는다. 화면은 Grafana 와 같은 방식으로 SSH 터널로만 본다.
+#   docker0 은 쓰지 않으므로 허용하지 않는다. 다른 compose 프로젝트를 올리면 이 파일을 먼저 고친다.
+
+# 응답 경로. 컨테이너가 먼저 연 연결의 되돌아오는 패킷이 여기서 통과한다.
+add rule inet vmlab forward ct state established,related counter accept comment "databasus reply"
+# 컨테이너에서 밖으로. DB01 의 5432, 외부 보관소, 이미지 내려받기가 이 줄을 쓴다.
+add rule inet vmlab forward iifname "databasus0" ct state new counter accept comment "databasus egress"
+# 밖에서 컨테이너로. 127.0.0.1:4005 게시가 DNAT 될 때의 경로다.
+add rule inet vmlab forward oifname "databasus0" ct state new counter accept comment "databasus ingress"

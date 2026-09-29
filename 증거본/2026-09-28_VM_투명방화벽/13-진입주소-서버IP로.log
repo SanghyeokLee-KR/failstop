@@ -1,0 +1,26 @@
+# 2026-09-28 22:22:54 KST · 서비스 경로 NAT 제거 준비: 진입 주소를 서버 자기 주소 https://192.168.10.11 로
+
+> ssh edge01 "sudo bash /tmp/60-transparent-entry-edge01.sh"
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+== 바인딩
+LISTEN 0      511    192.168.10.11:80        0.0.0.0:*   
+LISTEN 0      511    192.168.10.11:443       0.0.0.0:*   
+== Host 헤더
+87:        server_name 192.168.56.10 192.168.10.11;
+93:        server_name 192.168.56.10 192.168.10.11;
+121:            proxy_set_header Host 192.168.10.11;
+122:            proxy_set_header X-Forwarded-Host 192.168.10.11;
+147:            proxy_set_header Host 192.168.10.11;
+== SAN
+X509v3 Subject Alternative Name: 
+    IP Address:192.168.56.10, IP Address:192.168.10.11
+
+> ssh app01 "sudo bash /tmp/61-transparent-entry-app-origin.sh"
+EXCHANGE_CORS_ALLOWED_ORIGINS=https://192.168.10.11
+APP_WS_ALLOWED_ORIGINS=https://192.168.10.11
+active
+
+> ssh app02 "sudo bash /tmp/61-transparent-entry-app-origin.sh"
+EXCHANGE_CORS_ALLOWED_ORIGINS=https://192.168.10.11
+APP_WS_ALLOWED_ORIGINS=https://192.168.10.11
+active

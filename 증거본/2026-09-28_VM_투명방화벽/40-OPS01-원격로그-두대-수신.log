@@ -1,0 +1,38 @@
+## 2026-09-28 23:19:25 KST  OPS01 에 62-transparent-ops01-syslog.sh 적용
+$ ssh ops01 'sudo bash -s' < 62-transparent-ops01-syslog.sh
+		iifname "enp0s8" ip saddr 192.168.10.1 udp dport 514 counter packets 0 bytes 0 accept comment "pfSense 원격 로그"
+		iifname "enp0s8" ip saddr 192.168.10.2 udp dport 514 counter packets 0 bytes 0 accept comment "투명 방화벽 원격 로그"
+rsyslogd: End of config validation run. Bye.
+UNCONN 0      0      192.168.10.41:514       0.0.0.0:*    users:(("rsyslogd",pid=11468,fd=4))
+rotating pattern: /var/log/pfsense/firewall.log /var/log/pfsense/transparent.log after 1 days empty log files are not rotated, (14 rotations), old logs are removed
+considering log /var/log/pfsense/firewall.log
+  log does not need rotating (log has already been rotated)
+considering log /var/log/pfsense/transparent.log
+
+## 23:29:34 KST  pfsense-tp 원격 로그 켬(Status › System Logs › Settings: 보내는 주소 BRIDGE 192.168.10.2, 받는 곳 192.168.10.41:514, 방화벽 이벤트). DB01→APP01 8080 차단을 일부러 발생시킨 뒤 확인
+$ ssh ops01 "sudo tail -n 3 /var/log/pfsense/transparent.log; sudo tail -n 1 /var/log/pfsense/firewall.log; sudo nft list chain inet vmlab roles | grep 'udp dport 514'"
+Sep 28 23:29:29 192.168.10.2 filterlog[93651]: 89,,,1790635884,em4,match,block,in,4,0x0,,64,35713,0,DF,6,tcp,60,192.168.10.31,192.168.10.21,56830,8080,0,S,3554063016,,642
+Sep 28 23:29:30 192.168.10.2 filterlog[93651]: 89,,,1790635884,em4,match,block,in,4,0x0,,64,35714,0,DF,6,tcp,60,192.168.10.31,192.168.10.21,56830,8080,0,S,3554063016,,642
+Sep 28 23:22:49 pfsense-fw.lab filterlog[14151]: 4,,,1000000103,em1,match,block,in,4,0xb8,,64,3064,0,none,17,udp,76,192.168.10.2,192.168.10.1,123,123,56
+		iifname "enp0s8" ip saddr 192.168.10.1 udp dport 514 counter packets 4 bytes 833 accept comment "pfSense 원격 로그"
+		iifname "enp0s8" ip saddr 192.168.10.2 udp dport 514 counter packets 2 bytes 436 accept comment "투명 방화벽 원격 로그"
+
+## 23:51:47 KST  62번 보강(투명 방화벽의 haproxy·suricata 로그를 별도 파일로, 로테이션 대상 추가) 뒤 다시 적용
+$ ssh ops01 'sudo bash -s' < 62-transparent-ops01-syslog.sh
+		iifname "enp0s8" ip saddr 192.168.10.1 udp dport 514 counter packets 0 bytes 0 accept comment "pfSense 원격 로그"
+		iifname "enp0s8" ip saddr 192.168.10.2 udp dport 514 counter packets 0 bytes 0 accept comment "투명 방화벽 원격 로그"
+rsyslogd: End of config validation run. Bye.
+UNCONN 0      0      192.168.10.41:514       0.0.0.0:*    users:(("rsyslogd",pid=16626,fd=4))
+rotating pattern: /var/log/pfsense/firewall.log /var/log/pfsense/transparent.log /var/log/pfsense/haproxy.log /var/log/pfsense/suricata.log after 1 days empty log files are not rotated, (14 rotations), old logs are removed
+considering log /var/log/pfsense/firewall.log
+  log does not need rotating (log has already been rotated)
+considering log /var/log/pfsense/transparent.log
+-rw-r--r--.  1 root root 1095 Sep 28 23:51 10-pfsense.conf
+-rw-r--r--.  1 root root  290 Sep 26 20:49 10-pfsense.conf.bak-before-transparent
+2
+
+## 00:05:51 KST  62번 보강 2차(filterlog 와 그 밖의 시스템 이벤트를 나눔) 뒤 다시 적용
+rsyslogd: End of config validation run. Bye.
+UNCONN 0      0      192.168.10.41:514       0.0.0.0:*    users:(("rsyslogd",pid=18956,fd=4))
+rotating pattern: /var/log/pfsense/firewall.log /var/log/pfsense/transparent.log /var/log/pfsense/transparent-system.log /var/log/pfsense/haproxy.log /var/log/pfsense/suricata.log after 1 days empty log files are not rotated, (14 rotations), old logs are removed
+  log does not need rotating (log has already been rotated)

@@ -1,0 +1,3 @@
+# pfSense 경계형 전환(2026-09-26). 관리 SSH 는 pfSense(192.168.56.10)가 라우팅해 lab-lan(enp0s8)으로 들어온다.
+# 출발지는 작업 PC 192.168.56.1 하나다. pfSense 는 이 경로에서 출발지를 바꾸지 않는다.
+add rule inet vmlab roles iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter accept comment "관리 SSH(pfSense 경유)"

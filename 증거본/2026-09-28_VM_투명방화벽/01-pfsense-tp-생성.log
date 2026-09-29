@@ -1,0 +1,201 @@
+
+# 2026-09-28 22:00:12 KST · 기존 경계 방화벽 복제(새 MAC)
+> VBoxManage clonevm pfsense-fw --name pfsense-tp --register --mode machine
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+Machine has been successfully cloned as "pfsense-tp"
+
+# 2026-09-28 22:00:19 KST · NIC 여섯 개를 구역에 연결
+> VBoxManage modifyvm pfsense-tp --nic1 intnet --intnet1 lab-lan --nic2 hostonly --hostonlyadapter2 VirtualBox Host-Only Ethernet Adapter --nic3 intnet --intnet3 lab-dmz --nic4 intnet --intnet4 lab-app --nic5 intnet --intnet5 lab-data --nic6 intnet --intnet6 lab-ops --nictype1 82540EM --nictype2 82540EM --nictype3 82540EM --nictype4 82540EM --nictype5 82540EM --nictype6 82540EM --nicpromisc1 allow-all --nicpromisc3 allow-all --nicpromisc4 allow-all --nicpromisc5 allow-all --nicpromisc6 allow-all --description 투명 방화벽(L2 브리지). em0 lab-lan 상위, em1 관리 host-only, em2 DMZ, em3 APP, em4 DATA, em5 OPS
+
+# 2026-09-28 22:00:19 KST · 설정 확인
+> VBoxManage showvminfo pfsense-tp --machinereadable
+name="pfsense-tp"
+encryption="disabled"
+groups="/"
+platformArchitecture="x86"
+ostype="FreeBSD (64-bit)"
+UUID="db8e69f5-3ea9-4bad-a8d0-3839ae727e75"
+CfgFile="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\pfsense-tp.vbox"
+SnapFldr="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\Snapshots"
+LogFldr="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\Logs"
+hardwareuuid="db8e69f5-3ea9-4bad-a8d0-3839ae727e75"
+memory=2048
+pagefusion="off"
+vram=16
+cpuexecutioncap=100
+cpu-profile="host"
+chipset="piix3"
+firmware="BIOS"
+cpus=1
+hpet="off"
+pae="off"
+longmode="on"
+triplefaultreset="off"
+apic="on"
+x2apic="off"
+nested-hw-virt="off"
+hwvirtex="on"
+nestedpaging="on"
+largepages="on"
+vtxvpid="on"
+vtxux="on"
+virtvmsavevmload="on"
+cpuid-portability-level=0
+bootmenu="messageandmenu"
+boot1="dvd"
+boot2="disk"
+boot3="none"
+boot4="none"
+acpi="on"
+ioapic="on"
+biosapic="apic"
+biossystemtimeoffset=0
+NvramFile="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\pfsense-tp.nvram"
+rtcuseutc="off"
+iommu="none"
+paravirtprovider="default"
+effparavirtprovider="none"
+VMState="poweroff"
+VMStateChangeTime="2026-09-26T14:38:08.000000000"
+graphicscontroller="vboxvga"
+monitorcount=1
+accelerate3d="off"
+teleporterenabled="off"
+teleporterport=0
+teleporteraddress=""
+teleporterpassword=""
+tracing-enabled="off"
+tracing-allow-vm-access="off"
+tracing-config=""
+autostart-enabled="off"
+autostart-delay=0
+defaultfrontend=""
+vmprocpriority="default"
+storagecontrollername0="SATA"
+storagecontrollertype0="IntelAhci"
+storagecontrollerinstance0="0"
+storagecontrollermaxportcount0="30"
+storagecontrollerportcount0="2"
+storagecontrollerbootable0="on"
+"SATA-0-0"="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\pfsense-tp.vdi"
+"SATA-ImageUUID-0-0"="ec85a4bb-3fd4-4473-9683-3e182b6be54c"
+"SATA-hot-pluggable-0-0"="off"
+"SATA-nonrotational-0-0"="off"
+"SATA-discard-0-0"="off"
+"SATA-1-0"="emptydrive"
+"SATA-IsEjected-1-0"="off"
+intnet1="lab-lan"
+macaddress1="080027092DB2"
+cableconnected1="on"
+nic1="intnet"
+nictype1="82540EM"
+nicspeed1="0"
+hostonlyadapter2="VirtualBox Host-Only Ethernet Adapter"
+macaddress2="0800279F4162"
+cableconnected2="on"
+nic2="hostonly"
+nictype2="82540EM"
+nicspeed2="0"
+intnet3="lab-dmz"
+macaddress3="08002774D3E2"
+cableconnected3="on"
+nic3="intnet"
+nictype3="82540EM"
+nicspeed3="0"
+intnet4="lab-app"
+macaddress4="08002753F493"
+cableconnected4="on"
+nic4="intnet"
+nictype4="82540EM"
+nicspeed4="0"
+intnet5="lab-data"
+macaddress5="0800272FCAAE"
+cableconnected5="on"
+nic5="intnet"
+nictype5="82540EM"
+nicspeed5="0"
+intnet6="lab-ops"
+macaddress6="080027F033ED"
+cableconnected6="on"
+nic6="intnet"
+nictype6="82540EM"
+nicspeed6="0"
+nic7="none"
+nic8="none"
+hidpointing="ps2mouse"
+hidkeyboard="ps2kbd"
+uart1="off"
+uart2="off"
+uart3="off"
+uart4="off"
+lpt1="off"
+lpt2="off"
+audio="default"
+audio_out="off"
+audio_in="off"
+clipboard="disabled"
+clipboard_file_transfers="off"
+draganddrop="disabled"
+vrde="off"
+usb="off"
+ehci="off"
+xhci="off"
+recording_started="off"
+recording_enabled="off"
+recording_screens=1
+ rec_screen0
+rec_screen_enabled="on"
+rec_screen_id=0
+rec_screen_video_enabled="on"
+rec_screen_audio_enabled="off"
+rec_screen_dest="File"
+rec_screen_dest_filename="C:\\Users\\DEV-PC\\VirtualBox VMs\\pfsense-tp\\pfsense-tp-screen0.webm"
+rec_screen_opts="ac_profile=med"
+rec_screen_video_res_xy="1024x768"
+rec_screen_video_rate_kbps=512
+rec_screen_video_fps=25
+description="투명 방화벽(L2 브리지). em0 lab-lan 상위, em1 관리 host-only, em2 DMZ, em3 APP, em4 DATA, em5 OPS"
+GuestMemoryBalloon=0
+
+# 2026-09-28 22:00:29 KST · 헤드리스 기동
+> VBoxManage startvm pfsense-tp --type headless
+Waiting for VM "pfsense-tp" to power on...
+VM "pfsense-tp" has been successfully started.
+
+# 2026-09-28 22:00:48 KST · 하이퍼바이저 전환 재부팅 전 정지(초기화 전이라 전원 끔)
+> VBoxManage controlvm pfsense-tp poweroff
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+
+# 2026-09-28 22:05:52 KST · 하이퍼바이저 끈 뒤 헤드리스 기동
+> VBoxManage startvm pfsense-tp --type headless
+Waiting for VM "pfsense-tp" to power on...
+VM "pfsense-tp" has been successfully started.
+
+# 2026-09-28 22:10:08 KST · 콘솔 4번 공장 초기화, y 확인(복제본의 예전 경계 방화벽 설정 삭제)
+
+# 2026-09-28 22:14:58 KST · 콘솔 2번: LAN(em1, host-only) 192.168.56.20/24, 게이트웨이·IPv6·DHCP 서버 없음, HTTPS 유지
+
+# 2026-09-28 22:16:14 KST · '전' 시험용 기동 pfsense-fw
+> VBoxManage startvm pfsense-fw --type headless
+Waiting for VM "pfsense-fw" to power on...
+VM "pfsense-fw" has been successfully started.
+
+# 2026-09-28 22:16:17 KST · '전' 시험용 기동 EDGE01
+> VBoxManage startvm EDGE01 --type headless
+Waiting for VM "EDGE01" to power on...
+VM "EDGE01" has been successfully started.
+
+# 2026-09-28 22:20:00 KST · 기동 DB01
+> VBoxManage startvm DB01 --type headless
+
+# 2026-09-28 22:20:07 KST · 기동 DB02
+> VBoxManage startvm DB02 --type headless
+
+# 2026-09-28 22:20:14 KST · 기동 APP01
+> VBoxManage startvm APP01 --type headless
+
+# 2026-09-28 22:20:21 KST · 기동 APP02
+> VBoxManage startvm APP02 --type headless
+
+# 2026-09-28 22:20:28 KST · 기동 OPS01
+> VBoxManage startvm OPS01 --type headless

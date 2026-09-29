@@ -1,0 +1,34 @@
+# DB02 Standby의 역할별 방화벽 규칙. 공통 기반(00-common-setup.sh)을 적용한 VM에서 쓴다.
+#
+# 방화벽은 table inet vmlab 한 계통만 쓴다. 설정은 /etc/vm-lab/firewall.nft,
+# 유닛은 vm-lab-firewall.service 하나다. 배포판 nftables.service 를 두 번째
+# 정책원으로 살려 두지 않는다. DB02 단독 테이블(inet failstop) 파일은 없앴다.
+#
+# 배치 위치는 /etc/vm-lab/firewall.d/31-db02.nft 이며 권한은 0600이다.
+# 공통 기반이 만든 /etc/vm-lab/firewall.nft 가 이 디렉터리를 include 하므로
+# 테이블과 체인을 다시 선언하지 않고 add rule 형식으로만 덧붙인다.
+# 기본 정책은 이미 drop이고 22와 9100은 공통 기반이 열어 두었다.
+#
+# 나가는 통신(output)은 여기서 제한하지 않는다. 발신 제한은 pfSense 경계에서 거는 것으로
+# 정했다. 호스트마다 발신 규칙을 따로 두면 정책이 여섯 벌로 갈린다.
+# 다만 DB02는 DB01로 복제 연결을 먼저 여는 쪽이므로, 경계에서 발신을 막을 때
+# 192.168.10.32 -> 192.168.10.31:5432 를 반드시 남긴다.
+#
+# 적용:
+#   sudo install -o root -g root -m 0600 db02-firewall.d.nft /etc/vm-lab/firewall.d/31-db02.nft
+#   sudo nft --check --file /etc/vm-lab/firewall.nft
+#   sudo systemctl reload vm-lab-firewall.service
+#   sudo nft list chain inet vmlab input
+# 31-db-standby-setup.sh 의 firewall 단계가 이 순서를 그대로 실행한다.
+#
+# DB01의 30-db01.nft와 다른 점이 하나 있고 그것이 이 파일의 핵심이다.
+# 5432를 여는 규칙이 없다. 00-주소계획.md의 포트 표에서 DB02의 5432 허용 출발지는
+# "없음"이다. 승격 전 Standby는 DB01에 복제 연결을 먼저 여는 쪽이고 받는 쪽이 아니다.
+# 접근제어도의 "일반 거래 SQL을 분산하지 않는다"가 같은 정책이다.
+# 승격했을 때만 db02-firewall-promoted.d.nft 로 교체한다. 여기에 미리 넣어 두지 않는다.
+#
+# 규칙 주석은 짧게 쓴다. nftables 주석은 128바이트 제한이 있고 한글은 한 글자가 3바이트다.
+
+# DB 지표. OPS01의 lab-lan 주소 하나만 허용한다.
+# node_exporter 9100은 공통 기반이 이미 같은 출발지로 열어 두었다.
+add rule inet vmlab roles ip saddr 192.168.10.41 tcp dport 9187 ct state new counter accept comment "postgres_exporter"

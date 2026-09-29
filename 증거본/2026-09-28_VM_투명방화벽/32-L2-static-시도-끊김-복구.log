@@ -1,0 +1,36 @@
+## 2026-09-28 KST  L2 포트 보안 1차 시도: static MAC 등록 + 포트당 MAC 수 제한(ifmaxaddr). 실패해 약 50초 끊김, sticky 방식으로 복구.
+시도한 명령(pfsense-tp Diagnostics › Command Prompt, 23:03:50 무렵):
+  ifconfig bridge0 flushall static em0 08:00:27:1c:41:86 static em2 08:00:27:86:99:13 static em3 08:00:27:50:ba:7c \
+    static em3 08:00:27:db:d7:8b static em4 08:00:27:96:86:b8 static em4 08:00:27:80:39:a9 static em5 08:00:27:4b:9b:f7
+  (ifmaxaddr em0 1 / em2 1 / em3 2 / em4 2 / em5 1 은 바로 앞 단계에서 이미 걸려 있었다)
+8초 뒤 브리지 표(STATIC 7줄만 남음. 모두 Vlan1):
+  08:00:27:1c:41:86 Vlan1 em0 0 flags=1<STATIC>   ... (7줄 모두 Vlan1 STATIC)
+원인: pfSense 2.7.2(FreeBSD 14)의 ifconfig 는 static 항목을 VLAN 1 로 넣는다. 태그 없는 실제 프레임은 VLAN 0 으로 찾기 때문에
+  static 항목과 맞지 않았고, 새 학습은 포트당 한도(ifmaxaddr)가 이미 static 으로 차 있어 거절돼 프레임이 버려졌다.
+  static 을 걸기 전(화면 없음)에는 기존 STICKY(Vlan0) 항목이 함께 있어 통신이 유지됐는데, flushall 로 그 항목을 지운 것이 끊김의 직접 계기다.
+
+## 작업 PC 시험(끊긴 동안)
+23:04:01  web 000 8.001746s / markets 000 / ssh app02·ops01 Connection timed out
+
+## 복구(23:04:39): ifconfig bridge0 flushall → 7개 MAC 이 제 포트에 STICKY(Vlan0)로 다시 학습(화면 33)
+23:05:08  web 200 0.007623s / markets 200
+
+## 영향: 앱→DB 연결이 약 50초 끊겨 앱 리더가 다시 바뀜(APP02 → APP01). 서비스 응답은 복구 직후 200.
+$ ssh app01 "journalctl -u exchange-app --since '23:03:30' --until '23:05:00' | grep -E 'LeaderLease|HaAvailability'"
+Sep 28 23:04:40 app01.lab exchange-app[1754]: 2026-09-28T14:04:40.691Z  INFO 1754 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더 승격: holder=79ac9227-45e1-42eb-9022-6ad014d309d9, epoch=16
+Sep 28 23:04:40 app01.lab exchange-app[1754]: 2026-09-28T14:04:40.899Z  INFO 1754 --- [exchange] [ngine-promotion] kr.exchange.engine.HaAvailability        : readiness 전이: ACCEPTING_TRAFFIC
+$ ssh app02 "journalctl -u exchange-app --since '23:03:30' --until '23:05:00' | grep -E 'LeaderLease|HaAvailability'"
+Sep 28 23:04:44 app02.lab exchange-app[1128]: 2026-09-28T14:04:44.954Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더십 상실(재승격 금지, 복귀는 재기동): holder=d8f94a83
+Sep 28 23:04:44 app02.lab exchange-app[1128]: 2026-09-28T14:04:44.954Z  INFO 1128 --- [exchange] [   leader-lease] kr.exchange.engine.HaAvailability        : readiness 전이: REFUSING_TRAFFIC
+
+## 23:05:39 KST  APP02 복귀(리더십을 잃은 노드는 재기동으로 대기 노드가 된다)
+$ ssh app02 sudo systemctl restart exchange-app
+active
+liveness: {"status":"UP"}
+Sep 28 23:05:46 app02.lab exchange-app[1838]: 2026-09-28T14:05:46.837Z  INFO 1838 --- [exchange] [           main] kr.exchange.engine.FollowerCatchUp       : 팔로워 따라잡기 시작: 주기 PT1S
+Sep 28 23:05:46 app02.lab exchange-app[1838]: 2026-09-28T14:05:46.877Z  INFO 1838 --- [exchange] [           main] kr.exchange.ExchangeApplication          : Started ExchangeApplication in 6.537 secon
+Sep 28 23:05:46 app02.lab exchange-app[1838]: 2026-09-28T14:05:46.982Z  WARN 1838 --- [exchange] [           main] kr.exchange.engine.HaAvailability        : readiness 오발행 정정: 발행=ACCEPTI
+readiness app01: {"status":"UP"}  app02: {"status":"OUT_OF_SERVICE"}
+
+교훈: 이 버전에서는 static 대신 sticky(처음 학습한 MAC을 고정) + ifmaxaddr(포트당 개수 제한)로 포트 보안을 건다.
+      포트 보안 변경은 구역 하나에서 먼저 시험하고, 브리지 표를 비우는 명령은 대체 경로가 확인된 뒤에만 쓴다.

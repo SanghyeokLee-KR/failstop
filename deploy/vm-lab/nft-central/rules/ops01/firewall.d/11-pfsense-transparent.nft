@@ -1,0 +1,2 @@
+# 투명 방화벽(pfsense-tp) 방화벽 이벤트 원격 로그(2026-09-28). 출발지는 브리지 관리 주소 192.168.10.2 하나다.
+add rule inet vmlab roles iifname "enp0s8" ip saddr 192.168.10.2 udp dport 514 counter accept comment "투명 방화벽 원격 로그"

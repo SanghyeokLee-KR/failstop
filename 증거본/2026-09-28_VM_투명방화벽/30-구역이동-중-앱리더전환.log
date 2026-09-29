@@ -1,0 +1,65 @@
+## 2026-09-28 KST  구역 이동(22:57:22)부터 pfsense-tp bridge flushall(22:58:30 무렵, 화면 28)까지 앱→DB 연결이 끊긴 동안의 앱 로그. 줄 앞 시각은 KST, 본문의 ISO 시각은 UTC다.
+
+$ ssh app01 "sudo journalctl -u exchange-app --since '22:57:00' --until '22:59:30' | grep -E 'leader-lease|HaAvailability|FollowerCatchUp|promotion'"
+Sep 28 22:57:32 app01.lab exchange-app[1128]: 2026-09-28T13:57:32.925Z  WARN 1128 --- [exchange] [   leader-lease] com.zaxxer.hikari.pool.PoolBase          : exchange-lease - Failed to validate connection org.postgresql.jdbc.PgCon
+Sep 28 22:57:32 app01.lab exchange-app[1128]: 2026-09-28T13:57:32.927Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:37 app01.lab exchange-app[1128]: 2026-09-28T13:57:37.930Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:42 app01.lab exchange-app[1128]: 2026-09-28T13:57:42.933Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:47 app01.lab exchange-app[1128]: 2026-09-28T13:57:47.935Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:52 app01.lab exchange-app[1128]: 2026-09-28T13:57:52.936Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:57 app01.lab exchange-app[1128]: 2026-09-28T13:57:57.937Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:02 app01.lab exchange-app[1128]: 2026-09-28T13:58:02.938Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:07 app01.lab exchange-app[1128]: 2026-09-28T13:58:07.939Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:12 app01.lab exchange-app[1128]: 2026-09-28T13:58:12.941Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:17 app01.lab exchange-app[1128]: 2026-09-28T13:58:17.942Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:22 app01.lab exchange-app[1128]: 2026-09-28T13:58:22.943Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:26 app01.lab exchange-app[1128]: 2026-09-28T13:58:26.587Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더십 상실(재승격 금지, 복귀는 재기동): holder=c60fc22b
+Sep 28 22:58:26 app01.lab exchange-app[1128]: 2026-09-28T13:58:26.587Z  INFO 1128 --- [exchange] [   leader-lease] kr.exchange.engine.HaAvailability        : readiness 전이: REFUSING_TRAFFIC
+
+$ ssh app02 "sudo journalctl -u exchange-app --since '22:57:00' --until '22:59:30' | grep -E 'leader-lease|HaAvailability|FollowerCatchUp|promotion'"
+Sep 28 22:57:32 app02.lab exchange-app[1128]: 2026-09-28T13:57:32.705Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:34 app02.lab exchange-app[1128]: 2026-09-28T13:57:34.934Z  WARN 1128 --- [exchange] [   leader-lease] com.zaxxer.hikari.pool.PoolBase          : exchange-lease - Failed to validate connection org.postgresql.jdbc.PgCon
+Sep 28 22:57:36 app02.lab exchange-app[1128]: 2026-09-28T13:57:36.708Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:36 app02.lab exchange-app[1128]: 2026-09-28T13:57:36.936Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:40 app02.lab exchange-app[1128]: 2026-09-28T13:57:40.711Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:43 app02.lab exchange-app[1128]: 2026-09-28T13:57:43.939Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:44 app02.lab exchange-app[1128]: 2026-09-28T13:57:44.712Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:48 app02.lab exchange-app[1128]: 2026-09-28T13:57:48.714Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:50 app02.lab exchange-app[1128]: 2026-09-28T13:57:50.942Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:57:52 app02.lab exchange-app[1128]: 2026-09-28T13:57:52.715Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:56 app02.lab exchange-app[1128]: 2026-09-28T13:57:56.718Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:57:57 app02.lab exchange-app[1128]: 2026-09-28T13:57:57.945Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:00 app02.lab exchange-app[1128]: 2026-09-28T13:58:00.720Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:04 app02.lab exchange-app[1128]: 2026-09-28T13:58:04.722Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:04 app02.lab exchange-app[1128]: 2026-09-28T13:58:04.947Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:08 app02.lab exchange-app[1128]: 2026-09-28T13:58:08.724Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:11 app02.lab exchange-app[1128]: 2026-09-28T13:58:11.950Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:12 app02.lab exchange-app[1128]: 2026-09-28T13:58:12.726Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:16 app02.lab exchange-app[1128]: 2026-09-28T13:58:16.728Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:18 app02.lab exchange-app[1128]: 2026-09-28T13:58:18.952Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:20 app02.lab exchange-app[1128]: 2026-09-28T13:58:20.730Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:24 app02.lab exchange-app[1128]: 2026-09-28T13:58:24.731Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:25 app02.lab exchange-app[1128]: 2026-09-28T13:58:25.955Z  WARN 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리스 틱 실패: Failed to obtain JDBC Connection
+Sep 28 22:58:28 app02.lab exchange-app[1128]: 2026-09-28T13:58:28.732Z  WARN 1128 --- [exchange] [ollower-catchup] kr.exchange.engine.FollowerCatchUp       : 따라잡기 틱 실패: org.springframework.jdbc.CannotGetJdbcConnectio
+Sep 28 22:58:31 app02.lab exchange-app[1128]: 2026-09-28T13:58:31.822Z  INFO 1128 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더 승격: holder=d8f94a83-b5f6-4009-8511-c5a3b5afc381, epoch=15
+Sep 28 22:58:31 app02.lab exchange-app[1128]: 2026-09-28T13:58:31.826Z  INFO 1128 --- [exchange] [ngine-promotion] k.exchange.engine.PromotionCoordinator   : 승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: ep
+Sep 28 22:58:31 app02.lab exchange-app[1128]: 2026-09-28T13:58:31.827Z  INFO 1128 --- [exchange] [ngine-promotion] kr.exchange.engine.HaAvailability        : readiness 전이: ACCEPTING_TRAFFIC
+
+## 현재 readiness(재기동 전)
+$ ssh app01 curl -s http://192.168.10.21:8081/actuator/health/readiness
+{"status":"OUT_OF_SERVICE"}
+$ ssh app02 curl -s http://192.168.10.22:8081/actuator/health/readiness
+{"status":"UP"}
+
+## 23:00:18 KST  APP01 복귀: 설계상 리더십을 잃은 노드는 스스로 재승격하지 않고 재기동으로 대기 노드가 된다.
+$ ssh app01 sudo systemctl restart exchange-app
+active
+$ ssh app01 curl -s http://192.168.10.21:8081/actuator/health/liveness  (재기동 15초 안쪽)
+{"status":"UP"}
+$ ssh app01 "journalctl -u exchange-app --since '-3min' | grep -E 'leader-lease|HaAvailability|FollowerCatchUp|Started'"
+Sep 28 23:00:26 app01.lab exchange-app[1754]: 2026-09-28T14:00:26.952Z  INFO 1754 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-lease - Starting...
+Sep 28 23:00:26 app01.lab exchange-app[1754]: 2026-09-28T14:00:26.953Z  INFO 1754 --- [exchange] [           main] kr.exchange.engine.FollowerCatchUp       : 팔로워 따라잡기 시작: 주기 PT1S
+Sep 28 23:00:27 app01.lab exchange-app[1754]: 2026-09-28T14:00:26.999Z  INFO 1754 --- [exchange] [           main] kr.exchange.ExchangeApplication          : Started ExchangeApplication in 7.713 seconds (process running for 8.511)
+Sep 28 23:00:27 app01.lab exchange-app[1754]: 2026-09-28T14:00:27.015Z  INFO 1754 --- [exchange] [   leader-lease] com.zaxxer.hikari.pool.HikariPool        : exchange-lease - Added connection org.postgresql.jdbc.PgConnection@cc5e1
+Sep 28 23:00:27 app01.lab exchange-app[1754]: 2026-09-28T14:00:27.016Z  INFO 1754 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-lease - Start completed.
+Sep 28 23:00:27 app01.lab exchange-app[1754]: 2026-09-28T14:00:27.104Z  WARN 1754 --- [exchange] [           main] kr.exchange.engine.HaAvailability        : readiness 오발행 정정: 발행=ACCEPTING_TRAFFIC, 목표=REFUSING_TR

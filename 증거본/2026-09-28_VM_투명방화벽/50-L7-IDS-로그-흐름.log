@@ -1,0 +1,22 @@
+## 2026-09-29 00:06:50 KST  L7 입구 → 웹 진입 서버 → 앱 → 관제 서버로 이어지는 기록 확인
+$ curl.exe -k -A 'l7-trace-0929' 'https://192.168.10.10/api/v1/markets?q=%3Cscript%3E'   # L7 입구 통과(스크립트 삽입은 입구에서 막지 않음)
+200
+$ ssh edge01 "curl --path-as-is http://192.168.10.21:8080/api/v1/markets/../../etc/passwd"   # 내부 구간 경로 탐색(고친 규칙 9000003 확인)
+404
+
+## 1) 웹 진입 서버 access.log: real_ip 로 원래 사용자 주소(192.168.56.1)가 남는다
+192.168.56.1 - - [29/Sep/2026:00:06:50 +0900] "GET /api/v1/markets?q=%3Cscript%3E HTTP/1.1" 200 96 "-" "l7-trace-0929"
+
+## 2) 관제 서버 haproxy.log: 복호화한 요청(메서드·경로·상태·User-Agent)과 입구에서 막은 요청
+Sep 29 00:05:00 pfsense-tp haproxy[96493]: 192.168.56.1:52526 [29/Sep/2026:00:05:00.435] web_l7~ web_l7/<NOSRV> 0/-1/-1/-1/0 403 192 - - PR-- 1/1/0/0/0 0/0 {sqlmap/1.7.2|192.168.10.10} "GET / HTTP/1.1"
+Sep 29 00:05:00 pfsense-tp haproxy[96493]: 192.168.56.1:52527 [29/Sep/2026:00:05:00.460] web_l7~ web_l7/<NOSRV> 0/-1/-1/-1/0 403 192 - - PR-- 1/1/0/0/0 0/0 {curl/8.21.0|192.168.10.10} "GET /api/v1/markets?id=1%20UNION%20SELECT%20password HTTP/1.1"
+Sep 29 00:05:00 pfsense-tp haproxy[96493]: 192.168.56.1:52528 [29/Sep/2026:00:05:00.485] web_l7~ web_l7/<NOSRV> 0/-1/-1/-1/0 403 192 - - PR-- 1/1/0/0/0 0/0 {curl/8.21.0|192.168.10.10} "GET /../../etc/passwd HTTP/1.1"
+Sep 29 00:05:00 pfsense-tp haproxy[96493]: 192.168.56.1:52529 [29/Sep/2026:00:05:00.512] web_l7~ web_l7/<NOSRV> 0/-1/-1/-1/0 405 255 - - PR-- 1/1/0/0/0 0/0 {curl/8.21.0|192.168.10.10} "TRACE / HTTP/1.1"
+Sep 29 00:05:00 pfsense-tp haproxy[96493]: 192.168.56.1:52530 [29/Sep/2026:00:05:00.541] web_l7~ web_l7/<NOSRV> 0/-1/-1/-1/0 404 182 - - PR-- 1/1/0/0/0 0/0 {curl/8.21.0|192.168.10.10} "GET /actuator/health HTTP/1.1"
+Sep 29 00:06:50 pfsense-tp haproxy[96493]: 192.168.56.1:60011 [29/Sep/2026:00:06:50.520] web_l7~ edge01_https_ipvANY/edge01 0/0/1/4/5 200 442 - - ---- 1/1/0/0/0 0/0 {l7-trace-0929|192.168.10.10} "GET /api/v1/markets?q=%3Cscript%3E HTTP/1.1"
+
+## 3) 관제 서버 suricata.log: 웹→앱 평문 구간(DMZ em2)에서 잡은 경보
+Sep 29 00:06:27 192.168.10.2 suricata[11152]: [100295] <Notice> -- rule reload starting
+Sep 29 00:06:29 192.168.10.2 suricata[11152]: [100295] <Notice> -- rule reload complete
+Sep 29 00:06:50 192.168.10.2 suricata[11152]: [1:9000004:1] LAB API script injection (<script) [Classification: Web Application Attack] [Priority: 1] {TCP} 192.168.10.11:49602 -> 192.168.10.21:8080
+Sep 29 00:06:50 192.168.10.2 suricata[11152]: [1:9000003:1] LAB API path traversal (../) [Classification: Web Application Attack] [Priority: 1] {TCP} 192.168.10.11:49612 -> 192.168.10.21:8080

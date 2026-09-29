@@ -1,0 +1,10 @@
+## 2026-09-28 23:44:39 KST  웹 진입 서버에 63-l7-edge01-proxy-trust.sh 적용(프록시 443 허용, real_ip)
+$ ssh edge01 'sudo bash -s' < 63-l7-edge01-proxy-trust.sh
+		iifname "enp0s8" ip saddr 192.168.10.2 tcp dport 443 ct state new counter packets 0 bytes 0 accept comment "L7 입구 HAProxy"
+60:    include /etc/nginx/exchange-upstream.conf;
+61:    include /etc/nginx/exchange-l7-proxy.conf;
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+active
+
+$ curl.exe -k -s -o NUL -w '%{http_code}' https://192.168.10.11/   (기존 흐름 확인)
+200

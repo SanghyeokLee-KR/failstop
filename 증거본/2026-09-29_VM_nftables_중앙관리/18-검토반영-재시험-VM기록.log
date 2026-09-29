@@ -1,0 +1,25 @@
+## 2026-09-29 02:47:48 KST  검토 반영 뒤 재시험(02:45~02:47)의 VM 쪽 기록. 작업 PC(DEV-PC)에서 ssh 로 읽었다.
+## 재시험은 고친 코드의 임시 사본으로 했다. EDGE01 은 되돌리기 20초와 확인 전달 대상을 없는 호스트(nc-no-such-host)로 바꾼 시험용 변형으로, 확인 6/6 통과 뒤 취소 명령을 VM 에 전하지 못한 경우를 만들었다. (머리말의 확인 수는 재검토 지적으로 4/4 에서 6/6 으로 바로잡았다. 작업 PC 화면 출력은 이 파일에 남기지 않았다.)
+## OPS01 은 고친 코드 그대로(90초) 카운터만 있는 규칙을 올렸다가 지웠다. 두 VM 모두 SSH 는 막지 않았다.
+
+$ ssh edge01 'sudo grep -F " id=20260929-024554 " /var/log/vm-lab/nft-central.log; journalctl -u "nft-central-rollback-20260929-024554*" -o short-iso --no-pager; systemctl list-timers --no-legend "nft-central-rollback-*" | wc -l'
+2026-09-29T02:45:54+09:00 id=20260929-024554 action=apply result=pending set=10481111a68d by=DEV-PC@DESKTOP rollback_in=20s
+2026-09-29T02:46:14+09:00 id=20260929-024554 action=rollback result=ok label=ok
+2026-09-29T02:45:54+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-024554.timer - nft-central 자동 되돌리기 20260929-024554.
+2026-09-29T02:46:14+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-024554.service - nft-central 자동 되돌리기 20260929-024554.
+2026-09-29T02:46:14+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-024554.service: Deactivated successfully.
+2026-09-29T02:46:14+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-024554.timer: Deactivated successfully.
+0
+
+$ ssh ops01 'sudo grep -E " id=20260929-0246(29|44) " /var/log/vm-lab/nft-central.log; journalctl -u "nft-central-rollback-20260929-0246*" -o short-iso --no-pager; systemctl list-timers --no-legend "nft-central-rollback-*" | wc -l'
+2026-09-29T02:46:29+09:00 id=20260929-024629 action=apply result=pending set=33865aca2375 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:46:43+09:00 id=20260929-024629 action=confirm result=ok checks=4/4
+2026-09-29T02:46:44+09:00 id=20260929-024644 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:46:58+09:00 id=20260929-024644 action=confirm result=ok checks=4/4
+2026-09-29T02:46:29+09:00 ops01.lab systemd[1]: Started nft-central-rollback-20260929-024629.timer - nft-central 자동 되돌리기 20260929-024629.
+2026-09-29T02:46:43+09:00 ops01.lab systemd[1]: nft-central-rollback-20260929-024629.timer: Deactivated successfully.
+2026-09-29T02:46:43+09:00 ops01.lab systemd[1]: Stopped nft-central-rollback-20260929-024629.timer - nft-central 자동 되돌리기 20260929-024629.
+2026-09-29T02:46:44+09:00 ops01.lab systemd[1]: Started nft-central-rollback-20260929-024644.timer - nft-central 자동 되돌리기 20260929-024644.
+2026-09-29T02:46:58+09:00 ops01.lab systemd[1]: nft-central-rollback-20260929-024644.timer: Deactivated successfully.
+2026-09-29T02:46:58+09:00 ops01.lab systemd[1]: Stopped nft-central-rollback-20260929-024644.timer - nft-central 자동 되돌리기 20260929-024644.
+0

@@ -1,0 +1,26 @@
+## 2026-09-28 KST  L2 시험: DATA 구역(DB02)에 허가되지 않은 장치를 흉내 낸다. IP 없이 MAC 02:00:00:00:00:99 인 macvlan 을 만들고 ARP 탐지 요청을 보낸다.
+## pfsense-tp 쪽 관찰은 화면 31(보안 전)·34(보안 후). 여기에는 DB02 쪽 명령과 출력만 적는다.
+$ ssh db02 "sudo ip link add rogue link enp0s8 address 02:00:00:00:00:99 type macvlan mode private; sudo sysctl -qw net.ipv6.conf.rogue.disable_ipv6=1; sudo nmcli dev set rogue managed no; sudo ip link set rogue up; ip -br link show rogue"
+rogue@enp0s8     UP             02:00:00:00:00:99 <BROADCAST,MULTICAST,UP,LOWER_UP>   (23:00 무렵 생성, IPv4·IPv6 주소 없음)
+
+## 23:01:07  포트 보안 전(sticky 만, ifmaxaddr 0)
+$ ssh db02 "sudo arping -D -I rogue -c 6 -w 8 192.168.10.1"
+ARPING 192.168.10.1 from 0.0.0.0 rogue
+Sent 6 probes (6 broadcast(s))
+Received 0 response(s)
+exit 0
+→ pfsense-tp: em4(DATA)로 들어온 3개가 em0(UPSTREAM)으로 그대로 나감, 브리지 표에 02:00:00:00:00:99 가 em4 STICKY 로 학습(화면 31)
+
+## 23:06:25  포트 보안 후(sticky + ifmaxaddr: em0 1, em2 1, em3 2, em4 2, em5 1)
+$ ssh db02 "sudo arping -D -I rogue -c 6 -w 8 192.168.10.1"
+ARPING 192.168.10.1 from 0.0.0.0 rogue
+Sent 6 probes (6 broadcast(s))
+Received 0 response(s)
+exit 0
+→ pfsense-tp: em4 로 3개 들어왔지만 em0 으로 나간 것 0개, 브리지 표에 없음(화면 34). 브리지가 L2 에서 버렸다.
+   참고: arping 의 응답 0개는 두 경우 모두 같다. 탐지 요청(보낸 쪽 IP 0.0.0.0)에 기존 라우터가 답하지 않거나 답이 VM NIC 에 전달되지 않기 때문이라 판정은 pfsense-tp 포트별 캡처로 한다.
+
+## 23:07:20 KST  시험 장치 제거
+$ ssh db02 "sudo ip link del rogue; ip -br link"
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+enp0s8           UP             08:00:27:80:39:a9 <BROADCAST,MULTICAST,UP,LOWER_UP> 
