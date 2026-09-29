@@ -1,0 +1,25 @@
+# 서버 전체 build 요약. ASCII 정션 C:\dev\exchange-sppgtemp(이 작업 트리를 가리킨다)\server 에서
+# .\gradlew.bat build --console=plain 을 돌렸다. 아래 수치는 build 뒤 결과 XML 에서 뽑았다.
+junction target: C:\Users\DEV-PC\Desktop\프로젝트\.claude\worktrees\musing-hugle-3d087f
+gradle: BUILD SUCCESSFUL in 7m 41s (PowerShell 종료 코드 0, 경과 00:07:42)
+V47_2 sha256: a6d4eee8965c3242932f8ed32cd37182b0525a07562af40f72c907b46c5187b2
+app: suites=107 tests=672 failures=0 errors=0 skipped=0 timestamps(UTC)=2026-09-24T03:20:20.342Z..2026-09-24T03:27:53.058Z
+engine: suites=5 tests=67 failures=0 errors=0 skipped=0 timestamps(UTC)=2026-09-23T23:35:15.716Z..2026-09-23T23:35:17.438Z
+engine 은 Gradle 캐시(FROM-CACHE)에서 되살린 결과라 시각이 이전 실행이다. app 은 이번에 실행했다.
+MigrationSmokeTest: tests=16 failures=0 errors=0 skipped=0 timestamp=2026-09-24T03:20:20.342Z
+PASS adminSchemaEnforcesOperatorAndApprovalContracts()
+PASS assertCurrentLeaderEnforcesFencing()
+PASS communitySchemaEnforcesBoardContracts()
+PASS coreTablesRolesAndSeedsExist()
+PASS duplicateBusinessEventRejected()
+PASS duplicateEventOrdinalAndTradeIdRejectedByRegistryTriggers()
+PASS journalCountersAllocateAtomically()
+PASS memberSchemaEnforcesCredentialAndSessionContracts()
+PASS observabilityAndHarnessObjectsExist()
+PASS ownerRightsTriggerFunctionsRejectForeignTriggersButStillFire()
+PASS postLedgerTransactionUpdatesBalancesAndSeals()
+PASS sealedTransactionRejectsDirectEntryInsert()
+PASS securityDefinerFunctionsPinSearchPathWithPgTempLast()
+PASS tempRegistryCannotShadowDuplicateTradeId()
+PASS tempTablesCannotShadowLedgerPosting()
+PASS unbalancedEntriesRejected()

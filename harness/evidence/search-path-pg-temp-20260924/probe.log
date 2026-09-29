@@ -1,0 +1,130 @@
+container=sp-pgtemp-probe-15602 image=postgres:17-alpine
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0..V47.1: 49 files
+V47_2 sha256: a6d4eee8965c3242932f8ed32cd37182b0525a07562af40f72c907b46c5187b2
+
+== A0 적용 전 public 소유자 권한 함수의 설정
+A0|apply_position_cost(bigint)|{search_path=public}
+A0|create_balance_for_account()|{search_path=public}
+A0|ensure_command_band_partition(smallint)|{search_path=public}
+A0|ensure_event_band_partition(smallint)|{search_path=public}
+A0|post_ledger_transaction(character varying,bigint,jsonb)|{search_path=public}
+A0|rebuild_position_cost(bigint)|{search_path=public}
+A0|register_event_emission()|{search_path=public}
+A0|register_trade_seq()|{search_path=public}
+A0|release_funds(bigint,bigint,bigint,smallint,numeric)|{search_path=public}
+A0|reserve_funds(bigint,bigint,bigint,smallint,numeric)|{search_path=public}
+A0|seed_market_journal_counters()|{search_path=public}
+
+== A1 적용 전: botu 가 임시 trade_seq_registry 로 가리고 같은 체결 id 를 created_at 만 달리해 두 번 넣는다
+CREATE TABLE
+GRANT
+INSERT 0 1
+INSERT 0 1
+A1 temp trade registry rows|2
+A1 trades with id 888001|2
+A1 real trade registry rows 888001|0
+
+== A2 적용 전: botu 가 임시 event_emission_registry 로 가리고 같은 방출 키를 두 번 넣는다
+CREATE TABLE
+GRANT
+INSERT 0 1
+INSERT 0 1
+A2 temp event registry rows|2
+A2 event_journal rows for source 777001|2
+A2 real event registry rows 777001|0
+
+== A3 함수 이름은 임시 스키마에서 찾지 않는다. 한정하지 않은 호출은 42883, pg_temp 로 한정하면 불린다
+CREATE FUNCTION
+ERROR:  42883: function sp_probe_fn() does not exist
+LINE 1: SELECT 'A3 unqualified', sp_probe_fn();
+                                 ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+LOCATION:  ParseFuncOrColumn, parse_func.c:629
+A3 qualified|1
+
+== B 소유자가 아닌 botu 가 V47_2 를 적용한다
+psql:/probe-migration/V47_2__pin_security_definer_search_path.sql:9: ERROR:  must be owner of function create_balance_for_account
+B1 V47_2 file exit=3
+B2 pinned functions|0
+
+== C 소유자가 V47_2 를 적용한다
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+DO
+C0 V47_2 file exit=0
+C1|apply_position_cost(bigint)|{"search_path=public, pg_temp"}
+C1|create_balance_for_account()|{"search_path=public, pg_temp"}
+C1|ensure_command_band_partition(smallint)|{"search_path=public, pg_temp"}
+C1|ensure_event_band_partition(smallint)|{"search_path=public, pg_temp"}
+C1|post_ledger_transaction(character varying,bigint,jsonb)|{"search_path=public, pg_temp"}
+C1|rebuild_position_cost(bigint)|{"search_path=public, pg_temp"}
+C1|register_event_emission()|{"search_path=public, pg_temp"}
+C1|register_trade_seq()|{"search_path=public, pg_temp"}
+C1|release_funds(bigint,bigint,bigint,smallint,numeric)|{"search_path=public, pg_temp"}
+C1|reserve_funds(bigint,bigint,bigint,smallint,numeric)|{"search_path=public, pg_temp"}
+C1|seed_market_journal_counters()|{"search_path=public, pg_temp"}
+
+== D 적용 뒤 A1 과 같은 가림
+CREATE TABLE
+GRANT
+INSERT 0 1
+ERROR:  23505: duplicate key value violates unique constraint "trade_seq_registry_pkey"
+DETAIL:  Key (seq)=(888002) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  trade_seq_registry
+CONSTRAINT NAME:  trade_seq_registry_pkey
+LOCATION:  _bt_check_unique, nbtinsert.c:666
+D1 temp trade registry rows|0
+D1 trades with id 888002|1
+D1 real trade registry rows 888002|1
+
+== E 적용 뒤 A2 와 같은 가림
+CREATE TABLE
+GRANT
+INSERT 0 1
+ERROR:  23505: duplicate key value violates unique constraint "event_emission_registry_pkey"
+DETAIL:  Key (source_cmd_seq, event_ordinal)=(777101, 0) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  event_emission_registry
+CONSTRAINT NAME:  event_emission_registry_pkey
+LOCATION:  _bt_check_unique, nbtinsert.c:666
+E1 temp event registry rows|0
+E1 event_journal rows for source 777101|1
+E1 real event registry rows 777101|1
+
+== F 적용 뒤 원장 게시: botu 가 accounts, balances, ledger_transactions, ledger_entries 와 같은 이름의 임시 표를 두고 예약·해제를 부른다
+1
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+GRANT
+F1 reserve txn|t
+F1 release txn|t
+F1 temp rows|accounts|0
+F1 temp rows|balances|0
+F1 temp rows|ledger_transactions|0
+F1 temp rows|ledger_entries|0
+F2 real sealed txns|RESERVE|6002|SEALED
+F2 real sealed txns|RELEASE|6003|SEALED
+F2 real entries|4
+F2 real balance|AVAILABLE|7.000000000000000000
+F2 real balance|LOCKED|3.000000000000000000
+F2 mismatch rows|0
+
+== G 설정 없이 CREATE OR REPLACE 하면 설정이 사라진다(롤백)
+BEGIN
+CREATE FUNCTION
+G proconfig|t
+ROLLBACK
+G after rollback|{"search_path=public, pg_temp"}

@@ -1,0 +1,19 @@
+# V47_2 를 소스에서 잠시 뺀 대조 실행. ASCII 정션 C:\dev\exchange-sppgtemp\server 에서
+# .\gradlew.bat :app:test --tests kr.exchange.MigrationSmokeTest 를 돌리고 결과 XML 에서 뽑았다. 실행 뒤 파일은 되돌렸다.
+suite=kr.exchange.MigrationSmokeTest tests=16 failures=3 errors=0 skipped=0 timestamp=2026-09-24T03:19:47.493Z
+PASS adminSchemaEnforcesOperatorAndApprovalContracts()
+PASS assertCurrentLeaderEnforcesFencing()
+PASS communitySchemaEnforcesBoardContracts()
+PASS coreTablesRolesAndSeedsExist()
+PASS duplicateBusinessEventRejected()
+PASS duplicateEventOrdinalAndTradeIdRejectedByRegistryTriggers()
+PASS journalCountersAllocateAtomically()
+PASS memberSchemaEnforcesCredentialAndSessionContracts()
+PASS observabilityAndHarnessObjectsExist()
+PASS ownerRightsTriggerFunctionsRejectForeignTriggersButStillFire()
+PASS postLedgerTransactionUpdatesBalancesAndSeals()
+PASS sealedTransactionRejectsDirectEntryInsert()
+FAIL securityDefinerFunctionsPinSearchPathWithPgTempLast() | org.opentest4j.AssertionFailedError: SECURITY DEFINER functions must set search_path = public, pg_temp ==> expected: <0> but was: <11>
+FAIL tempRegistryCannotShadowDuplicateTradeId() | org.opentest4j.AssertionFailedError: Expected java.sql.SQLException to be thrown, but nothing was thrown.
+FAIL tempTablesCannotShadowLedgerPosting() | org.postgresql.util.PSQLException: ERROR: balances 행 없음: account=4,5 (기대 2 실제 0, txn=1)
+PASS unbalancedEntriesRejected()

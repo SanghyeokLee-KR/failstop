@@ -642,6 +642,107 @@ class MigrationSmokeTest {
         }
     }
 
+    /**
+     * 소유자 권한 함수는 search_path 끝에 pg_temp 를 둔다(V47.2). 적혀 있지 않으면 PostgreSQL 이 임시 스키마를
+     * 먼저 찾아 호출자의 같은 이름 임시 표가 함수 안의 실제 표를 가린다.
+     */
+    @Test
+    void securityDefinerFunctionsPinSearchPathWithPgTempLast() throws Exception {
+        try (Connection conn = open()) {
+            String secdef = "FROM pg_proc WHERE prosecdef AND pronamespace = 'public'::regnamespace";
+            assertTrue(queryInt(conn, "SELECT count(*) " + secdef) > 0, "no SECURITY DEFINER function found");
+            assertEquals(0, queryInt(conn, "SELECT count(*) " + secdef
+                            + " AND NOT coalesce('search_path=public, pg_temp' = ANY (proconfig), false)"),
+                    "SECURITY DEFINER functions must set search_path = public, pg_temp");
+        }
+    }
+
+    @Test
+    void tempRegistryCannotShadowDuplicateTradeId() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            st.execute("CREATE ROLE probe_sp_trade LOGIN PASSWORD 'probe' IN ROLE app_role");
+            st.execute("""
+                    INSERT INTO markets (id, symbol, base_asset_id, quote_asset_id,
+                                         tick_size, lot_size, min_notional, max_notional, max_qty)
+                    VALUES (1, 'BTC-KRW', 1, 2, 1, 0.0001, 0, 100000000000, 10000)
+                    ON CONFLICT (id) DO NOTHING
+                    """);
+        }
+
+        try (Connection app = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "probe_sp_trade", "probe");
+             Statement st = app.createStatement()) {
+            st.execute("CREATE TEMP TABLE trade_seq_registry "
+                    + "(seq BIGINT, trade_created_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now())");
+            st.execute("GRANT ALL ON trade_seq_registry TO PUBLIC");
+            st.execute("""
+                    INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                        maker_user_id, taker_user_id, taker_side, price, quantity,
+                                        fencing_epoch, executed_at, created_at)
+                    VALUES (920001, 1, 1, 2, 11, 12, 'BUY', 100, 1, 1, now(), now())
+                    """);
+            SQLException dup = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                        maker_user_id, taker_user_id, taker_side, price, quantity,
+                                        fencing_epoch, executed_at, created_at)
+                    VALUES (920001, 1, 3, 4, 13, 14, 'SELL', 100, 1, 1,
+                            now() + interval '1 second', now() + interval '1 second')
+                    """));
+            assertEquals("23505", dup.getSQLState(), dup.getMessage());
+            assertEquals(0, queryInt(app, "SELECT count(*) FROM pg_temp.trade_seq_registry"),
+                    "temp registry must not receive trigger rows");
+        }
+
+        try (Connection conn = open()) {
+            assertEquals(1, queryInt(conn, "SELECT count(*) FROM public.trade_seq_registry WHERE seq = 920001"),
+                    "trade registry row must land in the real table");
+        }
+    }
+
+    @Test
+    void tempTablesCannotShadowLedgerPosting() throws Exception {
+        long avail;
+        long locked;
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            st.execute("CREATE ROLE probe_sp_ledger LOGIN PASSWORD 'probe' IN ROLE app_role");
+            long genesis = createAccount(conn, "SYSTEM", 0, "GENESIS", 1, 5);
+            avail = createAccount(conn, "USER", 105, "AVAILABLE", 1, 0);
+            locked = createAccount(conn, "USER", 105, "LOCKED", 1, 0);
+            postLedger(conn, "GENESIS", 5001, """
+                    [{"account_id": %d, "asset_id": 1, "amount": -10, "entry_type": "GENESIS"},
+                     {"account_id": %d, "asset_id": 1, "amount": 10, "entry_type": "GENESIS"}]
+                    """.formatted(genesis, avail));
+        }
+
+        List<String> shadows = List.of("accounts", "balances", "ledger_transactions", "ledger_entries");
+        try (Connection app = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "probe_sp_ledger", "probe");
+             Statement st = app.createStatement()) {
+            for (String t : shadows) {
+                st.execute("CREATE TEMP TABLE " + t + " (LIKE public." + t + " INCLUDING ALL)");
+                st.execute("GRANT ALL ON " + t + " TO PUBLIC");
+            }
+            queryLong(app, "SELECT reserve_funds(5002, %d, %d, 1::SMALLINT, 4)".formatted(avail, locked));
+            queryLong(app, "SELECT release_funds(5003, %d, %d, 1::SMALLINT, 1)".formatted(locked, avail));
+            for (String t : shadows) {
+                assertEquals(0, queryInt(app, "SELECT count(*) FROM pg_temp." + t),
+                        "posting must not write the temp " + t);
+            }
+        }
+
+        try (Connection conn = open()) {
+            assertEquals(2, queryInt(conn, """
+                            SELECT count(*) FROM public.ledger_transactions
+                            WHERE (business_event_type, business_event_id) IN (('RESERVE', 5002), ('RELEASE', 5003))
+                              AND status = 'SEALED'
+                            """),
+                    "reserve and release must be sealed in the real ledger");
+            assertEquals(0, new BigDecimal("7").compareTo(balanceOf(conn, avail)), "AVAILABLE balance");
+            assertEquals(0, new BigDecimal("3").compareTo(balanceOf(conn, locked)), "LOCKED balance");
+            assertEquals(0, queryInt(conn, "SELECT count(*) FROM balance_ledger_check WHERE mismatch "
+                            + "AND account_id IN (" + avail + ", " + locked + ")"),
+                    "balances must match the real ledger");
+        }
+    }
+
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

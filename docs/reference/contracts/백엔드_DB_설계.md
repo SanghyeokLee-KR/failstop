@@ -1,4 +1,4 @@
-# DB 설계 (v2.51.1)
+# DB 설계 (v2.51.2)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -383,6 +383,7 @@ erDiagram
 | V46 | `V46__event_seq_band_widen.sql` | 이벤트 저널 대역 확대(ADR 0022 9단계, 3-3). `journal_band_spec('event_seq')` 를 (10^7, 19) 에서 (10^12, 63) 으로 올리고, 꼬리 잎 `event_journal_p200000000` [2x10^8, 10^12) 와 마켓이 있는 id K 마다 대역 잎 `event_journal_b<K>` [K x 10^12, (K+1) x 10^12) 를 만든다. 파생을 DB 로 옮겨 `next_market_event_seq(p_market_id, p_count)` 가 마켓 안 번호와 `market_id * band_span + market_seq` 를 함께 돌려주고, 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 55000 으로 거부한다. 잎 생성 단일 진입점은 `ensure_event_band_partition`(SECURITY DEFINER, PUBLIC 회수)이고 마켓 생성 트리거가 두 저널 잎을 함께 만든다. 적용 전 확인 셋(명세 (10^7, 19), `event_journal_default` 0행, 앞으로 배정될 대역 값과 겹치는 TRADE·RELEASE `business_event_id` 0건)이 실패하면 멈춘다. 기존 행은 그대로이고 `market_seq` 가 같은 카운터에서 이어져 마켓 안 증가가 유지된다. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다(ADR 0022 7절 9단계) | V40(`journal_band_spec`, `next_market_journal_value`, `seed_market_journal_counters`, `ensure_command_band_partition`), V36(`market_journal_counters`, `event_journal.market_id`·`market_seq`), V1(`event_journal`, `ledger_transactions`), V0(`app_role` GRANT) |
 | V47 | `V47__order_intake_failure_resolution.sql` | 주문 접수의 append 가 예외로 끝난 뒤의 판정. `idempotency_keys` 에 널 허용 열 `shared_at` 을 더한다(기본값이 없어 표를 다시 쓰지 않는다). 기존 키로 내용을 대조한 요청이 append 전에 이 열을 채운다. 함수 `resolve_failed_order_intake(user_id, idem_key, request_hash, assigned_order_id, discard_key)` 는 V44 머리말과 같은 어드바이저리 락(`cmd-new:<user>:<key>`)을 잡은 뒤, 이 요청의 주문 id 로 커밋된 NEW 가 있으면 `JOURNALED` 와 그 seq·market_id·fencing_token 을 돌려주고 키를 지우지 않는다(커밋 응답 유실). 없으면 `discard_key` 일 때 `shared_at` 이 비어 있는 그 해시의 키만 지우고 `DISCARDED`·`KEPT`·`ABSENT` 를, 아니면 `NOT_JOURNALED` 를 돌려준다. 판정에 `created_at` 을 쓰지 않아 DB 시계 역행과 무관하다. 보존 태그 `wip/per-market-leader-20260923` 의 같은 번호 파일(`created_at` 비교판)과 다른 파일이다. 함수를 지우고 게이트웨이를 되돌리는 새 마이그레이션으로 되돌리며 `shared_at` 은 남겨도 무해하다 | V44(어드바이저리 락 키), V1(`idempotency_keys`, `command_journal`), V9(`idempotency_keys` DELETE), V0(`app_role` GRANT) |
 | V47.1 | `V47_1__revoke_trigger_function_public_execute.sql` | 소유자 권한(SECURITY DEFINER) 트리거 함수 넷 `create_balance_for_account()`·`register_trade_seq()`·`register_event_emission()`(V1)과 `seed_market_journal_counters()`(V36, 현재 본문 V46)에서 PUBLIC 기본 EXECUTE 를 회수한다. `app_role` 에도 주지 않는다. PostgreSQL 은 트리거 함수의 EXECUTE 를 `CREATE TRIGGER` 때만 검사하고 발화 때는 보지 않으므로 기존 트리거 넷(`trg_account_balance`, `trg_trades_register`, `trg_ej_register`, `trg_markets_seed_counters`)은 그대로 돈다. 회수 뒤에도 PUBLIC 에 EXECUTE 가 남은 함수가 있으면 예외로 멈춘다. 표·행·함수 본문은 바꾸지 않는다. 버전 47.1 은 V47 과 V48 사이에 정렬된다(§3.1, v2.51.1) | V1(세 함수와 트리거), V36(`trg_markets_seed_counters`), V46(`seed_market_journal_counters` 본문) |
+| V47.2 | `V47_2__pin_security_definer_search_path.sql` | public 스키마의 소유자 권한(SECURITY DEFINER) 함수 열하나(만든 판 기준 V1 여섯, V13 둘, V36·V40·V46 하나씩)의 `search_path` 를 `public` 에서 `public, pg_temp` 로 바꾼다. `ALTER FUNCTION ... SET search_path` 만 쓰고 함수 본문·권한·트리거는 바꾸지 않는다. `pg_temp` 를 끝에 명시해야 호출자의 임시 표가 소유자 권한 함수 안의 표 이름을 가리지 못한다. 적용 뒤 public 스키마 소유자 권한 함수 가운데 이 설정이 아닌 것이 있으면 예외로 멈춘다. 버전 47.2 는 V47.1 과 V48 사이에 정렬된다(§3.1, v2.51.2) | V1, V13, V27·V37·V38(`post_ledger_transaction` 본문), V36(`seed_market_journal_counters` 생성), V40, V46(`seed_market_journal_counters` 본문, `ensure_event_band_partition`), V47.1 |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1489,6 +1490,48 @@ END $$;
 ```
 
 검증은 `MigrationSmokeTest`가 Testcontainers 일회용 DB에서 한다. 네 함수에 대해 `app_role`과 `app_role`이 아닌 로그인의 `has_function_privilege(..., 'EXECUTE')`가 거짓이고, 두 로그인 모두 임시 표에 거는 `CREATE TRIGGER`가 42501이다. 같은 `app_role` 로그인으로 계정·체결·이벤트·마켓을 넣으면 잔고 행, 두 레지스트리 행, 카운터 두 행과 두 저널의 대역 잎이 생긴다. 앞으로 더할 소유자 권한 함수가 회수를 빠뜨리지 않도록, public 스키마의 소유자 권한 함수가 하나 이상 있고 그중 PUBLIC이 EXECUTE를 가진 함수가 0개인지도 본다. 위 기록 C도 소유자 적용 뒤 같은 결과다. 되돌리기는 PUBLIC에 EXECUTE를 다시 주는 새 마이그레이션이지만 위 경로를 다시 여는 일이라 하지 않는다.
+
+#### 소유자 권한 함수의 search_path 고정 (V47.2)
+
+public 스키마의 소유자 권한(SECURITY DEFINER) 함수는 모두 `SET search_path = public, pg_temp`를 가진다. V47.1까지는 열하나가 `SET search_path = public`만 두었다. V1의 `create_balance_for_account()`, `register_trade_seq()`, `register_event_emission()`, `post_ledger_transaction(VARCHAR, BIGINT, JSONB)`(V13·V27·V37·V38이 같은 서명으로 재정의, 현재 본문 V38), `reserve_funds(BIGINT, BIGINT, BIGINT, SMALLINT, NUMERIC)`, `release_funds(BIGINT, BIGINT, BIGINT, SMALLINT, NUMERIC)`, V13의 `apply_position_cost(BIGINT)`, `rebuild_position_cost(BIGINT)`, V40의 `ensure_command_band_partition(SMALLINT)`, V46의 `ensure_event_band_partition(SMALLINT)`, `seed_market_journal_counters()`(V36에서 만들고 현재 본문 V46)다.
+
+PostgreSQL은 search_path에 `pg_temp`가 적혀 있지 않으면 세션의 임시 스키마를 pg_catalog보다도 먼저 찾는다. 이 규칙은 표·뷰·시퀀스 같은 관계와 자료형 이름에 적용되고, 함수와 연산자 이름은 임시 스키마에서 찾지 않는다. 임시 표를 만드는 TEMP 권한은 기본으로 PUBLIC에 있다. 그래서 소유자 권한 함수를 부르거나 그 트리거를 발화시킬 수 있는 로그인이 함수가 쓰는 표와 같은 이름의 임시 표를 만들면, 함수는 소유자 권한으로 돌면서도 실제 표 대신 그 임시 표를 읽고 쓴다. `app_role` 로그인은 원장 게시 함수 셋을 직접 부를 수 있고, `trades`·`event_journal`·`accounts`·`markets`에 행을 넣어 트리거 함수 넷을 발화시킬 수 있다. `apply_position_cost`와 `ensure_*_band_partition`은 그 함수들 안에서 불린다. `rebuild_position_cost`는 소유자만 부르지만 같은 원칙으로 함께 고정한다. 체결 id 중복을 `trade_seq_registry` 기본키로 막는 V1 계약이 이렇게 풀리는 것은 실행으로 확인했다(아래 기록).
+
+V47.2는 열하나에 `ALTER FUNCTION ... SET search_path = public, pg_temp`만 한다. `pg_temp`를 끝에 명시하면 임시 스키마는 pg_catalog와 public 다음에만 찾으므로 같은 이름의 임시 표가 있어도 함수는 public의 표를 쓴다. 정상 호출에는 같은 이름의 임시 표가 없어 이름이 풀리는 결과가 전과 같다. 함수 본문, EXECUTE 권한, 트리거와 표는 바꾸지 않는다. 함수 안에서 부르는 `apply_position_cost`와 `ensure_*_band_partition`은 함수 이름이라 임시 스키마에서 찾지 않고, 그 안의 표 이름은 불린 함수 자신의 설정을 따르므로 V47.2가 그 함수들에도 같은 설정을 준다. 소유자 권한 함수 안의 문장이 발화시킨 호출자 권한 트리거 함수(`guard_sealed_txn` 등)는 그 순간의 설정을 이어받는다. 아래 기록 F에서 `guard_sealed_txn`이 비어 있는 임시 `ledger_transactions`를 읽었다면 '존재하지 않는 거래' 예외로 게시가 실패했을 것이므로, 실행 결과로 간접 확인한 셈이다. 커밋 때 도는 지연 제약 트리거 `trg_ledger_committed`(`assert_txn_sealed_balanced`)는 로그인 세션의 설정으로 도는 호출자 권한 검사라 이 계약의 대상이 아니다. 그래서 세션에 같은 이름의 임시 `ledger_transactions`·`ledger_entries`가 있으면 이 검사는 임시 표를 읽는다. 상태가 NULL이면 `st <> 'SEALED'`가 참이 아니고 분개도 0건으로 세므로 아무것도 판정하지 않고 지나간다(코드 판독, 실행으로 따로 확인하지 않음). 원장 쓰기 경로는 아니다. `app_role`은 원장 표에 직접 DML이 없고, 원장 쓰기는 V47.2 뒤 실제 표만 보는 소유자 권한 함수가 자체 검증을 마친 뒤에 한다. 다만 그 세션에서는 2차 방어 한 겹이 빠진다. 이 함수에도 같은 설정을 줄지는 커밋 때 행마다 설정을 바꾸는 비용과 함께 후속으로 검토한다.
+
+앞으로 만드는 소유자 권한 함수도 정의할 때 같은 설정을 쓴다. 브랜치 `claude/per-market-leader`의 V48 함수가 이미 그렇다(브랜치 끝 `909af89` 기준). `CREATE OR REPLACE FUNCTION`은 함수의 설정을 새 정의의 `SET` 절로 바꾸므로, 열하나 가운데 하나를 다시 정의할 때도 `SET search_path = public, pg_temp`를 적는다. `ALTER FUNCTION`은 함수 소유자만 할 수 있어 소유자가 아닌 계정으로 돌리면 V47.1의 `REVOKE`와 달리 경고가 아니라 오류로 멈춘다. 적용 뒤 public 스키마의 소유자 권한 함수 가운데 이 설정이 아닌 것이 남으면 예외로 멈춘다. 되돌리기는 `SET search_path = public`으로 되돌리는 새 마이그레이션이지만 위 경로를 다시 여는 일이라 하지 않는다.
+
+```sql
+-- V47_2__pin_security_definer_search_path.sql
+ALTER FUNCTION create_balance_for_account() SET search_path = public, pg_temp;
+ALTER FUNCTION register_trade_seq() SET search_path = public, pg_temp;
+ALTER FUNCTION register_event_emission() SET search_path = public, pg_temp;
+ALTER FUNCTION post_ledger_transaction(VARCHAR, BIGINT, JSONB) SET search_path = public, pg_temp;
+ALTER FUNCTION reserve_funds(BIGINT, BIGINT, BIGINT, SMALLINT, NUMERIC) SET search_path = public, pg_temp;
+ALTER FUNCTION release_funds(BIGINT, BIGINT, BIGINT, SMALLINT, NUMERIC) SET search_path = public, pg_temp;
+ALTER FUNCTION apply_position_cost(BIGINT) SET search_path = public, pg_temp;
+ALTER FUNCTION rebuild_position_cost(BIGINT) SET search_path = public, pg_temp;
+ALTER FUNCTION ensure_command_band_partition(SMALLINT) SET search_path = public, pg_temp;
+ALTER FUNCTION ensure_event_band_partition(SMALLINT) SET search_path = public, pg_temp;
+ALTER FUNCTION seed_market_journal_counters() SET search_path = public, pg_temp;
+
+DO $$
+DECLARE
+    v_open TEXT;
+BEGIN
+    SELECT string_agg(oid::regprocedure::TEXT, ', ') INTO v_open
+    FROM pg_proc
+    WHERE prosecdef AND pronamespace = 'public'::regnamespace
+      AND NOT coalesce('search_path=public, pg_temp' = ANY (proconfig), false);
+    IF v_open IS NOT NULL THEN
+        RAISE EXCEPTION 'search_path 에 pg_temp 가 끝에 없는 소유자 권한 함수: %', v_open;
+    END IF;
+END $$;
+```
+
+2026-09-24 폐기용 `postgres:17-alpine`에 저장소의 V0~V47.1을 올려 V47.2 적용 전후를 확인했다([V47.2 확인 기록](../../../harness/evidence/search-path-pg-temp-20260924/probe.log)). 적용 전에는 열하나 모두 `{search_path=public}`이었다(A0). `app_role`에 속한 봇 흉내 로그인이 임시 `trade_seq_registry`를 만들고 같은 체결 id를 `created_at`만 달리해 두 번 넣자 둘 다 커밋됐고, 실제 레지스트리에는 그 id가 없었다(A1). 임시 `event_emission_registry`를 만들고 같은 `(source_cmd_seq, event_ordinal)`을 `event_seq`만 달리해 두 번 넣은 경우도 같았다(A2). 조회 로그인은 `trades`·`event_journal` INSERT 권한이 없어 이 경로를 쓰지 못한다. 한정하지 않은 함수 호출은 임시 스키마에 만든 같은 이름 함수를 찾지 못해 42883이었다(A3). 같은 봇 흉내 로그인이 V47_2 파일을 돌리면 첫 `ALTER FUNCTION`에서 `must be owner`로 멈췄고 설정은 그대로였다(B). 소유자가 적용하자 열하나가 `{"search_path=public, pg_temp"}`가 됐다(C). 그 뒤 A1·A2와 같은 가림에서 두 번째 INSERT는 실제 레지스트리 기본키의 23505로 거부됐고 임시 표는 비어 있었다(D·E). `accounts`·`balances`·`ledger_transactions`·`ledger_entries`와 같은 이름의 임시 표를 둔 채 같은 로그인이 `reserve_funds`와 `release_funds`를 부르자 두 거래가 실제 원장에 봉인되고 실제 잔고가 7과 3으로 바뀌었으며, 임시 표 넷은 0행이고 `balance_ledger_check` 불일치는 0행이었다(F). 설정 없이 `CREATE OR REPLACE` 하면 설정이 사라지는 것은 롤백한 트랜잭션에서 확인했다(G).
+
+검증은 `MigrationSmokeTest`가 Testcontainers 일회용 DB에서 한다. public 스키마의 소유자 권한 함수가 하나 이상 있고 모두 `search_path=public, pg_temp` 설정을 가지는지 본다. `app_role` 로그인이 임시 `trade_seq_registry`로 가린 뒤 넣은 같은 체결 id의 두 번째 INSERT가 23505이고, 실제 레지스트리에 한 행이 있으며 임시 표는 비어 있는지 본다. 같은 이름의 임시 표 넷을 둔 `app_role` 로그인의 예약·해제가 실제 원장에 봉인되고, 잔고와 원장이 맞으며, 임시 표 넷이 비어 있는지 본다. V47_2를 소스에서 뺀 대조 실행에서는 이 세 시험이 모두 실패했다([대조 기록](../../../harness/evidence/search-path-pg-temp-20260924/contrast-without-V47_2.log)). 설정 단언은 11개가 어긋났고, 체결 id 시험은 두 번째 INSERT가 거부되지 않았다. 원장 시험에서는 게시 함수가 임시 `ledger_transactions`에 헤더를 넣고(txn=1, 실제 원장에는 이미 거래가 있었다) 임시 `balances`에서 계좌 행을 찾지 못해 `balances 행 없음`으로 멈췄다. 수정 전 게시 함수가 임시 표를 쓰는 것까지는 이 실행으로 확인했다. 가림으로 원장 없이 잔고를 바꾸거나 게시 검증을 건너뛰는 개별 경로는 실행하지 않았다(미확인). V47.2 뒤에는 위 F와 원장 시험에서 보듯 같은 이름의 임시 표가 있어도 게시 함수와 그 안에서 발화하는 트리거가 실제 표를 쓰므로, 이 범위에서 임시 표로 가리는 경로는 남지 않는다고 판단한다. 위의 지연 검사는 이 범위 밖이다.
 
 ### 3.2 `V2__partition_automation.sql`: 파티션 소진 방어 실구현 (초안 critical)
 
@@ -3666,3 +3709,11 @@ ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026
 §3 표에 V47.1 행을, §3.1에 '소유자 권한 트리거 함수의 PUBLIC 회수 (V47.1)'를 더한다. V1은 소유자 권한 함수의 PUBLIC 기본 EXECUTE를 회수한다고 정했지만 트리거 함수 셋을 목록에서 뺐고, V36이 만든 `seed_market_journal_counters`도 회수하지 않았다. PostgreSQL은 트리거 함수의 EXECUTE를 `CREATE TRIGGER` 때만 보므로, 조회 로그인은 레지스트리 두 표와 카운터 표에, `app_role` 로그인은 INSERT 권한이 없는 레지스트리 두 표에 자기 임시 표 트리거로 소유자 권한의 행을 쓸 수 있었고, 두 로그인 모두 `markets`에 없는 마켓의 저널 대역 잎을 만들 수 있었다. 잔고 표는 외래키가 막았다. 회수는 트리거 발화에 영향을 주지 않으므로 계정 생성, 체결·이벤트 적재, 마켓 생성은 그대로다.
 
 번호는 사용자가 정했다. 브랜치 `claude/per-market-leader`가 V48 이후와 이 문서의 v2.52~v2.54를 쓰고 있어, 마이그레이션은 V47과 V48 사이에 정렬되는 47.1로, 문서 판은 v2.51.1로 둔다. 그 브랜치의 V48~V52는 네 함수를 건드리지 않고, 그 브랜치가 새로 만든 소유자 권한 함수는 각자 PUBLIC을 회수한다. 표 구조, 함수 본문, `app_role` 권한은 바뀌지 않는다.
+
+## v2.51.2 패치 반영 사항
+
+소유자 권한 함수 열하나의 search_path 끝에 `pg_temp`를 명시하는 V47.2를 정본에 먼저 적는다. 2026-09-24 갱신.
+
+§3 표에 V47.2 행을, §3.1에 '소유자 권한 함수의 search_path 고정 (V47.2)'를 더한다. V1부터 V46까지 만든 소유자 권한 함수는 `SET search_path = public`만 두어, PostgreSQL이 호출 세션의 임시 스키마에서 표 이름을 먼저 찾았다. 그래서 `app_role` 로그인은 같은 이름의 임시 표로 레지스트리를 가려 같은 체결 id와 같은 방출 키를 두 번 커밋할 수 있었고, 원장 게시 함수도 임시 표를 썼다. 계약은 public 스키마의 모든 소유자 권한 함수가 `SET search_path = public, pg_temp`를 갖는 것이다. V47.2는 함수 본문을 바꾸지 않고 `ALTER FUNCTION`으로 설정만 바꾼다.
+
+번호는 사용자가 정했다. main의 다음 마이그레이션은 V47.1에 이어 47.2이고, V48 이후는 브랜치 `claude/per-market-leader`가 쓴다. 문서 판도 v2.51.1에 이어 v2.51.2다. 그 브랜치의 커밋된 V48(브랜치 끝 `909af89` 기준)은 열하나를 다시 정의하지 않고, 그 V48에서 소유자 권한으로 정의하는 함수는 모두 `public, pg_temp`를 쓴다. 병합 뒤 어긋나면 `MigrationSmokeTest`의 설정 단언이 잡는다. 표 구조, 함수 본문, EXECUTE 권한은 바뀌지 않는다.
