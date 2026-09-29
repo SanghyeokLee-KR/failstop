@@ -1,0 +1,11 @@
+# 2026-09-27 13:56 UTC 일회성 측정. ReservationBacklogMonitorTest.backlogQueriesDoNotScanJournalsWhenMostMarketsAreIdle 와 같은
+# 합성 데이터(Testcontainers postgres:17-alpine, PostgreSQL 17.10)에서 옛 문장(sql/gauge-before.sql, sql/c14-before.sql)과
+# 새 문장(ReservationBacklogMonitor.QUERY, InvariantCheck.C14_LOCKED_RESERVATION)의 공유 버퍼(적중+읽기, EXPLAIN ANALYZE BUFFERS, JIT 끔)와 값을 잰 출력이다.
+# 측정용 시험 클래스(TmpBacklogBlocksProbeTest)는 측정 뒤 지웠고 커밋하지 않았다. 값의 게이지 칸은 대기 수/가장 오래된 나이(초)다.
+PROBE p0_pages=2899 threshold=1449
+PROBE gauge_before=71013
+PROBE gauge_after=446
+PROBE c14_before=71015
+PROBE c14_after=448
+PROBE c14_before_value=1 c14_after_value=1
+PROBE gauge_before_value=2/92 gauge_after_value=2/92

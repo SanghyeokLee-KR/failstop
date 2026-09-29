@@ -1,0 +1,152 @@
+-- UTC 2026-09-27T12:56:44Z chaos-db-1 (읽기 전용 세션)
+Timing is on.
+Pager usage is off.
+            db_now             | in_recovery |               ver               |  sb   | wm  | jit | rpc | ecs 
+-------------------------------+-------------+---------------------------------+-------+-----+-----+-----+-----
+ 2026-09-27 12:56:44.348332+00 | f           | 17.11 (Debian 17.11-1.pgdg12+2) | 256MB | 4MB | on  | 4   | 1GB
+(1 row)
+
+Time: 0.685 ms
+ calls | mean_ms | total_s | min_ms | max_ms | rows | shared_blks_hit | shared_blks_read | temp_blks_written |                                                            q                                                             
+-------+---------+---------+--------+--------+------+-----------------+------------------+-------------------+--------------------------------------------------------------------------------------------------------------------------
+   396 |  4910.0 |  1944.4 | 1852.7 | 8897.0 |  396 |       909128084 |         58360551 |                 0 | SELECT count(*) AS pending, COALESCE(floor(EXTRACT($1 FROM clock_timestamp() - min(r.created_at))), $2) AS oldest_s FROM
+     6 |  3459.0 |    20.8 | 2274.4 | 5188.8 |    6 |        13657171 |          1797413 |                 0 | SELECT count(*) FROM ( SELECT a.id FROM accounts a JOIN balances b ON b.account_id = a.id LEFT JOIN (SELECT locked_accou
+(2 rows)
+
+Time: 3.133 ms
+          stats_reset          
+-------------------------------
+ 2026-09-27 12:11:41.399483+00
+(1 row)
+
+Time: 0.226 ms
+          relname           | n_live_tup | n_dead_tup | last_autovacuum | last_autoanalyze | last_analyze 
+----------------------------+------------+------------+-----------------+------------------+--------------
+ command_journal            |          0 |          0 |                 |                  | 
+ command_journal_b1         |          0 |          0 |                 |                  | 
+ command_journal_b10        |          0 |          0 |                 |                  | 
+ command_journal_b11        |          0 |          0 |                 |                  | 
+ command_journal_b12        |          0 |          0 |                 |                  | 
+ command_journal_b2         |          0 |          0 |                 |                  | 
+ command_journal_b3         |          0 |          0 |                 |                  | 
+ command_journal_b4         |          0 |          0 |                 |                  | 
+ command_journal_b5         |          0 |          0 |                 |                  | 
+ command_journal_b6         |          0 |          0 |                 |                  | 
+ command_journal_b7         |          0 |          0 |                 |                  | 
+ command_journal_b8         |          0 |          0 |                 |                  | 
+ command_journal_b9         |          0 |          0 |                 |                  | 
+ command_journal_default    |          0 |          0 |                 |                  | 
+ command_journal_p0         |      18274 |          0 |                 |                  | 
+ command_journal_p100000000 |          0 |          0 |                 |                  | 
+ command_journal_p200000000 |          0 |          0 |                 |                  | 
+ event_emission_registry    |      31520 |          0 |                 |                  | 
+ event_journal              |          0 |          0 |                 |                  | 
+ event_journal_b1           |       7008 |          0 |                 |                  | 
+ event_journal_b10          |          0 |          0 |                 |                  | 
+ event_journal_b11          |          0 |          0 |                 |                  | 
+ event_journal_b12          |          0 |          0 |                 |                  | 
+ event_journal_b2           |       5736 |          0 |                 |                  | 
+ event_journal_b3           |          0 |          0 |                 |                  | 
+ event_journal_b4           |      18776 |          0 |                 |                  | 
+ event_journal_b5           |          0 |          0 |                 |                  | 
+ event_journal_b6           |          0 |          0 |                 |                  | 
+ event_journal_b7           |          0 |          0 |                 |                  | 
+ event_journal_b8           |          0 |          0 |                 |                  | 
+ event_journal_b9           |          0 |          0 |                 |                  | 
+ event_journal_default      |          0 |          0 |                 |                  | 
+ event_journal_p0           |          0 |          0 |                 |                  | 
+ event_journal_p200000000   |          0 |          0 |                 |                  | 
+ markets                    |          0 |          0 |                 |                  | 
+ order_reservations         |          0 |          0 |                 |                  | 
+ orders                     |      15173 |      25394 |                 |                  | 
+(37 rows)
+
+Time: 3.936 ms
+Timing is on.
+Pager usage is off.
+SET
+Time: 0.195 ms
+ cmd_rows | cmd_new | evt_rows | evt_null_market | orders_rows | res_rows | reg_rows | markets 
+----------+---------+----------+-----------------+-------------+----------+----------+---------
+   616372 |  532139 |  1077963 |               0 |      532139 |        0 |  1077963 |      12
+(1 row)
+
+Time: 1289.566 ms (00:01.290)
+ id |  symbol   | settled | new_total | new_above | cancel_above | min_seq | max_seq | res_total 
+----+-----------+---------+-----------+-----------+--------------+---------+---------+-----------
+  1 | KRW-BTC   |  616385 |    173591 |         0 |            0 |       1 |  616385 |         0
+  2 | KRW-ETH   |  616384 |    146995 |         0 |            0 |      20 |  616384 |         0
+  3 | KRW-SOL   |         |         0 |         0 |            0 |         |         |         0
+  4 | KRW-XRP   |  616383 |    211565 |         0 |            0 |      42 |  616383 |         0
+  5 | KRW-DOGE  |         |         0 |         0 |            0 |         |         |         0
+  6 | KRW-ADA   |         |         0 |         0 |            0 |         |         |         0
+  7 | KRW-TRX   |         |         0 |         0 |            0 |         |         |         0
+  8 | KRW-LINK  |         |         0 |         0 |            0 |         |         |         0
+  9 | KRW-DOT   |         |         0 |         0 |            0 |         |         |         0
+ 10 | KRW-MATIC |         |         0 |         0 |            0 |         |         |         0
+ 11 | KRW-AVAX  |         |         0 |         0 |            0 |         |         |         0
+ 12 | KRW-ATOM  |         |         0 |         0 |            0 |         |         |         0
+(12 rows)
+
+Time: 5031.553 ms (00:05.032)
+Pager usage is off.
+       table_name        |                                                                                                                                         string_agg                                                                                                                                          
+-------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ command_journal         | seq:bigint!, market_id:smallint!, command_type:character varying!, user_id:bigint!, client_order_id:character varying, assigned_order_id:bigint!, engine_ts:bigint!, tie_break:bigint!, payload:jsonb!, fencing_token:bigint!, checksum:bigint!, created_at:timestamp with time zone!=now()
+ event_emission_registry | source_cmd_seq:bigint!, event_ordinal:integer!, event_seq:bigint!, created_at:timestamp with time zone!=now()
+ event_journal           | event_seq:bigint!, source_cmd_seq:bigint!, event_ordinal:integer!, event_type:character varying!, payload:jsonb!, payload_schema_version:smallint!=1, fencing_epoch:bigint!, created_at:timestamp with time zone!, market_id:smallint, market_seq:bigint
+ order_reservations      | command_seq:bigint!, order_id:bigint!, user_id:bigint!, market_id:smallint!, asset_id:smallint!, available_account_id:bigint!, locked_account_id:bigint!, amount:numeric!, ledger_txn_id:bigint!, payload_sha256:bytea!, created_at:timestamp with time zone!=now()
+(4 rows)
+
+      indexrelid      |                                                                 pg_get_indexdef                                                                  
+----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------
+ idx_evt_market_seq   | CREATE INDEX idx_evt_market_seq ON ONLY public.event_journal USING btree (market_id, market_seq) WHERE (market_seq IS NOT NULL)
+ idx_cmd_client_new   | CREATE INDEX idx_cmd_client_new ON ONLY public.command_journal USING btree (user_id, client_order_id) WHERE ((command_type)::text = 'NEW'::text)
+ idx_evt_market_cmd   | CREATE INDEX idx_evt_market_cmd ON ONLY public.event_journal USING btree (market_id, source_cmd_seq, event_ordinal)
+ event_journal_pkey   | CREATE UNIQUE INDEX event_journal_pkey ON ONLY public.event_journal USING btree (event_seq)
+ idx_cmd_market       | CREATE INDEX idx_cmd_market ON ONLY public.command_journal USING btree (market_id, seq)
+ command_journal_pkey | CREATE UNIQUE INDEX command_journal_pkey ON ONLY public.command_journal USING btree (seq)
+ idx_evt_src          | CREATE INDEX idx_evt_src ON ONLY public.event_journal USING btree (source_cmd_seq)
+(7 rows)
+
+     tgname      |     tgrelid     | tgenabled 
+-----------------+-----------------+-----------
+ trg_cj_noupd    | command_journal | O
+ trg_ej_noupd    | event_journal   | O
+ trg_cj_notrunc  | command_journal | O
+ trg_ej_notrunc  | event_journal   | O
+ trg_ej_register | event_journal   | O
+(5 rows)
+
+      relname       | relpages | reltuples | relallvisible 
+--------------------+----------+-----------+---------------
+ event_journal_b2   |     3224 |    146396 |          3212
+ event_journal_p0   |     6560 |    296904 |          6514
+ event_journal_b1   |     4380 |    197636 |          3830
+ event_journal_b4   |     7213 |    327178 |          5127
+ command_journal_p0 |    23128 |    508585 |         20062
+(5 rows)
+
+     tablename      |    attname     | n_distinct  | most_common_vals | correlation 
+--------------------+----------------+-------------+------------------+-------------
+ command_journal_p0 | market_id      |           3 | {1,4,2}          |  0.42915756
+ command_journal_p0 | seq            |          -1 |                  |   0.9950049
+ event_journal_b1   | market_id      |           1 | {1}              |           1
+ event_journal_b1   | source_cmd_seq |   -0.520305 | {459696,461924}  |   0.9992868
+ event_journal_b2   | market_id      |           1 | {2}              |           1
+ event_journal_b2   | source_cmd_seq |   -0.541169 |                  |   0.9990129
+ event_journal_b4   | market_id      |           1 | {4}              |           1
+ event_journal_b4   | source_cmd_seq | -0.42394048 |                  |   0.9995718
+ event_journal_p0   | market_id      |           3 | {1,4,2}          |  0.32900774
+ event_journal_p0   | source_cmd_seq | -0.47438565 |                  |   0.9997656
+(10 rows)
+
+ version |        description         |        installed_on        
+---------+----------------------------+----------------------------
+ 73      | ops notifications          | 2026-09-26 06:06:13.7912
+ 72      | ops ai                     | 2026-09-26 06:06:13.694698
+ 71      | ops incidents              | 2026-09-26 06:06:13.670322
+ 70      | ops thresholds             | 2026-09-26 06:06:13.640071
+ 55      | partition protocol cutover | 2026-09-26 06:06:13.575533
+(5 rows)
+

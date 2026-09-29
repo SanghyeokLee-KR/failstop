@@ -1,0 +1,554 @@
+Pager usage is off.
+=== SET LOCAL random_page_cost = 1.1
+BEGIN
+SET
+                                                                             QUERY PLAN                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Merge Append
+                           Sort Key: c.market_id, c.seq
+                           ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 c_2
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 c_3
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 c_4
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 c_5
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 c_6
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b4_market_id_seq_idx on command_journal_b4 c_7
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b5_market_id_seq_idx on command_journal_b5 c_8
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b6_market_id_seq_idx on command_journal_b6 c_9
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b7_market_id_seq_idx on command_journal_b7 c_10
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b8_market_id_seq_idx on command_journal_b8 c_11
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b9_market_id_seq_idx on command_journal_b9 c_12
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b10_market_id_seq_idx on command_journal_b10 c_13
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b11_market_id_seq_idx on command_journal_b11 c_14
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_b12_market_id_seq_idx on command_journal_b12 c_15
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+                           ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default c_16
+                                 Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 Filter: ((command_type)::text = 'NEW'::text)
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(95 rows)
+
+ROLLBACK
+=== SET LOCAL random_page_cost = 4
+BEGIN
+SET
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: c.market_id, c.seq
+                           ->  Append
+                                 ->  Bitmap Heap Scan on command_journal_p0 c_1
+                                       Recheck Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                       Filter: ((command_type)::text = 'NEW'::text)
+                                       ->  Bitmap Index Scan on command_journal_p0_market_id_seq_idx
+                                             Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 ->  Seq Scan on command_journal_p100000000 c_2
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p200000000 c_3
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b1 c_4
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b2 c_5
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b3 c_6
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b4 c_7
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b5 c_8
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b6 c_9
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b7 c_10
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b8 c_11
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b9 c_12
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b10 c_13
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b11 c_14
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b12 c_15
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_default c_16
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(83 rows)
+
+ROLLBACK
+=== SET LOCAL random_page_cost = 20
+BEGIN
+SET
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: c.market_id, c.seq
+                           ->  Append
+                                 ->  Bitmap Heap Scan on command_journal_p0 c_1
+                                       Recheck Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                       Filter: ((command_type)::text = 'NEW'::text)
+                                       ->  Bitmap Index Scan on command_journal_p0_market_id_seq_idx
+                                             Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 ->  Seq Scan on command_journal_p100000000 c_2
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p200000000 c_3
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b1 c_4
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b2 c_5
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b3 c_6
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b4 c_7
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b5 c_8
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b6 c_9
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b7 c_10
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b8 c_11
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b9 c_12
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b10 c_13
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b11 c_14
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b12 c_15
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_default c_16
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(83 rows)
+
+ROLLBACK
+=== SET LOCAL random_page_cost = 100
+BEGIN
+SET
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: c.market_id, c.seq
+                           ->  Append
+                                 ->  Seq Scan on command_journal_p0 c_1
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p100000000 c_2
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p200000000 c_3
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b1 c_4
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b2 c_5
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b3 c_6
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b4 c_7
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b5 c_8
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b6 c_9
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b7 c_10
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b8 c_11
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b9 c_12
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b10 c_13
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b11 c_14
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b12 c_15
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_default c_16
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(80 rows)
+
+ROLLBACK
+=== SET LOCAL enable_bitmapscan = off
+BEGIN
+SET
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: c.market_id, c.seq
+                           ->  Append
+                                 ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 c_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                       Filter: ((command_type)::text = 'NEW'::text)
+                                 ->  Seq Scan on command_journal_p100000000 c_2
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p200000000 c_3
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b1 c_4
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b2 c_5
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b3 c_6
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b4 c_7
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b5 c_8
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b6 c_9
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b7 c_10
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b8 c_11
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b9 c_12
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b10 c_13
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b11 c_14
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b12 c_15
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_default c_16
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(81 rows)
+
+ROLLBACK
+=== SET LOCAL enable_incremental_sort = off
+BEGIN
+SET
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Nested Loop
+         ->  Nested Loop
+               ->  Nested Loop Left Join
+                     ->  Seq Scan on markets m
+                     ->  Limit
+                           ->  Merge Append
+                                 Sort Key: e.market_id DESC, e.source_cmd_seq DESC
+                                 ->  Index Only Scan Backward using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 e_1
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_p200000000_market_id_source_cmd_seq_event_ord_idx on event_journal_p200000000 e_2
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b1_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b1 e_3
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b2_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b2 e_4
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b3_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b3 e_5
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b4_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b4 e_6
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b5_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b5 e_7
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b6_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b6 e_8
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b7_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b7 e_9
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b8_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b8 e_10
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b9_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b9 e_11
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b10_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b10 e_12
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b11_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b11 e_13
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_b12_market_id_source_cmd_seq_event_ordinal_idx on event_journal_b12 e_14
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+                                 ->  Index Only Scan Backward using event_journal_default_market_id_source_cmd_seq_event_ordina_idx on event_journal_default e_15
+                                       Index Cond: ((market_id >= m.id) AND (market_id <= m.id))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: c.market_id, c.seq
+                           ->  Append
+                                 ->  Bitmap Heap Scan on command_journal_p0 c_1
+                                       Recheck Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                       Filter: ((command_type)::text = 'NEW'::text)
+                                       ->  Bitmap Index Scan on command_journal_p0_market_id_seq_idx
+                                             Index Cond: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)))
+                                 ->  Seq Scan on command_journal_p100000000 c_2
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_p200000000 c_3
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b1 c_4
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b2 c_5
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b3 c_6
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b4 c_7
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b5 c_8
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b6 c_9
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b7 c_10
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b8 c_11
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b9 c_12
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b10 c_13
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b11 c_14
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_b12 c_15
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+                                 ->  Seq Scan on command_journal_default c_16
+                                       Filter: ((market_id >= m.id) AND (market_id <= m.id) AND (seq > COALESCE(e.source_cmd_seq, '-1'::bigint)) AND ((command_type)::text = 'NEW'::text))
+         ->  Limit
+               ->  Nested Loop Anti Join
+                     ->  Seq Scan on order_reservations r
+                           Filter: (command_seq = c.seq)
+                     ->  Index Only Scan using event_emission_registry_pkey on event_emission_registry e_16
+                           Index Cond: (source_cmd_seq = c.seq)
+(83 rows)
+
+ROLLBACK

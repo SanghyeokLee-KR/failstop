@@ -163,7 +163,7 @@ public enum InvariantCheck {
     // 상태, ADR 0034 결정한 값 16). 개정 전 술어는 대기 출금이 있는 계정을 위반으로 셌다.
     // 정산 전 예약 항은 마켓별 정산 커서 위만 LIMIT 를 단 LATERAL 로 본다(S3 설계 11절 R5). 비용이 누적 행 수가 아니라
     // 정산 대기 명령 수에 비례한다. 커서 아래 정산 틈과 한 마켓 대기 10만 건 초과 몫은 초과 LOCKED 로 드러나므로 보수 쪽으로만
-    // 틀린다. 술어 원문은 하네스 검증설계 §4-1 C14 이고 이것은 위반 계정 수다.
+    // 틀린다. 술어 원문은 하네스 검증설계 §4-1 C14 이고 이것은 위반 계정 수다. 마켓 조건을 등호 대신 범위로 쓰는 까닭도 거기 있다.
     C14_LOCKED_RESERVATION(Severity.HIGH, Scope.SCHEDULED, """
             SELECT count(*) FROM (
                 SELECT a.id
@@ -174,12 +174,13 @@ public enum InvariantCheck {
                            GROUP BY locked_account_id) o ON o.account_id = a.id
                 LEFT JOIN (SELECT r.locked_account_id AS account_id, SUM(r.amount) AS amt
                            FROM markets m
-                           CROSS JOIN LATERAL (SELECT max(e.source_cmd_seq) AS settled
-                                                 FROM event_journal e WHERE e.market_id = m.id) cur
+                           LEFT JOIN LATERAL (SELECT e.source_cmd_seq AS settled FROM event_journal e
+                                               WHERE e.market_id BETWEEN m.id AND m.id
+                                               ORDER BY e.market_id DESC, e.source_cmd_seq DESC LIMIT 1) cur ON true
                            CROSS JOIN LATERAL (SELECT c.seq FROM command_journal c
-                                                WHERE c.market_id = m.id AND c.command_type = 'NEW'
+                                                WHERE c.market_id BETWEEN m.id AND m.id AND c.command_type = 'NEW'
                                                   AND c.seq > COALESCE(cur.settled, -1)
-                                                ORDER BY c.seq LIMIT 100000) c
+                                                ORDER BY c.market_id, c.seq LIMIT 100000) c
                            CROSS JOIN LATERAL (SELECT r.locked_account_id, r.amount FROM order_reservations r
                                                 WHERE r.command_seq = c.seq
                                                   AND NOT EXISTS (SELECT 1 FROM event_emission_registry e

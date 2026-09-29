@@ -1062,7 +1062,7 @@ CREATE TABLE command_journal (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (seq)                            -- 파티션키 seq ⊆ PK → seq 전역유일 성립
 ) PARTITION BY RANGE (seq);
-CREATE INDEX idx_cmd_market ON command_journal (market_id, seq);
+CREATE INDEX idx_cmd_market ON command_journal (market_id, seq);   -- 마켓별 명령 판독. C14' 정산 전 예약 항과 정산 전 예약 게이지의 커서 위 NEW 조회는 순서를 주는 색인이 이것뿐이 되게 짠다(v2.60 보강)
 -- NEW 멱등 재전송 판정(§5.1 (a'))과 by-client 재조회(API §7-6)의 (user_id, client_order_id)
 -- 탐색용(v2.6). 이 인덱스가 없으면 신규 키(매치 0건)마다 전 파티션 스캔이 되어 append
 -- 핫패스가 저널 크기에 비례한다. UNIQUE는 파티션 키(seq) 미포함이라 불가하고 여기서는
@@ -1100,7 +1100,7 @@ CREATE TABLE event_journal (
     PRIMARY KEY (event_seq)
 ) PARTITION BY RANGE (event_seq);
 CREATE INDEX idx_evt_src ON event_journal (source_cmd_seq);   -- 고아 event 탐지(초안 medium)
-CREATE INDEX idx_evt_market_cmd ON event_journal (market_id, source_cmd_seq, event_ordinal);   -- 마켓별 재생·따라잡기 판독(V42, v2.45). market_id 는 V36 이 ALTER 로 더한 열이다
+CREATE INDEX idx_evt_market_cmd ON event_journal (market_id, source_cmd_seq, event_ordinal);   -- 마켓별 재생·따라잡기 판독(V42, v2.45). market_id 는 V36 이 ALTER 로 더한 열이다. C14' 정산 전 예약 항과 정산 전 예약 게이지의 마켓별 정산 커서는 순서를 주는 색인이 이것뿐이 되게 짠다(v2.60 보강)
 CREATE TABLE event_journal_p0 PARTITION OF event_journal FOR VALUES FROM (0) TO (200000000);   -- partman <table>_p<start_value> 규칙(medium#5)
 CREATE TABLE event_journal_default PARTITION OF event_journal DEFAULT;
 CREATE TRIGGER trg_ej_noupd BEFORE UPDATE OR DELETE ON event_journal
@@ -2934,7 +2934,7 @@ payload 결속. 예약 행은 예약액을 계산한 payload의 SHA-256(`payload
 
 적용과 되돌리기. V50은 표 하나를 만들고 함수를 바꾸므로 쓰기를 멈춘 창에서 적용한다. Flyway 11.7.2는 높은 번호가 적용된 DB에 낮은 번호 파일이 새로 보이면 `Detected resolved migration not applied to database`로 검증을 멈춘다(`outOfOrder` 기본 거짓). 그래서 V50이 들어가는 이미지는 V49를 함께 싣거나 V49가 이미 적용된 DB에만 올린다. 반대로 앞 이미지가 DB에만 있는 뒤 번호를 만나면 `Schema has a version (N) that is newer than the latest available migration`을 경고하고 뜬다(S3 설계 3절 P7, S2 설계 4-1의 전제를 실행으로 확인했다). V50은 모드가 1이고 `order_reservations`가 비어 있을 때만 되돌린다. 새 표·함수를 지우고 바꾼 함수를 V48·V44 본문으로 되돌리는 새 마이그레이션을 더한다. 예약 행이 한 번이라도 생기면 되돌리지 않는다. 그 주문의 예약이 원장에 남아 있고 정산의 두 갈래가 그 행을 읽기 때문이다.
 
-검증. 예약 연결은 하네스 C31_RESERVATION_LINK(CRITICAL, 앱은 권위 run 한정·최근 창, 전수 판은 하네스 SQL), LOCKED 잔고는 C14'(C14_LOCKED_RESERVATION의 개정 술어, HIGH, SCHEDULED, 정산 전 예약 항은 마켓별 정산 커서로 경계)가 센다(`docs/reference/contracts/하네스_검증설계.md` §4-1). 위 SQL 블록은 2026-09-24 저장소의 V0~V48과 §3.4의 V49 계약 SQL 위에 문서에서 그대로 뽑아 적용했고, 권한, P1 동등 경로, 전환 거부와 퇴역 순서, P2 예약·재전송·잔고 부족·오래된 epoch·대조 불일치·payload 결속, 동시 예약과 출금 경합, 전환 경합 셋, 되돌리기, 외부 보관소의 전환 뒤 첫 게시, 정산 잠금 계획의 교착 제거, C14'·C31의 양성·음성 대조를 확인했다(`harness/evidence/pml-s3-pg-probe-20260924/s3-contract-check.log`). 합성 행 100만 건에서 잰 문장 시간은 S3 설계 3절 P8이다. 시험 목록은 S3 설계 6절이다.
+검증. 예약 연결은 하네스 C31_RESERVATION_LINK(CRITICAL, 앱은 권위 run 한정·최근 창, 전수 판은 하네스 SQL), LOCKED 잔고는 C14'(C14_LOCKED_RESERVATION의 개정 술어, HIGH, SCHEDULED, 정산 전 예약 항은 마켓별 정산 커서로 경계)가 센다(`docs/reference/contracts/하네스_검증설계.md` §4-1). 위 SQL 블록은 2026-09-24 저장소의 V0~V48과 §3.4의 V49 계약 SQL 위에 문서에서 그대로 뽑아 적용했고, 권한, P1 동등 경로, 전환 거부와 퇴역 순서, P2 예약·재전송·잔고 부족·오래된 epoch·대조 불일치·payload 결속, 동시 예약과 출금 경합, 전환 경합 셋, 되돌리기, 외부 보관소의 전환 뒤 첫 게시, 정산 잠금 계획의 교착 제거, C14'·C31의 양성·음성 대조를 확인했다(`harness/evidence/pml-s3-pg-probe-20260924/s3-contract-check.log`). 합성 행 100만 건과 2026-09-27 로컬 시연 스택에서 잰 문장 시간, 정산 전 예약 항의 마켓 조건을 등호가 아닌 범위로 쓰는 까닭은 S3 설계 3절 P8이다. 시험 목록은 S3 설계 6절이다.
 
 ---
 
@@ -6164,3 +6164,5 @@ ADR 0036(DB 자동 전환을 Patroni 엄격 동기 2노드로)을 코드보다 �
 같은 날 설계 검토 지적 13건을 반영해 §5.4-f를 같은 판 안에서 보강했다. 버전은 그대로 v2.60이다. 대응 근거는 설계 14절이고, 검토가 짚은 PostgreSQL 동작은 폐기용 두 노드로 다시 확인했다(사전 확인 3·4차). (1) 2에 리스 획득 규칙을 더했다. 획득은 쓰기 가능 상태가 ACTIVE일 때만 하고, 반환 뒤 `lease_until > clock_timestamp()`를 읽어 거짓이면 승격하지 않는다. V52가 `lease_until`을 커밋 전에 정하므로 커밋 대기에 걸린 획득은 만료된 리스를 받기 때문이다. (2) 3에 크래시 재시작의 예외를 적었다. 커밋을 기다리던 행은 postmaster 크래시 재시작 뒤 복제 없이 보인다(사전 확인 Q1·Q2). (3) 4의 SUSPENDED를 DB 쪽 확인(`'*'`나 탐지 백엔드의 `SyncRep` 대기)이 있을 때로 좁히고, `'*'` 아래에서는 재개하지 않으며, 탐지 연결이 끊긴 뒤의 '재확인 전' 표시를 더했다. `'*'`가 멤버가 아닌 복제 연결을 동기 대기 서버로 받는 것을 확인했다(사전 확인 P·M·N·O). (4) 5의 좀비 판정 정지를 SUSPENDED로 좁히고 UNREACHABLE 게이트 거절을 노드 층 수요로 세게 했다. §5.4-c 8의 v2.60 문장도 같이 고쳤다. (5) 6에 V47 커밋 회수와 by-client 재조회의 확정 응답 보류를 더했다. (6) 7에 베이스백업 `--no-slot`과 멤버가 아닌 복제 클라이언트 금지를 더하고, §7.2 동기 복제 행에 같은 조건을 적었다. 스키마와 SQL 함수는 그대로이고 새 마이그레이션은 없다. (1)~(6)은 2026-09-25 설계를 맡은 AI가 정했고 사용자 확인 대상이다(설계 13절 12~23).
 
 같은 날 코드 단계 뒤의 코드 검토를 반영해 §5.4-f 4를 같은 판 안에서 고쳤다. 버전은 그대로 v2.60이다. (7) 커밋 대기를 DB에서 확인한 탐지가 소켓 제한으로 끝난 것을 UNREACHABLE 계수에서 뺐다. (8) 확인 연결의 소켓 제한보다 DB 왕복이 긴 노드가 UNREACHABLE이 된다는 것을 적었다(E-P7 회차에서 확인). 스키마와 SQL 함수는 그대로다.
+
+2026-09-27 같은 판 안에서 §3.1의 `idx_cmd_market`·`idx_evt_market_cmd` 주석과 §3.5 검증 문단에 C14' 정산 전 예약 항과 정산 전 예약 게이지가 두 색인에 기댄다는 것을 적었다. 로컬 시연 스택(명령 약 60만 행)에서 두 문장의 마켓 조건이 등호라, 계획기가 명령 PK와 `idx_evt_src`로 순서를 대신하고 마켓을 필터로 걸러 명령이 없는 마켓마다 명령 옛 잎 전체를, 이벤트 대역 잎 b1·b4에서 다른 마켓마다 잎 전체를 훑었다(게이지 호출당 2~9초). 두 문장의 마켓 조건을 `BETWEEN m.id AND m.id`로 바꿔 그 순서를 주는 색인을 이 둘로 좁혔고 값은 같다(하네스 검증설계 2026-09-27 패치 노트, S3 설계 3절 P8). 표, 열, 색인, 마이그레이션은 바뀌지 않는다. 두 색인을 바꾸거나 지우면 두 문장의 비용이 다시 저널 크기에 비례한다.

@@ -451,6 +451,7 @@ class HarnessSqlVerdictTest {
             assertEquals(0, f.invariant(InvariantCheck.C14_LOCKED_RESERVATION), "커서 위 정산 전 예약을 위반으로 셌다");
             assertEquals(0, f.count(C14_FULL_ANTI_JOIN));
             assertEquals("0", summaryByCode(f.db).get("C14").split("\\|")[4]);
+            assertEquals(List.of(), S7Audit.block(f.db.psql("invariants.sql"), "C14"));
 
             AppendResult second = f.append(appender, f.limit(KRW_BTC, alice, OrderCommand.Side.BUY, "50000", "0.2"));
             settlement.appendAndSettle(f.apply(engine, second.seq(), KRW_BTC));
@@ -458,6 +459,7 @@ class HarnessSqlVerdictTest {
             assertEquals(1, f.invariant(InvariantCheck.C14_LOCKED_RESERVATION), "정산 틈을 초과 LOCKED 로 드러내지 않았다");
             assertEquals(0, f.count(C14_FULL_ANTI_JOIN), "첫 판은 정산 틈을 정상으로 본다");
             assertEquals("C14|LOCKED_RESERVATION|HIGH|ALWAYS|1|FAIL", summaryByCode(f.db).get("C14"));
+            assertEquals(1, S7Audit.block(f.db.psql("invariants.sql"), "C14").size());
 
             settlement.appendAndSettle(f.apply(new MatchingEngineImpl(), first.seq(), KRW_BTC));
             assertEquals(0, f.invariant(InvariantCheck.C14_LOCKED_RESERVATION));

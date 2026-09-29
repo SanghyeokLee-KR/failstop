@@ -130,12 +130,13 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                            GROUP BY locked_account_id) o ON o.account_id = a.id
                 LEFT JOIN (SELECT r.locked_account_id AS account_id, SUM(r.amount) AS amt
                            FROM markets m
-                           CROSS JOIN LATERAL (SELECT max(e.source_cmd_seq) AS settled
-                                                 FROM event_journal e WHERE e.market_id = m.id) cur
+                           LEFT JOIN LATERAL (SELECT e.source_cmd_seq AS settled FROM event_journal e
+                                               WHERE e.market_id BETWEEN m.id AND m.id
+                                               ORDER BY e.market_id DESC, e.source_cmd_seq DESC LIMIT 1) cur ON true
                            CROSS JOIN LATERAL (SELECT c.seq FROM command_journal c
-                                                WHERE c.market_id = m.id AND c.command_type = 'NEW'
+                                                WHERE c.market_id BETWEEN m.id AND m.id AND c.command_type = 'NEW'
                                                   AND c.seq > COALESCE(cur.settled, -1)
-                                                ORDER BY c.seq LIMIT 100000) c
+                                                ORDER BY c.market_id, c.seq LIMIT 100000) c
                            CROSS JOIN LATERAL (SELECT r.locked_account_id, r.amount FROM order_reservations r
                                                 WHERE r.command_seq = c.seq
                                                   AND NOT EXISTS (SELECT 1 FROM event_emission_registry e

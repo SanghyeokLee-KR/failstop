@@ -26,10 +26,10 @@ import java.util.concurrent.TimeUnit;
  * 노드는 뺀다. 그 로그인은 저널과 예약 표를 읽지 못해 질의가 매번 실패한다(EngineConfig.reservationBacklogMonitor).
  * 스케줄링을 켜는 설정이 하네스·시뮬레이션 설정에만 있으므로 @Scheduled 를 쓰지 않고 전용 단일 스레드 실행기를 쓴다.
  *
- * 질의는 C14' 의 정산 전 예약 항과 같은 모양이다(마켓별 정산 커서 위의 NEW 만 LIMIT 를 단 LATERAL 로 읽는다). 누적 행
- * 수가 아니라 정산 대기 명령 수에 비례하고, 합성 100만·300만 행에서 JIT 을 끄면 3ms 였다(S3 설계 3절 P8). 계획 비용
- * 추정이 커서 JIT 이 붙으면 컴파일(약 0.2초)이 실행보다 길어 트랜잭션 안에서 끈다. 질의가 실패하면 두 게이지를 NaN 으로
- * 두고 실패 계수를 올린다. NaN 은 경보 조건을 채우지 않는다. P1 에서는 예약 행이 없어 두 값이 0 이다.
+ * 질의는 C14' 의 정산 전 예약 항과 같은 모양이다(마켓별 정산 커서 위의 NEW 만 LIMIT 를 단 LATERAL 로 읽는다). 비용은 누적
+ * 행 수가 아니라 정산 대기 명령 수에 비례한다(S3 설계 3절 P8). 계획 비용 추정이 커서 JIT 이 붙으면 컴파일이 실행보다 길어
+ * 트랜잭션 안에서 끈다. 질의가 실패하면 두 게이지를 NaN 으로 두고 실패 계수를 올린다. NaN 은 경보 조건을 채우지 않는다.
+ * P1 에서는 예약 행이 없어 두 값이 0 이다.
  */
 public class ReservationBacklogMonitor implements AutoCloseable {
 
@@ -37,16 +37,21 @@ public class ReservationBacklogMonitor implements AutoCloseable {
 
     public static final Duration DEFAULT_INTERVAL = Duration.ofSeconds(15);
 
+    // 마켓 조건을 등호로 쓰면 통계에 따라 계획기가 seq 단일 색인(명령 PK, idx_evt_src)으로 정렬을 대신하고 마켓을 필터로 걸러
+    // 빈 마켓마다 잎을 끝까지 훑는다. 범위로 쓰면 그 순서를 주는 색인이 idx_cmd_market·idx_evt_market_cmd 뿐이다(S3 설계 3절 P8).
     // LIMIT 는 seq 가 작은 쪽부터 남긴다. 마켓 안의 seq 순서는 created_at 순서와 같으므로(한 마켓의 append 는 접수 락 안에서
     // 한 줄로 서고 created_at 은 그 트랜잭션의 now() 다) 대기가 10만 건을 넘어도 가장 오래된 예약은 잘리지 않는다.
     static final String QUERY = """
             SELECT count(*) AS pending,
                    COALESCE(floor(EXTRACT(EPOCH FROM clock_timestamp() - min(r.created_at))), 0) AS oldest_s
             FROM markets m
-            CROSS JOIN LATERAL (SELECT max(e.source_cmd_seq) AS settled FROM event_journal e WHERE e.market_id = m.id) cur
+            LEFT JOIN LATERAL (SELECT e.source_cmd_seq AS settled FROM event_journal e
+                                WHERE e.market_id BETWEEN m.id AND m.id
+                                ORDER BY e.market_id DESC, e.source_cmd_seq DESC LIMIT 1) cur ON true
             CROSS JOIN LATERAL (SELECT c.seq FROM command_journal c
-                                 WHERE c.market_id = m.id AND c.command_type = 'NEW' AND c.seq > COALESCE(cur.settled, -1)
-                                 ORDER BY c.seq LIMIT 100000) c
+                                 WHERE c.market_id BETWEEN m.id AND m.id AND c.command_type = 'NEW'
+                                   AND c.seq > COALESCE(cur.settled, -1)
+                                 ORDER BY c.market_id, c.seq LIMIT 100000) c
             CROSS JOIN LATERAL (SELECT r.created_at FROM order_reservations r
                                  WHERE r.command_seq = c.seq
                                    AND NOT EXISTS (SELECT 1 FROM event_emission_registry e WHERE e.source_cmd_seq = r.command_seq)
