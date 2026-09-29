@@ -21,6 +21,12 @@ FACT_NAMES = {
 # 보고 id 는 '종류:식별' 형식의 보관함 키다(reporter.daily_key, incident_payload, msp_events.event_payload).
 REPORT_KINDS = {"daily": "일일 보고", "incident": "경보 보고", "msp": "관제 사건", "preview": "미리보기", "test": "연결 시험"}
 AUTOMATION_UNREADABLE = "자동 조치 기록 확인 불가"
+# AI 문장 속 시각. 날짜(2026-09-28, 9월 28일)와 초, 시간대(KST·UTC·Z·+09:00)는 붙지 않을 수 있다.
+TIME_MENTION = re.compile(
+    r"(?<![\d:.])(?:(?P<date>\d{4}-\d{2}-\d{2})[T ]?|(?:(?P<year>\d{4})년\s*)?(?P<month>\d{1,2})월\s*(?P<day>\d{1,2})일\s*)?"
+    r"(?:(?P<hour>[01]?\d|2[0-3]):(?P<minute>[0-5]\d)(?::[0-5]\d(?:\.\d+)?)?(?![\d:])"
+    r"|(?:(?P<half>오전|오후)\s*)?(?P<ko_hour>[01]?\d|2[0-3])시\s*(?P<ko_minute>[0-5]?\d)분(?:\s*[0-5]?\d초)?)"
+    r"(?P<zone>Z|\+\d{2}:\d{2}|\s?(?:\((?:KST|UTC)\)|KST|UTC))?")
 
 
 def _text(value, limit=160):
@@ -46,17 +52,22 @@ def _number(value):
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
 
 
+def _status(row, observed, trigger):
+    status = row.get("status")
+    if isinstance(status, str) and status in ("firing", "resolved"):
+        return status
+    # Alertmanager's active/suppressed state is not a firing/resolved transition.
+    ended = _date(row.get("endsAt"))
+    return "unknown" if trigger else "resolved" if ended and observed and ended <= observed else "firing"
+
+
 def _events(fact, observed, trigger=False):
     result = []
     for row in fact.get("records", []) if isinstance(fact.get("records"), list) else []:
         if not isinstance(row, dict):
             continue
         labels = row.get("labels", {})
-        status = row.get("status")
-        if not isinstance(status, str) or status not in ("firing", "resolved"):
-            # Alertmanager's active/suppressed state is not a firing/resolved transition.
-            ended = _date(row.get("endsAt"))
-            status = "unknown" if trigger else "resolved" if ended and observed and ended <= observed else "firing"
+        status = _status(row, observed, trigger)
         name = _text(labels.get("alertname", "이름 미확인"), 70)
         target_keys = ("mountpoint", "name", "node" if labels.get("node") else "instance")
         target = " · ".join(_text(labels[key], 60) for key in target_keys if labels.get(key))
@@ -69,6 +80,70 @@ def _events(fact, observed, trigger=False):
                        "target": target or "대상 정보 미제공", "started_at": _kst(row.get("startsAt")),
                        "ended_at": _kst(row.get("endsAt")) if status == "resolved" else None})
     return result
+
+
+def _report_times(facts, observed, start, end):
+    """경보 발생·해제와 근거 수집, 조회 구간의 시각. AI 문장의 시각은 이 가운데 하나여야 한다."""
+    times = [observed, start, end]
+    for identifier in ("trigger", "alerts"):
+        records = facts.get(identifier, {}).get("records")
+        for row in records if isinstance(records, list) else []:
+            if isinstance(row, dict):
+                times.append(_date(row.get("startsAt")))
+                if _status(row, observed, identifier == "trigger") == "resolved":
+                    times.append(_date(row.get("endsAt")))
+    return [moment for moment in times if moment]
+
+
+def _time_label(match, times, today):
+    """AI 문장의 시각 하나에 맞는 보고 시각을 찾아 KST 표기로 돌려준다. 없거나 둘 이상이면 None이다."""
+    part = match.groupdict()
+    if part["hour"] is not None:
+        hour, minute = int(part["hour"]), int(part["minute"])
+    else:
+        hour, minute = int(part["ko_hour"]), int(part["ko_minute"])
+        if part["half"] == "오후" and hour < 12:
+            hour += 12
+        elif part["half"] == "오전" and hour == 12:
+            hour = 0
+    if part["date"]:
+        date = tuple(int(value) for value in part["date"].split("-"))
+    elif part["month"]:
+        date = (int(part["year"]) if part["year"] else None, int(part["month"]), int(part["day"]))
+    else:
+        date = None
+    utc = dt.timezone.utc
+    # 모델이 UTC 시계에 KST를 붙이거나 KST 시계에 UTC 날짜를 붙인 표기도 같은 보고 시각으로 찾아 고친다.
+    readings = [(KST, KST), (KST, utc), (utc, utc)]
+    if (part["zone"] or "").strip(" ()") in ("UTC", "Z", "+00:00"):
+        readings = readings[2:] + readings[:2]
+    for clock_zone, date_zone in readings:
+        found = set()
+        for moment in times:
+            clock, day = moment.astimezone(clock_zone), moment.astimezone(date_zone)
+            if (clock.hour, clock.minute) == (hour, minute) and (
+                    date is None or (date[1:] == (day.month, day.day) and date[0] in (None, day.year))):
+                found.add(moment.astimezone(KST).replace(second=0, microsecond=0))
+        if date is None and len(found) > 1:
+            found = {moment for moment in found if moment.date() == today} or found
+        if len(found) == 1:
+            moment = found.pop()
+            return moment.strftime("%Y-%m-%d %H:%M KST" if date or moment.date() != today else "%H:%M KST")
+        if found:
+            return None
+    return None
+
+
+def _align_times(value, times, today):
+    """AI 문장의 시각을 보고 시각의 KST 표기로 고쳐 쓰고, 보고 시각과 맞지 않는 시각이 든 문장은 뺀다."""
+    parts = re.split(r"((?<=[.!?])\s+|\s*\n\s*)", _text(value, 800))
+    kept = []
+    for sentence, gap in zip(parts[::2], parts[1::2] + [""]):
+        labels = [_time_label(match, times, today) for match in TIME_MENTION.finditer(sentence)]
+        if None not in labels:
+            replacement = iter(labels)
+            kept.append(TIME_MENTION.sub(lambda match: next(replacement), sentence) + gap)
+    return "".join(kept).strip()
 
 
 def report_label(identifier):
@@ -273,13 +348,17 @@ def build_brief(report):
     if not facts:
         gaps = ["운영 근거 미수신"]
     checks = [item["task"] for item in intervention["actions"]]
+    end, seconds = _date(evidence.get("window_end")), _number(evidence.get("window_seconds"))
+    start = end - dt.timedelta(seconds=seconds) if end and seconds else None
+    times = _report_times(facts, observed, start, end)
+    today = observed.astimezone(KST).date() if observed else None
     generated = analysis.get("mode") in ("remote", "gemini", "ollama")
     ai_checks = []
     if generated:
         for item in analysis.get("next_checks", [])[:3]:
-            refs = item.get("evidence", [])
-            if refs and all(ref in facts for ref in refs):
-                ai_checks.append(_text(item.get("text"), 320))
+            refs, text = item.get("evidence", []), _align_times(item.get("text"), times, today)
+            if refs and all(ref in facts for ref in refs) and text:
+                ai_checks.append(_text(text, 320))
     remaining = {}
     for event in ambient:
         if event["status"] != "firing":
@@ -310,9 +389,7 @@ def build_brief(report):
         if event["ended_at"]:
             timeline.append({"label": event["name"] + " 해제", "time": event["ended_at"]})
     timeline.append({"label": "근거 수집", "time": _kst(evidence.get("collected_at"))})
-    end = _date(evidence.get("window_end"))
-    seconds = _number(evidence.get("window_seconds"))
-    window = f"{_kst((end - dt.timedelta(seconds=seconds)).isoformat())} ~ {_kst(end.isoformat())}" if end and seconds else "수집 구간 미제공"
+    window = f"{_kst(start.isoformat())} ~ {_kst(end.isoformat())}" if start else "수집 구간 미제공"
     mode = analysis.get("mode", "facts-only")
     note = {"mock": "모의 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
             "remote": "AI 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
@@ -332,9 +409,9 @@ def build_brief(report):
     ai_notes = []
     if generated:
         for item in analysis.get("hypotheses", [])[:3]:
-            refs = item.get("evidence", [])
-            if refs and all(ref in facts for ref in refs):
-                ai_notes.append("미확인 가설: " + _text(item.get("text"), 260))
+            refs, text = item.get("evidence", []), _align_times(item.get("text"), times, today)
+            if refs and all(ref in facts for ref in refs) and text:
+                ai_notes.append("미확인 가설: " + _text(text, 260))
     scope = evidence.get("scope", {})
     customer = scope.get("customer") or next((event["customer"] for event in events if event["customer"]), "고객 미지정")
     environment = scope.get("environment") or next((event["environment"] for event in events if event["environment"]), "환경 미지정")
@@ -348,7 +425,8 @@ def build_brief(report):
             "lead": lead, "impact": impact, "current_state": current, "metrics": metrics[:12], "events": events[:12],
             "event_count": len(events), "timeline": timeline, "next_checks": checks[:5], "gaps": gaps[:16],
             "intervention": intervention, "ai_checks": ai_checks,
-            "analysis_note": note, "analysis_summary": _text(analysis.get("summary"), 400) if generated else "",
+            "analysis_note": note,
+            "analysis_summary": _text(_align_times(analysis.get("summary"), times, today), 400) if generated else "",
             "ai_notes": ai_notes, "report_id": _text(report.get("id"), 120),
             "collected_at": _kst(evidence.get("collected_at")), "window_label": window,
             "evidence_ids": list(facts)[:20], "action_note": intervention["policy_note"]}

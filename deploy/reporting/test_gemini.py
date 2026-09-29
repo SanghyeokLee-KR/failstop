@@ -201,6 +201,31 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual(by_id["db_replication_lag"]["samples"][0]["constant_value"], 0)
         self.assertEqual(by_id["target_up"]["aggregate"]["minimum"], 1)
 
+    def test_alert_times_reach_the_model_in_kst_across_midnight_without_provisional_ends(self):
+        cpu = {"alertname": "AppTierCpuHigh"}
+        source = {"schema_version": 1, "collected_at": "2026-09-27T15:06:01.344629+00:00", "window_end": 1790521560.3,
+                  "window_seconds": 900, "facts": [
+                      {"id": "trigger", "kind": "alert_trigger", "status": "ok", "records": [
+                          {"status": "resolved", "labels": cpu, "startsAt": "2026-09-27T15:03:46.132Z",
+                           "endsAt": "2026-09-27T15:05:06.132Z"},
+                          {"status": "firing", "labels": cpu, "startsAt": "2026-09-27T15:04:00Z",
+                           "endsAt": "0001-01-01T00:00:00Z"}]},
+                      {"id": "alerts", "kind": "alerts", "status": "ok", "records": [
+                          {"status": {"state": "active"}, "labels": cpu, "startsAt": "2026-09-27T15:03:46.132Z",
+                           "endsAt": "2026-09-27T15:07:46.132Z"}]}]}
+        compact = gemini.compact_evidence(source)
+        self.assertEqual(compact["collected_at"], "2026-09-28T00:06:01+09:00")
+        self.assertEqual(compact["window_end"], "2026-09-28T00:06:00+09:00")
+        by_id = {row["id"]: row for row in compact["facts"]}
+        trigger = {row["status"]: row for row in by_id["trigger"]["records"]}
+        self.assertEqual((trigger["resolved"]["startsAt"], trigger["resolved"]["endsAt"]),
+                         ("2026-09-28T00:03:46+09:00", "2026-09-28T00:05:06+09:00"))
+        self.assertEqual(trigger["firing"]["startsAt"], "2026-09-28T00:04:00+09:00")
+        self.assertNotIn("endsAt", trigger["firing"])
+        self.assertEqual(by_id["alerts"]["records"][0]["startsAt"], "2026-09-28T00:03:46+09:00")
+        self.assertNotIn("endsAt", by_id["alerts"]["records"][0])
+        self.assertNotIn("2026-09-27", json.dumps(compact))
+
     def test_out_of_range_inode_is_preserved_only_when_present_in_input(self):
         original = representative_incident()
         inode = next(row for row in original["facts"] if row["id"] == "inode_free")

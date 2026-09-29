@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import onprem_llm
 import reporter
+from presentation import card
 from transport import RequestFailure
 
 
@@ -129,6 +130,24 @@ class ReporterOllamaModeTest(unittest.TestCase):
         self.assertEqual(result["mode"], "ollama")
         self.assertEqual(result["model"], "qwen3.6:35b-a3b")
         self.assertEqual(result["summary"], analysis()["summary"])
+
+    def test_prompt_times_are_kst_and_the_card_rewrites_a_utc_clock_labeled_kst(self):
+        evidence = {"schema_version": 1, "collected_at": "2026-09-27T15:06:01+00:00", "window_end": 1790521561,
+                    "window_seconds": 900, "facts": [{"id": "trigger", "kind": "alert_trigger", "status": "ok", "records": [
+                        {"status": "resolved", "labels": {"alertname": "AppTierCpuHigh"},
+                         "startsAt": "2026-09-27T15:03:46.132Z", "endsAt": "2026-09-27T15:05:06.132Z"}]}]}
+        answer = {"summary": "앱 계층 CPU 높음 경보가 2026-09-27 15:03:46(KST)에서 15:05:06(KST)까지 발생했습니다.",
+                  "observations": [], "hypotheses": [], "next_checks": []}
+        with patch("onprem_llm.json_request", return_value=ollama_response(answer)) as call:
+            result = reporter.analyze(evidence, {"analyzer": "ollama"})
+        system, user = (message["content"] for message in call.call_args[1]["payload"]["messages"])
+        self.assertIn('"startsAt":"2026-09-28T00:03:46+09:00","endsAt":"2026-09-28T00:05:06+09:00"', user)
+        self.assertNotIn("15:03", user)
+        self.assertIn("시간대를 다시 계산하지 않는다", system)
+        self.assertEqual(result["summary"], answer["summary"])
+        body = card({"id": "incident:midnight", "kind": "incident", "evidence": evidence, "analysis": result})
+        texts = [block.get("text") for block in body["attachments"][0]["content"]["body"]]
+        self.assertIn("앱 계층 CPU 높음 경보가 2026-09-28 00:03 KST에서 00:05 KST까지 발생했습니다.", texts)
 
     def test_model_failure_falls_back_to_facts_with_error_code(self):
         with patch("onprem_llm.json_request", side_effect=RequestFailure("network_error")):

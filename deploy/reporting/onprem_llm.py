@@ -23,7 +23,8 @@ FIELDS = {"summary", "observations", "hypotheses", "next_checks"}
 # 공통 지시문의 문장 예시(백업 경보 해제)를 로컬 모델이 다른 경보에도 그대로 베껴 첫 문장으로 썼다(2026-09-27, gpt-oss:20b,
 # '앱 계층 CPU 높음 해제' 카드). Gemini 지시문은 그대로 두고 온프레미스 호출에만 덧붙인다.
 ONPREM_NOTE = ("\n위 첫 문장 예시는 백업 경보일 때의 예다. 다른 경보에는 이 예시 문장을 쓰지 말고, trigger의 경보 이름·대상·"
-               "전환(발생 또는 해제)으로 첫 문장을 새로 쓴다. 시각은 한국 시간(KST, UTC+9)으로 적는다.")
+               "전환(발생 또는 해제)으로 첫 문장을 새로 쓴다. startsAt·endsAt·collected_at·window_end는 이미 한국 시간(+09:00)이다. "
+               "시각은 이 값의 날짜와 시각만 그대로 옮겨 KST를 붙이고, 시간대를 다시 계산하지 않는다.")
 
 
 def _integer(config, name, default, minimum, maximum):
