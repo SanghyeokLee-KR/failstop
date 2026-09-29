@@ -161,7 +161,7 @@ final class AiPolicy {
 
     private static Denial direction(AiAction a, Facts f) {
         return switch (a) {
-            case AiAction.ReadNodes r -> r.delta() > 0 ? d1ScaleOut(f.evidence())
+            case AiAction.ReadNodes r -> r.delta() > 0 ? first(d1ScaleOut(f.evidence()), d5Sustained(f.evidence()))
                     : d2ScaleIn(f.evidence(), f.scaleInSustain(), f.now());
             case AiAction.Threshold t -> d3Threshold(t, f.evidence());
             case AiAction.BotLoad b -> d4BotLoad(f.evidence());
@@ -628,6 +628,25 @@ final class AiPolicy {
         return value.compareTo(guard.value()) >= 0 ? null
                 : new Denial("D4", "direction_conflict", "방향 모순: 봇 호스트 CPU " + ratio(value) + "가 용량 보호 임계 "
                 + ApiFormats.amount(guard.value()) + " 이상이 아닙니다.");
+    }
+
+    /**
+     * D5. app-3 켜기는 코드의 부하 판정이 지속일 때만(설계 7-19). 앱 계층 CPU 가 증설 임계 이상인 상태가 지속 시간 넘게 끊기지
+     * 않고 이어져야 한다. 일시적 급등에 앱 계층을 늘리지 않게 하는 규칙이고 AI 권한을 좁히는 쪽이다. 판정을 모르면 받지 않는다.
+     */
+    static Denial d5Sustained(AiEvidence ev) {
+        LoadPattern load = ev.load();
+        if (load == null || load.kind() == LoadPattern.Kind.UNKNOWN) {
+            return new Denial("D5", "direction_conflict", "방향 모순: 앱 계층 부하가 지속되는지 모르면 app-3를 켜지 않습니다.");
+        }
+        return switch (load.kind()) {
+            case SUSTAINED -> null;
+            case NONE -> new Denial("D5", "direction_conflict", "방향 모순: 최근 15분 동안 앱 계층 CPU가 증설 임계를 넘지 "
+                    + "않았습니다.");
+            default -> new Denial("D5", "direction_conflict", "방향 모순: 앱 계층 CPU가 증설 임계 이상인 상태가 "
+                    + load.sustainSeconds() + "초 이상 이어지지 않았습니다(이어진 시간 " + load.aboveForSeconds()
+                    + "초, 일시적 부하).");
+        };
     }
 
     /** 경보를 덜 울리게(조회 임계는 용량 보호를 약하게) 하는 방향인가. */

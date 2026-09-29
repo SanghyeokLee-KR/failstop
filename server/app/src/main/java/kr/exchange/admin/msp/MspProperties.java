@@ -46,12 +46,14 @@ public class MspProperties {
     private final Llm llm = new Llm();
     private final Ai ai = new Ai();
     private final Reporting reporting = new Reporting();
+    private final Logs logs = new Logs();
 
     /** 기동 때 한 번 부른다. 설정 오류를 실행 중의 500으로 미루지 않는다. */
     public void validate() {
         llm.validate();
         ai.validate();
         reporting.validate();
+        logs.validate();
         // instant 질의 묶음과 노드 관측의 공유 수명. 근거 신선도(60초) 판정이 캐시 때문에 흔들리지 않게 짧게 묶는다(설계 4-6).
         if (cacheTtl.compareTo(Duration.ofSeconds(1)) < 0 || cacheTtl.compareTo(Duration.ofSeconds(10)) > 0) {
             throw new IllegalStateException("exchange.msp.cache-ttl 은 1~10초여야 한다");
@@ -207,6 +209,10 @@ public class MspProperties {
 
     public Reporting getReporting() {
         return reporting;
+    }
+
+    public Logs getLogs() {
+        return logs;
     }
 
     /**
@@ -422,6 +428,8 @@ public class MspProperties {
         private Duration recheckInterval = Duration.ofMinutes(10);
         private Duration proposalTtl = Duration.ofMinutes(15);
         private Duration scaleInSustain = Duration.ofMinutes(10);
+        // 증설의 지속 전제(D5). 앱 계층 CPU 가 증설 임계 이상인 상태가 이만큼 이어져야 부하 판정이 지속이다(설계 7-19).
+        private Duration scaleOutSustain = Duration.ofMinutes(3);
         private Duration calmInterval = Duration.ofMinutes(5);
 
         void validate() {
@@ -437,6 +445,11 @@ public class MspProperties {
             }
             if (scaleInSustain.compareTo(Duration.ofMinutes(1)) < 0 || scaleInSustain.compareTo(Duration.ofHours(1)) > 0) {
                 throw new IllegalStateException("exchange.msp.ai.scale-in-sustain 은 1분~1시간이어야 한다");
+            }
+            // 부하 판정 창(15분) 안에서 잴 수 있어야 한다.
+            if (scaleOutSustain.compareTo(Duration.ofMinutes(1)) < 0
+                    || scaleOutSustain.compareTo(LoadPattern.WINDOW.minus(LoadPattern.STEP)) > 0) {
+                throw new IllegalStateException("exchange.msp.ai.scale-out-sustain 은 1분~14분 45초여야 한다");
             }
             if (calmInterval.compareTo(Duration.ofSeconds(15)) < 0 || calmInterval.compareTo(Duration.ofMinutes(30)) > 0) {
                 throw new IllegalStateException("exchange.msp.ai.calm-interval 은 15초~30분이어야 한다");
@@ -482,6 +495,34 @@ public class MspProperties {
 
         public void setScaleInSustain(Duration scaleInSustain) {
             this.scaleInSustain = scaleInSustain;
+        }
+
+        public Duration getScaleOutSustain() {
+            return scaleOutSustain;
+        }
+
+        public void setScaleOutSustain(Duration scaleOutSustain) {
+            this.scaleOutSustain = scaleOutSustain;
+        }
+    }
+
+    /** 오류 로그 묶음 수집(설계 7-20). 노드는 용량 설정(exchange.capacity.nodes)의 base-url 과 관리 JVM 자신이다. */
+    public static class Logs {
+
+        private Duration interval = Duration.ofSeconds(60);
+
+        void validate() {
+            if (interval.compareTo(Duration.ofSeconds(15)) < 0 || interval.compareTo(Duration.ofMinutes(5)) > 0) {
+                throw new IllegalStateException("exchange.msp.logs.interval 은 15초~5분이어야 한다");
+            }
+        }
+
+        public Duration getInterval() {
+            return interval;
+        }
+
+        public void setInterval(Duration interval) {
+            this.interval = interval;
         }
     }
 

@@ -179,6 +179,25 @@ class LlmClientTest {
     }
 
     @Test
+    void 원인_로그_분석의_실패는_AI_칸의_상태를_바꾸지_않는다() {
+        LlmClient llm = new LlmClient(props(MspProperties.Llm.Provider.OPENAI_COMPATIBLE), MAPPER,
+                new SimpleMeterRegistry(), Clock.systemUTC());
+        stub.handler = r -> new StubSource.Response(200, "{}", 3000, null);
+        assertEquals("timeout", assertThrows(LlmClient.LlmException.class,
+                () -> llm.analyze(LlmClient.Purpose.LOGS, "시스템", "{}", llm.schema(), "msp_ai_logs")).code());
+
+        assertNull(llm.lastError(), "로그 분석이 시간을 넘겨도 판단 상태는 그대로다");
+        assertEquals("timeout", llm.lastAnalysisError());
+        assertEquals("READY", AiViews.llmSource(llm).get("state"));
+
+        stub.handler = r -> StubSource.Response.status(500, "boom");
+        assertThrows(LlmClient.LlmException.class, () -> llm.complete("{}"));
+        assertEquals("http_status", llm.lastError(), "판단의 실패는 AI 칸에 나온다");
+        assertEquals("UNAVAILABLE", AiViews.llmSource(llm).get("state"));
+        assertEquals("timeout", llm.lastAnalysisError(), "판단 결과가 분석의 마지막 실패를 지우지 않는다");
+    }
+
+    @Test
     void API_키는_파일에서_읽어_헤더로만_보낸다(@TempDir Path dir) throws Exception {
         Path key = dir.resolve("llm.key");
         Files.writeString(key, "secret-key-value\n");

@@ -26,6 +26,10 @@ on:
       - 'harness/prometheus/**'
       - 'harness/patroni/prometheus/**'
       - 'harness/grafana/dashboards/**'
+      - 'harness/evidence/e1-lease-starvation-20260913/lease-events.log'
+      - 'deploy/linux/reporting/school-alerts.yml'
+      - 'deploy/linux/postgresql/backup/backup-alerts.yml'
+      - 'deploy/linux/watchdog/*.yml'
       - '.github/workflows/ci-backend.yml'
   # main/develop push로도 돈다. cache-read-only가 main에서만 쓰기라, PR 전용 트리거로는 Gradle
   # 캐시가 영영 안 채워져 매 PR이 콜드 빌드가 된다. push(main)가 캐시를 채우고 PR이 읽는다.
@@ -41,6 +45,10 @@ on:
       - 'harness/prometheus/**'
       - 'harness/patroni/prometheus/**'
       - 'harness/grafana/dashboards/**'
+      - 'harness/evidence/e1-lease-starvation-20260913/lease-events.log'
+      - 'deploy/linux/reporting/school-alerts.yml'
+      - 'deploy/linux/postgresql/backup/backup-alerts.yml'
+      - 'deploy/linux/watchdog/*.yml'
       - '.github/workflows/ci-backend.yml'
 
 permissions:

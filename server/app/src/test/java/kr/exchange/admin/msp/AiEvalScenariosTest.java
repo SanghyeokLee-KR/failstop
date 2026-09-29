@@ -71,7 +71,7 @@ class AiEvalScenariosTest {
         assertEquals(all.size(), all.stream().map(AiEvalScenarios.Scenario::id).distinct().count());
         for (AiEvalScenarios.Scenario s : all) {
             Map<String, Object> json = s.world().get().rig().evidence().toJson();
-            assertEquals("msp-evidence/2", json.get("schema"), s.id());
+            assertEquals("msp-evidence/3", json.get("schema"), s.id());
             JsonNode catalog = MAPPER.valueToTree(json.get("catalog"));
             assertEquals("NO_ACTION", catalog.path(0).path("action").asText(), s.id());
             for (AiEvalScenarios.Expect e : s.model()) {

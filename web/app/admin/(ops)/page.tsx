@@ -78,7 +78,7 @@ export default function ControlCenterPage() {
           <SummaryStrip summary={data.summary} alerts={data.alerts} incidents={data.incidents} trends={data.trends} range={range} />
           <div className={styles.columns}>
             <InfraColumn center={data} />
-            <AiPanel section={data.ai} onChanged={onChanged} />
+            <AiPanel section={data.ai} logs={data.logs} onChanged={onChanged} />
             <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} oncall={data.oncall} onChanged={onChanged} />
           </div>
           <ThresholdPanel section={data.thresholds} onChanged={onChanged} />

@@ -72,11 +72,12 @@ public class AiController {
     private final ObjectMapper mapper;
     private final AiChat chat;
     private final AiServerStatus server;
+    private final Optional<AiAnalysis> analysis;
     private final Clock clock;
 
     public AiController(AiControl control, AiStore store, AiExecutor executor, MaintenanceWindows windows,
                         Optional<LlmClient> llm, Optional<PrometheusClient> prometheus, ObjectMapper mapper,
-                        AiChat chat, AiServerStatus server) {
+                        AiChat chat, AiServerStatus server, Optional<AiAnalysis> analysis) {
         this.control = control;
         this.store = store;
         this.executor = executor;
@@ -86,7 +87,23 @@ public class AiController {
         this.mapper = mapper;
         this.chat = chat;
         this.server = server;
+        this.analysis = analysis;
         this.clock = Clock.systemUTC();
+    }
+
+    /**
+     * 마지막 원인 분석과 모델에 보낸 근거 묶음(API 설계 §6-F '원인 분석과 부하 판정'). 조회 전용이다. 분석은 판단 주기를 도는
+     * 관리 JVM 의 메모리에 있어 다른 JVM 의 응답에는 없다.
+     */
+    @GetMapping("/ai/analysis")
+    public Map<String, Object> analysis(HttpServletRequest request) {
+        viewer(request);
+        AiAnalysis a = analysis.orElse(null);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", ApiFormats.SCHEMA_VERSION);
+        out.put("analysis", a == null ? null : a.causeView());
+        out.put("bundle", a == null ? null : a.bundleView());
+        return out;
     }
 
     /* ===== 상담과 AI 서버 상태 ===== */

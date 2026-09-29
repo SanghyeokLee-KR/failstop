@@ -36,6 +36,11 @@ import type {
   AiProposalStatus,
   AiServer,
   AlertSeverity,
+  AnalysisState,
+  CauseAnalysis,
+  CauseCitation,
+  CauseCitationKind,
+  CauseUnit,
   ChangeDesk,
   ControlCenter,
   HostAsset,
@@ -43,6 +48,11 @@ import type {
   IncidentEvent,
   IncidentEventKind,
   IncidentLog,
+  LoadPattern,
+  LoadVerdict,
+  LogAnalysis,
+  LogDesk,
+  LogGroup,
   MaintenanceWindow,
   OpsActor,
   OpsAlert,
@@ -195,7 +205,79 @@ interface WireAiBrief {
   auto?: { since?: string; valid_until?: string; enabled_by?: string; activation?: number; auto_used?: number; auto_cap?: number } | null;
   open_actions?: number;
   last_decision?: { id?: number | string; decided_at?: string; outcome?: string } | null;
+  analysis?: WireAnalysis | null;
 }
+
+interface WireCitation {
+  id?: string;
+  kind?: string;
+  label?: string;
+  unit?: string | null;
+  value?: string | number | null;
+  before?: string | number | null;
+  change?: string | number | null;
+  at?: string | null;
+}
+
+/** 원인 분석(§6-F v2.65). 한 판의 ai.analysis와 GET .../ai/analysis의 analysis가 같은 모양이다 */
+export interface WireAnalysis {
+  state?: string;
+  reason?: string | null;
+  analyzed_at?: string | null;
+  model?: string | null;
+  load?: {
+    pattern?: string;
+    ai_pattern?: string | null;
+    ai_reason?: string | null;
+    value?: string | number | null;
+    threshold?: string | number | null;
+    above_for_seconds?: number | null;
+    sustain_seconds?: number | null;
+    above_total_seconds?: number | null;
+    excursions?: number | null;
+    window_seconds?: number | null;
+    request_correlation?: string | number | null;
+    coverage?: string | number | null;
+  } | null;
+  hypotheses?: { cause?: string; citations?: WireCitation[] }[] | null;
+  insufficient?: string | null;
+  missing?: { id?: string; label?: string; reason?: string }[] | null;
+}
+
+interface WireLogGroup {
+  id?: string;
+  level?: string;
+  logger?: string;
+  exception?: string | null;
+  exception_message?: string | null;
+  message?: string;
+  count?: number | null;
+  first_seen?: string | null;
+  last_seen?: string | null;
+  nodes?: string[] | null;
+}
+
+interface WireLogs {
+  errors?: number | null;
+  warnings?: number | null;
+  groups?: WireLogGroup[] | null;
+  more?: number | null;
+  analysis?: {
+    state?: string;
+    reason?: string | null;
+    analyzed_at?: string | null;
+    model?: string | null;
+    summary?: string | null;
+    findings?: { group_id?: string; summary?: string; cause?: string }[] | null;
+  } | null;
+}
+
+/** 한 판의 오류 로그 칸(§6-F v2.65). 첫 수집 전이나 모든 원천이 실패한 UNAVAILABLE에도 polled_at과 sources를 싣는다 */
+export type WireLogSection = WireSection<WireLogs> & {
+  polled_at?: string | null;
+  window_minutes?: number | null;
+  sources?: { node?: string; state?: string; reason?: string | null }[] | null;
+};
 
 export interface WireAiServer {
   state?: string;
@@ -250,6 +332,7 @@ export interface WireOverview {
   ops?: WireSection<WireOps>;
   thresholds?: WireSection<{ items?: WireThreshold[]; gauge_scraped?: boolean | null }>;
   ai?: WireAiBrief;
+  logs?: WireLogSection;
   ai_server?: WireAiServer;
   trends?: WireTrends;
 }
@@ -453,6 +536,7 @@ const SOURCE_WORD: Record<string, string> = {
   certificate: "인증서 만료 원천",
   reporting: "보고 서비스(exchange.msp.reporting.url)",
   teams: "보고 서비스(exchange.msp.reporting.url)",
+  error_log: "앱 노드 오류 로그(exchange.capacity.nodes의 /actuator/errorlog)",
 };
 
 /** 서버의 실패 분류 코드를 사람이 읽는 말로. 모르는 코드는 그대로 적는다 */
@@ -1319,7 +1403,161 @@ export function aiDeskOf(ai: WireAiBrief, x: AiExtras, ctx: ProposalContext, now
     // 모드 줄 알림은 서버가 내지 않는다. 사건 타임라인의 정지·재개 기록이 같은 사실을 싣는다
     notice: null,
     recent: { runs, reverts },
+    analysis: ai.analysis ? analysisOf(ai.analysis) : null,
   };
+}
+
+/* ===== 원인 분석과 오류 로그(§6-F v2.65) ===== */
+
+const LOAD_PATTERNS: readonly LoadPattern[] = ["SUSTAINED", "TRANSIENT", "NONE", "UNKNOWN"];
+const CITE_KINDS: readonly CauseCitationKind[] = ["signal", "node", "route", "alert", "event", "log", "load", "bot"];
+const CITE_UNITS: readonly CauseUnit[] = ["ratio", "seconds", "per_second", "bytes", "count"];
+/** 값이 수가 아닌 인용. 경보는 등급, 이벤트는 바뀐 값, 부하 판정은 규칙 판정을 value에 싣는다 */
+const TEXT_KINDS: ReadonlySet<CauseCitationKind> = new Set<CauseCitationKind>(["alert", "event", "load"]);
+
+/** 모델 출력 검증이 버린 까닭(INVALID_OUTPUT). 호출 실패(MODEL_ERROR)의 분류 코드는 REASON_WORD가 옮긴다 */
+const OUTPUT_REASON_WORD: Record<string, string> = {
+  empty: "빈 출력",
+  too_large: "출력 크기 초과",
+  not_json: "JSON 형식 아님",
+  shape: "출력 형식 불일치",
+  text_length: "문장 길이 초과",
+  link: "링크 표기 포함",
+  pattern: "부하 판정 값 오류",
+};
+
+/** 근거 묶음에 넣지 못한 지표의 사유 */
+const MISSING_WORD: Record<string, string> = {
+  no_series: "결과 없음",
+  query_failed: "질의 실패",
+  not_configured: "수집 설정 없음",
+  unavailable: "Prometheus 연결 전",
+};
+
+/** 모르는 상태는 모델 출력을 믿지 않는 쪽(실패)으로 둔다 */
+function analysisState(s: string | undefined): AnalysisState {
+  return s === "READY" || s === "INVALID_OUTPUT" ? s : "MODEL_ERROR";
+}
+
+function analysisReason(state: AnalysisState, code: string | null | undefined): string | null {
+  if (state === "READY") return null;
+  return (state === "INVALID_OUTPUT" ? OUTPUT_REASON_WORD[code ?? ""] : undefined) ?? reasonWord(code);
+}
+
+/** 인용 하나. 모르는 종류는 버리고 모르는 단위는 단위 없음이다. 수로 읽지 못한 값은 null이고 0으로 채우지 않는다 */
+function citationOf(c: WireCitation): CauseCitation | null {
+  const kind = CITE_KINDS.find((k) => k === c.kind);
+  if (!kind) return null;
+  const textual = TEXT_KINDS.has(kind);
+  return {
+    id: c.id ?? "",
+    kind,
+    label: c.label ?? c.id ?? "",
+    unit: CITE_UNITS.find((u) => u === c.unit) ?? null,
+    value: textual ? null : dec(c.value),
+    text: textual && c.value != null && c.value !== "" ? String(c.value) : null,
+    before: dec(c.before),
+    change: dec(c.change),
+    at: c.at ?? null,
+  };
+}
+
+/** 부하 판정. 규칙 판정과 특징은 코드가 계산한 값이고, 모델의 판정은 모델이 출력을 냈을 때만 옮긴다 */
+function loadOf(l: NonNullable<WireAnalysis["load"]>, modelOk: boolean): LoadVerdict {
+  return {
+    pattern: LOAD_PATTERNS.find((p) => p === l.pattern) ?? "UNKNOWN",
+    aiPattern: modelOk ? LOAD_PATTERNS.find((p) => p === l.ai_pattern) ?? null : null,
+    aiReason: modelOk ? l.ai_reason || null : null,
+    cpuPct: pct(l.value),
+    thresholdPct: thresholdToView("read.scale_out_cpu", l.threshold),
+    aboveForSec: dec(l.above_for_seconds),
+    sustainSec: dec(l.sustain_seconds),
+    aboveTotalSec: dec(l.above_total_seconds),
+    excursions: dec(l.excursions),
+    windowSec: dec(l.window_seconds),
+    requestCorrelation: dec(l.request_correlation),
+    coveragePct: pct(l.coverage),
+  };
+}
+
+/**
+ * 원인 분석. 모델이 실패한 분석은 가설과 근거 부족 없이 사유만 옮긴다. 부하 판정과 수집 필요 목록은 코드가 계산한 것이라
+ * 실패와 무관하게 옮긴다. 인용이 하나도 남지 않은 가설은 서버가 이미 버렸다
+ */
+export function analysisOf(w: WireAnalysis): CauseAnalysis {
+  const state = analysisState(w.state);
+  const ready = state === "READY";
+  return {
+    state,
+    reason: analysisReason(state, w.reason),
+    analyzedAt: w.analyzed_at ?? null,
+    model: w.model ?? null,
+    load: w.load ? loadOf(w.load, ready) : null,
+    hypotheses: ready
+      ? (w.hypotheses ?? []).flatMap((h) =>
+          h.cause ? [{ cause: h.cause, citations: (h.citations ?? []).map(citationOf).filter((c): c is CauseCitation => c !== null) }] : [],
+        )
+      : [],
+    // 계약은 이 칸이 비어 있지 않을 때만 근거 부족으로 본다
+    insufficient: ready ? w.insufficient?.trim() || null : null,
+    missing: (w.missing ?? []).map((m) => ({ id: m.id ?? "", label: m.label ?? m.id ?? "", reason: MISSING_WORD[m.reason ?? ""] ?? reasonWord(m.reason) })),
+  };
+}
+
+function logAnalysisOf(a: NonNullable<WireLogs["analysis"]>): LogAnalysis {
+  const state = analysisState(a.state);
+  return {
+    state,
+    reason: analysisReason(state, a.reason),
+    analyzedAt: a.analyzed_at ?? null,
+    model: a.model ?? null,
+    summary: state === "READY" ? a.summary || null : null,
+  };
+}
+
+function logGroupOf(g: WireLogGroup, findings: Map<string, { summary: string; cause: string }>): LogGroup {
+  const id = g.id ?? "";
+  return {
+    id,
+    // 수집기는 WARN 이상만 받는다. 모르는 등급은 경보 칸의 등급 모름처럼 무거운 쪽으로 둔다
+    level: g.level === "WARN" ? "WARN" : "ERROR",
+    logger: g.logger ?? "",
+    exception: g.exception ?? null,
+    exceptionMessage: g.exception_message ?? null,
+    message: g.message ?? "",
+    count: dec(g.count),
+    firstSeen: g.first_seen ?? null,
+    lastSeen: g.last_seen ?? null,
+    nodes: g.nodes ?? [],
+    finding: findings.get(id) ?? null,
+  };
+}
+
+/**
+ * 오류 로그 칸. 관리 서버가 1분마다 용량 설정의 노드와 자기 자신에서 읽는다. 칸 상태는 다른 칸과 같은 규칙이다(첫 수집 전은
+ * UNAVAILABLE의 '아직 읽지 않음'). AI 발견은 group_id가 같은 묶음에 붙이고 한 판에 없는 묶음의 발견은 버린다. 원천은 수집에
+ * 실패한 노드만 옮긴다
+ */
+export function logsOf(w: WireLogSection | undefined): OpsSection<LogDesk> {
+  return section(w, SOURCE_WORD.error_log, (d: WireLogs): LogDesk => {
+    const analysis = d.analysis ? logAnalysisOf(d.analysis) : null;
+    const findings = new Map<string, { summary: string; cause: string }>();
+    if (analysis?.state === "READY") {
+      for (const f of d.analysis?.findings ?? []) {
+        if (f.group_id && f.summary && !findings.has(f.group_id)) findings.set(f.group_id, { summary: f.summary, cause: f.cause ?? "" });
+      }
+    }
+    return {
+      polledAt: w?.polled_at ?? null,
+      windowMinutes: dec(w?.window_minutes),
+      errors: dec(d.errors),
+      warnings: dec(d.warnings),
+      groups: (d.groups ?? []).map((g) => logGroupOf(g, findings)),
+      more: dec(d.more) ?? 0,
+      failed: (w?.sources ?? []).filter((s) => s.state === "UNAVAILABLE").map((s) => ({ node: s.node ?? "노드 미확인", reason: reasonWord(s.reason) })),
+      analysis,
+    };
+  });
 }
 
 /* ===== AI 서버 ===== */
@@ -1453,6 +1691,7 @@ export function absentBoard(): ControlCenter {
     jobs: nc(why),
     thresholds: nc(why),
     ai: nc(why),
+    logs: nc(why),
     aiServer: nc(why),
     trading: nc(why),
     trends: nc(why),
@@ -1587,6 +1826,7 @@ export function boardOf(w: WireOverview, x: OpsExtrasSnapshot, now: number): Con
     jobs,
     thresholds,
     ai,
+    logs: logsOf(w.logs),
     aiServer: aiServerOf(w.ai_server),
     trading: nc("거래 칸 · 관제 서버 계약에 없음(봇 플릿·HA 화면은 기존 관리 API로 읽습니다)"),
     trends: trendsOf(w.trends, x.trends[1], x.trends[6]),

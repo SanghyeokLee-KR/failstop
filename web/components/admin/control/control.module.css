@@ -2082,6 +2082,209 @@
   color: var(--text-default);
 }
 
+/* ===== 원인 분석과 오류 로그(API 설계 §6-F v2.65) =====
+   조회 전용이라 단추가 없다. 부하 판정은 상태가 아니라 형태 기호를 쓰지 않고, AI 강조색은 표지 자리에만 쓴다(§12-9, §12-10) */
+/* 소제목 줄 오른쪽의 시각·모델과 로그 건수. 소제목보다 한 단 낮춘다 */
+.subMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.subMeta b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.aiInline {
+  display: inline-flex;
+  margin-right: var(--space-1);
+  vertical-align: -2px;
+  color: var(--ai-accent);
+}
+.loadVerdict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* 판정어는 결론 문구라 body-sm 14/600이고(§12-2) 특징은 항목 단위로만 다음 줄로 넘어간다 */
+.loadLine {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+.loadKey {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.verdict {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+/* 원인 가설. 배열 순서가 순위라 번호를 단다(§12-10 목록 머리) */
+.causeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.causeList > li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 6px var(--space-2);
+}
+.causeNo {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.causeText {
+  margin: 0;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+.citeChips {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* 가설이 인용한 근거. 근거 칩과 같은 무채 네모이고 누르는 자리가 아니다. 좁은 기둥에서는 칩 안에서 항목 단위로 줄을 바꾼다 */
+.citeChip {
+  max-width: 100%;
+  padding: 3px var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.citeChip b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.citeMeta {
+  color: var(--text-secondary);
+}
+/* 오류 로그 묶음. 행 사이는 헤어라인이고 같은 모양의 상자를 늘어놓지 않는다(§12-10) */
+.logList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.logList > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.logRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.logBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.logHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  min-width: 0;
+}
+/* 예외 이름이 칸보다 길면 말줄임이고 원문은 툴팁이 싣는다(§12-12) */
+.logName {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.logLogger {
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.logCount {
+  font-size: var(--font-caption-size);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.logCount b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.logMeta {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 대표 문장은 두 줄까지 싣고 원문은 툴팁이 싣는다. 로그가 찍은 글이라 평문으로만 그린다 */
+.logMessage {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.logFinding {
+  margin: 0;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+.logSummary {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.logNote {
+  margin: 0;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+}
+/* 원천 연결 전 한 줄(§12-8). 점선 윤곽에 면이 없고 경보색을 쓰지 않는다 */
+.gapLine {
+  margin: 0;
+  padding: 6px var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.gapLine b {
+  font-weight: var(--fw-semibold);
+}
+.gapSource {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+}
+
 /* ===== 조치 카드 ===== */
 .proposals {
   display: flex;

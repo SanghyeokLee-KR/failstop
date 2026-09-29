@@ -7,6 +7,7 @@ import kr.exchange.admin.ApprovalService;
 import kr.exchange.admin.BotRateControl;
 import kr.exchange.admin.CapacityPlanService;
 import kr.exchange.admin.CapacityProperties;
+import kr.exchange.api.common.ErrorLogBook;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -132,10 +133,47 @@ public class MspConfig {
                              ObjectProvider<IncidentPoller> poller, IncidentStore incidents,
                              OpsThresholdService thresholds, CapacityPlanService capacity, AiControl aiControl,
                              AiStore aiStore, ObjectProvider<LlmClient> llm, SourceCache cache, MspTrends trends,
-                             AiServerStatus aiServer, MspReporting reporting) {
-        return new MspBoard(props, prometheus.getIfAvailable(), poller.getIfAvailable(), incidents, thresholds,
-                capacity, Clock.systemUTC(), aiControl, aiStore, llm.getIfAvailable(), cache, trends, aiServer,
-                reporting);
+                             AiServerStatus aiServer, MspReporting reporting, ObjectProvider<AiAnalysis> analysis,
+                             ErrorLogPoller logs) {
+        MspBoard board = new MspBoard(props, prometheus.getIfAvailable(), poller.getIfAvailable(), incidents,
+                thresholds, capacity, Clock.systemUTC(), aiControl, aiStore, llm.getIfAvailable(), cache, trends,
+                aiServer, reporting);
+        board.insights(analysis.getIfAvailable(), logs);
+        return board;
+    }
+
+    /* ===== 원인 분석과 오류 로그(설계 7-19·7-20) ===== */
+
+    @Bean
+    public AlertMeanings alertMeanings(ObjectMapper mapper) {
+        return AlertMeanings.load(mapper);
+    }
+
+    /** 1분마다 앱 노드(용량 설정의 base-url)와 이 관리 JVM 의 오류 로그 묶음을 읽는다. 모델은 부르지 않는다. */
+    @Bean
+    public ErrorLogPoller errorLogPoller(MspReady ready, MspProperties props, CapacityProperties capacity,
+                                         ObjectProvider<ErrorLogBook> book, ObjectMapper mapper, MspWorkers workers) {
+        ErrorLogPoller poller = new ErrorLogPoller(capacity.getNodes(), book.getIfAvailable(), mapper,
+                workers.queries(), props.getQueryTimeout(), Clock.systemUTC());
+        poller.start(workers.scheduler(), props.getLogs().getInterval());
+        return poller;
+    }
+
+    @Bean
+    public AiCause aiCause(MspProperties props, ObjectProvider<PrometheusClient> prometheus, JdbcClient jdbc,
+                           ErrorLogPoller logs, AlertMeanings meanings, ObjectMapper mapper) {
+        return new AiCause(props, prometheus.getIfAvailable(), AiCause.auditEvents(jdbc, mapper), logs::last,
+                meanings, mapper, Clock.systemUTC());
+    }
+
+    /** LLM 설정이 있을 때만 선다. 판단 주기가 판단 뒤에 같은 스레드에서 부른다. */
+    @Bean
+    @ConditionalOnExpression("'${exchange.msp.llm.base-url:}'.trim() != ''")
+    public AiAnalysis aiAnalysis(LlmClient llm, AiCause cause, ErrorLogPoller logs, AiControl control,
+                                 AlertMeanings meanings, AdminAuditService audit, ObjectMapper mapper,
+                                 MspProperties props) {
+        return new AiAnalysis(llm, cause, logs, control, meanings, audit, mapper, Clock.systemUTC(),
+                props.getAi().getRecheckInterval());
     }
 
     @Bean
@@ -216,10 +254,10 @@ public class MspConfig {
     @Bean
     public AiChat aiChat(ObjectProvider<LlmClient> llm, AiEvidenceCollector collector, AiControl control,
                          IncidentStore incidents, AiStore store, ObjectProvider<PrometheusClient> prometheus,
-                         ObjectProvider<IncidentPoller> poller, AdminAuditService audit, ObjectMapper mapper,
-                         MspWorkers workers) {
+                         ObjectProvider<IncidentPoller> poller, AlertMeanings meanings, ErrorLogPoller logs,
+                         AdminAuditService audit, ObjectMapper mapper, MspWorkers workers) {
         return new AiChat(llm.getIfAvailable(), collector, control, incidents, store, prometheus.getIfAvailable(),
-                poller.getIfAvailable(), audit, mapper, Clock.systemUTC(), workers.llmLoader());
+                poller.getIfAvailable(), meanings, logs, audit, mapper, Clock.systemUTC(), workers.llmLoader());
     }
 
     /** 여러 관리 JVM 가운데 한 곳에서만 판단·관찰 주기를 돌린다. 멈출 때 임대를 놓는다. */
@@ -258,10 +296,11 @@ public class MspConfig {
                          AiControl control, AiExecutor executor, IncidentStore incidents, AdminAuditService audit,
                          PlatformTransactionManager txManager, ObjectMapper mapper, MspProperties props,
                          MeterRegistry registry, MspWorkers workers, ObjectProvider<AiNotifier> notifier,
-                         RunnerLease lease) {
+                         RunnerLease lease, ObjectProvider<AiAnalysis> analysis) {
         AiLoop loop = new AiLoop(collector, llm.getIfAvailable(), store, control, executor, incidents, audit,
                 new TransactionTemplate(txManager), mapper, props, registry, Clock.systemUTC(), lease);
         loop.notifier(notifier.getIfAvailable(() -> AiNotifier.NONE));
+        loop.analysis(analysis.getIfAvailable());
         loop.start(workers.ai());
         return loop;
     }

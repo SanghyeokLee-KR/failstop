@@ -112,6 +112,21 @@ tasks.withType<Test> {
     // server 밖의 시험 입력은 .github/workflows/ci-backend.yml 의 paths 에도 둔다. 없으면 그 파일만 바꾼 PR 에서 백엔드 CI 가 돌지 않는다.
     inputs.dir(rootProject.file("../docs/reference/contracts")).withPropertyName("contractDocs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // 오류 로그 묶음 시험(ErrorLogBookTest)이 넣는 녹화 로그(2026-09-13 리스 기아 실험의 실제 앱 로그).
+    val recordedLeaseLog = rootProject.file("../harness/evidence/e1-lease-starvation-20260913/lease-events.log")
+    inputs.file(recordedLeaseLog).withPropertyName("recordedLeaseLog").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("errorlog.recorded", recordedLeaseLog.absolutePath)
+    // 경보 의미표 시험(AlertMeaningsTest)이 저장소의 경보 규칙 이름을 모두 표에서 찾는다. 규칙 파일이 바뀌면 다시 돈다.
+    val alertRuleFiles = listOf(
+        "../harness/prometheus/rules/exchange-alerts.yml",
+        "../harness/prometheus/demo-rules/load-alerts.yml",
+        "../harness/patroni/prometheus/rules/patroni-alerts.yml",
+        "../deploy/linux/reporting/school-alerts.yml",
+        "../deploy/linux/postgresql/backup/backup-alerts.yml",
+        "../deploy/linux/watchdog/watchdog-rules.yml",
+        "../deploy/linux/watchdog/checker-rules.yml").map { rootProject.file(it) }
+    inputs.files(alertRuleFiles).withPropertyName("alertRules").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("alert.rules", alertRuleFiles.joinToString(",") { it.absolutePath })
 }
 
 // 로컬 LLM 판단 평가(docs/measurements/20260925.md). check·build 에 걸지 않는다. 모델과 조건은 -Pllm.eval.* 로 준다.

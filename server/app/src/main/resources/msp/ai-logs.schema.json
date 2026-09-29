@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "summary_ko"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group_id", "summary_ko", "cause_ko"],
+        "properties": {
+          "group_id": { "type": "string", "maxLength": 16 },
+          "summary_ko": { "type": "string", "maxLength": 200 },
+          "cause_ko": { "type": "string", "maxLength": 240 }
+        }
+      }
+    },
+    "summary_ko": { "type": "string", "maxLength": 300 }
+  }
+}

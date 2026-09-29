@@ -69,6 +69,11 @@ public class PrometheusClient {
         }
     }
 
+    /** 이름 붙인 range 질의 묶음 한 벌. results 에 있으면 성공(빈 목록은 결과 없음), failures 에 있으면 그 질의만 실패다. */
+    public record Ranges<K>(Instant start, Instant end, Duration step, Map<K, List<RangeSeries>> results,
+                            Map<K, String> failures) {
+    }
+
     private final URI base;
     private final MspProperties.Prometheus jobs;
     private final SourceHttp http;
@@ -115,6 +120,24 @@ public class PrometheusClient {
      */
     public SourceCache.Cached<Frames> frames(Instant start, Instant end, Duration step) {
         return cache.get("prometheus:flow:" + end.getEpochSecond(), step, () -> loadFrames(start, end, step));
+    }
+
+    /**
+     * 원인 분석과 부하 판정의 range 질의 묶음(API 설계 §6-F '원인 분석과 부하 판정'). 판단 주기와 승인·상담이 부를 때만
+     * 읽으므로 캐시하지 않는다. 격자는 호출부가 step 의 배수로 정하고, 점 상한(MAX_RANGE_POINTS)을 넘는 창은 실패로 적힌다.
+     */
+    public <K extends Enum<K>> Ranges<K> ranges(Class<K> type, Map<K, String> promql, Instant start, Instant end,
+                                                Duration step) {
+        long from = start.getEpochSecond();
+        long to = end.getEpochSecond();
+        long every = step.toSeconds();
+        Map<K, Future<List<RangeSeries>>> pending = new EnumMap<>(type);
+        promql.forEach((key, q) -> pending.put(key, pool.submit(() -> queryRange(q, from, to, every))));
+        Map<K, List<RangeSeries>> results = new EnumMap<>(type);
+        Map<K, String> failures = new EnumMap<>(type);
+        collect(pending, results, failures);
+        return new Ranges<>(start, end, step, Collections.unmodifiableMap(results),
+                Collections.unmodifiableMap(failures));
     }
 
     private Snapshot load() {

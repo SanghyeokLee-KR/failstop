@@ -83,12 +83,33 @@ final class AiRig implements AutoCloseable {
                 default -> new StubSource.Response(200, "{\"choices\":[{\"message\":{\"content\":" + quote(llmContent)
                         + "}}]}", llmDelayMs, null);
             };
-            prometheus.handler = r -> StubSource.Response.json(
-                    "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[]}}");
+            prometheus.handler = r -> r.path().equals("/api/v1/query_range") ? loadRange(r)
+                    : StubSource.Response.json("{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[]}}");
             node.handler = r -> r.path().equals("/actuator/prometheus")
                     ? new StubSource.Response(200, "process_cpu_usage " + cpu + "\nsystem_cpu_count 2\n", 0, null)
                     : StubSource.Response.json("{\"status\":\"UP\"}");
             alertmanager.handler = this::alertmanager;
+        }
+
+        /**
+         * 부하 판정의 range 질의(설계 7-19). 노드 관측과 같은 CPU 가 창 전체에 그대로였다고 답한다. 그래서 증설 임계 이상인
+         * 시험은 지속 부하이고 증설의 지속 전제(D5)를 지난다. 그 밖의 range 질의는 결과가 없다.
+         */
+        private StubSource.Response loadRange(StubSource.Request r) {
+            String query = r.param("query");
+            long start = Long.parseLong(r.param("start"));
+            long end = Long.parseLong(r.param("end"));
+            long step = Long.parseLong(r.param("step"));
+            String value = query.startsWith("avg(avg_over_time(process_cpu_usage") ? String.valueOf(cpu)
+                    : query.startsWith("sum(rate(http_server_requests_seconds_count") ? "40" : null;
+            StringBuilder points = new StringBuilder();
+            for (long t = start; value != null && t <= end; t += step) {
+                points.append(points.isEmpty() ? "" : ",").append("[").append(t).append(",\"").append(value)
+                        .append("\"]");
+            }
+            String result = value == null ? "[]" : "[{\"metric\":{},\"values\":[" + points + "]}]";
+            return StubSource.Response.json("{\"status\":\"success\",\"data\":{\"resultType\":\"matrix\",\"result\":"
+                    + result + "}}");
         }
 
         private StubSource.Response alertmanager(StubSource.Request r) {

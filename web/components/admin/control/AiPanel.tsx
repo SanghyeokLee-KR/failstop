@@ -3,9 +3,9 @@
 /**
  * AI 관제 패널(§12-9). 관제센터의 가운데 기둥이다.
  *
- * 큰 한 줄 판단, 권장 조치, 근거와 원인 가설, 처리된 조치, 판단 기록 순서로 읽힌다. 운영자가 할 일(승인하고
- * 실행)이 판단 바로 아래 첫 화면에 서게 하려는 순서다. 대기 조치안이 없으면 빈 상자 대신 평상 한 줄을 두고, 15분 안에
- * 처리한 조치가 있으면 그 자리에 마지막 조치 결과를 둔다(§12-9 v1.14). AI 판단 요약(확신도, 위험도, 과거 같은 조치)은 조치
+ * 큰 한 줄 판단, 권장 조치, 근거와 원인 분석(분석이 없으면 원인 가설 한 줄), 오류 로그, 처리된 조치, 판단 기록
+ * 순서로 읽힌다. 운영자가 할 일(승인하고 실행)이 판단 바로 아래 첫 화면에 서게 하려는 순서다. 대기 조치안이 없으면
+ * 빈 상자 대신 평상 한 줄을 두고, 15분 안에 처리한 조치가 있으면 그 자리에 마지막 조치 결과를 둔다(§12-9 v1.14). AI 판단 요약(확신도, 위험도, 과거 같은 조치)은 조치
  * 카드마다 한 줄로 싣는다. AI라는 사실은 보라 빛이 아니라 이 내용과 판단 과정으로 드러낸다(§12-10). 조치 카드는
  * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는 대기 중인
  * 조치안에만 붙이고 카드마다 ai-proposal-n 앵커를 두어 모드 줄의 링크가 첫 카드로 온다. 승인 버튼은 운영자의
@@ -22,7 +22,7 @@ import { flashTone } from "@/lib/admin/motion";
 import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { AI_ACTION_CAP, CAP_NEED } from "@/lib/admin/roles";
 import { useCan } from "@/lib/admin/store";
-import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
+import type { AiActionKind, AiDecision, AiDesk, AiProposal, LogDesk, OpsRef, OpsSection } from "@/lib/admin/types";
 import { judgmentGroup } from "@/lib/admin/judgmentLog";
 import { joinDots } from "@/lib/admin/text";
 import { kstDay } from "@/lib/admin/timeText";
@@ -33,6 +33,7 @@ import StatusShape from "../StatusShape";
 import { useFlip } from "../useFlip";
 import { useFreshKeys } from "../useFreshKeys";
 import ActionConfirm from "./ActionConfirm";
+import { CauseSection, ErrorLogSection } from "./AiAnalysis";
 import { revealModeBar, RulesDisclosure } from "./ModeBar";
 import { Ago, AiMark, FlashNum, hms, mmss, sectionSource, SEVERITY_SHAPE, useClock } from "./parts";
 import styles from "./control.module.css";
@@ -503,12 +504,13 @@ function AiToday({ ai }: { ai: AiDesk }) {
 }
 
 /**
- * AI 칸(판의 ai)만 받는다. 판은 매초 새로 오지만 이 칸은 판단이 바뀔 때만 새 참조라(opsCenter의
+ * AI 칸과 오류 로그 칸(판의 ai, logs)만 받는다. 판은 매초 새로 오지만 두 칸은 값이 바뀔 때만 새 참조라(opsCenter의
  * shareEqual) 패널이 매초 다시 그려지지 않는다
  */
-function AiPanel({ section, onChanged }: {
+function AiPanel({ section, logs, onChanged }: {
   /** 판을 받기 전이면 null이다 */
   section: OpsSection<AiDesk> | null;
+  logs: OpsSection<LogDesk>;
   onChanged: () => void;
 }) {
   const point = useOpsFocus((s) => s.point);
@@ -665,12 +667,17 @@ function AiPanel({ section, onChanged }: {
                 </div>
               </div>
             )}
-            {ai.hypothesis && (
-              <p className={styles.hypo}>
-                <span className={styles.hypoKey}>원인 가설</span>
-                {ai.hypothesis}
-              </p>
+            {ai.analysis ? (
+              <CauseSection analysis={ai.analysis} />
+            ) : (
+              ai.hypothesis && (
+                <p className={styles.hypo}>
+                  <span className={styles.hypoKey}>원인 가설</span>
+                  {ai.hypothesis}
+                </p>
+              )
             )}
+            <ErrorLogSection logs={logs} />
             {done.length > 0 && (
               <div className={styles.aiSection}>
                 <div className={styles.subHead}>

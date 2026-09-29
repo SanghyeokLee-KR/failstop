@@ -14,6 +14,8 @@ import kr.exchange.api.common.AdmissionControl;
 import kr.exchange.api.common.AdmissionFilter;
 import kr.exchange.api.common.AdmissionLimits;
 import kr.exchange.api.common.EpochSource;
+import kr.exchange.api.common.ErrorLogBook;
+import kr.exchange.api.common.ErrorLogEndpoint;
 import kr.exchange.api.common.ErrorRenderer;
 import kr.exchange.api.community.CommunityAuthenticator;
 import kr.exchange.api.community.CommunityRankService;
@@ -53,6 +55,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.Map;
 
 /** REST/WS 게이트웨이 배선(M1-4). 도메인 계층은 스프링 어노테이션 없이 여기서만 결선한다. */
@@ -242,6 +245,17 @@ public class ApiConfig {
             @Qualifier("wsAdmissionControl") AdmissionControl wsAdmission) {
         return new kr.exchange.api.common.AdmissionEndpoint(gate, orderAdmission, queryAdmission,
                 requeryAdmission, wsAdmission);
+    }
+
+    /** 이 JVM 의 WARN·ERROR 로그 묶음(API 설계 §6-F '오류 로그'). 루트 로거에 붙이고 컨텍스트가 닫힐 때 뗀다. */
+    @Bean(destroyMethod = "detach")
+    public ErrorLogBook errorLogBook() {
+        return ErrorLogBook.attach(Clock.systemUTC());
+    }
+
+    @Bean
+    public ErrorLogEndpoint errorLogEndpoint(ErrorLogBook book) {
+        return new ErrorLogEndpoint(book);
     }
 
     /**

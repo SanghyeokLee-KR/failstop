@@ -485,6 +485,35 @@ class AiPolicyTest {
     }
 
     @Test
+    void D5_증설은_부하_판정이_지속일_때만() {
+        assertNull(AiPolicy.d5Sustained(new AiFixtures.Ev().cpu(0.82, null).build()));
+        AiPolicy.Denial brief = AiPolicy.d5Sustained(new AiFixtures.Ev().cpu(0.82, null)
+                .load(AiFixtures.transientLoad()).build());
+        denied("D5", brief);
+        assertEquals("direction_conflict", brief.code());
+        assertTrue(brief.message().contains("일시적 부하"), brief.message());
+        denied("D5", AiPolicy.d5Sustained(new AiFixtures.Ev().cpu(0.82, null)
+                .load(LoadPattern.unknown(new java.math.BigDecimal("0.60"), Duration.ofMinutes(3))).build()));
+        denied("D5", AiPolicy.d5Sustained(new AiFixtures.Ev().cpu(0.82, null).load(null).build()));
+    }
+
+    @Test
+    void 일시적_부하의_증설은_제안과_승인과_자동_실행에서_D5로_막힌다() {
+        AiEvidence ev = new AiFixtures.Ev().cpu(0.82, null).load(AiFixtures.transientLoad()).build();
+        AiAction add = new AiAction.ReadNodes(1);
+        denied("D5", AiPolicy.proposal(add, AiFixtures.facts(ev, AiFixtures.manual(), null, AiPolicy.History.NONE)));
+        denied("D5", AiPolicy.approval(add, AiFixtures.facts(ev, AiFixtures.manual(), AiFixtures.request(1, "0.9"),
+                AiPolicy.History.NONE)));
+        denied("D5", AiPolicy.auto(add, AiFixtures.facts(ev, AiFixtures.auto(), AiFixtures.request(2, "0.9"),
+                AiPolicy.History.NONE)));
+        // 축소는 D2 가 따로 보고 D5 를 걸지 않는다.
+        AiEvidence low = new AiFixtures.Ev().cpu(0.20, NOW.minus(Duration.ofMinutes(10)))
+                .load(AiFixtures.transientLoad()).build();
+        assertNull(AiPolicy.proposal(new AiAction.ReadNodes(-1), AiFixtures.facts(low, AiFixtures.manual(), null,
+                AiPolicy.History.NONE)));
+    }
+
+    @Test
     void D2_축소는_축소_임계_미만이_설정_시간_이상_이어질_때만() {
         Duration sustain = Duration.ofMinutes(10);
         assertNull(AiPolicy.d2ScaleIn(new AiFixtures.Ev().cpu(0.20, NOW.minus(sustain)).build(), sustain, NOW));

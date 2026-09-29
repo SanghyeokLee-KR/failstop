@@ -54,6 +54,8 @@ public class AiLoop {
     private final Clock clock;
     private final RunnerLease lease;
     private volatile AiNotifier notifier = AiNotifier.NONE;
+    // 판단 뒤의 원인 분석과 로그 분석(설계 7-19·7-20). 없으면 판단만 한다.
+    private volatile AiAnalysis analysis;
 
     // 판단 스레드만 읽고 쓴다. 고정 지연 실행은 겹치지 않으므로 잠금이 필요 없다.
     private String lastSituation;
@@ -85,6 +87,10 @@ public class AiLoop {
 
     public void notifier(AiNotifier notifier) {
         this.notifier = notifier;
+    }
+
+    public void analysis(AiAnalysis analysis) {
+        this.analysis = analysis;
     }
 
     public void start(ScheduledExecutorService pool) {
@@ -125,7 +131,10 @@ public class AiLoop {
         executor.reconcileStuck();
     }
 
-    /** 판단 한 번(설계 7-1). */
+    /**
+     * 판단 한 번(설계 7-1). 판단 뒤에 같은 스레드에서 원인 분석과 로그 분석을 붙인다(설계 7-19·7-20). 모델 호출을 한 줄로
+     * 세워 판단과 분석이 같은 모델을 동시에 붙잡지 않게 한다. 자동 실행은 분석보다 먼저 끝난다.
+     */
     public void tick() {
         if (llm == null) {
             return;
@@ -140,11 +149,32 @@ public class AiLoop {
             skip("stopped");
             return;
         }
+        Judged judged = judge(mode);
+        AiAnalysis a = analysis;
+        if (a != null && !deferAnalysis(control.mode(), store.proposedExists())) {
+            a.afterJudge(judged == null ? null : judged.evidence(), judged == null ? null : judged.situation());
+        }
+    }
+
+    /**
+     * 자동 모드에서 실행을 기다리는 요청이 있으면 이번 주기의 분석을 미룬다. 분석이 모델을 부르는 동안 다음 판단이 늦어져
+     * 연속 판단(A4)의 간격(주기의 2배)을 넘기면 자동 실행이 한 주기 밀리기 때문이다. 수동 모드는 연속 판단으로 실행하지
+     * 않으므로, 운영자가 승인 전에 원인 분석을 볼 수 있게 곧바로 분석한다.
+     */
+    static boolean deferAnalysis(AiControl.Mode mode, boolean proposed) {
+        return mode.auto() && proposed;
+    }
+
+    /** 이번 주기에 모은 근거와 그 상황. 근거를 모으지 않았거나 모델에 닿지 못했으면 판단 주기가 null 을 낸다. */
+    private record Judged(AiEvidence evidence, String situation) {
+    }
+
+    private Judged judge(AiControl.Mode mode) {
         Instant now = clock.instant();
         // 평온하면 calm-interval 동안 근거도 모으지 않는다. 폴러의 마지막 결과(메모리)에 경보가 새로 있으면 곧바로 판단한다.
         if (calmUntil != null && now.isBefore(calmUntil) && !collector.judgedAlertsPending()) {
             skip("calm_wait");
-            return;
+            return null;
         }
         calmUntil = null;
         store.expireStale(now);
@@ -156,8 +186,9 @@ public class AiLoop {
             lastSituation = null;
             calm(now);
             skip("calm");
-            return;
+            return null;
         }
+        String situation = situation(judged, crossings, ev.load());
         // 근거가 직전 판단과 같고 경보와 열린 요청이 없으면 같은 답을 다시 묻지 않는다. 판단 기록 대신 지표만 센다.
         // 열린 요청이 있으면 연속 판단(A4)을 위해 부르고, 직전 판단이 실패였으면 다시 묻는다.
         String fingerprint = fingerprint(ev, mapper);
@@ -167,46 +198,46 @@ public class AiLoop {
                 calm(now);
             }
             skip("unchanged");
-            return;
+            return new Judged(ev, situation);
         }
-        String situation = situation(judged, crossings);
         // 같은 상황이 이어지면 재판단 간격 전에는 모델을 부르지 않는다. 열린 요청이 있으면 연속 판단(A4)을 위해 부른다.
+        // 부하 판정이 일시적에서 지속으로 바뀌면 상황이 바뀌어 곧바로 다시 판단한다.
         if (open == 0 && !lastFailed && situation.equals(lastSituation) && lastJudgedAt != null
                 && now.isBefore(lastJudgedAt.plus(props.getAi().getRecheckInterval()))) {
             skip("recheck");
-            return;
+            return new Judged(ev, situation);
         }
         String evidenceJson = json(ev.toJson());
         Long incidentId = incident(judged);
         if (ev.allStale()) {
             recordFailure(ev, evidenceJson, "EVIDENCE_STALE", "stale", "rule:evidence", incidentId, null);
             lastFailed = true;
-            return;
+            return null;
         }
         LlmClient.Reply reply;
         try {
             if (!llm.loaded()) {
                 skip("model_loading");
                 warmUp();
-                return;
+                return null;
             }
             reply = llm.complete(evidenceJson);
         } catch (LlmClient.LlmException e) {
             recordFailure(ev, evidenceJson, "MODEL_ERROR", e.code(), llm.model(), incidentId, null);
             modelFailed(mode);
-            return;
+            return null;
         }
         Instant decidedAt = clock.instant();
         AiOutputValidator.Result v = AiOutputValidator.validate(reply.content(), ev, mapper);
         Outcome outcome = tx.execute(status -> record(ev, evidenceJson, reply, v, decidedAt, incidentId));
         if (outcome == null) {
             skip("stopped");
-            return;
+            return null;
         }
         registry.counter("exchange.msp.ai.judgments", "outcome", v.outcome()).increment();
         if ("INVALID_OUTPUT".equals(v.outcome())) {
             modelFailed(outcome.mode());
-            return;
+            return new Judged(ev, situation);
         }
         lastFailed = false;
         modelFailures = 0;
@@ -218,6 +249,7 @@ public class AiLoop {
         if (row != null && "PROPOSED".equals(row.status()) && outcome.mode().auto()) {
             executor.autoExecute(row.id(), new AiPolicy.Decision(v.outcome(), decidedAt, ev));
         }
+        return new Judged(ev, situation);
     }
 
     /**
@@ -317,6 +349,11 @@ public class AiLoop {
      */
     static String fingerprint(AiEvidence ev, ObjectMapper mapper) {
         JsonNode tree = mapper.valueToTree(ev.toJson());
+        // 부하 판정은 판정 이름만 본다. 이어진 시간과 기울기는 주기마다 바뀌어 같은 상황을 다시 묻게 만든다.
+        if (tree.path("read_tier").path("load") instanceof ObjectNode load) {
+            ((ObjectNode) tree.path("read_tier")).set("load", mapper.createObjectNode().put("pattern",
+                    load.path("pattern").asText()));
+        }
         normalize(tree);
         try {
             return AiStore.sha256(mapper.writeValueAsString(tree));
@@ -357,10 +394,14 @@ public class AiLoop {
         return null;
     }
 
-    static String situation(List<AiEvidence.Alert> judged, List<String> crossings) {
+    /** 판단 대상 경보, 넘은 임계, 부하 판정의 묶음. 재판단 간격과 원인 분석이 같은 상황인지 이것으로 가른다. */
+    static String situation(List<AiEvidence.Alert> judged, List<String> crossings, LoadPattern load) {
         List<String> parts = new ArrayList<>();
         judged.forEach(a -> parts.add(a.fingerprint() + "@" + a.startsAt()));
         parts.addAll(crossings);
+        if (load != null) {
+            parts.add("load:" + load.kind());
+        }
         parts.sort(String::compareTo);
         return String.join(",", parts);
     }

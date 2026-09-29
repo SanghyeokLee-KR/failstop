@@ -132,6 +132,8 @@ const ALERT_GROUP_INTERVAL_MS = 5 * 60_000;
 const NODE_BOOT_TICKS = 6;
 const NODE_DRAIN_TICKS = 4;
 const BACKUP_RUN_TICKS = 8;
+/** 오류 로그 칸의 원천. 앱 노드의 WARN·ERROR 묶음은 관리 서버만 모으므로(API 설계 §6-F v2.65) 시뮬레이터는 원천 연결 전으로 둔다 */
+export const SIM_LOG_SOURCE = "앱 노드 오류 로그(관리 서버 전용 · 시뮬레이터에는 없음)";
 /**
  * 조회 수요의 기준(앱 노드 한 대분 CPU의 합). 앱 계층은 app-1·app-2(고정, 매칭 리더이면서 조회도 받음)와 부하가 오르면
  * 켜지는 조회 전용 app-3(Auto Scaling 0~1대)다(ADR 0030, 사용자 정정 2026-09-25). 조회는 켜져 있는 앱 노드에 고르게
@@ -3300,6 +3302,8 @@ export class OpsSim {
         text: this.notice.text, tone: this.notice.tone, incidentId: this.notice.incidentId,
       },
       recent: { runs: 0, reverts: 0 },
+      // 원인 분석은 관제 서버가 근거 묶음과 모델로 내는 값이라 시뮬레이터가 지어내지 않는다. 화면은 원인 가설 한 줄을 그린다
+      analysis: null,
     };
     return {
       origin: "SIM",
@@ -3348,6 +3352,7 @@ export class OpsSim {
       },
       thresholds: { state: "READY", data: { items: THRESHOLD_DEFS.map((d) => ({ ...(this.thresholds.get(d.key) as SimThreshold) })), history: this.history.map((h) => ({ ...h })) } },
       ai: { state: "READY", data: ai },
+      logs: { state: "NOT_CONNECTED", source: SIM_LOG_SOURCE },
       aiServer: { state: "READY", data: aiServer },
       trading: {
         state: "READY",

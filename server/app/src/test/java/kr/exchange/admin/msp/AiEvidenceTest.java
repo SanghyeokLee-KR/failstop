@@ -74,7 +74,7 @@ class AiEvidenceTest {
         assertEquals(FP, alert.path("fingerprint").asText());
         assertEquals("EdgeProbeSlow", alert.path("alertname").asText());
         assertTrue(alert.path("threshold").isNull());
-        assertEquals("msp-evidence/2", ev.build().toJson().get("schema"));
+        assertEquals("msp-evidence/3", ev.build().toJson().get("schema"));
     }
 
     @Test

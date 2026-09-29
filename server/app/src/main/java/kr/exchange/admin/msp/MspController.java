@@ -82,6 +82,13 @@ public class MspController {
         return board.trendsView(r);
     }
 
+    /** 오류 로그 묶음 전체와 AI 로그 분석(API 설계 §6-F '오류 로그'). 한 판은 여덟 묶음만 싣는다. */
+    @GetMapping("/logs")
+    public Map<String, Object> logs(HttpServletRequest request) {
+        viewer(request);
+        return board.logsView();
+    }
+
     /** 서비스 흐름·지표 관제의 최근 150초 실측(2초 격자). 격자마다 값이 바뀌어 ETag 를 붙이지 않는다. */
     @GetMapping("/flow")
     public Map<String, Object> flow(HttpServletRequest request) {

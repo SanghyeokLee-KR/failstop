@@ -139,7 +139,7 @@ class AiLoopIntegrationTest {
 
         JsonNode body = rig.mapper.readTree(src.llm.requests("/v1/chat/completions").get(0).body());
         JsonNode evidence = rig.mapper.readTree(body.path("messages").get(1).path("content").asText());
-        assertEquals("msp-evidence/2", evidence.path("schema").asText());
+        assertEquals("msp-evidence/3", evidence.path("schema").asText());
         assertTrue(evidence.path("read_tier").path("avg_cpu").path("value").asText().startsWith("0.82"));
         assertTrue(evidence.path("catalog").toString().contains("READ_NODE_ADD_ONE"), "쓸 수 있는 조치 목록을 싣는다");
         assertFalse(evidence.toString().contains("127.0.0.1"), "근거에 사설 주소와 포트를 싣지 않는다");

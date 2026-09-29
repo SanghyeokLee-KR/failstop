@@ -48,7 +48,19 @@ final class AiFixtures {
         return new MaintenanceWindows.Window(1, start, end, alertname, labels, "작업", "op-02", start, null, null);
     }
 
-    /** 근거 만들기. 기본값은 조회 계층 3/2~4 대, 평균 CPU 0.5, 임계 0.60·0.30, 원천 모두 신선. */
+    /** 앱 계층 CPU 가 증설 임계 이상으로 4분 이어진 부하 판정(지속). */
+    static LoadPattern sustained() {
+        return new LoadPattern(LoadPattern.Kind.SUSTAINED, 0.72, new BigDecimal("0.60"), 240, 180, 240, 1, 900, 0.03,
+                0.9, 1, NOW, NOW.minusSeconds(240));
+    }
+
+    /** 앱 계층 CPU 가 증설 임계를 60초만 넘은 부하 판정(일시적). */
+    static LoadPattern transientLoad() {
+        return new LoadPattern(LoadPattern.Kind.TRANSIENT, 0.72, new BigDecimal("0.60"), 60, 180, 60, 1, 900, 0.1,
+                0.8, 1, NOW, NOW.minusSeconds(60));
+    }
+
+    /** 근거 만들기. 기본값은 조회 계층 3/2~4 대, 평균 CPU 0.5, 임계 0.60·0.30, 원천 모두 신선, 부하 판정 지속. */
     static final class Ev {
         MspProperties.ReadCapacityMode readMode = MspProperties.ReadCapacityMode.CAPACITY_PLAN;
         AiEvidence.ReadTier read = new AiEvidence.ReadTier(2, 3, 4, 3, 0.5, NOW, null);
@@ -59,6 +71,7 @@ final class AiFixtures {
         AiEvidence.Bot bot = new AiEvidence.Bot(4.0, "local", NOW);
         List<MaintenanceWindows.Window> windows = new ArrayList<>();
         boolean databasus = false;
+        LoadPattern load = sustained();
 
         Ev() {
             threshold("read.scale_out_cpu", "0.60", "0.20", "0.85", "0.05", true);
@@ -91,10 +104,15 @@ final class AiFixtures {
             return this;
         }
 
+        Ev load(LoadPattern load) {
+            this.load = load;
+            return this;
+        }
+
         AiEvidence build() {
             return new AiEvidence(NOW, MspProperties.Environment.LOCAL_DOCKER, readMode, "AUTO",
                     readMode == MspProperties.ReadCapacityMode.CAPACITY_PLAN ? read : null, thresholds, alerts, true,
-                    polledAt, metrics, bot, windows, databasus, Map.of());
+                    polledAt, metrics, bot, windows, databasus, Map.of(), load);
         }
     }
 

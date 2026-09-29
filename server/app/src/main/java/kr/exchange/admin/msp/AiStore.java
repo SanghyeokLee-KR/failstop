@@ -307,6 +307,12 @@ public class AiStore {
         return jdbc.sql("SELECT count(*) FROM ops_ai_actions WHERE status IN " + OPEN).query(Integer.class).single();
     }
 
+    /** 사람의 결정이나 자동 실행을 기다리는 요청(`PROPOSED`)이 있는가. 판단 주기가 분석을 미룰지 가를 때 본다. */
+    public boolean proposedExists() {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM ops_ai_actions WHERE status = 'PROPOSED')")
+                .query(Boolean.class).single();
+    }
+
     public boolean executingExists() {
         return jdbc.sql("SELECT EXISTS (SELECT 1 FROM ops_ai_actions WHERE status = 'EXECUTING')")
                 .query(Boolean.class).single();

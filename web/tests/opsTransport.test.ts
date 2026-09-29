@@ -32,7 +32,7 @@ async function withFetch(stub: Stub, run: (calls: { url: string; headers: Record
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
-const SECTIONS = ["summary", "hosts", "readTier", "replication", "alerts", "incidents", "jobs", "thresholds", "ai", "aiServer", "trends"] as const;
+const SECTIONS = ["summary", "hosts", "readTier", "replication", "alerts", "incidents", "jobs", "thresholds", "ai", "logs", "aiServer", "trends"] as const;
 
 test("http: 관제 모듈이 없는 배포(404)는 칸마다 '원천 연결 전'과 원천 이름이고 원천 상태는 모르는 채로 둔다", async () => {
   // 오류 본문의 이름은 배포마다 다르다. 이름이 아니라 상태 404로 가른다

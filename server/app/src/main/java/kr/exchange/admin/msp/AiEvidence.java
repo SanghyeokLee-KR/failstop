@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 /**
  * AI 판단 근거 한 벌(설계 7-2). 모델에 보내는 JSON 과 정책 엔진의 입력이 같은 값에서 나온다. 미수집은 null 로 두고
  * 0 이나 정상으로 바꾸지 않는다. 비밀 값, 개인정보, 사설 주소와 포트, 외부나 사람이 쓴 자유 문장은 담지 않는다.
+ * load 는 코드가 계산한 부하 판정이고(설계 7-19) Prometheus 가 없으면 null 이다.
  */
 public record AiEvidence(
         Instant collectedAt,
@@ -35,7 +36,8 @@ public record AiEvidence(
         Bot bot,
         List<MaintenanceWindows.Window> windows,
         boolean databasusConnected,
-        Map<String, Object> context) {
+        Map<String, Object> context,
+        LoadPattern load) {
 
     // 조치에 필요한 근거가 이보다 오래되면 자동 실행하지 않는다(ADR 0035, 정책 A5).
     public static final Duration MAX_AGE = Duration.ofSeconds(60);
@@ -282,7 +284,7 @@ public record AiEvidence(
      */
     public Map<String, Object> toJson() {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("schema", "msp-evidence/2");
+        out.put("schema", "msp-evidence/3");
         out.put("environment", environment.name());
         out.put("collected_at", ApiFormats.time(collectedAt));
         out.put("mode", mode);
@@ -294,6 +296,8 @@ public record AiEvidence(
             r.put("observed", read.observed());
             r.put("avg_cpu", measure(read.avgCpu(), read.sampledAt(), 4));
             r.put("below_scale_in_since", read.lowSince() == null ? null : ApiFormats.time(read.lowSince()));
+            // 코드가 계산한 부하 판정. 증설의 지속 전제(D5)와 카탈로그가 같은 값을 쓴다.
+            r.put("load", load == null ? null : load.toJson());
             out.put("read_tier", r);
         } else {
             out.put("read_tier", null);

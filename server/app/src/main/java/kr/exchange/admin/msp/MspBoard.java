@@ -2,6 +2,7 @@ package kr.exchange.admin.msp;
 
 import kr.exchange.admin.CapacityPlanService;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.ErrorLogBook;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -27,6 +28,8 @@ public class MspBoard {
     // API 응답과 AI 근거에 내는 라벨. instance(사설 주소와 포트)는 내지 않는다.
     private static final List<String> ALERT_LABELS = List.of("node", "role", "component", "mountpoint");
     private static final int OPEN_IDS = 50;
+    // 한 판의 오류 로그 묶음 수. 나머지는 more 로 세고 GET .../logs 가 모두 싣는다.
+    static final int OVERVIEW_LOG_GROUPS = 8;
 
     private final MspProperties props;
     private final PrometheusClient prometheus;
@@ -44,6 +47,9 @@ public class MspBoard {
     private final MspReporting reporting;
     /** DB 에 기대는 칸의 실패를 그 칸에 가둔다 */
     private final DbGuard db;
+    // 원인 분석과 오류 로그(설계 7-19·7-20). 없으면 ai.analysis 는 null 이고 logs 칸은 연결 전이다.
+    private volatile AiAnalysis analysis;
+    private volatile ErrorLogPoller logs;
     /** DB 읽기가 실패한 뒤 DB 칸을 곧바로 unavailable 로 내는 시간 */
     static final Duration DB_COOLDOWN = Duration.ofSeconds(5);
 
@@ -73,6 +79,12 @@ public class MspBoard {
         this.db = new DbGuard(clock, DB_COOLDOWN);
     }
 
+    /** analysis 는 LLM 설정이 없으면 null 이다. */
+    public void insights(AiAnalysis analysis, ErrorLogPoller logs) {
+        this.analysis = analysis;
+        this.logs = logs;
+    }
+
     /**
      * 한 판. DB 에 기대는 칸(조회 계층의 용량 계획, 경보의 사건 대응, 오늘 사건, 운영 작업, 임계값, AI, Teams 원천)은 DbGuard 로
      * 감싼다. 주 DB 전환 동안 그 읽기가 실패해도 한 판은 200 이고 그 칸만 database_unavailable 이다(API 설계 §6-F)
@@ -92,7 +104,15 @@ public class MspBoard {
         out.put("ops", db.section(() -> ops(metrics)));
         out.put("thresholds", db.section(() -> thresholds(metrics)));
         out.put("ai", db.section(this::ai));
+        out.put("logs", logs(OVERVIEW_LOG_GROUPS));
         out.put("ai_server", aiServer.view());
+        return out;
+    }
+
+    /** GET .../logs. 한 판과 같은 칸에 모든 묶음을 싣는다. */
+    public Map<String, Object> logsView() {
+        Map<String, Object> out = header(clock.instant());
+        out.put("logs", logs(Integer.MAX_VALUE));
         return out;
     }
 
@@ -531,13 +551,77 @@ public class MspBoard {
     /* ===== AI ===== */
 
     private Map<String, Object> ai() {
+        AiAnalysis a = analysis;
         if (ai == null) {
             Map<String, Object> m = MspSections.notConnected("llm");
             m.put("mode", "MANUAL");
             m.put("auto", null);
+            m.put("analysis", null);
             return m;
         }
-        return AiViews.section(ai, aiStore, llm);
+        Map<String, Object> m = AiViews.section(ai, aiStore, llm);
+        m.put("analysis", a == null ? null : a.causeView());
+        return m;
+    }
+
+    /**
+     * 오류 로그 칸(API 설계 §6-F '오류 로그'). ERROR 를 먼저, 그다음 15분 건수가 많고 최근인 순으로 limit 개와 나머지 수를
+     * 싣는다. 첫 수집 전이거나 모든 원천이 실패하면 UNAVAILABLE 이고 수집 시각과 원천 상태는 그대로 싣는다.
+     */
+    private Map<String, Object> logs(int limit) {
+        ErrorLogPoller p = logs;
+        if (p == null) {
+            return MspSections.notConnected("error_log");
+        }
+        ErrorLogPoller.Digest d = p.last();
+        Map<String, Object> m = new LinkedHashMap<>();
+        boolean ready = d.polledAt() != null && d.failure() == null;
+        m.put("state", ready ? "READY" : "UNAVAILABLE");
+        if (!ready) {
+            m.put("reason", d.polledAt() == null ? "not_polled" : d.failure());
+        }
+        m.put("polled_at", MspSections.time(d.polledAt()));
+        m.put("window_minutes", ErrorLogBook.WINDOW_MINUTES);
+        List<Map<String, Object>> sources = new ArrayList<>();
+        for (ErrorLogPoller.Source s : d.sources()) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("node", s.node());
+            x.put("state", s.state());
+            x.put("reason", s.reason());
+            sources.add(x);
+        }
+        m.put("sources", sources);
+        if (!ready) {
+            return m;
+        }
+        List<Map<String, Object>> groups = new ArrayList<>();
+        for (ErrorLogPoller.Group g : d.groups().subList(0, Math.min(limit, d.groups().size()))) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("id", g.id());
+            x.put("level", g.level());
+            x.put("logger", g.logger());
+            x.put("exception", g.exception());
+            x.put("exception_message", g.exceptionMessage());
+            x.put("frame", g.frame());
+            x.put("message", g.message());
+            x.put("count", g.count());
+            x.put("total", g.total());
+            x.put("first_seen", MspSections.time(g.firstSeen()));
+            x.put("last_seen", MspSections.time(g.lastSeen()));
+            x.put("nodes", g.nodes());
+            groups.add(x);
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("errors", d.count("ERROR"));
+        data.put("warnings", d.count("WARN"));
+        data.put("groups", groups);
+        data.put("more", d.groups().size() - groups.size());
+        // 노드가 응답 상한 때문에 싣지 않은 묶음 수. 그 묶음은 목록과 건수 합에 없다.
+        data.put("omitted", d.omitted());
+        AiAnalysis a = analysis;
+        data.put("analysis", a == null ? null : a.logsView());
+        m.put("data", data);
+        return m;
     }
 
     /* ===== 측정 ===== */

@@ -1452,6 +1452,129 @@ export interface AiObservation {
   action: string;
 }
 
+/* ===== 원인 분석과 오류 로그(API 설계 §6-F v2.65) =====
+ * 둘 다 관제 서버만 싣는 조회 전용 칸이다. 모델 출력은 조치 요청과 정책 엔진에 들어가지 않고, sim은 지어내지 않는다 */
+
+/** 부하 판정. 코드 규칙의 판정이 정책 엔진 D5의 입력이고 모델의 판정은 설명일 뿐이다 */
+export type LoadPattern = "SUSTAINED" | "TRANSIENT" | "NONE" | "UNKNOWN";
+
+/** 모델 분석의 상태. 모델이 실패해도 코드가 계산한 부하 판정과 수집 필요 목록은 남는다 */
+export type AnalysisState = "READY" | "INVALID_OUTPUT" | "MODEL_ERROR";
+
+/** 부하 판정과 그 특징. 창은 지금까지 15분, 계열은 앱 계층 CPU, 기준은 증설 임계(read.scale_out_cpu)다 */
+export interface LoadVerdict {
+  pattern: LoadPattern;
+  /** 모델의 판정과 이유. 모델이 실패했거나 판정하지 않았으면 null이다 */
+  aiPattern: LoadPattern | null;
+  aiReason: string | null;
+  /** 앱 계층 CPU와 기준(%). 모르거나 미설정이면 null이다 */
+  cpuPct: number | null;
+  thresholdPct: number | null;
+  /** 기준 이상이 끊기지 않고 가장 최근 점까지 이어진 초와, 지속으로 보는 기준 초 */
+  aboveForSec: number | null;
+  sustainSec: number | null;
+  /** 창 안의 초과 시간 합(초)과 끊긴 초과 구간의 수 */
+  aboveTotalSec: number | null;
+  excursions: number | null;
+  windowSec: number | null;
+  /** 업무 요청률과의 상관계수 */
+  requestCorrelation: number | null;
+  /** 창의 격자를 채운 비율(%) */
+  coveragePct: number | null;
+}
+
+export type CauseCitationKind = "signal" | "node" | "route" | "alert" | "event" | "log" | "load" | "bot";
+export type CauseUnit = "ratio" | "seconds" | "per_second" | "bytes" | "count";
+
+/**
+ * 원인 가설이 인용한 근거 하나. 모델 문장이 아니라 서버가 근거 묶음에서 붙인 값이다. 수는 서버 단위(비율 0..1, 초) 그대로이고
+ * 그리는 자리에서 단위에 맞춰 적는다(causeText.ts)
+ */
+export interface CauseCitation {
+  id: string;
+  kind: CauseCitationKind;
+  label: string;
+  unit: CauseUnit | null;
+  /** 기준 시각부터의 평균. 모르면 null이다 */
+  value: number | null;
+  /** 수가 아닌 값. 경보는 등급, 이벤트는 바뀐 값('2→3'), 부하 판정은 규칙 판정이다. 수로 읽는 종류면 null이다 */
+  text: string | null;
+  /** 기준 시각 앞의 평균과 변화(value - before) */
+  before: number | null;
+  change: number | null;
+  /** 지표는 마지막 값의 시각, 경보는 시작, 이벤트는 일어난 시각, 오류 로그는 마지막 발생, 부하 판정은 판정 시각이다 */
+  at: string | null;
+}
+
+export interface CauseHypothesis {
+  cause: string;
+  citations: CauseCitation[];
+}
+
+/** 마지막 원인 분석. 판단 주기가 판단 대상 경보나 넘은 임계를 보았을 때만 돈다 */
+export interface CauseAnalysis {
+  state: AnalysisState;
+  /** 실패 사유를 사람이 읽는 말로 옮긴 것. READY면 null이다 */
+  reason: string | null;
+  analyzedAt: string | null;
+  model: string | null;
+  load: LoadVerdict | null;
+  /** 배열 순서가 순위다. 모델이 실패했으면 비어 있다 */
+  hypotheses: CauseHypothesis[];
+  /** 모델이 적은 근거 부족 사유. 없으면 null이다 */
+  insufficient: string | null;
+  /** 수집되지 않아 근거 묶음에 넣지 못한 지표와 그 사유 */
+  missing: { id: string; label: string; reason: string }[];
+}
+
+/** 오류 로그 묶음의 등급. 앱 노드의 수집기가 WARN 이상만 받는다 */
+export type LogLevel = "ERROR" | "WARN";
+
+/** 등급, 로거, 메시지 틀, 원인 예외, 첫 kr.exchange 프레임이 같은 로그의 묶음. 같은 코드의 같은 오류는 노드가 달라도 한 묶음이다 */
+export interface LogGroup {
+  id: string;
+  level: LogLevel;
+  /** 로거와 원인 예외 클래스의 짧은 이름. 예외가 없으면 exception이 null이다 */
+  logger: string;
+  exception: string | null;
+  exceptionMessage: string | null;
+  /** 가장 늦게 본 노드의 대표 문장. 서버가 주소·자격 증명 모양을 가리고 자른 평문이다 */
+  message: string;
+  /** 최근 창 안의 건수 */
+  count: number | null;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  nodes: string[];
+  /** 이 묶음에 대한 AI 로그 분석의 발견. 없으면 null이다 */
+  finding: { summary: string; cause: string } | null;
+}
+
+export interface LogAnalysis {
+  state: AnalysisState;
+  /** 실패 사유를 사람이 읽는 말로 옮긴 것. READY면 null이다 */
+  reason: string | null;
+  analyzedAt: string | null;
+  model: string | null;
+  summary: string | null;
+}
+
+/** 관리 서버가 1분마다 앱 노드에서 모은 WARN·ERROR 묶음(오류 로그 칸) */
+export interface LogDesk {
+  polledAt: string | null;
+  windowMinutes: number | null;
+  /** 등급별 최근 창 건수의 합 */
+  errors: number | null;
+  warnings: number | null;
+  /** 서버 순서 그대로다. ERROR가 먼저이고 그다음 건수가 많고 최근인 순서다 */
+  groups: LogGroup[];
+  /** 한 판에 싣지 않은 나머지 묶음 수 */
+  more: number;
+  /** 이번 수집에 실패한 노드와 사유 */
+  failed: { node: string; reason: string }[];
+  /** AI 로그 분석. LLM 설정이 없거나 AI 정지 중이면 null이다 */
+  analysis: LogAnalysis | null;
+}
+
 export interface AiDesk {
   mode: AiMode;
   auto: AiAutoGrant | null;
@@ -1482,6 +1605,8 @@ export interface AiDesk {
   notice: AiNotice | null;
   /** 지난 24시간에 승인·자동으로 실행한 AI 조치 수와 그중 되돌린 수. 감사 기록에서 센다 */
   recent: { runs: number; reverts: number };
+  /** 마지막 원인 분석과 부하 판정. 관제 서버만 싣고, 분석이 아직 없거나 sim이면 null이다 */
+  analysis: CauseAnalysis | null;
 }
 
 export type OpsScenarioId = "READ_SURGE" | "NIGHT_SCALE_IN";
@@ -1509,6 +1634,8 @@ export interface ControlCenter {
   jobs: OpsSection<OpsJobs>;
   thresholds: OpsSection<ThresholdRegistry>;
   ai: OpsSection<AiDesk>;
+  /** 앱 오류 로그 묶음. 관제 서버만 싣고 sim은 원천 연결 전이다 */
+  logs: OpsSection<LogDesk>;
   aiServer: OpsSection<AiServer>;
   trading: OpsSection<OpsTrading>;
   trends: OpsSection<OpsTrends>;

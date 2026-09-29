@@ -56,6 +56,16 @@ class AiEvidenceCollectorTest {
     }
 
     @Test
+    void 증설은_부하_판정이_지속일_때만_보인다() {
+        assertFalse(actions(new AiFixtures.Ev().cpu(0.9, null).load(AiFixtures.transientLoad()).build())
+                .contains("READ_NODE_ADD_ONE"), "일시적 부하면 보이지 않는다(D5)");
+        assertFalse(actions(new AiFixtures.Ev().cpu(0.9, null).load(null).build()).contains("READ_NODE_ADD_ONE"),
+                "부하 판정을 모르면 보이지 않는다");
+        assertTrue(actions(new AiFixtures.Ev().cpu(0.9, null).load(AiFixtures.sustained()).build())
+                .contains("READ_NODE_ADD_ONE"));
+    }
+
+    @Test
     void 축소는_축소_임계_아래가_지속_시간을_채운_뒤에만_보인다() {
         assertFalse(actions(new AiFixtures.Ev().cpu(0.1, NOW.minus(Duration.ofMinutes(3))).build())
                 .contains("READ_NODE_REMOVE_ONE"));

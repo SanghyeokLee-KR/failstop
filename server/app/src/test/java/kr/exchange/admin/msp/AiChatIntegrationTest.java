@@ -67,8 +67,8 @@ class AiChatIntegrationTest {
     }
 
     private AiChat chat(AiRig r) {
-        return new AiChat(r.llm, r.collector, r.control, r.incidents, r.store, r.prometheus, r.poller, r.audit, r.mapper,
-                r.clock, loader);
+        return new AiChat(r.llm, r.collector, r.control, r.incidents, r.store, r.prometheus, r.poller,
+                AlertMeanings.load(r.mapper), null, r.audit, r.mapper, r.clock, loader);
     }
 
     private static String answer(String text, String... cited) {
@@ -156,7 +156,7 @@ class AiChatIntegrationTest {
         assertEquals("STALE", stale.citations().get(0).get("collect"));
 
         AiChat detached = new AiChat(rig.llm, rig.collector, rig.control, rig.incidents, rig.store, null, null,
-                rig.audit, rig.mapper, rig.clock, loader);
+                AlertMeanings.load(rig.mapper), null, rig.audit, rig.mapper, rig.clock, loader);
         AiChat.Answer none = detached.ask(AiRig.BOT, "상태는?", List.of(), "req");
         assertTrue(none.preface().startsWith("Prometheus가 연결되지 않아"), none.preface());
         assertTrue(none.preface().contains("Alertmanager가 연결되지 않아"));
@@ -166,7 +166,7 @@ class AiChatIntegrationTest {
     @Test
     void LLM_설정이_없거나_AI가_정지_중이면_모델을_부르지_않고_안내한다() throws Exception {
         AiChat noLlm = new AiChat(null, rig.collector, rig.control, rig.incidents, rig.store, rig.prometheus,
-                rig.poller, rig.audit, rig.mapper, rig.clock, loader);
+                rig.poller, AlertMeanings.load(rig.mapper), null, rig.audit, rig.mapper, rig.clock, loader);
         AiChat.Answer notConnected = noLlm.ask(AiRig.VIEWER, "상태는?", List.of(), "req");
         assertEquals("NOT_CONNECTED", notConnected.state());
         assertEquals("AI 연결 전입니다. 지표와 경보는 관제센터에서 그대로 볼 수 있습니다.", notConnected.answer());

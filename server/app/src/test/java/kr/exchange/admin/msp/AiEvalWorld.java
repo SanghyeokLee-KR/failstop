@@ -239,7 +239,7 @@ final class AiEvalWorld {
             }
             when(store.list(eq("OPEN"), any(), anyInt())).thenReturn(rows);
             return new AiChat(llm, collector, control, store, this.store, prometheus, poller,
-                    mock(AdminAuditService.class), mapper, clock, Runnable::run);
+                    AlertMeanings.load(mapper), null, mock(AdminAuditService.class), mapper, clock, Runnable::run);
         }
     }
 
@@ -255,6 +255,8 @@ final class AiEvalWorld {
         }
         PrometheusClient prometheus = mock(PrometheusClient.class);
         when(prometheus.snapshot()).thenReturn(snapshot());
+        when(prometheus.ranges(eq(CauseQuery.class), any(), any(), any(), any()))
+                .thenAnswer(inv -> loadRanges(inv.getArgument(2), inv.getArgument(3), inv.getArgument(4)));
         IncidentPoller poller = null;
         if (alertmanager) {
             poller = mock(IncidentPoller.class);
@@ -353,6 +355,29 @@ final class AiEvalWorld {
         }
         results.put(MspQuery.SCRAPE_AGE, ages);
         return new PrometheusClient.Snapshot(NOW, results, Map.of(), null);
+    }
+
+    /**
+     * 부하 판정의 range 묶음(설계 7-19). 조회 CPU 가 창 전체에 그대로였다고 본다. 그래서 증설 임계 이상인 시나리오는 지속
+     * 부하이고, 평가 시나리오의 증설 기대(D1)가 지속 전제(D5)에서도 그대로 성립한다.
+     */
+    private PrometheusClient.Ranges<CauseQuery> loadRanges(Instant start, Instant end, Duration step) {
+        if (prometheusFailure != null) {
+            return new PrometheusClient.Ranges<>(start, end, step, Map.of(),
+                    Map.of(CauseQuery.APP_CPU, prometheusFailure, CauseQuery.HTTP_RATE, prometheusFailure));
+        }
+        Map<Long, Double> cpu = new LinkedHashMap<>();
+        Map<Long, Double> requests = new LinkedHashMap<>();
+        for (long t = start.getEpochSecond(); t <= end.getEpochSecond(); t += step.toSeconds()) {
+            if (readCpu != null) {
+                cpu.put(t, readCpu);
+            }
+            requests.put(t, 40.0);
+        }
+        Map<CauseQuery, List<PrometheusClient.RangeSeries>> results = new LinkedHashMap<>();
+        results.put(CauseQuery.APP_CPU, cpu.isEmpty() ? List.of() : List.of(new PrometheusClient.RangeSeries(Map.of(), cpu)));
+        results.put(CauseQuery.HTTP_RATE, List.of(new PrometheusClient.RangeSeries(Map.of(), requests)));
+        return new PrometheusClient.Ranges<>(start, end, step, results, Map.of());
     }
 
     private static void add(Map<MspQuery, List<PrometheusClient.Series>> results, MspQuery query,

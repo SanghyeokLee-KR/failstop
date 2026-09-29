@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,14 +109,44 @@ public class AiEvidenceCollector {
         AiEvidence.Bot bot = new AiEvidence.Bot(rate.targetOps(), rate.source(), rate.sampledAt());
         List<MaintenanceWindows.Window> active = windows.active();
         AiLimits limits = control.effectiveLimits(mode);
+        LoadPattern load = load(now, items);
         AiEvidence base = new AiEvidence(now, props.getEnvironment(), props.getReadCapacity().getMode(), mode.mode(),
-                read, items, List.copyOf(alerts), poller != null, polledAt, metrics, bot, active, false, Map.of());
+                read, items, List.copyOf(alerts), poller != null, polledAt, metrics, bot, active, false, Map.of(), load);
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("limits", limitsContext(mode, limits));
         context.put("recent_actions", recent());
         context.put("catalog", catalog(base, now, props.getAi().getScaleInSustain()));
         return new AiEvidence(now, base.environment(), base.readMode(), base.mode(), read, items, base.alerts(),
-                poller != null, polledAt, metrics, bot, active, false, context);
+                poller != null, polledAt, metrics, bot, active, false, context, load);
+    }
+
+    /**
+     * 부하 판정(설계 7-19). 앱 계층 CPU 와 업무 요청률의 최근 15분을 15초 격자로 읽는다. 판단·승인·상담이 부를 때마다 새로
+     * 읽어 판단 시각의 값을 쓴다. Prometheus 가 없거나 CPU 계열을 읽지 못하면 판정하지 않는다(UNKNOWN).
+     */
+    private LoadPattern load(Instant now, Map<String, AiEvidence.Threshold> items) {
+        AiEvidence.Threshold item = items.get(OpsThresholdService.SCALE_OUT);
+        BigDecimal threshold = item == null ? null : item.value();
+        Duration sustain = props.getAi().getScaleOutSustain();
+        MspProperties.Prometheus jobs = props.getPrometheus();
+        if (prometheus == null || !CauseQuery.APP_CPU.available(jobs)) {
+            return LoadPattern.unknown(threshold, sustain);
+        }
+        long step = LoadPattern.STEP.toSeconds();
+        long end = Math.floorDiv(now.getEpochSecond(), step) * step;
+        long start = end - LoadPattern.WINDOW.toSeconds();
+        Map<CauseQuery, String> queries = new EnumMap<>(CauseQuery.class);
+        queries.put(CauseQuery.APP_CPU, CauseQuery.APP_CPU.promql(jobs));
+        queries.put(CauseQuery.HTTP_RATE, CauseQuery.HTTP_RATE.promql(jobs));
+        PrometheusClient.Ranges<CauseQuery> r = prometheus.ranges(CauseQuery.class, queries,
+                Instant.ofEpochSecond(start), Instant.ofEpochSecond(end), LoadPattern.STEP);
+        List<PrometheusClient.RangeSeries> cpu = r.results().get(CauseQuery.APP_CPU);
+        if (cpu == null || cpu.isEmpty()) {
+            return LoadPattern.unknown(threshold, sustain);
+        }
+        List<PrometheusClient.RangeSeries> requests = r.results().get(CauseQuery.HTTP_RATE);
+        return LoadPattern.of(cpu.get(0).values(), requests == null || requests.isEmpty() ? Map.of()
+                : requests.get(0).values(), start, end, step, threshold, sustain, now);
     }
 
     private AiEvidence.ReadTier readTier(Instant now, Map<String, AiEvidence.Threshold> items, boolean track) {
@@ -252,7 +283,7 @@ public class AiEvidenceCollector {
         out.add(entry(AiAction.Verb.NO_ACTION));
         AiEvidence.ReadTier read = ev.read();
         if (read != null) {
-            if (read.desired() < read.max() && AiPolicy.d1ScaleOut(ev) == null) {
+            if (read.desired() < read.max() && AiPolicy.d1ScaleOut(ev) == null && AiPolicy.d5Sustained(ev) == null) {
                 Map<String, Object> m = entry(AiAction.Verb.READ_NODE_ADD_ONE);
                 m.put("desired", read.desired());
                 m.put("max", read.max());

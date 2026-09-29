@@ -47,6 +47,7 @@ public class AiChat {
     private static final int MAX_OUTPUT_BYTES = 16 * 1024;
     private static final int OPEN_INCIDENTS = 10;
     private static final int RECENT_ACTIONS = 5;
+    private static final int LOG_GROUPS = 5;
     private static final Set<String> ROLES = Set.of("user", "assistant");
     private static final Set<String> OUTPUT_FIELDS = Set.of("answer_ko", "cited_ids");
 
@@ -83,6 +84,8 @@ public class AiChat {
     private final AiStore store;
     private final PrometheusClient prometheus;
     private final IncidentPoller poller;
+    private final AlertMeanings meanings;
+    private final ErrorLogPoller logs;
     private final AdminAuditService audit;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -93,10 +96,13 @@ public class AiChat {
     private final String systemPrompt;
     private final JsonNode schema;
 
-    /** llm, prometheus, poller 는 설정이 없으면 null 이다. loader 는 Ollama 모델 적재를 맡는 전용 스레드다. */
+    /**
+     * llm, prometheus, poller, logs 는 설정이 없으면 null 이다. loader 는 Ollama 모델 적재를 맡는 전용 스레드다. meanings 는
+     * 경보 항목에 계층과 뜻을 붙이는 경보 의미표다.
+     */
     public AiChat(LlmClient llm, AiEvidenceCollector collector, AiControl control, IncidentStore incidents,
-                  AiStore store, PrometheusClient prometheus, IncidentPoller poller, AdminAuditService audit,
-                  ObjectMapper mapper, Clock clock, Executor loader) {
+                  AiStore store, PrometheusClient prometheus, IncidentPoller poller, AlertMeanings meanings,
+                  ErrorLogPoller logs, AdminAuditService audit, ObjectMapper mapper, Clock clock, Executor loader) {
         this.llm = llm;
         this.collector = collector;
         this.control = control;
@@ -104,6 +110,8 @@ public class AiChat {
         this.store = store;
         this.prometheus = prometheus;
         this.poller = poller;
+        this.meanings = meanings;
+        this.logs = logs;
         this.audit = audit;
         this.mapper = mapper;
         this.clock = clock;
@@ -325,7 +333,15 @@ public class AiChat {
             measured(item, r.avgCpu() == null ? null : r.sampledAt(), now);
             items.put("read_tier", item);
         }
+        // 코드가 계산한 부하 판정(설계 7-19). 일시적인지 지속인지 물으면 이 특징으로 답한다.
+        if (ev.load() != null) {
+            Map<String, Object> item = item("load", "앱 계층 부하 판정(규칙)");
+            item.putAll(ev.load().toJson());
+            measured(item, ev.load().sampledAt(), now);
+            items.put("load", item);
+        }
         // 경보와 사건은 판단 근거와 같은 구조화 필드만 싣는다. 요약 같은 주석은 싣지 않는다(설계 7-2 신뢰 경계).
+        // 계층과 뜻은 서버의 경보 의미표에서 붙여 이름만 보고 다른 계층으로 옮겨 읽지 않게 한다.
         int unknown = 0;
         for (AiEvidence.Alert a : ev.alerts()) {
             String id = a.rejected().contains("fingerprint") ? "alert.unknown-" + (++unknown)
@@ -333,6 +349,7 @@ public class AiChat {
             Map<String, Object> item = item(id, "경보 " + a.displayName());
             item.put("alertname", a.alertname());
             item.put("severity", a.severity());
+            meanings.describe(item, a.alertname());
             a.labels().forEach(item::put);
             if (!a.rejected().isEmpty()) {
                 item.put("rejected", a.rejected());
@@ -352,11 +369,29 @@ public class AiChat {
                 item.put("rejected", List.of("alertname"));
             }
             item.put("severity", inc.severity());
+            meanings.describe(item, name);
             item.put("status", inc.status());
             item.put("started_at", ApiFormats.time(inc.startedAt()));
             item.put("acked", inc.ackedBy() != null);
             measured(item, now, now);
             items.put((String) item.get("id"), item);
+        }
+        // 오류 로그 묶음(설계 7-20). 로그 문장은 싣지 않고 등급·클래스 이름·건수·시각·노드만 싣는다(신뢰 경계).
+        ErrorLogPoller.Digest digest = logs == null ? null : logs.last();
+        if (digest != null && digest.polledAt() != null) {
+            for (ErrorLogPoller.Group g : digest.groups().stream().limit(LOG_GROUPS).toList()) {
+                String name = g.exception() != null ? g.exception() : g.logger() != null ? g.logger() : "이름 없는 묶음";
+                Map<String, Object> item = item("log." + g.id(), "오류 로그 " + g.level() + " " + name);
+                item.put("level", g.level());
+                item.put("logger", g.logger());
+                item.put("exception", g.exception());
+                item.put("value", String.valueOf(g.count()));
+                item.put("first_seen", ApiFormats.time(g.firstSeen()));
+                item.put("last_seen", ApiFormats.time(g.lastSeen()));
+                item.put("nodes", g.nodes());
+                measured(item, digest.polledAt(), now);
+                items.put((String) item.get("id"), item);
+            }
         }
         for (AiStore.Action a : store.recent(RECENT_ACTIONS)) {
             Map<String, Object> item = item("action." + a.id(), "조치 " + a.action().verb().name());
@@ -416,7 +451,7 @@ public class AiChat {
         freshness.put("not_connected", notConnected);
         freshness.put("failed", failed);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema", "msp-chat-evidence/2");
+        body.put("schema", "msp-chat-evidence/3");
         body.put("environment", ev.environment().name());
         body.put("collected_at", ApiFormats.time(now));
         body.put("freshness", freshness);

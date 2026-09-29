@@ -48,8 +48,8 @@ public class LlmClient {
 
     public enum Transport { LOOPBACK, TLS, PLAINTEXT }
 
-    /** 모델을 부르는 까닭. 상태와 지표에서 가른다. */
-    public enum Purpose { JUDGE, CHAT }
+    /** 모델을 부르는 까닭. 상태와 지표에서 가른다. ANALYSIS 는 원인 분석, LOGS 는 오류 로그 분석이다(설계 7-19·7-20). */
+    public enum Purpose { JUDGE, CHAT, ANALYSIS, LOGS }
 
     /** 대화 한 칸. role 은 user 나 assistant 다. */
     public record Turn(String role, String content) {
@@ -104,8 +104,12 @@ public class LlmClient {
     private final String systemPrompt;
     private final LlmStats stats;
     private final Clock clock;
+    // 판단·상담의 마지막 실패. 한 판의 AI 칸과 LLM 원천 상태가 이 값을 본다. 원인·로그 분석의 실패는 따로 둔다. 긴 분석
+    // 프롬프트 하나가 시간을 넘겨도 판단은 멀쩡할 수 있어, 분석 실패로 AI 칸이 UNAVAILABLE 이 되지 않게 하려는 것이다.
     private volatile String lastError;
     private volatile Instant lastErrorAt;
+    private volatile String lastAnalysisError;
+    private volatile Instant lastAnalysisErrorAt;
     private volatile Instant lastSuccessAt;
 
     public LlmClient(MspProperties.Llm props, ObjectMapper mapper, MeterRegistry registry, Clock clock) {
@@ -160,6 +164,15 @@ public class LlmClient {
         return lastErrorAt;
     }
 
+    /** 원인·로그 분석 호출의 마지막 실패. AI 칸 상태에는 쓰지 않는다. */
+    public String lastAnalysisError() {
+        return lastAnalysisError;
+    }
+
+    public Instant lastAnalysisErrorAt() {
+        return lastAnalysisErrorAt;
+    }
+
     public Instant lastSuccessAt() {
         return lastSuccessAt;
     }
@@ -190,8 +203,14 @@ public class LlmClient {
         return call(Purpose.CHAT, system, turns, chatSchema, "msp_ai_chat");
     }
 
+    /** 원인 분석·로그 분석 한 번(설계 7-19·7-20). 조회 전용 호출이고 한 주기 안에서 다시 시도하지 않는다. */
+    public Reply analyze(Purpose purpose, String system, String user, JsonNode outputSchema, String schemaName) {
+        return call(purpose, system, List.of(new Turn("user", user)), outputSchema, schemaName);
+    }
+
     private Reply call(Purpose purpose, String system, List<Turn> turns, JsonNode outputSchema, String schemaName) {
         long started = System.nanoTime();
+        boolean analysis = purpose == Purpose.ANALYSIS || purpose == Purpose.LOGS;
         try {
             checkAddress();
             ObjectNode body = props.getProvider() == MspProperties.Llm.Provider.OLLAMA_NATIVE
@@ -209,13 +228,23 @@ public class LlmClient {
             }
             long latency = (System.nanoTime() - started) / 1_000_000;
             lastSuccessAt = clock.instant();
-            lastError = null;
+            if (analysis) {
+                lastAnalysisError = null;
+            } else {
+                lastError = null;
+            }
             stats.record(purpose, null, latency, lastSuccessAt);
             return new Reply(content.asText(), latency);
         } catch (LlmException e) {
-            lastError = e.code();
-            lastErrorAt = clock.instant();
-            stats.record(purpose, e.code(), (System.nanoTime() - started) / 1_000_000, lastErrorAt);
+            Instant at = clock.instant();
+            if (analysis) {
+                lastAnalysisError = e.code();
+                lastAnalysisErrorAt = at;
+            } else {
+                lastError = e.code();
+                lastErrorAt = at;
+            }
+            stats.record(purpose, e.code(), (System.nanoTime() - started) / 1_000_000, at);
             throw e;
         }
     }
