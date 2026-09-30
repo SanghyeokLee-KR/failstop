@@ -534,14 +534,16 @@
     on('a1-fine', split && Math.max(...a1.load) < .6);
   }
   function dots1(now, t) {
-    const split = t >= T1.SPLIT, calm = ease(clamp((t - T1.SPLIT) / 1.2));   // 셋이 나눠 받으면 흐름이 조금 느긋해진다
-    if (!a1.frozen && now - a1.last > lerp(55, 80, calm)) {
+    // 사용자 쪽 요청은 계속 같은 속도로 몰려온다. 셋이 나눠 받으면 로드밸런서를 지난 뒤의 흐름만 조금 느긋해진다
+    const split = t >= T1.SPLIT, calm = ease(clamp((t - T1.SPLIT) / 1.2));
+    if (!a1.frozen && now - a1.last > 55) {
       a1.last = now; a1.n++;
       a1.parts.push({ el: dot(a1.layer), s: a1.n % 3, k: split ? a1.n % 3 : a1.n % 2, b: now, v: lerp(.42, .28, calm) });
     }
     a1.parts = a1.parts.filter(p => {   // 서버가 움직이는 동안에도 점은 그 서버의 지금 자리로 간다
       const pts = [SRC1[p.s], [282, 135], [382, 135], [470, a1.cy[p.k]], [520, a1.cy[p.k]]];
-      const d = (now - p.b) * p.v;
+      const L1 = Math.hypot(282 - SRC1[p.s][0], 135 - SRC1[p.s][1]) + 100, e = now - p.b, t1 = L1 / .42;
+      const d = e < t1 ? e * .42 : L1 + (e - t1) * p.v;
       if (d >= lenOf(pts)) { p.el.remove(); return false; }
       const [x, y] = along(pts, d); attr(p.el, { cx: x, cy: y }); return true;
     });
