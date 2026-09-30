@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "web"],
       "port": 3000
+    },
+    {
+      "name": "deck",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["발표덱/serve.mjs", "9090"],
+      "port": 9090
     }
   ]
 }
