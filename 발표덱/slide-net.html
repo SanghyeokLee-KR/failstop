@@ -15,15 +15,14 @@
     --side: #A3AEBC;
     --brand: #79A7FA;
     --glow: #A8C8FF;
-    --ai: #C6C0F2;
     --ok: #2DD196;
-    --warn: #FFB547;
+    --ai: #C6C0F2;
+    --warm: #E8C07A;
     --bad: #FF7A7A;
-    --term: #0C1016;
     --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
     --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
   }
-  html, body { height: 100%; }
+  html, body { height: 100%; margin: 0; }
   body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
   .stage {
     position: fixed; left: 50%; top: 50%;
@@ -45,114 +44,112 @@
   .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
   .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
 
-  /* 제목 상자 위 158px, 부제 244px(모든 본문 장 공통, deck.css), 본문은 300px 아래 */
   .title { position: absolute; left: 130px; right: 130px; top: 158px; display: flex; align-items: baseline; gap: 24px; }
   h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
   .dek { position: absolute; left: 130px; right: 130px; top: 244px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
   .tag { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
   .tag img { width: 26px; height: 26px; }
-  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; transition: border-color .2s, color .2s; }
-  button.tag:hover { border-color: var(--card); color: var(--ink-2); }
-  button.tag:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
   .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
 
-  /* 원본 Packet Tracer 캡처 보기: 화면 전체 위에 뜬다. 그림을 누르면 확대, Esc·바깥 누르기·닫기로 닫는다 */
+  /* 도면: 위에서 아래로 공인 구간 → 경계(라우터·방화벽) → DMZ(방화벽 옆) → 내부(방화벽 아래), 관리망은 내부 안에 따로.
+     방화벽 한 대가 세 구역을 잇는 문이다(밖 0 · DMZ 50 · 안 100). 좌표는 viewBox 1120×620 */
+  .net { position: absolute; left: 130px; top: 318px; width: 1120px; height: 620px; overflow: visible; }
+  .net text { font-family: var(--sans); }
+  .net .zone { fill: rgba(255,255,255,.018); stroke: #5A6883; stroke-width: 1.6; }
+  .net .zone.dmz { fill: rgba(232,192,122,.035); stroke: rgba(232,192,122,.55); }
+  .net .zone.sub { fill: rgba(255,255,255,.025); stroke: #5A6883; stroke-dasharray: 6 6; }
+  .net .zh { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .net .zh tspan.m { font-family: var(--mono); font-weight: 500; fill: var(--ink-2); }
+  .net .zh tspan.n { font-weight: 400; fill: var(--ink-3); }
+  .net .wire { fill: none; stroke: #56647C; stroke-width: 2; }
+  .net .nd rect { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; transition: stroke .3s, fill .3s; }
+  .net .nd text.nm { font-size: 22px; fill: var(--ink-2); }
+  .net .nd.gate rect { fill: #1C2538; stroke: var(--ink); stroke-width: 2.4; }
+  .net .nd.gate text.nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .net .nd.gate text.sub { font-size: 22px; fill: var(--ink-2); }
+  .net .nd.halo circle { fill: transparent; stroke: transparent; stroke-width: 1.6; transition: stroke .25s, fill .25s; }
+  /* 출발하면 목적지에 파란 점선 테두리(어디로 가는지), 판정 뒤에는 도착한 곳은 초록, 막은 장비는 빨강 테두리가 남는다 */
+  .net .nd.lit-ok rect { stroke: var(--ok); }
+  .net .nd.lit-no rect { stroke: var(--bad); }
+  .net .nd.aim rect { stroke: var(--glow); stroke-width: 2; stroke-dasharray: 7 5; }
+  .net .nd.hit-pass rect, .net .nd.halo.hit-pass circle { stroke: var(--glow); fill: #1B2A44; }
+  .net .nd.hit-ok rect { stroke: var(--ok); fill: #173A31; }
+  .net .nd.hit-no rect { stroke: var(--bad); fill: #3A1E25; }
+  .net .sm { font-size: 22px; fill: var(--ink-3); }
+  .net .lg { font-size: 22px; fill: var(--ink-3); }
+  .net .lg.k { fill: var(--ink-2); }
+  .net .lg tspan.v { font-family: var(--mono); font-weight: 600; fill: var(--ink); }
+  .net .nat { font-size: 22px; fill: var(--ink-3); transition: fill .25s; }
+  .net .nat tspan.b { font-weight: 600; fill: var(--ink); }
+  .net .nat.hit { fill: var(--glow); }
+  /* 흐름: 움직이는 동안은 파랑, 판정한 순간 허용은 초록, 막힌 길은 회색 점선으로 낮춘다. 설정만 확인한 길은 점 없이 초록 점선이 한 번에.
+     같은 선을 쓰는 흐름은 10px 옆 차선으로 비켜 그린다 */
+  .net .trail { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; transition: stroke .35s; }
+  .net .trail.mv { stroke: var(--brand); }
+  .net .trail.ok { stroke: var(--ok); }
+  .net .trail.rule { stroke: var(--ok); stroke-width: 4; stroke-dasharray: 10 9; stroke-linecap: butt; animation: fade .4s ease-out both; }
+  .net .trail.gone { stroke: #8A96AB; stroke-width: 3; stroke-dasharray: 4 8; }
+  .net .dot { fill: #D6E4FF; stroke: var(--brand); stroke-width: 2.4; }
+  .net .xmark circle { fill: #2A1F29; stroke: var(--bad); stroke-width: 2.6; }
+  .net .xmark path { stroke: var(--bad); stroke-width: 3.4; stroke-linecap: round; fill: none; }
+  .net .xmark text { font-size: 22px; font-weight: 600; fill: var(--bad); }
+  .net .xmark { transform-box: fill-box; transform-origin: center; animation: pop .4s cubic-bezier(.2,.7,.2,1.4) both; }
+  .net .fadeout { animation: fadeout .3s ease-out forwards; }
+  .net .bld { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  .net .b1 { animation-delay: .25s; } .net .b2 { animation-delay: .45s; } .net .b3 { animation-delay: .65s; }
+  .net .b4 { animation-delay: .85s; } .net .b5 { animation-delay: 1.05s; }
+
+  /* 오른쪽: 이 설계로 확인한 길. → 마다 한 묶음씩, 한 번에 한 흐름이 나가고 그 줄이 먼저 밝아진 뒤 판정이 붙는다.
+     흐름 사이의 쉼은 발표자가 그 줄을 말하는 박자에 맞췄다. 줄을 누르면 그 흐름만 다시 보인다(질문 대응) */
+  .pane { position: absolute; left: 1310px; top: 318px; width: 480px; }
+  .pane .ph { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .pane .ph b { font-size: 24px; font-weight: 600; color: var(--ink); }
+  .pane .lgd { font-size: 22px; color: var(--ink-3); display: flex; gap: 16px; align-items: center; }
+  .pane .lgd span { display: inline-flex; align-items: center; gap: 8px; }
+  .pane .mk { flex: none; display: inline-block; width: 16px; height: 16px; border-radius: 50%; box-sizing: border-box; }
+  .pane .mk.t { background: var(--ink-2); }
+  .pane .mk.r { border: 2.5px solid var(--ink-2); }
+  .pane .grp { margin-top: 14px; opacity: 0; transition: opacity .35s; }
+  .pane .grp.on { opacity: 1; }
+  .pane .grp h3 { margin: 0 0 4px; font-size: 22px; font-weight: 600; color: var(--ink-3); }
+  .pane .row { display: flex; align-items: center; gap: 12px; width: calc(100% + 20px); padding: 3px 10px; margin: 0 0 2px -10px; background: transparent; border: 0; border-radius: 8px;
+    font-family: var(--sans); font-size: 22px; line-height: 1.5; color: var(--ink-2); text-align: left; cursor: pointer;
+    opacity: 0; transform: translateX(-8px); pointer-events: none; transition: opacity .3s, transform .4s cubic-bezier(.2,.7,.2,1), background .3s, color .3s; }
+  .pane .row.show { opacity: 1; transform: none; pointer-events: auto; }
+  .pane .row.cur { background: rgba(121,167,250,.16); color: var(--ink); }
+  .pane .row:hover { background: rgba(255,255,255,.05); }
+  .pane .row:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .pane .row .fl { flex: 1; }
+  .pane .row .v { flex: none; font-weight: 600; padding: 0 10px; border-radius: 14px; border: 1.5px solid transparent; line-height: 1.3;
+    opacity: 0; transform: scale(.6); transition: opacity .25s, transform .4s cubic-bezier(.2,.7,.2,1.5); }
+  .pane .row.on .v { opacity: 1; transform: none; }
+  .pane .row .v.ok { color: var(--ok); background: rgba(45,209,150,.14); border-color: rgba(45,209,150,.6); }
+  .pane .row .v.no { color: var(--bad); background: rgba(255,122,122,.14); border-color: rgba(255,122,122,.6); }
+  .pane .row .v.rule { color: var(--ok); border: 1.6px dashed rgba(45,209,150,.85); }
+
+  .foot {
+    position: absolute; left: 130px; right: 130px; bottom: 58px;
+    display: flex; align-items: baseline; gap: 28px;
+    padding-top: 18px; border-top: 1px solid var(--line);
+    font-size: 25px; color: var(--ink);
+    opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .stage.done .foot { opacity: 1; transform: none; transition-delay: .4s; }
+  .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .foot .nx { margin-left: auto; font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+
+  /* 원본 Packet Tracer 도면(질문 대비). E 키 도구를 켤 때만 단추가 보인다 */
   .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
   .fig::backdrop { background: rgba(8,10,15,.86); }
   .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
-  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 18px; color: var(--ink-3); }
-  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 18px; }
-  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 18px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
-  .fig .bar .x:hover { border-color: var(--card); }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; }
+  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
   .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
   .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   .fig.zoom .view { place-items: start; }
-  .fig.zoom img { max-width: none; max-height: none; width: 2400px; cursor: zoom-out; }
-
-  /* 도면: 원본 Packet Tracer 토폴로지의 장비·VLAN을 옮기고 선 그림으로 다시 그렸다. 주소는 발표 노트와 원본에만 둔다.
-     본문이 300px 아래에서 시작하도록 행 사이를 좁혀 높이 740으로 그린다(viewBox와 같은 크기) */
-  .topo { position: absolute; left: 110px; top: 284px; width: 1210px; height: 740px; animation: fade 1s .3s ease-out both; }
-  .topo text { font-family: var(--sans); fill: var(--ink-2); }
-  .topo .nm { font-size: 22px; font-weight: 600; fill: var(--ink); }
-  .topo .sm { font-size: 22px; fill: var(--ink-3); }
-  .topo .zl { font-size: 22px; font-weight: 600; }
-  .topo .zv { font-family: var(--mono); font-size: 22px; }
-  .wire { fill: none; stroke: var(--card); stroke-width: 2; }
-  .wire.trunk { stroke: var(--side); stroke-width: 2.4; }
-  .spark { fill: var(--glow); }
-
-  /* 흐름 확인: 누를 수 있는 장비, 선택 고리, 패킷과 지나간 길 */
-  .hit { fill: transparent; cursor: pointer; }
-  .hit:hover { fill: rgba(168,200,255,.06); }
-  .hit:focus-visible { outline: none; stroke: var(--brand); stroke-width: 2; }
-  .ring { fill: none; stroke-width: 2.4; stroke-dasharray: 5 4; opacity: 0; transition: opacity .2s; }
-  .ring.on { opacity: 1; }
-  .ring.src { stroke: var(--glow); }
-  .ring.dst { stroke: var(--side); }
-  .ring.ok { stroke: var(--ok); stroke-dasharray: none; }
-  .ring.no { stroke: var(--bad); stroke-dasharray: none; }
-  .ring.hop { stroke: var(--glow); stroke-dasharray: none; stroke-width: 3; animation: hop .5s ease-out; }
-  @keyframes hop { 0% { r: 24; stroke-width: 6; } 60% { r: 42; } 100% { r: 34; stroke-width: 3; } }
-  .trail { fill: none; stroke: var(--glow); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; opacity: .45; }
-  .trail.ok { stroke: var(--ok); }
-  .trail.no { stroke: var(--bad); }
-  .pkt { fill: var(--glow); }
-  .pkt.no { fill: var(--bad); }
-  .pkt.ok { fill: var(--ok); }
-  .flag { font-family: var(--sans) !important; font-size: 22px; opacity: 0; transition: opacity .25s; }
-  .flag.on { opacity: 1; }
-  .flag.nat { fill: var(--glow) !important; }
-  .flag.rt { fill: var(--ink-2) !important; }
-  .flag.no { fill: var(--bad) !important; font-family: var(--sans) !important; font-weight: 600; font-size: 22px; }
-  .burst { fill: none; stroke: var(--bad); stroke-width: 3; opacity: 0; }
-  .burst.on { animation: burst .6s ease-out both; }
-  @keyframes burst { from { opacity: 1; r: 18; } to { opacity: 0; r: 44; } }
-
-  /* 오른쪽: 흐름 확인, 접근 제어 목록, 다음 단계 */
-  .side { position: absolute; left: 1372px; right: 130px; top: 300px; display: flex; flex-direction: column; gap: 18px; }
-  .blk { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
-  .blk:nth-child(1) { animation-delay: .5s; }
-  .blk:nth-child(2) { animation-delay: .65s; }
-  .blk:nth-child(3) { animation-delay: .8s; }
-  .blk .k { font-size: 22px; color: var(--ink-3); letter-spacing: .02em; }
-
-  /* 결과: 첫 줄에 출발지 → 도착지와 판정, 아래에 두 줄 설명(어디서 무엇이 / 어떤 규칙 때문에) */
-  .res { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 11px 18px; height: 128px; overflow: hidden; box-sizing: border-box; background: rgba(255,255,255,.02); transition: border-color .25s; }
-  .res .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  .res .fr { min-width: 0; font-size: 22px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .res .fr b { font-weight: 600; color: var(--ink); }
-  .res .ph { color: var(--ink-3); }
-  .res .vd { flex: none; font-size: 30px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; color: var(--ink-3); }
-  .res .why { margin-top: 6px; font-size: 22px; line-height: 1.4; color: var(--ink-3); word-break: keep-all; white-space: pre-line; }
-  .res.ok { border-color: rgba(45,209,150,.55); } .res.ok .vd { color: var(--ok); }
-  .res.no { border-color: rgba(255,122,122,.6); } .res.no .vd { color: var(--bad); }
-  .res.na .vd { color: var(--side); }
-  .res.same .vd { color: var(--glow); }
-
-  /* 빠른 버튼: 그림과 같은 이름을 줄이지 않고 쓰도록 한 줄에 하나씩 */
-  .quick { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-  .quick button { font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; white-space: nowrap; transition: border-color .2s, color .2s, background .2s; }
-  .quick button:hover { border-color: var(--card); color: var(--ink); }
-  .quick button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-  .quick button i { font-style: normal; font-size: 22px; }
-  .quick button i.y { color: var(--ok); } .quick button i.n { color: var(--bad); }
-  .quick button.cur { border-color: var(--glow); color: var(--ink); background: rgba(168,200,255,.06); }
-
-  .acl { margin-top: 10px; background: var(--term); border: 1px solid var(--line); border-radius: 10px; padding: 10px 18px; font-family: var(--mono); font-size: 22px; line-height: 1.45; color: var(--ink-2); }
-  .acl div { display: grid; grid-template-columns: 1fr auto; gap: 12px; white-space: nowrap; margin: 0 -10px; padding: 0 10px; border-radius: 5px; transition: background .25s, opacity .25s; }
-  .acl.focus div { opacity: .55; }
-  .acl.focus div.hit-ok { opacity: 1; background: rgba(45,209,150,.12); }
-  .acl.focus div.hit-no { opacity: 1; background: rgba(255,122,122,.13); }
-  .acl div span:first-child { font-family: var(--sans); }
-  .acl .y { color: var(--ok); }
-  .acl .n { color: var(--bad); font-family: var(--sans); }
-  .acl .w { font-family: var(--sans); }
-
-  .next { border-top: 1px solid var(--line); padding-top: 12px; }
-  .next .row { display: flex; gap: 16px; align-items: center; font-size: 22px; color: var(--ink-2); white-space: nowrap; }
-  .next .row .lead { color: var(--ink-3); }
-  .next .row span { display: inline-flex; align-items: center; gap: 8px; }
-  .next img { width: 26px; height: 26px; }
+  .fig.zoom img { max-width: none; max-height: none; width: 3600px; cursor: zoom-out; }
 
   .fs {
     position: absolute; right: 130px; top: 20px;
@@ -160,18 +157,18 @@
     border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
     opacity: 0; transition: opacity .3s, color .3s;
   }
-  .fs:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  .stage:hover .fs { opacity: 1; }
 
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeout { to { opacity: 0; } }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-    .spark { display: none; }
-  }
+  @keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
 
-<div class="stage" id="stage">
+<div class="stage" id="stage" data-step="0">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
     <div class="r"><span class="sec">주요 설계 및 구현</span>04-2</div>
@@ -179,189 +176,94 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>역할별 망 분리, 필요한 길만 개방</h1>
-    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">원본 토폴로지<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <h1>인터넷과 내부 사이에 DMZ, 필요한 길만 개방</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">원본 도면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env" style="margin-left:14px"><img src="assets/tint/cisco-side.svg" alt="">Packet Tracer 설계</span>
   </div>
-  <p class="dek">역할마다 구역을 나누고, 구역 사이는 필요한 길만 허용하도록 먼저 설계</p>
+  <p class="dek">온프레미스로 짠다면: 방화벽 한 대가 밖 · DMZ · 안을 잇고, 구역 사이 규칙은 Packet Tracer로 시험</p>
 
-  <dialog class="fig" id="fig" aria-label="Packet Tracer 상세 토폴로지 원본">
-    <div class="bar"><b>Packet Tracer 상세 토폴로지 · 원본</b><span>교수님 보고본 04_네트워크 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
-    <div class="view"><img id="fig-img" src="assets/img/network-pt.png" alt="Packet Tracer 원본 토폴로지: 경계 라우터, 내부 라우터, 코어 스위치와 외부 공개·앱·DB·관리 구역, 주소와 ACL 정책 메모"></div>
-  </dialog>
-
-  <svg class="topo" viewBox="0 0 1210 740" role="img" aria-label="Packet Tracer 네트워크 설계: 인터넷, 경계 라우터, 내부 라우터, 코어 스위치 아래 외부 공개·앱 구역 1·2·DB 구역 1·2·관리망">
-    <defs>
-      <!-- 장비 기호: 라우터(원+네 화살표), L3 스위치(정사각형+십자 화살표), L2 스위치, 서버, PC, 노트북 -->
-      <g id="rt" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle r="24" fill="#131824"/><path d="M-15 -6H-4M-7 -9L-4 -6L-7 -3M15 6H4M7 3L4 6L7 9M-6 15V4M-9 7L-6 4L-3 7M6 -15V-4M3 -7L6 -4L9 -7"/></g>
-      <g id="l3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="-25" y="-25" width="50" height="50" rx="6" fill="#131824"/><path d="M-13 0H13M9 -4L13 0L9 4M-9 -4L-13 0L-9 4M0 -13V13M-4 9L0 13L4 9M-4 -9L0 -13L4 -9"/></g>
-      <g id="sw" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="-26" y="-14" width="52" height="28" rx="5" fill="#131824"/><path d="M-14 -4H12M8 -8L12 -4L8 0M14 5H-12M-8 1L-12 5L-8 9"/></g>
-      <g id="srv" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="-16" y="-22" width="32" height="44" rx="4" fill="#131824"/><path d="M-16 -7H16M-16 8H16M-9 -14.5h.01M-9 .5h.01M-9 15h.01"/></g>
-      <g id="lap" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="-17" y="-14" width="34" height="23" rx="2" fill="#131824"/><path d="M-23 13H23"/></g>
-      <g id="pc" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="-21" y="-17" width="42" height="28" rx="3" fill="#131824"/><path d="M-9 19H9M0 11V19"/></g>
-      <g id="cloud" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M-24 15H24A15 15 0 0 0 21 -14A21 21 0 0 0 -17 -11A13 13 0 0 0 -24 15Z" fill="#131824"/></g>
-    </defs>
-
-    <!-- 구역: 관리망·외부 공개·앱·DB. 색은 역할 구분에만 옅게 쓴다. 구역 이름은 선과 겹치지 않게 구역 아래쪽에 둔다.
-         '구역 1·2'는 원본의 A·C구역(AWS 서울 리전 AZ-a·c에 맞춘 이름)이다 -->
-    <g>
-      <rect x="880" y="300" width="325" height="156" rx="10" fill="rgba(198,192,242,.06)" stroke="rgba(198,192,242,.55)" stroke-width="1.4"/>
-      <rect x="20"  y="518" width="192" height="210" rx="10" fill="rgba(255,181,71,.06)"  stroke="rgba(255,181,71,.55)"  stroke-width="1.4"/>
-      <rect x="228" y="518" width="192" height="210" rx="10" fill="rgba(121,167,250,.06)" stroke="rgba(121,167,250,.55)" stroke-width="1.4"/>
-      <rect x="436" y="518" width="300" height="210" rx="10" fill="rgba(121,167,250,.06)" stroke="rgba(121,167,250,.55)" stroke-width="1.4"/>
-      <rect x="752" y="518" width="192" height="210" rx="10" fill="rgba(45,209,150,.06)"  stroke="rgba(45,209,150,.55)"  stroke-width="1.4"/>
-      <rect x="960" y="518" width="192" height="210" rx="10" fill="rgba(45,209,150,.06)"  stroke="rgba(45,209,150,.55)"  stroke-width="1.4"/>
-      <text class="zl" x="898" y="327" style="fill:var(--ai)">관리망 <tspan class="zv">VLAN 99</tspan></text>
-      <text class="zl" x="116" y="684" text-anchor="middle" style="fill:var(--warn)">외부 공개<tspan class="zv" x="116" dy="28">VLAN 10</tspan></text>
-      <text class="zl" x="324" y="684" text-anchor="middle" style="fill:var(--brand)">앱 구역 1<tspan class="zv" x="324" dy="28">VLAN 20</tspan></text>
-      <text class="zl" x="586" y="684" text-anchor="middle" style="fill:var(--brand)">앱 구역 2<tspan class="zv" x="586" dy="28">VLAN 30</tspan></text>
-      <text class="zl" x="848" y="684" text-anchor="middle" style="fill:var(--ok)">DB 구역 1<tspan class="zv" x="848" dy="28">VLAN 40</tspan></text>
-      <text class="zl" x="1056" y="684" text-anchor="middle" style="fill:var(--ok)">DB 구역 2<tspan class="zv" x="1056" dy="28">VLAN 50</tspan></text>
+  <svg class="net" id="net" viewBox="0 0 1120 620" role="img" aria-label="계층형 망 설계: 맨 위 공인 구간에 외부 사용자와 인터넷, 외부 서비스가 있고, 경계 라우터가 공인 주소 하나를 DMZ 로드밸런서로 넘긴다. 방화벽 한 대가 밖(보안 수준 0), DMZ(50), 안(100) 세 구역을 잇는다. DMZ에는 웹 방화벽, 로드밸런서, 웹 서버 두 대가 DMZ 스위치에 붙어 있고, 내부에는 코어 스위치 두 대 아래 거래·조회·DB·백업·AI 서버가 역할마다 다른 VLAN에 있으며, 관리망은 따로 떨어져 있다">
+    <!-- 구역 -->
+    <g class="bld b1">
+      <rect class="zone" x="0" y="0" width="1120" height="116" rx="14"/>
+      <text class="zh" x="18" y="34">공인 구간<tspan class="n" dx="12">누구나 들어오는 곳</tspan></text>
+      <rect class="zone sub" x="660" y="8" width="452" height="100" rx="12"/>
+      <text class="zh" x="682" y="62" style="fill:var(--ink-2)">외부 서비스</text>
+    </g>
+    <g class="bld b3">
+      <rect class="zone dmz" x="456" y="196" width="664" height="182" rx="14"/>
+      <text class="zh" x="476" y="226">DMZ<tspan class="m" dx="12">VLAN 10</tspan><tspan class="n" dx="14">밖에 여는 곳은 여기뿐</tspan></text>
+    </g>
+    <g class="bld b4">
+      <rect class="zone" x="0" y="394" width="1120" height="226" rx="14"/>
+      <text class="zh" x="18" y="422">내부<tspan class="n" dx="12">역할마다 VLAN</tspan></text>
+      <text class="sm" x="282" y="422">거래 서버와 DB는 두 코어에 나눔</text>
+    </g>
+    <g class="bld b5">
+      <rect class="zone sub" x="905" y="408" width="205" height="192" rx="12"/>
+      <text class="zh" x="921" y="436">관리망<tspan class="m" dx="10">VLAN 99</tspan></text>
     </g>
 
-    <!-- 연결선: 코어 스위치에서 각 구역 스위치로 한 가닥씩. 모선은 가장 바깥 가지(116, 1056)에서 끝난다 -->
-    <g>
-      <path class="wire" d="M110 150H560"/>
-      <path class="wire" d="M560 60V238"/>
-      <path class="wire trunk" d="M560 286V347"/>
-      <path class="wire" d="M585 372H919"/>
-      <path class="wire" d="M971 372L1013 354M971 372L1016 410"/>
-      <path class="wire" d="M560 397V468M116 468H1056M116 468V504M324 468V504M586 468V504M848 468V504M1056 468V504"/>
-      <path class="wire" d="M116 532V570M324 532V570M848 532V570M1056 532V570M586 532L521 570M586 532L651 570"/>
+    <!-- 선 -->
+    <g class="bld b1">
+      <path class="wire" d="M88 64 H226 M274 80 H885 M885 33 V80 M885 33 H900 M885 80 H900"/>
+    </g>
+    <g class="bld b2">
+      <path class="wire" d="M250 88 V128 M250 172 V228"/>
+      <text class="nat" id="nat" x="356" y="158"><tspan class="b">NAT</tspan><tspan dx="10">공인 203.0.113.1 → 로드밸런서</tspan></text>
+      <text class="lg" x="268" y="206">밖<tspan class="v" dx="6">0</tspan></text>
+      <text class="lg k" x="10" y="256">보안 수준</text>
+      <text class="lg" x="10" y="284">클수록 안쪽</text>
+    </g>
+    <g class="bld b3">
+      <path class="wire" d="M360 266 H470 M544 288 V318 M709 288 V318 M875 288 V318 M1035 288 V318 M544 318 H1035"/>
+      <text class="lg" x="368" y="254">DMZ<tspan class="v" dx="6">50</tspan></text>
+      <text class="sm" x="556" y="356">DMZ 스위치</text>
+    </g>
+    <g class="bld b4">
+      <path class="wire" d="M250 304 V434 M340 448 H470 M340 464 H470 M250 478 V496 M78 496 H328 M78 496 V516 M203 496 V516 M328 496 V516 M560 478 V496 M453 496 H828 M453 496 V516 M578 496 V516 M703 496 V516 M828 496 V516"/>
+      <text class="lg" x="268" y="374">안<tspan class="v" dx="6">100</tspan></text>
+    </g>
+    <g class="bld b5">
+      <path class="wire" d="M650 456 H915 V557 M915 461 H930 M915 509 H930 M915 557 H930"/>
     </g>
 
-    <!-- 외부 구간 -->
-    <use href="#cloud" x="560" y="44" style="color:var(--side)"/>
-    <text class="nm" x="600" y="42">인터넷</text>
-
-    <use href="#pc" x="110" y="150" style="color:var(--side)"/>
-    <text class="nm" x="110" y="208" text-anchor="middle">외부 사용자</text>
-
-    <use href="#sw" x="330" y="150" style="color:var(--side)"/>
-    <text class="sm" x="330" y="192" text-anchor="middle">외부 스위치</text>
-
-    <!-- 경계·내부 라우팅 -->
-    <use href="#rt" x="560" y="150" style="color:var(--glow)"/>
-    <text class="nm" x="604" y="143">경계 라우터</text>
-    <text class="sm" x="604" y="173">주소 변환(NAT): 공인 주소 하나로 받음</text>
-    <text class="sm" x="604" y="201">웹(80·443)만 웹 진입 서버로</text>
-
-    <use href="#rt" x="560" y="262" style="color:var(--glow)"/>
-    <text class="nm" x="604" y="257">내부 라우터</text>
-    <text class="sm" x="604" y="283">가상 구역(VLAN) 사이 길을 정함</text>
-
-    <use href="#l3" x="560" y="372" style="color:var(--glow)"/>
-    <text class="nm" x="518" y="369" text-anchor="end">코어 스위치</text>
-
-    <!-- 관리망 -->
-    <use href="#sw" x="945" y="372" style="color:var(--ai)"/>
-    <text class="sm" x="945" y="413" text-anchor="middle">관리 스위치</text>
-    <use href="#lap" x="1032" y="352" style="color:var(--ai)"/>
-    <text class="nm" x="1072" y="360">관리자 PC</text>
-    <use href="#srv" x="1032" y="422" style="color:var(--ai)"/>
-    <text class="nm" x="1072" y="430">관제 서버</text>
-
-    <!-- 구역 장비. 이름은 선택 고리(반지름 30)와 떨어지게 둔다 -->
-    <use href="#sw" x="116" y="518" style="color:var(--warn)"/>
-    <use href="#srv" x="116" y="592" style="color:var(--warn)"/>
-    <text class="nm" x="116" y="649" text-anchor="middle">웹 진입 서버</text>
-
-    <use href="#sw" x="324" y="518" style="color:var(--brand)"/>
-    <use href="#srv" x="324" y="592" style="color:var(--brand)"/>
-    <text class="nm" x="324" y="649" text-anchor="middle">거래 서버 1</text>
-
-    <use href="#sw" x="586" y="518" style="color:var(--brand)"/>
-    <use href="#srv" x="521" y="592" style="color:var(--brand)"/>
-    <use href="#srv" x="651" y="592" style="color:var(--brand)"/>
-    <text class="nm" x="521" y="649" text-anchor="middle">거래 서버 2</text>
-    <text class="nm" x="651" y="649" text-anchor="middle">조회 서버</text>
-
-    <use href="#sw" x="848" y="518" style="color:var(--ok)"/>
-    <use href="#srv" x="848" y="592" style="color:var(--ok)"/>
-    <text class="nm" x="848" y="649" text-anchor="middle">주 DB</text>
-
-    <use href="#sw" x="1056" y="518" style="color:var(--ok)"/>
-    <use href="#srv" x="1056" y="592" style="color:var(--ok)"/>
-    <text class="nm" x="1056" y="649" text-anchor="middle">예비 DB</text>
-
-    <!-- 허용된 길: 외부 사용자 → 웹 진입 서버 → 앱 → DB. ACL이 여는 경로만 따라 점이 지나간다 -->
-    <circle class="spark" id="idle" r="6">
-      <animateMotion dur="8s" repeatCount="indefinite" begin="1.2s"
-        path="M110 150H560V468H116V592V468H324V592V468H848V592"/>
-      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" begin="1.2s" values="0;1;1;0" keyTimes="0;.03;.96;1"/>
-    </circle>
-    <!-- 흐름 확인 효과층: 지나간 길, 선택 고리, 차단 표시, 주소 변환·라우팅 이름표, 패킷 -->
-    <g id="fx" aria-hidden="true">
-      <polyline class="trail" id="trail" points=""/>
-      <circle class="ring" id="ring-ext" cx="110" cy="150" r="30"/>
-      <circle class="ring" id="ring-web" cx="116" cy="592" r="30"/>
-      <circle class="ring" id="ring-app1" cx="324" cy="592" r="30"/>
-      <circle class="ring" id="ring-app2" cx="521" cy="592" r="30"/>
-      <circle class="ring" id="ring-app3" cx="651" cy="592" r="30"/>
-      <circle class="ring" id="ring-dbp" cx="848" cy="592" r="30"/>
-      <circle class="ring" id="ring-dbs" cx="1056" cy="592" r="30"/>
-      <circle class="ring" id="ring-adm" cx="1032" cy="352" r="28"/>
-      <circle class="ring" id="ring-mon" cx="1032" cy="422" r="30"/>
-      <circle class="ring" id="ring-redge" cx="560" cy="150" r="34"/>
-      <circle class="ring" id="ring-sec" cx="560" cy="262" r="34"/>
-      <circle class="burst" id="burst" cx="0" cy="0" r="18"/>
-      <text class="flag nat" id="flag-nat" x="540" y="104" text-anchor="end">주소 변환 → 웹 진입 서버</text>
-      <text class="flag rt" id="flag-rt" x="520" y="244" text-anchor="end"></text>
-      <text class="flag no" id="flag-no" x="0" y="0" text-anchor="end">ACL 차단</text>
-      <circle class="pkt" id="pkt" r="8" cx="-20" cy="-20"/>
-    </g>
-    <!-- 누를 수 있는 장비. 키보드로도 고를 수 있다 -->
-    <g id="hits">
-      <rect class="hit" data-id="ext" x="30" y="118" width="160" height="122" rx="10" tabindex="0" role="button" aria-label="외부 사용자"/>
-      <rect class="hit" data-id="web" x="40" y="562" width="152" height="120" rx="10" tabindex="0" role="button" aria-label="웹 진입 서버"/>
-      <rect class="hit" data-id="app1" x="248" y="562" width="152" height="120" rx="10" tabindex="0" role="button" aria-label="거래 서버 1"/>
-      <rect class="hit" data-id="app2" x="462" y="562" width="118" height="120" rx="10" tabindex="0" role="button" aria-label="거래 서버 2"/>
-      <rect class="hit" data-id="app3" x="592" y="562" width="118" height="120" rx="10" tabindex="0" role="button" aria-label="조회 서버"/>
-      <rect class="hit" data-id="dbp" x="772" y="562" width="152" height="120" rx="10" tabindex="0" role="button" aria-label="주 DB"/>
-      <rect class="hit" data-id="dbs" x="980" y="562" width="152" height="120" rx="10" tabindex="0" role="button" aria-label="예비 DB"/>
-      <rect class="hit" data-id="adm" x="1002" y="326" width="200" height="56" rx="10" tabindex="0" role="button" aria-label="관리자 PC"/>
-      <rect class="hit" data-id="mon" x="1002" y="394" width="200" height="58" rx="10" tabindex="0" role="button" aria-label="관제 서버"/>
-    </g>
+    <g id="trails"></g>
+    <g id="nodes"></g>
+    <g id="marks"></g>
+    <g id="dots"></g>
   </svg>
 
-  <div class="side">
-    <section class="blk">
-      <div class="k">흐름 확인<span class="hint orig"> · 장비 두 개를 차례로 선택</span></div>
-      <div class="res" id="res" aria-live="polite">
-        <div class="top"><div class="fr" id="res-fr"><span class="ph">출발지 → 도착지</span></div><div class="vd" id="res-vd">—</div></div>
-        <div class="why" id="res-why"></div>
-      </div>
-      <div class="quick" id="quick">
-        <button type="button" data-a="ext" data-b="web">외부 사용자 → 웹 진입 서버 <i class="y">허용</i></button>
-        <button type="button" data-a="ext" data-b="dbp">외부 사용자 → 주 DB <i class="n">차단</i></button>
-        <button type="button" data-a="web" data-b="dbp">웹 진입 서버 → 주 DB <i class="n">차단</i></button>
-        <button type="button" data-a="app1" data-b="dbp">거래 서버 1 → 주 DB <i class="y">허용</i></button>
-      </div>
+  <aside class="pane" aria-label="Packet Tracer에서 확인한 길">
+    <div class="ph"><b>확인한 길</b><span class="lgd"><span><i class="mk t"></i>직접 시험</span><span><i class="mk r"></i>설정만 확인</span></span></div>
+    <section class="grp" data-s="1"><h3>들어오는 길</h3>
+      <button class="row" type="button" data-f="in"><i class="mk t"></i><span class="fl">외부 사용자 → 로드밸런서</span><b class="v ok">허용</b></button>
+      <button class="row" type="button" data-f="wa"><i class="mk r"></i><span class="fl">웹 서버 → 거래 서버 · 8080</span><b class="v rule">허용</b></button>
+      <button class="row" type="button" data-f="adb"><i class="mk r"></i><span class="fl">거래 서버 → 주 DB · 5432</span><b class="v rule">허용</b></button>
+      <button class="row" type="button" data-f="wdb"><i class="mk t"></i><span class="fl">웹 서버 → 주 DB</span><b class="v no">차단</b></button>
     </section>
-    <section class="blk">
-      <div class="k">접근 제어(ACL) · 적힌 길만 허용</div>
-      <div class="acl" id="acl">
-        <div data-rule="ext-web"><span>외부 사용자 → 웹 진입 서버</span><span class="y">80·443</span></div>
-        <div data-rule="web-app"><span>웹 진입 서버 → 앱 구역</span><span class="y">8080</span></div>
-        <div data-rule="app-db"><span>앱 구역 → DB 구역</span><span class="y">5432</span></div>
-        <div data-rule="mgmt"><span>관리망 → 내부</span><span class="y w">전체</span></div>
-        <div data-rule="ext-int"><span>외부 사용자 → 내부 주소 직접</span><span class="n">차단</span></div>
-        <div data-rule="web-db"><span>웹 진입 서버 → DB 구역 직접</span><span class="n">차단</span></div>
-      </div>
+    <section class="grp" data-s="2"><h3>나가는 길</h3>
+      <button class="row" type="button" data-f="ops"><i class="mk t"></i><span class="fl">관제 서버 → Teams</span><b class="v ok">허용</b></button>
+      <button class="row" type="button" data-f="trt"><i class="mk t"></i><span class="fl">거래 서버 → Teams</span><b class="v no">차단</b></button>
+      <button class="row" type="button" data-f="bk"><i class="mk t"></i><span class="fl">백업 서버 → 외부 보관</span><b class="v ok">허용</b></button>
+      <button class="row" type="button" data-f="wst"><i class="mk t"></i><span class="fl">웹 서버 → 외부 보관</span><b class="v no">차단</b></button>
     </section>
-    <section class="blk next">
-      <div class="row"><span class="lead">다음</span><span><img src="assets/tint/pfsense-side.svg" alt="">VM pfSense</span><span><img src="assets/aws/Arch_Amazon-EC2_64.svg" alt="" style="border-radius:5px">AWS 보안 그룹</span></div>
+    <section class="grp" data-s="3"><h3>관리와 옆 이동</h3>
+      <button class="row" type="button" data-f="jump"><i class="mk t"></i><span class="fl">점프 서버 → 웹 서버</span><b class="v ok">허용</b></button>
+      <button class="row" type="button" data-f="ww"><i class="mk t"></i><span class="fl">웹 서버 1 → 웹 서버 2</span><b class="v no">차단</b></button>
     </section>
-  </div>
+  </aside>
+
+  <div class="foot"><span class="k">원칙</span><span>밖에서는 DMZ까지만 · 안으로는 8080만 · 밖으로는 관제와 백업만 · 관리는 점프 서버로만</span><span class="nx">다음 · VM 여섯 대에서 실제로 거르기</span></div>
+
+  <dialog class="fig" id="fig" aria-label="Packet Tracer 계층형 도면 원본">
+    <div class="bar"><b>Packet Tracer 계층형 도면 · 원본</b><span>그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/net-layered.png" alt="Packet Tracer 계층형 도면: 공인 구간, 경계 라우터, 외부 서비스, ASA 방화벽, 웹 방화벽과 DMZ(VLAN 10), 코어 스위치 두 대, VLAN 21·22·30·41·42·60·70의 서버와 관리망 VLAN 99"></div>
+  </dialog>
 </div>
 
-<!-- 발표 노트(45초): Packet Tracer로 논리 망을 먼저 설계했다. 경계 라우터가 공인 주소 하나로 받아 웹 80·443만 웹 진입 서버로 넘기고, 내부 라우터가 가상 구역(VLAN) 사이 길을 정한다. ACL은 필요한 길만 열고 외부에서 내부로 바로 오는 길은 막는다.
-→ 세 번: ① 외부 사용자 → 웹 진입 서버(허용, 주소 변환) ② 외부 사용자 → 주 DB(경계 라우터에서 차단) ③ 웹 진입 서버 → 주 DB(내부 라우터에서 차단). 구역이 다르면 내부 라우터를 거쳐야 하는 것이 망 분리다. 이 원칙을 VM은 pfSense로, AWS는 보안 그룹으로 옮겼다.
-세부(질문 대비): 경계 라우터가 NAT/PAT로 공인 주소 203.0.113.1을 받아 80·443만 외부 공개 구역의 웹 진입 서버(10.0.0.10)로 넘긴다. 내부 라우터는 Router-on-a-Stick으로 VLAN 사이를 라우팅하고, 코어 스위치가 VLAN 10·20·30·40·50·99를 트렁크로 받는다. ACL 포트는 외부 사용자→웹 진입 서버 80·443, 웹 진입 서버→앱 구역 8080, 앱 구역→DB 구역 5432이고, 관리망 VLAN 99만 내부 전체에 들어간다.
-사실 범위: 앱·DB '구역 1·2'는 원본 토폴로지의 A구역·C구역이며 AWS 서울 리전의 두 가용 영역 AZ-a·AZ-c에 맞춘 이름이다(B는 쓰지 않아 처음 보는 사람이 찾지 않게 1·2로 바꿔 부름). 규칙은 원본 토폴로지 메모만 따르고 메모에 없는 조합은 '기록 없음'으로 보인다. 차단 위치(외부는 경계 라우터, 구역 사이는 내부 라우터)는 메모의 역할 설명에 따른 표시이며 ACL을 건 인터페이스는 .pkt에서 따로 확인하지 않았다. 원본 토폴로지 메모에는 'ACL match(es) 카운터로 허용/차단 실제 검증 완료'라고 적혀 있으나 카운터 화면 같은 근거 자료를 찾지 못해 화면에서 뺐다(아키텍쳐/README.md는 검토 때 .pkt로 라우팅·ACL을 시험하지 않았다고 기록). 질문이 나오면 '메모에는 있으나 증거 캡처는 없다'고 답한다. 화면(v5)에는 주소를 빼고 역할·구역·VLAN 번호만 두었다. 주소는 위 세부와 원본 토폴로지(E 키)에 있다. 원본: 교수님_보고본/99_발표용_계획_아키텍쳐/발표ppt/07·08.
-호스트명: 경계 라우터=R-EDGE, 내부 라우터=SEC-RTR, 코어 스위치=CORE-SW, 웹 진입 서버=WEB, 거래 서버 1·2=APP1·APP2, 조회 서버=APP3, 주·예비 DB=DB Primary·Standby, 외부 사용자=외부 사용자 PC. -->
+<!-- 발표 노트(50초, → 세 번): 장이 열리면 위에서 아래로 공인 구간 → 경계 라우터 → 방화벽 → DMZ → 내부 → 관리망이 차례로 그려진다. → 마다 한 묶음(들어오는 길 · 나가는 길 · 관리와 옆 이동)이 한 흐름씩 목록 순서대로 나온다. 줄이 먼저 밝아지고 출발 장비가 파랗게 깜빡이며 목적지에 파란 점선 테두리가 켜진 뒤 파란 점이 달린다. 허용이면 길이 초록으로 바뀌고, 막히면 막은 장비 앞에 빨간 X가 찍히고 길은 회색 점선으로 낮아진다. 설정만 확인한 두 길은 점 없이 초록 점선이 한 번에 그려진다. 같은 선을 쓰는 흐름은 옆 차선으로 비켜 그린다. 흐름 사이의 쉼은 아래 대사의 박자에 맞췄다(들어오는 길 약 14초, 나가는 길은 2초 뒤 시작해 약 11초, 관리와 옆 이동 약 6초). 마지막 흐름 뒤 아래 원칙 줄이 뜨고, 네 번째 → 에 다음 장. 결과 줄을 누르면 그 흐름만 다시 보인다(질문 대응). 말할 거리: "온프레미스로 짠다면 망을 이렇게 나눕니다. 맨 위는 누구나 오는 공인 구간이고, 방화벽 한 대가 밖, DMZ, 안 세 구역을 잇습니다. 숫자가 클수록 안쪽입니다." → "밖에서는 공인 주소 하나로 DMZ의 로드밸런서까지만 들어옵니다. 웹은 거래 서버 8080으로만, 거래 서버는 DB 5432로만 가도록 규칙을 짰고, 웹이 DB로 바로 가면 웹 방화벽에서 막힙니다." → "밖으로 나가는 길도 역할마다 다릅니다. 관제 서버는 Teams로 나가지만 거래 서버는 코어에서 막히고, 백업 서버는 외부 보관소로 나가지만 웹 서버는 못 나갑니다." → "서버 관리는 관리망의 점프 서버에서만 하고, 웹 서버끼리는 스위치에서 옆으로 못 건너가게 막았습니다." 사실 확인: 교수님 피드백(위에서 아래로 읽는 계층, 공인과 내부 사이 DMZ)으로 2026-09-28 새로 만든 '온프레미스로 짠다면'의 설계다(아키텍쳐/교수님_보고본/04_네트워크/네트워크_구성도_계층형.pkt). 방화벽 FW-01은 Cisco ASA 5506-X(outside 보안 0, dmz 50, inside 100), 공인 구간 203.0.113.0/24, DMZ 172.16.10.0/24(VLAN 10, 게이트웨이는 웹 방화벽 172.16.10.1, 로드밸런서·웹 서버 1·2가 SW-DMZ에 붙음), 외부 서비스 198.51.100.0/24(경계 라우터에 붙음, 실제로는 인터넷 너머라 도면은 인터넷 쪽에 그림). 코어 A: 거래 서버 1(VLAN 21)·조회(30)·주 DB(41), 코어 B: 거래 서버 2(22)·예비 DB(42)·AI(60)·백업(70)·관리(99: 관리자 PC, 관제 서버, 점프 서버). Packet Tracer 9.0.1 안에서 2026-09-29 시험: 외부 사용자가 공인 203.0.113.1로 접속하면 정적 NAT로 DMZ 로드밸런서 페이지가 열림(로드밸런서는 Packet Tracer 서버라 분산은 하지 않고 페이지만 응답, 로드밸런서 → 웹 서버 구간은 시험하지 않음), 점프 서버 → DMZ 웹 서버 ping, 관제 → Teams HTTPS, 백업 → 외부 보관 HTTPS 통과. 거래 서버 → Teams HTTPS, 웹 서버끼리, 웹 서버 → 외부 보관·주 DB ping 차단. 어느 서버에서 보냈는지는 기록이 없어 목록은 '웹 서버', '거래 서버'로 적었다(두 웹 서버의 규칙은 같고, 거래 서버 2에서 보냈어도 코어 B의 같은 APP-IN에서 막힌다). 웹 → 거래·조회 8080과 거래 → DB 5432는 Packet Tracer 서버가 그 포트를 열 수 없어 ACL 설정으로만 확인했다(빈 동그라미, 초록 점선). 이것은 요청 방향의 규칙(WAF-01 DMZ_OUT, FW-01 DMZ_IN, 코어 APP-IN)을 확인한 것이다. 응답 방향은 실장비 ASA의 상태 추적 기준이고, .pkt의 WAF-01 WAF_IN에는 8080 응답 허용 줄이 없어 Packet Tracer 안에서는 응답이 웹 방화벽에서 버려질 수 있다(FW-01 INSIDE_IN에는 있음). 막은 장비는 .pkt 안의 장비 설정으로 확인했다(2026-10-01): 웹 서버에서 나가는 것은 먼저 웹 방화벽 WAF-01의 DMZ_OUT(inside 인터페이스에 in 방향)이 거래·조회 8080만 내보내고 나머지를 버린다. 그래서 웹 → 주 DB와 웹 → 외부 보관은 웹 방화벽에서 막히고, 뚫려도 방화벽 FW-01의 DMZ_IN이 내부(10.0.0.0/8)와 그 밖을 한 번 더 막는다. 거래 서버 → Teams는 코어의 APP-IN(거래·조회 VLAN에 in 방향: DB 5432, 관제 8443, 응답만 허용)에서 막히고, 뚫려도 FW-01 INSIDE_IN이 막는다(Teams 443은 관제 서버 10.0.99.20만, 외부 보관 443은 백업 10.0.70.10만). 웹 서버끼리는 SW-DMZ의 웹 서버 1·2 포트(Fa0/3·Fa0/4)가 보호 포트(switchport protected)라 막힌다(로드밸런서 포트는 보호 포트가 아님). 관리 SSH 22는 점프 서버에서만(코어 MGMT-IN, 방화벽). 원칙 '밖에서는 DMZ까지만'의 예외: FW-01 OUTSIDE_IN이 경계 라우터(10.255.255.1)의 로그 UDP 514만 관제 서버(10.0.99.20)로 들인다. 그 밖에 밖에서 안으로 허용한 것은 관제·백업이 연 HTTPS의 응답뿐이다. 질문 대비: 웹 → 주 DB는 5432가 아니라 ping으로 시험했지만, 설정상 웹 서버는 거래·조회 8080 말고는 어느 포트로도 못 나간다. WAF는 Packet Tracer에 장비가 없어 ASA로 표현했고 포트만 거르며 L7 검사는 하지 않는다(L7 검사는 다음 장 VM에서 실제로 했다). 파일을 열면 ARP 준비 ping이 필요하다(아키텍쳐 README). 이 도면은 학교 AWS의 현재 구조(app-1 한 대에서 Nginx와 거래 앱, 방화벽·WAF·로드밸런서 없음)와 다르고, AWS VPC·보안 그룹 구현의 증거가 아니다. E 키 도구의 '원본 도면'은 Packet Tracer 계층형 캡처다. -->
 
-<script src="deck.js"></script>
 <script>
 (() => {
   const stage = document.getElementById('stage');
@@ -377,211 +279,271 @@
     } catch (e) {}
   };
   document.getElementById('fs').addEventListener('click', toggleFs);
-  const fig = document.getElementById('fig');
-  const closeFig = () => { fig.classList.remove('zoom'); if (fig.open) fig.close(); };
-  document.getElementById('open-fig').addEventListener('click', () => { if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (e) { fig.setAttribute('open', ''); } });
-  document.getElementById('close-fig').addEventListener('click', closeFig);
-  document.getElementById('fig-img').addEventListener('click', e => { e.stopPropagation(); fig.classList.toggle('zoom'); });
-  fig.addEventListener('click', e => { if (e.target === fig || e.target.classList.contains('view')) closeFig(); });
-  fig.addEventListener('close', () => fig.classList.remove('zoom'));
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // ---------- 흐름 확인 ----------
-  // 규칙은 원본 Packet Tracer 토폴로지 메모만 따른다. 메모에 없는 조합은 '기록 없음'으로 두고 추측하지 않는다.
-  // 차단 위치: 외부에서 오는 것은 경계 라우터, 구역(VLAN) 사이는 내부 라우터(라우터 온 어 스틱이 VLAN 간 라우팅을 맡는다).
+  // 원본 도면 창(E 키 도구)
+  const fig = document.getElementById('fig');
+  const closeFig = () => { fig.classList.remove('zoom'); if (fig.open) fig.close(); };
+  document.getElementById('open-fig').addEventListener('click', e => { e.stopPropagation(); try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); } });
+  document.getElementById('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  document.getElementById('fig-img').addEventListener('click', e => { e.stopPropagation(); fig.classList.toggle('zoom'); });
+
+  const NS = 'http://www.w3.org/2000/svg';
   const $ = id => document.getElementById(id);
-  const N = {
-    ext:  { n: '외부 사용자',  c: 'ext' },
-    web:  { n: '웹 진입 서버', c: 'web',  v: 10, sw: 116,  x: 116 },
-    app1: { n: '거래 서버 1',  c: 'app',  v: 20, sw: 324,  x: 324 },
-    app2: { n: '거래 서버 2',  c: 'app',  v: 30, sw: 586,  x: 521 },
-    app3: { n: '조회 서버',    c: 'app',  v: 30, sw: 586,  x: 651 },
-    dbp:  { n: '주 DB',        c: 'db',   v: 40, sw: 848,  x: 848 },
-    dbs:  { n: '예비 DB',      c: 'db',   v: 50, sw: 1056, x: 1056 },
-    adm:  { n: '관리자 PC',    c: 'mgmt', v: 99, mg: [1032, 352] },
-    mon:  { n: '관제 서버',    c: 'mgmt', v: 99, mg: [1032, 422] },
-  };
-  // 도면의 가로줄: 코어 스위치 372, 구역 모선 468, 구역 스위치 518, 서버 592. 관리 스위치는 (945, 372)
-  const CORE = [560, 372], SEC = [560, 262], REDGE = [560, 150], BUS = 468, ZSW = 518, SRV = 592, MSW = [945, 372];
-  // 코어 스위치에서 장비까지 내려가는 길
-  const down = id => {
-    const d = N[id];
-    if (d.mg) return [CORE, MSW, d.mg];
-    return [CORE, [560, BUS], [d.sw, BUS], [d.sw, ZSW], [d.x, SRV]];
-  };
-  const up = id => down(id).slice().reverse();
-  // 구역이 다르면 내부 라우터까지 올라갔다 내려온다. 오르는 선과 내리는 선을 조금 떼어 두 줄로 보이게 한다.
-  const UP_X = 553, DN_X = 567;
-  const toRouter = id => {
-    const u = up(id).slice(0, -1);
-    if (N[id].mg) u.push([UP_X, CORE[1]]); else u[u.length - 1] = [UP_X, BUS];
-    const hopIn = [UP_X, SEC[1]]; hopIn.hop = true;   // 여기서 잠깐 멈추고 라우터가 빛난다
-    return [...u, hopIn];
-  };
-  const fromRouter = id => {
-    const d = down(id).slice(1);
-    if (N[id].mg) return [[DN_X, SEC[1]], [DN_X, CORE[1]], ...d];
-    d[0] = [DN_X, BUS];
-    return [[DN_X, SEC[1]], ...d];
-  };
-  const fromExt = [[110, 150], [330, 150], REDGE];
-
-  function judge(a, b) {
-    const A = N[a], B = N[b];
-    if (A.c === 'ext') {
-      if (B.c === 'web') return { k: 'ok', rule: 'ext-web', path: [...fromExt, SEC, ...down(b)], nat: true };
-      return { k: 'no', rule: 'ext-int', path: fromExt, at: REDGE, ring: 'redge' };
-    }
-    if (B.c === 'ext') return { k: 'na', why: '내부 → 외부 정책은 원본 메모에 없음' };
-    if (A.v === B.v) {
-      const path = A.mg ? [A.mg, MSW, B.mg] : [[A.x, SRV], [A.sw, ZSW], [B.x, SRV]];
-      return { k: 'same', path, why: `같은 VLAN ${A.v} 안이라 스위치가 바로 전달\n라우터 ACL을 거치지 않음` };
-    }
-    const via = [...toRouter(a), ...fromRouter(b)];
-    const hop = `VLAN ${A.v} → ${B.v}`;
-    if (A.c === 'mgmt') return { k: 'ok', rule: 'mgmt', path: via, hop };
-    if (A.c === 'web' && B.c === 'app') return { k: 'ok', rule: 'web-app', path: via, hop };
-    if (A.c === 'app' && B.c === 'db') return { k: 'ok', rule: 'app-db', path: via, hop };
-    if (A.c === 'web' && B.c === 'db') return { k: 'no', rule: 'web-db', path: [...up(a), SEC], at: SEC, ring: 'sec' };
-    return { k: 'na', why: '원본 메모에 이 조합의 정책 없음' };
-  }
-
-  const svgEl = document.querySelector('.topo');
-  const pkt = $('pkt'), trail = $('trail'), burst = $('burst');
-  const res = $('res'), acl = $('acl');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let src = null, raf = 0, token = 0;
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
 
-  const rings = () => svgEl.querySelectorAll('.ring');
-  function clearFx() {
-    cancelAnimationFrame(raf); token++;
-    pkt.getAnimations?.().forEach(an => an.cancel());
-    rings().forEach(r => r.setAttribute('class', 'ring'));
-    trail.setAttribute('points', ''); trail.setAttribute('class', 'trail');
-    pkt.setAttribute('class', 'pkt'); pkt.setAttribute('cx', -20); pkt.setAttribute('cy', -20);
-    ['flag-nat', 'flag-rt', 'flag-no'].forEach(f => $(f).classList.remove('on'));
-    burst.classList.remove('on');
-    acl.classList.remove('focus');
-    acl.querySelectorAll('div').forEach(d => d.classList.remove('hit-ok', 'hit-no'));
-    document.querySelectorAll('#quick button').forEach(q => q.classList.remove('cur'));
-  }
-  function show(cls, fr, vd, why) {
-    res.className = 'res ' + cls;
-    $('res-fr').innerHTML = fr; $('res-vd').textContent = vd; $('res-why').textContent = why;
-  }
-  const ring = (id, cls) => { const r = $('ring-' + id); if (r) r.setAttribute('class', 'ring on ' + cls); };
-  const idle = $('idle'); const stopIdle = () => { if (idle) idle.style.display = 'none'; };
-
-  // 꺾인 선을 따라 일정한 속도로 움직인다. 지나간 길은 선으로 남긴다. instant면 첫 화면에서 바로 끝 모습을 그린다.
-  function run(path, done, onPass, instant) {
-    const my = ++token;
-    const seg = []; let total = 0;
-    for (let i = 1; i < path.length; i++) {
-      const [x1, y1] = path[i - 1], [x2, y2] = path[i];
-      const L = Math.hypot(x2 - x1, y2 - y1); seg.push({ x1, y1, x2, y2, L, at: total }); total += L;
+  // ---- 장비(도면 좌표). v 가 있으면 세로 타일(아이콘 · 이름) ----
+  const NODES = {
+    rt:    { x: 160, y: 128, w: 180, h: 44, icon: 'ui-router-glow', name: '경계 라우터' },
+    fw:    { x: 140, y: 228, w: 220, h: 76, icon: 'ui-shield-lock-glow', name: '방화벽', sub: '세 구역을 잇는 문', gate: true },
+    waf:   { x: 470, y: 244, w: 148, h: 44, icon: 'ui-shield-check-glow', name: '웹 방화벽' },
+    lb:    { x: 628, y: 244, w: 162, h: 44, icon: 'ui-arrows-split-glow', name: '로드밸런서' },
+    w1:    { x: 800, y: 244, w: 150, h: 44, icon: 'nginx-glow', name: '웹 서버 1' },
+    w2:    { x: 960, y: 244, w: 150, h: 44, icon: 'nginx-glow', name: '웹 서버 2' },
+    ca:    { x: 160, y: 434, w: 180, h: 44, icon: 'ui-switch-horizontal-glow', name: '코어 A' },
+    cb:    { x: 470, y: 434, w: 180, h: 44, icon: 'ui-switch-horizontal-glow', name: '코어 B' },
+    t21:   { x: 20,  y: 516, w: 116, h: 84, icon: 'ui-server-glow', name: '거래 서버', v: 1 },
+    t30:   { x: 145, y: 516, w: 116, h: 84, icon: 'ui-server-2-glow', name: '조회 서버', v: 1 },
+    t41:   { x: 270, y: 516, w: 116, h: 84, icon: 'ui-database-glow', name: '주 DB', v: 1 },
+    t22:   { x: 395, y: 516, w: 116, h: 84, icon: 'ui-server-glow', name: '거래 서버', v: 1 },
+    t42:   { x: 520, y: 516, w: 116, h: 84, icon: 'ui-database-glow', name: '예비 DB', v: 1 },
+    t70:   { x: 645, y: 516, w: 116, h: 84, icon: 'ui-stack-2-glow', name: '백업 서버', v: 1 },
+    t60:   { x: 770, y: 516, w: 116, h: 84, icon: 'ollama-glow', name: 'AI 서버', v: 1 },
+    pc:    { x: 930, y: 442, w: 172, h: 38, icon: 'ui-device-desktop-glow', name: '관리자 PC' },
+    jump:  { x: 930, y: 490, w: 172, h: 38, icon: 'ui-terminal-2-glow', name: '점프 서버' },
+    ops:   { x: 930, y: 538, w: 172, h: 38, icon: 'ui-activity-glow', name: '관제 서버' },
+    store: { x: 900, y: 14, w: 204, h: 38, icon: 'ui-box-glow', name: '외부 보관' },
+    teams: { x: 900, y: 61, w: 204, h: 38, icon: 'ui-message-glow', name: 'Teams' },
+  };
+  const BUILD = { rt: 'b2', fw: 'b2', waf: 'b3', lb: 'b3', w1: 'b3', w2: 'b3', ca: 'b4', cb: 'b4', pc: 'b5', jump: 'b5', ops: 'b5', store: 'b1', teams: 'b1' };
+  const nodesG = $('nodes');
+  for (const id in NODES) {
+    const n = NODES[id];
+    const g = el('g', { class: `nd bld ${BUILD[id] || 'b4'}${n.gate ? ' gate' : ''}`, id: 'n-' + id }, nodesG);
+    el('rect', { x: n.x, y: n.y, width: n.w, height: n.h, rx: n.gate ? 12 : 10 }, g);
+    if (n.v) {   // 세로 타일
+      el('image', { href: `assets/tint/${n.icon}.svg`, x: n.x + n.w / 2 - 15, y: n.y + 12, width: 30, height: 30 }, g);
+      el('text', { class: 'nm', x: n.x + n.w / 2, y: n.y + 68, 'text-anchor': 'middle' }, g).textContent = n.name;
+    } else if (n.gate) {   // 방화벽: 이름과 한 줄 설명
+      el('image', { href: `assets/tint/${n.icon}.svg`, x: n.x + 14, y: n.y + 11, width: 30, height: 30 }, g);
+      el('text', { class: 'nm', x: n.x + 54, y: n.y + 35 }, g).textContent = n.name;
+      el('text', { class: 'sub', x: n.x + 14, y: n.y + 66 }, g).textContent = n.sub;
+    } else {
+      const s = n.h >= 44 ? 28 : 26;
+      el('image', { href: `assets/tint/${n.icon}.svg`, x: n.x + 12, y: n.y + (n.h - s) / 2, width: s, height: s }, g);
+      el('text', { class: 'nm', x: n.x + 12 + s + 10, y: n.y + n.h / 2 + 8 }, g).textContent = n.name;
     }
-    const speed = 0.62, t0 = performance.now(), HOLD = 450; let passed = 0;
-    const hi = path.findIndex(pt => pt.hop);
-    const tp = hi > 0 ? seg[hi].at / speed : Infinity;   // 라우터에 닿는 시각
-    const step = now => {
-      if (my !== token) return;
-      const e = now - t0, te = e < tp ? e : (e < tp + HOLD ? tp : e - HOLD);
-      const d = reduce || instant ? total : Math.min(total, te * speed);
-      const pts = [path[0]]; let pos = path[0];
-      for (const g of seg) {
-        if (d >= g.at + g.L) { pts.push([g.x2, g.y2]); pos = [g.x2, g.y2]; continue; }
-        const f = (d - g.at) / g.L; pos = [g.x1 + (g.x2 - g.x1) * f, g.y1 + (g.y2 - g.y1) * f]; pts.push(pos); break;
-      }
-      while (onPass && passed < path.length && seg[passed] && d >= seg[passed].at) { onPass(path[passed]); passed++; }
-      trail.setAttribute('points', pts.map(p => p.join(',')).join(' '));
-      pkt.setAttribute('cx', pos[0]); pkt.setAttribute('cy', pos[1]);
-      if (d < total) raf = requestAnimationFrame(step); else done && done();
-    };
-    raf = requestAnimationFrame(step);
   }
+  // 이름만 있는 끝점(외부 사용자, 인터넷). 외부 사용자는 출발할 때 둥근 빛으로 깜빡인다
+  const pub = el('g', { class: 'bld b1' }, nodesG);
+  el('circle', { cx: 68, cy: 62, r: 25 }, el('g', { class: 'nd halo', id: 'n-user' }, pub));
+  el('image', { href: 'assets/tint/ui-users-side.svg', x: 50, y: 44, width: 36, height: 36 }, pub);
+  el('text', { class: 'sm', x: 68, y: 106, 'text-anchor': 'middle' }, pub).textContent = '외부 사용자';
+  el('image', { href: 'assets/tint/ui-cloud-side.svg', x: 226, y: 40, width: 48, height: 48 }, pub);
+  el('text', { class: 'sm', x: 282, y: 70 }, pub).textContent = '인터넷';
 
-  function go(a, b, instant) {
-    clearFx(); stopIdle();
-    const A = N[a], B = N[b], r = judge(a, b);
-    const fr = `<b>${A.n}</b> → <b>${B.n}</b>`;
-    ring(a, 'src'); ring(b, 'dst');
-    document.querySelectorAll('#quick button').forEach(q => { if (q.dataset.a === a && q.dataset.b === b) q.classList.add('cur'); });
-    if (r.k === 'na') { show('na', fr, '기록 없음', r.why); return; }
-    show('', fr, '전송 중…', '');
-    // 설명은 두 줄: 어디서 무슨 일이 일어났는지 / 어떤 규칙 때문인지
-    const WHY = {
-      'ext-web': '경계 라우터가 주소 변환해\n웹 진입 서버로 넘김',
-      'ext-int': '경계 라우터에서 거절\n밖에서 내부 주소로는 못 들어옴',
-      'web-db': '내부 라우터에서 거절\n웹 구역은 DB 구역에 직접 못 감',
-      'web-app': `내부 라우터를 거침(${r.hop})\n앱 구역은 8080만 허용`,
-      'app-db': `내부 라우터를 거침(${r.hop})\nDB 구역은 5432만 허용`,
-      'mgmt': `내부 라우터를 거침(${r.hop})\n관리망은 내부 전체 허용`,
-    };
-    const where = WHY[r.rule] || '';
-    const onPass = pt => {
-      if (pt === REDGE && r.nat) $('flag-nat').classList.add('on');
-      if (pt.hop) { $('flag-rt').textContent = r.hop; $('flag-rt').classList.add('on'); ring('sec', 'hop'); }
-    };
-    run(r.path, () => {
-      if (r.k === 'no') {
-        pkt.setAttribute('class', 'pkt no'); trail.setAttribute('class', 'trail no');
-        ring(r.ring, 'no');
-        const fl = $('flag-no'); fl.setAttribute('x', r.at[0] - 40); fl.setAttribute('y', r.at[1] - 32); fl.classList.add('on');
-        if (!instant) {
-          burst.setAttribute('cx', r.at[0]); burst.setAttribute('cy', r.at[1]);
-          burst.classList.remove('on'); void burst.getBBox(); burst.classList.add('on');
-        }
-        // 막힌 자리에서 조금 되돌아오며 사라진다
-        const back = r.path[r.path.length - 2];
-        const bx = r.at[0] + (back[0] - r.at[0]) * .35, by = r.at[1] + (back[1] - r.at[1]) * .35;
-        pkt.animate?.([{ cx: r.at[0], cy: r.at[1], opacity: 1 }, { cx: bx, cy: by, opacity: 0 }], { duration: instant ? 1 : 650, easing: 'ease-out', fill: 'forwards' });
-        pkt.setAttribute('cx', bx); pkt.setAttribute('cy', by);
-        show('no', fr, '차단', where);
-      } else if (r.k === 'same') {
-        pkt.setAttribute('class', 'pkt ok'); ring(b, 'ok');
-        show('same', fr, '같은 구역', r.why);
-      } else {
-        pkt.setAttribute('class', 'pkt ok'); trail.setAttribute('class', 'trail ok'); ring(b, 'ok');
-        show('ok', fr, '허용', where);
-      }
-      if (r.rule) {
-        acl.classList.add('focus');
-        acl.querySelector(`[data-rule="${r.rule}"]`).classList.add(r.k === 'no' ? 'hit-no' : 'hit-ok');
-      }
-    }, onPass, instant);
+  // ---- 흐름: 점 [x, y, 장비]. 장비가 붙은 점에서 다음 점까지는 장비 안이라 점을 감추고 장비가 파랗게 한 번 빛난다.
+  //      rule 은 설정만 확인한 길(점 없이 초록 점선), at 은 실제로 막은 장비(.pkt 안의 설정으로 확인), aim 은 막힌 흐름이 가려던 곳,
+  //      lane 은 같은 선을 쓰는 다른 흐름과 겹치지 않게 비켜 그릴 거리(진행 방향 오른쪽이 +), laneTo 는 비켜 그릴 점 수 ----
+  const FLOWS = {
+    in:   { ok: true, from: 'user', to: 'lb', pts: [[88,64],[226,64,'cloud'],[250,88],[250,128,'rt'],[250,172],[250,228,'fw'],[360,266],[470,266,'waf'],[544,288],[544,318],[709,318],[709,288]] },
+    wa:   { ok: true, rule: true, from: 'w1', to: 't21', lane: -10, laneTo: 6, pts: [[875,288],[875,318],[544,318],[544,288,'waf'],[470,266],[360,266,'fw'],[250,304],[250,434,'ca'],[250,478],[250,496],[78,496],[78,516]] },
+    adb:  { ok: true, rule: true, from: 't21', to: 't41', pts: [[78,516],[78,496],[250,496],[250,478,'ca'],[250,462],[250,478],[250,496],[328,496],[328,516]], part: { after: 'wa', pts: [[250,496],[328,496],[328,516]] } },
+    wdb:  { ok: false, from: 'w2', aim: 't41', at: 'waf', pts: [[1035,288],[1035,308],[576,308],[576,297]] },
+    ops:  { ok: true, from: 'ops', to: 'teams', pts: [[930,557],[915,557],[915,456],[650,456,'cb'],[470,448],[340,448,'ca'],[250,434],[250,304,'fw'],[250,228],[250,172,'rt'],[250,128],[250,88,'cloud'],[274,80],[885,80],[900,80]] },
+    trt:  { ok: false, from: 't21', aim: 'teams', at: 'ca', pts: [[78,516],[78,496],[250,496],[250,488]] },
+    bk:   { ok: true, from: 't70', to: 'store', pts: [[703,516],[703,496],[560,496],[560,478,'cb'],[470,464],[340,464,'ca'],[250,434],[250,304,'fw'],[250,228],[250,172,'rt'],[250,128],[250,88,'cloud'],[274,80],[885,80],[885,33],[900,33]] },
+    wst:  { ok: false, from: 'w2', aim: 'store', at: 'waf', pts: [[1035,288],[1035,308],[576,308],[576,297]] },
+    jump: { ok: true, from: 'jump', to: 'w1', pts: [[930,509],[915,509],[915,456],[650,456,'cb'],[470,448],[340,448,'ca'],[250,434],[250,304,'fw'],[360,266],[470,266,'waf'],[544,288],[544,318],[875,318],[875,288]] },
+    ww:   { ok: false, from: 'w1', aim: 'w2', tag: '보호 포트', lane: -10, pts: [[875,288],[875,318],[955,318]] },
+  };
+  // 옆 차선: 구간마다 진행 방향 오른쪽 법선으로 비키고, 꺾이는 곳은 두 법선을 더한다(장비 안 구간은 계산에서 뺀다)
+  const lanePts = (pts, d, upto = pts.length) => {
+    const N = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+      N.push(a[2] || !L ? null : [-dy / L, dx / L]);
+    }
+    return pts.map((p, i) => {
+      if (i >= upto) return p;   // 방화벽 안에서 제 선으로 돌아온다
+      const n1 = i > 0 ? N[i - 1] : null, n2 = i < N.length ? N[i] : null;
+      let o = [0, 0];
+      if (n1 && n2) o = n1[0] === n2[0] && n1[1] === n2[1] ? n1 : [n1[0] + n2[0], n1[1] + n2[1]];
+      else if (n1 || n2) o = n1 || n2;
+      return [p[0] + o[0] * d, p[1] + o[1] * d, p[2]];
+    });
+  };
+  // 경로 길이를 미리 잰다. 장비 안 구간은 짧아도 잠시 머물도록 최소 길이를 준다
+  for (const k in FLOWS) {
+    const f = FLOWS[k];
+    if (f.lane) f.pts = lanePts(f.pts, f.lane, f.laneTo);
+    f.segs = []; let s = 0;
+    for (let i = 1; i < f.pts.length; i++) {
+      const a = f.pts[i - 1], b = f.pts[i], real = Math.hypot(b[0] - a[0], b[1] - a[1]), dev = a[2] || null;
+      const L = dev ? Math.max(real, 70) : real;
+      f.segs.push({ a, b, L, dev, s }); s += L;
+    }
+    f.total = s;
   }
+  const posAt = (f, d) => {
+    for (let i = 0; i < f.segs.length; i++) {
+      const g = f.segs[i];
+      if (d <= g.s + g.L) { const k = g.L ? (d - g.s) / g.L : 1; return { x: g.a[0] + (g.b[0] - g.a[0]) * k, y: g.a[1] + (g.b[1] - g.a[1]) * k, dev: g.dev, i }; }
+    }
+    const last = f.pts[f.pts.length - 1];
+    return { x: last[0], y: last[1], dev: null, i: f.segs.length };
+  };
+  // 지나가는 장비는 파랗게 잠깐, 도착한 장비는 초록, 막은 장비는 빨강으로 빛난 뒤 테두리만 남긴다
+  const pulse = (id, tone, keep) => {
+    const g = $('n-' + id); if (!g) return;
+    g.classList.remove('hit-pass', 'hit-ok', 'hit-no'); g.getBoundingClientRect(); g.classList.add('hit-' + tone);
+    if (keep) g.classList.add('lit-' + tone);
+    clearTimeout(g._t); g._t = setTimeout(() => g.classList.remove('hit-' + tone), tone === 'pass' ? 450 : 900);
+  };
+  const xmark = (x, y, tag) => {
+    const g = el('g', { class: 'xmark' }, $('marks'));
+    g.style.transformBox = 'view-box'; g.style.transformOrigin = `${x}px ${y}px`;
+    el('circle', { cx: x, cy: y, r: 14 }, g);
+    el('path', { d: `M${x - 5.5} ${y - 5.5} L${x + 5.5} ${y + 5.5} M${x + 5.5} ${y - 5.5} L${x - 5.5} ${y + 5.5}` }, g);
+    if (tag) el('text', { x, y: y + 40, 'text-anchor': 'middle' }, g).textContent = tag;
+  };
 
-  function pick(id) {
-    if (!src || src === id) {
-      clearFx(); stopIdle(); src = id; ring(id, 'src');
-      show('', `<b>${N[id].n}</b> → ?`, '도착지 선택', '');
+  // ---- 재생: 한 번에 한 흐름. 줄·출발 장비·목적지를 먼저 밝히고 0.3초 뒤 출발, 막히면 그 자리에서 0.3초 멈춘 뒤 X ----
+  const SPEED = .65, PRE = 300, HOLD = 300, RULE = 1400;
+  let live = null, timers = [];
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const rowOf = k => document.querySelector(`.row[data-f="${k}"]`);
+  // 단계를 넘기면 앞 단계의 선과 표시는 0.3초에 함께 흐려지며 사라진다
+  function clearAll(fade) {
+    timers.forEach(clearTimeout); timers = []; live = null;
+    if (fade) {
+      const t = el('g', { class: 'fadeout' }); $('net').insertBefore(t, $('nodes'));
+      const move = (from, to) => { while (from.firstChild) { from.firstChild.style.animation = 'none'; to.appendChild(from.firstChild); } };
+      move($('trails'), t);
+      const m = el('g', { class: 'fadeout' }, $('net'));
+      move($('marks'), m); move($('dots'), m);
+      setTimeout(() => { t.remove(); m.remove(); }, 350);
+    } else {
+      $('trails').replaceChildren(); $('marks').replaceChildren(); $('dots').replaceChildren();
+    }
+    $('nat').classList.remove('hit');
+    document.querySelectorAll('.nd').forEach(g => { clearTimeout(g._t); g.classList.remove('hit-pass', 'hit-ok', 'hit-no', 'lit-ok', 'lit-no', 'aim'); });
+    document.querySelectorAll('.row').forEach(r => r.classList.remove('cur'));
+  }
+  function play(key, then) {
+    const f = FLOWS[key], row = rowOf(key), tgt = f.to || f.aim;
+    if (row) row.classList.add('show', 'cur');
+    if (f.from) pulse(f.from, 'pass');
+    const r = { key, f, then, t0: performance.now() + PRE };
+    const tg = tgt && $('n-' + tgt);
+    if (tg) {
+      clearTimeout(tg._t); r.wasLit = tg.classList.contains('lit-ok');
+      tg.classList.remove('hit-pass', 'hit-ok', 'hit-no', 'lit-ok'); tg.classList.add('aim');
+    }
+    if (f.rule) {   // 설정만 확인한 길: 점 없이 길 전체를 한 번에(앞 점선이 이미 그은 구간은 빼고)
+      const pts = f.part && document.querySelector(`#trails [data-k="${f.part.after}"]`) ? f.part.pts : f.pts;
+      later(PRE, () => { r.trail = el('polyline', { class: 'trail rule', 'data-k': key, points: pts.map(q => q[0] + ',' + q[1]).join(' ') }, $('trails')); });
+      later(PRE + RULE, () => finish(r));
       return;
     }
-    const a = src; src = null; go(a, id);
+    r.trail = el('polyline', { class: 'trail mv', points: '' }, $('trails'));
+    r.dot = el('circle', { class: 'dot', r: 9, cx: f.pts[0][0], cy: f.pts[0][1] }, $('dots'));   // 출발점에서 잠깐 머문 뒤 달린다
+    r.seen = new Set();
+    live = r;
   }
-  svgEl.querySelectorAll('.hit').forEach(h => {
-    h.addEventListener('click', () => pick(h.dataset.id));
-    h.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); pick(h.dataset.id); } });
-  });
+  function finish(r) {
+    const f = r.f, row = rowOf(r.key), last = f.pts[f.pts.length - 1], tgt = f.to || f.aim, tg = tgt && $('n-' + tgt);
+    if (tg) tg.classList.remove('aim');
+    if (tg && !f.ok && r.wasLit) later(800, () => tg.classList.add('lit-ok'));
+    if (r.dot) r.dot.remove();
+    if (f.ok) {
+      if (!f.rule) r.trail.setAttribute('class', 'trail ok');
+      pulse(f.to, 'ok', true);
+    } else {
+      xmark(last[0], last[1], f.tag);
+      if (f.at) pulse(f.at, 'no', true);
+      r.trail.setAttribute('class', 'trail gone');
+      $('trails').insertBefore(r.trail, $('trails').firstChild);   // 막힌 길은 다른 길 아래로
+    }
+    if (row) { row.classList.remove('cur'); row.classList.add('on'); }
+    if (r.then) r.then();
+  }
+  function tick(now) {
+    const r = live;
+    if (!r) return;
+    const t = now - r.t0;
+    if (t < 0) return;
+    const d = Math.min(r.f.total, t * SPEED);
+    const p = posAt(r.f, d);
+    const pts = r.f.pts.slice(0, p.i + 1).map(q => q[0] + ',' + q[1]); pts.push(p.x + ',' + p.y);
+    r.trail.setAttribute('points', pts.join(' '));
+    r.dot.setAttribute('cx', p.x); r.dot.setAttribute('cy', p.y); r.dot.setAttribute('opacity', p.dev ? 0 : 1);
+    if (p.dev && !r.seen.has(p.i)) {
+      r.seen.add(p.i);
+      if (NODES[p.dev]) pulse(p.dev, 'pass');
+      if (p.dev === 'rt' && r.key === 'in') { $('nat').classList.add('hit'); later(1000, () => $('nat').classList.remove('hit')); }
+    }
+    if (d >= r.f.total) {
+      live = null;
+      if (r.f.ok) finish(r); else later(HOLD, () => finish(r));
+    }
+  }
+  const loop = now => { tick(now); requestAnimationFrame(loop); };
 
-  // ---------- 발표자 단계 ----------
-  // 덱에서 → 를 누를 때마다 핵심 흐름을 하나씩 재생하고, 목록 밖으로 나가면 false를 돌려 장을 넘긴다.
-  // 저절로 재생하지 않는다. 주소가 #last로 열리면(뒤 장에서 돌아온 경우) 마지막 흐름의 끝 모습을 바로 보인다.
-  const STEPS = [['ext', 'web'], ['ext', 'dbp'], ['web', 'dbp']];
-  let cur = -1;
-  window.deckStep = d => {
-    const n = cur + d;
-    if (n < 0 || n >= STEPS.length) return false;
-    cur = n; src = null; go(...STEPS[n]);
-    return true;
+  // ---- 단계: 0 도면만, 1 들어오는 길, 2 나가는 길, 3 관리와 옆 이동. 앞 단계의 결과 줄은 남긴다.
+  //      pre 는 → 뒤 첫 흐름까지, 흐름 옆 숫자는 판정 뒤 다음 흐름까지 쉬는 시간(대사 박자) ----
+  const STEPS = {
+    1: { pre: 0, seq: [['in', 3500], ['wa', 1200], ['adb', 2500], ['wdb', 0]] },
+    2: { pre: 2000, seq: [['ops', 400], ['trt', 600], ['bk', 400], ['wst', 0]] },
+    3: { pre: 0, seq: [['jump', 2500], ['ww', 0]] },
   };
-  // 빠른 버튼은 마우스로도 누를 수 있다. 단계 목록에 있는 흐름이면 → 의 위치도 거기에 맞춘다.
-  document.querySelectorAll('#quick button').forEach(q => q.addEventListener('click', () => {
-    src = null;
-    const k = STEPS.findIndex(([a, b]) => a === q.dataset.a && b === q.dataset.b);
-    if (k >= 0) cur = k;
-    go(q.dataset.a, q.dataset.b);
+  const LAST = 3;
+  let step = 0;
+  function run(n) {
+    const S = STEPS[n];
+    const go = i => {
+      if (i >= S.seq.length) { if (n === LAST) stage.classList.add('done'); return; }
+      const [k, gap] = S.seq[i];
+      play(k, () => later(gap, () => go(i + 1)));
+    };
+    later(S.pre, () => go(0));
+  }
+  function setStep(n, instant) {
+    step = n; stage.dataset.step = n;
+    clearAll(!instant);
+    stage.classList.toggle('done', !!instant && n === LAST);
+    document.querySelectorAll('.grp').forEach(g => g.classList.toggle('on', +g.dataset.s <= n));
+    document.querySelectorAll('.row').forEach(row => {
+      const s = +row.closest('.grp').dataset.s;
+      const shown = s < n || (!!instant && s <= n);
+      row.classList.toggle('show', shown); row.classList.toggle('on', shown);
+    });
+    if (n > 0 && !instant) run(n);
+  }
+  // 결과 줄을 누르면 그 흐름만 다시 보인다(질문 대응)
+  document.querySelectorAll('.row').forEach(row => row.addEventListener('click', e => {
+    e.stopPropagation(); clearAll(false); play(row.dataset.f);
   }));
-  if (location.hash === '#last') { cur = STEPS.length - 1; go(...STEPS[cur], true); }
+
+  if (reduce) {
+    document.querySelectorAll('.grp').forEach(x => x.classList.add('on'));
+    document.querySelectorAll('.row').forEach(x => x.classList.add('show', 'on'));
+    stage.dataset.step = LAST; stage.classList.add('done');
+    window.deckStep = () => false;
+    return;
+  }
+  requestAnimationFrame(loop);
+  setStep(location.hash === '#last' ? LAST : 0, location.hash === '#last');
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (d > 0 && step < LAST) { setStep(step + 1); return true; }
+    if (d < 0 && step > 0) { setStep(step - 1); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
 })();
 </script>
