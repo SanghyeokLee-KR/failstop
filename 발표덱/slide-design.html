@@ -56,14 +56,14 @@
      제목과 아래 줄이 답으로 바뀐다. 단계: 0 첫 칸만 움직이고 둘째는 흐리게, 1 둘째 칸이 움직이고 첫 칸은 답에 머묾, 2 두 칸이 빠지고 계획한 아키텍처 전체 */
   .qs { position: absolute; left: 130px; right: 130px; top: 336px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; transition: opacity .45s, transform .6s cubic-bezier(.2,.7,.2,1); }
   /* 단계 2: 두 칸의 글이 빠지고, 두 그림이 움직여 한 장의 아키텍처로 합쳐진다(그림 이동량은 스크립트가 배치에서 잰다) */
-  .stage[data-step="2"] .qs { pointer-events: none; }
+  .stage.merged .qs { pointer-events: none; }
   .q .no, .q .hh, .q .cc { transition: opacity .35s; }
-  .stage[data-step="2"] .q .no, .stage[data-step="2"] .q .hh, .stage[data-step="2"] .q .cc { opacity: 0; }
-  .stage[data-step="2"] .qs .q:nth-child(n) { border-top-color: transparent; }
+  .stage.merged .q .no, .stage.merged .q .hh, .stage.merged .q .cc { opacity: 0; }
+  .stage.merged .qs .q:nth-child(n) { border-top-color: transparent; }
   .sw { margin-top: 18px; transition: transform .9s cubic-bezier(.65,0,.35,1); }
-  .stage[data-step="2"] .sw { transform: translate(var(--mx, 0px), var(--my, 0px)); transition-delay: .35s; }
+  .stage.merged .sw { transform: translate(var(--mx, 0px), var(--my, 0px)); transition-delay: .35s; }
   .scene .drop { transition: opacity .3s; }
-  .stage[data-step="2"] .scene .drop { opacity: 0 !important; }
+  .stage.merged .scene .drop { opacity: 0 !important; }
   .q { border-top: 2px solid var(--card); padding-top: 26px; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; transition: filter .6s, border-color .6s; }
   .q:nth-child(1) { animation-delay: .35s; }
   .q:nth-child(2) { animation-delay: .55s; }
@@ -153,15 +153,17 @@
   .arch .wire.ask { stroke: var(--ai); stroke-dasharray: 8 7; opacity: .8; }
   .arch .okt { font-size: 22px; font-weight: 600; fill: var(--ok); }
   .arch .link { stroke-dasharray: 1 1; stroke-dashoffset: 1; transition: stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1); }
-  .stage[data-step="2"] .arch .link { stroke-dashoffset: 0; transition-delay: 1.3s; }
+  .stage.merged .arch .link { stroke-dashoffset: 0; transition-delay: 1.3s; }
   .arch .grp { opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .6s cubic-bezier(.2,.7,.2,1); }
-  .stage[data-step="2"] .arch .grp { opacity: 1; transform: none; }
-  .stage[data-step="2"] .arch .g0 { transition-delay: .35s; }
-  .stage[data-step="2"] .arch .g1 { transition-delay: 1.3s; }
-  .stage[data-step="2"] .arch .g2 { transition-delay: 1.5s; }
-  .stage[data-step="2"] .arch .g3 { transition-delay: 1.8s; }
-  .stage[data-step="2"] .arch .g4 { transition-delay: 2.1s; }
-  .stage[data-step="2"] .arch .g5 { transition-delay: 2.4s; }
+  .stage.merged .arch .grp:not(.g3):not(.g4) { opacity: 1; transform: none; }
+  /* 관제 서버(g3)와 Teams·AI 서버(g4)는 → 한 번 더(단계 3)에 들어오고, 이어서 관제 장면이 나온다 */
+  .stage[data-step="3"] .arch .g3, .stage[data-step="3"] .arch .g4 { opacity: 1; transform: none; }
+  .stage[data-step="3"] .arch .g3 { transition-delay: .2s; }
+  .stage[data-step="3"] .arch .g4 { transition-delay: .6s; }
+  .stage.merged .arch .g0 { transition-delay: .35s; }
+  .stage.merged .arch .g1 { transition-delay: 1.3s; }
+  .stage.merged .arch .g2 { transition-delay: 1.5s; }
+  .stage.merged .arch .g5 { transition-delay: 2.4s; }
   .arch .g0 { transform: none; }
   /* 두 칸의 윗선이 사라지며 한 줄로 이어지고, 앞 칸 이름표(01 트래픽 급증)와 같은 모양으로 '01 + 02 계획한 아키텍처'를 단다 */
   .arch .topline { fill: none; stroke: var(--ink-3); stroke-width: 2; }
@@ -187,7 +189,7 @@
   .arch .ping { fill: none; stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
   .arch .ping.go { animation: ping 1s cubic-bezier(.2,.7,.2,1); }
   #a3-dots { opacity: 0; transition: opacity .6s; }
-  .stage[data-step="2"] #a3-dots { opacity: 1; transition-delay: 2.4s; }
+  .stage.merged #a3-dots { opacity: 1; transition-delay: 2.4s; }
   /* DB 이름은 합칠 때 흐려졌다가 평상 이름으로 바뀐다 */
   #a2-pt, #a2-qt { transition: fill .35s, opacity .3s; }
   .foot {
@@ -197,7 +199,7 @@
     font-size: 25px; color: var(--ink);
     opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1);
   }
-  .stage[data-step="2"] .foot { opacity: 1; transform: none; transition-delay: 8.7s; }   /* 관제 장면(Teams 보고 8.2초)이 끝난 뒤 */
+  .stage[data-step="3"] .foot { opacity: 1; transform: none; transition-delay: 6.7s; }   /* 관제 장면(Teams 보고 6.2초)이 끝난 뒤 */
   .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
   .foot b { font-weight: 600; color: var(--warm); }
 
@@ -404,13 +406,13 @@
     <g class="grp g4">
       <path class="wire" d="M1100 685 H1170 V445 H1240"/>
       <text class="sb" x="1182" y="566">보고</text>
-      <rect class="box" id="t-box" x="1240" y="415" width="380" height="60" rx="10"/>
+      <rect class="box" id="t-box" x="1240" y="415" width="260" height="60" rx="10"/>
       <image href="assets/tint/ui-message-glow.svg" x="1260" y="429" width="32" height="32"/>
       <text class="lb" x="1304" y="452">Teams</text>
-      <rect class="zone" x="1215" y="615" width="430" height="195" rx="18"/>
+      <rect class="zone" x="1215" y="615" width="400" height="195" rx="18"/>
       <text class="sb" x="1239" y="649">온프레미스 · 직접 둔 서버</text>
       <path class="wire ask" d="M1100 712 H1240"/>
-      <rect class="box ai" id="i-box" x="1240" y="672" width="380" height="68" rx="10"/>
+      <rect class="box ai" id="i-box" x="1240" y="672" width="260" height="68" rx="10"/>
       <image href="assets/tint/ollama-ai.svg" x="1260" y="688" width="36" height="36"/>
       <text class="lb" x="1306" y="714" style="fill:var(--ai)">AI 서버</text>
     </g>
@@ -419,8 +421,8 @@
       <text class="sb" x="394" y="394">AWS 서울 · 데이터센터 두 곳</text>
     </g>
     <rect class="ping" id="m-ping" x="910" y="665" width="190" height="60" rx="10" style="stroke:var(--warm)"/>
-    <rect class="ping" id="i-ping" x="1240" y="672" width="380" height="68" rx="10" style="stroke:var(--ai)"/>
-    <rect class="ping" id="t-ping" x="1240" y="415" width="380" height="60" rx="10" style="stroke:var(--ok)"/>
+    <rect class="ping" id="i-ping" x="1240" y="672" width="260" height="68" rx="10" style="stroke:var(--ai)"/>
+    <rect class="ping" id="t-ping" x="1240" y="415" width="260" height="60" rx="10" style="stroke:var(--ok)"/>
     <g id="e1" style="opacity:0">
       <rect class="chipbox" id="e1-r" x="850" y="737" width="310" height="34" rx="17" style="stroke:var(--warm)"/>
       <text class="chip" id="e1-t" x="866" y="761"><tspan class="t-warm">경보</tspan><tspan class="t-2" dx="10">인증서 만료 14일 미만</tspan></text>
@@ -445,7 +447,7 @@
   </dialog>
 </div>
 
-<!-- 발표 노트(1분): 장이 열리면 앞 장 첫 장면의 그 순간(몰린 요청에 두 거래 서버가 빨갛고 응답 지연)에서 시작한다. CPU 막대에 증설 임계 60% 눈금이 생기고, AI 칩이 '위험 · CPU 60% 넘음'을 알리고, 칩 글이 'AI 판단 조회 요청 급증', 'AI 근거 주문·DB는 정상'으로 차례로 바뀐다(60% 경보는 규칙으로도 되지만, 늘려서 풀리는 원인인지 가리는 것이 AI의 몫이라는 연구소장 지적 반영). '승인 · 조회 서버 1대 추가'로 바뀌면 두 서버가 위로 비켜서며 그 칩이 조회 서버 상자가 되어 기동한다. 선이 이어져 요청을 셋이 나눠 받고 사용량이 임계 아래로 내려오면(응답 정상) 제목과 아래 줄이 앞 장의 질문에서 답으로 바뀐다(약 7초). → 로 둘째 칸: 앞 장의 DB 장면(주 DB 한 대)에서 예비 DB가 주 DB에서 갈라져 나와 복제선이 이어지고, 주문마다 같은 기록이 예비 DB로 간다. 주 DB가 멈추면 주문이 거래 서버 앞에서 기다리고, 자동 승격, 옛 DB 재합류 뒤 기다리던 주문이 이어지며 제목이 답으로 바뀐다(약 8초). 한 번 더 → 로 두 칸의 글이 빠지고(합친 뒤 관제 서버 경보 → AI 서버 분석 → Teams 보고 장면이 한 번 나온다), 첫 칸 그림(사용자·로드밸런서·서버 셋)과 둘째 칸의 두 DB가 움직여 한 장으로 합쳐진다. 서버에서 주 DB로 선이 이어지고, 관제 서버(서버·DB의 지표), Teams, 온프레미스 AI 서버, AWS 경계가 차례로 붙은 뒤 아래 줄이 뜬다. 세 번째 → 에 다음 장. ← 로 한 단계씩 되돌리면 그 칸의 과정이 처음부터 다시 나온다. 말할 거리: (첫 칸) "앞 장의 그 순간입니다. CPU가 임계치 60%를 넘자 AI가 위험을 알리고, 주문과 DB는 정상이니 조회 요청이 몰린 것이 원인이라고 짚어 조회 서버 1대 추가를 제안합니다. 승인하면 조회 서버가 켜지고, 셋이 나눠 받아 응답이 정상으로 돌아옵니다. 주문은 DB 기록이 병목이라, 늘리는 건 조회 서버뿐입니다." → (둘째 칸) "DB는 예비 DB를 하나 더 두고, 주문을 두 DB에 모두 기록한 뒤에만 확인합니다. 주 DB가 멈추면 예비 DB가 스스로 이어받고, 옛 DB가 다시 붙으면 기다리던 주문이 이어집니다. 확인받은 주문은 잃지 않습니다." → (전체) "두 답을 합치면 이것이 계획한 아키텍처입니다. 예를 들어 관제 서버가 인증서 만료 14일 미만을 잡으면, 온프레미스 AI가 원인을 분석하고 그 결과가 Teams로 보고됩니다. NAT 게이트웨이 없이 역할별 최소 서버만 두고, 관제는 온프레미스 AI가 원인과 조치를 제안하고 제가 승인합니다." 사실 확인: 증설 임계 60%는 관리자 설계의 기본값(read.scale_out_cpu, 앱 계층 평균 CPU, 확정값 아님)이고 시연 영상은 50%로 맞춰 찍었다. AWS 값은 실제 시험으로 정한다(ADR 0030). AI는 기본인 수동 모드에서 조치안까지만 내고 실행은 운영자 승인이다(ADR 0035). 자동 모드에서는 허용 목록 안의 '조회 서버 켜기'를 한도 안에서 AI가 실행한다. AWS에서 조회 서버 증설의 기본 제어는 ASG 지표 정책이다. 막대 길이는 그림용 값이다. 조회 서버(app-3)는 Auto Scaling 그룹 0~1대(앱 계층 2~3대, ADR 0030 정정)이고 AWS에는 아직 만들지 못했다(학교 콘솔에서 ASG 조회와 시작 템플릿 생성 거부). 두 거래 서버가 12개 마켓을 6개씩 맡는 리더 구조는 ADR 0034(로컬 검증, 한 대가 멈추면 남은 서버가 넘겨받음). DB 자동 전환은 Patroni 엄격 동기(ADR 0036, 주 DB·예비 DB·관제 서버 세 표)이고 로컬 Docker에서 검증했으며 AWS에는 아직 적용하지 않았다. 그림은 순서만 보인다. 실험(06-2)에서 예비 DB 승격은 22.75초, 주문 재개는 옛 DB가 예비로 다시 붙은 66초였다. 옛 DB가 돌아오지 못하면 엄격 동기는 주문을 계속 멈춘다(유실 대신 중단을 고른 설계). 두 DB는 서로 다른 가용 영역(AZ-a, AZ-c)에 둔다. NAT 게이트웨이는 두 대·30일 기준 약 $92(ADR 0030). 온프레미스 AI 서버 장비는 RTX PRO 6000 Blackwell로 바뀌었고, 판단 평가 수치(04-6)는 개발 PC RTX 4090에서 쟀다. 학교 AWS 보고의 요약은 Gemini였다. 관제 장면의 '인증서 만료 14일 미만'은 관제 서버(bot-1) 워치독의 실제 판정 규칙(deploy/linux/watchdog, public_site)이다. 그 경보를 AI가 분석해 Teams로 보고하는 흐름은 그림용 예시이고, 관제센터 2단계 설계는 인증서 만료 원천을 아직 연결 전으로 적었다. '자동 갱신 실패'도 예시 판단이다. E 키 도구의 '최종 구성도'는 교수님 보고본 01_전체구성 v7이다. 호스트명: 거래 서버 1·2 = app-1·app-2, 조회 서버 = app-3, 주·예비 DB = db-1·db-2, 관제 서버 = bot-1, AI 서버 = ai-1. -->
+<!-- 발표 노트(1분): 장이 열리면 앞 장 첫 장면의 그 순간(몰린 요청에 두 거래 서버가 빨갛고 응답 지연)에서 시작한다. CPU 막대에 증설 임계 60% 눈금이 생기고, AI 칩이 '위험 · CPU 60% 넘음'을 알리고, 칩 글이 'AI 판단 조회 요청 급증', 'AI 근거 주문·DB는 정상'으로 차례로 바뀐다(60% 경보는 규칙으로도 되지만, 늘려서 풀리는 원인인지 가리는 것이 AI의 몫이라는 연구소장 지적 반영). '승인 · 조회 서버 1대 추가'로 바뀌면 두 서버가 위로 비켜서며 그 칩이 조회 서버 상자가 되어 기동한다. 선이 이어져 요청을 셋이 나눠 받고 사용량이 임계 아래로 내려오면(응답 정상) 제목과 아래 줄이 앞 장의 질문에서 답으로 바뀐다(약 7초). → 로 둘째 칸: 앞 장의 DB 장면(주 DB 한 대)에서 예비 DB가 주 DB에서 갈라져 나와 복제선이 이어지고, 주문마다 같은 기록이 예비 DB로 간다. 주 DB가 멈추면 주문이 거래 서버 앞에서 기다리고, 자동 승격, 옛 DB 재합류 뒤 기다리던 주문이 이어지며 제목이 답으로 바뀐다(약 8초). 한 번 더 → 로 두 칸의 글이 빠지고, 첫 칸 그림(사용자·로드밸런서·서버 셋)과 둘째 칸의 두 DB가 움직여 한 장으로 합쳐진다. 서버에서 주 DB로 선이 이어지고, 관제 서버(서버·DB의 지표), Teams, 온프레미스 AI 서버, AWS 경계가 차례로 붙은 뒤 아래 줄이 뜬다. 세 번째 → 에 관제 서버·Teams·AI 서버가 들어오고, 관제 서버 경보(인증서 만료 14일 미만) → AI 서버 분석 → 관제 서버를 거쳐 Teams 보고가 한 번 나온 뒤 아래 줄이 뜬다. 네 번째 → 에 다음 장. ← 로 한 단계씩 되돌리면 그 칸의 과정이 처음부터 다시 나온다. 말할 거리: (첫 칸) "앞 장의 그 순간입니다. CPU가 임계치 60%를 넘자 AI가 위험을 알리고, 주문과 DB는 정상이니 조회 요청이 몰린 것이 원인이라고 짚어 조회 서버 1대 추가를 제안합니다. 승인하면 조회 서버가 켜지고, 셋이 나눠 받아 응답이 정상으로 돌아옵니다. 주문은 DB 기록이 병목이라, 늘리는 건 조회 서버뿐입니다." → (둘째 칸) "DB는 예비 DB를 하나 더 두고, 주문을 두 DB에 모두 기록한 뒤에만 확인합니다. 주 DB가 멈추면 예비 DB가 스스로 이어받고, 옛 DB가 다시 붙으면 기다리던 주문이 이어집니다. 확인받은 주문은 잃지 않습니다." → (합친 그림) "두 답을 합치면 이것이 계획한 아키텍처입니다. NAT 게이트웨이 없이 역할별 최소 서버만 두었습니다." → (관제 장면) "혼자 운영하기 위해 관제 서버, Teams, 온프레미스 AI 서버를 붙였습니다. 예를 들어 관제 서버가 인증서 만료 14일 미만을 잡으면, AI가 원인을 분석하고 그 결과가 Teams로 보고됩니다. 조치는 AI가 제안하고 제가 승인합니다." 사실 확인: 증설 임계 60%는 관리자 설계의 기본값(read.scale_out_cpu, 앱 계층 평균 CPU, 확정값 아님)이고 시연 영상은 50%로 맞춰 찍었다. AWS 값은 실제 시험으로 정한다(ADR 0030). AI는 기본인 수동 모드에서 조치안까지만 내고 실행은 운영자 승인이다(ADR 0035). 자동 모드에서는 허용 목록 안의 '조회 서버 켜기'를 한도 안에서 AI가 실행한다. AWS에서 조회 서버 증설의 기본 제어는 ASG 지표 정책이다. 막대 길이는 그림용 값이다. 조회 서버(app-3)는 Auto Scaling 그룹 0~1대(앱 계층 2~3대, ADR 0030 정정)이고 AWS에는 아직 만들지 못했다(학교 콘솔에서 ASG 조회와 시작 템플릿 생성 거부). 두 거래 서버가 12개 마켓을 6개씩 맡는 리더 구조는 ADR 0034(로컬 검증, 한 대가 멈추면 남은 서버가 넘겨받음). DB 자동 전환은 Patroni 엄격 동기(ADR 0036, 주 DB·예비 DB·관제 서버 세 표)이고 로컬 Docker에서 검증했으며 AWS에는 아직 적용하지 않았다. 그림은 순서만 보인다. 실험(06-2)에서 예비 DB 승격은 22.75초, 주문 재개는 옛 DB가 예비로 다시 붙은 66초였다. 옛 DB가 돌아오지 못하면 엄격 동기는 주문을 계속 멈춘다(유실 대신 중단을 고른 설계). 두 DB는 서로 다른 가용 영역(AZ-a, AZ-c)에 둔다. NAT 게이트웨이는 두 대·30일 기준 약 $92(ADR 0030). 온프레미스 AI 서버 장비는 RTX PRO 6000 Blackwell로 바뀌었고, 판단 평가 수치(04-6)는 개발 PC RTX 4090에서 쟀다. 학교 AWS 보고의 요약은 Gemini였다. 관제 장면의 '인증서 만료 14일 미만'은 관제 서버(bot-1) 워치독의 실제 판정 규칙(deploy/linux/watchdog, public_site)이다. 그 경보를 AI가 분석해 Teams로 보고하는 흐름은 그림용 예시이고, 관제센터 2단계 설계는 인증서 만료 원천을 아직 연결 전으로 적었다. '자동 갱신 실패'도 예시 판단이다. E 키 도구의 '최종 구성도'는 교수님 보고본 01_전체구성 v7이다. 호스트명: 거래 서버 1·2 = app-1·app-2, 조회 서버 = app-3, 주·예비 DB = db-1·db-2, 관제 서버 = bot-1, AI 서버 = ai-1. -->
 
 <script>
 (() => {
@@ -753,7 +755,7 @@
   // 칸의 배치 위치(offset)에 칸 안에서 그림이 떨어진 거리(화면 좌표 차이)를 더해 잰다. 칸이 떠오르는 도중이어도 차이는 같다.
   // 그림이 이미 옮겨 간 뒤(단계 2)에는 다시 재지 않는다
   function mergeVars() {
-    if (stage.dataset.step === '2') return;
+    if (stage.classList.contains('merged')) return;
     const qs = document.querySelector('.qs'), s = stage.getBoundingClientRect().width / 1920;
     for (const id in MERGE) {
       const w = $(id), q = w.closest('.q'), [X, Y] = MERGE[id];
@@ -780,10 +782,12 @@
   // 좌표는 합친 그림 묶음(50 내리기 전) 기준이다
   const a3 = { layer: $('a3-dots'), parts: [], last: 0, n: 0 };
   const SRC3 = [[214, 460], [214, 535], [214, 610]], SY = [445, 535, 625];
-  function clear3() { a3.parts.forEach(p => p.el.remove()); a3.parts = []; a3.t0 = 0; a3.fired = {}; ev3(-1); }
-  // 관제 한 장면(조립이 끝난 뒤 한 번): 3.4초 관제 서버 경보, 4.3~4.9초 경보가 AI 서버로, 5.0초 분석, 5.7초 AI 판단,
-  // 6.8~7.3초 판단이 관제 서버로 돌아와 7.3~8.2초 보고선을 따라 Teams로, 8.2초 Teams 보고. 그 뒤로는 머문다
-  const E3 = { ALERT: 3.4, TO_AI: 4.3, THINK: 5.0, JUDGE: 5.7, BACK: 6.8, OUT: 7.3, TEAMS: 8.2 };
+  function clear3() { a3.parts.forEach(p => p.el.remove()); a3.parts = []; ops3(); }
+  function ops3() { a3.e0 = 0; a3.fired = {}; ev3(-1); }   // 관제 장면을 처음 상태로
+  // 관제 한 장면(단계 3, → 를 누른 때부터 한 번): 0.2~1.1초 관제 서버·Teams·AI 서버가 들어오고, 1.4초 관제 서버 경보,
+  // 2.3~2.9초 경보가 AI 서버로, 3.0초 분석, 3.7초 AI 판단, 4.8~5.3초 판단이 관제 서버로 돌아와 5.3~6.2초 보고선을 따라 Teams로,
+  // 6.2초 Teams 보고, 6.7초 아래 줄. 그 뒤로는 머문다
+  const E3 = { ALERT: 1.4, TO_AI: 2.3, THINK: 3.0, JUDGE: 3.7, BACK: 4.8, OUT: 5.3, TEAMS: 6.2 };
   const PK1 = [[1100, 712], [1240, 712]], PK3 = [[1100, 685], [1170, 685], [1170, 445], [1240, 445]];
   const fadeIn = (t, at) => ease(clamp((t - at) / .3));
   function ev3(t) {
@@ -815,8 +819,10 @@
   fitEv();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitEv);
   function step3(now) {
-    if (!a3.t0) { a3.t0 = now; a3.fired = {}; }
-    ev3((now - a3.t0) / 1000);
+    if (step === 3) {   // 합친 그림(단계 2)에서는 요청만 흐르고, 단계 3에서 관제 장면이 나온다
+      if (!a3.e0) { a3.e0 = now; a3.fired = {}; }
+      ev3((now - a3.e0) / 1000);
+    }
     if (now - a3.last > 70) {
       a3.last = now; a3.n++;
       const k = a3.n % 3, src = SRC3[(a3.n * 2) % 3];
@@ -850,17 +856,19 @@
   }
 
   // 단계: 0 첫 칸, 1 둘째 칸, 2 계획한 아키텍처. → 는 다음 단계, 마지막 단계면 다음 장. ← 는 한 단계 뒤로
-  const LAST = 2;
+  const LAST = 3;
   let step = 0, pending2 = false;
   function setStep(n) {
-    if (n === 2) mergeVars();   // 단계 2로 바뀌기 전, 그림이 제자리에 있을 때 잰다
-    step = n; stage.dataset.step = n;
+    const was = step;
+    if (n >= 2) mergeVars();   // 합치기 전, 그림이 제자리에 있을 때 잰다(이미 합쳤으면 건너뜀)
+    step = n; stage.dataset.step = n; stage.classList.toggle('merged', n >= 2);
     if (n >= 1) freeze1();
     else { a1.frozen = false; a1.t0 = 0; }   // 첫 칸을 처음부터(다음 프레임에 다시 시작)
     if (n === 0) reset2(performance.now());
     else if (n === 1 && !a2.on) pending2 = true;   // 둘째 칸은 넘어온 순간부터 재생
     a2.on = n === 1;                               // 아키텍처 단계에서는 둘째 칸 재생을 멈추고 평상 상태로 둔다
-    if (n === 2) calm2(true); else clear3();
+    if (n >= 2 && (was < 2 || !stage.dataset.init)) calm2(true);   // 합칠 때(처음 열 때 포함) DB를 평상 상태로
+    if (n < 2) clear3(); else if (n === 2) ops3();                                // 단계 3에서 2로 오면 관제 장면만 지운다
   }
 
   if (reduce) {
@@ -868,7 +876,7 @@
     freeze1(); step1(0);
     reset2(0); lay2(1); sync2(1); state2(4); $('a2-act').style.strokeDashoffset = 0;
     mergeVars(); calm2(); $('q2').classList.add('solved'); ev3(99);
-    stage.dataset.step = LAST;
+    stage.dataset.step = LAST; stage.classList.add('merged');
     window.deckStep = () => false;
     return;
   }
@@ -877,12 +885,13 @@
     if (pending2) { pending2 = false; reset2(now); }
     step1(now);
     if (a2.on) step2(now);
-    if (step === 2) step3(now);
+    if (step >= 2) step3(now);
     requestAnimationFrame(loop);
   };
   reset2(performance.now());
   // 뒤 장에서 돌아오면(#last) 마지막 단계로 연다
   setStep(location.hash === '#last' ? LAST : 0);
+  stage.dataset.init = 1;
   requestAnimationFrame(loop);
   window.deckStep = d => {
     if (fig.open) { closeFig(); return true; }
