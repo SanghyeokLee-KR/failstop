@@ -89,7 +89,9 @@
   .scene .wire.off { opacity: .25; }
   .scene .draw { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
   .scene .sync { fill: none; stroke: var(--side); stroke-width: 1.6; }
-  .scene .dot { fill: var(--glow); }
+  .scene .dot { fill: var(--glow); transition: fill .3s; }
+  /* AI가 '조회 요청 급증'이라 판단하는 동안 요청 점을 밝고 크게 보여 판단의 근거가 그림에서도 보이게 한다 */
+  #a1.hi .dot { fill: #EEF4FF; r: 6.5px; }
   .scene .dot.stuck { fill: var(--warm); }
   .scene .dot.rep { fill: var(--side); }
   .scene .gbg { fill: #222A38; }
@@ -374,22 +376,22 @@
       <text class="okt" x="1002" y="312">자동 승격</text>
     </g>
     <g class="grp g3">
-      <path class="wire obs" d="M820 422 V518 H880"/>
+      <path class="wire obs" d="M820 422 V518 H880 M980 460 V480"/>
       <text class="sb" x="832" y="500">지표</text>
       <rect class="box" x="880" y="480" width="200" height="76" rx="12"/>
       <image href="assets/tint/ui-activity-glow.svg" x="898" y="501" width="34" height="34"/>
       <text class="nm2" x="944" y="526">관제 서버</text>
-      <path class="wire" d="M1080 496 H1150 V158 H1210"/>
-      <text class="sb" x="1162" y="244">보고</text>
-      <rect class="box" x="1210" y="120" width="360" height="76" rx="12"/>
-      <image href="assets/tint/ui-message-glow.svg" x="1230" y="141" width="34" height="34"/>
-      <text class="nm" x="1276" y="154">Teams</text><text class="sb" x="1276" y="184">경보 · 일일 보고</text>
-      <rect class="zone" x="1190" y="400" width="400" height="180" rx="18"/>
-      <text class="sb" x="1214" y="438">온프레미스 · 직접 둔 서버</text>
-      <path class="wire ask" d="M1080 540 H1210"/>
-      <rect class="box ai" x="1210" y="468" width="360" height="92" rx="12"/>
-      <image href="assets/tint/ollama-ai.svg" x="1230" y="494" width="38" height="38"/>
-      <text class="nm" x="1282" y="506" style="fill:var(--ai)">AI 서버</text><text class="sb" x="1282" y="538">원인과 조치를 제안</text>
+      <path class="wire" d="M1080 496 H1160 V158 H1240"/>
+      <text class="sb" x="1172" y="244">보고</text>
+      <rect class="box" x="1240" y="120" width="400" height="76" rx="12"/>
+      <image href="assets/tint/ui-message-glow.svg" x="1262" y="141" width="34" height="34"/>
+      <text class="nm" x="1310" y="154">Teams</text><text class="sb" x="1310" y="184">경보 · 일일 보고</text>
+      <rect class="zone" x="1220" y="400" width="440" height="180" rx="18"/>
+      <text class="sb" x="1244" y="438">온프레미스 · 직접 둔 서버</text>
+      <path class="wire ask" d="M1080 540 H1240"/>
+      <rect class="box ai" x="1240" y="468" width="400" height="92" rx="12"/>
+      <image href="assets/tint/ollama-ai.svg" x="1262" y="494" width="38" height="38"/>
+      <text class="nm" x="1316" y="506" style="fill:var(--ai)">AI 서버</text><text class="sb" x="1316" y="538">원인과 조치를 제안</text>
     </g>
   </svg>
 
@@ -451,11 +453,11 @@
   const dot = (layer, c = 'dot', r = 5) => { const el = document.createElementNS(NS, 'circle'); el.setAttribute('r', r); el.setAttribute('class', c); layer.appendChild(el); return el; };
 
   // ---- 첫 칸(한 번 재생 후 머묾) ----
-  // 앞 장 첫 장면의 막힌 순간(두 서버 빨강·응답 지연)에서 시작한다. 1.1초에 증설 임계 60% 눈금이 생기고, 1.8초에 AI 칩이 경보를 알린다.
-  // 2.8초에 AI 판단(조회 요청 급증), 3.8초에 AI 근거(주문·DB는 정상)로 칩 글이 차례로 바뀐다. 경보는 규칙으로도 되지만, 늘려서 풀리는
-  // 원인인지 가리는 것은 AI의 몫이다. 4.8초에 승인, 5.4초부터 두 서버가 위로 비켜서며 칩이 조회 서버 상자로 줄어든다. 기동(1초) 뒤 선이
-  // 이어지면 요청을 셋이 나눠 받아 흐름이 느긋해지고, 사용량이 임계 아래로 내려와 응답 정상이 되면 9.1초에 제목과 아래 줄이 답으로 바뀐다
-  const T1 = { TH: 1.1, AI: 1.8, WHY: 2.8, WHY2: 3.8, OK: 4.8, MOVE: 5.4, MOVE_D: .8, BOOT_D: 1.0, WIRE_D: .35, SOLVE: 9.1 };
+  // 앞 장 첫 장면의 막힌 순간(두 서버 빨강·응답 지연)에서 시작한다. 0.8초에 증설 임계 60% 눈금, 1.3초에 AI 칩이 경보를 알린다.
+  // 2.5초에 AI 판단(조회 요청 급증, 이때 요청 점이 밝아진다), 3.8초에 AI 근거(주문·DB는 정상)로 칩 글이 한 줄씩 바뀐다. 경보는 규칙으로도
+  // 되지만, 늘려서 풀리는 원인인지 가리는 것은 AI의 몫이다. 5.1초에 승인, 5.7초부터 두 서버가 위로 비켜서며 칩이 조회 서버 상자로
+  // 줄어든다. 기동 뒤 선이 이어지면 셋이 나눠 받아 로드밸런서 뒤 흐름이 느긋해지고, 응답 정상이 되면 8.7초에 제목과 아래 줄이 답으로 바뀐다
+  const T1 = { TH: .8, AI: 1.3, WHY: 2.5, WHY2: 3.8, OK: 5.1, MOVE: 5.7, MOVE_D: .8, BOOT_D: .8, WIRE_D: .35, SOLVE: 8.7 };
   T1.BOOT = T1.MOVE + T1.MOVE_D; T1.READY = T1.BOOT + T1.BOOT_D; T1.SPLIT = T1.READY + T1.WIRE_D;
   const BOX_A = [[45, 60], [165, 60]], BOX_B = [[20, 50], [110, 50]];   // 앞 장 배치 → 세 대 배치(위쪽 y, 높이)
   const BAR_A = [66, 186], BAR_B = [39, 129];
@@ -503,11 +505,11 @@
     $('a1-ca').style.opacity = t < T1.WHY ? a : 1 - clamp((t - T1.WHY) / .15);
     $('a1-cj').style.opacity = clamp((t - T1.WHY - .15) / .2) * (1 - clamp((t - T1.WHY2) / .15));
     $('a1-ck').style.opacity = clamp((t - T1.WHY2 - .15) / .2) * (1 - clamp((t - T1.OK) / .15));
-    $('a1-cb').style.opacity = clamp((t - T1.OK - .15) / .2) * (1 - clamp((t - T1.MOVE) / (T1.MOVE_D * .25)));
+    $('a1-cb').style.opacity = clamp((t - T1.OK - .15) / .2) * (1 - clamp((t - T1.MOVE) / (T1.MOVE_D * .1)));
     for (const id of ['a1-ca', 'a1-cj', 'a1-ck', 'a1-cb']) $(id).setAttribute('transform', tr);
-    $('a1-bc').style.opacity = clamp((t - T1.MOVE - T1.MOVE_D * .3) / (T1.MOVE_D * .45));
+    $('a1-bc').style.opacity = clamp((t - T1.MOVE - T1.MOVE_D * .12) / (T1.MOVE_D * .25));   // 승인 글이 빠지자마자 서버 글이 들어온다
     $('a1-bc').setAttribute('transform', `translate(${x - SLOT.x} ${y - SLOT.y})`);   // 줄어드는 상자와 함께 움직인다
-    const half = T1.MOVE + T1.MOVE_D * .3;
+    const half = T1.MOVE + T1.MOVE_D * .15;
     nb.classList.toggle('ok', t >= T1.OK && t < half);
     nb.classList.toggle('boot', t >= half && t < T1.READY);
     nb.classList.toggle('ready', t >= T1.READY);
@@ -525,7 +527,7 @@
   function load1(t) {
     const split = t >= T1.SPLIT, target = a1.frozen || split ? LOAD_OK : LOAD_JAM;
     for (let k = 0; k < 3; k++) {
-      a1.load[k] += (target[k] - a1.load[k]) * (a1.frozen ? 1 : .035);
+      a1.load[k] += (target[k] - a1.load[k]) * (a1.frozen ? 1 : .05);
       const v = a1.load[k], g = $('a1-g' + k);
       g.setAttribute('width', (92 * v).toFixed(1)); g.style.fill = v > .6 ? 'var(--bad)' : 'var(--ok)';
       if (k < 2) cls('a1-b' + k, 'hot', v > .6);
@@ -563,6 +565,7 @@
     const t = a1.frozen ? 99 : (now - a1.t0) / 1000;
     lay1(ease(clamp((t - T1.MOVE) / T1.MOVE_D)));
     $('a1').classList.toggle('th', t >= T1.TH);
+    $('a1').classList.toggle('hi', t >= T1.WHY && t < T1.WHY2 + .2);
     node1(t); load1(t);
     if (!a1.frozen) dots1(now, t);
     if (t >= T1.SOLVE) $('q1').classList.add('solved');
