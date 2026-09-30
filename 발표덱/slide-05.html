@@ -1,0 +1,178 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-5 Linux 운영</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --term: #0C1016;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
+  .tag { margin-left: auto; font-size: 20px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+
+  /* 다섯 줄: 분야 · 한 일 · 확인한 결과와 증거 한 줄 */
+  .dek { position: absolute; left: 130px; margin: 0; }
+  .rows { position: absolute; left: 130px; right: 130px; top: 300px; }
+  .row {
+    display: grid; grid-template-columns: 250px 560px 1fr; gap: 44px; align-items: center;
+    padding: 16px 0; border-top: 1px solid var(--line);
+    animation: rise .7s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .row:last-child { border-bottom: 1px solid var(--line); }
+  .row:nth-child(1) { animation-delay: .25s; }
+  .row:nth-child(2) { animation-delay: .38s; }
+  .row:nth-child(3) { animation-delay: .51s; }
+  .row:nth-child(4) { animation-delay: .64s; }
+  .row:nth-child(5) { animation-delay: .77s; }
+
+  .area { display: flex; align-items: center; gap: 18px; }
+  .area img { width: 40px; height: 40px; flex: none; }
+  .area b { font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
+  .did .fix { display: inline-block; margin: 0 6px 0 4px; padding: 1px 9px 2px; border-radius: 5px; font-size: 18px; font-weight: 600; color: var(--warm); border: 1px solid rgba(232,192,122,.5); transform: translateY(-2px); }
+  .did { margin: 0; font-size: 26px; line-height: 1.45; color: var(--ink); word-break: keep-all; text-wrap: balance; }
+
+  /* 오른쪽 칸: 첫 줄은 확인한 결과(쉬운 말), 둘째 줄은 그 증거(명령·출력 원문 한 줄) */
+  .term {
+    background: var(--term); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 22px 15px; color: var(--ink-2);
+  }
+  .term .res { margin: 0; display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 500; line-height: 1.4; color: var(--ink); white-space: nowrap; }
+  .term .res svg { flex: none; width: 22px; height: 22px; fill: none; stroke: var(--ok); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .term .src { margin: 6px 0 0 34px; font-family: var(--mono); font-size: 22px; line-height: 1.45; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .term .src .k { color: var(--glow); }
+  .term .src .ok { color: var(--ok); }
+  .term .src .ko { font-family: var(--sans); }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-5</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>설정만 하지 않고, 부숴 보고 확인</h1>
+    <span class="env" style="margin-left:auto"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS · 9월 19~21일</span>
+  </div>
+  <p class="dek">학교 EC2에 구성 요소를 직접 설치하고 OS 서비스로 운영한 다섯 분야</p>
+
+  <div class="rows">
+    <section class="row">
+      <div class="area"><img src="assets/tint/ui-shield-lock-glow.svg" alt=""><b>계정·권한</b></div>
+      <p class="did">로그인할 수 없는 서비스 전용 계정,<br>실행 경로는 쓰기 금지</p>
+      <div class="term">
+        <p class="res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>로그인 불가 · 실행 폴더 쓰기 거부</p>
+        <p class="src">shell=/sbin/nologin · <span class="k">Permission denied</span></p>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="area"><img src="assets/tint/ui-terminal-2-glow.svg" alt=""><b>서비스</b></div>
+      <p class="did">systemd로 관리. 죽으면 다시 올림,<br>실제로 죽었다 살아난 기록 확인</p>
+      <div class="term">
+        <p class="res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>메모리 초과로 죽은 뒤 저절로 다시 올라옴</p>
+        <p class="src">grafana-server oom-kill → NRestarts=<span class="ok">1</span></p>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="area"><img src="assets/tint/ui-file-check-glow.svg" alt=""><b>로그</b></div>
+      <p class="did">재부팅 뒤에도 로그가 남는지 실제로 재부팅해 확인</p>
+      <div class="term">
+        <p class="res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>재부팅 전 시험 로그가 그대로 남음</p>
+        <p class="src">journalctl -b -1 <span class="ko">(이전 부팅의 로그)</span></p>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="area"><img src="assets/tint/ui-network-glow.svg" alt=""><b>네트워크</b></div>
+      <p class="did">앱은 서버 안에서만, 앞단 Nginx가 HTTPS로.<br>DB는 암호화 연결만</p>
+      <div class="term">
+        <p class="res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>밖에는 HTTPS만, DB는 암호화 연결만</p>
+        <p class="src">Nginx :<span class="k">443</span> → 127.0.0.1:8080 · DB <span class="ok">TLS 1.3</span></p>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="area"><img src="assets/tint/ui-database-glow.svg" alt=""><b>디스크</b></div>
+      <p class="did">시험용 디스크를 일부러 채워 경보가 울리는지 확인</p>
+      <div class="term">
+        <p class="res"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>98%에서 경보, 7분 뒤 공간을 비우자 해제</p>
+        <p class="src">128MiB <span class="ko">시험 디스크 · 운영 디스크는 그대로</span></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 발표 노트(45초): 학교 EC2에서 구성 요소를 Linux에 직접 설치하고 OS 서비스로 운영했다. 다섯 분야마다 설정만 한 것이 아니라 동작으로 확인했다. 계정은 로그인할 수 없는 서비스 계정으로 두고 실행 경로 쓰기가 거부되는 것을 봤다. systemd 유닛은 실패하면 다시 올리고, 서비스는 전용 계정으로 돌고 권한 상승·시스템 경로 쓰기를 막았다(NoNewPrivileges, ProtectSystem=strict, deploy/linux/app/exchange-app.service 10·21·23행). 실제 재기동은 관제 서버 Grafana가 메모리 초과로 oom-kill된 뒤 systemd가 다시 올린 기록(NRestarts=1, 증거 325)으로 확인했다. 앱 서비스를 일부러 죽여 본 기록은 없다. 로그는 영구 보존으로 바꾼 뒤 실제로 재부팅해 이전 부팅 로그가 남는 것을 확인했다. 앱은 루프백(127.0.0.1:8080·8081)만 listen하고, 같은 서버의 Nginx가 443에서 Let's Encrypt 인증서로 HTTPS를 받아 넘긴다(HTTP는 308로 HTTPS 이동, 인증서 자동 갱신 모의 시험 성공, 증거 386~395). DB는 앱·봇·DB 보안 그룹에서 TLS 1.3으로만 받는다. 디스크 경보는 운영 볼륨 대신 시험용 파일시스템을 채워 확인했다. 근거는 증거본 2026-09-19 학교AWS, 09-20 백업·복구 보고. 막혔던 문제를 진단하고 고친 기록(Java 종료 코드 143 등)은 08 트러블슈팅에서 다룬다. 화면(v6)에서 뺀 세부 설정: exchange 계정 uid=993·shell=/sbin/nologin, /opt/exchange root:exchange 0750, exchange-app.service Restart=on-failure·MemoryMax=1400M, journald Storage=persistent·256M·7일, Nginx HTTP 308 → HTTPS 200, DB 5432는 앱·봇·DB(복제) 보안 그룹만, EBS gp3 암호화(app 20GiB·db 50GiB). 디스크는 128MiB 시험 파일시스템을 98%까지 채워 경보가 울리고, 7분 뒤 공간을 돌려주자 해제됐다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+})();
+</script>

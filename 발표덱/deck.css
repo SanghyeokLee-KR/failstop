@@ -1,0 +1,36 @@
+/* 공통 규칙(v4, v6에서 청중이 보는 글자는 22px 이상으로). 모든 장이 자기 인라인 스타일 뒤에 이 파일을 읽어 색·글자·머리줄·제목 자리를 맞춘다. */
+
+/* 보조 글은 밝은 강의실 프로젝터에서도 보이게 한 단계 더 밝힌다 */
+:root {
+  --ink-3: #A8B3C2;
+  --ink-4: #8590A3;
+}
+
+/* 머리줄: 서비스 이름을 매 장 풀어 쓴다 */
+.head .code { font-family: var(--sans); font-weight: 600; letter-spacing: 0; color: var(--ink); }
+.head .r .sec { color: var(--ink-3); }
+
+/* 제목과 부제: 본문 장은 모두 같은 자리·크기(제목 상자 위 158px, 부제 244px). 표지는 제외 */
+.stage:not(.cover) h1 { font-size: 56px; }
+.stage:not(.cover) > h1, .stage:not(.cover) > .title { top: 158px; }
+.stage:not(.cover) > .dek { top: 244px; font-size: 25px; color: var(--ink-2); }
+
+/* 기준 색: 판정 색(달성 초록, 부분 노랑)과 겹치지 않게 네 기준을 나눈다.
+   탄력성 보라 · 고가용성 파랑 · 재해 복구 청록 · 운영 기본과 AI 관제 분홍 */
+.el { --c: #C6C0F2; --c-dim: rgba(198,192,242,.32); }
+.ha { --c: #79A7FA; --c-dim: rgba(121,167,250,.32); }
+.dr { --c: #5CCFE6; --c-dim: rgba(92,207,230,.32); }
+.op { --c: #F29BC4; --c-dim: rgba(242,155,196,.32); }
+
+/* 측정 환경 칩: 결과가 어디서 나왔는지 같은 모양으로 붙인다 */
+.env { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 22px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 11px 4px 8px; white-space: nowrap; background: rgba(255,255,255,.02); }
+.env img { width: 24px; height: 24px; }
+
+/* 발표자 도구(원본·증거 보기, 조작 안내, 전체 화면 단추): E 키로 켤 때만 보인다(deck.js).
+   전체 화면에서는 마우스가 늘 무대 위라 hover로는 숨길 수 없다 */
+.orig { transition: opacity .3s, border-color .2s, color .2s; }
+body:not(.tools) .orig, body:not(.tools) .fs { opacity: 0 !important; pointer-events: none !important; }
+body.tools .orig, body.tools .fs { opacity: 1 !important; pointer-events: auto !important; }
+
+/* 쉬운 말 뒤에 붙이는 약어·원어 */
+.ab { font-size: .7em; font-weight: 400; color: var(--ink-3); margin-left: .3em; letter-spacing: 0; }

@@ -1,0 +1,298 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 07 시연</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ink-4: #5F6B7C;
+    --side: #A3AEBC;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ai: #C6C0F2;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  h1 {
+    position: absolute; left: 130px; top: 164px; margin: 0;
+    font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em;
+    animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .dek { position: absolute; left: 130px; top: 254px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
+
+  /* 영상 재생 단추: 제목 줄 오른쪽. 누르거나 V 키로 영상 창을 띄운다 */
+  .play {
+    position: absolute; right: 130px; top: 165px;
+    display: inline-flex; align-items: center; gap: 14px;
+    font-family: var(--sans); font-size: 24px; font-weight: 600; color: var(--ink);
+    background: rgba(121,167,250,.07); border: 1px solid rgba(121,167,250,.42); border-radius: 10px;
+    padding: 11px 20px 12px 16px; cursor: pointer;
+    transition: background .2s, border-color .2s;
+    animation: fade .8s .35s ease-out both;
+  }
+  .play:hover { background: rgba(121,167,250,.13); border-color: var(--brand); }
+  .play:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  .play svg { width: 26px; height: 26px; fill: var(--brand); }
+  .play .len { font-family: var(--mono); font-size: 22px; font-weight: 400; color: var(--ink-3); padding-left: 14px; border-left: 1px solid rgba(121,167,250,.3); }
+
+  /* 7분 막대: 네 구간의 길이는 영상 속 실제 길이에 비례. 재생 표시는 들어올 때 한 번 훑고, 영상을 틀면 영상 시각을 따라간다 */
+  .bar { position: absolute; left: 130px; right: 130px; top: 330px; animation: fade .8s .4s ease-out both; }
+  .scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 22px; color: var(--ink-3); margin-bottom: 8px; }
+  .track { position: relative; display: flex; height: 14px; border-radius: 7px; background: #1C2332; }
+  .track span { height: 100%; opacity: .35; transition: opacity .35s; }
+  .track span.on { opacity: 1; }
+  .track span + span { border-left: 2px solid var(--stage); }
+  .track span:first-child { border-radius: 7px 0 0 7px; } .track span:last-of-type { border-radius: 0 7px 7px 0; }
+  .head-mark { position: absolute; top: -6px; width: 2px; height: 26px; background: var(--ink); border-radius: 1px; box-shadow: 0 0 0 3px rgba(240,243,247,.08); }
+
+  .parts { position: absolute; left: 130px; right: 130px; top: 410px; bottom: 150px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 34px; }
+  .part { position: relative; display: flex; flex-direction: column; padding: 24px 0 0; border-top: 2px solid var(--line); transition: border-color .35s; animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  .part.on { border-top-color: var(--c); }
+  .part:nth-child(1) { animation-delay: .5s; } .part:nth-child(2) { animation-delay: .62s; } .part:nth-child(3) { animation-delay: .74s; } .part:nth-child(4) { animation-delay: .86s; }
+  .part .top { display: flex; align-items: baseline; justify-content: space-between; }
+  .part .no { font-family: var(--mono); font-size: 22px; color: var(--c); }
+  .part .tm { font-family: var(--mono); font-size: 22px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .part h2 { margin: 10px 0 0; font-size: 33px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; word-break: keep-all; }
+  .part ul { margin: 18px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .part li { position: relative; padding-left: 18px; font-size: 22px; line-height: 1.45; color: var(--ink-2); word-break: keep-all; }
+  .part li::before { content: ''; position: absolute; left: 0; top: .6em; width: 7px; height: 7px; border-radius: 2px; background: var(--c); opacity: .8; }
+  .part li b { font-weight: 500; color: var(--ink); }
+  .part .see { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); font-size: 22px; color: var(--ink-3); line-height: 1.45; word-break: keep-all; }
+  .part .see b { display: block; font-size: 22px; font-weight: 500; color: var(--c); margin-bottom: 4px; letter-spacing: .02em; }
+
+  .foot {
+    position: absolute; left: 130px; right: 130px; bottom: 60px;
+    display: flex; align-items: baseline; gap: 28px;
+    padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 22px; color: var(--ink-2); animation: fade .8s 1.2s ease-out both;
+  }
+  .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .foot .env { margin-left: auto; align-self: center; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+  .stage:hover .fs { opacity: 1; }
+  .fs:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+
+  /* 영상 창: 장 위를 모두 덮는다. 위쪽의 구간 표시와 닫기 단추는 멈췄을 때나 마우스를 움직일 때만 보인다 */
+  .vid { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #000; color: var(--ink); overflow: hidden; font-family: var(--sans); }
+  .vid::backdrop { background: #000; }
+  .vid[open] { display: block; animation: fade .25s ease-out; }
+  .vid video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; outline: none; }
+  .vid.playing:not(.awake) { cursor: none; }
+  .vch, .vid .x { position: absolute; top: 20px; background: rgba(12,15,21,.84); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; opacity: 0; transition: opacity .3s; }
+  .vid.awake .vch, .vid.awake .x, .vid:not(.playing) .vch, .vid:not(.playing) .x { opacity: 1; }
+  .vch { left: 24px; display: flex; align-items: center; gap: 16px; padding: 10px 18px 11px; pointer-events: none; }
+  .vch .no { font-family: var(--mono); font-size: 22px; color: var(--c, var(--ink-3)); }
+  .vch b { font-size: 24px; font-weight: 600; }
+  .vch .tm { font-family: var(--mono); font-size: 22px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .mini { position: relative; display: flex; width: 220px; height: 6px; border-radius: 3px; background: #1C2332; }
+  .mini span { height: 100%; opacity: .3; }
+  .mini span.on { opacity: 1; }
+  .mini span + span { border-left: 2px solid #0C0F15; }
+  .mini em { position: absolute; top: -5px; width: 2px; height: 16px; background: var(--ink); border-radius: 1px; }
+  .vid .x { right: 24px; font-family: var(--sans); font-size: 22px; font-weight: 500; color: var(--ink); padding: 10px 18px; cursor: pointer; }
+  .vid .x:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 3px; }
+  .vid .err { position: absolute; left: 0; right: 0; top: 50%; margin: 0; transform: translateY(-50%); text-align: center; font-size: 26px; color: var(--ink-2); }
+  .vid .err code { display: block; margin-top: 10px; font-family: var(--mono); font-size: 22px; color: var(--ink-3); }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">시연</span>07</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <h1>7분 동안 보여 줄 네 장면</h1>
+  <p class="dek">거래가 돌고, 요청이 몰리고, 주 DB가 멈추고, AI에게 묻기까지 실제 화면으로</p>
+  <button class="play" id="play" type="button" aria-haspopup="dialog" aria-keyshortcuts="V" title="영상 재생 (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z"/></svg>영상 재생<span class="len">7:00</span></button>
+
+  <div class="bar" aria-hidden="true">
+    <div class="scale"><span>0:00</span><span>1:00</span><span>2:00</span><span>3:00</span><span>4:00</span><span>5:00</span><span>6:00</span><span>7:00</span></div>
+    <div class="track" id="track"></div>
+  </div>
+
+  <div class="parts" id="parts"></div>
+
+  <div class="foot"><span class="k">연결</span>01은 시스템 구성, 02는 결과 ①(트래픽), 03은 결과 ②(DB 장애), 04는 AI 관제를 실제 화면으로 다시 확인<span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC에서 녹화</span></div>
+</div>
+
+<dialog class="vid" id="vid" aria-label="시연 영상 7분">
+  <video id="vv" src="assets/video/failstop-demo-7min.mp4" controls preload="auto" playsinline></video>
+  <div class="vch" id="vch" aria-hidden="true"><span class="no" id="vno">01</span><b id="vtt"></b><span class="tm" id="vtm">0:00 / 7:00</span><i class="mini" id="mini"></i></div>
+  <button class="x" id="vx" type="button">닫기 (Esc)</button>
+  <p class="err" id="verr" hidden>영상을 열 수 없음<code>assets/video/failstop-demo-7min.mp4</code></p>
+</dialog>
+
+<!-- 발표 노트(20초 + 영상 7분): 대비: 화면마다 사전 녹화 영상과 캡처를 준비하고, 시연이 막히면 같은 순서의 영상으로 넘어간다(개인 AWS가 안 되면 로컬 화면). 영상은 ‘영상 재생’ 단추나 V 키로 띄운다. 스페이스는 멈춤·재생, ← → 는 5초 이동, Esc는 닫기다. 닫았다 다시 열면 멈춘 자리부터 이어지고, 영상이 끝나면 → 로 창을 닫은 뒤 다음 장으로 간다. 장의 막대 표시와 켜진 칸, 영상 창 왼쪽 위의 구간 표시는 영상 시각을 따라간다. 녹화는 개발 PC에서 거래소 전체를 띄워 한 번에 찍었고, 기다리는 구간만 빨리 감았다(화면에 배속 표시). 01(0:00~1:13) 리플 1분봉 거래 화면은 시장 봇이 넣는 실제 주문으로 움직인다. AI 관제센터는 수동 모드라 AI는 판단과 조치안까지만 내고 실행은 운영자가 승인한다. 서비스 흐름은 요청이 어느 서버를 지나는지 수집한 실측값으로 그리고, Grafana 서비스 관제에서 같은 값을 원본으로 본다. 02(1:13~4:10) 봇 플릿에서 ‘완만한 상승’을 적용하고, 부하 발생기가 조회 요청을 초당 9,000건 보낸다. 서비스 흐름·거래 화면·Grafana·지표 관제에서 부하를 확인하고, 앱 서버 CPU가 증설 기준 50%를 넘어 1분 넘게 이어지면 경보가 울린다. 온프레미스 AI가 수집값을 모아 판단하고(기다리는 구간 8배 빨리 감기) ‘앱 서버 3 켜기’를 제안한다. 근거마다 실측값과 수집 시각이 붙는다. 운영자가 영향·비용·되돌리기를 보고 승인하면 앱 서버 3이 합류하고(Grafana 앱 서버 CPU), 서비스 흐름도 세 대가 된다. 03(4:10~6:05) 거래 중에 주 DB를 강제로 끈다. 서비스 흐름에서 주 DB가 끊기고 Patroni가 예비 DB를 약 23초 만에 승격한다(3배 빨리 감기). 엄격 동기라 확정된 거래는 잃지 않는 대신, 예비가 돌아올 때까지 거래 화면에 ‘거래 일시 중단’이 뜨고 새 주문은 멈춘다. 운영자가 옛 주 DB를 다시 켜면 Patroni가 되감기로 맞춰 예비 DB로 합류시키고(3배 빨리 감기) 거래가 자동으로 재개된다. Grafana DB 관제에서 두 DB의 역할이 바뀐 것을 보고, 장애 전후 확인받은 쓰기를 대조해 사라진 주문 0건을 확인한다. 04(6:05~7:00) AI 상담은 조회 전용이라 아무것도 실행하지 않는다. 방금 일을 물으면(3배 빨리 감기) 답에 근거로 쓴 실측값·모델 이름·수집 시각이 붙는다. 마무리 말(요청이 몰려도 버티고, 주 DB가 멈춰도 확정된 거래는 잃지 않음, 판단과 설명은 AI·결정은 사람) 뒤에 영상 속 실측 요약 화면으로 끝난다. 이어지는 장에서 Teams·PDF 보고 전달을 보인다. 시연이 막히면 같은 순서의 녹화 영상으로 넘어간다(2026-09-26 사용자 결정: 발표 13분, 시연 7분). [임시] 구간 경계(1:13·4:10·6:05)와 수치(승격 약 23초)는 11회차 편집본 기준이다. 12회차 최종본으로 바꾸면 스크립트의 CUT 줄과 칸의 수치를 함께 고친다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) {}
+  };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 네 구간의 경계(초). 13회차 편집본(정확히 7:00)에서 장면이 바뀌는 시각이다. 영상을 바꾸면 이 줄만 고친다
+  const CUT = [0, 73, 254, 372, 420];
+  const P = [
+    { c: 'var(--brand)', t: '거래와 평상시 관제',
+      li: ['리플 1분봉 거래 화면, 시장 봇 주문', 'AI 관제센터, AI는 수동 모드', '서비스 흐름 크게 보기(실측)', 'Grafana 서비스 관제'],
+      see: '실제 거래와 실측으로 그린 관제' },
+    { c: 'var(--ai)', t: '부하 시험과 AI 증설',
+      li: ['봇 플릿 ‘완만한 상승’ + 부하 발생기 <b>초당 9,000건</b>', '앱 CPU가 증설 기준 <b>50%</b>를 넘어 경보', '온프레미스 AI가 ‘앱 서버 3 켜기’ 제안', '운영자 승인 → 앱 서버 3 합류, 서비스 흐름 3대'],
+      see: 'AI는 제안, 실행은 승인 뒤' },
+    { c: 'var(--bad)', t: 'DB 장애와 자동 전환',
+      li: ['주 DB 강제 종료, 서비스 흐름에서 끊김', 'Patroni가 예비 DB 자동 승격(<b>약 27초</b>)', '거래 일시 중단 → 옛 주 DB 되감기 합류 → 거래 재개', 'Grafana DB 관제로 역할 교대 확인, 사라진 주문 <b>0건</b>'],
+      see: '확정된 거래는 잃지 않고 잠시 멈춤' },
+    { c: 'var(--ok)', t: 'AI 상담과 요약',
+      li: ['AI에게 방금 일을 질문(조회 전용)', '답에 근거·모델·수집 시각', '마무리, 실측 요약 화면'],
+      see: '설명은 AI가, 결정은 사람이' },
+  ];
+  const TOTAL = CUT[CUT.length - 1];
+  const track = document.getElementById('track'), parts = document.getElementById('parts');
+  const mm = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const pct = s => (Math.min(Math.max(s, 0), TOTAL) / TOTAL * 100).toFixed(3) + '%';
+  const idx = s => { let k = 0; for (let i = 0; i < P.length; i++) if (s >= CUT[i]) k = i; return k; };
+  P.forEach((p, i) => {
+    const seg = document.createElement('span'); seg.style.width = ((CUT[i + 1] - CUT[i]) / TOTAL * 100) + '%'; seg.style.background = p.c; track.appendChild(seg);
+    const el = document.createElement('section'); el.className = 'part'; el.style.setProperty('--c', p.c);
+    el.innerHTML = `<div class="top"><span class="no">0${i + 1}</span><span class="tm">${mm(CUT[i])}–${mm(CUT[i + 1])}</span></div>`
+      + `<h2>${p.t}</h2><ul>${p.li.map(x => `<li>${x}</li>`).join('')}</ul><div class="see"><b>보여 줄 것</b>${p.see}</div>`;
+    parts.appendChild(el);
+  });
+  const mark = document.createElement('i'); mark.className = 'head-mark'; mark.style.display = 'none'; track.appendChild(mark);
+  const segs = [...track.querySelectorAll('span')], secs = [...parts.children];
+  function at(s) {
+    const k = idx(s);
+    segs.forEach((g, i) => g.classList.toggle('on', i === k));
+    secs.forEach((g, i) => g.classList.toggle('on', i === k));
+    mark.style.display = ''; mark.style.left = `calc(${pct(s)} - 1px)`;
+  }
+  function allOn() {
+    segs.forEach(g => g.classList.add('on')); secs.forEach(g => g.classList.add('on'));
+    mark.style.display = ''; mark.style.left = 'calc(100% - 1px)';
+  }
+  // 들어올 때: 7분을 6초로 한 번 훑으며 구간을 차례로 밝히고, 끝나면 네 구간을 모두 켠 채 둔다
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let sweeping = !reduce;
+  if (reduce) allOn();
+  else {
+    const t0 = performance.now(), SWEEP = 6000;
+    const f = now => {
+      if (!sweeping) return;
+      const s = (now - t0) / SWEEP * TOTAL;
+      if (s < TOTAL) { at(s); requestAnimationFrame(f); } else { sweeping = false; allOn(); }
+    };
+    requestAnimationFrame(f);
+  }
+
+  // 영상 창
+  const vid = document.getElementById('vid'), vv = document.getElementById('vv');
+  const vch = document.getElementById('vch'), vno = document.getElementById('vno'), vtt = document.getElementById('vtt'), vtm = document.getElementById('vtm');
+  const mini = document.getElementById('mini');
+  P.forEach((p, i) => { const g = document.createElement('span'); g.style.width = ((CUT[i + 1] - CUT[i]) / TOTAL * 100) + '%'; g.style.background = p.c; mini.appendChild(g); });
+  const miniMark = document.createElement('em'); mini.appendChild(miniMark);
+  const minis = [...mini.querySelectorAll('span')];
+  function paint() {
+    const s = vv.currentTime || 0, k = idx(s);
+    // 영상 시각을 장의 막대와 영상 창의 구간 표시에 함께 옮긴다. 끝까지 보면 네 구간을 모두 켠다
+    sweeping = false;
+    if (vv.ended) allOn(); else at(s);
+    vch.style.setProperty('--c', P[k].c);
+    vno.textContent = '0' + (k + 1); vtt.textContent = P[k].t;
+    vtm.textContent = `${mm(s)} / ${mm(TOTAL)}`;
+    minis.forEach((g, i) => g.classList.toggle('on', i === k));
+    miniMark.style.left = `calc(${pct(s)} - 1px)`;
+  }
+  let wt = 0;
+  const wake = () => { vid.classList.add('awake'); clearTimeout(wt); wt = setTimeout(() => vid.classList.remove('awake'), 2500); };
+  function openVideo() {
+    if (!vid.open) { try { vid.showModal(); } catch (e) { vid.setAttribute('open', ''); } }
+    paint(); wake();
+    if (vv.ended) vv.currentTime = 0;
+    const p = vv.play(); if (p && p.catch) p.catch(() => {});
+  }
+  function closeVideo() { vv.pause(); if (vid.open) { try { vid.close(); } catch (e) { vid.removeAttribute('open'); } } }
+  const toggle = () => { if (vv.paused || vv.ended) { const p = vv.play(); if (p && p.catch) p.catch(() => {}); } else vv.pause(); };
+  document.getElementById('play').addEventListener('click', openVideo);
+  document.getElementById('vx').addEventListener('click', closeVideo);
+  // 덱이 원본 창처럼 대화 상자를 닫아도(발표자 노트 창의 → 등) 영상은 멈춘다
+  vid.addEventListener('close', () => { vv.pause(); paint(); });
+  vid.addEventListener('mousemove', wake);
+  vv.addEventListener('timeupdate', paint);
+  vv.addEventListener('seeked', paint);
+  vv.addEventListener('play', () => { vid.classList.add('playing'); paint(); });
+  vv.addEventListener('pause', () => vid.classList.remove('playing'));
+  vv.addEventListener('ended', () => { vid.classList.remove('playing'); paint(); });
+  vv.addEventListener('error', () => { document.getElementById('verr').hidden = false; vv.style.visibility = 'hidden'; });
+
+  // 키: V 로 영상을 띄운다. 영상 창이 열려 있으면 덱보다 먼저 받아 장이 넘어가지 않게 한다(F·N·E는 덱으로 그대로)
+  addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key, isV = k === 'v' || k === 'V' || e.code === 'KeyV';
+    if (!vid.open) { if (isV) { e.preventDefault(); openVideo(); } return; }
+    const take = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+    if (k === 'Escape') { take(); closeVideo(); return; }
+    if (vv.ended && ['ArrowRight', 'PageDown', ' ', 'Enter'].includes(k)) { take(); closeVideo(); return; }
+    if (k === ' ' || isV || k === 'k' || k === 'K') { take(); toggle(); wake(); return; }
+    if (k === 'ArrowRight' || k === 'ArrowLeft') {
+      take(); vv.currentTime = Math.min(Math.max((vv.currentTime || 0) + (k === 'ArrowRight' ? 5 : -5), 0), vv.duration || TOTAL); wake(); return;
+    }
+    if (['PageDown', 'PageUp', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(k)) take();
+  }, true);
+})();
+</script>
