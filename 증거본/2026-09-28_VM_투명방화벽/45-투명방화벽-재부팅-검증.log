@@ -1,0 +1,50 @@
+## 2026-09-28 23:35:12 KST  투명 방화벽(pfsense-tp) 재부팅 검증. 재부팅 전(23:34:57): pf 사용자 규칙 33줄, 브리지 멤버 5개 STICKY, ifmaxaddr em0 1·em2 1·em3 2·em4 2·em5 1, shellcmd 1개, 원격 로그 192.168.10.41:514
+PS> VBoxManage controlvm pfsense-tp acpipowerbutton
+
+종료 확인: VMState="poweroff"  (21초)
+PS> VBoxManage showvminfo pfsense-tp --machinereadable | rtcuseutc (변경 전)
+rtcuseutc="off"
+PS> VBoxManage modifyvm pfsense-tp --rtc-use-utc on
+
+rtcuseutc="on"
+PS> VBoxManage startvm pfsense-tp --type headless
+Waiting for VM "pfsense-tp" to power on...
+VM "pfsense-tp" has been successfully started.
+기동 명령 시각: 23:35:36
+
+## 기동 뒤 작업 PC 관찰(2초 간격)
+관리 화면 192.168.56.20:8443 응답 시작: 미확인
+웹 진입 서버 https://192.168.10.11/ 첫 200: 23:36:33  (종료 명령 23:35:12 부터 약 82초)
+
+## 23:37:39 KST  재부팅 뒤 구역 규칙 확인(허용 2건, 차단 2건)
+$ ssh edge01 "nc -zv -w 3 192.168.10.21 8080"   # 기대: 허용
+Ncat: Connected to 192.168.10.21:8080.
+$ ssh app01 "nc -zv -w 3 192.168.10.31 5432"   # 기대: 허용
+Ncat: Connected to 192.168.10.31:5432.
+$ ssh edge01 "nc -zv -w 3 192.168.10.31 5432"   # 기대: 차단(웹→DB)
+Ncat: TIMEOUT.
+$ ssh db01 "nc -zv -w 3 192.168.10.21 8080"   # 기대: 차단
+Ncat: TIMEOUT.
+
+## 원격 로그(재부팅 뒤 pfsense-tp → OPS01)
+$ ssh ops01 "sudo tail -n 2 /var/log/pfsense/transparent.log"
+Sep 28 23:37:45 192.168.10.2 filterlog[67259]: 89,,,1790635884,em4,match,block,in,4,0x0,,64,21433,0,DF,6,tcp,60,192.168.10.31,192.168.10.21,37580,8080,0,S,27546
+Sep 28 23:37:46 192.168.10.2 filterlog[67259]: 89,,,1790635884,em4,match,block,in,4,0x0,,64,16025,0,DF,6,tcp,52,192.168.10.32,192.168.10.41,9100,55542,0,A,,3347
+
+## 앱 리더 상태
+app01 readiness: {"status":"OUT_OF_SERVICE"}
+Sep 28 23:36:12 app01.lab exchange-app[1754]: 2026-09-28T14:36:12.541Z  WARN 1754 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더십 상실(재승격 금지, 복귀�
+Sep 28 23:36:12 app01.lab exchange-app[1754]: 2026-09-28T14:36:12.542Z  INFO 1754 --- [exchange] [   leader-lease] kr.exchange.engine.HaAvailability        : readiness 전이: REFUSING_TRAFFIC
+app02 readiness: {"status":"UP"}
+Sep 28 23:36:16 app02.lab exchange-app[1838]: 2026-09-28T14:36:16.288Z  INFO 1838 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더 승격: holder=040469a1-3ec0-488d-9
+Sep 28 23:36:16 app02.lab exchange-app[1838]: 2026-09-28T14:36:16.494Z  INFO 1838 --- [exchange] [ngine-promotion] kr.exchange.engine.HaAvailability        : readiness 전이: ACCEPTING_TRAFFIC
+
+## 23:38:03 KST  APP01 복귀(재기동으로 대기 노드)
+$ ssh app01 sudo systemctl restart exchange-app
+active
+APP01 liveness: {"status":"UP"}
+Sep 28 23:38:11 app01.lab exchange-app[2973]: 2026-09-28T14:38:11.132Z  INFO 2973 --- [exchange] [           main] kr.exchange.engine.FollowerCatchUp       : 팔로워 따라잡기
+Sep 28 23:38:11 app01.lab exchange-app[2973]: 2026-09-28T14:38:11.163Z  INFO 2973 --- [exchange] [           main] kr.exchange.ExchangeApplication          : Started ExchangeApplic
+readiness app01: {"status":"OUT_OF_SERVICE"}  app02: {"status":"UP"}
+Prometheus: 12 / 13 up
+23:38:50 Prometheus 대상 13/13 up (앞의 12/13 은 재기동 중이던 APP01 지표)

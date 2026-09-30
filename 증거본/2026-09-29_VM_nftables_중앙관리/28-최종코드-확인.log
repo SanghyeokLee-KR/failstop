@@ -1,0 +1,184 @@
+## 2026-09-29 03:54:57 KST  재검토 뒤 마지막으로 고친 코드(nft-central.ps1 11DC94BC8454, nft-central-remote.sh 907477097E82)의 확인. 작업 PC(DEV-PC) 화면 출력 원문과 pwsh 종료 코드다.
+## 구문 검사: bash -n 종료 코드 0, PowerShell 구문 오류 0건
+
+## 함수 단위 시험(임시 폴더의 nc-unit.ps1, VM 접속 없음. 저장소에 넣지 않았다)
+PASS  사전 형식 유지
+PASS  공백 이름 유지
+PASS  대소문자 다른 두 이름이 따로 남음
+PASS  원하는 목록도 사전
+PASS  공백 이름과 대문자 이름은 VM 에만 있는 파일
+PASS  같은 이름 같은 해시는 변경 아님
+PASS  형식이 틀린 줄은 실패
+PASS  해시 형식이 틀린 줄은 실패
+PASS  적용 전 Prometheus 오류 문구는 실패
+PASS  적용 뒤 같은 오류 문구도 실패
+PASS  조회 실패 문구는 실패
+PASS  수집 대상 0개는 실패
+PASS  stale 은 실패
+PASS  13/13 은 적용 전 통과
+PASS  13/13 에서 12/13 은 적용 뒤 실패
+PASS  readiness 정상 값 통과
+PASS  readiness 응답 없음 실패
+PASS  readiness 리더 바뀜은 적용 뒤 실패
+PASS  두 대 readiness 정상 값 통과
+PASS  두 대 가운데 하나 빠지면 실패
+PASS  고정 값 200 통과
+PASS  고정 값 000 실패
+PASS  대소문자만 다른 두 이름은 가져오기 거절
+PASS  대소문자만 바뀐 이름은 VM 이름으로 다시 씀
+PASS  다시 쓴 내용이 남음
+PASS  VM 에 없는 파일은 지움
+PASS  확인 기록을 찾으면 되돌리기 대조를 부르지 않고 끝냄
+실패 0 건
+## 종료 코드(pwsh): 0
+
+## 인자 오류: -Apply -Vm , (대상 없음)
+PS> pwsh -NoProfile -File .\nft-central.ps1 -Apply -Vm ,   (위치: C:\Users\DEV-PC\Desktop\프로젝트\deploy\vm-lab\nft-central)
+도구 오류: -Apply 는 -Vm <이름> 또는 -All 과 함께 쓴다.
+결과: 도구 오류로 멈췄다. 종료 코드 2
+## 종료 코드(pwsh): 2
+
+## 인자 오류: 모르는 VM
+PS> pwsh -NoProfile -File .\nft-central.ps1 -Audit -Vm nope   (위치: C:\Users\DEV-PC\Desktop\프로젝트\deploy\vm-lab\nft-central)
+도구 오류: 모르는 VM 이다: nope
+결과: 도구 오류로 멈췄다. 종료 코드 2
+## 종료 코드(pwsh): 2
+
+## 원본 오류(임시 사본의 app02 원본에 CR): -Apply -All 은 VM 을 건드리기 전에 멈춰야 한다
+PS> pwsh -NoProfile -File .\nft-central.ps1 -Apply -All   (위치: C:\Users\DEV-PC\AppData\Local\Temp\claude\C--Users-DEV-PC-Desktop-----\a9c99344-fc00-4286-9dc8-5fc2370b4cf0\scratchpad\nctest)
+도구 오류: 원본에 CR 또는 BOM 이 있다: rules/app02/firewall.d/21-app02.nft. 줄바꿈은 LF 만 쓰는 UTF-8 로 저장한다.
+결과: 도구 오류로 멈췄다. 종료 코드 2
+## 종료 코드(pwsh): 2
+## 위 실행 뒤 OPS01 마지막 적용 기록(바뀌지 않아야 한다): 2026-09-29T03:15:45+09:00 id=20260929-031530 action=confirm result=ok checks=4/4
+
+## 여섯 대 점검
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Audit
+nftables 중앙 관리 점검  2026-09-29 03:55:11  원본 deploy/vm-lab/nft-central/rules
+VM      파일        커널 규칙     규칙 수   서비스  마지막 적용           판정
+edge01  일치 6개    파일과 같음   18 / 18   active  09-29 03:18 rollback  일치
+app01   일치 4개    파일과 같음   14 / 14   active  09-29 03:15 confirm   일치
+app02   일치 4개    파일과 같음   14 / 14   active  09-29 03:16 confirm   일치
+db01    일치 5개    파일과 같음   17 / 17   active  09-29 03:15 confirm   일치
+db02    일치 4개    파일과 같음   13 / 13   active  09-29 03:15 confirm   일치
+ops01   일치 5개    파일과 같음   17 / 45   active  09-29 03:15 confirm   일치
+규칙 수 = inet vmlab 테이블 / nft list ruleset 전체(OPS01 은 Docker 테이블 포함)
+결과: 모두 일치. 종료 코드 0
+## 종료 코드(pwsh): 0
+
+## 여섯 대 계획
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Plan
+== edge01 계획  원본 6개 파일, 묶음 6ec6eaf4c46c
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+== app01 계획  원본 4개 파일, 묶음 4e68d1987d33
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+== app02 계획  원본 4개 파일, 묶음 91e9955494b7
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+== db01 계획  원본 5개 파일, 묶음 a275089cf65a
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+== db02 계획  원본 4개 파일, 묶음 67ab071e9055
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+== ops01 계획  원본 5개 파일, 묶음 7e2506bfa189
+요약: 파일 변경 0, 추가 0, 삭제 0 / 구문 검사(nft -c) 통과 / 커널 규칙 바뀌지 않음
+결과: 바꿀 것 없음. 종료 코드 0
+## 종료 코드(pwsh): 0
+
+## 가져오기(원본과 같으므로 바뀌는 파일이 없어야 한다)
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Pull
+== edge01  VM 파일 6개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 6ec6eaf4c46c)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   5bcd024d59e4  firewall.d/10-pfsense-boundary.nft
+   4d5ad06a4342  firewall.d/12-l7-proxy.nft
+   8027effa3d2a  firewall.d/20-edge01.nft
+   b15ee2ca3654  firewall.d/30-db-backup-sftp.nft
+== app01  VM 파일 4개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 4e68d1987d33)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   5bcd024d59e4  firewall.d/10-pfsense-boundary.nft
+   0284b6c758f9  firewall.d/21-app01.nft
+== app02  VM 파일 4개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 91e9955494b7)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   5bcd024d59e4  firewall.d/10-pfsense-boundary.nft
+   c15dbc424c0c  firewall.d/21-app02.nft
+== db01  VM 파일 5개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 a275089cf65a)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   5bcd024d59e4  firewall.d/10-pfsense-boundary.nft
+   05d48a042072  firewall.d/30-db01.nft
+   16c4ef2908a4  firewall.d/35-db01-databasus.nft
+== db02  VM 파일 4개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 67ab071e9055)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   5bcd024d59e4  firewall.d/10-pfsense-boundary.nft
+   8ca0e0232b3b  firewall.d/31-db02.nft
+== ops01  VM 파일 5개를 원본으로: 새로 0, 바뀜 0, 지움 0  (묶음 7e2506bfa189)
+   a75818295072  firewall.nft
+   02b6bde66262  firewall.d/00-placeholder.nft
+   8de5790dd3b2  firewall.d/10-pfsense-boundary.nft
+   2b244c5b46b5  firewall.d/11-pfsense-transparent.nft
+   a30b6b8372e9  firewall.d/42-ops01-docker.nft
+결과: 가져온 VM 6대, 실패 0대. 종료 코드 0
+## 종료 코드(pwsh): 0
+
+## OPS01 에 무해한 규칙 적용(확인 통과 경로)
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Apply -Vm ops01
+적용 순서: ops01 (한 대씩, 확인 실패 시 90초 뒤 자동 되돌림)
+
+== ops01 적용  원본 6개 파일, 묶음 f2c4c2681759
+[03:55:19] 파일 대조: 변경 0, 추가 1, 삭제 0
+           추가: firewall.d/90-final-check.nft
+[03:55:19] 구문 검사(nft -c, firewall.nft 와 원본 firewall.d 전체): 통과
+[03:55:19] 커널 규칙: 17개에서 18개로
+[03:55:19] 적용 전 확인
+   통과  새 SSH 연결(작업 PC)          연결됨
+   통과  Prometheus 수집 대상 up       13/13
+   통과  방화벽 원격 로그 수신         수신
+[03:55:20] 적용(20260929-035520): 백업 /var/lib/vm-lab/nft-backup/20260929-035520
+[03:55:20] 되돌리기 예약: 2026-09-29 03:56:50 (90초 뒤, 확인이 오지 않으면 VM 이 스스로 되돌린다)
+[03:55:20] 적용 뒤 확인
+   통과  새 SSH 연결(작업 PC)          연결됨
+   통과  Prometheus 수집 대상 up       13/13
+   통과  방화벽 원격 로그 수신         수신
+   통과  파일과 커널 규칙              원본과 같음
+[03:55:35] 확인 4/4 통과. 되돌리기 예약을 취소했다.
+결과: 1대 모두 끝났다(바꿀 것이 없어 건너뛴 VM 포함). 종료 코드 0
+## 종료 코드(pwsh): 0
+
+## OPS01 원복 적용
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Apply -Vm ops01
+적용 순서: ops01 (한 대씩, 확인 실패 시 90초 뒤 자동 되돌림)
+
+== ops01 적용  원본 5개 파일, 묶음 7e2506bfa189
+[03:55:36] 파일 대조: 변경 0, 추가 0, 삭제 1
+           삭제: firewall.d/90-final-check.nft
+[03:55:36] 구문 검사(nft -c, firewall.nft 와 원본 firewall.d 전체): 통과
+[03:55:36] 커널 규칙: 18개에서 17개로
+[03:55:36] 적용 전 확인
+   통과  새 SSH 연결(작업 PC)          연결됨
+   통과  Prometheus 수집 대상 up       13/13
+   통과  방화벽 원격 로그 수신         수신
+[03:55:37] 적용(20260929-035537): 백업 /var/lib/vm-lab/nft-backup/20260929-035537
+[03:55:37] 되돌리기 예약: 2026-09-29 03:57:07 (90초 뒤, 확인이 오지 않으면 VM 이 스스로 되돌린다)
+[03:55:37] 적용 뒤 확인
+   통과  새 SSH 연결(작업 PC)          연결됨
+   통과  Prometheus 수집 대상 up       13/13
+   통과  방화벽 원격 로그 수신         수신
+   통과  파일과 커널 규칙              원본과 같음
+[03:55:52] 확인 4/4 통과. 되돌리기 예약을 취소했다.
+결과: 1대 모두 끝났다(바꿀 것이 없어 건너뛴 VM 포함). 종료 코드 0
+## 종료 코드(pwsh): 0
+
+## 마지막 점검
+PS> pwsh -NoProfile -File .\deploy\vm-lab\nft-central\nft-central.ps1 -Audit
+nftables 중앙 관리 점검  2026-09-29 03:55:53  원본 deploy/vm-lab/nft-central/rules
+VM      파일        커널 규칙     규칙 수   서비스  마지막 적용           판정
+edge01  일치 6개    파일과 같음   18 / 18   active  09-29 03:18 rollback  일치
+app01   일치 4개    파일과 같음   14 / 14   active  09-29 03:15 confirm   일치
+app02   일치 4개    파일과 같음   14 / 14   active  09-29 03:16 confirm   일치
+db01    일치 5개    파일과 같음   17 / 17   active  09-29 03:15 confirm   일치
+db02    일치 4개    파일과 같음   13 / 13   active  09-29 03:15 confirm   일치
+ops01   일치 5개    파일과 같음   17 / 45   active  09-29 03:55 confirm   일치
+규칙 수 = inet vmlab 테이블 / nft list ruleset 전체(OPS01 은 Docker 테이블 포함)
+결과: 모두 일치. 종료 코드 0
+## 종료 코드(pwsh): 0

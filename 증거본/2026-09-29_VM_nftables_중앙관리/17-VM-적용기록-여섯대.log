@@ -1,0 +1,46 @@
+## 2026-09-29 02:32:00 KST  여섯 대의 nft-central 적용 기록(/var/log/vm-lab/nft-central.log), 백업 디렉터리, 남은 되돌리기 예약. 작업 PC(DEV-PC)에서 ssh 로 읽었다.
+## 02:13~02:15 기록은 증거 촬영 전 사전 시험이다(EDGE01 20초 되돌리기, OPS01 무해한 규칙 적용·원복). README 의 사전 시험 절을 본다.
+
+$ ssh edge01 '<적용 기록, 백업 목록, 대기 예약 수>'
+2026-09-29T02:13:42+09:00 id=20260929-021342 action=apply result=pending set=cb8ab5ee75a1 by=DEV-PC@DESKTOP rollback_in=20s
+2026-09-29T02:14:02+09:00 id=20260929-021342 action=rollback result=ok
+2026-09-29T02:26:44+09:00 id=20260929-022644 action=apply result=pending set=cefb61418327 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:28:14+09:00 id=20260929-022644 action=rollback result=ok
+20260929-021342
+20260929-022644
+대기 중인 되돌리기 예약: 0개
+
+$ ssh app01 '<적용 기록, 백업 목록, 대기 예약 수>'
+(기록 없음)
+(백업 없음)
+대기 중인 되돌리기 예약: 0개
+
+$ ssh app02 '<적용 기록, 백업 목록, 대기 예약 수>'
+(기록 없음)
+(백업 없음)
+대기 중인 되돌리기 예약: 0개
+
+$ ssh db01 '<적용 기록, 백업 목록, 대기 예약 수>'
+(기록 없음)
+(백업 없음)
+대기 중인 되돌리기 예약: 0개
+
+$ ssh db02 '<적용 기록, 백업 목록, 대기 예약 수>'
+(기록 없음)
+(백업 없음)
+대기 중인 되돌리기 예약: 0개
+
+$ ssh ops01 '<적용 기록, 백업 목록, 대기 예약 수>'
+2026-09-29T02:14:20+09:00 id=20260929-021420 action=apply result=pending set=dc5c65b1a0ac by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:14:35+09:00 id=20260929-021420 action=confirm result=ok checks=4/4
+2026-09-29T02:14:44+09:00 id=20260929-021444 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:14:59+09:00 id=20260929-021444 action=confirm result=ok checks=4/4
+2026-09-29T02:22:04+09:00 id=20260929-022204 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:22:20+09:00 id=20260929-022204 action=confirm result=ok checks=4/4
+2026-09-29T02:23:47+09:00 id=20260929-022347 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:24:01+09:00 id=20260929-022347 action=confirm result=ok checks=4/4
+20260929-021420
+20260929-021444
+20260929-022204
+20260929-022347
+대기 중인 되돌리기 예약: 0개

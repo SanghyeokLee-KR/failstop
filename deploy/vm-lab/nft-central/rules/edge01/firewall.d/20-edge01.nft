@@ -1,0 +1,17 @@
+# EDGE01 역할 규칙. 생성: scripts/10-edge01-setup.sh
+# 기본 차단은 /etc/vm-lab/firewall.nft 가 이미 걸었다. 여기서는 443 과 80 만 연다.
+# 출발지는 00-주소계획.md 의 "EDGE01 TCP 443 / 80 = 실습 사용자" 를 옮긴 값이다.
+#   192.168.56.1/32   작업 PC 의 host-only 어댑터. 실습 사용자는 이 주소 하나다.
+#   192.168.10.41/32   OPS01 의 lab-lan 주소. blackbox_exporter 의 합성 프로브다.
+#   관리 대역 /24 전체를 열지 않는다. 그 대역에는 다른 VM 의 host-only 주소도 들어 있다.
+#   192.168.10.1/32 은 넣지 않았다. pfSense 포워딩은 아직 주소계획 표에 없다.
+#
+# 나가는 통신은 여기서 제한하지 않는다. 발신 허용목록은 pfSense 경계가 맡는다.
+# 이 파일만으로 "나가는 통신을 통제했다" 고 적지 않는다.
+#
+# nftables 규칙 주석은 128바이트 제한이 있고 한글은 한 글자가 3바이트다.
+# 긴 설명은 규칙 comment 가 아니라 이 # 주석에만 적는다.
+add rule inet vmlab roles ip saddr 192.168.56.1/32 tcp dport 443 ct state new counter accept comment "EDGE01 웹"
+add rule inet vmlab roles ip saddr 192.168.56.1/32 tcp dport 80 ct state new counter accept comment "EDGE01 전환"
+add rule inet vmlab roles ip saddr 192.168.10.41/32 tcp dport 443 ct state new counter accept comment "EDGE01 웹"
+add rule inet vmlab roles ip saddr 192.168.10.41/32 tcp dport 80 ct state new counter accept comment "EDGE01 전환"

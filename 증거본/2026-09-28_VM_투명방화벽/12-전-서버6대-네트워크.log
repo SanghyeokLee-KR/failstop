@@ -1,0 +1,43 @@
+# 2026-09-28 22:22:20 KST · 투명 방화벽 삽입 전 서버 여섯 대의 네트워크 값(작업 PC에서 ssh)
+
+> ssh edge01 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+edge01.lab
+enp0s8           UP             192.168.10.11/24 
+enp0s8           UP             08:00:27:86:99:13 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1
+
+> ssh app01 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+app01.lab
+enp0s8           UP             192.168.10.21/24 
+enp0s8           UP             08:00:27:50:ba:7c <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1
+
+> ssh app02 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+app02.lab
+enp0s8           UP             192.168.10.22/24 
+enp0s8           UP             08:00:27:db:d7:8b <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1
+
+> ssh db01 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+db01.lab
+enp0s8           UP             192.168.10.31/24 
+enp0s8           UP             08:00:27:96:86:b8 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1
+
+> ssh db02 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+db02.lab
+enp0s8           UP             192.168.10.32/24 
+enp0s8           UP             08:00:27:80:39:a9 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1
+
+> ssh ops01 "hostname; ip -4 -br addr show enp0s8; ip -br link show enp0s8; ip route | head -1; grep ^nameserver /etc/resolv.conf"
+ops01.lab
+enp0s8           UP             192.168.10.41/24 
+enp0s8           UP             08:00:27:4b:9b:f7 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+default via 192.168.10.1 dev enp0s8 proto static metric 100 
+nameserver 192.168.10.1

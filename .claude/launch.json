@@ -8,10 +8,22 @@
       "port": 3000
     },
     {
+      "name": "demo-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "harness\\scripts\\demo-web-local.cmd"],
+      "port": 3001
+    },
+    {
       "name": "deck",
       "runtimeExecutable": "node",
       "runtimeArgs": ["발표덱/serve.mjs", "9090"],
       "port": 9090
+    },
+    {
+      "name": "deck-d",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["D:\\마지막 프로젝트\\발표_09_29\\serve.mjs", "8090"],
+      "port": 8090
     }
   ]
 }

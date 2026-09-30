@@ -1,0 +1,11 @@
+## 2026-09-28 22:57:32 KST  구역 이동 직후, 브리지 MAC 표를 비우기 전에 작업 PC에서 시험한다.
+PS> curl.exe -k -s -o NUL -w "%{http_code} %{time_total}s" --max-time 6 https://192.168.10.11/
+000 6.002078s   (curl exit 28)
+PS> Test-NetConnection 192.168.10.21 -Port 22 (앱 서버 1 SSH)
+TcpTestSucceeded : False
+
+## 2026-09-28 22:58:41 KST  pfsense-tp에서 ifconfig bridge0 flushall 뒤 같은 시험(화면 28)
+PS> curl.exe -k -s -o NUL -w "%{http_code} %{time_total}s" --max-time 6 https://192.168.10.11/
+200 0.007720s   (curl exit 0)
+PS> Test-NetConnection 192.168.10.21 -Port 22 (앱 서버 1 SSH)
+TcpTestSucceeded : True

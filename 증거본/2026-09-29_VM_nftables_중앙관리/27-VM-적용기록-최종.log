@@ -1,0 +1,72 @@
+## 2026-09-29 03:21:35 KST  마지막 검증 뒤 여섯 대의 nft-central 적용 기록 전체, 백업 목록, 대기 중이거나 도는 되돌리기 유닛 수. 작업 PC(DEV-PC)에서 ssh 로 읽었다.
+## 02:13~02:15 는 사전 시험, 02:22~02:28 은 01~17 촬영, 02:45~02:47 은 검토 전 보강 재시험(18), 03:13~03:18 은 검토 반영 뒤 최종 검증(19~25)이다.
+
+$ ssh edge01 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T02:13:42+09:00 id=20260929-021342 action=apply result=pending set=cb8ab5ee75a1 by=DEV-PC@DESKTOP rollback_in=20s
+2026-09-29T02:14:02+09:00 id=20260929-021342 action=rollback result=ok
+2026-09-29T02:26:44+09:00 id=20260929-022644 action=apply result=pending set=cefb61418327 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:28:14+09:00 id=20260929-022644 action=rollback result=ok
+2026-09-29T02:45:54+09:00 id=20260929-024554 action=apply result=pending set=10481111a68d by=DEV-PC@DESKTOP rollback_in=20s
+2026-09-29T02:46:14+09:00 id=20260929-024554 action=rollback result=ok label=ok
+2026-09-29T03:15:01+09:00 id=20260929-031501 action=apply result=pending set=86264f6146bd by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:02+09:00 id=20260929-031501 action=confirm result=ok checks=6/6
+2026-09-29T03:15:46+09:00 id=20260929-031546 action=apply result=pending set=6ec6eaf4c46c by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:48+09:00 id=20260929-031546 action=confirm result=ok checks=6/6
+2026-09-29T03:16:59+09:00 id=20260929-031658 action=apply result=pending set=cefb61418327 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:18:29+09:00 id=20260929-031658 action=rollback result=ok label=ok
+백업: 20260929-021342 20260929-022644 20260929-024554 20260929-031501 20260929-031546 20260929-031658 
+대기 중인 예약: 0개, 도는 되돌리기: 0개
+
+$ ssh app01 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T03:15:13+09:00 id=20260929-031513 action=apply result=pending set=972766b3c6e6 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:14+09:00 id=20260929-031513 action=confirm result=ok checks=6/6
+2026-09-29T03:15:58+09:00 id=20260929-031558 action=apply result=pending set=4e68d1987d33 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:59+09:00 id=20260929-031558 action=confirm result=ok checks=6/6
+백업: 20260929-031513 20260929-031558 
+대기 중인 예약: 0개, 도는 되돌리기: 0개
+
+$ ssh app02 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T03:15:15+09:00 id=20260929-031515 action=apply result=pending set=ea874ac82bec by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:17+09:00 id=20260929-031515 action=confirm result=ok checks=6/6
+2026-09-29T03:16:00+09:00 id=20260929-031600 action=apply result=pending set=91e9955494b7 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:16:02+09:00 id=20260929-031600 action=confirm result=ok checks=6/6
+백업: 20260929-031515 20260929-031600 
+대기 중인 예약: 0개, 도는 되돌리기: 0개
+
+$ ssh db01 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T03:15:09+09:00 id=20260929-031509 action=apply result=pending set=db71b8cf7d27 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:11+09:00 id=20260929-031509 action=confirm result=ok checks=9/9
+2026-09-29T03:15:54+09:00 id=20260929-031554 action=apply result=pending set=a275089cf65a by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:56+09:00 id=20260929-031554 action=confirm result=ok checks=9/9
+백업: 20260929-031509 20260929-031554 
+대기 중인 예약: 0개, 도는 되돌리기: 0개
+
+$ ssh db02 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T03:15:04+09:00 id=20260929-031504 action=apply result=pending set=9cb6f7140d36 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:06+09:00 id=20260929-031504 action=confirm result=ok checks=5/5
+2026-09-29T03:15:50+09:00 id=20260929-031550 action=apply result=pending set=67ab071e9055 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:52+09:00 id=20260929-031550 action=confirm result=ok checks=5/5
+백업: 20260929-031504 20260929-031550 
+대기 중인 예약: 0개, 도는 되돌리기: 0개
+
+$ ssh ops01 '<적용 기록 전체, 백업 목록, 대기·실행 중 되돌리기 유닛 수>'
+2026-09-29T02:14:20+09:00 id=20260929-021420 action=apply result=pending set=dc5c65b1a0ac by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:14:35+09:00 id=20260929-021420 action=confirm result=ok checks=4/4
+2026-09-29T02:14:44+09:00 id=20260929-021444 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:14:59+09:00 id=20260929-021444 action=confirm result=ok checks=4/4
+2026-09-29T02:22:04+09:00 id=20260929-022204 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:22:20+09:00 id=20260929-022204 action=confirm result=ok checks=4/4
+2026-09-29T02:23:47+09:00 id=20260929-022347 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:24:01+09:00 id=20260929-022347 action=confirm result=ok checks=4/4
+2026-09-29T02:46:29+09:00 id=20260929-024629 action=apply result=pending set=33865aca2375 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:46:43+09:00 id=20260929-024629 action=confirm result=ok checks=4/4
+2026-09-29T02:46:44+09:00 id=20260929-024644 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T02:46:58+09:00 id=20260929-024644 action=confirm result=ok checks=4/4
+2026-09-29T03:13:34+09:00 id=20260929-031334 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:13:45+09:00 id=20260929-031334 action=confirm result=ok checks=4/4
+2026-09-29T03:14:44+09:00 id=20260929-031444 action=apply result=pending set=92916c2c4f59 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:14:59+09:00 id=20260929-031444 action=confirm result=ok checks=4/4
+2026-09-29T03:15:30+09:00 id=20260929-031530 action=apply result=pending set=7e2506bfa189 by=DEV-PC@DESKTOP rollback_in=90s
+2026-09-29T03:15:45+09:00 id=20260929-031530 action=confirm result=ok checks=4/4
+백업: 20260929-021420 20260929-021444 20260929-022204 20260929-022347 20260929-024629 20260929-024644 20260929-031334 20260929-031444 20260929-031530 
+대기 중인 예약: 0개, 도는 되돌리기: 0개

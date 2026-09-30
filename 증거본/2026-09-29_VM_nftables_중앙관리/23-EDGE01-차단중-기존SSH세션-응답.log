@@ -1,0 +1,20 @@
+## 2026-09-29 KST  EDGE01 재시험(23) 동안 열어 둔 비상용 SSH 세션의 원문 출력. 작업 PC(DEV-PC)의 ssh.exe 로 edge01 에 "sudo bash -s" 세션을 적용 전(03:16:30)에 열고 표준 입력으로 명령을 넣었다.
+## 시험 규칙이 작업 PC 의 새 SSH 연결을 거절하던 구간(03:16:59 적용 ~ 03:18:29 되돌림) 안인 03:17:33 과 03:18:03 에 보낸 조회가 응답했다.
+## 거절 규칙 카운터가 83 에서 150 으로 늘고 관리 SSH 허용 카운터는 0 이다. 이 세션의 연결 추적 항목이 사라졌다면 다음 패킷이 새 연결로 거절돼 세션이 끊겼을 것이다.
+## established-ssh 는 EDGE01 에서 22 번으로 맺어진 TCP 연결 수이며 이 세션 하나다.
+
+lifeline-ready edge01.lab 03:16:30 2
+lifeline-probe 03:17:33 established-ssh=1
+  iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 83 bytes 4316 reject with tcp reset comment "시험: 작업 PC 새 SSH 거절"
+  iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+  iifname "enp0s8" ip saddr 192.168.10.41 tcp dport 22 ct state new counter packets 1 bytes 60 accept comment "Databasus 백업 SFTP(OPS01)"
+lifeline-probe 03:18:03 established-ssh=1
+  iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 150 bytes 7800 reject with tcp reset comment "시험: 작업 PC 새 SSH 거절"
+  iifname "enp0s8" ip saddr 192.168.56.1 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH(pfSense 경유)"
+  iifname "enp0s8" ip saddr 192.168.10.41 tcp dport 22 ct state new counter packets 1 bytes 60 accept comment "Databasus 백업 SFTP(OPS01)"
+lifeline-after 03:19:49
+2026-09-29T03:16:58+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-031658.timer - nft-central 자동 되돌리기 20260929-031658.
+2026-09-29T03:18:29+09:00 edge01.lab systemd[1]: Started nft-central-rollback-20260929-031658.service - nft-central 자동 되돌리기 20260929-031658.
+2026-09-29T03:18:29+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-031658.service: Deactivated successfully.
+2026-09-29T03:18:29+09:00 edge01.lab systemd[1]: nft-central-rollback-20260929-031658.timer: Deactivated successfully.
+lifeline ended exit=0

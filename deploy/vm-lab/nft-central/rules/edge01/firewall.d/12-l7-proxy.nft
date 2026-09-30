@@ -1,0 +1,2 @@
+# L7 입구(투명 방화벽 HAProxy)가 서버로 여는 HTTPS 연결(2026-09-28). 출발지는 브리지 관리 주소 하나다.
+add rule inet vmlab roles iifname "enp0s8" ip saddr 192.168.10.2 tcp dport 443 ct state new counter accept comment "L7 입구 HAProxy"

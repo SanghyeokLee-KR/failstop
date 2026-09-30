@@ -1,0 +1,8 @@
+# 역할별 nftables 규칙을 두는 자리다. 00-common-setup.sh 가 만든 자리표시자이며 규칙이 없다.
+#
+# 역할 절차는 이 디렉터리에 파일을 하나 더 놓는다. 형식은 add rule 이다.
+#   add rule inet vmlab roles ip saddr 192.168.10.11 tcp dport 8080 ct state new counter accept
+# table 과 chain 을 다시 선언하지 않는다. 기본 정책은 이미 drop 이다.
+#
+# 적용은 sudo systemctl reload vm-lab-firewall.service 다.
+# /etc/vm-lab/firewall.nft 가 flush 후 이 디렉터리를 include 하므로 한 번에 다시 선다.

@@ -1,0 +1,12 @@
+# app01 역할 규칙. 생성: scripts/20-app-setup.sh
+# 기본 차단은 /etc/vm-lab/firewall.nft 가 이미 걸었다. 22 와 9100 도 거기서 연다.
+# 여기서는 8080 과 8081 만 연다. 출발지는 00-주소계획.md 의 포트 표에서 왔다.
+#   8080 API      192.168.10.11/32 (EDGE01)
+#   8081 Actuator 192.168.10.41/32 (OPS01)
+#
+# 나가는 통신은 여기서 제한하지 않는다. 발신 제한은 pfSense 경계가 맡는다는 것이
+# 02-정본결정.md 4절의 결정이므로, 이 파일만 보고 아웃바운드를 확인했다고 적지 않는다.
+#
+# nftables 규칙 comment 는 128바이트 제한이 있어 짧게 쓴다. 긴 설명은 이 주석에만 적는다.
+add rule inet vmlab roles ip saddr 192.168.10.11/32 tcp dport 8080 ct state new counter accept comment "APP API"
+add rule inet vmlab roles ip saddr 192.168.10.41/32 tcp dport 8081 ct state new counter accept comment "APP actuator"
