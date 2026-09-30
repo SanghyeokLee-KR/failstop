@@ -62,10 +62,11 @@
   #s1-dots, #s2-dots { transition: opacity .4s; }
   .q .no { display: flex; align-items: baseline; gap: 14px; font-size: 22px; color: var(--ink-3); }
   .q .no b { font-family: var(--mono); font-weight: 500; font-size: 22px; color: var(--brand); }
-  .q:nth-child(1) .no b { color: #C6C0F2; } .q:nth-child(2) .no b { color: var(--bad); }
+  /* 트래픽은 파랑, DB 장애는 빨강(결과·마무리 장과 같은 짝). 연보라는 덱에서 AI를 뜻하므로 쓰지 않는다 */
+  .q:nth-child(1) .no b { color: var(--brand); } .q:nth-child(2) .no b { color: var(--bad); }
   .q h2 { margin: 14px 0 0; font-size: 44px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; word-break: keep-all; }
   .q h2 em { font-style: normal; color: var(--glow); }
-  .q:nth-child(1) h2 em { color: #C6C0F2; }
+  .q:nth-child(1) h2 em { color: var(--brand); }
   .q:nth-child(2) h2 em { color: var(--bad); }
   .scene { display: block; width: 790px; height: 270px; margin-top: 18px; }
   .scene text { font-family: var(--sans); }

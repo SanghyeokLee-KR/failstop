@@ -120,7 +120,9 @@
   .talk li.in em:nth-of-type(1)::after { transition-delay: .45s; }
   .talk li.in em:nth-of-type(2)::after { transition-delay: .7s; }
   .talk li.in em:nth-of-type(3)::after { transition-delay: .95s; }
-  .u-ha { --u: var(--brand); } .u-tr { --u: var(--bad); } .u-da { --u: var(--data); } .u-ch { --u: var(--warm); } .u-ex { --u: var(--data); } .u-ai { --u: var(--ai); }
+  .u-ha { --u: var(--brand); } .u-tr { --u: var(--bad); } .u-da { --u: var(--data); } .u-ch { --u: var(--warm); } .u-ex { --u: var(--data); }
+  /* 6번 'AI' 밑줄은 말풍선 테두리와 같은 초록. 연보라는 덱에서 트래픽(탄력성)을 뜻하므로 AI에 쓰지 않는다(다음 장 기획 시나리오와 겹침 방지) */
+  .u-ai { --u: var(--ok); }
   .talk .money { --c: var(--warm); font-size: 36px; }
   .talk .money b { font-weight: 700; color: var(--warm); }
   .talk .money.on { animation: shake .6s 1.55s; }
