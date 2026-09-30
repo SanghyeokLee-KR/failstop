@@ -197,7 +197,7 @@
     font-size: 25px; color: var(--ink);
     opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1);
   }
-  .stage[data-step="2"] .foot { opacity: 1; transform: none; transition-delay: 2.7s; }
+  .stage[data-step="2"] .foot { opacity: 1; transform: none; transition-delay: 8.7s; }   /* 관제 장면(Teams 보고 8.2초)이 끝난 뒤 */
   .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
   .foot b { font-weight: 600; color: var(--warm); }
 
@@ -406,13 +406,13 @@
       <text class="sb" x="1182" y="566">보고</text>
       <rect class="box" id="t-box" x="1240" y="415" width="380" height="60" rx="10"/>
       <image href="assets/tint/ui-message-glow.svg" x="1260" y="429" width="32" height="32"/>
-      <text class="lb" x="1304" y="452">Teams</text><text class="sb" x="1392" y="452">경보 · 일일 보고</text>
+      <text class="lb" x="1304" y="452">Teams</text>
       <rect class="zone" x="1215" y="615" width="430" height="195" rx="18"/>
       <text class="sb" x="1239" y="649">온프레미스 · 직접 둔 서버</text>
       <path class="wire ask" d="M1100 712 H1240"/>
       <rect class="box ai" id="i-box" x="1240" y="672" width="380" height="68" rx="10"/>
       <image href="assets/tint/ollama-ai.svg" x="1260" y="688" width="36" height="36"/>
-      <text class="lb" x="1306" y="714" style="fill:var(--ai)">AI 서버</text><text class="sb" x="1394" y="714">원인과 조치를 제안</text>
+      <text class="lb" x="1306" y="714" style="fill:var(--ai)">AI 서버</text>
     </g>
     <g class="grp g5">
       <rect class="zone" x="370" y="362" width="770" height="448" rx="18"/>
@@ -787,10 +787,10 @@
   const PK1 = [[1100, 712], [1240, 712]], PK3 = [[1100, 685], [1170, 685], [1170, 445], [1240, 445]];
   const fadeIn = (t, at) => ease(clamp((t - at) / .3));
   function ev3(t) {
-    $('e1').style.opacity = fadeIn(t, E3.ALERT);
+    $('e1').style.opacity = fadeIn(t, E3.ALERT) * (1 - .5 * fadeIn(t, E3.TEAMS + .3));   // 보고 뒤에는 처리된 경보로 흐려진다
     $('e2').style.opacity = fadeIn(t, E3.JUDGE);
     $('e3').style.opacity = fadeIn(t, E3.TEAMS);
-    cls('m-box', 'warn', t >= E3.ALERT);
+    cls('m-box', 'warn', t >= E3.ALERT && t < E3.TEAMS + .3);
     cls('t-box', 'hit', t >= E3.TEAMS);
     let pos = null;   // 전달 점: 관제 → AI, AI → 관제, 관제 → Teams
     if (t >= E3.TO_AI && t < E3.TO_AI + .6) pos = along(PK1, lenOf(PK1) * ease((t - E3.TO_AI) / .6));
