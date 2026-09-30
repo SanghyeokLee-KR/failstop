@@ -85,7 +85,7 @@
   .scene .x.on { opacity: 1; }
 
   .chk { margin: 22px 0 0; display: flex; align-items: baseline; gap: 18px; font-size: 24px; line-height: 1.4; color: var(--ink-2); white-space: nowrap; }
-  .chk span { font-size: 21px; color: var(--ink-3); padding-right: 18px; border-right: 2px solid var(--line); }
+  .chk span { font-size: 22px; color: var(--ink-3); padding-right: 18px; border-right: 2px solid var(--line); }
 
   .foot {
     position: absolute; left: 130px; right: 130px; bottom: 64px;
@@ -111,6 +111,10 @@
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
+<style>
+  /* 제목이 '기획 시나리오'라 머리줄 오른쪽은 번호만 둔다(기획 배경 장과 같게. deck.css 뒤에 둬야 적용된다) */
+  .head .r .sec { display: none; }
+</style>
 <script src="deck.js"></script>
 
 <div class="stage" id="stage" data-step="0">
@@ -126,7 +130,7 @@
   <div class="qs">
     <section class="q">
       <div class="no"><b>01</b>트래픽 급증</div>
-      <h2><em>주문이 한꺼번에 몰려도</em><br>서버는 버텨야 한다</h2>
+      <h2><em>요청이 한꺼번에 몰려도</em><br>서버는 버텨야 한다</h2>
       <svg class="scene" id="s1" viewBox="0 0 790 270" role="img" aria-label="사용자 요청이 로드밸런서를 거쳐 거래 서버 두 대로 몰리고, 서버 CPU 사용량이 한계에 닿아 응답이 늦어지는 장면">
         <path class="wire" d="M84 60 L282 135 M84 135 H282 M84 210 L282 135"/>
         <path class="wire" d="M382 135 L470 75 M382 135 L470 195"/>
@@ -153,7 +157,7 @@
         <rect class="gfill" id="s1-g2" x="690" y="186" width="0" height="12" rx="6"/>
         <text class="flag" id="s1-late" x="736" y="140" text-anchor="middle" style="fill:var(--bad)">응답 지연</text>
       </svg>
-      <p class="chk"><span>확인할 것</span>어디서 먼저 막히는지, 언제 서버를 늘려야 하는지</p>
+      <p class="chk"><span>확인할 것</span>어디서 먼저 막히는지, 무엇을 늘려야 하는지</p>
     </section>
 
     <section class="q">
@@ -172,7 +176,7 @@
         <text class="lb" x="630" y="142">주 DB</text>
         <path class="x" id="s2-x" d="M700 116 L720 136 M720 116 L700 136"/>
         <text class="flag" id="s2-wait" x="474" y="72" text-anchor="middle" style="fill:var(--warm)">주문 대기</text>
-        <text class="flag" id="s2-q" x="635" y="204" text-anchor="middle" style="fill:var(--bad)">받은 주문은 무사할까?</text>
+        <text class="flag" id="s2-q" x="635" y="204" text-anchor="middle" style="fill:var(--bad)">받은 주문 유실 위험</text>
       </svg>
       <p class="chk"><span>확인할 것</span>받은 주문이 남는지, 사람 없이 넘어가는지</p>
     </section>
@@ -181,7 +185,7 @@
   <div class="foot"><span class="k">AI의 역할</span>흩어진 경보와 지표를 모아 원인을 짚고, 다음에 할 일을 제안합니다.</div>
 </div>
 
-<!-- 발표 노트(45초): 장이 열리면 첫 장면만 움직이고 둘째 장면은 흐리다. → 두 번으로 둘째 장면, AI 역할 줄 순서로 보이고, 세 번째 → 에 다음 장(시스템 구성)으로 간다. ← 로 한 단계씩 되돌린다. 말할 거리: (첫 장면) "거래소를 실제로 운영한다면 가장 먼저 겪을 장면은 주문이 한꺼번에 몰릴 때입니다. 서버가 버텨야 하는데, 어디서 먼저 막히는지, 언제 서버를 늘려야 하는지를 확인하고 싶었습니다." → (둘째 장면) "두 번째는 DB가 갑자기 멈출 때입니다. 이미 받은 주문이 남아 있는지, 사람이 손대지 않아도 예비 DB로 넘어가는지가 핵심입니다." → (AI 줄) "그리고 이런 순간마다 AI가 경보와 지표를 모아 원인과 다음 할 일을 먼저 제안하게 했습니다. 실행은 제가 승인합니다." 이 장에는 결과를 두지 않는다. 답은 뒤의 설계 장, 수치는 06 결과 장. 학교 제출 요약서의 기획 배경(DB 장애: 요청은 언제 회복되는가 / 트래픽 급증: 병목은 어디에서 시작되는가)과 같은 질문이다. -->
+<!-- 발표 노트(45초): 장이 열리면 첫 장면만 움직이고 둘째 장면은 흐리다. → 두 번으로 둘째 장면, AI 역할 줄 순서로 보이고, 세 번째 → 에 다음 장(시스템 구성)으로 간다. ← 로 한 단계씩 되돌린다. 말할 거리: (첫 장면) "거래소를 실제로 운영한다면 가장 먼저 겪을 장면은 요청이 한꺼번에 몰릴 때입니다. 서버가 버텨야 하는데, 어디서 먼저 막히는지, 무엇을 늘려야 하는지를 확인하고 싶었습니다(답: 주문은 DB 기록이 병목이라 늘리는 것은 조회 서버뿐, 03 시스템 구성·06 결과)." → (둘째 장면) "두 번째는 DB가 갑자기 멈출 때입니다. 이미 받은 주문이 남아 있는지, 사람이 손대지 않아도 예비 DB로 넘어가는지가 핵심입니다." → (AI 줄) "그리고 이럴 때마다 AI가 경보와 지표를 모아 원인과 다음 할 일을 먼저 제안하게 했습니다. 실행은 제가 승인합니다." 이 장에는 결과를 두지 않는다. 답은 뒤의 설계 장, 수치는 06 결과 장. 학교 제출 요약서의 기획 배경(DB 장애: 요청은 언제 회복되는가 / 트래픽 급증: 병목은 어디에서 시작되는가)과 같은 질문이다. -->
 
 <script>
 (() => {
