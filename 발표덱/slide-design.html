@@ -52,8 +52,8 @@
   }
   .dek { position: absolute; left: 130px; top: 254px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
 
-  /* 앞 장(기획 시나리오)과 같은 두 칸에 같은 장면을 두고, 이번에는 버티는 모습을 보여 준다.
-     단계: 0 첫 칸만 움직이고 둘째는 흐리게, 1 둘째 칸이 움직이고 첫 칸은 버틴 상태로 멈춤, 2 두 칸이 빠지고 계획한 아키텍처 전체 */
+  /* 앞 장(기획 시나리오)의 두 칸을 그대로 이어받는다. 각 칸은 앞 장의 질문과 그림에서 시작해, 설계가 그 장면을 버텨 내는 과정을 보인 뒤
+     제목과 아래 줄이 답으로 바뀐다. 단계: 0 첫 칸만 움직이고 둘째는 흐리게, 1 둘째 칸이 움직이고 첫 칸은 답에 머묾, 2 두 칸이 빠지고 계획한 아키텍처 전체 */
   .qs { position: absolute; left: 130px; right: 130px; top: 336px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; transition: opacity .45s, transform .6s cubic-bezier(.2,.7,.2,1); }
   .stage[data-step="2"] .qs { opacity: 0; transform: translateY(-12px); pointer-events: none; }
   .q { border-top: 2px solid var(--card); padding-top: 26px; animation: rise .8s cubic-bezier(.2,.7,.2,1) both; transition: filter .6s, border-color .6s; }
@@ -64,10 +64,19 @@
   #a1-dots, #a2-dots { transition: opacity .4s; }
   .q .no { display: flex; align-items: baseline; gap: 14px; font-size: 22px; color: var(--ink-3); }
   .q .no b { font-family: var(--mono); font-weight: 500; font-size: 22px; }
-  /* 장면 번호는 앞 장과 같은 색(트래픽 파랑, DB 장애 빨강), 답 문장은 초록 */
+  /* 장면 번호와 질문은 앞 장과 같은 색(트래픽 파랑, DB 장애 빨강), 답 문장은 초록 */
   .q:nth-child(1) .no b { color: var(--brand); } .q:nth-child(2) .no b { color: var(--bad); }
-  .q h2 { margin: 14px 0 0; font-size: 44px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; word-break: keep-all; }
-  .q h2 em { font-style: normal; color: var(--ok); }
+  .q .hh { display: grid; margin-top: 14px; }
+  .q .hh > h2 { grid-area: 1 / 1; margin: 0; font-size: 44px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; word-break: keep-all; }
+  .q h2 em { font-style: normal; }
+  .q .ask em { color: var(--brand); } .q:nth-child(2) .ask em { color: var(--bad); }
+  .q .ans em { color: var(--ok); }
+  .q .cc { display: grid; margin-top: 22px; }
+  .q .cc > .chk { grid-area: 1 / 1; }
+  .q .ask, .q .ans { transition: opacity .5s, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .q .ans { opacity: 0; transform: translateY(12px); }
+  .q.solved .ask { opacity: 0; transform: translateY(-12px); }
+  .q.solved .ans { opacity: 1; transform: none; transition-delay: .15s; }
   .scene { display: block; width: 790px; height: 270px; margin-top: 18px; overflow: visible; }
   .scene text { font-family: var(--sans); }
   .scene .lb { font-size: 22px; fill: var(--ink-2); transition: fill .35s; }
@@ -75,28 +84,46 @@
   .scene .box { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; transition: stroke .3s, fill .3s, opacity .3s; }
   .scene .box.hot { stroke: var(--bad); fill: #2A1F29; }
   .scene .box.good { stroke: var(--ok); }
-  .scene .box.blue { stroke: var(--brand); }
-  .scene .box.ghost { stroke-dasharray: 6 5; fill: transparent; opacity: .7; }
-  .scene .ping { fill: none; stroke: var(--brand); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
-  .scene .ping.go { animation: ping 1s cubic-bezier(.2,.7,.2,1); }
   .scene .wire { fill: none; stroke: #3A465A; stroke-width: 2; transition: stroke .35s, opacity .35s; }
-  .scene .wire.ghost { stroke-dasharray: 5 6; }
   .scene .wire.good { stroke: var(--ok); }
   .scene .wire.off { opacity: .25; }
-  .scene .sync { fill: none; stroke: var(--side); stroke-width: 1.6; transition: opacity .3s; }
-  .scene .dim { opacity: .35; transition: opacity .35s; }
+  .scene .draw { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .scene .sync { fill: none; stroke: var(--side); stroke-width: 1.6; }
   .scene .dot { fill: var(--glow); }
   .scene .dot.stuck { fill: var(--warm); }
   .scene .dot.rep { fill: var(--side); }
   .scene .gbg { fill: #222A38; }
   .scene .gfill { transition: fill .3s; }
-  .scene .fade { transition: opacity .35s; }
   .scene .flag { font-size: 22px; font-weight: 600; opacity: 0; transition: opacity .35s; }
   .scene .flag.on { opacity: 1; }
-  .scene .x { stroke: var(--bad); stroke-width: 4; stroke-linecap: round; opacity: 0; transition: opacity .25s; }
+  .scene .x { stroke: var(--bad); stroke-width: 4; stroke-linecap: round; fill: none; opacity: 0; transition: opacity .25s; }
   .scene .x.on { opacity: 1; }
+  /* 증설 임계(60%): 막대마다 눈금과 넘는 구간을 옅은 빨강으로 보인다 */
+  .scene .gz { fill: rgba(255,122,122,.18); opacity: 0; transition: opacity .5s; }
+  .scene .tick { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity .5s; }
+  #a1.th .gz, #a1.th .tick { opacity: 1; }
+  /* AI 알림 칩이 승인 뒤 줄어들며 조회 서버 상자가 된다 */
+  .scene .nb { fill: rgba(198,192,242,.1); stroke: var(--ai); stroke-width: 1.6; transition: fill .3s, stroke .3s; }
+  .scene .nb.ok { fill: rgba(45,209,150,.1); stroke: var(--ok); }
+  .scene .nb.boot { fill: #1A2130; stroke: var(--brand); stroke-dasharray: 6 5; }
+  .scene .nb.ready { fill: #1A2130; stroke: var(--brand); }
+  .scene .chip { font-size: 22px; }
+  .scene .t-ai { font-family: var(--mono); font-weight: 600; fill: var(--ai); }
+  .scene .t-bad { font-weight: 600; fill: var(--bad); }
+  .scene .t-ok { font-weight: 600; fill: var(--ok); }
+  .scene .t-2 { fill: var(--ink-2); }
+  .scene .ck { fill: none; stroke: var(--ok); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .scene .pg { fill: var(--brand); }
+  .scene .soft { font-size: 22px; fill: var(--ink-3); opacity: 0; transition: opacity .3s; }
+  .scene .soft.on, .scene .later.on { opacity: 1; }
+  .scene .later { opacity: 0; transition: opacity .4s; }
+  .scene .ping, .scene .cping { fill: none; stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .scene .ping { stroke: var(--brand); }
+  .scene .cping { stroke: var(--ai); }
+  .scene .ping.go { animation: ping 1s cubic-bezier(.2,.7,.2,1); }
+  .scene .cping.go { animation: cping .9s cubic-bezier(.2,.7,.2,1); }
 
-  .chk { margin: 22px 0 0; display: flex; align-items: baseline; gap: 18px; font-size: 24px; line-height: 1.4; color: var(--ink-2); white-space: nowrap; }
+  .chk { margin: 0; display: flex; align-items: baseline; gap: 18px; font-size: 24px; line-height: 1.4; color: var(--ink-2); white-space: nowrap; }
   .chk span { font-size: 22px; color: var(--ink-3); padding-right: 18px; border-right: 2px solid var(--line); }
 
   /* 단계 2: 계획한 아키텍처 전체. 뼈대 → 01의 답 → 02의 답 → 관제와 AI 순서로 차례로 들어온다 */
@@ -160,6 +187,7 @@
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   @keyframes ping { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.1, 1.6); } }
+  @keyframes cping { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.6); } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
@@ -181,13 +209,17 @@
   <p class="dek">기획 시나리오의 두 장면에 답하도록, 30만 원 · 1명 · 한 달 안에서 설계했습니다.</p>
 
   <div class="qs">
-    <section class="q">
+    <section class="q" id="q1">
       <div class="no"><b>01</b>트래픽 급증</div>
-      <h2><em>조회 서버를 켜서</em><br>몰린 요청을 나눠 받는다</h2>
-      <svg class="scene" id="a1" viewBox="0 0 790 270" role="img" aria-label="요청이 몰려 거래 서버 두 대의 사용량이 한계에 닿으면 조회 서버가 켜져 요청을 셋이 나눠 받고, 사용량이 내려가 응답이 정상으로 돌아오는 장면">
+      <div class="hh">
+        <h2 class="ask"><em>요청이 한꺼번에 몰려도</em><br>서버는 버텨야 한다</h2>
+        <h2 class="ans"><em>조회 서버를 켜서</em><br>몰린 요청을 나눠 받는다</h2>
+      </div>
+      <svg class="scene" id="a1" viewBox="0 0 790 270" role="img" aria-label="두 거래 서버의 CPU가 증설 임계 60%를 넘자 AI가 위험을 알리고, 조회 서버 1대 추가가 승인되면 조회 서버가 기동해 요청을 셋이 나눠 받으면서 사용량이 임계 아래로 내려오는 장면">
         <path class="wire" d="M84 60 L282 135 M84 135 H282 M84 210 L282 135"/>
-        <path class="wire" d="M382 135 L470 45 M382 135 L470 135"/>
-        <path class="wire ghost" id="a1-wr" d="M382 135 L470 225"/>
+        <path class="wire" id="a1-l0" d="M382 135 L470 75"/>
+        <path class="wire" id="a1-l1" d="M382 135 L470 195"/>
+        <path class="wire draw" id="a1-l2" d="M382 135 L470 225" pathLength="1" style="opacity:0"/>
         <g id="a1-dots"></g>
         <g>
           <image href="assets/tint/ui-users-side.svg" x="36" y="36" width="46" height="46"/>
@@ -198,58 +230,98 @@
         <rect class="box" x="282" y="103" width="100" height="64" rx="10"/>
         <image href="assets/tint/ui-arrows-split-glow.svg" x="314" y="117" width="36" height="36"/>
         <text class="sm" x="332" y="197" text-anchor="middle">로드밸런서</text>
-        <rect class="box" id="a1-b1" x="470" y="20" width="190" height="50" rx="10"/>
-        <image href="assets/tint/ui-server-glow.svg" x="488" y="29" width="32" height="32"/>
-        <text class="lb" x="530" y="52">거래 서버 1</text>
-        <rect class="box" id="a1-b2" x="470" y="110" width="190" height="50" rx="10"/>
-        <image href="assets/tint/ui-server-glow.svg" x="488" y="119" width="32" height="32"/>
-        <text class="lb" x="530" y="142">거래 서버 2</text>
+        <rect class="box" id="a1-b0" x="470" y="45" width="190" height="60" rx="10"/>
+        <image id="a1-i0" href="assets/tint/ui-server-glow.svg" x="492" y="59" width="32" height="32"/>
+        <text class="lb" id="a1-t0" x="536" y="82">거래 서버 1</text>
+        <rect class="box" id="a1-b1" x="470" y="165" width="190" height="60" rx="10"/>
+        <image id="a1-i1" href="assets/tint/ui-server-glow.svg" x="492" y="179" width="32" height="32"/>
+        <text class="lb" id="a1-t1" x="536" y="202">거래 서버 2</text>
+
+        <rect class="cping" id="a1-cping" x="470" y="234" width="320" height="34" rx="17"/>
         <rect class="ping" id="a1-ping" x="470" y="200" width="190" height="50" rx="10"/>
-        <rect class="box ghost" id="a1-b3" x="470" y="200" width="190" height="50" rx="10"/>
-        <image class="dim" id="a1-ri" href="assets/tint/ui-server-2-glow.svg" x="488" y="209" width="32" height="32"/>
-        <text class="lb" id="a1-rt" x="530" y="232" style="fill:var(--ink-3)">조회 서버</text>
-        <text class="sm" x="690" y="17">CPU</text>
-        <rect class="gbg" x="690" y="39" width="92" height="12" rx="6"/>
-        <rect class="gfill" id="a1-g1" x="690" y="39" width="0" height="12" rx="6"/>
-        <rect class="gbg" x="690" y="129" width="92" height="12" rx="6"/>
-        <rect class="gfill" id="a1-g2" x="690" y="129" width="0" height="12" rx="6"/>
-        <g class="fade" id="a1-g3w" style="opacity:0">
-          <rect class="gbg" x="690" y="219" width="92" height="12" rx="6"/>
-          <rect class="gfill" id="a1-g3" x="690" y="219" width="0" height="12" rx="6"/>
+        <rect class="nb" id="a1-nb" x="470" y="234" width="320" height="34" rx="17" style="opacity:0"/>
+        <g id="a1-ca" style="opacity:0">
+          <text class="chip" id="a1-cat" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-bad" dx="10">위험</tspan><tspan class="t-2" dx="8">· CPU 60% 넘음</tspan></text>
         </g>
-        <text class="flag" id="a1-late" x="736" y="94" text-anchor="middle" style="fill:var(--bad)">응답 지연</text>
+        <g id="a1-cb" style="opacity:0">
+          <path class="ck" d="M487 251 l5 5 l10 -11"/>
+          <text class="chip" id="a1-cbt" x="510" y="258"><tspan class="t-ok">승인</tspan><tspan class="t-2" dx="8">· 조회 서버 1대 추가</tspan></text>
+        </g>
+        <g id="a1-bc" style="opacity:0">
+          <image href="assets/tint/ui-server-2-glow.svg" x="492" y="209" width="32" height="32"/>
+          <text class="lb" x="536" y="232">조회 서버</text>
+          <rect class="pg" id="a1-pg" x="482" y="241" width="0" height="3" rx="1.5"/>
+        </g>
+
+        <text class="sm" id="a1-cpu" x="690" y="46">CPU</text>
+        <g>
+          <rect class="gbg" id="a1-gb0" x="690" y="66" width="92" height="12" rx="6"/>
+          <path class="gz" id="a1-gz0" d="M745 66 H776 A6 6 0 0 1 776 78 H745 Z"/>
+          <rect class="gfill" id="a1-g0" x="690" y="66" width="0" height="12" rx="6"/>
+          <path class="tick" id="a1-gt0" d="M745 61 V83"/>
+        </g>
+        <g>
+          <rect class="gbg" id="a1-gb1" x="690" y="186" width="92" height="12" rx="6"/>
+          <path class="gz" id="a1-gz1" d="M745 186 H776 A6 6 0 0 1 776 198 H745 Z"/>
+          <rect class="gfill" id="a1-g1" x="690" y="186" width="0" height="12" rx="6"/>
+          <path class="tick" id="a1-gt1" d="M745 181 V203"/>
+        </g>
+        <g class="later" id="a1-gw2">
+          <rect class="gbg" id="a1-gb2" x="690" y="219" width="92" height="12" rx="6"/>
+          <path class="gz" id="a1-gz2" d="M745 219 H776 A6 6 0 0 1 776 231 H745 Z"/>
+          <rect class="gfill" id="a1-g2" x="690" y="219" width="0" height="12" rx="6"/>
+          <path class="tick" id="a1-gt2" d="M745 214 V236"/>
+        </g>
+        <text class="soft" id="a1-boot" x="690" y="233">기동 중</text>
+        <text class="flag" id="a1-late" x="736" y="140" text-anchor="middle" style="fill:var(--bad)">응답 지연</text>
         <text class="flag" id="a1-fine" x="736" y="94" text-anchor="middle" style="fill:var(--ok)">응답 정상</text>
       </svg>
-      <p class="chk"><span>설계</span>주문은 DB 기록이 병목이라, 늘리는 것은 조회 서버뿐</p>
+      <div class="cc">
+        <p class="chk ask"><span>확인할 것</span>어디서 먼저 막히는지, 무엇을 늘려야 하는지</p>
+        <p class="chk ans"><span>설계</span>주문은 DB 기록이 병목이라, 늘리는 것은 조회 서버뿐</p>
+      </div>
     </section>
 
-    <section class="q">
+    <section class="q" id="q2">
       <div class="no"><b>02</b>DB 장애</div>
-      <h2><em>예비 DB가 스스로 이어받고</em><br>받은 주문은 지킨다</h2>
-      <svg class="scene" id="a2" viewBox="0 0 790 270" role="img" aria-label="주 DB가 멈추면 주문이 거래 서버 앞에서 기다리고, 예비 DB가 스스로 주 DB가 된 뒤 옛 주 DB가 예비로 다시 붙으면 기다리던 주문이 새 주 DB로 이어지는 장면">
-        <path class="wire" d="M84 135 H200 M370 135 H460 M460 60 V210"/>
-        <path class="wire" id="a2-wp" d="M460 60 H560"/>
-        <path class="wire off" id="a2-wq" d="M460 210 H560"/>
-        <path class="sync" id="a2-sync" d="M650 90 V180 M662 90 V180"/>
+      <div class="hh">
+        <h2 class="ask"><em>DB가 갑자기 멈춰도</em><br>받은 주문은 지켜야 한다</h2>
+        <h2 class="ans"><em>예비 DB가 스스로 이어받고</em><br>받은 주문은 지킨다</h2>
+      </div>
+      <svg class="scene" id="a2" viewBox="0 0 790 270" role="img" aria-label="주 DB에서 예비 DB가 갈라져 나와 주문을 두 DB에 함께 기록하다가, 주 DB가 멈추면 주문이 기다리고 예비 DB가 스스로 주 DB가 된 뒤 옛 주 DB가 예비로 다시 붙으면 기다리던 주문이 이어지는 장면">
+        <path class="wire" d="M84 135 H230"/>
+        <path class="wire" id="a2-wt" d="M420 135 H540"/>
+        <path class="wire" id="a2-bus" d="M540 135 V135"/>
+        <path class="wire" id="a2-wp" d="M540 135 H540"/>
+        <path class="wire off" id="a2-wq" d="M540 135 H540"/>
+        <g class="sync" id="a2-sync">
+          <path class="draw" d="M649 90 V180" pathLength="1"/>
+          <path class="draw" d="M661 90 V180" pathLength="1"/>
+        </g>
         <g id="a2-dots"></g>
         <image href="assets/tint/ui-users-side.svg" x="36" y="111" width="46" height="46"/>
         <text class="sm" x="59" y="188" text-anchor="middle">사용자</text>
-        <rect class="box" x="200" y="105" width="170" height="60" rx="10"/>
-        <image href="assets/tint/ui-server-glow.svg" x="216" y="119" width="32" height="32"/>
-        <text class="lb" x="258" y="142">거래 서버</text>
-        <rect class="box" id="a2-p" x="560" y="30" width="190" height="60" rx="10"/>
-        <image href="assets/tint/ui-database-glow.svg" x="580" y="44" width="32" height="32"/>
-        <text class="lb" id="a2-pt" x="622" y="67">주 DB</text>
-        <path class="x" id="a2-x" d="M716 44 L734 62 M734 44 L716 62"/>
-        <rect class="box" id="a2-q" x="560" y="180" width="190" height="60" rx="10"/>
-        <image href="assets/tint/ui-database-glow.svg" x="580" y="194" width="32" height="32"/>
-        <text class="lb" id="a2-qt" x="622" y="217">예비 DB</text>
-        <text class="flag" id="a2-wait" x="285" y="86" text-anchor="middle" style="fill:var(--warm)">주문 대기</text>
-        <text class="flag" id="a2-go" x="285" y="86" text-anchor="middle" style="fill:var(--ok)">주문 재개</text>
+        <rect class="box" x="230" y="105" width="190" height="60" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="261" y="119" width="32" height="32"/>
+        <text class="lb" x="305" y="142">거래 서버</text>
+        <g id="a2-qg" style="opacity:0">
+          <rect class="box" id="a2-q" x="540" y="105" width="190" height="60" rx="10"/>
+          <image id="a2-qi" href="assets/tint/ui-database-glow.svg" x="586" y="119" width="32" height="32"/>
+          <text class="lb" id="a2-qt" x="630" y="142">예비 DB</text>
+        </g>
+        <rect class="box" id="a2-p" x="540" y="105" width="190" height="60" rx="10"/>
+        <image id="a2-pi" href="assets/tint/ui-database-glow.svg" x="586" y="119" width="32" height="32"/>
+        <text class="lb" id="a2-pt" x="630" y="142">주 DB</text>
+        <path class="x" id="a2-x" d="M702 119 l18 18 m0 -18 l-18 18"/>
+        <text class="flag" id="a2-wait" x="325" y="86" text-anchor="middle" style="fill:var(--warm)">주문 대기</text>
+        <text class="flag" id="a2-go" x="325" y="86" text-anchor="middle" style="fill:var(--ok)">주문 재개</text>
         <text class="flag" id="a2-up" x="655" y="266" text-anchor="middle" style="fill:var(--ok)">자동 승격</text>
         <text class="flag" id="a2-re" x="678" y="143" style="fill:var(--ink-2)">재합류</text>
       </svg>
-      <p class="chk"><span>설계</span>두 DB에 모두 기록한 뒤에만 주문을 확인</p>
+      <div class="cc">
+        <p class="chk ask"><span>확인할 것</span>받은 주문이 남는지, 사람 없이 넘어가는지</p>
+        <p class="chk ans"><span>설계</span>두 DB에 모두 기록한 뒤에만 주문을 확인</p>
+      </div>
     </section>
   </div>
 
@@ -319,7 +391,7 @@
   </dialog>
 </div>
 
-<!-- 발표 노트(50초): 앞 장의 두 장면을 같은 모양으로 다시 보여 주되, 이번에는 버티는 모습이다. 장이 열리면 첫 칸만 움직이고, → 로 둘째 칸, 한 번 더 → 로 두 칸이 빠지고 계획한 아키텍처 전체가 차례로 들어온다. 세 번째 → 에 다음 장. ← 로 한 단계씩 되돌린다. 말할 거리: (첫 칸) "요청이 몰려 두 서버가 한계에 닿으면, 조회만 받는 서버를 켜서 셋이 나눠 받습니다. 주문은 마켓마다 한 서버가 순서를 정하고 병목이 DB 기록이라, 서버를 늘려도 빨라지지 않습니다. 그래서 늘리는 것은 조회 서버뿐입니다." → (둘째 칸) "주 DB가 멈추면 예비 DB가 스스로 주 DB가 됩니다. 다만 주문은 두 DB에 모두 기록된 뒤에만 확인하기 때문에, 옛 DB가 예비로 다시 붙을 때까지 기다렸다가 이어집니다. 그래서 확인받은 주문은 잃지 않습니다." → (전체) "그래서 계획한 아키텍처는 이렇습니다. 30만 원에 맞춰 NAT 게이트웨이 없이 역할별 최소 서버만 두고, 혼자 운영하기 위해 관제 서버가 지표를 모아 Teams로 보고하고, 온프레미스 AI가 원인과 조치를 제안합니다. 실행은 제가 승인합니다." 사실 확인: 조회 서버(app-3)는 Auto Scaling 그룹 0~1대(앱 계층 2~3대, ADR 0030 정정)이고 AWS에는 아직 만들지 못했다(학교 콘솔 ASG 거부). 두 거래 서버가 12개 마켓을 6개씩 맡는 리더 구조는 ADR 0034(로컬 검증, 한 대가 멈추면 남은 서버가 넘겨받음). DB 자동 전환은 Patroni 엄격 동기(ADR 0036, 주 DB·예비 DB·관제 서버 세 표)이고 로컬 Docker에서 검증했으며 AWS에는 아직 적용하지 않았다. 그림은 순서만 보인다. 실험(06-2)에서 예비 DB 승격은 22.75초, 주문 재개는 옛 DB가 예비로 다시 붙은 66초였다. 옛 DB가 돌아오지 못하면 엄격 동기는 주문을 계속 멈춘다(유실 대신 중단을 고른 설계). 두 DB는 서로 다른 가용 영역(AZ-a, AZ-c)에 둔다. NAT 게이트웨이는 두 대·30일 기준 약 $92(ADR 0030). 온프레미스 AI 서버 장비는 RTX PRO 6000 Blackwell로 바뀌었고, 판단 평가 수치(04-6)는 개발 PC RTX 4090에서 쟀다. 학교 AWS 보고의 요약은 Gemini였다. E 키 도구의 '최종 구성도'는 교수님 보고본 01_전체구성 v7이다. 호스트명: 거래 서버 1·2 = app-1·app-2, 조회 서버 = app-3, 주·예비 DB = db-1·db-2, 관제 서버 = bot-1, AI 서버 = ai-1. -->
+<!-- 발표 노트(1분): 장이 열리면 앞 장 첫 장면의 그 순간(몰린 요청에 두 거래 서버가 빨갛고 응답 지연)에서 시작한다. CPU 막대에 증설 임계 60% 눈금이 생기고, AI 칩이 '위험 · CPU 60% 넘음'을 알린다. '승인 · 조회 서버 1대 추가'로 바뀌면 두 서버가 위로 비켜서며 그 칩이 조회 서버 상자가 되어 기동한다. 선이 이어져 요청을 셋이 나눠 받고 사용량이 임계 아래로 내려오면(응답 정상) 제목과 아래 줄이 앞 장의 질문에서 답으로 바뀐다(약 7초). → 로 둘째 칸: 앞 장의 DB 장면(주 DB 한 대)에서 예비 DB가 주 DB에서 갈라져 나와 복제선이 이어지고, 주문마다 같은 기록이 예비 DB로 간다. 주 DB가 멈추면 주문이 거래 서버 앞에서 기다리고, 자동 승격, 옛 DB 재합류 뒤 기다리던 주문이 이어지며 제목이 답으로 바뀐다(약 8초). 한 번 더 → 로 두 칸이 빠지고 계획한 아키텍처가 차례로 들어온다. 세 번째 → 에 다음 장. ← 로 한 단계씩 되돌리면 그 칸의 과정이 처음부터 다시 나온다. 말할 거리: (첫 칸) "앞 장의 그 순간입니다. CPU가 임계치 60%를 넘자 AI가 위험을 알리고 조회 서버 1대 추가를 제안합니다. 승인하면 조회 서버가 켜지고, 셋이 나눠 받아 응답이 정상으로 돌아옵니다. 주문은 DB 기록이 병목이라, 늘리는 건 조회 서버뿐입니다." → (둘째 칸) "DB는 예비 DB를 하나 더 두고, 주문을 두 DB에 모두 기록한 뒤에만 확인합니다. 주 DB가 멈추면 예비 DB가 스스로 이어받고, 옛 DB가 다시 붙으면 기다리던 주문이 이어집니다. 확인받은 주문은 잃지 않습니다." → (전체) "그래서 계획한 아키텍처입니다. NAT 게이트웨이 없이 역할별 최소 서버만 두고, 관제는 온프레미스 AI가 원인과 조치를 제안하고 제가 승인합니다." 사실 확인: 증설 임계 60%는 관리자 설계의 기본값(read.scale_out_cpu, 앱 계층 평균 CPU, 확정값 아님)이고 시연 영상은 50%로 맞춰 찍었다. AWS 값은 실제 시험으로 정한다(ADR 0030). AI는 기본인 수동 모드에서 조치안까지만 내고 실행은 운영자 승인이다(ADR 0035). 자동 모드에서는 허용 목록 안의 '조회 서버 켜기'를 한도 안에서 AI가 실행한다. AWS에서 조회 서버 증설의 기본 제어는 ASG 지표 정책이다. 막대 길이는 그림용 값이다. 조회 서버(app-3)는 Auto Scaling 그룹 0~1대(앱 계층 2~3대, ADR 0030 정정)이고 AWS에는 아직 만들지 못했다(학교 콘솔에서 ASG 조회와 시작 템플릿 생성 거부). 두 거래 서버가 12개 마켓을 6개씩 맡는 리더 구조는 ADR 0034(로컬 검증, 한 대가 멈추면 남은 서버가 넘겨받음). DB 자동 전환은 Patroni 엄격 동기(ADR 0036, 주 DB·예비 DB·관제 서버 세 표)이고 로컬 Docker에서 검증했으며 AWS에는 아직 적용하지 않았다. 그림은 순서만 보인다. 실험(06-2)에서 예비 DB 승격은 22.75초, 주문 재개는 옛 DB가 예비로 다시 붙은 66초였다. 옛 DB가 돌아오지 못하면 엄격 동기는 주문을 계속 멈춘다(유실 대신 중단을 고른 설계). 두 DB는 서로 다른 가용 영역(AZ-a, AZ-c)에 둔다. NAT 게이트웨이는 두 대·30일 기준 약 $92(ADR 0030). 온프레미스 AI 서버 장비는 RTX PRO 6000 Blackwell로 바뀌었고, 판단 평가 수치(04-6)는 개발 PC RTX 4090에서 쟀다. 학교 AWS 보고의 요약은 Gemini였다. E 키 도구의 '최종 구성도'는 교수님 보고본 01_전체구성 v7이다. 호스트명: 거래 서버 1·2 = app-1·app-2, 조회 서버 = app-3, 주·예비 DB = db-1·db-2, 관제 서버 = bot-1, AI 서버 = ai-1. -->
 
 <script>
 (() => {
@@ -350,6 +422,11 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const on = (id, v = true) => $(id).classList.toggle('on', v);
   const cls = (id, c, v = true) => $(id).classList.toggle(c, v);
+  const clamp = v => Math.max(0, Math.min(1, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+  const attr = (el, o) => { for (const k in o) el.setAttribute(k, o[k]); };
+  const kick = id => { const el = $(id); el.classList.remove('go'); el.getBoundingClientRect(); el.classList.add('go'); };
 
   // 꺾인 선 위의 위치
   const along = (pts, d) => {
@@ -362,75 +439,147 @@
   };
   const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
   const dot = (layer, c = 'dot', r = 5) => { const el = document.createElementNS(NS, 'circle'); el.setAttribute('r', r); el.setAttribute('class', c); layer.appendChild(el); return el; };
-  const gColor = v => v > .82 ? 'var(--bad)' : v > .7 ? 'var(--warm)' : 'var(--ok)';
 
-  // 첫 칸(10초 되풀이): 앞 장처럼 요청이 2.6초 동안 가장 몰린 때까지 늘어 두 서버가 한계에 닿고(응답 지연),
-  // 4초에 조회 서버가 켜져 셋이 나눠 받으면 사용량이 2/3로 내려간다(응답 정상).
-  // frozen 이면(둘째 칸으로 넘어간 뒤) 새 요청을 멈추고 버틴 상태(조회 서버 켜짐·응답 정상)에 머문다
-  const A1_ON = 4.0, A1_END = 8.6;
-  const a1 = { layer: $('a1-dots'), parts: [], t0: 0, last: 0, n: 0, load: [0, 0, 0], up: false, frozen: false };
-  const A1_SRC = [[84, 60], [84, 135], [84, 210]];
-  const A1_DST = [[[470, 45], [520, 45]], [[470, 135], [520, 135]], [[470, 225], [520, 225]]];
-  function setUp(v, ping) {
-    a1.up = v;
-    cls('a1-b3', 'ghost', !v); cls('a1-b3', 'blue', v); cls('a1-wr', 'ghost', !v);
-    $('a1-ri').classList.toggle('dim', !v); $('a1-rt').style.fill = v ? 'var(--ink-2)' : 'var(--ink-3)';
-    $('a1-g3w').style.opacity = v ? 1 : 0;
-    const pg = $('a1-ping'); pg.classList.remove('go');
-    if (ping) { pg.getBoundingClientRect(); pg.classList.add('go'); }   // 켜지는 순간 테두리가 한 번 퍼진다
+  // ---- 첫 칸(한 번 재생 후 머묾) ----
+  // 앞 장 첫 장면의 막힌 순간(두 서버 빨강·응답 지연)에서 시작한다. 1.1초에 증설 임계 60% 눈금이 생기고, 1.8초에 AI 알림 칩,
+  // 3초에 승인, 3.6초부터 두 서버가 위로 비켜서며 칩이 조회 서버 상자로 줄어든다. 기동(1초) 뒤 선이 이어지면 요청을 셋이 나눠 받고,
+  // 사용량이 임계 아래로 내려와 응답 정상이 되면 7.3초에 제목과 아래 줄이 답으로 바뀐다. 요청은 계속 흐른다
+  const T1 = { TH: 1.1, AI: 1.8, OK: 3.0, MOVE: 3.6, MOVE_D: .8, BOOT_D: 1.0, WIRE_D: .35, SOLVE: 7.3 };
+  T1.BOOT = T1.MOVE + T1.MOVE_D; T1.READY = T1.BOOT + T1.BOOT_D; T1.SPLIT = T1.READY + T1.WIRE_D;
+  const BOX_A = [[45, 60], [165, 60]], BOX_B = [[20, 50], [110, 50]];   // 앞 장 배치 → 세 대 배치(위쪽 y, 높이)
+  const BAR_A = [66, 186], BAR_B = [39, 129];
+  const CHIP = { x: 470, y: 234, w: 320, h: 34 }, SLOT = { x: 470, y: 200, w: 190, h: 50 };
+  const SRC1 = [[84, 60], [84, 135], [84, 210]];
+  const LOAD_JAM = [.9, .87, 0], LOAD_OK = [.56, .54, .52];   // 그림용 사용량. 셋이 나누면 임계(0.6) 아래로 내려온다
+  const a1 = { layer: $('a1-dots'), parts: [], t0: 0, last: 0, n: 0, load: LOAD_JAM.slice(), m: -1, cy: [75, 195, 225], fired: {}, frozen: false, still: false };
+
+  function bar1(k, y) {
+    attr($('a1-gb' + k), { y }); attr($('a1-g' + k), { y });
+    $('a1-gz' + k).setAttribute('d', `M745 ${y} H776 A6 6 0 0 1 776 ${y + 12} H745 Z`);
+    $('a1-gt' + k).setAttribute('d', `M745 ${y - 5} V${y + 17}`);
+  }
+  // m = 0 이면 앞 장 배치(두 대), 1 이면 세 대 배치. 서버 상자·선·막대·머리글이 함께 움직인다
+  function lay1(m) {
+    if (m === a1.m) return;
+    a1.m = m;
+    for (let k = 0; k < 2; k++) {
+      const y = lerp(BOX_A[k][0], BOX_B[k][0], m), h = lerp(BOX_A[k][1], BOX_B[k][1], m);
+      attr($('a1-b' + k), { y, height: h });
+      $('a1-i' + k).setAttribute('y', y + (h - 32) / 2);
+      $('a1-t' + k).setAttribute('y', y + h / 2 + 7);
+      a1.cy[k] = y + h / 2;
+      $('a1-l' + k).setAttribute('d', `M382 135 L470 ${a1.cy[k]}`);
+      bar1(k, lerp(BAR_A[k], BAR_B[k], m));
+    }
+    const hy = lerp(46, 17, m);
+    $('a1-cpu').setAttribute('y', hy);
+    $('a1-late').setAttribute('y', lerp(140, 94, m));
+  }
+  // AI 알림 칩 → 승인 → 조회 서버 상자(기동 → 준비)
+  function node1(t) {
+    const nb = $('a1-nb');
+    const a = ease(clamp((t - T1.AI) / .3)), k = ease(clamp((t - T1.MOVE) / T1.MOVE_D));
+    const s = k > 0 ? 1 : .94 + .06 * a;   // 나타날 때 살짝 커진다
+    const w = lerp(CHIP.w, SLOT.w, k) * s, h = lerp(CHIP.h, SLOT.h, k) * s;
+    const x = lerp(CHIP.x, SLOT.x, k) + (1 - s) * CHIP.w / 2, y = lerp(CHIP.y, SLOT.y, k) + (1 - s) * CHIP.h / 2;
+    attr(nb, { x, y, width: w, height: h, rx: lerp(h / 2, 10, k) });
+    nb.style.opacity = a;
+    // 두 글이 겹쳐 보이지 않게 알림이 먼저 사라진 뒤 승인이 나타난다
+    $('a1-ca').style.opacity = t < T1.OK ? a : 1 - clamp((t - T1.OK) / .15);
+    $('a1-cb').style.opacity = clamp((t - T1.OK - .15) / .2) * (1 - clamp((t - T1.MOVE) / (T1.MOVE_D * .25)));
+    $('a1-cb').setAttribute('transform', `translate(0 ${y - CHIP.y})`);
+    $('a1-bc').style.opacity = clamp((t - T1.MOVE - T1.MOVE_D * .3) / (T1.MOVE_D * .45));
+    $('a1-bc').setAttribute('transform', `translate(${x - SLOT.x} ${y - SLOT.y})`);   // 줄어드는 상자와 함께 움직인다
+    const half = T1.MOVE + T1.MOVE_D * .3;
+    nb.classList.toggle('ok', t >= T1.OK && t < half);
+    nb.classList.toggle('boot', t >= half && t < T1.READY);
+    nb.classList.toggle('ready', t >= T1.READY);
+    const pg = $('a1-pg');   // 기동: 상자 아래쪽 줄이 차오른다
+    pg.setAttribute('width', t < T1.BOOT ? 0 : 166 * ease(clamp((t - T1.BOOT) / T1.BOOT_D)));
+    pg.style.opacity = t < T1.READY ? 1 : 1 - clamp((t - T1.READY) / .3);
+    on('a1-boot', t >= T1.BOOT && t < T1.READY);
+    on('a1-gw2', t >= T1.READY);
+    const wl = $('a1-l2');   // 준비되면 로드밸런서에서 선이 이어진다
+    wl.style.opacity = t >= T1.READY ? 1 : 0;
+    wl.style.strokeDashoffset = 1 - ease(clamp((t - T1.READY) / T1.WIRE_D));
+    if (t >= T1.AI && !a1.fired.ai) { a1.fired.ai = true; kick('a1-cping'); }
+    if (t >= T1.READY && !a1.fired.ready) { a1.fired.ready = true; kick('a1-ping'); }
+  }
+  function load1(t) {
+    const split = t >= T1.SPLIT, target = a1.frozen || split ? LOAD_OK : LOAD_JAM;
+    for (let k = 0; k < 3; k++) {
+      a1.load[k] += (target[k] - a1.load[k]) * (a1.frozen ? 1 : .035);
+      const v = a1.load[k], g = $('a1-g' + k);
+      g.setAttribute('width', (92 * v).toFixed(1)); g.style.fill = v > .6 ? 'var(--bad)' : 'var(--ok)';
+      if (k < 2) cls('a1-b' + k, 'hot', v > .6);
+    }
+    on('a1-late', Math.max(a1.load[0], a1.load[1]) > .75);
+    on('a1-fine', split && Math.max(...a1.load) < .6);
+  }
+  function dots1(now, t) {
+    const split = t >= T1.SPLIT;
+    if (!a1.frozen && now - a1.last > 55) {
+      a1.last = now; a1.n++;
+      a1.parts.push({ el: dot(a1.layer), s: a1.n % 3, k: split ? a1.n % 3 : a1.n % 2, b: now });
+    }
+    a1.parts = a1.parts.filter(p => {   // 서버가 움직이는 동안에도 점은 그 서버의 지금 자리로 간다
+      const pts = [SRC1[p.s], [282, 135], [382, 135], [470, a1.cy[p.k]], [520, a1.cy[p.k]]];
+      const d = (now - p.b) * 0.42;
+      if (d >= lenOf(pts)) { p.el.remove(); return false; }
+      const [x, y] = along(pts, d); attr(p.el, { cx: x, cy: y }); return true;
+    });
   }
   function reset1(now) {
-    a1.parts.forEach(p => p.el.remove()); a1.parts = []; a1.t0 = now; a1.last = now; a1.n = 0; a1.load = [0, 0, 0];
-    a1.layer.style.opacity = 1; setUp(false); on('a1-late', false); on('a1-fine', false);
+    a1.parts.forEach(p => p.el.remove()); a1.parts = [];
+    Object.assign(a1, { t0: now, last: now, n: 0, load: LOAD_JAM.slice(), m: -1, fired: {}, frozen: false, still: false });
+    a1.layer.style.opacity = 1; $('q1').classList.remove('solved');
+  }
+  function freeze1() {   // 둘째 칸으로 넘어가면 답의 상태로 멈춘다(요청 점은 치운다)
+    a1.frozen = true; a1.still = false; a1.fired = { ai: true, ready: true };
+    a1.parts.forEach(p => p.el.remove()); a1.parts = []; a1.layer.style.opacity = 0;
   }
   function step1(now) {
-    const t = (now - a1.t0) / 1000;
-    if (!a1.frozen && t > 10) { reset1(now); return; }
-    if (!a1.frozen && t > 9.4) a1.layer.style.opacity = 0;
-    if (!a1.up && (a1.frozen || t > A1_ON)) setUp(true, !a1.frozen);
-    // 보내는 속도는 앞 장의 가장 몰린 때(초당 약 18건)까지 오른 뒤 그대로 머문다
-    const rate = 2 + 16.2 * Math.min(1, t / 2.6);
-    const sending = !a1.frozen && t < A1_END;
-    if (sending && now - a1.last > 1000 / rate) {
-      a1.last = now; a1.n++;
-      const k = a1.up ? a1.n % 3 : a1.n % 2, src = A1_SRC[a1.n % 3];
-      const pts = [src, [282, 135], [382, 135], ...A1_DST[k]];
-      a1.parts.push({ el: dot(a1.layer), pts, L: lenOf(pts), b: now });
-    }
-    a1.parts = a1.parts.filter(p => {
-      const d = (now - p.b) * 0.42;
-      if (d >= p.L) { p.el.remove(); return false; }
-      const [x, y] = along(p.pts, d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y); return true;
-    });
-    // 사용량(그림용 값) = 서버 한 대가 받는 속도 ÷ 처리 한계(초당 9.8건). 두 대면 0.93으로 한계에 닿고, 셋이 나누면 0.62로 내려간다
-    const servers = a1.up ? 3 : 2;
-    for (let k = 0; k < 3; k++) {
-      let target = 0;
-      if (a1.frozen) target = [.62, .6, .58][k];
-      else if (sending && (k < 2 || a1.up)) target = Math.min(1, rate / servers / 9.8) * (k === 1 ? .97 : 1);
-      a1.load[k] += (target - a1.load[k]) * 0.05;
-      const v = a1.load[k], g = $('a1-g' + (k + 1));
-      g.setAttribute('width', (92 * v).toFixed(1)); g.style.fill = gColor(v);
-      if (k < 2) cls('a1-b' + (k + 1), 'hot', v > .82);
-    }
-    const peak = Math.max(a1.load[0], a1.load[1]);
-    on('a1-late', peak > .82);
-    on('a1-fine', a1.up && peak < .72);
+    if (a1.still) return;
+    const t = a1.frozen ? 99 : (now - a1.t0) / 1000;
+    lay1(ease(clamp((t - T1.MOVE) / T1.MOVE_D)));
+    $('a1').classList.toggle('th', t >= T1.TH);
+    node1(t); load1(t);
+    if (!a1.frozen) dots1(now, t);
+    if (t >= T1.SOLVE) $('q1').classList.add('solved');
+    if (a1.frozen) a1.still = true;
   }
 
-  // 둘째 칸(11초 되풀이): 3.2초에 주 DB가 멈추면 확인받지 못한 주문이 거래 서버 앞으로 돌아와 기다리고(주문 대기),
-  // 4.6초에 예비 DB가 스스로 새 주 DB가 된다(자동 승격). 엄격 동기라 확인을 함께 받을 예비 DB가 없으면 주문을 받지 않으므로,
-  // 6초에 옛 주 DB가 예비로 다시 붙은 뒤(재합류) 6.5초에 기다리던 주문이 새 주 DB로 이어진다(주문 재개)
-  const T_DOWN = 3.2, T_UP = 4.6, T_RE = 6.0, T_GO = 6.5, T_END = 11;
-  const a2 = { layer: $('a2-dots'), parts: [], stack: [], t0: 0, last: 0, lastRep: 0, st: 0, on: false };
-  const TRUNK = [[84, 135], [200, 135], [370, 135], [460, 135]];
-  const UP = [[460, 135], [460, 60], [560, 60], [592, 60]];
-  const DOWN = [[460, 135], [460, 210], [560, 210], [592, 210]];
-  const STOP = 376 - 84;   // 거래 서버 오른쪽 끝을 막 지난 곳
-  const slot = i => [382 + (i % 5) * 14, 118 - Math.floor(i / 5) * 14];
+  // ---- 둘째 칸(→ 로 넘어온 순간부터 한 번 재생 후 머묾) ----
+  // 앞 장 둘째 장면처럼 주 DB 한 대로 주문이 들어가다가, 0.8초에 예비 DB가 주 DB에서 갈라져 나오고 복제선이 이어진다.
+  // 그 뒤로 주문마다 같은 기록이 예비 DB로 간다(엄격 동기). 3.8초에 주 DB가 멈추면 확인받지 못한 주문이 거래 서버 앞으로 돌아와 기다리고,
+  // 5.2초 자동 승격, 6.6초 옛 주 DB 재합류, 7.1초에 기다리던 주문이 새 주 DB로 이어지며, 7.9초에 제목과 아래 줄이 답으로 바뀐다
+  const T2 = { MOVE: .8, MOVE_D: .9, SYNC_D: .45, DOWN: 3.8, UP: 5.2, RE: 6.6, GO: 7.1, SOLVE: 7.9 };
+  T2.SYNC = T2.MOVE + T2.MOVE_D + .1;
+  const a2 = { layer: $('a2-dots'), parts: [], pend: [], stack: [], t0: 0, last: 0, st: 0, m: -1, g: null, t: 0, on: false };
+  const STOP = 426 - 84;   // 거래 서버 오른쪽 끝을 막 지난 곳
+  const slot = i => [436 + (i % 5) * 14, 118 - Math.floor(i / 5) * 14];
+  // m = 0 이면 앞 장 배치(주 DB 한 대가 가운데), 1 이면 위 주 DB·아래 예비 DB와 갈림길
+  function lay2(m) {
+    if (m === a2.m) return;
+    a2.m = m;
+    const P = { x: lerp(540, 560, m), y: lerp(105, 30, m) }, Q = { x: lerp(540, 560, m), y: lerp(105, 180, m) }, jx = lerp(540, 515, m);
+    for (const [id, D] of [['p', P], ['q', Q]]) {
+      attr($('a2-' + id), { x: D.x, y: D.y });
+      attr($('a2-' + id + 'i'), { x: D.x + 46, y: D.y + 14 });
+      attr($('a2-' + id + 't'), { x: D.x + 90, y: D.y + 37 });
+    }
+    $('a2-x').setAttribute('d', `M${P.x + 162} ${P.y + 14} l18 18 m0 -18 l-18 18`);
+    $('a2-qg').style.opacity = clamp(m * 1.6);
+    $('a2-wt').setAttribute('d', `M420 135 H${jx}`);
+    $('a2-bus').setAttribute('d', `M${jx} ${P.y + 30} V${Q.y + 30}`);
+    $('a2-wp').setAttribute('d', `M${jx} ${P.y + 30} H${P.x}`);
+    $('a2-wq').setAttribute('d', `M${jx} ${Q.y + 30} H${Q.x}`);
+    a2.g = { P, Q, jx };
+  }
+  function sync2(p) { for (const el of $('a2-sync').children) el.style.strokeDashoffset = 1 - ease(clamp(p)); }
   function state2(st) {
     a2.st = st;
-    const down = st >= 1 && st < 3;
+    const down = st === 1 || st === 2;
     cls('a2-p', 'hot', down); on('a2-x', down);
     $('a2-pt').textContent = st >= 3 ? '예비 DB' : '주 DB';
     $('a2-sync').style.opacity = down ? .2 : 1;
@@ -442,8 +591,9 @@
   }
   function reset2(now) {
     a2.parts.forEach(p => p.el.remove()); a2.stack.forEach(el => el.remove());
-    a2.parts = []; a2.stack = []; a2.t0 = now; a2.last = now; a2.lastRep = now;
-    a2.layer.style.opacity = 1; state2(0);
+    Object.assign(a2, { parts: [], pend: [], stack: [], t0: now, last: now, m: -1, t: 0 });
+    a2.layer.style.opacity = 1; state2(0); lay2(0); sync2(0);
+    $('q2').classList.remove('solved');
   }
   // 주문을 대기 줄의 다음 자리로 옮기는 움직임을 만든다(줄이 가득 차면 점을 치운다)
   const park = (p, now) => {
@@ -451,94 +601,114 @@
     if (i >= 15) { p.el.remove(); return null; }
     a2.stack.push(p.el); p.el.setAttribute('class', 'dot stuck');
     const x = +p.el.getAttribute('cx'), y = +p.el.getAttribute('cy'), to = slot(i);
-    return { el: p.el, pts: [[x, y], to], L: Math.max(1, Math.hypot(to[0] - x, to[1] - y)), b: now, speed: .9, parked: true };
+    return { el: p.el, mode: 'park', pts: [[x, y], to], L: Math.max(1, Math.hypot(to[0] - x, to[1] - y)), b: now, speed: .9 };
   };
+  // 주문이 주 DB에 닿으면 같은 기록이 예비 DB로 간다(엄격 동기. 재합류 뒤에는 방향이 바뀐다)
+  function rep(now, tgt) {
+    if (a2.t < T2.SYNC + T2.SYNC_D) return;
+    if (!(tgt === 'P' && a2.st === 0) && !(tgt === 'Q' && a2.st >= 4)) return;
+    const pts = tgt === 'P' ? [[655, 90], [655, 180]] : [[655, 180], [655, 90]], el = dot(a2.layer, 'dot rep', 4);
+    attr(el, { cx: pts[0][0], cy: pts[0][1] });
+    a2.pend.push({ el, mode: 'rep', pts, L: 90, b: now, speed: .2 });   // 걸러 내는 중에 불리므로 따로 모았다가 뒤에 붙인다
+  }
   function step2(now) {
-    const t = (now - a2.t0) / 1000;
-    if (t > T_END) { reset2(now); return; }
-    if (t > T_END - .6) a2.layer.style.opacity = 0;
-    if (a2.st < 1 && t > T_DOWN) {
+    const t = a2.t = (now - a2.t0) / 1000, g = () => a2.g;
+    lay2(ease(clamp((t - T2.MOVE) / T2.MOVE_D)));
+    if (t >= T2.SYNC && t < T2.SYNC + T2.SYNC_D + .1) sync2((t - T2.SYNC) / T2.SYNC_D);
+    if (a2.st < 1 && t >= T2.DOWN) {
       state2(1);
       // 거래 서버를 지나 기록을 기다리던 주문은 확인받지 못했으므로 대기 줄로 돌아오고, 복제 점은 치운다
       const kept = [];
       for (const p of a2.parts) {
-        if (p.rep) { p.el.remove(); continue; }
-        if (p.order && (p.leg === 'up' || p.d > STOP)) { const np = park(p, now); if (np) kept.push(np); continue; }
+        if (p.mode === 'rep') { p.el.remove(); continue; }
+        if (p.mode === 'order' && (p.tgt || p.d > STOP)) { const np = park(p, now); if (np) kept.push(np); continue; }
         kept.push(p);
       }
       a2.parts = kept;
     }
-    if (a2.st < 2 && t > T_UP) state2(2);
-    if (a2.st < 3 && t > T_RE) state2(3);
-    if (a2.st < 4 && t > T_GO) {
+    if (a2.st < 2 && t >= T2.UP) state2(2);
+    if (a2.st < 3 && t >= T2.RE) state2(3);
+    if (a2.st < 4 && t >= T2.GO) {
       state2(4);
+      const { jx, Q } = g();
       a2.stack.forEach((el, i) => {   // 기다리던 주문이 새 주 DB로 이어진다
         el.setAttribute('class', 'dot');
         const x = +el.getAttribute('cx'), y = +el.getAttribute('cy');
-        const pts = [[x, y], [x, 135], ...DOWN];
+        const pts = [[x, y], [x, 135], [jx, 135], [jx, Q.y + 30], [Q.x, Q.y + 30], [Q.x + 36, Q.y + 30]];
         a2.parts = a2.parts.filter(p => p.el !== el);
-        a2.parts.push({ el, pts, L: lenOf(pts), b: now + i * 70, speed: .34 });
+        a2.parts.push({ el, mode: 'flush', pts, L: lenOf(pts), b: now + i * 70, speed: .34 });
       });
       a2.stack = [];
     }
-    if (t < T_END - 1.8 && now - a2.last > 330) {
+    if (t >= T2.SOLVE) $('q2').classList.add('solved');
+    if (now - a2.last > 330) {
       a2.last = now;
-      a2.parts.push({ el: dot(a2.layer), pts: TRUNK, L: lenOf(TRUNK), b: now, order: true, leg: 'trunk', d: 0 });
-    }
-    const repFrom = a2.st === 0 ? [[656, 90], [656, 180]] : a2.st >= 3 ? [[656, 180], [656, 90]] : null;
-    if (repFrom && now - a2.lastRep > 660) {   // 평소에는 주 DB에서 예비 DB로 복제한다(재합류 뒤에는 방향이 바뀐다)
-      a2.lastRep = now;
-      a2.parts.push({ el: dot(a2.layer, 'dot rep', 4), pts: repFrom, L: 90, b: now, speed: .16, rep: true });
+      a2.parts.push({ el: dot(a2.layer), mode: 'order', b: now, d: 0, tgt: null });
     }
     const add = [];
     a2.parts = a2.parts.filter(p => {
-      const d = Math.max(0, (now - p.b) * (p.speed || 0.3)); p.d = d;
-      if (p.order && p.leg === 'trunk') {
-        if (a2.st >= 1 && a2.st < 4 && d >= STOP) {   // 주 DB를 쓸 수 없는 동안은 거래 서버 앞에서 기다린다
-          const [x, y] = along(p.pts, STOP); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y);
+      if (p.mode === 'order') {
+        const d = p.d = (now - p.b) * .3, { jx } = g();
+        if (a2.st >= 1 && a2.st < 4 && !p.tgt && d >= STOP) {   // 주 DB를 쓸 수 없는 동안은 거래 서버 앞에서 기다린다
+          attr(p.el, { cx: 84 + STOP, cy: 135 });
           const np = park(p, now); if (np) add.push(np); return false;
         }
-        if (d >= p.L) {   // 갈림길에서 지금의 주 DB 쪽으로 간다
-          p.leg = a2.st >= 2 ? 'down' : 'up'; p.pts = p.leg === 'up' ? UP : DOWN; p.L = lenOf(p.pts); p.b = now; p.d = 0;
-          return true;
-        }
+        const Lt = jx - 84;
+        if (d < Lt) { attr(p.el, { cx: 84 + d, cy: 135 }); return true; }
+        if (!p.tgt) p.tgt = a2.st >= 2 ? 'Q' : 'P';   // 갈림길에서 지금의 주 DB 쪽으로 간다
+        const D = g()[p.tgt], yc = D.y + 30, pts = [[jx, 135], [jx, yc], [D.x, yc], [D.x + 36, yc]];
+        if (d - Lt >= lenOf(pts)) { p.el.remove(); rep(now, p.tgt); return false; }
+        const [x, y] = along(pts, d - Lt); attr(p.el, { cx: x, cy: y }); return true;
       }
-      if (p.parked && d >= p.L) { const [x, y] = p.pts[1]; p.el.setAttribute('cx', x); p.el.setAttribute('cy', y); return false; }
-      if (d >= p.L) { p.el.remove(); return false; }
-      const [x, y] = along(p.pts, d); p.el.setAttribute('cx', x); p.el.setAttribute('cy', y); return true;
+      const d = Math.max(0, (now - p.b) * p.speed);
+      if (d >= p.L) {
+        if (p.mode === 'park') { attr(p.el, { cx: p.pts[1][0], cy: p.pts[1][1] }); return false; }
+        p.el.remove(); if (p.mode === 'flush') rep(now, 'Q'); return false;
+      }
+      const [x, y] = along(p.pts, d); attr(p.el, { cx: x, cy: y }); return true;
     });
-    a2.parts.push(...add);
+    a2.parts.push(...add, ...a2.pend); a2.pend = [];
   }
+
+  // AI 칩의 너비를 글자에 맞춘다(글꼴을 받은 뒤)
+  const fitChip = () => {
+    try {
+      const ra = $('a1-cat').getBBox(), rb = $('a1-cbt').getBBox();
+      CHIP.w = Math.min(320, Math.ceil(Math.max(ra.x + ra.width, rb.x + rb.width) + 16 - CHIP.x));
+      attr($('a1-cping'), { width: CHIP.w });
+    } catch (e) {}
+  };
+  fitChip();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitChip);
 
   // 단계: 0 첫 칸, 1 둘째 칸, 2 계획한 아키텍처. → 는 다음 단계, 마지막 단계면 다음 장. ← 는 한 단계 뒤로
   const LAST = 2;
   let step = 0, pending2 = false;
   function setStep(n) {
     step = n; stage.dataset.step = n;
-    a1.frozen = n >= 1;
-    if (a1.frozen) a1.layer.style.opacity = 0;
-    if (n === 0) {
-      a1.parts.forEach(p => p.el.remove()); a1.parts = []; a1.layer.style.opacity = 1; a1.t0 = 0;
-      reset2(performance.now());
-    }
+    if (n >= 1) freeze1();
+    else { a1.frozen = false; a1.t0 = 0; }   // 첫 칸을 처음부터(다음 프레임에 다시 시작)
+    if (n === 0) reset2(performance.now());
     else if (n === 1 && !a2.on) pending2 = true;   // 둘째 칸은 넘어온 순간부터 재생
     a2.on = n === 1;                               // 아키텍처 단계에서는 두 칸이 보이지 않으므로 멈춘다
   }
 
   if (reduce) {
-    // 움직임을 줄인 환경: 버틴 상태와 아키텍처 전체를 바로 보인다
-    setUp(true); on('a1-fine'); state2(4);
+    // 움직임을 줄인 환경: 두 칸의 답 상태와 아키텍처 전체를 바로 보인다
+    freeze1(); step1(0);
+    reset2(0); lay2(1); sync2(1); state2(4); $('q2').classList.add('solved');
     stage.dataset.step = LAST;
     window.deckStep = () => false;
     return;
   }
   const loop = now => {
-    if (!a1.t0) { a1.t0 = now; a1.last = now; if (!a2.t0) reset2(now); }
+    if (!a1.t0 && !a1.frozen) reset1(now);
     if (pending2) { pending2 = false; reset2(now); }
     step1(now);
     if (a2.on) step2(now);
     requestAnimationFrame(loop);
   };
+  reset2(performance.now());
   // 뒤 장에서 돌아오면(#last) 마지막 단계로 연다
   setStep(location.hash === '#last' ? LAST : 0);
   requestAnimationFrame(loop);
