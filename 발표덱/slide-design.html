@@ -156,11 +156,25 @@
   .stage[data-step="2"] .arch .link { stroke-dashoffset: 0; transition-delay: 1.3s; }
   .arch .grp { opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .6s cubic-bezier(.2,.7,.2,1); }
   .stage[data-step="2"] .arch .grp { opacity: 1; transform: none; }
+  .stage[data-step="2"] .arch .g0 { transition-delay: .35s; }
   .stage[data-step="2"] .arch .g1 { transition-delay: 1.3s; }
-  .stage[data-step="2"] .arch .g2 { transition-delay: 1.6s; }
-  .stage[data-step="2"] .arch .g3 { transition-delay: 2.0s; }
-  .stage[data-step="2"] .arch .g4 { transition-delay: 2.4s; }
-  .stage[data-step="2"] .arch .g5 { transition-delay: 2.8s; }
+  .stage[data-step="2"] .arch .g2 { transition-delay: 1.5s; }
+  .stage[data-step="2"] .arch .g3 { transition-delay: 1.8s; }
+  .stage[data-step="2"] .arch .g4 { transition-delay: 2.1s; }
+  .stage[data-step="2"] .arch .g5 { transition-delay: 2.4s; }
+  .arch .g0 { transform: none; }
+  /* 두 칸의 윗선이 사라지며 한 줄로 이어지고, 앞 칸 이름표(01 트래픽 급증)와 같은 모양으로 '01 + 02 계획한 아키텍처'를 단다 */
+  .arch .topline { fill: none; stroke: var(--ink-3); stroke-width: 2; }
+  .arch .cap2 { font-size: 22px; fill: var(--ink-3); }
+  .arch .cap2 .n1, .arch .cap2 .n2 { font-family: var(--mono); font-weight: 500; }
+  .arch .cap2 .n1 { fill: var(--brand); } .arch .cap2 .n2 { fill: var(--bad); }
+  .arch .cap2 .ct { font-weight: 600; fill: var(--ink); }
+  /* 합쳐진 그림에서도 요청이 흐른다(조립이 끝날 무렵 나타남) */
+  .arch .dot { fill: var(--glow); } .arch .dot.rep { fill: var(--side); }
+  #a3-dots { opacity: 0; transition: opacity .6s; }
+  .stage[data-step="2"] #a3-dots { opacity: 1; transition-delay: 2.4s; }
+  /* DB 이름은 합칠 때 흐려졌다가 평상 이름으로 바뀐다 */
+  #a2-pt, #a2-qt { transition: fill .35s, opacity .3s; }
   .foot {
     position: absolute; left: 130px; right: 130px; bottom: 64px;
     display: flex; align-items: baseline; gap: 28px;
@@ -168,7 +182,7 @@
     font-size: 25px; color: var(--ink);
     opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1);
   }
-  .stage[data-step="2"] .foot { opacity: 1; transform: none; transition-delay: 3.2s; }
+  .stage[data-step="2"] .foot { opacity: 1; transform: none; transition-delay: 2.7s; }
   .foot .k { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
   .foot b { font-weight: 600; color: var(--warm); }
 
@@ -350,7 +364,12 @@
   <!-- 계획한 아키텍처(단계 2). 두 칸의 그림이 여기로 옮겨 와 합쳐지고, 이음선·관제·AI·Teams만 새로 들어온다.
        첫 칸 그림은 위쪽 450, 둘째 칸 그림은 왼쪽 350·위쪽 435에 선다. 아래 좌표는 위쪽 400·385 기준이고 묶음 전체를 50 내렸다(서버 가운데 445·535·625, 오른쪽 끝 790, 주 DB 910~1100·415~475, 예비 DB 565~625) -->
   <svg class="arch" viewBox="0 0 1920 1080" role="img" aria-label="계획한 아키텍처: 앞의 두 답이 합쳐진 구조. 사용자가 로드밸런서를 거쳐 거래 서버 두 대와 몰릴 때만 켜는 조회 서버로 가고, 서버들은 주 DB에 쓰며 주 DB와 예비 DB는 엄격 동기로 자동 승격한다. 관제 서버가 서버와 DB의 지표를 모아 Teams로 보고하고 온프레미스 AI 서버에 판단을 요청한다">
+    <g class="grp g0">
+      <path class="topline" d="M130 337 H1790"/>
+      <text class="cap2" x="130" y="386"><tspan class="n1">01</tspan><tspan dx="8">+</tspan><tspan class="n2" dx="8">02</tspan><tspan class="ct" dx="14">계획한 아키텍처</tspan></text>
+    </g>
     <g transform="translate(0 50)">
+    <g id="a3-dots"></g>
     <g class="grp g1">
       <path class="wire" d="M790 445 H850 M790 535 H850"/>
     </g>
@@ -381,7 +400,6 @@
       <text class="lb" x="1306" y="714" style="fill:var(--ai)">AI 서버</text><text class="sb" x="1394" y="714">원인과 조치를 제안</text>
     </g>
     <g class="grp g5">
-      <text class="cap" x="130" y="348">계획한 아키텍처</text>
       <rect class="zone" x="370" y="362" width="770" height="398" rx="18"/>
       <text class="sb" x="394" y="394">AWS 서울 · 데이터센터 두 곳</text>
     </g>
@@ -715,10 +733,54 @@
     }
   }
   // 아키텍처에서는 DB 그림을 평상 상태(주 DB 위, 예비 DB 아래, 복제선)로 둔다
-  function calm2() {
+  function calm2(fade) {
     a2.parts.forEach(p => p.el.remove()); a2.stack.forEach(el => el.remove());
     a2.parts = []; a2.pend = []; a2.stack = [];
-    state2(0); a2.m = -1; lay2(1); sync2(1); $('a2-act').style.strokeDashoffset = 1;
+    a2.m = -1; lay2(1); sync2(1); $('a2-act').style.strokeDashoffset = 1;
+    if (!fade) { state2(0); return; }
+    // 둘째 칸이 끝난 상태(위 예비 DB, 아래 새 주 DB)에서 이름이 튀지 않게, 흐려진 뒤 바꾸고 다시 보인다
+    const tx = [$('a2-pt'), $('a2-qt')];
+    tx.forEach(el => { el.style.opacity = 0; });
+    setTimeout(() => { if (step === 2) state2(0); tx.forEach(el => { el.style.opacity = ''; }); }, 380);
+  }
+
+  // ---- 합쳐진 그림의 흐름(단계 2) ----
+  // 사용자 요청은 로드밸런서를 지나 서버 셋으로 가고, 거래 서버가 받은 주문 일부는 주 DB에 쓰이며 그 기록이 예비 DB로 복제된다.
+  // 좌표는 합친 그림 묶음(50 내리기 전) 기준이다
+  const a3 = { layer: $('a3-dots'), parts: [], last: 0, n: 0 };
+  const SRC3 = [[214, 460], [214, 535], [214, 610]], SY = [445, 535, 625];
+  function clear3() { a3.parts.forEach(p => p.el.remove()); a3.parts = []; }
+  function step3(now) {
+    if (now - a3.last > 70) {
+      a3.last = now; a3.n++;
+      const k = a3.n % 3, src = SRC3[(a3.n * 2) % 3];
+      const pts = [src, [412, 535], [512, 535], [600, SY[k]]];
+      a3.parts.push({ el: dot(a3.layer), pts, L: lenOf(pts), L0: lenOf(pts.slice(0, 2)), L1: lenOf(pts.slice(0, 3)), b: now, leg: 1, k, w: k < 2 && a3.n % 2 === 0 });
+    }
+    const add = [];
+    a3.parts = a3.parts.filter(p => {
+      const e = now - p.b;
+      let d;
+      if (p.leg === 1) { const t1 = p.L1 / .56; d = e < t1 ? e * .56 : p.L1 + (e - t1) * .22; }   // 로드밸런서 앞은 빠르고 뒤는 느긋하다
+      else d = Math.max(0, e) * p.v;
+      // 이 층은 그림 위에 있으므로 로드밸런서 상자를 지나는 동안에는 점을 감춘다
+      p.el.style.opacity = e < 0 || (p.leg === 1 && d > p.L0 && d < p.L1) ? 0 : 1;
+      if (d >= p.L) {
+        if (p.leg === 1 && p.w) {   // 거래 서버를 거친 주문은 잠시 뒤 주 DB로 간다
+          const pts = [[790, SY[p.k]], [850, SY[p.k]], [850, 445], [910, 445]];
+          add.push({ el: p.el, pts, L: lenOf(pts), b: now + 220, leg: 2, v: .22 });
+          attr(p.el, { cx: 790, cy: SY[p.k] }); p.el.style.opacity = 0;
+          return false;
+        }
+        if (p.leg === 2) {   // 주 DB에 쓴 기록이 예비 DB로 간다(엄격 동기)
+          const el = dot(a3.layer, 'dot rep', 4); attr(el, { cx: 1005, cy: 475 });
+          add.push({ el, pts: [[1005, 475], [1005, 565]], L: 90, b: now, leg: 3, v: .2 });
+        }
+        p.el.remove(); return false;
+      }
+      const [x, y] = along(p.pts, d); attr(p.el, { cx: x, cy: y }); return true;
+    });
+    a3.parts.push(...add);
   }
 
   // 단계: 0 첫 칸, 1 둘째 칸, 2 계획한 아키텍처. → 는 다음 단계, 마지막 단계면 다음 장. ← 는 한 단계 뒤로
@@ -732,7 +794,7 @@
     if (n === 0) reset2(performance.now());
     else if (n === 1 && !a2.on) pending2 = true;   // 둘째 칸은 넘어온 순간부터 재생
     a2.on = n === 1;                               // 아키텍처 단계에서는 둘째 칸 재생을 멈추고 평상 상태로 둔다
-    if (n === 2) calm2();
+    if (n === 2) calm2(true); else clear3();
   }
 
   if (reduce) {
@@ -749,6 +811,7 @@
     if (pending2) { pending2 = false; reset2(now); }
     step1(now);
     if (a2.on) step2(now);
+    if (step === 2) step3(now);
     requestAnimationFrame(loop);
   };
   reset2(performance.now());
