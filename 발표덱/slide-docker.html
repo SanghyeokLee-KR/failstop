@@ -22,6 +22,11 @@
     --bad: #FF7A7A;
     --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
     --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+    /* 위 색을 섞어 만든 면과 선 */
+    --box: color-mix(in srgb, var(--card) 24%, var(--stage));
+    --wire: color-mix(in srgb, var(--card) 80%, var(--glow));
+    --pc: color-mix(in srgb, var(--card) 7%, var(--stage));
+    --obs: color-mix(in srgb, var(--ai) 75%, var(--stage));
   }
   html, body { height: 100%; margin: 0; }
   body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
@@ -43,45 +48,67 @@
   .tag:hover { border-color: var(--card); color: var(--ink-2); }
   .tag .mx { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* 원본 구성도 보기 */
+  /* 원본 구성도 보기(E 키 도구) */
   .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
-  .fig::backdrop { background: rgba(8,10,15,.86); }
+  .fig::backdrop { background: color-mix(in srgb, var(--ground) 90%, transparent); }
   .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
-  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 18px; color: var(--ink-3); }
-  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 19px; }
-  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 17px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; }
+  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
   .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
-  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: var(--ink); cursor: zoom-in; }
   .fig.zoom .view { place-items: start; }
   .fig.zoom img { max-width: none; max-height: none; width: 260%; cursor: zoom-out; }
 
-  /* 두 줄 흐름: 위는 서비스, 아래는 관측과 알림. 번호는 오른쪽 '확인한 것'과 짝이다 */
-  .dia { position: absolute; left: 130px; top: 318px; width: 1190px; height: 640px; animation: fade 1s .3s ease-out both; }
+  /* 도면: PC 한 대 테두리 안에 위는 서비스 흐름, 아래는 관측과 알림.
+     단계 0 서비스 흐름 → 단계 1 거래 경로에 장애 주입(Toxiproxy)을 끼움 → 단계 2 관측과 알림 */
+  .dia { position: absolute; left: 90px; top: 318px; width: 1660px; height: 620px; overflow: visible; }
   .dia text { font-family: var(--sans); }
-  .dia .lane { font-size: 22px; fill: var(--ink-3); letter-spacing: .02em; }
-  .dia .nm { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .dia .pc { fill: var(--pc); stroke: var(--line); stroke-width: 1.6; }
+  .dia .sec { font-size: 24px; font-weight: 600; fill: var(--ink-2); }
+  .dia .lane { font-size: 22px; fill: var(--ink-3); }
+  .dia .tap { fill: var(--ai); stroke: var(--stage); stroke-width: 2; }
+  .dia .s2 .lo .side { opacity: 0; transition: opacity .4s; }
+  .stage[data-step="2"] .dia .s2 .lo .side { opacity: 1; transition-delay: 1s; }
+  .dia .lane.hi { font-size: 24px; fill: var(--ink-2); }
+  .dia .nm { font-size: 25px; font-weight: 600; fill: var(--ink); }
   .dia .sb { font-size: 22px; fill: var(--ink-3); }
-  .dia .box { fill: #1A2130; stroke: var(--card); stroke-width: 1.6; }
-  .dia .box.hit { stroke: var(--warm); }
-  .dia .box.ai { stroke: #8C84D0; fill: rgba(198,192,242,.06); }
-  .dia .box.ai.out { stroke-dasharray: 7 6; fill: transparent; }
-  .dia .wire { fill: none; stroke: #4F607C; stroke-width: 2.2; }
-  .dia .wire.obs { stroke-dasharray: 5 7; }
+  .dia .box { fill: var(--box); stroke: var(--card); stroke-width: 1.6; }
+  .dia .box.back { opacity: .7; }
+  .dia .box.test { stroke: var(--warm); stroke-dasharray: 8 6; }
+  .dia .box.lg { stroke-width: 2; }
+  .dia .box.hero { fill: color-mix(in srgb, var(--warm) 12%, var(--stage)); stroke: var(--warm); stroke-width: 2.2; }
+  .dia .test-k { font-size: 22px; font-weight: 600; fill: var(--warm); }
+  .dia .wire { fill: none; stroke: var(--wire); stroke-width: 2.4; marker-end: url(#ah); }
+  .dia .wire.nm { marker-end: none; }
+  .dia .ahp { fill: none; stroke: var(--wire); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .dia .obs { fill: none; stroke: var(--obs); stroke-width: 1.6; marker-end: url(#ahd); }
+  .dia .obs.nm { marker-end: none; }
+  .dia .brk { stroke-dasharray: 1640; stroke-dashoffset: 1640; }
+  .stage[data-step="2"] .dia .brk { animation: draw .8s .15s cubic-bezier(.4,0,.2,1) forwards; }
+  .stage.instant .dia .brk { animation-duration: 0s; animation-delay: 0s; }
+  .dia .s2 .lo { opacity: 0; transition: opacity .4s; }
+  .stage[data-step="2"] .dia .s2 .lo { opacity: 1; transition-delay: .75s; }
+  .dia .ahd { fill: none; stroke: var(--obs); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .dia .sep { stroke: var(--line); stroke-width: 1; }
-  .dia .mk circle { fill: var(--stage); stroke: var(--glow); stroke-width: 2; }
-  .dia .mk text { font-family: var(--mono); font-size: 22px; font-weight: 500; fill: var(--glow); text-anchor: middle; }
-  .dia .dot { fill: var(--glow); }
-  .dia .dot.bad { fill: var(--warm); }
+  .dia .nd { animation: rise .6s cubic-bezier(.2,.7,.2,1) both; }
+  .dia .wires { animation: fade .6s 1.3s ease-out both; }
+  /* 단계 1·2는 → 로 나온다 */
+  .dia .s1, .dia .s2 { opacity: 0; transform: translateY(-22px); transition: opacity .5s, transform .6s cubic-bezier(.2,.7,.2,1); }
+  .dia .s2 { transform: translateY(14px); }
+  .stage[data-step="1"] .dia .s1, .stage[data-step="2"] .dia .s1, .stage[data-step="2"] .dia .s2 { opacity: 1; transform: none; }
+  /* 관측 단계에서는 장애 주입의 노란 면을 낮춰 시선이 관측 줄로 가게 한다 */
+  .stage[data-step="2"] .dia .box.hero { fill: var(--box); stroke-width: 1.6; transition: fill .4s; }
+  .dia .test-k { transition: fill .4s; }
+  .stage[data-step="2"] .dia .test-k { fill: var(--ink-3); }
+  .stage[data-step="1"] .dia .s1 .box.hero { animation: pulse 1.1s 1.4s ease-in-out 2; transform-box: fill-box; transform-origin: center; }
 
-  .side { position: absolute; left: 1392px; right: 130px; top: 318px; display: flex; flex-direction: column; gap: 30px; }
-  .blk { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
-  .blk:nth-child(1) { animation-delay: .5s; } .blk:nth-child(2) { animation-delay: .65s; }
-  .blk .k { font-size: 22px; color: var(--ink-3); }
-  .blk p { margin: 6px 0 0; font-size: 28px; line-height: 1.4; color: var(--ink); word-break: keep-all; }
-  .blk ol { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
-  .blk li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; font-size: 25px; line-height: 1.35; color: var(--ink); word-break: keep-all; }
-  .blk li i { font-style: normal; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--glow); color: var(--glow); font-family: var(--mono); font-size: 22px; display: grid; place-items: center; transform: translateY(2px); }
-  .blk li small { display: block; margin-top: 4px; font-size: 22px; line-height: 1.4; color: var(--ink-3); }
+  .dia .s1 .tx { opacity: 0; transition: opacity .45s; }
+  .stage[data-step="1"] .dia .s1 .tx, .stage[data-step="2"] .dia .s1 .tx { opacity: 1; transition-delay: .8s; }
+  .dia .k6n { transition: stroke .4s, fill .4s; }
+  .stage[data-step="1"] .dia .k6n { stroke-width: 2.2; fill: color-mix(in srgb, var(--warm) 12%, var(--stage)); }
+
+  .stage.instant * { transition-duration: 0s !important; transition-delay: 0s !important; }
 
   .fs { position: absolute; right: 130px; top: 20px; font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; opacity: 0; transition: opacity .3s, color .3s; }
   .stage:hover .fs { opacity: 1; }
@@ -89,12 +116,14 @@
 
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .dot { display: none; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pulse { 50% { transform: scale(1.04); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
 
-<div class="stage" id="stage">
+<div class="stage" id="stage" data-step="0">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
     <div class="r"><span class="sec">주요 설계 및 구현</span>04-1</div>
@@ -102,101 +131,105 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>PC 한 대에서 먼저 부수고 재기</h1>
+    <h1>PC 한 대에 구성한 시험 환경</h1>
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-stack-2-side.svg" alt="">원본 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span>
   </div>
-  <p class="dek">실제와 같은 구성을 Docker로 띄워, 같은 장애를 필요할 때마다 다시 만들 수 있게</p>
+  <p class="dek">서버에 올리기 전, 운영 구성을 본떠 같은 장애를 몇 번이고 재현</p>
 
   <dialog class="fig" id="fig" aria-label="거래소 Docker 검증 환경 구성도 원본">
     <div class="bar"><b>Docker 검증 환경 구성도 · 원본</b><span>교수님 보고본 02_검증환경 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/docker-v7.png" alt="Docker 검증 환경 구성도 원본"></div>
   </dialog>
 
-  <svg class="dia" viewBox="0 0 1190 640" role="img" aria-label="위 줄: 시장 봇 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 가고, 장애 주입 장치를 지나 DB에 닿는다. 아래 줄: 지표를 모아 경보를 내고 Discord로 알린다(AWS에서는 Teams). AI 판단은 이 스택에 붙이지 않고 같은 PC의 GPU로 따로 평가했다.">
-    <text class="lane" x="0" y="24">서비스 흐름</text>
-    <line class="sep" x1="0" y1="318" x2="1190" y2="318"/>
-    <text class="lane" x="0" y="364">관측과 알림</text>
-
-    <!-- 서비스 흐름 선 -->
-    <path class="wire" d="M190 150 H220 M420 150 H436 M436 92 V210 M436 92 H460 M436 210 H460 M700 92 H726 M700 210 H726 M726 92 V210 M726 150 H748 M964 150 H988"/>
-    <!-- 관측 선 -->
-    <path class="wire obs" d="M580 252 V392 H105 V428 M210 470 H260 M500 470 H560 M800 470 H840"/>
-
-    <!-- 쉬는 동안 요청 점이 봇에서 DB로 흐른다 -->
-    <circle class="dot" r="6"><animateMotion dur="3.6s" repeatCount="indefinite" path="M190 150 H436 V92 H726 V150 H988"/></circle>
-    <circle class="dot" r="6"><animateMotion dur="3.6s" begin="1.2s" repeatCount="indefinite" path="M190 150 H436 V210 H726 V150 H988"/></circle>
-
-    <g>
-      <rect class="box" x="0" y="108" width="190" height="84" rx="12"/>
-      <image href="assets/tint/ui-chart-candle-glow.svg" x="16" y="130" width="40" height="40"/>
-      <text class="nm" x="68" y="146">시장 봇</text><text class="sb" x="68" y="172">가상 거래자</text>
-
-      <rect class="box" x="220" y="108" width="200" height="84" rx="12"/>
-      <image href="assets/tint/ui-arrows-split-glow.svg" x="236" y="130" width="40" height="40"/>
-      <text class="nm" x="288" y="158">로드밸런서</text>
-
-      <rect class="box" x="460" y="50" width="240" height="84" rx="12"/>
-      <image href="assets/tint/springboot-glow.svg" x="476" y="72" width="40" height="40"/>
-      <text class="nm" x="528" y="88">거래 서버 2대</text><text class="sb" x="528" y="114">리더 전환 시험</text>
-
-      <rect class="box" x="460" y="168" width="240" height="84" rx="12"/>
-      <image href="assets/tint/ui-server-2-glow.svg" x="476" y="190" width="40" height="40"/>
-      <text class="nm" x="528" y="206">조회 서버</text><text class="sb" x="528" y="232">켜고 끄기 시험</text>
-
-      <rect class="box hit" x="748" y="108" width="216" height="84" rx="12"/>
-      <image href="assets/tint/ui-flask-glow.svg" x="764" y="130" width="40" height="40"/>
-      <text class="nm" x="816" y="146">장애 주입</text><text class="sb" x="816" y="172">지연·끊김·종료</text>
-
-      <rect class="box" x="988" y="108" width="202" height="84" rx="12"/>
-      <image href="assets/tint/postgresql-glow.svg" x="1004" y="130" width="40" height="40"/>
-      <text class="nm" x="1056" y="146">DB</text><text class="sb" x="1056" y="172">PostgreSQL</text>
-      <text class="sb" x="1190" y="228" text-anchor="end">DB 자동 전환은 DB 두 대 구성을 따로 띄워 시험</text>
+  <svg class="dia" viewBox="0 0 1660 620" role="img" aria-label="PC 한 대의 Docker 안. 시장 봇의 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 간다. 거래 서버는 DB 두 대에 기록하고, 조회 서버는 DB에서 읽는다. 다음 단계에서 시험 장치 둘을 더한다. 부하 시험 도구 k6가 요청을 넣고, 거래 서버와 DB 사이에 장애 주입 장치(Toxiproxy)가 끼어 지연과 끊김을 넣는다. 마지막 단계에서 서버와 DB의 지표를 Prometheus로 모아 Grafana로 보고, 기준을 넘으면 Alertmanager가 메신저로 알린다. k6와 장애 주입 장치는 운영에는 없는 시험용이다.">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="ahp" d="M1 1 L9 5 L1 9"/></marker>
+      <marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="ahd" d="M1 1 L9 5 L1 9"/></marker>
+    </defs>
+    <g class="wires">
+      <path class="wire nm" d="M270 158 H300 V226"/>
+      <path class="wire" d="M300 226 H326"/>
+      <path class="wire" d="M560 226 H600 V158 H636"/>
+      <path class="wire" d="M600 226 V294 H636"/>
+      <!-- 거래 서버 → DB(쓰기). 단계 1에서 이 선 위에 장애 주입이 끼어든다 -->
+      <path class="wire" d="M950 158 H1306"/>
+      <!-- 조회 서버 → DB(읽기) -->
+      <path class="wire" d="M940 294 H1470 V210"/>
     </g>
 
-    <g>
-      <rect class="box" x="0" y="428" width="210" height="84" rx="12"/>
-      <image href="assets/tint/ui-activity-side.svg" x="16" y="450" width="40" height="40"/>
-      <text class="nm" x="68" y="466">지표 수집</text><text class="sb" x="68" y="492">서버·DB·앱</text>
-
-      <rect class="box" x="260" y="428" width="240" height="84" rx="12"/>
-      <image href="assets/tint/prometheus-side.svg" x="276" y="450" width="40" height="40"/>
-      <text class="nm" x="328" y="466">Prometheus</text><text class="sb" x="328" y="492">Grafana 화면</text>
-
-      <rect class="box" x="560" y="428" width="240" height="84" rx="12"/>
-      <image href="assets/tint/ui-bell-side.svg" x="576" y="450" width="40" height="40"/>
-      <text class="nm" x="628" y="466">경보</text><text class="sb" x="628" y="492">기준을 넘으면</text>
-
-      <rect class="box" x="840" y="428" width="290" height="84" rx="12"/>
-      <image href="assets/tint/ui-message-2-side.svg" x="856" y="450" width="40" height="40"/>
-      <text class="nm" x="908" y="466">Discord 알림</text><text class="sb" x="908" y="492">AWS에서는 Teams</text>
-
-      <rect class="box ai out" x="760" y="540" width="370" height="84" rx="12"/>
-      <image href="assets/tint/ollama-ai.svg" x="776" y="562" width="40" height="40"/>
-      <text class="nm" x="828" y="578">AI 판단 평가</text><text class="sb" x="828" y="604">Docker 밖 · 같은 PC의 GPU</text>
+    <g class="nd" style="animation-delay:.3s">
+      <rect class="box" x="40" y="110" width="230" height="96" rx="14"/>
+      <image href="assets/tint/ui-chart-candle-glow.svg" x="60" y="134" width="44" height="44"/>
+      <text class="nm" x="118" y="150">시장 봇</text><text class="sb" x="118" y="180">상시 가상 주문</text>
+    </g>
+    <g class="nd" style="animation-delay:.6s">
+      <rect class="box" x="330" y="178" width="230" height="96" rx="14"/>
+      <image href="assets/tint/nginx-glow.svg" x="350" y="202" width="44" height="44"/>
+      <text class="nm" x="408" y="218">로드밸런서</text><text class="sb" x="408" y="248">주문·조회 나눔</text>
+    </g>
+    <g class="nd" style="animation-delay:.85s">
+      <rect class="box back" x="650" y="100" width="300" height="96" rx="14"/>
+      <rect class="box" x="640" y="110" width="300" height="96" rx="14"/>
+      <image href="assets/tint/springboot-glow.svg" x="660" y="134" width="44" height="44"/>
+      <text class="nm" x="718" y="150">거래 서버 2대</text><text class="sb" x="718" y="180">마켓을 반씩 맡음</text>
+    </g>
+    <g class="nd" style="animation-delay:.95s">
+      <rect class="box" x="640" y="246" width="300" height="96" rx="14"/>
+      <image href="assets/tint/ui-server-2-glow.svg" x="660" y="270" width="44" height="44"/>
+      <text class="nm" x="718" y="286">조회 서버</text><text class="sb" x="718" y="316">DB 읽기 전담</text>
+    </g>
+    <g class="nd" style="animation-delay:1.1s">
+      <rect class="box back" x="1320" y="100" width="300" height="96" rx="14"/>
+      <rect class="box" x="1310" y="110" width="300" height="96" rx="14"/>
+      <image href="assets/tint/postgresql-glow.svg" x="1330" y="134" width="44" height="44"/>
+      <text class="nm" x="1388" y="150">DB 2대</text><text class="sb" x="1388" y="180">주→예비 자동 전환</text>
     </g>
 
-    <!-- 번호: 오른쪽 목록과 짝 -->
-    <g class="mk"><circle cx="964" cy="108" r="18"/><text x="964" y="115">2</text></g>
-    <g class="mk"><circle cx="700" cy="50" r="18"/><text x="700" y="57">1</text></g>
-    <g class="mk"><circle cx="500" cy="428" r="18"/><text x="500" y="435">3</text></g>
-    <g class="mk"><circle cx="1130" cy="540" r="18"/><text x="1130" y="547">4</text></g>
+    <!-- 단계 1: 시험 장치 둘을 더한다. k6는 부하를 넣고, 장애 주입은 거래 경로에 끼어든다 -->
+    <g class="s1">
+      <rect class="box test lg" x="40" y="44" width="34" height="22" rx="6"/><text class="lane" x="86" y="63">노란 점선 = 시험 장치</text>
+      <path class="wire nm" d="M270 294 H300 V226"/>
+      <rect class="box test k6n" x="40" y="246" width="230" height="96" rx="14"/>
+      <image href="assets/tint/k6-glow.svg" x="60" y="270" width="44" height="44"/>
+      <text class="nm" x="118" y="286">k6</text><text class="sb" x="118" y="316">부하 시험</text>
+      <g class="tx">
+        <path class="wire" d="M950 158 H996"/>
+        <rect class="box test hero" x="1000" y="110" width="270" height="96" rx="14"/>
+        <image href="assets/tint/ui-flask-glow.svg" x="1018" y="134" width="44" height="44"/>
+        <text class="nm" x="1076" y="150">Toxiproxy</text><text class="sb" x="1076" y="180">DB 연결 장애 주입</text>
+      </g>
+    </g>
+
+    <!-- 단계 2: 관측과 알림 -->
+    <g class="s2">
+      <!-- 로드밸런서부터 DB까지 모든 칸의 지표를 묶음 선 하나로 모아 가운데에서 내린다 -->
+      <path class="obs nm brk" d="M40 380 V396 H1620 V380"/>
+      <circle class="tap" cx="252" cy="128" r="10"/><circle class="tap" cx="922" cy="128" r="10"/><circle class="tap" cx="922" cy="264" r="10"/><circle class="tap" cx="1592" cy="128" r="10"/>
+      <circle class="tap" cx="316" cy="55" r="10"/><text class="lane" x="336" y="63">= 지표 수집 대상</text>
+      <g class="lo">
+        <path class="obs" d="M790 396 V512"/>
+        <!-- 위 열에 맞춘다: Prometheus는 서버 열, Grafana는 로드밸런서 열, Alertmanager는 Toxiproxy 열 -->
+        <rect class="box" x="640" y="516" width="300" height="96" rx="14"/>
+        <image href="assets/tint/prometheus-glow.svg" x="660" y="540" width="44" height="44"/>
+        <text class="nm" x="718" y="556">Prometheus</text><text class="sb" x="718" y="586">수집 · 경보 규칙</text>
+        <g class="side">
+          <path class="obs" d="M640 564 H564"/>
+          <rect class="box" x="330" y="516" width="230" height="96" rx="14"/>
+          <image href="assets/tint/grafana-glow.svg" x="350" y="540" width="44" height="44"/>
+          <text class="nm" x="408" y="556">Grafana</text><text class="sb" x="408" y="586">대시보드</text>
+          <path class="obs" d="M940 564 H996"/>
+          <rect class="box" x="1000" y="516" width="270" height="96" rx="14"/>
+          <image href="assets/tint/ui-bell-glow.svg" x="1018" y="540" width="44" height="44"/>
+          <text class="nm" x="1076" y="556">Alertmanager</text><text class="sb" x="1076" y="586">메신저로 경보</text>
+        </g>
+      </g>
+    </g>
   </svg>
-
-  <div class="side">
-    <section class="blk">
-      <div class="k">여기서 확인한 것</div>
-      <ol>
-        <li><i>1</i><span>거래 서버 리더 전환<small>리더를 멈추면 다른 서버가 넘겨받는지</small></span></li>
-        <li><i>2</i><span>DB 장애 재현<small>지연·끊김을 넣고, 강제로 종료</small></span></li>
-        <li><i>3</i><span>부하에 따른 지표 변화<small>시장 봇과 부하 도구로</small></span></li>
-        <li><i>4</i><span>AI 판단 평가(Docker 밖)<small>시나리오 37개를 3번씩, 111회</small></span></li>
-      </ol>
-    </section>
-  </div>
 </div>
 
-<!-- 발표 노트(35초): 서버에 올리기 전에 PC 한 대에 실제와 같은 구성을 Docker로 띄웠다. 위 줄은 서비스 흐름: 시장 봇(가상 거래자)의 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 가고, DB 앞에 장애 주입 장치(Toxiproxy)를 두어 지연·끊김을 넣거나 컨테이너를 강제로 멈췄다. 아래 줄은 관측과 알림: 지표를 모아(Prometheus·Grafana) 경보를 내고 알림을 보낸다. 로컬 스택은 Teams 웹훅 제약으로 알림을 Discord로 받았고(harness/alertmanager/alertmanager.yml), AWS에서는 Teams로 보낸다. 화면(v5)은 이 차이를 그대로 적었다. AI 판단은 이 스택에 붙이지 않았다. 같은 PC의 RTX 4090·Ollama로 시나리오 37개를 세 번씩(111회) 따로 평가했다(09-25, docs/measurements/20260925.md). DGX Spark 결과가 아니다. 이 스택의 DB는 한 대이고, DB 두 대의 자동 전환은 망을 따로 둔 Patroni 스택(harness/patroni)에서, 두 리더(마켓 분할)와 조회 서버는 S7 스택(exchange-pml)에서 따로 실험했다. 결과 장의 '로컬 Docker' 수치가 여기서 나왔다. 원본: 교수님_보고본/02_검증환경. -->
+<!-- 발표 노트(35초, 장 안에서 → 두 번): 서버에 올리기 전에, 운영과 같은 흐름을 PC 한 대에 Docker로 띄웠다. 위 줄은 서비스 흐름: 시장 봇(가상 주문)의 요청이 로드밸런서(nginx)를 거쳐 거래 서버 두 대(12개 마켓을 반씩 맡는 두 리더)와 조회 서버로 간다. 거래 서버의 DB 연결 앞에는 시험용 장애 주입 장치(Toxiproxy)를 두어 지연·끊김을 넣는다. 조회 서버는 장애 주입을 거치지 않고 DB로 바로 간다(원본 구성도의 '조회 경로만 :5432 직접 · Toxiproxy 우회'). DB는 주 DB와 예비 DB 두 대(Patroni)이고 주 DB가 멈추면 예비 DB가 자동 승격한다. 아래 줄은 관측과 알림: 서버와 DB의 지표를 Prometheus로 모아 Grafana로 보고, 기준을 넘으면 경보가 메신저로 나간다. 같은 장애를 몇 번이고 다시 만들 수 있다는 게 핵심이다(다음 장에서 실제로 몇 번 했는지). 장이 열리면 서비스 흐름이 왼쪽부터 그려진다. → 로 시험 장치 둘이 더해진다. k6(부하 시험)가 왼쪽에 나오고, 거래 서버와 DB 사이에 장애 주입(Toxiproxy)이 끼어든다(거래 경로에만, 조회 서버는 거치지 않음). 점선 범례도 이때 나온다. k6가 먼저, Toxiproxy가 0.4초 뒤에 나온다. 상자는 굵은 줄이 이름, 둘째 줄이 하는 일이다(로드밸런서 '주문·조회 나눔': 주문은 마켓에 따라 두 거래 서버로, 조회는 조회 서버로 보낸다). k6가 먼저, Toxiproxy가 0.8초 뒤 노랗게 끼어든다. 두 시험 장치는 노란 점선이고(범례는 왼쪽 위, k6와 같은 열). Toxiproxy 칸의 'DB 연결 장애 주입'은 끊기와 늦추기를 함께 말한다. 늦추기(E1) 결과는 둘째 장 표에 없으니 질문이 나오면 노트의 E1 23회로 답한다, 관측 단계에서도 노란 테두리가 남는다. 바깥 틀은 없다(제목이 PC 한 대). DB 칸의 '주→예비 자동 전환'은 Patroni와 etcd 세 대가 맡는다, 한 번 더 → 로 관측과 알림 줄이 나온다. 세 번째 → 에 다음 장(부하 시험과 장애 시험). ← 는 한 단계씩 되돌린다. 말할 거리: "서버에 올리기 전에, 운영 구성을 PC 한 대의 Docker로 옮겼습니다. 시장 봇이 주문을 넣고, 거래 서버 두 대와 조회 서버가 받아 DB 두 대에 기록합니다." → "여기에 시험 장치 둘을 더합니다. k6로 부하를 걸고, Toxiproxy를 거래 경로에 끼워, DB 연결을 늦추거나 끊는 장애를 원할 때마다 넣습니다." → "지표는 Prometheus로 모아 기준을 넘으면 경보가 메신저로 갑니다. 이 환경에서 실제로 한 시험이 다음 장입니다."
+질문 대비: 그림은 실험마다 띄운 구성을 한 장에 합친 것이다. 로드밸런서 칸의 '마켓별로 나눔'은 nginx가 주문 요청의 마켓 힌트(X-Exchange-Market)로 두 거래 서버 중 하나를 고르고, 조회 요청은 조회 서버로 보내는 설정을 말한다(harness/evidence/pml-app3-read-20260926-1220/smoke/lb/nginx.partition-relay.conf 92~125행). 아래 줄은 가운데 Prometheus가 지표를 모으고, 왼쪽 Grafana로 보고, 오른쪽 Alertmanager가 기준을 넘으면 메신저로 알린다. 관측 단계에서 지표를 내는 칸(시장 봇, 거래 서버, 조회 서버, DB)에 점이 찍힌다. 묶음 선은 그 지표를 모아 Prometheus로 보낸다는 뜻이고, Prometheus가 먼저 나온 뒤 Grafana와 Alertmanager가 양옆에 나온다. 로드밸런서와 Toxiproxy는 지표 대신 연결 검사(blackbox)로만 지켜본다. 시장 봇 부제 '상시 가상 주문'은 운영에서도 늘 도는 봇이라는 뜻이다(k6는 시험 때만). 수집 대상: 거래 서버, 시장 봇, DB 익스포터, 컨테이너 통계(cstats)를 모으고 로드밸런서·거래 서버·Toxiproxy·DB는 연결 검사(blackbox)로 지켜본다(harness/prometheus/prometheus.yml 18~115행). 장애 주입 칸 위의 '거래 경로에 지연 · 끊김' 글은 화면에서 뺐으니 말로 '지연과 끊김을 넣는다'고 한다. 두 리더 시험은 S7 스택(DB 한 대), DB 자동 전환은 Patroni 스택(PostgreSQL 두 대, etcd 세 대, HAProxy), 조회 서버 시험은 exchange-pml 스택에서 했다(harness/evidence/pml-S7-20260926-0300, patroni-20260925-1015, pml-app3-read-20260926-1220). Patroni 실험은 회차마다 스택을 새로 세우고 끝에 지웠다(patroni-20260925-1015/README.md 3행). 알림: 로컬 설정상 받는 곳은 Discord다(harness/alertmanager/alertmanager.yml 33~37행, Teams 웹훅이 참여자 2명 이상을 요구해서 8~10행). 실제 Discord 수신 기록은 없고, 경로는 시험 수신기로 확인했다(리더가 없어지자 LeaderAbsent 발화 10초 뒤 POST 도착, harness/evidence/gateoff-20260903-2vcpu/README.md 542~552행). 그래서 화면에는 '알림'으로만 적었다. AWS에서는 Teams로 보낸다. 원본 구성도: 교수님 보고본 02_검증환경(E 키 도구로 연다). -->
 
 <script>
 (() => {
@@ -213,5 +246,24 @@
   fig.addEventListener('click', e => { if (e.target === fig || e.target.classList.contains('view')) closeFig(); });
   fig.addEventListener('close', () => fig.classList.remove('zoom'));
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // ---- 단계: 0 서비스 흐름, 1 장애 주입을 끼움, 2 관측과 알림. ← 는 한 단계씩 되돌린다 ----
+  const LAST = 2;
+  let step = 0;
+  const set = (n, instant) => {
+    step = n; stage.classList.toggle('instant', !!instant); stage.dataset.step = n;
+    if (instant) requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('instant')));
+  };
+  set(location.hash === '#last' ? LAST : 0, location.hash === '#last');
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (d > 0 && step < LAST) { set(step + 1); return true; }
+    if (d < 0 && step > 0) { set(step - 1, true); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
 })();
 </script>
