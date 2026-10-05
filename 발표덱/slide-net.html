@@ -149,7 +149,8 @@
   .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
   .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   .fig.zoom .view { place-items: start; }
-  .fig.zoom img { max-width: none; max-height: none; width: 3600px; cursor: zoom-out; }
+  /* 원본 도면은 좌우 메모 글을 잘라 낸 그림(1495px)이라 평소에는 원래 크기 그대로 또렷하게 보이고, 누르면 정확히 두 배로 키운다 */
+  .fig.zoom img { max-width: none; max-height: none; width: 2990px; cursor: zoom-out; }
 
   .fs {
     position: absolute; right: 130px; top: 20px;
@@ -180,7 +181,7 @@
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">원본 도면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env" style="margin-left:14px"><img src="assets/tint/cisco-side.svg" alt="">Packet Tracer 설계</span>
   </div>
-  <p class="dek">온프레미스로 짠다면: 방화벽 한 대가 밖 · DMZ · 안을 잇고, 구역 사이 규칙은 Packet Tracer로 시험</p>
+  <p class="dek">온프레미스로 짠다면: 방화벽 한 대가 밖·DMZ·안을 잇고, 구역 사이 규칙은 Packet Tracer로 시험</p>
 
   <svg class="net" id="net" viewBox="0 0 1120 620" role="img" aria-label="계층형 망 설계: 맨 위 공인 구간에 외부 사용자와 인터넷, 외부 서비스가 있고, 경계 라우터가 공인 주소 하나를 DMZ 로드밸런서로 넘긴다. 방화벽 한 대가 밖(보안 수준 0), DMZ(50), 안(100) 세 구역을 잇는다. DMZ에는 웹 방화벽, 로드밸런서, 웹 서버 두 대가 DMZ 스위치에 붙어 있고, 내부에는 코어 스위치 두 대 아래 거래·조회·DB·백업·AI 서버가 역할마다 다른 VLAN에 있으며, 관리망은 따로 떨어져 있다">
     <!-- 구역 -->
@@ -238,8 +239,8 @@
     <div class="ph"><b>확인한 길</b><span class="lgd"><span><i class="mk t"></i>직접 시험</span><span><i class="mk r"></i>설정만 확인</span></span></div>
     <section class="grp" data-s="1"><h3>들어오는 길</h3>
       <button class="row" type="button" data-f="in"><i class="mk t"></i><span class="fl">외부 사용자 → 로드밸런서</span><b class="v ok">허용</b></button>
-      <button class="row" type="button" data-f="wa"><i class="mk r"></i><span class="fl">웹 서버 → 거래 서버 · 8080</span><b class="v rule">허용</b></button>
-      <button class="row" type="button" data-f="adb"><i class="mk r"></i><span class="fl">거래 서버 → 주 DB · 5432</span><b class="v rule">허용</b></button>
+      <button class="row" type="button" data-f="wa"><i class="mk r"></i><span class="fl">웹 서버 → 거래 서버 8080</span><b class="v rule">허용</b></button>
+      <button class="row" type="button" data-f="adb"><i class="mk r"></i><span class="fl">거래 서버 → 주 DB 5432</span><b class="v rule">허용</b></button>
       <button class="row" type="button" data-f="wdb"><i class="mk t"></i><span class="fl">웹 서버 → 주 DB</span><b class="v no">차단</b></button>
     </section>
     <section class="grp" data-s="2"><h3>나가는 길</h3>
@@ -254,15 +255,14 @@
     </section>
   </aside>
 
-  <div class="foot"><span class="k">원칙</span><span>밖에서는 DMZ까지만 · 안으로는 8080만 · 밖으로는 관제와 백업만 · 관리는 점프 서버로만</span><span class="nx">다음 · VM 여섯 대에서 실제로 거르기</span></div>
+  <div class="foot"><span class="k">원칙</span><span>밖에서는 DMZ까지만, 안으로는 8080만, 밖으로는 관제와 백업만, 관리는 점프 서버로만</span><span class="nx">다음: VM 여섯 대에서 실제로 거르기</span></div>
 
   <dialog class="fig" id="fig" aria-label="Packet Tracer 계층형 도면 원본">
-    <div class="bar"><b>Packet Tracer 계층형 도면 · 원본</b><span>그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
-    <div class="view"><img id="fig-img" src="assets/img/net-layered.png" alt="Packet Tracer 계층형 도면: 공인 구간, 경계 라우터, 외부 서비스, ASA 방화벽, 웹 방화벽과 DMZ(VLAN 10), 코어 스위치 두 대, VLAN 21·22·30·41·42·60·70의 서버와 관리망 VLAN 99"></div>
+    <div class="bar"><b>Packet Tracer 계층형 도면 원본</b><span>그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/net-layered-clean.png" alt="Packet Tracer 계층형 도면: 공인 구간, 경계 라우터, 외부 서비스, ASA 방화벽, 웹 방화벽과 DMZ(VLAN 10), 코어 스위치 두 대, VLAN 21·22·30·41·42·60·70의 서버와 관리망 VLAN 99"></div>
   </dialog>
 </div>
 
-<!-- 발표 노트(50초, → 세 번): 장이 열리면 위에서 아래로 공인 구간 → 경계 라우터 → 방화벽 → DMZ → 내부 → 관리망이 차례로 그려진다. → 마다 한 묶음(들어오는 길 · 나가는 길 · 관리와 옆 이동)이 한 흐름씩 목록 순서대로 나온다. 줄이 먼저 밝아지고 출발 장비가 파랗게 깜빡이며 목적지에 파란 점선 테두리가 켜진 뒤 파란 점이 달린다. 허용이면 길이 초록으로 바뀌고, 막히면 막은 장비 앞에 빨간 X가 찍히고 길은 회색 점선으로 낮아진다. 설정만 확인한 두 길은 점 없이 초록 점선이 한 번에 그려진다. 같은 선을 쓰는 흐름은 옆 차선으로 비켜 그린다. 흐름 사이의 쉼은 아래 대사의 박자에 맞췄다(들어오는 길 약 14초, 나가는 길은 2초 뒤 시작해 약 11초, 관리와 옆 이동 약 6초). 마지막 흐름 뒤 아래 원칙 줄이 뜨고, 네 번째 → 에 다음 장. 결과 줄을 누르면 그 흐름만 다시 보인다(질문 대응). 말할 거리: "온프레미스로 짠다면 망을 이렇게 나눕니다. 맨 위는 누구나 오는 공인 구간이고, 방화벽 한 대가 밖, DMZ, 안 세 구역을 잇습니다. 숫자가 클수록 안쪽입니다." → "밖에서는 공인 주소 하나로 DMZ의 로드밸런서까지만 들어옵니다. 웹은 거래 서버 8080으로만, 거래 서버는 DB 5432로만 가도록 규칙을 짰고, 웹이 DB로 바로 가면 웹 방화벽에서 막힙니다." → "밖으로 나가는 길도 역할마다 다릅니다. 관제 서버는 Teams로 나가지만 거래 서버는 코어에서 막히고, 백업 서버는 외부 보관소로 나가지만 웹 서버는 못 나갑니다." → "서버 관리는 관리망의 점프 서버에서만 하고, 웹 서버끼리는 스위치에서 옆으로 못 건너가게 막았습니다." 사실 확인: 교수님 피드백(위에서 아래로 읽는 계층, 공인과 내부 사이 DMZ)으로 2026-09-28 새로 만든 '온프레미스로 짠다면'의 설계다(아키텍쳐/교수님_보고본/04_네트워크/네트워크_구성도_계층형.pkt). 방화벽 FW-01은 Cisco ASA 5506-X(outside 보안 0, dmz 50, inside 100), 공인 구간 203.0.113.0/24, DMZ 172.16.10.0/24(VLAN 10, 게이트웨이는 웹 방화벽 172.16.10.1, 로드밸런서·웹 서버 1·2가 SW-DMZ에 붙음), 외부 서비스 198.51.100.0/24(경계 라우터에 붙음, 실제로는 인터넷 너머라 도면은 인터넷 쪽에 그림). 코어 A: 거래 서버 1(VLAN 21)·조회(30)·주 DB(41), 코어 B: 거래 서버 2(22)·예비 DB(42)·AI(60)·백업(70)·관리(99: 관리자 PC, 관제 서버, 점프 서버). Packet Tracer 9.0.1 안에서 2026-09-29 시험: 외부 사용자가 공인 203.0.113.1로 접속하면 정적 NAT로 DMZ 로드밸런서 페이지가 열림(로드밸런서는 Packet Tracer 서버라 분산은 하지 않고 페이지만 응답, 로드밸런서 → 웹 서버 구간은 시험하지 않음), 점프 서버 → DMZ 웹 서버 ping, 관제 → Teams HTTPS, 백업 → 외부 보관 HTTPS 통과. 거래 서버 → Teams HTTPS, 웹 서버끼리, 웹 서버 → 외부 보관·주 DB ping 차단. 어느 서버에서 보냈는지는 기록이 없어 목록은 '웹 서버', '거래 서버'로 적었다(두 웹 서버의 규칙은 같고, 거래 서버 2에서 보냈어도 코어 B의 같은 APP-IN에서 막힌다). 웹 → 거래·조회 8080과 거래 → DB 5432는 Packet Tracer 서버가 그 포트를 열 수 없어 ACL 설정으로만 확인했다(빈 동그라미, 초록 점선). 이것은 요청 방향의 규칙(WAF-01 DMZ_OUT, FW-01 DMZ_IN, 코어 APP-IN)을 확인한 것이다. 응답 방향은 실장비 ASA의 상태 추적 기준이고, .pkt의 WAF-01 WAF_IN에는 8080 응답 허용 줄이 없어 Packet Tracer 안에서는 응답이 웹 방화벽에서 버려질 수 있다(FW-01 INSIDE_IN에는 있음). 막은 장비는 .pkt 안의 장비 설정으로 확인했다(2026-10-01): 웹 서버에서 나가는 것은 먼저 웹 방화벽 WAF-01의 DMZ_OUT(inside 인터페이스에 in 방향)이 거래·조회 8080만 내보내고 나머지를 버린다. 그래서 웹 → 주 DB와 웹 → 외부 보관은 웹 방화벽에서 막히고, 뚫려도 방화벽 FW-01의 DMZ_IN이 내부(10.0.0.0/8)와 그 밖을 한 번 더 막는다. 거래 서버 → Teams는 코어의 APP-IN(거래·조회 VLAN에 in 방향: DB 5432, 관제 8443, 응답만 허용)에서 막히고, 뚫려도 FW-01 INSIDE_IN이 막는다(Teams 443은 관제 서버 10.0.99.20만, 외부 보관 443은 백업 10.0.70.10만). 웹 서버끼리는 SW-DMZ의 웹 서버 1·2 포트(Fa0/3·Fa0/4)가 보호 포트(switchport protected)라 막힌다(로드밸런서 포트는 보호 포트가 아님). 관리 SSH 22는 점프 서버에서만(코어 MGMT-IN, 방화벽). 원칙 '밖에서는 DMZ까지만'의 예외: FW-01 OUTSIDE_IN이 경계 라우터(10.255.255.1)의 로그 UDP 514만 관제 서버(10.0.99.20)로 들인다. 그 밖에 밖에서 안으로 허용한 것은 관제·백업이 연 HTTPS의 응답뿐이다. 질문 대비: 웹 → 주 DB는 5432가 아니라 ping으로 시험했지만, 설정상 웹 서버는 거래·조회 8080 말고는 어느 포트로도 못 나간다. WAF는 Packet Tracer에 장비가 없어 ASA로 표현했고 포트만 거르며 L7 검사는 하지 않는다(L7 검사는 다음 장 VM에서 실제로 했다). 파일을 열면 ARP 준비 ping이 필요하다(아키텍쳐 README). 이 도면은 학교 AWS의 현재 구조(app-1 한 대에서 Nginx와 거래 앱, 방화벽·WAF·로드밸런서 없음)와 다르고, AWS VPC·보안 그룹 구현의 증거가 아니다. E 키 도구의 '원본 도면'은 Packet Tracer 계층형 캡처다. -->
 
 <script>
 (() => {

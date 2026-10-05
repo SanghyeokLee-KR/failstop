@@ -1,0 +1,872 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-2 네트워크 구성도</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #7D8BA5;
+    --wire: #8E9BB3;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --ok: #2DD196;
+    --no: #FF6B6B;
+    --sel: #8FD3FF;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s .1s cubic-bezier(.45,0,.55,1) both; }
+  .tag { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+
+  /* 부제는 단계마다 바꾸지 않는다. 정책은 도면 안 판정 칩이 맡아, 시선이 도면과 제목 줄을 오가지 않게 한다 */
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .25s ease-in-out both; }
+
+  /* 도면: Packet Tracer 계층형 설계를 한 장 전체에 그린다(원본은 E 키 도구의 '원본 도면').
+     위에서 아래로 방화벽 바깥(공인 구간 · 외부 서비스) → 경계 라우터 → 방화벽(가운데) · DMZ(왼쪽) · 관리망(오른쪽) → L3 코어 두 대 → 역할별 VLAN 일곱 개.
+     VLAN마다 색 상자에 번호와 대역을 적고, 색은 원본 도면의 VLAN 색을 어두운 바탕에 맞게 옅게 옮겼다. 상자 오른쪽 위 작은 스위치는 원본의 VLAN별 L2 액세스 스위치이고, 코어에서 내려온 업링크가 그 윗변으로 들어간다.
+     위계: 방화벽이 지키는 DMZ · 관리망 테두리를 가장 또렷하게(85%), 아래 VLAN 상자는 한 단계 낮게(테두리 60%, 채움 7%) 둔다.
+     방화벽 바깥 두 구역은 같은 회색 점선으로 묶고, 초록 · 빨강은 정책의 허용 · 차단 표시에만 쓴다. 하늘색은 장비를 직접 눌러 고른 표시에만 쓴다.
+     장비 타일은 높이 48로 맞췄다(방화벽과, 높이 104 띠 안의 외부 서비스 타일 44만 다르다). DMZ · 관리망은 머리를 두 줄(이름, 대역)로 쓰고 안쪽 여백을 20으로 둔다.
+     VLAN 상자는 코어 아래 변에서 저마다 따로 내려간 선으로 잇는다(원본처럼 VLAN마다 따로, 선끼리 엇갈리지 않고 나란한 선 사이가 15px 넘게 꺾는 높이를 나눈다).
+     VLAN 서버로 가는 허용 흐름의 화살촉은 상자 테두리 1px 앞(y581)에서 멈춰 상자 안 스위치 그림과 겹치지 않는다.
+     층 순서: 구역 → 선 → 길 → 장비 → 글자표 → 끝 표시 · 판정 칩 → 고른 표시. 길은 장비 밑을 지나 장비 안에서는 가려진다.
+     좌표는 viewBox 1660×714(머리말 줄과 같은 좌우 끝 130 ~ 1790, 아래 여백 54) */
+  .map { position: absolute; left: 130px; top: 312px; width: 1660px; height: 714px; overflow: visible; }
+  .map text { font-family: var(--sans); }
+  .map .zone { fill: color-mix(in srgb, var(--c) 9%, var(--stage)); stroke: color-mix(in srgb, var(--c) 85%, transparent); stroke-width: 2; }
+  .map .vz .zone { fill: color-mix(in srgb, var(--c) 7%, var(--stage)); stroke: color-mix(in srgb, var(--c) 60%, transparent); }
+  .map .c-out .zone { stroke-dasharray: 10 8; }
+  .map .c-dmz .zone, .map .c-mgmt .zone { stroke-width: 2.4; }
+  .map .c-mgmt .vl { fill: #C3CCDA; }
+  .map .zh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .vl { font-family: var(--mono); font-weight: 600; fill: var(--c); }
+  .map .ip { font-family: var(--mono); font-size: 22px; font-weight: 500; fill: #AEB8C6; }
+
+  .map .link { fill: none; stroke: var(--wire); stroke-width: 3; }
+  .map .tile rect { fill: #1E2638; stroke: var(--edge); stroke-width: 2; }
+  .map .tile text { font-size: 22px; fill: var(--ink); }
+  .map .gate rect { fill: #1C2538; stroke: var(--ink); stroke-width: 2.4; }
+  .map .gate .nm { font-size: 24px; font-weight: 600; }
+  .map .gate .sub { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); }
+  /* 방화벽 인터페이스의 보안 수준(ASA nameif · security-level)은 숫자만 굵게, 경계 라우터의 정적 NAT는 NAT만 굵게.
+     평소에는 0.9로 조금 낮춰 두고, 그 단계의 길이 지날 때 판정 색으로 켜서 뜻이 생기게 한다 */
+  .map .if { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); opacity: .9; }
+  .map .if .n { font-weight: 600; }
+  .map .nat { font-family: var(--mono); font-size: 22px; fill: #AEB8C6; opacity: .9; }
+  .map .nat .b { font-weight: 600; fill: var(--ink-2); }
+  .map .lbl { font-size: 22px; fill: var(--ink-2); }
+  .c-out { --c: #8A96AB; } .c-dmz { --c: #B98A9A; } .c-trd { --c: #F2A65A; } .c-read { --c: #E8C46A; }
+  .c-db { --c: #79A7FA; } .c-bak { --c: #5BB4D8; } .c-ai { --c: #B9A7F5; } .c-mgmt { --c: #8E9BB3; }
+
+  /* 정책 흐름: → 한 번에 흐름 하나. 덱 공통 속도 기준을 따른다. 관계없는 구역 · 장비 · 선 · 글자(data-k)를 0.35초에 흐리고(구역은 0.22, 나머지는 0.3),
+     연결선을 따라 판정 색 길을 초당 약 450px로 그린 뒤(구간마다 0.8 ~ 2초, 경유지에서 0.45초 멈춤) 0.2초 있다가
+     끝 표시(허용은 도착 장비 쪽 화살촉, 차단은 멈춘 자리의 ✕)와 판정 칩이 0.3초에 나타나고 멈춘다. 한 단계는 2 ~ 3.5초다.
+     길 위 장비 테두리와 글자표는 길이 그 장비에 닿는 때(--at)에 켠다. 허용 흐름은 초록, 차단 흐름에서 지나가기만 한 장비는 흰색(중립)이고,
+     실제로 막은 장비(stop)만 ✕와 같은 때 빨강 2.8로 바꾼다. 가려다 막힌 곳(aim)과 가려던 길(want)도 ✕와 같은 때 빨간 점선으로 보인다.
+     켜기는 전환이 아니라 애니메이션으로 해, 앞 흐름의 색이 다음 흐름의 켜질 때까지 남지 않게 한다(클래스를 뗐다 다시 붙여 처음부터).
+     장면 바꾸기(앞 흐름의 길 · 끝 표시 · 칩이 0.3초에 사라지는 것과 새 흐림 0.35초)는 한 번에 일어나고, 그다음 길, 그다음 끝 표시 · 칩 차례로 한 곳씩 움직인다 */
+  .map { --onc: var(--ok); }
+  .map[data-v="no"] { --onc: var(--ink); }
+  .map [data-k] { transition: opacity .35s ease-in-out; }
+  .map [data-k].dim { opacity: .3; }
+  .map #L-zones [data-k].dim { opacity: .22; }
+  .map .tile rect { transition: stroke .3s ease-in-out, stroke-width .3s ease-in-out; }
+  .map .tile.on rect { animation: lit .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.stop rect { animation: stopped .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.aim rect { animation: aimed .3s ease-in-out var(--at, 0s) both; }
+  .map .nat.on, .map .nat.on .b, .map .if.on { animation: lit-t .3s ease-in-out var(--at, 0s) both; }
+  .map .if.stop { animation: stop-t .3s ease-in-out var(--at, 0s) both; }
+  .map.still, .map.still * { transition: none !important; }
+  /* 길은 6px 판정 색 선이고, 같은 꺾은선을 넓은 흰 선으로 덮은 가림판(mask)의 대시를 당겨 앞에서부터 드러낸다.
+     구름 속처럼 길을 비운 구간도 가림판은 이어져 있어, 비운 구간을 지나는 동안에도 같은 빠르기로 나아간다.
+     꺾임이 둘 넘는 길은 일정한 빠르기(linear)로 그려 길 위 장비가 차례로 하나씩 켜지게 하고, 짧은 길만 부드러운 곡선으로 그린다(--ease).
+     구간이 둘인 흐름(점프 서버 경유)은 두 구간을 같은 밝기로 두고 차례 번호 ① ② ③ 으로 순서를 읽게 한다 */
+  #trails, #marks, #pick { pointer-events: none; }
+  .map .trail { fill: none; stroke: var(--v); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+  .map .rv { fill: none; stroke: #fff; stroke-width: 14; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100 200; animation: draw var(--t) var(--ease, linear) var(--d) both; }
+  .map .want { fill: none; stroke: var(--v); stroke-width: 3.2; stroke-dasharray: 12 8; stroke-opacity: .8; }
+  .map .want.soon { animation: fade .3s ease-in-out var(--a) both; }
+  .map .late { animation: fade .3s ease-in-out var(--e) both; }
+
+  .map .flow.gone { animation: fadeout .3s ease-in-out forwards; }
+  .map .arrow { fill: var(--v); stroke: var(--v); stroke-width: 2; stroke-linejoin: round; }
+  .map .xm circle { fill: var(--stage); stroke: var(--v); stroke-width: 2.8; }
+  .map .xm path { fill: none; stroke: var(--v); stroke-width: 4.2; stroke-linecap: round; }
+  .map .chip rect { fill: var(--stage); stroke: var(--v); stroke-width: 2; }
+  .map .chip .vd { font-size: 24px; font-weight: 700; fill: var(--v); }
+  .map .chip .pl { font-size: 22px; fill: var(--ink); }
+  /* 허용 흐름에서 정책을 거는 장비(원본 메모의 ACL 자리) 위에 붙는 꼬리표. 길이 그 장비에 닿을 때 나타난다 */
+  .map .acl rect { fill: var(--stage); stroke: var(--v); stroke-width: 1.5; }
+  .map .acl text { font-family: var(--mono); font-size: 22px; fill: var(--v); text-anchor: middle; }
+  /* 장비를 직접 눌러 흐름 보기(질문 대응). 누른 장비는 하늘색 테두리(흐려 있던 장비도 밝힘), 관리 접속의 차례(관리자 PC 1, 점프 서버 2)는 하늘색 번호로,
+     도착지는 판정 뒤 허용 초록 실선 · 차단 빨강 점선 테두리로 보인다. 흐름이 그려지면 번호는 그 흐름의 판정 색이 된다. 올리기만 하면 손가락 모양만 바뀐다.
+     키보드로 옮긴 초점만 하늘색 테두리로 보인다(마우스로 누를 때는 초점 표시가 따로 뜨지 않는다) */
+  .map [data-pick] { cursor: pointer; outline: none; }
+  .map .tile[data-pick]:focus-visible rect { stroke: var(--sel); stroke-width: 3; }
+  .map g[data-pick]:not(.tile):focus-visible text { fill: var(--sel); }
+  .map .ring { fill: none; stroke: var(--sel); stroke-width: 3; }
+  .map .ring.ok { stroke: var(--ok); }
+  .map .ring.no { stroke: var(--no); stroke-dasharray: 10 6; }
+  .map .badge circle { fill: var(--stage); stroke: var(--sel); stroke-width: 2.4; }
+  .map .badge text { font-family: var(--mono); font-size: 22px; font-weight: 600; fill: var(--sel); text-anchor: middle; }
+  .map .flow .badge circle { stroke: var(--v); }
+  .map .flow .badge text { fill: var(--v); }
+
+/* 등장: 도면은 저절로 나오지 않고 → 를 누를 때마다 구간별로 쌓인다(2026-10-05 사용자 결정, 대본 순서).
+   → 1 공인 구간(외부 사용자 · 인터넷 · 외부 서비스), → 2 경계 라우터 · 방화벽과 DMZ · 관리망, → 3 코어 스위치와 프라이빗 VLAN.
+   길 · 끝 표시 층은 등장 묶음 밖에 있어 흐름 단계(→ 4~8)에서 그대로 쓴다 */
+.map .bd { opacity: 0; pointer-events: none; }
+.stage.r1 .map .b1, .stage.r2 .map :is(.b2, .b3), .stage.r3 .map :is(.b4, .b5) { opacity: 1; pointer-events: auto; animation: rise .6s cubic-bezier(.45,0,.55,1) both; }
+.stage.r2 .map .b3, .stage.r3 .map .b5 { animation-delay: .25s; }
+.stage.inst .map .bd { animation: none !important; }
+
+  /* 원본 Packet Tracer 도면(질문 대비). E 키 도구를 켤 때만 단추가 보인다 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+  .fig::backdrop { background: rgb(8,10,15); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; }
+  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .fig.zoom .view { place-items: start; }
+  .fig.zoom img { max-width: none; max-height: none; width: 2990px; cursor: zoom-out; }
+  .fig.zoom.memo img { width: 5096px; }
+  .fig .bar .x + .x { margin-left: 0; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeout { to { opacity: 0; } }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+  @keyframes lit { to { stroke: var(--onc); stroke-width: 2.4; } }
+  @keyframes stopped { to { stroke: var(--no); stroke-width: 2.8; } }
+  @keyframes aimed { to { stroke: var(--no); stroke-width: 3; stroke-dasharray: 10 6; } }
+  @keyframes lit-t { to { fill: var(--onc); opacity: 1; } }
+  @keyframes stop-t { to { fill: var(--no); opacity: 1; } }
+  /* 움직임 줄이기: 움직임은 없애되 켜기 · 끝 표시는 애니메이션의 끝 값으로 남겨야 하므로 길이와 지연만 0으로 한다 */
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } }
+  /* 환경 표식: 04-1 Docker 장의 '로컬 Docker'와 같은 자리 · 박자(제목이 자리 잡은 0.25초 뒤). 이 장은 Packet Tracer로 그린 설계라 그 도구를 밝힌다 */
+  .title .env { margin-left: 14px; animation: fade .6s .25s cubic-bezier(.45,0,.25,1) both; }
+  .stage.done .title .env { animation: none !important; }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-2</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>네트워크 구성도</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">원본 도면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/cisco-side.svg" alt="">Packet Tracer</span>
+  </div>
+  <p class="dek">역할마다 VLAN을 나누고 그 사이에는 필요한 통신만 열었습니다.</p>
+
+  <svg class="map" id="map" viewBox="0 0 1660 714" role="img" aria-label="Packet Tracer로 설계한 계층형 네트워크. 맨 위 방화벽 바깥에는 공인 구간(203.0.113.0/24)과 외부 서비스(198.51.100.0/24)가 있다. 공인 구간의 외부 사용자가 인터넷을 거쳐 경계 라우터로 들어오고, 경계 라우터는 공인 주소 203.0.113.1을 DMZ 로드밸런서 172.16.10.10으로 정적 NAT하며 외부 서비스의 외부 보관과 Teams 웹훅에 이어진다. 그 아래 방화벽(Cisco ASA 5506-X)이 outside 0, dmz 50, inside 100 세 구역을 나눈다. 왼쪽 DMZ는 VLAN 10(172.16.10.0/24)이고 웹 방화벽 뒤 DMZ 스위치에 웹 서버 두 대와 로드밸런서가 있다. 방화벽 아래 L3 코어 A와 L3 코어 B가 두 줄로 묶여 있고, 코어 A에는 VLAN 21 거래 서버 1, VLAN 30 조회 서버, VLAN 41 주 DB가, 코어 B에는 VLAN 22 거래 서버 2, VLAN 42 예비 DB, VLAN 70 백업 서버, VLAN 60 AI 서버가 저마다 따로 붙는다. 오른쪽 관리망 VLAN 99(10.0.99.0/24)에는 관리 스위치에 관리자 PC, 점프 서버, 관제 서버가 있고 코어 B에 이어진다. 클릭할 때마다 정책 하나가 허용되는 길이나 막히는 자리로 보이고, 장비를 차례로 누르면 그 사이 흐름이 보인다.">
+
+    <!-- 층 1. 구역: 방화벽 바깥(공인 구간 · 외부 서비스, 같은 회색 점선), DMZ(VLAN 10) · 관리망(VLAN 99), 역할별 VLAN 일곱 개(맨 아래).
+         높이 104 띠의 두 구역은 한 줄 머리(이름 뒤에 대역), DMZ · 관리망은 두 줄 머리(둘째 줄에 대역).
+         VLAN 상자 글자는 안쪽 타일의 아이콘 줄(x+24)에 맞추고, 오른쪽 위(x+176, y590, 아래 대역 글자와 6px 넘게)에 원본의 L2 액세스 스위치를 둔다.
+         data-k 는 단계마다 흐리거나 판정 색을 입힐 때 쓰는 이름이다 -->
+    <g id="L-zones">
+      <g class="bd b1">
+        <g class="c-out" data-k="z-pub"><rect class="zone" x="0" y="0" width="1155" height="104" rx="16"/><text class="zh" x="20" y="30">공인 구간<tspan class="ip" dx="14">203.0.113.0/24</tspan></text></g>
+        <g class="c-out" data-k="z-ext"><rect class="zone" x="1205" y="0" width="455" height="104" rx="16"/><text class="zh" x="1225" y="30">외부 서비스<tspan class="ip" dx="14">198.51.100.0/24</tspan></text></g>
+      </g>
+      <g class="bd b3">
+        <g class="c-dmz" data-k="z-dmz"><rect class="zone" x="0" y="176" width="540" height="248" rx="16"/><text class="zh" x="20" y="212"><tspan class="vl">VLAN 10</tspan><tspan dx="12">DMZ</tspan></text><text class="ip" x="20" y="240">172.16.10.0/24</text></g>
+        <g class="c-mgmt" data-k="z-mgmt"><rect class="zone" x="1205" y="176" width="455" height="248" rx="16"/><text class="zh" x="1225" y="212"><tspan class="vl">VLAN 99</tspan><tspan dx="12">관리망</tspan></text><text class="ip" x="1225" y="240">10.0.99.0/24</text></g>
+      </g>
+      <g class="bd b5">
+        <g class="vz c-trd" data-k="z21"><rect class="zone" x="0" y="582" width="214" height="132" rx="14"/><text class="zh" x="24" y="612"><tspan class="vl">VLAN 21</tspan></text><text class="ip" x="24" y="638">10.0.21.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="176" y="590" width="26" height="26"/></g>
+        <g class="vz c-read" data-k="z30"><rect class="zone" x="241" y="582" width="214" height="132" rx="14"/><text class="zh" x="265" y="612"><tspan class="vl">VLAN 30</tspan></text><text class="ip" x="265" y="638">10.0.30.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="417" y="590" width="26" height="26"/></g>
+        <g class="vz c-db" data-k="z41"><rect class="zone" x="482" y="582" width="214" height="132" rx="14"/><text class="zh" x="506" y="612"><tspan class="vl">VLAN 41</tspan></text><text class="ip" x="506" y="638">10.0.41.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="658" y="590" width="26" height="26"/></g>
+        <g class="vz c-trd" data-k="z22"><rect class="zone" x="723" y="582" width="214" height="132" rx="14"/><text class="zh" x="747" y="612"><tspan class="vl">VLAN 22</tspan></text><text class="ip" x="747" y="638">10.0.22.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="899" y="590" width="26" height="26"/></g>
+        <g class="vz c-db" data-k="z42"><rect class="zone" x="964" y="582" width="214" height="132" rx="14"/><text class="zh" x="988" y="612"><tspan class="vl">VLAN 42</tspan></text><text class="ip" x="988" y="638">10.0.42.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="1140" y="590" width="26" height="26"/></g>
+        <g class="vz c-bak" data-k="z70"><rect class="zone" x="1205" y="582" width="214" height="132" rx="14"/><text class="zh" x="1229" y="612"><tspan class="vl">VLAN 70</tspan></text><text class="ip" x="1229" y="638">10.0.70.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="1381" y="590" width="26" height="26"/></g>
+        <g class="vz c-ai" data-k="z60"><rect class="zone" x="1446" y="582" width="214" height="132" rx="14"/><text class="zh" x="1470" y="612"><tspan class="vl">VLAN 60</tspan></text><text class="ip" x="1470" y="638">10.0.60.0/24</text><image class="l2" href="assets/tint/ui-switch-horizontal-glow.svg" x="1622" y="590" width="26" height="26"/></g>
+      </g>
+    </g>
+
+    <!-- 층 2. 선. 외부 서비스는 라우터에서 오는 줄이 두 장비 밑으로 갈라져 올라간다. 코어 두 대는 두 줄로 묶는다.
+         VLAN은 코어 아래 변의 서로 다른 자리에서 따로 내려가 상자 안 L2 액세스 스위치 윗변(상자 x+189, y590)으로 들어간다. 꺾는 높이는 526 · 536 · 541 · 546 · 556(코어 A는 x519 · 549 · 589, 코어 B는 x1011 · 1071 · 1111 · 1141).
+         단계마다 지나는 선만 밝게 두도록 갈림목마다 나눠 그린다 -->
+    <g id="L-links">
+      <g class="bd b1"><path class="link" data-k="l-uc" d="M526 48 H939"/></g>
+      <g class="bd b2">
+        <path class="link" data-k="l-cr" d="M970 70 V130"/>
+        <path class="link" data-k="l-re" d="M1060 154 H1540 V92 M1325 154 V92"/>
+        <path class="link" data-k="l-rf" d="M970 178 V238"/>
+        <path class="link" data-k="l-fw" d="M845 286 H736"/>
+      </g>
+      <g class="bd b3">
+        <path class="link" data-k="l-ws" d="M576 286 H360"/>
+        <path class="link" data-k="l-dz" d="M270 310 V320"/>
+        <path class="link" data-k="l-w1" d="M270 320 H99 V356"/>
+        <path class="link" data-k="l-lb" d="M270 320 V356"/>
+        <path class="link" data-k="l-w2" d="M270 320 H441 V356"/>
+        <path class="link" data-k="l-ms" d="M1395 320 H1412"/>
+        <path class="link" data-k="l-pc" d="M1412 320 V260 H1450"/>
+        <path class="link" data-k="l-jp" d="M1412 320 H1450"/>
+        <path class="link" data-k="l-op" d="M1412 320 V380 H1450"/>
+      </g>
+      <g class="bd b4">
+        <path class="link" data-k="l-in" d="M900 334 V396 H589 V460"/>
+        <path class="link" data-k="l-ab" d="M689 476 H971 M689 492 H971"/>
+        <path class="link" data-k="l-bm" d="M1171 484 H1310 V344"/>
+      </g>
+      <g class="bd b5">
+        <path class="link" data-k="l-a21" d="M519 508 V526 H189 V590"/>
+        <path class="link" data-k="l-a30" d="M549 508 V546 H430 V590"/>
+        <path class="link" data-k="l-a41" d="M589 508 V536 H671 V590"/>
+        <path class="link" data-k="l-b22" d="M1011 508 V526 H912 V590"/>
+        <path class="link" data-k="l-b42" d="M1071 508 V556 H1153 V590"/>
+        <path class="link" data-k="l-b70" d="M1111 508 V541 H1394 V590"/>
+        <path class="link" data-k="l-b60" d="M1141 508 V526 H1635 V590"/>
+      </g>
+    </g>
+
+    <!-- 층 3. 정책 흐름의 길(스크립트가 채운다). 구역 · 선 위, 장비 밑에 있어 장비를 지나는 부분은 타일에 가려진다 -->
+    <g id="trails"></g>
+
+    <!-- 층 4. 장비. '외부 사용자 [사람] ─── [구름] 인터넷'은 좌우 대칭으로 둔다.
+         구름 그림은 아래쪽 빈 여백을 잘라(slice) 그림 상자의 아래 끝이 보이는 구름 아래 끝과 같게 한다(바로 아래 ✕와의 간격을 상자로 재도 맞게).
+         data-pick 이 붙은 것은 직접 눌러 흐름을 볼 수 있는 출발지 · 도착지다(망 장비는 지나가는 자리라 누르지 않는다) -->
+    <g id="L-tiles">
+      <g class="bd b1">
+        <g data-k="user" data-pick tabindex="0" role="button" aria-label="외부 사용자"><text class="lbl" x="468" y="56" text-anchor="end">외부 사용자</text><image href="assets/tint/ui-users-side.svg" x="480" y="26" width="44" height="44"/></g>
+        <g data-k="net" data-pick tabindex="0" role="button" aria-label="인터넷"><image href="assets/tint/ui-cloud-side.svg" x="942" y="20" width="56" height="44" preserveAspectRatio="xMidYMin slice"/><text class="lbl" x="1011" y="56">인터넷</text></g>
+        <g class="tile" data-k="store" data-pick tabindex="0" role="button" aria-label="외부 보관"><rect x="1225" y="48" width="200" height="44" rx="10"/><image href="assets/tint/ui-box-glow.svg" x="1237" y="57" width="26" height="26"/><text x="1271" y="78">외부 보관</text></g>
+        <g class="tile" data-k="teams" data-pick tabindex="0" role="button" aria-label="Teams 웹훅"><rect x="1440" y="48" width="200" height="44" rx="10"/><image href="assets/tint/ui-message-glow.svg" x="1452" y="57" width="26" height="26"/><text x="1486" y="78">Teams 웹훅</text></g>
+      </g>
+      <g class="bd b2">
+        <g class="tile" data-k="rt"><rect x="880" y="130" width="180" height="48" rx="10"/><image href="assets/tint/ui-router-glow.svg" x="892" y="141" width="26" height="26"/><text x="926" y="162">경계 라우터</text></g>
+        <g class="tile gate" data-k="fw"><rect x="845" y="238" width="250" height="96" rx="12"/><image href="assets/tint/ui-shield-lock-glow.svg" x="861" y="254" width="30" height="30"/><text class="nm" x="901" y="278">방화벽</text><text class="sub" x="861" y="318">Cisco ASA 5506-X</text></g>
+        <g class="tile" data-k="waf"><rect x="576" y="262" width="160" height="48" rx="10"/><image href="assets/tint/ui-shield-check-glow.svg" x="588" y="273" width="26" height="26"/><text x="622" y="294">웹 방화벽</text></g>
+      </g>
+      <g class="bd b3">
+        <g class="tile" data-k="dsw"><rect x="180" y="262" width="180" height="48" rx="10"/><image href="assets/tint/ui-switch-horizontal-glow.svg" x="192" y="273" width="26" height="26"/><text x="226" y="294">DMZ 스위치</text></g>
+        <g class="tile" data-k="w1" data-pick tabindex="0" role="button" aria-label="웹 서버 1"><rect x="20" y="356" width="158" height="48" rx="10"/><image href="assets/tint/nginx-glow.svg" x="32" y="367" width="26" height="26"/><text x="66" y="388">웹 서버 1</text></g>
+        <g class="tile" data-k="lb" data-pick tabindex="0" role="button" aria-label="로드밸런서"><rect x="191" y="356" width="158" height="48" rx="10"/><image href="assets/tint/ui-arrows-split-glow.svg" x="203" y="367" width="26" height="26"/><text x="237" y="388">로드밸런서</text></g>
+        <g class="tile" data-k="w2" data-pick tabindex="0" role="button" aria-label="웹 서버 2"><rect x="362" y="356" width="158" height="48" rx="10"/><image href="assets/tint/nginx-glow.svg" x="374" y="367" width="26" height="26"/><text x="408" y="388">웹 서버 2</text></g>
+        <g class="tile" data-k="msw"><rect x="1225" y="296" width="170" height="48" rx="10"/><image href="assets/tint/ui-switch-horizontal-glow.svg" x="1237" y="307" width="26" height="26"/><text x="1271" y="328">관리 스위치</text></g>
+        <g class="tile" data-k="pc" data-pick tabindex="0" role="button" aria-label="관리자 PC"><rect x="1450" y="236" width="190" height="48" rx="10"/><image href="assets/tint/ui-device-desktop-glow.svg" x="1462" y="247" width="26" height="26"/><text x="1496" y="268">관리자 PC</text></g>
+        <g class="tile" data-k="jump" data-pick tabindex="0" role="button" aria-label="점프 서버"><rect x="1450" y="296" width="190" height="48" rx="10"/><image href="assets/tint/ui-terminal-2-glow.svg" x="1462" y="307" width="26" height="26"/><text x="1496" y="328">점프 서버</text></g>
+        <g class="tile" data-k="ops" data-pick tabindex="0" role="button" aria-label="관제 서버"><rect x="1450" y="356" width="190" height="48" rx="10"/><image href="assets/tint/ui-activity-glow.svg" x="1462" y="367" width="26" height="26"/><text x="1496" y="388">관제 서버</text></g>
+      </g>
+      <g class="bd b4">
+        <g class="tile" data-k="ca"><rect x="489" y="460" width="200" height="48" rx="10"/><image href="assets/tint/ui-switch-horizontal-glow.svg" x="501" y="471" width="26" height="26"/><text x="535" y="492">L3 코어 A</text></g>
+        <g class="tile" data-k="cb"><rect x="971" y="460" width="200" height="48" rx="10"/><image href="assets/tint/ui-switch-horizontal-glow.svg" x="983" y="471" width="26" height="26"/><text x="1017" y="492">L3 코어 B</text></g>
+      </g>
+      <g class="bd b5">
+        <g class="tile" data-k="v21" data-pick tabindex="0" role="button" aria-label="거래 서버 1"><rect x="12" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-server-glow.svg" x="24" y="665" width="26" height="26"/><text x="58" y="686">거래 서버 1</text></g>
+        <g class="tile" data-k="v30" data-pick tabindex="0" role="button" aria-label="조회 서버"><rect x="253" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-server-2-glow.svg" x="265" y="665" width="26" height="26"/><text x="299" y="686">조회 서버</text></g>
+        <g class="tile" data-k="v41" data-pick tabindex="0" role="button" aria-label="주 DB"><rect x="494" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-database-glow.svg" x="506" y="665" width="26" height="26"/><text x="540" y="686">주 DB</text></g>
+        <g class="tile" data-k="v22" data-pick tabindex="0" role="button" aria-label="거래 서버 2"><rect x="735" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-server-glow.svg" x="747" y="665" width="26" height="26"/><text x="781" y="686">거래 서버 2</text></g>
+        <g class="tile" data-k="v42" data-pick tabindex="0" role="button" aria-label="예비 DB"><rect x="976" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-database-glow.svg" x="988" y="665" width="26" height="26"/><text x="1022" y="686">예비 DB</text></g>
+        <g class="tile" data-k="v70" data-pick tabindex="0" role="button" aria-label="백업 서버"><rect x="1217" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ui-stack-2-glow.svg" x="1229" y="665" width="26" height="26"/><text x="1263" y="686">백업 서버</text></g>
+        <g class="tile" data-k="v60" data-pick tabindex="0" role="button" aria-label="AI 서버"><rect x="1458" y="654" width="190" height="48" rx="10"/><image href="assets/tint/ollama-glow.svg" x="1470" y="665" width="26" height="26"/><text x="1504" y="686">AI 서버</text></g>
+      </g>
+    </g>
+
+    <!-- 층 5. 글자표: 경계 라우터의 정적 NAT(DMZ 윗변과 20px 넘게 띄움), 방화벽 인터페이스의 보안 수준(선 옆, 이웃 장비 · ✕와 12px 넘게 띄움) -->
+    <g id="L-labels">
+      <g class="bd b2">
+        <text class="nat" data-k="nat" x="862" y="149" text-anchor="end"><tspan class="b">NAT</tspan> 203.0.113.1 → 172.16.10.10</text>
+        <text class="if" data-k="if-out" x="986" y="218">outside <tspan class="n">0</tspan></text>
+        <text class="if" data-k="if-dmz" x="790.5" y="258" text-anchor="middle">dmz <tspan class="n">50</tspan></text>
+      </g>
+      <g class="bd b4"><text class="if" data-k="if-in" x="934" y="372">inside <tspan class="n">100</tspan></text></g>
+    </g>
+
+    <!-- 층 6 · 7. 끝 표시 · 판정 칩 · ACL 꼬리표, 그 위에 직접 눌러 고른 표시(스크립트가 채운다) -->
+    <g id="marks"></g>
+    <g id="pick"></g>
+  </svg>
+
+  <dialog class="fig" id="fig" aria-label="Packet Tracer 계층형 도면 원본">
+    <div class="bar"><b>Packet Tracer 계층형 도면 원본</b><span id="fig-hint">그림을 누르면 확대</span><button class="x" id="fig-memo" type="button" aria-pressed="false">메모 보기</button><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/net-layered-clean.png" alt="Packet Tracer 계층형 도면: 공인 구간, 경계 라우터, 외부 서비스, ASA 방화벽, 웹 방화벽과 DMZ(VLAN 10), 코어 스위치 두 대, VLAN 21·22·30·41·42·60·70의 서버와 관리망 VLAN 99"></div>
+  </dialog>
+</div>
+
+<!-- 발표 노트(60초): 이것은 제가 Packet Tracer로 직접 설계한 네트워크 구성도입니다.
+→ 1 맨 위는 외부 사용자와 인터넷이 있는 공인 구간입니다.
+→ 2 요청은 경계 라우터의 NAT를 거쳐 DMZ로 들어오고, 오른쪽은 관리망입니다.
+→ 3 아래는 프라이빗 구간으로, 서버를 역할마다 VLAN으로 나눴습니다.
+저는 NAT로 내부 주소를 밖에 드러내지 않고, 보안을 생각해 VLAN 사이에는 필요한 통신만 열도록 설계했습니다.
+→ 4 밖에서는 80·443만 받아 DMZ의 로드밸런서까지만 들어옵니다.
+→ 5 밖에서 내부 주소로 바로 오는 요청은 경계 라우터가 막습니다.
+→ 6 웹 서버가 뚫려도 DB로 가는 길은 웹 방화벽과 방화벽이 막습니다.
+→ 7 거래 서버는 주 DB의 5432 포트만 쓸 수 있습니다.
+→ 8 서버 SSH는 점프 서버를 거쳐야만 됩니다.
+질문 때: 출발 장비와 도착 장비를 차례로 누르면 그 사이 흐름을 그린다. 관리 접속은 관리자 PC → 점프 서버 → 대상 서버를 차례로 세 번 눌러야 허용되고, 점프 서버를 건너뛰면 코어 B에서 막힌다. → 나 ← 를 누르면 원래 단계로 돌아온다.
+예상 질문의 근거 자리(모두 원본 도면 assets/img/net-layered.png. E 키 '원본 도면' 창에서 '메모 보기'를 누르면 메모가 함께 보인다): ACL을 건 장비와 ACL 이름은 왼쪽 메모 '주요 ACL 정책'. 코어 A-B 연결과 연결망 대역(/30, 코어 A-B 2줄 묶음)은 오른쪽 위 VLAN·대역 메모의 '연결망' 줄. Packet Tracer에서 한 시험(ping 순서, 8080·5432는 ACL로만 확인)과 PT 한계(방화벽의 코어 B 이중 연결을 뺀 이유 등)는 오른쪽 메모 'PT 한계와 시연 준비'. 링크 종류는 왼쪽 위 '링크 유형'. 앱·백업에서 밖으로 나가는 새 연결은 출발지 코어의 APP-IN·BACKUP-IN이 먼저 막고 방화벽 INSIDE_IN이 한 번 더 막는다(메모 4·8·9번, 해커 관점 메모). -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 원본 도면 창(E 키 도구). 도구가 꺼져 있으면 숨은 단추를 눌러도 열지 않고, 닫을 때는 단추에서 초점을 빼
+  // 스페이스 · 엔터로 다시 열리지 않게 한다. 그림을 누르면 누른 자리를 기준으로 두 배로 키운다
+  // (키운 뒤 같은 점이 누른 자리에 오도록 스크롤을 맞춘다). 확대하면 안내 글도 '누르면 축소'로 바꾼다
+  const fig = document.getElementById('fig'), hint = document.getElementById('fig-hint'), openBtn = document.getElementById('open-fig');
+  const view = fig.querySelector('.view'), figImg = document.getElementById('fig-img');
+  const closeFig = () => { if (fig.open) fig.close(); };
+  openBtn.addEventListener('click', e => { e.stopPropagation(); if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); } });
+  document.getElementById('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  figImg.addEventListener('click', e => {
+    e.stopPropagation();
+    const r = figImg.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const zoom = fig.classList.toggle('zoom');
+    hint.textContent = zoom ? '그림을 누르면 축소' : '그림을 누르면 확대';
+    if (!zoom) return;
+    const z = figImg.getBoundingClientRect();
+    view.scrollLeft += z.left + fx * z.width - e.clientX;
+    view.scrollTop += z.top + fy * z.height - e.clientY;
+  });
+  fig.addEventListener('close', () => { fig.classList.remove('zoom'); hint.textContent = '그림을 누르면 확대'; openBtn.blur(); });
+  // '메모 보기': 질문 때 ACL 이름 · 연결망 대역 · PT 한계 메모가 적힌 원본(2548×670)으로 바꿔 보인다. 확대 폭도 그림에 맞춰 두 배로
+  const memoBtn = document.getElementById('fig-memo');
+  memoBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const on = fig.classList.toggle('memo');
+    figImg.src = on ? 'assets/img/net-layered.png' : 'assets/img/net-layered-clean.png';
+    memoBtn.textContent = on ? '메모 숨기기' : '메모 보기';
+    memoBtn.setAttribute('aria-pressed', String(on));
+    memoBtn.blur();
+  });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const map = $('map');
+  const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+
+  // ---- 망의 연결. [앞 장비, 뒤 장비, 앞 → 뒤 꺾은선(선 좌표 그대로, 끝은 장비 가장자리), 선 data-k, 지나는 방화벽 인터페이스 글자표].
+  //      VLAN 서버로 가는 선은 상자 안 L2 액세스 스위치 그림의 윗변(둥근 끝 3px을 뺀 587)에서 끝난다. 장비 속은 가운데(HUB)를 거쳐 지나고 타일에 가려진다.
+  //      구름(net)만 투명해 그 속은 칠하는 선을 비운다 ----
+  const EDGES = [
+    ['user', 'net', [[526, 48], [939, 48]], ['l-uc']],
+    ['net', 'rt', [[970, 70], [970, 130]], ['l-cr']],
+    ['rt', 'fw', [[970, 178], [970, 238]], ['l-rf'], 'if-out'],
+    ['rt', 'store', [[1060, 154], [1325, 154], [1325, 92]], ['l-re']],
+    ['rt', 'teams', [[1060, 154], [1540, 154], [1540, 92]], ['l-re']],
+    ['fw', 'waf', [[845, 286], [736, 286]], ['l-fw'], 'if-dmz'],
+    ['waf', 'dsw', [[576, 286], [360, 286]], ['l-ws']],
+    ['dsw', 'w1', [[270, 310], [270, 320], [99, 320], [99, 356]], ['l-dz', 'l-w1']],
+    ['dsw', 'lb', [[270, 310], [270, 356]], ['l-dz', 'l-lb']],
+    ['dsw', 'w2', [[270, 310], [270, 320], [441, 320], [441, 356]], ['l-dz', 'l-w2']],
+    ['fw', 'ca', [[900, 334], [900, 396], [589, 396], [589, 460]], ['l-in'], 'if-in'],
+    ['ca', 'cb', [[689, 476], [971, 476]], ['l-ab']],
+    ['ca', 'v21', [[519, 508], [519, 526], [189, 526], [189, 587]], ['l-a21']],
+    ['ca', 'v30', [[549, 508], [549, 546], [430, 546], [430, 587]], ['l-a30']],
+    ['ca', 'v41', [[589, 508], [589, 536], [671, 536], [671, 587]], ['l-a41']],
+    ['cb', 'v22', [[1011, 508], [1011, 526], [912, 526], [912, 587]], ['l-b22']],
+    ['cb', 'v42', [[1071, 508], [1071, 556], [1153, 556], [1153, 587]], ['l-b42']],
+    ['cb', 'v70', [[1111, 508], [1111, 541], [1394, 541], [1394, 587]], ['l-b70']],
+    ['cb', 'v60', [[1141, 508], [1141, 526], [1635, 526], [1635, 587]], ['l-b60']],
+    ['cb', 'msw', [[1171, 484], [1310, 484], [1310, 344]], ['l-bm']],
+    ['msw', 'pc', [[1395, 320], [1412, 320], [1412, 260], [1450, 260]], ['l-ms', 'l-pc']],
+    ['msw', 'jump', [[1395, 320], [1412, 320], [1450, 320]], ['l-ms', 'l-jp']],
+    ['msw', 'ops', [[1395, 320], [1412, 320], [1412, 380], [1450, 380]], ['l-ms', 'l-op']],
+  ];
+  const HUB = { net: [970, 48], rt: [970, 154], fw: [900, 286], waf: [656, 286], dsw: [270, 286], ca: [589, 484], cb: [1071, 484], msw: [1310, 320] };
+  const ZONE = { user: 'z-pub', net: 'z-pub', store: 'z-ext', teams: 'z-ext', w1: 'z-dmz', lb: 'z-dmz', w2: 'z-dmz', pc: 'z-mgmt', jump: 'z-mgmt', ops: 'z-mgmt',
+    v21: 'z21', v30: 'z30', v41: 'z41', v22: 'z22', v42: 'z42', v70: 'z70', v60: 'z60' };
+  const NAME = { w1: '웹 서버 1', lb: '로드밸런서', w2: '웹 서버 2', pc: '관리자 PC', jump: '점프 서버', ops: '관제 서버',
+    v21: '거래 서버 1', v30: '조회 서버', v41: '주 DB', v22: '거래 서버 2', v42: '예비 DB', v70: '백업 서버', v60: 'AI 서버',
+    net: '인터넷', store: '외부 보관', teams: 'Teams' };
+  const WEB = ['w1', 'w2'], APP = ['v21', 'v22', 'v30'], DB = ['v41', 'v42'], MG = ['pc', 'jump', 'ops'], OUT_ = ['net', 'store', 'teams'];
+  const VL = ['v21', 'v30', 'v41', 'v22', 'v42', 'v70', 'v60'], SRV = [...WEB, 'lb', ...VL];
+  const TILES = [...map.querySelectorAll('#L-tiles .tile rect')].map(r => ['x', 'y', 'width', 'height'].map(a => +r.getAttribute(a)));
+
+  // 두 장비 사이 장비 차례(망이 나무 꼴이라 길은 하나다)
+  const between = (a, b) => {
+    const prev = { [a]: null }, queue = [a];
+    while (queue.length) {
+      const n = queue.shift(); if (n === b) break;
+      for (const e of EDGES) { const m = e[0] === n ? e[1] : e[1] === n ? e[0] : null; if (m && !(m in prev)) { prev[m] = n; queue.push(m); } }
+    }
+    const out = []; for (let n = b; n != null; n = prev[n]) out.unshift(n);
+    return out;
+  };
+  // 장비 차례를 꺾은선으로 잇는다. 지나는 선(links)과 방화벽 인터페이스 글자표(nics)도 모은다
+  const trace = nodes => {
+    const pts = [], links = [], nics = [];
+    for (let i = 1; i < nodes.length; i++) {
+      const a = nodes[i - 1], b = nodes[i], e = EDGES.find(x => (x[0] === a && x[1] === b) || (x[0] === b && x[1] === a));
+      if (i > 1) pts.push(HUB[a]);
+      pts.push(...(e[0] === a ? e[2] : [...e[2]].reverse()));
+      links.push(...e[3]); if (e[4]) nics.push(e[4]);
+    }
+    return { pts, links, nics };
+  };
+  // 칠하는 선. 구름 속(HUB.net)은 비운다
+  const dOf = pts => { let s = '', move = true; for (const p of pts) { if (p === HUB.net) { move = true; continue; } s += `${move ? 'M' : 'L'}${p[0]} ${p[1]} `; move = false; } return s.trim(); };
+  // 끝 표시 자리: VLAN 서버는 상자 윗변 1px 앞(581, 화살촉 끝이 상자 테두리 앞에서 멈춘다), 나머지는 장비 가장자리
+  const endOf = (d, pts) => { const p = pts[pts.length - 1]; return VL.includes(d) ? [p[0], 581] : p; };
+  // 도착지가 VLAN 서버면 칠하는 길을 화살촉 밑(둥근 끝 3px을 뺀 578)에서 끊는다. 출발 쪽은 스위치 그림에서 그대로 나온다
+  const land = (d, pts) => {
+    if (!VL.includes(d)) return { route: pts, end: pts[pts.length - 1] };
+    const p = pts[pts.length - 1];
+    return { route: [...pts.slice(0, -1), [p[0], 578]], end: [p[0], 581] };
+  };
+  // 가려던 길(빨간 점선): a 장비에서 d 장비까지. 장비 타일 속은 비워, 흐린 장비 밑으로 점선이 비쳐 보이지 않게 한다
+  const towards = (a, d) => {
+    const pts = trace(between(a, d)).pts; if (VL.includes(d)) pts[pts.length - 1] = endOf(d, pts);
+    const parts = [];
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+      let keep = [[0, 1]];
+      for (const r of TILES) {
+        let u0 = 0, u1 = 1, out = false;
+        for (const [p, dd, lo, hi] of [[ax, bx - ax, r[0], r[0] + r[2]], [ay, by - ay, r[1], r[1] + r[3]]]) {
+          if (dd === 0) { if (p < lo || p > hi) { out = true; break; } continue; }
+          let t0 = (lo - p) / dd, t1 = (hi - p) / dd; if (t0 > t1) [t0, t1] = [t1, t0];
+          u0 = Math.max(u0, t0); u1 = Math.min(u1, t1);
+        }
+        if (out || u0 >= u1) continue;
+        keep = keep.flatMap(([s, e]) => [[s, Math.min(e, u0)], [Math.max(s, u1), e]]).filter(([s, e]) => e - s > 1e-6);
+      }
+      for (const [s, e] of keep) parts.push([[ax + (bx - ax) * s, ay + (by - ay) * s], [ax + (bx - ax) * e, ay + (by - ay) * e]]);
+    }
+    let out = '', last = null;
+    const f = p => `${+p[0].toFixed(1)} ${+p[1].toFixed(1)}`;
+    for (const [p, q] of parts) { if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > .01) out += `M${f(p)} `; out += `L${f(q)} `; last = q; }
+    return out.trim();
+  };
+
+  // ---- 판정 칩 자리(세로 가운데 y 와 x, a 가 'end' 면 오른쪽 끝, max 를 넘으면 왼쪽으로 민다). 끝점이나 판정한 장비 옆 빈칸이다 ----
+  const AT = {
+    ext: t => ({ x: 864, y: 196, a: 'end', t }),            // 경계 라우터 왼쪽 아래
+    waf: t => ({ x: 556, y: 344, t }),                      // 웹 방화벽 아래 ✕ 옆
+    coreB: t => ({ x: 712, y: 432, max: 959, t }),          // 두 코어 사이 위(코어 B 왼쪽 ✕ 위, l-in 과 ✕ 모두와 12px 넘게)
+    coreA: t => ({ x: 465, y: 484, a: 'end', t }),          // 코어 A 왼쪽
+    cores: t => ({ x: 712, y: 434, t }),                    // 두 코어 사이 위
+    mgmt: t => ({ x: 1640, y: 462, a: 'end', t }),          // 관리망 아래(코어 B · 점프 서버 쪽)
+    dmz: t => ({ x: 20, y: 462, t }),                       // DMZ 아래
+    edge: t => ({ x: 556, y: 196, t }),                     // NAT 와 방화벽 사이(밖으로 나가는 길)
+  };
+  // ACL 꼬리표 자리(왼쪽 x, 세로 가운데 y): 방화벽 오른쪽, 웹 방화벽 위, 코어 A · B 위
+  const TAG = { fw: [1108, 300], waf: [626, 235], ca: [610, 431], cb: [1090, 431] };
+  // 관리 접속 차례 번호 자리. 관리자 PC · 점프 서버 · 예비 DB는 타일 안 오른쪽 끝(−24), 다른 대상은 이름 뒤에 12px이 남으면 같은 자리,
+  // 이름이 길어 남지 않으면(웹 서버 · 로드밸런서 · 거래 서버) 타일 왼쪽 그림 자리에 둔다
+  const BADGE = { pc: [1616, 260], jump: [1616, 320], v42: [1142, 678] };
+  const badgeAt = k => {
+    if (BADGE[k]) return BADGE[k];
+    const g = map.querySelector(`[data-k="${k}"]`), r = g.querySelector('rect'), t = g.querySelector('text').getBBox();
+    const x = +r.getAttribute('x'), w = +r.getAttribute('width'), cy = +r.getAttribute('y') + +r.getAttribute('height') / 2;
+    return t.x + t.width + 12 + 14 <= x + w - 24 ? [x + w - 24, cy] : [x + 25, cy];
+  };
+
+  // ---- 흐름을 만드는 틀. keep 은 흐리지 않고 둘 구역 · 장비 · 선(data-k 이름) ----
+  const keepOf = (nodes, links) => [...nodes.filter(k => k === 'user' || k === 'net'), ...nodes.map(k => ZONE[k]).filter(Boolean), ...links];
+  const tilesOf = nodes => nodes.filter(k => k !== 'user' && k !== 'net');
+  // 허용: 출발지에서 도착지까지 연결선을 그대로 따라간다
+  const allow = (s, d, chip, acl) => {
+    const nodes = between(s, d), t = trace(nodes), l = land(d, t.pts);
+    return { ok: true, route: l.route, d: dOf(l.route), end: l.end, on: [...tilesOf(nodes), ...t.nics], acl, keep: keepOf(nodes, t.links), chip };
+  };
+  // 웹 서버에서 거래 · 조회 서버 8080이 아닌 곳으로 가는 길은 웹 방화벽 DMZ_OUT 이 먼저 막는다(ACL 3번).
+  // 길은 DMZ 스위치를 지나 DMZ 경계(x540) 위에서 ✕로 멈춘다(단계 2처럼 구역 경계 위의 ✕, 웹 방화벽과 17px)
+  const webBlock = (s, d, t0) => {
+    const t = trace([s, 'dsw']), route = [...t.pts, HUB.dsw, [540, 286]];
+    return { ok: false, route, d: dOf(route), end: [540, 286], want: towards('waf', d), on: [s, 'dsw'], stop: ['waf'], aim: [d],
+      keep: [...keepOf([s], t.links), 'l-ws'], chip: AT.waf(t0 || '웹 서버 → ' + NAME[d]) };
+  };
+  // 앱 · 백업 서버에서 밖으로 새로 나가는 연결은 출발지 코어의 ACL이 먼저 막는다(ACL 4번 APP-IN '거래·조회 → DB 5432, 봇 관리 8443만',
+  // 8번 BACKUP-IN '백업 서버 → DB 5432, 외부 보관 443만', 해커 관점 메모 '거래 서버 탈취: … 백업·AI·인터넷 차단'). 방화벽 INSIDE_IN 은 그 뒤에서 한 번 더 막는다.
+  // 코어 A 출발(거래 서버 1, 조회 서버)은 코어 A 윗변 위 l-in 줄의 (589, 429)에서, 코어 B 출발(거래 서버 2, 백업 서버)은 코어 A-B 두 줄 묶음 사이 코어 B 왼쪽에서 ✕.
+  // 가려던 길은 그 코어에서 방화벽을 지나 대상까지 빨간 점선
+  const outBlock = (s, d, text) => {
+    const core = between(s, 'ca').includes('cb') ? 'cb' : 'ca', nodes = between(s, core), t = trace(nodes);
+    const route = core === 'ca' ? [...t.pts, HUB.ca, [589, 460], [589, 429]] : [...t.pts, HUB.cb, [971, 476], [940, 476]];
+    return { ok: false, route, d: dOf(route), end: core === 'ca' ? [589, 429] : [940, 486], want: towards(core, d),
+      on: tilesOf(nodes).filter(k => k !== core), stop: [core], aim: [d], keep: [...keepOf(nodes, t.links), ...(core === 'cb' ? ['l-ab'] : [])],
+      chip: (core === 'ca' ? AT.coreA : AT.coreB)(text) };
+  };
+  // 관리 접속: 1구간 관리자 PC → 관리 스위치(오른쪽 변까지 들어갔다 나옴) → 점프 서버, 0.45초 멈춘 뒤 2구간 점프 서버 → 대상.
+  // 차례 번호 ① ② 는 길이 닿을 때, ③ 은 끝 표시와 같은 때. 코어 B로 내려가는 줄에 화살촉을 하나 더 둔다. DMZ 서버는 방화벽도 지난다
+  const mgmt = d => {
+    const nodes = between('jump', d), t = trace(nodes);
+    return { ok: true, legs: [
+        { route: [[1450, 260], [1412, 260], [1412, 320], [1395, 320], [1450, 320]], d: 'M1450 260 H1412 V320 H1395 H1450', end: [1450, 320] },
+        { route: land(d, t.pts).route, d: dOf(land(d, t.pts).route), end: land(d, t.pts).end }],
+      on: ['pc', ...tilesOf(nodes), ...t.nics], acl: nodes.includes('fw') ? ['cb', 'fw'] : ['cb'],
+      badges: [['pc', 1], ['jump', 2], [d, 3]], mid: [[1310, 461]],
+      keep: [...keepOf(nodes, t.links), 'l-pc'], chip: AT.mgmt('점프 서버 경유 SSH만') };
+  };
+
+  // ---- 정책 흐름. 정책은 모두 원본 Packet Tracer 도면의 'ACL 정책' 메모 그대로다.
+  //      route 는 길이 지나는 꺾은선이고 그리는 시간도 이 길이로 정한다. d 는 실제로 칠하는 선이다.
+  //      legs 가 있으면 길을 구간으로 나눠 그린다(구간 끝에 화살촉을 붙이고 0.45초 멈춘 뒤 다음 구간).
+  //      on 은 길이 지나는 장비 · 글자표, stop 은 실제로 막은 장비, aim 은 가려다 막힌 곳, want 는 가려던 길, acl 은 ACL 꼬리표를 붙일 장비,
+  //      badges 는 차례 번호, mid 는 길 중간 화살촉. end 는 끝 표시 자리(허용은 화살촉 끝이 닿는 장비 가장자리, 차단은 ✕ 가운데) ----
+  const FLOWS = {
+    // 단계 1. 외부 → 로드밸런서 80·443만: 경계 라우터의 정적 NAT, 방화벽 OUTSIDE_IN, 웹 방화벽 WAF_IN(ACL 1번). ACL 꼬리표는 방화벽과 웹 방화벽 두 곳
+    lb: { ok: true, route: [[526, 48], [970, 48], [970, 286], [270, 286], [270, 356]], d: 'M526 48 H939 M970 70 V286 H270 V356', end: [270, 356],
+      on: ['rt', 'fw', 'waf', 'dsw', 'lb', 'nat', 'if-out', 'if-dmz'], acl: ['fw', 'waf'], keep: ['z-pub', 'z-dmz', 'user', 'net', 'l-uc', 'l-cr', 'l-rf', 'l-fw', 'l-ws', 'l-dz', 'l-lb'],
+      chip: AT.dmz('외부 → 로드밸런서 80·443만') },
+    // 단계 2. 외부에서 사설 주소로 바로 들어오는 길은 경계 라우터가 막는다(ACL 2번). 길은 라우터에 닿기 전에 멈추고(✕는 구름과 라우터 사이, 공인 구간 경계 위),
+    // ✕와 같은 때 라우터 테두리가 빨갛게, 0.35초 뒤 가려던 길과 주 DB 테두리가 빨간 점선으로 보인다
+    ext: { ok: false, route: [[526, 48], [970, 48], [970, 97]], d: 'M526 48 H939 M970 70 V97', end: [970, 97], want: towards('rt', 'v41'),
+      on: [], stop: ['rt'], aim: ['v41'], keep: ['z-pub', 'user', 'net', 'l-uc', 'l-cr'], chip: AT.ext('외부 → 주 DB') },
+    // 단계 3. 웹 서버는 거래·조회 서버 8080만(방화벽 DMZ_IN, 웹 방화벽 DMZ_OUT, ACL 3번). 주 DB로 가려던 길은 웹 방화벽이 먼저 막는다
+    web: webBlock('w1', 'v41'),
+    // 단계 4. 거래 서버 → 주 DB는 5432만(코어 APP-IN, ACL 4번). VLAN 21 선으로 코어 A에 들어가 VLAN 41 선으로 나온다
+    db: allow('v21', 'v41', AT.coreA('거래 서버 → 주 DB 5432만'), ['ca']),
+    // 단계 5. SSH 22는 점프 서버에서만(코어 MGMT-IN, ACL 7번). 관리자 PC → 점프 서버 → 예비 DB
+    ssh: mgmt('v42'),
+    // 웹 서버 1 → 2: DMZ 서버끼리는 DMZ 스위치의 보호 포트가 막는다(ACL 9번)
+    peer: { ok: false, route: [[99, 356], [99, 320], [270, 320], [270, 300], [270, 320], [400, 320]], d: 'M99 356 V320 H270 V300 V320 H400', end: [400, 320],
+      on: ['w1'], stop: ['dsw'], keep: ['z-dmz', 'w2', 'l-w1', 'l-dz', 'l-w2'], chip: AT.dmz('DMZ 서버끼리') },
+    // 거래 서버 → 인터넷 새 연결은 출발지 코어 A의 APP-IN 이 먼저 막는다(ACL 4 · 9번)
+    out: outBlock('v21', 'net', '거래 서버 → 인터넷'),
+    // 관리자 PC에서 서버로 바로 하는 SSH는 코어 B의 MGMT-IN 이 막는다(ACL 7번). ✕는 코어 B 오른쪽
+    pcssh: { ok: false, route: [[1450, 260], [1412, 260], [1412, 320], [1310, 320], [1310, 484], [1206, 484]], d: 'M1450 260 H1412 V320 H1310 V484 H1206', end: [1206, 484],
+      on: ['pc', 'msw'], stop: ['cb'], keep: ['z-mgmt', 'l-pc', 'l-ms', 'l-bm'], chip: AT.mgmt('관리자 PC → 서버 SSH') },
+    // 백업 서버 → 외부 보관 443만(코어 BACKUP-IN, 방화벽 INSIDE_IN, ACL 8번). 코어 B → 코어 A → 방화벽 → 경계 라우터를 지나 나간다
+    bak: { ok: true, route: [[1394, 587], [1394, 541], [1111, 541], [1111, 476], [589, 476], [589, 396], [900, 396], [900, 300], [970, 300], [970, 154], [1325, 154], [1325, 92]],
+      d: 'M1394 587 V541 H1111 V476 H589 V396 H900 V300 H970 V154 H1325 V92', end: [1325, 92],
+      on: ['v70', 'cb', 'ca', 'fw', 'rt', 'store', 'if-in', 'if-out'], acl: ['cb', 'fw'], keep: ['z70', 'z-ext', 'l-b70', 'l-ab', 'l-in', 'l-rf', 'l-re'],
+      chip: AT.edge('백업 → 외부 보관 443만') },
+  };
+  // → 1~3은 도면을 구간별로 쌓는 단계(흐름 없음), → 4~8은 정책 흐름 다섯 단계
+  const REVEAL = 3;
+  const STEPS = [null, null, null, null, 'lb', 'ext', 'web', 'db', 'ssh'];
+  const LAST = STEPS.length - 1;
+
+  // ---- 장비를 직접 눌러 볼 수 있는 흐름. 원본 메모의 ACL 정책(과 Packet Tracer 시험 결과)에 근거가 있는 조합만 그리고,
+  //      근거가 없는 조합은 고른 표시만 푼다 ----
+  // 웹 서버 2 → 1 은 웹 서버 1 → 2 를 거울로 비춘 꼴
+  const PEER2 = { ok: false, route: [[441, 356], [441, 320], [270, 320], [270, 300], [270, 320], [140, 320]], d: 'M441 356 V320 H270 V300 V320 H140', end: [140, 320],
+    on: ['w2'], stop: ['dsw'], keep: ['z-dmz', 'w1', 'l-w2', 'l-dz', 'l-w1'], chip: AT.dmz('DMZ 서버끼리') };
+  // 출발 → (경유) → 도착 판정. 관리 접속은 관리자 PC → 점프 서버 → 대상의 세 번 누름만 허용하고, 점프 서버를 건너뛰면 코어 B에서 막는다
+  const decide = (s, via, d) => {
+    if (via) return s === 'pc' && via === 'jump' && SRV.includes(d) ? (d === 'v42' ? FLOWS.ssh : mgmt(d)) : null;   // ACL 7번
+    const exact = { 'user>lb': 'lb', 'user>v41': 'ext', 'w1>v41': 'web', 'v21>v41': 'db', 'w1>w2': 'peer', 'v21>net': 'out', 'v70>store': 'bak' }[s + '>' + d];
+    if (exact) return FLOWS[exact];
+    if (s === 'user' && [...WEB, ...VL, ...MG].includes(d)) return { ...FLOWS.ext, want: towards('rt', d), aim: [d], chip: AT.ext('외부 → ' + NAME[d]) };   // ACL 2번
+    // 로드밸런서는 웹 서버 1 · 2로 나눠 보낸다(원본 메모 '외부 사용자 접속 경로' 3번)
+    if (s === 'lb' && WEB.includes(d)) return allow(s, d, AT.dmz('로드밸런서 → 웹 서버'));
+    if (WEB.includes(s)) {
+      if (s === 'w2' && d === 'w1') return PEER2;                                                                // ACL 9번
+      if (APP.includes(d)) return allow(s, d, AT.coreA(`웹 서버 → ${d === 'v30' ? '조회' : '거래'} 서버 8080만`), ['fw', 'waf']);   // ACL 3번
+      if ([...DB, 'v70', 'v60', ...MG, ...OUT_].includes(d)) return webBlock(s, d);                             // ACL 3 · 9번
+      return null;
+    }
+    if (APP.includes(s)) {
+      const who = s === 'v30' ? '조회 서버' : '거래 서버', core = s === 'v22' ? 'cb' : 'ca';
+      // 칩은 코어 A 왼쪽에 두고, 코어 B 안에서 끝나는 거래 서버 2 → 예비 DB만 관리망 아래 빈칸에 줄여 적는다
+      if (DB.includes(d)) return allow(s, d, s === 'v22' && d === 'v42' ? AT.mgmt('거래 → 예비 DB 5432만') : AT.coreA(`${who} → ${NAME[d]} 5432만`), [core]);   // ACL 4번
+      // 밖으로 새 연결은 출발지 코어의 APP-IN 이 막는다(ACL 4 · 9번, 거래 서버 → Teams 는 Packet Tracer에서 막힘을 확인).
+      // 코어 B 쪽 칩 칸(두 코어 사이, 폭 258까지)에 들어가지 않는 거래 서버 2 → 외부 보관 · Teams 만 '거래 → …'로 줄인다
+      if (OUT_.includes(d)) return outBlock(s, d, s === 'v22' && d !== 'net' ? '거래 → ' + NAME[d] : `${who} → ${NAME[d]}`);
+      return null;
+    }
+    if (s === 'v41' && d === 'v42') return allow(s, d, AT.cores('주 DB → 예비 DB'), ['ca']);                      // ACL 5번(복제는 두 방향)
+    if (s === 'v42' && d === 'v41') return allow(s, d, AT.cores('예비 DB → 주 DB'), ['cb']);
+    if (s === 'ops') {                                                                                           // ACL 6번
+      if (VL.includes(d)) return allow(s, d, AT.mgmt('관제 서버 → ' + (DB.includes(d) ? '지표 9187' : d === 'v60' ? 'AI 11434' : '지표 9100')), ['cb']);
+      if (d === 'teams') return allow(s, d, AT.edge('관제 서버 → Teams 443'), ['cb']);
+      return null;
+    }
+    if (s === 'pc' && SRV.includes(d)) return { ...FLOWS.pcssh, want: towards('cb', d), aim: [d] };            // ACL 7번
+    if (s === 'v70') {                                                                                           // ACL 8번
+      if (DB.includes(d)) return allow(s, d, d === 'v42' ? AT.mgmt('백업 → 예비 DB 5432만') : AT.coreA('백업 서버 → 주 DB 5432만'), ['cb']);
+      if (d === 'net') return outBlock(s, d, '백업 서버 → 인터넷');
+    }
+    return null;
+  };
+
+  // 덱 공통 속도 기준. 길을 그리는 빠르기(도면 px/초)와 한 구간 그리는 시간의 하한, 상한(초), 경유지 멈춤 PAUSE,
+  // 흐리기 DIM, 길이 닿은 뒤 끝 표시 · 칩이 나타나기까지 LAG, 앞 흐름이 사라지는 시간 OUT(CSS 의 .gone 과 같게)
+  // AIM 은 막힌 흐름에서 ✕ · 칩 · 막은 장비가 나온 뒤 가려던 길 · 가려던 장비가 따라 나오기까지(판정 순간을 한 곳씩)
+  const SPEED = 450, MIN = .8, MAX = 2, PAUSE = .45, DIM = .35, LAG = .2, OUT = .3, AIM = .35;
+  const EASE = 'cubic-bezier(.45,0,.55,1)';
+  const COLOR = { ok: '#2DD196', no: '#FF6B6B' };
+  // 글자표가 켜지는 때를 정하는 기준점(그 글자가 가리키는 자리): NAT은 경계 라우터, 보안 수준은 그 인터페이스 선
+  const ANCHOR = { nat: [880, 154], 'if-out': [970, 208], 'if-dmz': [790, 286], 'if-in': [900, 340] };
+
+  // 길이 거리 s 에 닿는 때. 꺾임이 둘 넘는 길(lin)은 일정한 빠르기라 진행률 그대로, 짧은 길은 EASE 로 그리므로 진행률 s/L 을 그 곡선에서 거꾸로 풀어 시간 비율을 얻는다
+  const bz = (a, b, u) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3;
+  const easeAt = p => { let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (bz(0, 1, m) < p) lo = m; else hi = m; } return bz(.45, .55, (lo + hi) / 2); };
+  const timeAt = (leg, p) => leg.lin ? p : easeAt(p);
+  // 꺾은선이 상자 [x, y, w, h] 에 처음 들어가는 거리(들어가지 않으면 null)
+  const hitAt = (pts, r) => {
+    let s = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay);
+      let u0 = 0, u1 = 1;
+      for (const [p, d, lo, hi] of [[ax, bx - ax, r[0], r[0] + r[2]], [ay, by - ay, r[1], r[1] + r[3]]]) {
+        if (d === 0) { if (p < lo || p > hi) { u0 = 2; break; } continue; }
+        let t0 = (lo - p) / d, t1 = (hi - p) / d; if (t0 > t1) [t0, t1] = [t1, t0];
+        u0 = Math.max(u0, t0); u1 = Math.min(u1, t1);
+      }
+      if (u0 <= u1 && u0 <= 1) return s + u0 * L;
+      s += L;
+    }
+    return null;
+  };
+  // 꺾은선에서 점 [x, y] 에 가장 가까운 자리의 [거리(떨어진 정도), 길 위 거리]
+  const nearAt = (pts, [x, y]) => {
+    let s = 0, best = [Infinity, 0];
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay);
+      const u = L ? Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (L * L))) : 0;
+      const d = Math.hypot(ax + (bx - ax) * u - x, ay + (by - ay) * u - y);
+      if (d < best[0]) best = [d, s + u * L];
+      s += L;
+    }
+    return best;
+  };
+  // 흐름의 시간표: 구간마다 시작 시각 start, 그리는 시간 T, 길이 L. 0.35초 흐린(앞 흐름은 그동안 사라진다) 다음 첫 구간이 시작한다
+  const plan = f => {
+    let t = DIM;
+    return (f.legs || [{ route: f.route, d: f.d, end: f.end }]).map((leg, i, all) => {
+      const L = lenOf(leg.route), T = leg.t || Math.min(MAX, Math.max(MIN, L / SPEED)), p = { ...leg, start: t, T, L, lin: leg.route.length >= 4 };
+      t += T + (i < all.length - 1 ? PAUSE : 0);
+      return p;
+    });
+  };
+  // 길이 점(가장 가까운 자리)을 지나는 시각
+  const passAt = (legs, pt) => { let best = null; for (const leg of legs) { const [d, s] = nearAt(leg.route, pt); if (!best || d < best[0]) best = [d, leg.start + leg.T * timeAt(leg, s / leg.L)]; } return best[1]; };
+  // 길이 장비(또는 글자표가 가리키는 자리)에 닿는 시각. 장비는 상자에 처음 들어가는 때,
+  // 상자 안까지 가지 않는 장비(VLAN 상자 윗변에서 멈추는 서버)와 글자표는 가장 가까운 자리를 지나는 때
+  const arrive = (e, legs) => {
+    const r = e.querySelector('rect'), box = r && ['x', 'y', 'width', 'height'].map(a => +r.getAttribute(a));
+    if (box) for (const leg of legs) { const s = hitAt(leg.route, box); if (s != null) return leg.start + leg.T * timeAt(leg, s / leg.L); }
+    return passAt(legs, ANCHOR[e.dataset.k] || [box[0] + box[2] / 2, box[1] + box[3] / 2]);
+  };
+
+  // 판정 칩은 글자 폭을 재서 상자를 맞춘다. '허용' · '차단'의 굵은 글꼴은 이 장에서 처음 쓰여 늦게 올 수 있으니,
+  // 미리 받아 두고 글꼴이 올 때마다 다시 맞춘다
+  const layChip = g => {
+    const c = g.chip, [r, a, b] = g.children, wa = a.getComputedTextLength(), wb = b.getComputedTextLength();
+    const w = 16 + wa + 12 + wb + 16;
+    let x = c.a === 'end' ? c.x - w : c.x; if (c.max && x + w > c.max) x = c.max - w;
+    r.setAttribute('x', x); r.setAttribute('width', w);
+    a.setAttribute('x', x + 16); b.setAttribute('x', x + 16 + wa + 12);
+  };
+  const relay = () => document.querySelectorAll('#marks .chip').forEach(layChip);
+  if (document.fonts) {
+    document.fonts.load("700 24px 'IBM Plex Sans KR'", '허용차단').then(relay, () => {});
+    document.fonts.load("400 22px 'IBM Plex Sans KR'", '외부로드밸런서주예비웹거래조회서버인터넷관리자점프경유관제지표백업저장소만끼리').then(relay, () => {});
+    document.fonts.ready.then(relay);
+    document.fonts.addEventListener('loadingdone', relay);
+  }
+
+  // 끝 표시. 화살촉은 마지막 꺾은선 방향으로 길이 24 · 밑변 30, 끝이 장비 가장자리에서 1px 앞에 온다. ✕는 반지름 19, 팔 ±8
+  const arrow = (g, route, [x, y]) => {
+    const [px, py] = route[route.length - 2], n = Math.hypot(x - px, y - py), ux = (x - px) / n, uy = (y - py) / n;
+    const bx = x - ux * 25, by = y - uy * 25;
+    el('path', { class: 'arrow', d: `M${bx - uy * 15} ${by + ux * 15} L${bx + uy * 15} ${by - ux * 15} L${x - ux} ${y - uy} Z` }, g);
+  };
+  const xmark = (g, [x, y]) => {
+    const m = el('g', { class: 'xm' }, g);
+    el('circle', { cx: x, cy: y, r: 19 }, m);
+    el('path', { d: `M${x - 8} ${y - 8} L${x + 8} ${y + 8} M${x + 8} ${y - 8} L${x - 8} ${y + 8}` }, m);
+  };
+  const badge = (g, k, n) => { const [x, y] = badgeAt(k), b = el('g', { class: 'badge' }, g); el('circle', { cx: x, cy: y, r: 13 }, b); el('text', { x, y: y + 8 }, b).textContent = n; };
+  // 누른 장비 테두리(타일 바깥 3px, 두께 3). 위아래로 붙은 관리자 PC · 점프 서버를 함께 둘러도 두 테두리가 붙지 않는다.
+  // 사람 · 구름은 그림과 이름을 함께 두른다
+  const ring = (k, cls, parent) => {
+    const g = map.querySelector(`[data-k="${k}"]`), r = g.querySelector(':scope > rect');
+    const b = r ? { x: +r.getAttribute('x'), y: +r.getAttribute('y'), width: +r.getAttribute('width'), height: +r.getAttribute('height') } : g.getBBox(), p = r ? 3 : 8;
+    return el('rect', { class: 'ring' + (cls ? ' ' + cls : ''), x: b.x - p, y: b.y - p, width: b.width + p * 2, height: b.height + p * 2, rx: 14 }, parent);
+  };
+
+  // 흐름 하나의 길 · 끝 표시 · 칩을 놓는다. go 가 참이면 시간표(legs)대로 움직여 그리고, 거짓이면 끝 모습을 바로 놓는다.
+  // 색은 무리마다 따로 박아, 다음 흐름으로 넘어가 사라지는 동안 색이 바뀌지 않게 한다. 지연값도 무리마다 박아 둔다
+  let seq = 0;
+  const paint = (f, legs, go, at, E, pick) => {
+    const v = COLOR[f.ok ? 'ok' : 'no'];
+    const group = (layer, cls) => { const n = el('g', { class: 'flow' + (cls ? ' ' + cls : '') }, $(layer)); n.style.setProperty('--v', v); return n; };
+    const later = (g, t) => { if (go) { g.classList.add('late'); g.style.setProperty('--e', t.toFixed(3) + 's'); } };
+    const gt = group('trails');
+    // 가려던 길은 ✕ · 칩보다 0.35초 늦게(판정 → 가려던 곳 차례로)
+    if (f.want) { const p = el('path', { class: 'want', d: f.want }, gt); if (go) { p.classList.add('soon'); p.style.setProperty('--a', (E + AIM).toFixed(3) + 's'); } }
+    legs.forEach((leg, i) => {
+      const tr = el('path', { class: 'trail', d: leg.d }, gt);
+      if (go) {
+        const id = 'rv' + ++seq, m = el('mask', { id, maskUnits: 'userSpaceOnUse', x: -20, y: -20, width: 1700, height: 754 }, gt);
+        const rv = el('path', { class: 'rv', d: 'M' + leg.route.join(' L'), pathLength: 100 }, m);
+        rv.style.setProperty('--d', leg.start.toFixed(3) + 's'); rv.style.setProperty('--t', leg.T.toFixed(3) + 's');
+        rv.style.setProperty('--ease', leg.lin ? 'linear' : EASE);
+        tr.setAttribute('mask', `url(#${id})`);
+      }
+      if (i < legs.length - 1) {   // 중간 구간 끝: 다음 장비 쪽 화살촉을 붙이고 멈춘다
+        const ga = group('marks'); arrow(ga, leg.route, leg.end); later(ga, leg.start + leg.T);
+      }
+    });
+    for (const [x, y] of f.mid || []) { const g = group('marks'); arrow(g, [[x, y - 40], [x, y + 1]], [x, y + 1]); later(g, passAt(legs, [x, y])); }
+    for (const k of f.acl || []) {
+      const [x, y] = TAG[k], g = group('marks', 'acl');
+      el('rect', { x, y: y - 15, width: 60, height: 30, rx: 6 }, g); el('text', { x: x + 30, y: y + 8 }, g).textContent = 'ACL';
+      later(g, at[k] != null ? at[k] : E);
+    }
+    // 차례 번호. ① ② 는 길이 그 장비에 닿을 때(직접 눌러 고른 경우는 고를 때 이미 떠 있었으니 그대로 둔다), ③ 은 끝 표시와 같은 때
+    for (const [k, n] of f.badges || []) {
+      const g = group('marks'); badge(g, k, n);
+      if (n === 3) later(g, E); else if (!(pick && pick.includes(k))) later(g, at[k] != null ? at[k] : legs[0].start);
+    }
+    const gm = group('marks'), last = legs[legs.length - 1];
+    if (f.ok) arrow(gm, last.route, last.end); else xmark(gm, last.end);
+    const c = el('g', { class: 'chip' }, gm); c.chip = f.chip;
+    el('rect', { y: f.chip.y - 22, height: 44, rx: 8 }, c);
+    el('text', { class: 'vd', y: f.chip.y + 8 }, c).textContent = f.ok ? '허용' : '차단';
+    el('text', { class: 'pl', y: f.chip.y + 8 }, c).textContent = f.chip.t;
+    later(gm, E);
+    layChip(c);
+  };
+
+  // 흐름 하나를 화면에 놓는다. go 가 참이면 앞 흐름의 길 · 끝 표시 · 칩을 0.3초에 지우면서 흐림을 바꾸고 새 흐름을 움직여 그리고,
+  // 거짓이면(← · #last · 움직임 줄이기 · 직접 누른 흐름에서 돌아올 때) 옮김 없이 끝 모습을 바로 놓는다.
+  // 앞 흐름에서 아직 다 나타나지 않은 칩 · 화살촉은 지금 불투명도에서 줄여, → 를 연달아 눌러도 번쩍이지 않게 한다.
+  // 장비 · 글자표의 켜기 표시(on · stop · aim)는 모두 뗐다가 다시 붙여, 앞 흐름의 색이 남지 않고 길이 닿는 때(--at)부터 처음부터 켜지게 한다.
+  // pick 은 직접 누른 출발지 · 경유지 · 도착지(도착지 테두리는 판정과 같은 때 허용 초록 · 차단 빨강으로)
+  const render = (f, go, pick) => {
+    const old = [...$('trails').children, ...$('marks').children];
+    old.forEach(g => {
+      if (!go) { g.remove(); return; }
+      if (g.classList.contains('gone')) return;   // 이미 사라지는 중인 무리는 그대로 둔다
+      g.style.opacity = getComputedStyle(g).opacity; g.classList.remove('late'); g.classList.add('gone');
+      setTimeout(() => g.remove(), OUT * 1000 + 20);
+    });
+    $('pick').replaceChildren();
+    map.classList.toggle('still', !go);
+    if (f) map.dataset.v = f.ok ? 'ok' : 'no';
+    const legs = f ? plan(f) : [], tail = legs[legs.length - 1], E = tail ? tail.start + tail.T + LAG : 0, at = {};
+    const all = [...map.querySelectorAll('[data-k]')];
+    all.forEach(e => e.classList.remove('on', 'stop', 'aim'));
+    void map.getBoundingClientRect();
+    for (const e of all) {
+      const k = e.dataset.k, on = !!f && f.on.includes(k), stop = !!f && !!f.stop && f.stop.includes(k), aim = !!f && !!f.aim && f.aim.includes(k) && !pick;
+      if (on) at[k] = arrive(e, legs);
+      e.style.setProperty('--at', (go ? (on ? at[k] : aim ? E + AIM : E) : 0).toFixed(3) + 's');
+      if (on) e.classList.add('on'); if (stop) e.classList.add('stop'); if (aim) e.classList.add('aim');
+      e.classList.toggle('dim', !!f && !on && !stop && !aim && !f.keep.includes(k) && !(pick && pick.includes(k)));
+    }
+    if (f) paint(f, legs, go, at, E, pick);
+    if (pick) rings(pick, f.ok, go ? (f.ok ? E : E + AIM) : null);
+    lit = [];
+    // 바로 놓을 때는 켜기 · 끝 표시 움직임을 끝 모습으로 넘긴다(장이 열릴 때 쌓이는 움직임 rise 는 그대로 둔다)
+    if (!go) { map.getAnimations({ subtree: true }).forEach(a => { if (a.animationName !== 'rise') a.finish(); }); void document.body.offsetWidth; map.classList.remove('still'); }
+  };
+  // 직접 누른 흐름의 테두리: 출발지 · 경유지는 하늘색, 도착지는 판정 때(E, 차단은 가려던 길과 같은 E+0.35) 허용 초록 실선 · 차단 빨강 점선
+  const rings = (pick, ok, E) => {
+    pick.slice(0, -1).forEach(k => ring(k, '', $('pick')));
+    const g = el('g', {}, $('pick')); ring(pick[pick.length - 1], ok ? 'ok' : 'no', g);
+    if (E != null) { g.classList.add('late'); g.style.setProperty('--e', E.toFixed(3) + 's'); }
+  };
+
+  // ---- 단계와 직접 누르기. 출발 장비를 누르면 하늘색 테두리로 고르고, 도착 장비를 누르면 판정해 그린다(근거가 없으면 고른 표시만 푼다).
+  //      관리자 PC를 고른 뒤 점프 서버를 누르면 경유지(차례 2)로 잡고 세 번째를 기다린다. 같은 장비를 다시 누르거나 빈 곳을 누르면 푼다.
+  //      그린 뒤 → · ← 나 도구 끄기(E)는 원래 단계의 끝 모습으로 바로 돌아온다 ----
+  // picked 는 지금 그려 둔 직접 누른 흐름({ pick, ok }), sel 은 고르는 중인 장비들이다
+  let step = 0, picked = null, sel = [], lit = [];
+  // 고르는 중이면 그 장비들만 하늘색 테두리(관리자 PC에서 시작하면 차례 번호도)를 두르고, 흐려 있던 장비면 밝힌다(풀면 다시 흐림).
+  // 고르는 중이 아니면 그려 둔 흐름의 테두리를 다시 놓는다
+  const drawSel = () => {
+    $('pick').replaceChildren();
+    lit.forEach(e => e.classList.add('dim')); lit = [];
+    if (!sel.length) { if (picked) rings(picked.pick, picked.ok, null); return; }
+    sel.forEach((k, i) => {
+      const e = map.querySelector(`[data-k="${k}"]`);
+      if (e.classList.contains('dim')) { e.classList.remove('dim'); lit.push(e); }
+      ring(k, '', $('pick')); if (sel[0] === 'pc' && (k === 'pc' || k === 'jump')) badge($('pick'), k, i + 1);
+    });
+  };
+  const unpick = () => { if (sel.length) { sel = []; drawSel(); } };
+  const press = k => {
+    if (sel.includes(k)) { unpick(); return; }
+    if (!sel.length) { sel = [k]; drawSel(); return; }
+    if (sel.length === 1 && sel[0] === 'pc' && k === 'jump') { sel.push(k); drawSel(); return; }
+    const chosen = [...sel, k], f = decide(sel[0], sel[1], k);
+    sel = [];
+    if (!f) { drawSel(); return; }
+    picked = { pick: chosen, ok: f.ok }; render(f, !reduce, chosen);
+  };
+  map.addEventListener('click', e => { const g = e.target.closest('[data-pick]'); if (g) press(g.dataset.k); else unpick(); });
+  stage.addEventListener('click', e => { if (!map.contains(e.target)) unpick(); });
+  map.addEventListener('keydown', e => {
+    const g = e.target.closest && e.target.closest('[data-pick]');
+    if (e.key === 'Enter' && g) { e.preventDefault(); press(g.dataset.k); }
+    if (e.key === 'Escape') unpick();
+  });
+const show = (n, go) => {
+  step = n; picked = null; sel = []; stage.dataset.step = n;
+  // 구간 쌓기: 앞으로 넘길 때만 떠오르고, ← · #last 로 놓을 때는 움직임 없이 놓는다
+  stage.classList.toggle('inst', !go);
+  for (let k = 1; k <= REVEAL; k++) stage.classList.toggle('r' + k, n >= k);
+  if (!go) requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('inst')));
+  render(STEPS[n] ? FLOWS[STEPS[n]] : null, go);
+};
+  // 도구를 끄면(E) 직접 누른 흐름을 접고 단계 화면으로 돌아온다
+  new MutationObserver(() => { if (!document.body.classList.contains('tools') && picked) show(step, false); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  show(location.hash === '#last' ? LAST : 0, false);
+  if (location.hash === '#last') document.getAnimations().forEach(a => a.finish());   // 뒤 장에서 돌아오면 쌓이는 움직임 없이 끝 모습으로
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (picked) { show(step, false); return true; }
+    sel = []; $('pick').replaceChildren();
+    if (d > 0 && step < LAST) { show(step + 1, !reduce); return true; }
+    if (d < 0 && step > 0) { show(step - 1, false); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>

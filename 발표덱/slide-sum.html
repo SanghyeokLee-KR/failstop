@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 06-3 결과 요약</title>
+<title>페일스톱 부록 B4 결과 요약</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -108,7 +108,7 @@
 <div class="stage" id="stage">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">결과</span>06-3</div>
+    <div class="r"><span class="sec">부록·시험 결과</span>B4</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -121,19 +121,19 @@
     <thead><tr><th>기준</th><th>상황</th><th>목표</th><th>결과</th><th>판정</th><th>측정 환경</th></tr></thead>
     <tbody>
       <tr class="el"><td><div class="kind"><i></i>탄력성</div><div class="fq">늘어도 버티는지</div></td><td class="rq">조회가 몰릴 때</td><td class="tg">조회 서버 <code>0 ↔ 1</code>대</td>
-        <td class="val">세 대가 <code>1/3</code>씩, 켜고 끌 때 오류 <code>0</code><small>실험 도구가 정해진 순서로 켜고 끔 · 지표 기반 자동 증설은 아직</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+        <td class="val">세 대가 <code>1/3</code>씩, 켜고 끌 때 오류 <code>0</code><small>실험 도구가 정해진 순서로 켜고 끔, 지표 기반 자동 증설은 아직</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="ha"><td><div class="kind"><i></i>고가용성</div><div class="fq">멈춰도 이어지는지</div></td><td class="rq">거래 서버 한 대 멈춤</td><td class="tg">30초 안<span class="ab">RTO</span></td>
-        <td class="val"><code>11~13</code>초<small>남은 서버가 마켓 6개를 넘겨받음 · 2회</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+        <td class="val"><code>11~13</code>초<small>남은 서버가 마켓 6개를 넘겨받음, 2회</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="ha"><td><div class="kind cont"><i></i>고가용성</div></td><td class="rq">주 DB 멈춤</td><td class="tg">승격에 사람 개입 0회</td>
         <td class="val">승격 <code>23</code>초, 주문 재개 <code>66</code>초<small>재개는 옛 DB가 예비로 다시 붙은 뒤</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="dr"><td><div class="kind"><i></i>재해 복구</div><div class="fq">잃어도 되살리는지</div></td><td class="rq">DB 장애 중 받은 주문</td><td class="tg">유실 0건<span class="ab">RPO</span></td>
-        <td class="val">유실 <code>0</code> · 중복 <code>0</code><small>DB 장애 실험 모든 회차</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+        <td class="val">유실 <code>0</code>, 중복 <code>0</code><small>DB 장애 실험 모든 회차</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="dr"><td><div class="kind cont"><i></i>재해 복구</div></td><td class="rq">DB를 통째로 잃음</td><td class="tg">원본과 일치</td>
-        <td class="val">테이블 <code>109</code>개 일치<small>거래 데이터 없는 DB · 표 3개만 행 수 대조</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></td></tr>
+        <td class="val">테이블 <code>109</code>개 일치<small>거래 데이터 없는 DB, 표 3개만 행 수 대조</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></td></tr>
       <tr class="op"><td><div class="kind"><i></i>운영 기본</div><div class="fq">알리고 막는지</div></td><td class="rq">서버·DB·디스크 이상</td><td class="tg">막힌 길 통과 0<br>발생·해제 알림</td>
-        <td class="val">Teams에 발생·해제 보고 도착 · 막힌 길 접속 모두 거절<small>예비 DB·앱 정지, 디스크 부족 · 보고 요약은 Gemini</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS · VM</span></td></tr>
+        <td class="val">Teams에 발생·해제 보고 도착, 막힌 길 접속 모두 거절<small>예비 DB·앱 정지, 디스크 부족, 보고 요약은 Gemini</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS·VM</span></td></tr>
       <tr class="op"><td><div class="kind"><i></i>AI 관제</div><div class="fq">맡겨도 안전한지</div></td><td class="rq">AI가 조치를 제안할 때</td><td class="tg">잘못된 실행 0회</td>
-        <td class="val">111번 판단 중 잘못 실행될 조치 <code>0</code><small>명령이 든 경보 12/12에 조치 안 함</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC · RTX 4090</span></td></tr>
+        <td class="val">111번 판단 중 잘못 실행될 조치 <code>0</code><small>명령이 든 경보 12/12에 조치 안 함</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC, RTX 4090</span></td></tr>
     </tbody>
   </table>
 
@@ -141,12 +141,11 @@
     <div class="k">남은 한계</div>
     <p><b>DB 한 대를 잃으면</b>예비 DB가 다시 붙을 때까지 새 주문 중단</p>
     <p><b>DB를 통째로 잃으면</b>마지막 백업 뒤 주문은 복구 불가</p>
-    <p><b>조회 서버의 한계</b>13배 부하에선 7.4% 거절 · 자동 증설 확인 전</p>
-    <p><b>측정 횟수</b>실험마다 1~2회 · 반복 안정성 확인 전</p>
+    <p><b>조회 서버의 한계</b>13배 부하에선 7.4% 거절, 자동 증설 확인 전</p>
+    <p><b>측정 횟수</b>실험마다 1~2회, 반복 안정성 확인 전</p>
   </div>
 </div>
 
-<!-- 발표 노트(35초): 일곱 요구사항과 결과를 이 표 하나에 모았다(목표 장은 2026-09-30 장 순서에서 빠졌으므로 요구사항은 이 장에서 처음 읽는다). 수치마다 측정 환경을 붙였다. 탄력성: 조회 서버 몫 33.5%, 켜고 끌 때 오류 0(로컬). 켜고 끄기는 실험 실행기가 정해진 순서로 했고 지표 기반 자동 실행(CloudWatch·ASG)은 확인 전이라 '부분'. 거래 서버 인계(두 리더 구조): 12.866초(09-26 S7 관문 Q2)와 10.982초(재현 시연) 두 번. DB: 자동 승격 22.75초, 조회 복구 26.67초, 주문 재개 66.14초(E-P1), 유실·중복 0(Patroni E-P1~E-P6 전 회차, 실험마다 1회, E-P5는 2회, E-P3은 a·b 각 1회). 복원: VM 실습망 Databasus로 테이블 109개와 표 3개 행 수(47·22·3) 대조. 거래 데이터가 없는 DB라 '부분'. 운영 기본: 학교 EC2에서 예비 DB 정지, 앱 정지, 시험용 파일시스템 부족을 감지해 Teams 발생·해제 보고(2026-09-20, 요약은 Gemini API). 막힌 길 접속: VM 실습망 pfSense 허용·차단 시험 ①~③(09-26, 증거본 2026-09-26_VM_pfSense 19~21)에서 막아야 할 길(작업 PC→DB 5432·앱 8080, 웹→DB 5432, 앱1→앱2 8080, DB→외부 443)은 모두 거절됐고 허용한 길(웹 443, 웹→앱, 앱→DB)은 연결됐다. 그래서 측정 환경이 학교 AWS · VM. AI 관제: 개발 PC RTX 4090·Ollama, qwen3.6:35b-a3b로 111회 판단 중 잘못 실행될 조치 0, 주입 시나리오 12/12 조치 안 함, 3회 같은 결정 37/37(09-25). 비교 모델 gpt-oss:20b는 2회. 개인 AWS에서 재측정하면 같은 표에 값을 덧붙인다. 질의 대비(테이블 109개): VM DB에 적용된 마이그레이션 47개 기준 public 104개 + harness(시험 기록) 5개. public 104개 중 절반인 52개는 파티션(체결·원장·outbox를 2026-07~2027-08 월별 14칸+기본 1칸씩 45개, 명령·이벤트 저널 번호 구간 7개)이고, 실제 기능 표는 52개. 현재 코드(마이그레이션 61개)로 새로 만들면 AI 관제·운영 표가 더해져 public 약 120개. -->
 
 <script>
 (() => {

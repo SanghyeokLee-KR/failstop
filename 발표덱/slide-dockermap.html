@@ -1,0 +1,219 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-1 시험 환경</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #8E9BB3;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage { position: fixed; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center center; transform: translate(-50%, -50%) scale(.5); background: var(--stage); overflow: hidden; }
+  .head { position: absolute; left: 130px; right: 130px; top: 64px; height: 52px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s var(--ease) both; }
+  .title .tag { margin-left: auto; }
+  .title .env { margin-left: 14px; animation: fade .6s .25s var(--ease) both; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s var(--ease) both; }
+  .dek b { font-weight: 600; color: var(--ink); }
+
+  /* 도면(04-3 VM 구성도와 같은 꼴): 개발 PC 한 대를 큰 테두리로 묶고, 그 안에 컨테이너를 회색 상자(아이콘 · 이름 · 컨테이너 이름)로 둔다.
+     Spring Boot API 세 개와 PostgreSQL 두 개는 VM 장의 망처럼 묶음 상자로 감싼다. 색은 시험 장치에만 쓴다:
+     부하 발생기와 장애 주입은 노랑 점선(덱의 '시험' 표식, 04-5와 같은 뜻). 나머지 상자 · 선 · 글자는 회색.
+     사양(API · DB 컨테이너마다 2 vCPU · 2 GiB)은 부제 한 줄에만 쓴다(상자마다 붙이던 자원 표는 2026-10-04 사용자 결정으로 뺐다).
+     치수는 04-3과 같다: 테두리 이름표(높이 34, 테두리 선 위에 걸침), 묶음 상자 머리글 24px, 상자 높이 94 · 모서리 10 · 아이콘 28,
+     첫 줄 이름 26px, 둘째 줄 컨테이너 이름(고정폭 22px)은 아이콘 밑 x+16에서 시작.
+     좌표는 viewBox 1660×704(무대 x130 ~ 1790, y296 ~ 1000). 테두리 y20 ~ 704, 묶음 상자 y70 ~ 684, 상자 세 줄 y130 · 351 · 572(가운데 177 · 398 · 619).
+     열: 시장 봇 · 부하 발생기 36 ~ 316, 로드밸런서 406 ~ 686, API 묶음 776 ~ 1116(상자 794 ~ 1098), 장애 주입 1170 ~ 1300, DB 묶음 1400 ~ 1640(상자 1418 ~ 1622) */
+  .map { position: absolute; left: 130px; top: 296px; width: 1660px; height: 704px; overflow: visible; }
+  .map text { font-family: var(--sans); }
+  .map .host { fill: rgba(255,255,255,.018); stroke: #6B7A93; stroke-width: 2; }
+  .map .htag { fill: var(--stage); stroke: #6B7A93; stroke-width: 2; }
+  .map .hh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .ht { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .map .hc { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); }
+  .map .hc .p { fill: var(--ink-3); }
+  .map .zone { fill: color-mix(in srgb, #8A96AB 5%, var(--stage)); stroke: #6B7A93; stroke-width: 2; }
+  .map .zh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .tile .bx { fill: #1E2638; stroke: #7D8BA5; stroke-width: 2; }
+  .map .tile.test .bx { stroke: var(--warm); stroke-dasharray: 9 7; stroke-width: 2.4; }
+  .map .sn { font-size: 26px; font-weight: 600; fill: var(--ink); }
+  .map .cn { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); }
+  .map .lbl { font-size: 22px; fill: var(--ink-3); }
+  .map .link { fill: none; stroke: var(--edge); stroke-width: 3; }
+  .map .tip { fill: var(--edge); }
+  .map .mk rect { fill: color-mix(in srgb, var(--warm) 8%, var(--stage)); stroke: var(--warm); stroke-width: 2.4; stroke-dasharray: 9 7; }
+  .map .mk text { font-size: 22px; font-weight: 600; fill: var(--warm); }
+
+  /* 열릴 때(약 1.9초, 04-3과 같은 박자): 요청이 흐르는 왼쪽 → 오른쪽으로 쌓는다. PC 테두리와 이름표(0.1초) → 시장 봇 · 부하 발생기(0.3초) → 로드밸런서(0.5초)
+     → Spring Boot API 묶음과 상자 셋(0.7초) → PostgreSQL 묶음과 DB 둘(0.9초) → 선 전체(1.1초) → 장애 주입(1.3초).
+     선과 장애 주입 알약은 떠오르면 선 끝 · 화살촉이 상자나 알약 테두리를 미끄러지므로 제자리에서 나타나게만 한다(04-3과 같은 원칙).
+     한 문장만 하고 넘기는 장이라 단계는 없고, 열린 뒤에는 움직이지 않는다 */
+  .map .bd { animation: rise .6s var(--ease) both; }
+  .map .b1 { animation-delay: .1s; } .map .b2 { animation-delay: .3s; } .map .b3 { animation-delay: .5s; }
+  .map .b4 { animation-delay: .7s; } .map .b5 { animation-delay: .9s; } .map .b6 { animation-delay: 1.1s; } .map .b7 { animation-delay: 1.3s; }
+  .map .ln, .map .b7 { animation-name: fade; }
+  .stage.done h1, .stage.done .dek, .stage.done .title .env, .stage.done .bd { animation: none !important; }
+
+  /* 원본 구성도 보기(E 키 도구). 그림은 띠 아래와 화면 끝 사이 가운데에 위아래 같은 여백으로(띠 약 73 + 여백 12×2 + 남는 몇 px를 반씩) */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; white-space: nowrap; }
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fig .bar .x { flex: none; margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 12px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 104px); border-radius: 6px; background: var(--ink); cursor: zoom-in; }
+  .fig.zoom .view { place-items: start; }
+  .fig.zoom img { max-width: none; max-height: none; width: 260%; cursor: zoom-out; }
+
+  .fs { position: absolute; right: 130px; top: 20px; font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; opacity: 0; transition: opacity .3s, color .3s; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-1</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>Docker로 클라우드·VM 배포 환경을 따라 만들어 시험</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-stack-2-side.svg" alt="">원본 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span>
+  </div>
+  <p class="dek">API·DB 컨테이너마다 <b>2 vCPU·2 GiB</b>로 제한해 AWS t3.small·실습 VM과 같은 사양</p>
+
+  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="개발 PC 한 대의 Docker 시험 환경. PowerShell 스크립트 demo-obs-up.ps1 하나로 컨테이너를 띄운다. 시장 봇과 부하 발생기(k6)의 요청이 로드밸런서(nginx)를 거쳐 Spring Boot API 컨테이너 셋(거래 서버 1·2, 조회 서버)으로 간다. 거래 서버 두 대는 장애 주입 장치를 거쳐 주 DB에 기록하고, 조회 서버는 주 DB에서 바로 읽는다. 주 DB는 예비 DB로 복제한다. API·DB 컨테이너마다 2 vCPU·2 GiB로 제한해 AWS t3.small·실습 VM과 같은 사양이다.">
+    <!-- 개발 PC 한 대 테두리. 04-3처럼 이름표를 테두리 선 위에 건다: 왼쪽은 PC와 실행 도구, 오른쪽은 스크립트 하나로 모든 컨테이너를 올리는 명령.
+         이름표 너비는 글자 너비에 맞춰 스크립트가 다시 잰다 -->
+    <g class="bd b1">
+      <rect class="host" x="0" y="20" width="1660" height="684" rx="22"/>
+      <g class="htg"><rect class="htag" x="12" y="3" width="420" height="34" rx="8"/>
+        <image href="assets/tint/ui-device-desktop-glow.svg" x="26" y="6" width="28" height="28"/>
+        <text class="hh" x="64" y="29">개발 PC<tspan class="ht" dx="14">Windows, Docker Compose</tspan></text></g>
+      <g class="htg" data-end="1"><rect class="htag" x="1338" y="3" width="310" height="34" rx="8"/>
+        <text class="hc" x="1632" y="29" text-anchor="end"><tspan class="p">PS&gt;</tspan> .\demo-obs-up.ps1</text></g>
+    </g>
+    <!-- 묶음 상자: Spring Boot API(거래 서버 1·2, 조회 서버), PostgreSQL(주 DB, 예비 DB). 머리글 아래 24에서 상자 시작, 아래 여백 18.
+         바탕이 선을 덮지 않도록 선보다 먼저 그리고, 나타나는 때는 안의 상자와 같다(API 0.7초, DB 0.9초) -->
+    <g class="bd b4"><rect class="zone" x="776" y="70" width="340" height="614" rx="16"/><text class="zh" x="794" y="106">Spring Boot API</text></g>
+    <g class="bd b5"><rect class="zone" x="1400" y="70" width="240" height="614" rx="16"/><text class="zh" x="1418" y="106">PostgreSQL</text></g>
+    <!-- 선: 시장 봇 · 부하 발생기 → 로드밸런서 → API 셋. 거래 서버 1·2는 한 줄로 합쳐 장애 주입을 지나 주 DB로, 조회 서버는 주 DB로 바로. 주 DB → 예비 DB 복제 -->
+    <g class="bd b6 ln">
+      <path class="link" d="M316 177 H361 V619 H316 M361 398 H392"/><path class="tip" d="M392 390 L406 398 L392 406 Z"/>
+      <path class="link" d="M686 398 H731 M731 177 V619 M731 177 H780 M731 398 H780 M731 619 H780"/>
+      <path class="tip" d="M780 169 L794 177 L780 185 Z M780 390 L794 398 L780 406 Z M780 611 L794 619 L780 627 Z"/>
+      <path class="link" d="M1098 177 H1170 M1098 398 H1134 V177 M1300 177 H1404"/><path class="tip" d="M1404 169 L1418 177 L1404 185 Z"/>
+      <path class="link" d="M1098 619 H1350 V207 H1404"/><path class="tip" d="M1404 199 L1418 207 L1404 215 Z"/>
+      <path class="link" d="M1520 224 V558"/><path class="tip" d="M1512 558 L1520 572 L1528 558 Z"/>
+      <text class="lbl" x="1536" y="406">복제</text>
+    </g>
+    <!-- 바깥 상자: 시장 봇, 부하 발생기(시험 도구, 노랑 점선) 다음에 로드밸런서 -->
+    <g class="bd b2">
+      <g class="tile"><rect class="bx" x="36" y="130" width="280" height="94" rx="10"/><image href="assets/tint/ui-chart-line-glow.svg" x="52" y="145" width="28" height="28"/><text class="sn" x="90" y="168">시장 봇</text><text class="cn" x="52" y="206">bots</text></g>
+      <g class="tile test"><rect class="bx" x="36" y="572" width="280" height="94" rx="10"/><image href="assets/tint/k6-glow.svg" x="52" y="587" width="28" height="28"/><text class="sn" x="90" y="610">부하 발생기</text><text class="cn" x="52" y="648">k6</text></g>
+    </g>
+    <g class="bd b3">
+      <g class="tile"><rect class="bx" x="406" y="351" width="280" height="94" rx="10"/><image href="assets/tint/nginx-glow.svg" x="422" y="366" width="28" height="28"/><text class="sn" x="460" y="389">로드밸런서</text><text class="cn" x="422" y="427">nginx</text></g>
+    </g>
+    <!-- API 상자 셋(0.7초), DB 상자 둘(0.9초) -->
+    <g class="bd b4">
+      <g class="tile"><rect class="bx" x="794" y="130" width="304" height="94" rx="10"/><image href="assets/tint/springboot-glow.svg" x="810" y="145" width="28" height="28"/><text class="sn" x="848" y="168">거래 서버 1</text><text class="cn" x="810" y="206">api-1</text></g>
+      <g class="tile"><rect class="bx" x="794" y="351" width="304" height="94" rx="10"/><image href="assets/tint/springboot-glow.svg" x="810" y="366" width="28" height="28"/><text class="sn" x="848" y="389">거래 서버 2</text><text class="cn" x="810" y="427">api-2</text></g>
+      <g class="tile"><rect class="bx" x="794" y="572" width="304" height="94" rx="10"/><image href="assets/tint/springboot-glow.svg" x="810" y="587" width="28" height="28"/><text class="sn" x="848" y="610">조회 서버</text><text class="cn" x="810" y="648">api-3</text></g>
+    </g>
+    <g class="bd b5">
+      <g class="tile"><rect class="bx" x="1418" y="130" width="204" height="94" rx="10"/><image href="assets/tint/postgresql-glow.svg" x="1434" y="145" width="28" height="28"/><text class="sn" x="1472" y="168">주 DB</text><text class="cn" x="1434" y="206">pg</text></g>
+      <g class="tile"><rect class="bx" x="1418" y="572" width="204" height="94" rx="10"/><image href="assets/tint/postgresql-glow.svg" x="1434" y="587" width="28" height="28"/><text class="sn" x="1472" y="610">예비 DB</text><text class="cn" x="1434" y="648">pg-standby</text></g>
+    </g>
+    <!-- 장애 주입(toxiproxy): 서버가 아니라 시험 장치라 합친 선 위에 노랑 점선 알약으로 얹는다(선은 알약 밑에서 끊는다) -->
+    <g class="bd b7"><g class="mk"><rect x="1170" y="155" width="130" height="44" rx="22"/><text x="1235" y="185" text-anchor="middle">장애 주입</text></g></g>
+  </svg>
+
+  <dialog class="fig" id="fig" aria-label="거래소 Docker 시험 환경 원본 구성도">
+    <div class="bar"><b>Docker 시험 환경 원본 구성도</b><span class="cap" id="fig-hint">기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/docker-v7.png" alt="Docker 검증 환경 구성도 원본"></div>
+  </dialog>
+</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage'), map = document.getElementById('map');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+  const fig = document.getElementById('fig'), hint = document.getElementById('fig-hint'), openBtn = document.getElementById('open-fig');
+  const HINT = '기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 ';
+  // 닫을 때 숨은 단추에서 초점을 빼 테두리가 남거나 엔터로 다시 열리지 않게 한다(04-3과 같음)
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  openBtn.addEventListener('click', () => { if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (e) { fig.setAttribute('open', ''); } });
+  document.getElementById('close-fig').addEventListener('click', closeFig);
+  document.getElementById('fig-img').addEventListener('click', e => { e.stopPropagation(); hint.textContent = HINT + (fig.classList.toggle('zoom') ? '축소' : '확대'); });
+  fig.addEventListener('click', e => { if (e.target === fig || e.target.classList.contains('view')) closeFig(); });
+  fig.addEventListener('close', () => { fig.classList.remove('zoom'); hint.textContent = HINT + '확대'; openBtn.blur(); });
+
+  // 단계는 없다(한 문장 하고 넘기는 장). #last(뒤 장에서 돌아올 때)는 열림 움직임 없이 끝 모습
+  if (location.hash === '#last') stage.classList.add('done');
+  window.deckStep = () => { if (fig.open) { closeFig(); return true; } return false; };
+
+  // 글자 맞춤: 상자 안 이름이 오른쪽 여백 14를 넘으면 1px씩 줄인다(22px 아래로는 줄이지 않는다)
+  const fitAll = () => {
+    try {
+      for (const t of map.querySelectorAll('.tile text')) {
+        const r = t.closest('.tile').querySelector('.bx'), x1 = +r.getAttribute('x') + +r.getAttribute('width');
+        let fs = parseFloat(getComputedStyle(t).fontSize), guard = 0;
+        while (t.getBBox().x + t.getBBox().width > x1 - 14 && fs > 22 && guard++ < 20) { fs -= 1; t.style.fontSize = fs + 'px'; }
+      }
+      // 테두리 이름표: 글자 양옆 16을 남기고 감싼다(왼쪽 이름표는 x12에서 시작, 오른쪽 이름표는 x1648에서 끝)
+      for (const g of map.querySelectorAll('.htg')) {
+        const r = g.querySelector('.htag'), b = g.querySelector('text').getBBox();
+        if (g.dataset.end) { r.setAttribute('x', b.x - 16); r.setAttribute('width', 1648 - (b.x - 16)); }
+        else r.setAttribute('width', b.x + b.width + 16 - 12);
+      }
+    } catch (e) {}
+  };
+  fitAll();
+  if (document.fonts) { document.fonts.ready.then(fitAll); document.fonts.addEventListener('loadingdone', fitAll); }
+  addEventListener('load', fitAll);
+})();
+</script>
+<!-- 발표 노트(15초): 개발 단계에서는 Docker를 이용해 클라우드나 VM과 같은 사양으로 배포 환경을 따라 만들고 시험해 봤습니다.
+질문 때: API 세 개는 docker-compose.demo-obs.yml 의 cpus 2.0 · 2g, DB 두 개(chaos-pg · chaos-pg-standby)도 cpus 2 · mem_limit 2g다. 시장 봇 · nginx · 시험 도구에는 같은 한도를 걸지 않았다. 장애 주입은 toxiproxy로 거래 서버와 주 DB 사이에 지연 · 끊김을 넣는다(부록 A2). 이 그림은 비동기 시연 구성(-DbMode async)이고, 영상의 Patroni 구성과는 다르다(인자 없이 부르면 Patroni 노드가 있는 PC에서는 Patroni로 뜬다).
+원본 구성도(E 키)는 기본 카오스 구성이라 예비 DB가 없다. 예비 DB, MSP 화면과 수집 경로, 백업 작업은 시연 오버레이(docker-compose.demo-obs.yml)가 더한다. Prometheus · Grafana 같은 관측 컨테이너는 기본 구성(obs 프로필)에도 있어 원본에 그려져 있다.
+api-3(조회 서버)은 profiles: scale 이라 기본 기동에 없고 조정기가 붙였다 뗀다(AWS 조회 서버 0~1대와 같은 자리). 장애 주입을 거치지 않는 것은 증설 시험 대상이라서다: 태우면 DB 차단 실험이 증설 노드까지 끊어 두 실험이 서로를 깬다(docker-compose.chaos.yml 주석).
+k6는 시험 스크립트가 그때그때 grafana/k6 컨테이너로 같은 망에 띄운다(demo-obs-up.ps1이 띄우는 것이 아니다). nginx는 쓰기를 api-1로 보내고 api-2를 쓰기 예비로 두며, 조회는 세 대에 나눈다. -->

@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 06-2 결과 DB 장애</title>
+<title>페일스톱 부록 B3 결과 DB 장애</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -126,13 +126,13 @@
 <div class="stage" id="stage">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">결과</span>06-2</div>
+    <div class="r"><span class="sec">부록·시험 결과</span>B3</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
     <h1>23초 만에 예비 DB 자동 승격, 사라진 주문 0건</h1>
-    <span class="env" style="margin-left:auto"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker · DB 두 대 실험</span>
+    <span class="env" style="margin-left:auto"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker, DB 두 대 실험</span>
   </div>
   <p class="dek"><b class="qn">장면 02</b>DB가 멈췄을 때, 대가로 주문은 옛 DB가 다시 붙은 66초에 재개</p>
 
@@ -149,7 +149,7 @@
       <text class="st" id="st-app" x="155" y="204" text-anchor="middle" style="fill:var(--ok)">거래 중</text>
       <rect class="box" x="320" y="99" width="150" height="52" rx="10"/>
       <text class="nm" x="395" y="133" text-anchor="middle">DB 길잡이</text>
-      <text class="sb" x="395" y="184" text-anchor="middle">HAProxy · 주 DB로만</text>
+      <text class="sb" x="395" y="184" text-anchor="middle">HAProxy, 주 DB로만</text>
       <rect class="box" id="b-p" x="580" y="6" width="270" height="88" rx="12"/>
       <image href="assets/tint/postgresql-glow.svg" x="596" y="31" width="38" height="38"/>
       <text class="nm" id="n-p" x="646" y="43">주 DB</text>
@@ -167,7 +167,7 @@
       <rect class="band" id="band-r" x="40" y="164" width="0" height="9" rx="3" style="fill:rgba(255,122,122,.55)"/>
       <rect class="band" id="band-w" x="78" y="185" width="0" height="9" rx="3" style="fill:rgba(232,192,122,.6)"/>
       <text class="bl" id="bl-r" x="378" y="178" style="opacity:0">조회 멈춤</text>
-      <text class="bl" id="bl-w" x="404" y="218" style="opacity:0">쓰기 일시 중단 · 예비 DB가 다시 붙을 때까지</text>
+      <text class="bl" id="bl-w" x="404" y="218" style="opacity:0">쓰기 일시 중단, 예비 DB가 다시 붙을 때까지</text>
       <g id="evs"></g>
       <line class="head-line" id="ph" x1="40" y1="112" x2="40" y2="198"/>
       <text class="now" id="now" x="40" y="280" text-anchor="middle">T+0.00초</text>
@@ -177,14 +177,13 @@
   </div>
 
   <div class="ans">
-    <div class="row" style="animation-delay:.4s"><div class="n ok">22.75<small>초</small></div><div class="t">사람 개입 없이 예비 DB 승격<span>봇 주문을 넣는 중에도 약 23초 · 조회는 27초에 복구</span></div></div>
+    <div class="row" style="animation-delay:.4s"><div class="n ok">22.75<small>초</small></div><div class="t">사람 개입 없이 예비 DB 승격<span>봇 주문을 넣는 중에도 약 23초, 조회는 27초에 복구</span></div></div>
     <div class="row" style="animation-delay:.52s"><div class="n ok">0<small>건</small></div><div class="t">확인받은 주문 유실<span>모든 실험에서 확인 기록과 대조<br>중복도, 두 DB의 동시 확인도 0</span></div></div>
     <div class="row" style="animation-delay:.64s"><div class="n">66.1<small>초</small></div><div class="t">주문 재개<span>옛 DB가 예비로 다시 붙은 뒤<br>실험 도구가 60초에 다시 켬</span></div></div>
-    <div class="lim"><b>대가</b>유실 0을 지키려고 두 DB에 모두 기록한 뒤에만 확인. 그래서 한&nbsp;대를 잃으면 예비 DB가 다시 붙을 때까지 주문 중단<span class="if"><b>옛 DB가 돌아오지 않으면</b>운영자가 새 예비 DB를 붙일 때까지 멈춤(목표 60분 · 확정 전)</span></div>
+    <div class="lim"><b>대가</b>유실 0을 지키려고 두 DB에 모두 기록한 뒤에만 확인. 그래서 한&nbsp;대를 잃으면 예비 DB가 다시 붙을 때까지 주문 중단<span class="if"><b>옛 DB가 돌아오지 않으면</b>운영자가 새 예비 DB를 붙일 때까지 멈춤(목표 60분, 확정 전)</span></div>
   </div>
 </div>
 
-<!-- 발표 노트(45초): 정밀값: 연결 차단 2.18, 주문 일시 중단 3.13, 승격 22.75, 조회 복구 26.67(승격 뒤 3.915, 상한 10), 옛 Primary 재기동 명령 60.42(실험 도구, 재합류 walsender 63.63), 주문 재개 66.14초. 봇 40 OPS 중 승격 23.18·22.98, 망 격리 승격 27.27·27.68. 거래 서버 인계(두 리더 구조): p1 소유자 kill 12.866초(09-26 S7 관문 Q2), 재현 시연 10.982초. 09-15 단일 리더 실험의 5.979~10.134초는 옛 구조 값이라 화면에 쓰지 않는다. 옛 DB를 영영 잃으면 사람이 새 인스턴스·etcd 멤버·--no-slot 베이스백업으로 새 예비 DB를 붙일 때까지 멈춘다(ADR 0036, 목표 경보부터 60분 이내, 로컬 428.7MiB 베이스백업 264.7초). 두 번째 질문의 답. 제목의 23초는 예비 DB 승격 시각(22.75초)이고 주문 재개는 66초라서 '전환'이 아니라 '승격'이라 했다. 로컬 Docker의 Patroni 스택(PostgreSQL 17, etcd 세 표, HAProxy)에서 주 DB를 docker kill 했다(E-P1). 2.18초에 HAProxy가 주 DB를 내렸고, 3.13초에 앱이 거래 일시 중단으로 바뀌어 잘못된 쓰기를 받지 않았다. 22.75초에 Patroni가 사람 개입 없이 예비 DB를 승격했고(epoch 1→2), 26.67초에 조회가 돌아왔다. 엄격 동기 복제라 새 주 DB는 동기 예비 DB가 붙을 때까지 쓰기를 받지 않는다. 실험 스크립트가 60초 뒤 옛 주 DB를 다시 켜자 pg_rewind로 예비 DB가 되어 붙었고 66.14초에 거래가 재개됐다. 모든 회차에서 확인받은 주문 유실 0(DB 수준 ACK 대조), 주문 500 0, 옛 epoch 쓰기 0. 봇 40 OPS 부하 중 두 회차 승격 23.18·22.98초, 중복 주문 0. 망 격리 두 회차 승격 27.27·27.68초, 두 DB가 같은 시간에 확인한 커밋 0. 로컬 결과이며 AWS의 시간 값(TTL, 망 지연)은 다르다. 증거: harness/evidence/patroni-20260925-1015 판정표, E-P1 verdict. -->
 
 <script>
 (() => {
@@ -251,7 +250,7 @@
     $('w-s').setAttribute('class', 'wire' + (reads ? ' good' : ' idle'));
     $('sync').setAttribute('class', 'sync' + (killed && !resume ? ' off' : ''));
     const st = $('st-app');
-    st.textContent = resume ? '주문 재개' : susp ? (reads ? '주문 일시 중단 · 조회 가능' : '주문 일시 중단') : '주문 받는 중';
+    st.textContent = resume ? '주문 재개' : susp ? (reads ? '주문 일시 중단·조회 가능' : '주문 일시 중단') : '주문 받는 중';
     st.style.fill = resume ? 'var(--ok)' : susp ? 'var(--warm)' : 'var(--ok)';
     $('b-app').setAttribute('class', 'box' + (susp ? ' warn' : resume ? ' good' : ''));
     // 띠: 조회 멈춤 0~26.67초, 쓰기 중단 3.13~66.14초

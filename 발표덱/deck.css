@@ -34,3 +34,174 @@ body.tools .orig, body.tools .fs { opacity: 1 !important; pointer-events: auto !
 
 /* 쉬운 말 뒤에 붙이는 약어·원어 */
 .ab { font-size: .7em; font-weight: 400; color: var(--ink-3); margin-left: .3em; letter-spacing: 0; }
+
+/* ===== 화이트 모드(L 키, 2026-10-05) =====
+   index.html 이 장을 열 때 <html data-theme="light" data-slide="파일이름"> 을 붙인다. 어두운 모드는 이 아래 규칙이 하나도 걸리지 않아 그대로다.
+   1) 색 이름(토큰)을 밝은 바탕용으로 바꾸고, 2) 장 안에 직접 적힌 어두운 칸 색을 같은 뜻의 밝은 색으로 덮는다.
+   강조색은 흰 바탕에서 글자로 읽히도록 한 단계 진하게, 캡처·영상·터미널 화면은 원래대로 어둡게 둔다 */
+:root[data-theme="light"] {
+  --ground: #E6EAF0; --stage: #F7F8FA;
+  --ink: #111827; --ink-2: #364152; --ink-3: #5A6575; --ink-4: #7E8897;
+  --line: #D3DAE4; --card: #A7B2C2; --side: #4A5568; --edge: #8794A8; --wire: #9AA4B4;
+  --brand: #2563EB; --glow: #1D4ED8; --ok: #0E9467; --warm: #B26B00; --bad: #D33A3A; --ai: #6B55CC; --data: #0E7FA0;
+  --box: #FFFFFF; --box-line: #8E9AAD; --hd: #E3E8EF; --sel: #2563EB; --plain: #364152; --figure: #8794A8;
+  --t-panel: #FFFFFF; --t-tile: #FFFFFF; --t-tile2: #EEF2F7;
+  color-scheme: light;
+}
+/* 기준 색 네 가지도 진하게 */
+:root[data-theme="light"] .el { --c: #6B55CC; --c-dim: rgba(107,85,204,.25); }
+:root[data-theme="light"] .ha { --c: #2563EB; --c-dim: rgba(37,99,235,.22); }
+:root[data-theme="light"] .dr { --c: #0E7FA0; --c-dim: rgba(14,127,160,.22); }
+:root[data-theme="light"] .op { --c: #C2417E; --c-dim: rgba(194,65,126,.22); }
+:root[data-theme="light"] .env { background: #FFFFFF; }
+
+/* 아이콘: 어두운 바탕용 회색·파랑·보라 아이콘을 진하게 */
+:root[data-theme="light"] img[src*="-side.svg"], :root[data-theme="light"] image[href*="-side.svg"] { filter: brightness(.42) contrast(1.4); }
+:root[data-theme="light"] img[src*="-glow.svg"], :root[data-theme="light"] image[href*="-glow.svg"] { filter: brightness(.5) saturate(2.4); }
+:root[data-theme="light"] img[src*="-ai.svg"], :root[data-theme="light"] image[href*="-ai.svg"] { filter: brightness(.5) saturate(2.2); }
+
+/* 공통 칸: 큰 카드(#0B1019), 도면 상자(#1E2638), 작은 상자(#1A2130) */
+:root[data-theme="light"] .card:not(svg *), :root[data-theme="light"] .tox .card { background: var(--t-panel); border-color: var(--line); box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+:root[data-theme="light"] .map .tile .bx, :root[data-theme="light"] .map .eng, :root[data-theme="light"] .map .tile rect,
+:root[data-theme="light"] .flow .node .bx, :root[data-theme="light"] .route .tile .bx, :root[data-theme="light"] .sc .tile .bx,
+:root[data-theme="light"] .tox .strip .bx, :root[data-theme="light"] .fw .tile .bx { fill: var(--t-tile); }
+:root[data-theme="light"] .map .tile .bx, :root[data-theme="light"] .map .eng, :root[data-theme="light"] .tox .strip .bx { stroke: #8794A8; }
+:root[data-theme="light"] .scene .box, :root[data-theme="light"] .scene .nb.boot, :root[data-theme="light"] .scene .nb.ready,
+:root[data-theme="light"] .arch .box, :root[data-theme="light"] .arch .chipbox { fill: var(--t-tile); }
+:root[data-theme="light"] .scene .box.hot { fill: #FDECEC; }
+:root[data-theme="light"] .scene .wire, :root[data-theme="light"] .arch .wire { stroke: #B4BDCA; }
+:root[data-theme="light"] .scene .gbg { fill: #E3E8EF; }
+:root[data-theme="light"] .node { background: var(--t-tile); }
+:root[data-theme="light"] .node b svg { stroke: #FFFFFF; }
+/* 강조색 원 안 숫자: 흰 글자 */
+:root[data-theme="light"] .mk b, :root[data-theme="light"] .an .no, :root[data-theme="light"] .tg b,
+:root[data-theme="light"] .side .row .n, :root[data-theme="light"] .tox .it .no { color: #FFFFFF; }
+:root[data-theme="light"] .mk { box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 6px color-mix(in srgb, var(--c) 25%, transparent); }
+:root[data-theme="light"] .ev .num, :root[data-theme="light"] .rt { background: #FFFFFF; }
+
+/* 표지 */
+:root[data-theme="light"][data-slide="cover"] .stage { background: radial-gradient(860px 620px at 76% 48%, rgba(37,99,235,.07), transparent 70%), var(--stage); }
+:root[data-theme="light"][data-slide="cover"] .orbit { stroke: #8FA0BE; }
+:root[data-theme="light"][data-slide="cover"] .wire { stroke: #6A86BA; }
+:root[data-theme="light"][data-slide="cover"] .card { fill: #FFFFFF; }
+:root[data-theme="light"][data-slide="cover"] .card.ai { stroke: #8C84D0; fill: rgba(107,85,204,.05); }
+:root[data-theme="light"][data-slide="cover"] .cap.ai { fill: #6B55CC; }
+:root[data-theme="light"][data-slide="cover"] .cloud-core { fill: #FFFFFF; }
+:root[data-theme="light"][data-slide="cover"] .spark { fill: #2563EB; }
+:root[data-theme="light"][data-slide="cover"] text[style*="#C6C0F2"] { fill: #6B55CC !important; }
+/* 목차 */
+:root[data-theme="light"] .toc.ptr button:hover { background: rgba(37,99,235,.06); }
+:root[data-theme="light"] .toc li.sub { border-top-color: rgba(211,218,228,.8); }
+/* 01 기획 배경 */
+:root[data-theme="light"] .me .plate { fill: #FFFFFF; }
+:root[data-theme="light"][data-slide="slide-story"] [class] { --bubble: #FFFFFF; }
+:root[data-theme="light"][data-slide="slide-story"] .typing { background: #EEF2F7; }
+:root[data-theme="light"] .cons .c { background: #FFFFFF; }
+/* 02·03 도면 */
+:root[data-theme="light"] #a1.hi .dot { fill: #2563EB; }
+:root[data-theme="light"] .scene .gz { fill: rgba(211,58,58,.12); }
+:root[data-theme="light"] .scene .nb { fill: rgba(107,85,204,.08); }
+:root[data-theme="light"] .scene .nb.ok { fill: rgba(14,148,103,.08); }
+/* 04-1 Docker */
+:root[data-theme="light"] .map .host, :root[data-theme="light"] .map .os { fill: rgba(17,24,39,.015); stroke: #9AA5B5; }
+:root[data-theme="light"] .map .htag { stroke: #9AA5B5; }
+:root[data-theme="light"] .map .zone { fill: #F0F3F7; stroke: #9AA5B5; }
+:root[data-theme="light"] .map .sp, :root[data-theme="light"] .map .spec { fill: #4A5568; }
+:root[data-theme="light"] #tox-tile:hover .bx, :root[data-theme="light"] #tox-tile:focus-visible .bx { fill: color-mix(in srgb, var(--warm) 10%, #FFFFFF); }
+:root[data-theme="light"] .tox .strip .tx { fill: color-mix(in srgb, var(--warm) 8%, #FFFFFF); }
+:root[data-theme="light"] .tox .fr { border-bottom-color: var(--line); }
+:root[data-theme="light"] .tox .fr .ax { background: #E3E8EF; }
+/* 04-2 네트워크 */
+:root[data-theme="light"] .map .c-mgmt .vl { fill: #364152; }
+:root[data-theme="light"] .map .ip, :root[data-theme="light"] .map .nat { fill: #4A5568; }
+:root[data-theme="light"] .map .gate rect { fill: #FFFFFF; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-out { --c: #6B778A; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-dmz { --c: #A8556D; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-trd { --c: #C2560C; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-read { --c: #A16207; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-db { --c: #2563EB; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-bak { --c: #0E7FA0; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-ai { --c: #6B55CC; }
+:root[data-theme="light"][data-slide="slide-netmap"] .c-mgmt { --c: #6B778A; }
+/* VM 구성도·방화벽 */
+:root[data-theme="light"] .c-lan, :root[data-theme="light"] .c-pub { --c: #6B778A; }
+:root[data-theme="light"] .c-dmz { --c: #C24545; }
+:root[data-theme="light"] .c-trd { --c: #C2560C; }
+:root[data-theme="light"] .c-db { --c: #2563EB; }
+:root[data-theme="light"] .c-bak { --c: #0F8A78; }
+:root[data-theme="light"] .c-mgmt { --c: #6B778A; }
+:root[data-theme="light"] .map .c-lan .zone { stroke: #9AA5B5; }
+:root[data-theme="light"] .map .pf { stroke: #B26B00; }
+:root[data-theme="light"] .map .pfl { fill: #B26B00; }
+:root[data-theme="light"] .map .pill rect { fill: #FFFFFF; }
+:root[data-theme="light"] .map .chip rect { fill: #FFFFFF; stroke: #9AA5B5; }
+:root[data-theme="light"] .map .key rect.kb { fill: #FFFFFF; stroke: #C4CCD7; }
+:root[data-theme="light"] .fw .tile.warn .bx, :root[data-theme="light"] .fw #c-ids.vx rect.cb { fill: #FFF6E5; }
+:root[data-theme="light"] .fw .pill.chg rect, :root[data-theme="light"] .fw .vp.warn rect { fill: rgba(178,107,0,.1); }
+:root[data-theme="light"] .fw .pill.same rect, :root[data-theme="light"] .fw .vp.ok rect { fill: rgba(14,148,103,.1); }
+:root[data-theme="light"] .fw .vp.bad rect { fill: rgba(211,58,58,.1); }
+:root[data-theme="light"] .fw .lan { fill: rgba(178,107,0,.04); stroke: rgba(178,107,0,.55); }
+:root[data-theme="light"] .fw .tp .body { fill: #FFFFFF; }
+:root[data-theme="light"] .stage.http .fw .tp .body { fill: #EEF3FF; }
+:root[data-theme="light"] .fw .hp rect { fill: #FFFFFF; }
+:root[data-theme="light"] .fw .chip.tls rect.cb, :root[data-theme="light"] .fw .ftag rect { fill: #EAF1FF; }
+:root[data-theme="light"] .fw .dot { fill: #FFFFFF; }
+:root[data-theme="light"] .fw .xm circle { fill: #FDECEC; }
+:root[data-theme="light"] .pane .c0 { background: rgba(178,107,0,.06); border-color: rgba(178,107,0,.45); }
+:root[data-theme="light"] .pane .c1 { background: rgba(14,148,103,.06); border-color: rgba(14,148,103,.45); }
+:root[data-theme="light"] .pane .pl.chg { background: rgba(178,107,0,.1); }
+:root[data-theme="light"] .pane .pl.same { background: rgba(14,148,103,.1); }
+:root[data-theme="light"] .pane .ly { border-bottom-color: var(--line); }
+:root[data-theme="light"] .pane .ly .b { background: #FFFFFF; }
+/* 서버 단면도 */
+:root[data-theme="light"] .srv .chassis { fill: #FFFFFF; stroke: #8EA3C8; }
+:root[data-theme="light"] .srv .ico { stroke: #1D4ED8; }
+:root[data-theme="light"] .srv .plate rect { fill: #EEF3FF; stroke: #6F93D8; }
+:root[data-theme="light"] .srv .bar { fill: #F3F5F8; }
+:root[data-theme="light"] .srv .pill.ok rect { fill: rgba(14,148,103,.1); }
+:root[data-theme="light"] .srv .pill.warn rect, :root[data-theme="light"] .srv .res.warn rect { fill: rgba(178,107,0,.1); }
+:root[data-theme="light"] .srv .pill.new rect { fill: rgba(37,99,235,.1); }
+:root[data-theme="light"] .srv .dot { fill: #FFFFFF; }
+:root[data-theme="light"] .srv .res rect { fill: #FFFFFF; }
+:root[data-theme="light"] .srv .res.good rect { fill: rgba(14,148,103,.08); }
+/* 리눅스 운영: 터미널은 어둡게 둔다 */
+:root[data-theme="light"] .term { --ink: #F0F3F7; --ink-2: #BAC4D1; --ink-3: #8390A1; --line: #2E3848; color-scheme: dark; }
+/* AWS */
+:root[data-theme="light"] .map .vpc { fill: color-mix(in srgb, var(--brand) 3%, #FFFFFF); stroke: #8794A8; }
+:root[data-theme="light"] .map .lane rect { fill: color-mix(in srgb, var(--brand) 6%, #FFFFFF); stroke: #A9B6CC; }
+:root[data-theme="light"] .map .link.thin { stroke: #9AA4B4; }
+/* 시연 */
+:root[data-theme="light"] .play { background: rgba(37,99,235,.06); border-color: rgba(37,99,235,.4); }
+:root[data-theme="light"] .scale i { background: #9AA4B4; }
+:root[data-theme="light"] .track, :root[data-theme="light"] .mini { background: #E3E8EF; }
+:root[data-theme="light"] .head-mark { box-shadow: 0 0 0 3px rgba(17,24,39,.08); }
+/* 장애 보고 */
+:root[data-theme="light"] .route .msg rect.bg { fill: #FFFFFF; stroke: var(--line); }
+/* 마무리 */
+:root[data-theme="light"] .col .tl { background: #A7B2C2; }
+:root[data-theme="light"] #a-slot { stroke: #A9B6CC; }
+/* 01 기획 배경 말풍선 */
+:root[data-theme="light"][data-slide="slide-story"] .talk li, :root[data-theme="light"][data-slide="slide-story"] .talk li::before,
+:root[data-theme="light"][data-slide="slide-story"] .bank { background: #FFFFFF; }
+/* 위쪽 띠 칸(리눅스 운영·장애 보고) */
+:root[data-theme="light"] .area { background: #FFFFFF; }
+/* 서버 단면도 아래 콘솔 띠 */
+:root[data-theme="light"] .srv .con { fill: #FFFFFF; stroke: var(--line); }
+:root[data-theme="light"] .srv .cdiv { stroke: var(--line); }
+/* 시연: 네 구간 색(장 안 스크립트가 칸마다 넣는 색)을 흰 바탕용으로 */
+:root[data-theme="light"][data-slide="slide-demo"] .part:nth-child(1), :root[data-theme="light"][data-slide="slide-demo"] .track span:nth-child(1) { --c: #0E9467 !important; }
+:root[data-theme="light"][data-slide="slide-demo"] .part:nth-child(2), :root[data-theme="light"][data-slide="slide-demo"] .track span:nth-child(2) { --c: #B26B00 !important; }
+:root[data-theme="light"][data-slide="slide-demo"] .part:nth-child(3), :root[data-theme="light"][data-slide="slide-demo"] .track span:nth-child(3) { --c: #D33A3A !important; }
+:root[data-theme="light"][data-slide="slide-demo"] .part:nth-child(4), :root[data-theme="light"][data-slide="slide-demo"] .track span:nth-child(4) { --c: #6B55CC !important; }
+:root[data-theme="light"][data-slide="slide-demo"] .track span { background: var(--c) !important; }
+:root[data-theme="light"][data-slide="slide-demo"] .part { border-top-color: #C9D1DC; }
+:root[data-theme="light"][data-slide="slide-demo"] .part.on { border-top-color: var(--c); }
+/* 어두운 바탕용 흰 선 아이콘(user-dark 등)은 뒤집어 진한 회색으로 */
+:root[data-theme="light"] img[src*="-dark.svg"], :root[data-theme="light"] image[href*="-dark.svg"] { filter: invert(1) brightness(.55); }
+/* 터미널 안 흰 번호 원은 원래처럼 어두운 글자 */
+:root[data-theme="light"] .term .tg b { color: #0B1019; }
+/* 부록 도면 상자 */
+:root[data-theme="light"] .dia .box { fill: #FFFFFF; }
+:root[data-theme="light"] .dia .box.hot { fill: #FDECEC; }
+:root[data-theme="light"] .dia .inl.ok { fill: #E8F0FF; }
+:root[data-theme="light"] .dia .inl.no { fill: #FDECEC; }

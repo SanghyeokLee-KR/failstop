@@ -1,0 +1,787 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-3 RAID 구성과 네트워크 이중화</title>
+<script>
+// ======== 사용자가 채우는 곳(이 장의 설정은 여기 한곳에만 있다) ========
+// 실험 결과. 값을 넣은 항목만 화면에 그리고, 빈칸('')인 항목은 그 줄을 아예 그리지 않는다.
+// 예시 값은 형식을 보이려는 것이며 측정값이 아니다.
+const RESULT = {
+  raid: {
+    alert: '',     // 디스크를 뺀 때부터 OPS01 경보가 발생(firing)할 때까지. 예: '1분 10초' → 감지 줄 '경보까지 1분 10초'
+    resync: '',    // 새 디스크를 넣은 때부터 [UU]가 될 때까지. 예: '2분 10초' → md0 칸 [UU] 앞에 '재동기화 2분 10초'
+    writeGap: '',  // 1초마다 쓰는 검사가 실패한 시간. 예: '0초' → '중단 0초'(0이 아니면 검사 띠의 한 칸이 노랑)
+  },
+  lvm: {
+    alert: '',     // 사용량이 85%를 넘은 때부터 LinuxDiskSpaceLow 가 발생할 때까지(규칙에 for: 5m 이 있다)
+    from: '',      // 늘리기 전 /var/lib/pgsql 크기. 예: '20 GiB'
+    to: '',        // 늘린 뒤 크기. 예: '40 GiB'. 둘 다 있어야 '무중단' 옆에 '20 GiB → 40 GiB'
+    writeGap: '',  // 늘리는 동안 APP01에서 INSERT 반복(또는 pgbench)을 돌린 오류 시간. df -h 전후와 함께 srv-df 증거로 남긴다
+  },
+  bond: {
+    alert: '',     // 링크를 끊은 때부터 경보가 발생할 때까지
+    pingLoss: '',  // APP01 → DB01 ping -i 0.2 로 링크를 끊는 동안 잃은 수. 예: '0.2초 간격 1개 손실' → '절체' 아래에 'ping 0.2초 간격 1개 손실'
+    writeGap: '',
+  },
+};
+// 장치 이름. NIC·네트워크·마운트는 DB01의 실제 값(deploy/vm-lab/build/00-주소계획.md, 캡처/역할설치/DB01_검증.txt)이고,
+// RAID·LVM·추가 디스크는 아직 만들지 않은 구성이라 흔한 이름으로 두었다. 실제로 만든 이름으로 바꾼다
+const DEV = {
+  net: 'lab-data', nic: ['enp0s8', 'enp0s9'], bond: 'bond0',
+  md: 'md0', disk: ['sdc', 'sdd'], fresh: 'sdd',   // fresh: ①에서 고장 낸 두 번째 디스크 자리에 새로 끼운 디스크
+  vg: 'vg_pgdata', lv: 'lv_pgdata', mount: '/var/lib/pgsql',
+  md2: 'md1', disk2: ['sde', 'sdf'],               // ②에서 볼륨 그룹에 더한 RAID1(md0과 같은 크기로 그린다)
+};
+// OPS01 경보. 화면 문구는 Alertmanager 가 Teams 제목으로 보내는 글 그대로다(발생은 summary, 해제는 resolved_summary).
+// sev 는 규칙의 severity 로 critical 빨강, warning 노랑(경보 색) 점이다. disk 는 build-files/ops/alerts.vm.yml 에 있는 규칙이며
+// resolved_summary 한 줄을 더해야 화면의 해제 문구가 된다. raid·bond 두 규칙과 DB01 node_exporter 의 mdadm·bonding 수집기는
+// 실험 전에 이 문구 그대로 더한다
+const ALERT = {
+  raid: { code: 'LinuxRaidDegraded', sev: 'critical', fire: `RAID 디스크 장애 발생 · ${DEV.md} degraded`, ok: 'RAID 디스크 장애 경보 해제' },
+  disk: { code: 'LinuxDiskSpaceLow', sev: 'warning', fire: '디스크 여유 공간 부족 · 15% 미만', ok: '디스크 여유 공간 부족 경보 해제' },
+  bond: { code: 'LinuxBondDegraded', sev: 'warning', fire: `네트워크 링크 장애 발생 · ${DEV.bond} 링크 하나 끊김`, ok: '네트워크 링크 장애 경보 해제' },
+};
+// 증거 화면(E 키 도구). 이 경로에 캡처를 넣으면 단추가 나타나고, 없는 파일은 건너뛴다. .txt는 글로 보인다
+const EVIDENCE = [
+  { src: 'assets/vm/srv-alerts.png', cap: 'OPS01 경보: 발생 → 해제(Prometheus 경보 화면이나 Alertmanager 기록)' },
+  { src: 'assets/vm/srv-mdstat.png', cap: '/proc/mdstat: md0 [U_] → recovery → [UU]' },
+  { src: 'assets/vm/srv-lsblk.png', cap: 'lsblk: 디스크 → md0·md1 → vg_pgdata → /var/lib/pgsql' },
+  { src: 'assets/vm/srv-df.png', cap: 'lvextend -r 와 df -h: 늘리기 전후 /var/lib/pgsql 크기' },
+  { src: 'assets/vm/srv-bond.png', cap: '/proc/net/bonding/bond0: 끊기 전후의 활성 NIC와 Link Failure Count' },
+  { src: 'assets/vm/srv-writecheck.txt', cap: 'DB 쓰기 검사 기록: 1초마다 INSERT 한 결과' },
+];
+</script>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --edge: #8E9BB3;
+    --box: #1F2839;
+    --box-line: #6B7A94;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --ok: #2DD196;
+    --bad: #FF6B6B;
+    --warm: #E8C07A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; white-space: nowrap; animation: rise .6s 0s var(--ease) both; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .2s var(--ease) both; }
+  .title .env { margin-left: 14px; animation: fade .6s .3s var(--ease) both; }
+  .tag { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  /* 증거 캡처가 하나도 없으면 단추를 빼고, 환경 칩이 오른쪽 끝을 지킨다 */
+  .title .tag[hidden] { display: none; }
+  .title .tag[hidden] + .env { margin-left: auto; }
+
+  /* 도면: 위는 주 DB 서버 DB01 한 대의 단면, 아래는 운영 콘솔.
+     단면은 위 가운데 줄에 네트워크(가상 스위치 → NIC 두 장 → bond0), 왼쪽에 PostgreSQL, 그 아래 저장 계층(XFS → LVM → RAID1 → 디스크).
+     두 겹으로 둔 곳(NIC 둘, 디스크 둘)이 위아래에서 마주 본다. 세로 줄 맞춤: PostgreSQL·md0 가운데 x420, 네트워크 열·md1 왼쪽 x860.
+     콘솔은 단계마다 같은 자리에 경보(OPS01 경보) → 명령(내가 친 명령, ③은 커널 기록이라 '커널') → 결과(실제 출력 한 줄)를 쓰고(2026-10-05 사용자 지시: '감지 · 조치 · 확인'은 AI가 하는 절차처럼 읽혀 내가 구성한 이야기로), 오른쪽 띠는 DB 쓰기 검사다.
+     좌표는 viewBox 1660×688(머리말 줄과 같은 좌우 끝 130 ~ 1790, 위 312 ~ 아래 1000) */
+  .srv { position: absolute; left: 130px; top: 312px; width: 1660px; height: 688px; overflow: visible; }
+  .srv text { font-family: var(--sans); }
+  /* 덱의 Plex Mono는 400·500만 있어, 굵게는 500으로 둔다(600을 주면 브라우저가 가짜 굵기를 만든다) */
+  .srv .m { font-family: var(--mono); font-weight: 500; }
+  .srv .sub.m, .srv .faint.m { font-weight: 400; }
+  /* 서버 틀 테두리는 바탕과 약 2.6:1 이라 프로젝터에서도 남는다 */
+  .srv .chassis { fill: #161D2A; stroke: #435B88; stroke-width: 2; }
+  .srv .link { fill: none; stroke: var(--edge); stroke-width: 3; transition: stroke .3s var(--ease), opacity .3s var(--ease); }
+  .srv .tile .bx { fill: var(--box); stroke: var(--box-line); stroke-width: 2; transition: stroke .3s var(--ease); }
+  .srv .nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .srv .sub { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .srv .faint { font-size: 22px; font-weight: 400; fill: var(--ink-3); }
+  .srv .ico { fill: none; stroke: #A8C8FF; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  /* 이름표는 앞 장들처럼 DATA 구역 색(파랑)을 옅게 입힌다 */
+  .srv .plate rect { fill: color-mix(in srgb, #79A7FA 12%, #1E2638); stroke: color-mix(in srgb, #79A7FA 85%, transparent); stroke-width: 2; }
+
+  /* 저장 계층 막대. 막대 길이가 용량이다(②에서 늘어난다). XFS 막대 안의 칠은 사용량이고 경보 기준(85%)을 넘으면 노랑 */
+  .srv .bar { fill: #1A2232; stroke: var(--box-line); stroke-width: 2; }
+  .srv { --u: var(--ok); }
+  .srv.hot { --u: var(--warm); }
+  .srv .use { fill: color-mix(in srgb, var(--u) 18%, transparent); transition: fill .3s var(--ease); }
+  .srv .use-l { fill: var(--u); transition: fill .3s var(--ease); }
+  .srv .tick { stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 5 5; transition: stroke .3s var(--ease); }
+  .srv .tickl { font-size: 22px; fill: var(--ink-3); text-anchor: end; transition: fill .3s var(--ease); }
+  .srv.hot .tick { stroke: var(--warm); }
+  .srv.hot .tickl { fill: var(--warm); font-weight: 600; }
+  .srv .bay rect { fill: none; stroke: var(--card); stroke-width: 2; stroke-dasharray: 9 7; }
+
+  /* 상태 알약. 초록 정상, 노랑 경보·degraded, 파랑 새로 끼운 것·자동 */
+  .srv .pill rect { stroke-width: 2; }
+  .srv .pill text { font-size: 22px; font-weight: 600; text-anchor: middle; }
+  .srv .pill text.m { font-weight: 500; }
+  .srv .pill.ok rect { fill: rgba(45,209,150,.12); stroke: var(--ok); } .srv .pill.ok text, .srv .pill.ok circle { fill: var(--ok); }
+  .srv .pill.warn rect { fill: rgba(232,192,122,.12); stroke: var(--warm); } .srv .pill.warn text, .srv .pill.warn circle { fill: var(--warm); }
+  .srv .pill.new rect { fill: rgba(121,167,250,.12); stroke: var(--brand); } .srv .pill.new text { fill: var(--brand); }
+  .srv .rv { font-size: 22px; fill: var(--ink-2); }
+  .srv .rv .v { font-weight: 600; fill: var(--ink); }
+
+  /* 고장 표시(✕)·흐르는 점·재동기화 길. 앞 장 구성도와 같은 모양 */
+  .srv .xm circle { fill: var(--stage); stroke: var(--bad); stroke-width: 2.8; }
+  .srv .xm path { fill: none; stroke: var(--bad); stroke-width: 4.2; stroke-linecap: round; }
+  .srv .dot { fill: #D6E4FF; stroke: var(--brand); stroke-width: 2.4; }
+  .srv .sync { fill: none; stroke: var(--brand); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; }
+
+  /* 운영 콘솔. 출력은 실제 도구의 형식 그대로 고정폭 글꼴로 쓰고, 측정값은 테두리 칩으로 따로 붙인다(중단 칩만 0이면 초록, 0보다 크면 노랑) */
+  .srv .con { fill: #0B1019; stroke: #2E3848; stroke-width: 2; }
+  .srv .ch { font-size: 22px; font-weight: 500; fill: var(--ink-3); }
+  /* 경보 한 줄: Teams 제목처럼 색 점과 한국어 제목. critical 빨강, warning 노랑(경보 색), 해제 초록 */
+  .srv .al text { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .srv .al.critical circle { fill: var(--bad); } .srv .al.warning circle { fill: var(--warm); }
+  .srv .al.ok circle { fill: var(--ok); } .srv .al.ok text { fill: var(--ink-2); }
+  /* 같은 자리의 두 글이 겹쳐 비치지 않게, 나가는 글이 .15초에 빠진 뒤 들어오는 글이 .15초에 들어온다(합쳐 .3초) */
+  .srv .state .al { transition: opacity .15s var(--ease); }
+  .srv .cdiv { stroke: #2E3848; stroke-width: 2; }
+  .srv .tm { font-family: var(--mono); font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .srv .tm.hi { font-weight: 500; fill: var(--ink); }
+  .srv .tm.pr { fill: var(--ink-3); }
+  .srv .res rect { fill: rgba(255,255,255,.03); stroke: var(--ink-3); stroke-width: 2; }
+  .srv .res.good rect { fill: rgba(45,209,150,.08); stroke: var(--ok); }
+  .srv .res.warn rect { fill: rgba(232,192,122,.10); stroke: var(--warm); }
+  .srv .res text { font-size: 22px; fill: var(--ink-2); }
+  .srv .res .v { font-weight: 600; fill: var(--ink); }
+  .srv .tk path { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .srv .tk .ck { stroke: var(--ok); }
+  .srv .tk .ms { stroke: var(--warm); display: none; }
+  .srv .tk.miss .ck { display: none; }
+  .srv .tk.miss .ms { display: inline; }
+
+  /* ---- 단계 상태. 스크립트가 .srv 에 이름을 붙였다 뗀다. 나타나는 것은 0.3초 ----
+     도면 ① d2x 디스크 2 고장·md0 degraded → swap 새 디스크 → sync 재동기화 → uu [UU]
+          ② hot 사용량 경보 → md1 RAID1 추가 → vg 볼륨 그룹 늘림 → lv 논리 볼륨·XFS 늘림
+          ③ cut 위 링크 끊김 → bk 대기 링크가 이어받음
+     콘솔 감지 줄은 늘 보인다. k1 경보 없음 → 발생, kr 발생 → 해제, k2 조치 줄, k3 확인 줄 */
+  .srv .fx { transition: opacity .3s var(--ease), transform .4s var(--ease); }
+  .srv .x2, .srv .p-deg, .srv .fresh, .srv .g-md1, .srv .x1, .srv .r1, .srv .r2, .srv .r3 { opacity: 0; }
+  .srv.d2x:not(.swap) .x2 { opacity: 1; }
+  .srv.d2x:not(.swap) .old2 .bx { stroke: var(--bad); }
+  .srv.d2x:not(.swap) .old2 .in { opacity: .35; }
+  /* 재동기화를 마쳐 [UU]가 될 때 두 번째 거울 선이 다시 이어진다 */
+  .srv.d2x:not(.uu) .br2 { opacity: .25; }
+  .srv.swap .old2 { opacity: 0; transform: translateY(16px); }
+  /* 빠지고 들어오는 디스크가 서버 틀 아랫선 안에서 움직이게 16만 옮긴다 */
+  .srv .fresh { transform: translateY(16px); }
+  /* 옛 디스크가 다 빠진 뒤에 새 디스크가 올라와 두 상자가 겹쳐 보이지 않게 한다 */
+  .srv.swap .fresh { opacity: 1; transform: none; transition-delay: .3s; }
+  .srv.d2x:not(.uu) .p-uu0 { opacity: 0; }
+  .srv.d2x:not(.uu) .p-deg { opacity: 1; }
+  /* md0 칩은 폭이 달라 겹치면 글자가 포개져 보인다. 앞 칩이 0.2초에 사라진 뒤 다음 칩이 들어온다(고장 때도, [UU]로 돌아올 때도) */
+  .srv.d2x:not(.uu) .p-uu0, .srv.uu .p-deg { transition-duration: .2s; }
+  .srv.d2x:not(.uu) .p-deg, .srv.uu .p-uu0 { transition-delay: .2s; }
+  .srv.d2x:not(.uu) .md0 .bx { stroke: var(--warm); }
+  /* 재동기화 길(약 412px)은 덱 기준 빠르기(초당 약 450px)로 0.9초에 그린다 */
+  .srv .sync { opacity: 0; stroke-dashoffset: 1; transition: stroke-dashoffset .9s cubic-bezier(.45,0,.55,1), opacity .3s var(--ease); }
+  .srv.sync-on .sync { opacity: 1; stroke-dashoffset: 0; }
+  .srv.uu .sync { opacity: 0; }
+  .srv.uu .r1, .srv.ok2 .r2, .srv.ok3 .r3 { opacity: 1; }
+  .srv .g-md1 { transform: translateY(16px); }
+  /* 점선 빈 슬롯이 먼저 걷힌 뒤 md1 이 올라와, 올라오는 디스크 사이로 점선이 비치지 않게 한다 */
+  .srv.md1 .g-md1 { opacity: 1; transform: none; transition-delay: .15s; }
+  .srv .bay { transition-duration: .15s; }
+  .srv.md1 .bay { opacity: 0; }
+  .srv .lk2 { stroke-dasharray: 9 7; }
+  .srv.cut .lk1 { stroke: var(--bad); stroke-dasharray: 9 7; }
+  .srv.cut .x1 { opacity: 1; }
+  .srv.bk .lk2 { stroke: var(--ok); stroke-dasharray: none; }
+  .srv .row { opacity: 0; transform: translateX(-10px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+  .srv.k2 .r-act, .srv.k3 .r-chk { opacity: 1; transform: none; }
+  .srv .p-fire, .srv .p-ok, .srv .r-det .res { opacity: 0; }
+  .srv .r-det .res { transition: opacity .15s var(--ease); }
+  .srv.k1 .p-none { opacity: 0; }
+  .srv:not(.k1) .p-none { transition-delay: .15s; }
+  .srv.k1 .p-fire, .srv.k1 .r-det .res { opacity: 1; transition-delay: .15s; }
+  .srv.kr .p-fire { opacity: 0; transition-delay: 0s; }
+  .srv.kr .p-ok { opacity: 1; transition-delay: .15s; }
+  .srv .tk { opacity: 0; transition: opacity .2s var(--ease); }
+  .srv .tk.on { opacity: 1; }
+  .stage.inst *, .stage.inst *::before, .stage.inst *::after { transition: none !important; }
+
+  /* 열릴 때: 서버 틀 → 네트워크 → PostgreSQL → 저장 계층 → 디스크 → 운영 콘솔 차례로 0.25초 간격, 하나 0.6초, 2초 안팎에 멈춘다 */
+  .srv .bd { animation: rise .6s var(--ease) both; }
+  .srv .b1 { animation-delay: .3s; } .srv .b2 { animation-delay: .55s; } .srv .b3 { animation-delay: .8s; } .srv .b4 { animation-delay: 1.05s; } .srv .b5 { animation-delay: 1.3s; } .srv .b6 { animation-delay: 1.5s; }
+  .stage.done *, .stage.done *::before, .stage.done *::after { animation: none !important; }
+
+  /* 증거 화면(질문 대비): 캡처를 한 장씩 크게. E 키 도구를 켤 때만 단추가 보인다 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); outline: none; }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .35s var(--ease); }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fig .bar .cnt { margin-left: auto; font-family: var(--mono); white-space: nowrap; }
+  .fig .bar button { flex: none; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .bar button:disabled { opacity: .35; cursor: default; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 92px); border-radius: 6px; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .fig pre { margin: 0; max-width: calc(100vw - 48px); max-height: calc(100vh - 92px); overflow: auto; box-sizing: border-box; padding: 20px 26px; border-radius: 6px; background: #0C0C0C; color: #CCCCCC; font-family: var(--mono); font-size: 22px; line-height: 1.45; white-space: pre-wrap; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  /* 둘째 줄 이름: 내가 친 명령은 '명령', ③처럼 커널이 스스로 넘긴 단계는 '커널'. 같은 자리에 겹쳐 두고, 그 줄 내용이 나오는 때(k2)에
+     경보 줄과 같은 규칙(.15초에 빠지고 .15초에 들어옴)으로 바꾼다 */
+  .srv .lb-cmd, .srv .lb-krn { transition: opacity .15s var(--ease); }
+  .srv .lb-krn { opacity: 0; }
+  .srv.kn.k2 .lb-cmd { opacity: 0; }
+  .srv.kn.k2 .lb-krn { opacity: 1; transition-delay: .15s; }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-3</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>RAID 구성과 네트워크 이중화</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog" hidden><img src="assets/tint/ui-terminal-2-side.svg" alt="">증거 화면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
+  </div>
+  <p class="dek">주 DB 서버에 RAID1·LVM·bonding을 직접 구성하고, 디스크를 빼고 선을 끊어 동작을 확인했습니다.</p>
+
+  <svg class="srv" id="srv" viewBox="0 0 1660 688" role="img" aria-label="위는 주 DB 서버 DB01 한 대의 단면이다. 가상 스위치 lab-data에서 NIC 두 장 enp0s8·enp0s9가 bond0(active-backup)으로 묶여 PostgreSQL 17로 이어지고, PostgreSQL 데이터 경로 /var/lib/pgsql은 XFS, 그 아래 LVM 볼륨 그룹, 그 아래 디스크 두 개를 묶은 RAID1 md0이다. 아래는 운영 콘솔로 단계마다 경보(관제 경보 제목), 명령(내가 친 명령, 셋째 단계는 커널 기록), 결과(실제 출력 한 줄)을 쓰고, 오른쪽에 1초마다 하는 DB 쓰기 검사가 이어진다. 첫 단계에서 디스크 하나가 고장 나 md0이 degraded [U_]가 되면 RAID 디스크 장애 경보가 발생하고, mdadm으로 새 디스크를 넣어 재동기화하면 [UU]로 돌아와 경보가 해제된다. 둘째 단계에서 사용량이 85%를 넘으면 디스크 여유 공간 부족 경보가 발생하고, RAID1 md1을 더해 vgextend와 lvextend -r로 서비스를 멈추지 않고 늘리면 경보가 해제된다. 셋째 단계에서 쓰던 링크가 끊기면 bond0이 대기 링크 enp0s9로 바로 넘기고, 네트워크 링크 장애 경보는 끊긴 선을 바꿀 때까지 남는다. 단계마다 결과는 도면에 남아 끝 모습이 요약이 되고, 세 단계 내내 DB 쓰기 검사가 이어진다">
+    <defs>
+      <!-- 앞 장 아이콘(tabler 외곽선)과 같은 굵기로 그린 디스크·NIC 그림 -->
+      <symbol id="i-disk" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="4"/><path d="M12 10l3 5"/><path d="M7.5 18h1"/></symbol>
+      <symbol id="i-nic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 19v-5h8v5"/><path d="M7 9h1M10 9h1M13 9h1M16 9h1"/></symbol>
+      <clipPath id="lv-clip"><rect id="lv-c" x="40" y="256" width="760" height="52" rx="10"/></clipPath>
+    </defs>
+
+    <!-- 서버 틀과 이름표. 이름표와 NIC 두 장은 틀의 윗변에 걸친다 -->
+    <g class="bd b1">
+      <rect class="chassis" x="0" y="124" width="1660" height="412" rx="18"/>
+      <g class="plate"><rect id="plate-bx" x="40" y="100" width="400" height="48" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="56" y="111" width="26" height="26"/>
+        <text id="plate-t" class="nm" x="92" y="133">DB01<tspan class="sub" dx="10">주 DB</tspan></text>
+        <image id="plate-li" href="assets/tint/linux-glow.svg" x="250" y="112" width="24" height="24"/>
+        <text id="plate-os" class="sub" x="284" y="133">Rocky Linux 10.2</text>
+      </g>
+    </g>
+
+    <!-- 네트워크: 가상 스위치 → 링크 둘 → NIC 두 장 → bond0. 위 링크(enp0s8)가 쓰는 선, 점선(enp0s9)이 대기 선 -->
+    <g class="bd b2">
+      <path class="link lk1" d="M945 48 V100"/>
+      <path class="link lk2" d="M1155 48 V100"/>
+      <path class="link" d="M945 148 V176 M1155 148 V176 M860 201 H570"/>
+      <g class="tile"><rect class="bx" x="860" y="0" width="380" height="48" rx="10"/>
+        <image href="assets/tint/ui-switch-horizontal-glow.svg" x="878" y="11" width="26" height="26"/>
+        <text class="nm" x="914" y="32"><tspan class="m" data-dev="net">lab-data</tspan><tspan class="faint" dx="12">가상 스위치</tspan></text></g>
+      <g class="tile"><rect class="bx" x="860" y="100" width="170" height="48" rx="10"/>
+        <use href="#i-nic" class="ico" x="876" y="111" width="26" height="26"/>
+        <text class="nm m" x="912" y="132" data-dev="nic.0">enp0s8</text></g>
+      <g class="tile"><rect class="bx" x="1070" y="100" width="170" height="48" rx="10"/>
+        <use href="#i-nic" class="ico" x="1086" y="111" width="26" height="26"/>
+        <text class="nm m" x="1122" y="132" data-dev="nic.1">enp0s9</text></g>
+      <g class="tile"><rect class="bx" x="860" y="176" width="380" height="50" rx="10"/>
+        <text class="nm m" x="880" y="209"><tspan data-dev="bond">bond0</tspan><tspan class="faint m" dx="14">active-backup</tspan></text></g>
+    </g>
+
+    <!-- PostgreSQL과 데이터 경로로 내려가는 선 -->
+    <g class="bd b3">
+      <path class="link" d="M420 226 V256"/>
+      <g class="tile"><rect class="bx" x="270" y="176" width="300" height="50" rx="10"/>
+        <image href="assets/tint/postgresql-glow.svg" x="288" y="186" width="30" height="30"/>
+        <text class="nm" x="330" y="209">PostgreSQL 17</text></g>
+    </g>
+
+    <!-- 저장 계층: XFS(사용량과 경보 기준선) → LVM 볼륨 그룹. 세 층 모두 높이 52, 두 막대의 너비는 스크립트가 맞춘다 -->
+    <g class="bd b4">
+      <rect class="bar" id="vg-b" x="40" y="318" width="760" height="52" rx="10"/>
+      <text class="nm" x="60" y="352">LVM<tspan class="sub m" dx="14" data-dev="vg">vg_pgdata</tspan></text>
+      <rect class="bar" id="lv-b" x="40" y="256" width="760" height="52" rx="10"/>
+      <g clip-path="url(#lv-clip)">
+        <rect class="use" id="use" x="40" y="256" width="456" height="52"/>
+        <rect class="use-l" id="use-l" x="40" y="302" width="456" height="6"/>
+      </g>
+      <text class="nm" x="60" y="290">XFS<tspan class="sub m" dx="14" data-dev="mount">/var/lib/pgsql</tspan></text>
+      <line class="tick" id="tick" x1="686" y1="248" x2="686" y2="316"/>
+      <text class="tickl" id="tickl" x="676" y="290">경보 85%</text>
+    </g>
+
+    <!-- RAID1 두 묶음. md0은 처음부터, md1은 ②에서 빈 슬롯에 끼운다 -->
+    <g class="bd b5">
+      <g class="tile md0"><rect class="bx" x="40" y="380" width="760" height="52" rx="10"/>
+        <text class="nm" x="60" y="414">RAID1<tspan class="sub m" dx="14" data-dev="md">md0</tspan></text></g>
+      <path class="link" d="M420 432 V448 H230 V464"/>
+      <path class="link fx br2" d="M420 448 H610 V464"/>
+      <path class="sync" id="sync" pathLength="1" d="M230 464 V448 H610 V464"/>
+      <g class="tile"><rect class="bx" x="100" y="464" width="260" height="52" rx="10"/>
+        <use href="#i-disk" class="ico" x="124" y="477" width="26" height="26"/>
+        <text class="nm m" x="160" y="498" data-dev="disk.0">sdc</text></g>
+      <!-- 고장 난 디스크. ✕는 디스크와 함께 빠진다 -->
+      <g class="tile fx old2"><rect class="bx" x="480" y="464" width="260" height="52" rx="10"/>
+        <g class="in fx"><use href="#i-disk" class="ico" x="504" y="477" width="26" height="26"/>
+        <text class="nm m" x="540" y="498" data-dev="disk.1">sdd</text></g>
+        <g class="xm fx x2"><circle cx="700" cy="490" r="19"/><path d="M692 482 L708 498 M708 482 L692 498"/></g></g>
+      <g class="tile fx fresh"><rect class="bx" x="480" y="464" width="260" height="52" rx="10"/>
+        <use href="#i-disk" class="ico" x="504" y="477" width="26" height="26"/>
+        <text class="nm m" id="fresh-t" x="540" y="498" data-dev="fresh">sdd</text>
+        <g class="pill new" id="p-new"><rect y="476" height="28" rx="14"/><text y="497">새 디스크</text></g></g>
+      <g class="fx bay"><rect x="920" y="464" width="260" height="52" rx="10"/><text class="faint" x="944" y="498">빈 슬롯</text></g>
+      <g class="fx bay"><rect x="1300" y="464" width="260" height="52" rx="10"/><text class="faint" x="1324" y="498">빈 슬롯</text></g>
+      <g class="fx g-md1">
+        <g class="tile"><rect class="bx" x="860" y="380" width="760" height="52" rx="10"/>
+          <text class="nm" x="880" y="414">RAID1<tspan class="sub m" dx="14" data-dev="md2">md1</tspan></text></g>
+        <path class="link" d="M1240 432 V448 H1050 V464 M1240 448 H1430 V464"/>
+        <g class="tile"><rect class="bx" x="920" y="464" width="260" height="52" rx="10"/>
+          <use href="#i-disk" class="ico" x="944" y="477" width="26" height="26"/>
+          <text class="nm m" x="980" y="498" data-dev="disk2.0">sde</text></g>
+        <g class="tile"><rect class="bx" x="1300" y="464" width="260" height="52" rx="10"/>
+          <use href="#i-disk" class="ico" x="1324" y="477" width="26" height="26"/>
+          <text class="nm m" x="1360" y="498" data-dev="disk2.1">sdf</text></g>
+        <g class="pill ok" data-right="1600"><rect y="392" height="28" rx="14"/><text class="m" y="413">[UU]</text></g>
+      </g>
+      <!-- md0 상태: 평소 [UU], 고장 나면 degraded [U_]. 재동기화를 마치면 걸린 시간이 그 앞에 붙는다 -->
+      <g class="pill ok fx p-uu0" data-right="784"><rect y="392" height="28" rx="14"/><text class="m" y="413">[UU]</text></g>
+      <g class="pill warn fx p-deg" data-right="784"><rect y="392" height="28" rx="14"/><text class="m" y="413">degraded [U_]</text></g>
+      <text class="rv fx r1" id="r1" y="414" text-anchor="end"></text>
+    </g>
+
+    <!-- ③ 링크 끊김 표시. 결과(알약은 늘 나오고, 숫자는 값이 있을 때만)는 다음 단계에도 남아 끝 모습이 요약이 된다.
+         ②는 다 늘어난 LVM 막대의 오른쪽 끝, ③은 통신이 이어진 bond0 → PostgreSQL 선의 가운데(알약은 선 위, 숫자는 선 아래.
+         두 장비 사이 290px 안에 들도록 나눴다) -->
+    <g class="xm fx x1"><circle cx="945" cy="74" r="19"/><path d="M937 66 L953 82 M953 66 L937 82"/></g>
+    <g class="fx r2" data-end="1600"><g class="pill ok"><rect y="329" height="30" rx="15"/><text y="352">무중단</text></g><text class="rv" id="r2" y="352"></text></g>
+    <g class="fx r3"><g class="pill ok" data-mid="715"><rect y="145" height="30" rx="15"/><text y="168">절체</text></g><text class="rv" id="r3" x="715" y="236" text-anchor="middle"></text></g>
+
+    <!-- 운영 콘솔. 서버 틀과 24 띄운다. 줄 내용은 단계마다 스크립트가 채운다. 줄 가운데 y 592·624·656 -->
+    <g class="bd b6">
+      <rect class="con" x="0" y="560" width="1660" height="128" rx="14"/>
+      <text class="ch" x="28" y="600">경보</text>
+      <text class="ch lb-cmd" x="28" y="632">명령</text><text class="ch lb-krn" x="28" y="632">커널</text>
+      <text class="ch" x="28" y="664">결과</text>
+      <line class="cdiv" x1="1266" y1="574" x2="1266" y2="674"/>
+      <text class="ch" x="1290" y="600">DB 쓰기 검사</text>
+      <g id="ticks"></g>
+      <g class="row r-chk" id="gap"></g>
+      <g class="r-det" id="row-det"></g>
+      <g class="row r-act" id="row-act"></g>
+      <g class="row r-chk" id="row-chk"></g>
+    </g>
+
+    <g id="dots"></g>
+  </svg>
+
+  <dialog class="fig" id="fig" tabindex="-1" aria-label="증거 화면">
+    <div class="bar"><b>증거 화면</b><span class="cap" id="fig-cap"></span><span class="cnt" id="fig-cnt"></span><button id="fig-prev" type="button" aria-label="이전 화면">←</button><button id="fig-next" type="button" aria-label="다음 화면">→</button><button id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" alt=""><pre id="fig-pre" hidden></pre></div>
+  </dialog>
+</div>
+
+<!-- 발표 노트(45초): 다음은 서버 한 대 안의 이중화입니다.
+예전에 시스원 김남훈 대리님께서 오셔서 알려 주신 RAID 구성과 네트워크 이중화 방식을 주 DB 서버에 직접 적용했습니다.
+디스크를 빼고 선을 끊어 보며 경보와 제가 친 명령, 실제 출력을 콘솔에 남겼습니다. 오른쪽 아래 띠는 그동안 1초마다 DB에 쓴 결과입니다.
+→ 1 디스크 하나를 빼도 DB는 남은 디스크로 계속 쓰고, 새 디스크를 넣어 다시 맞추면 경보가 풀립니다.
+→ 2 용량이 85%를 넘으면 RAID1 묶음을 더 붙여 멈추지 않고 늘립니다.
+→ 3 선이 끊기면 커널이 대기 선으로 바로 넘깁니다.
+질문 대비(말하지 않음): 늘린 공간도 RAID1이라 이중화가 그대로다. 두 가상 디스크는 같은 실제 디스크 위에 있으므로 실제 디스크 고장을 막는 구성이 아니라 감지·교체·재동기화라는 디스크 장애 대응 절차를 훈련한 것이다. 실제 서버의 하드웨어 RAID(Dell PERC, HPE Smart Array)도 RAID1 미러·degraded·리빌드라는 개념은 같고, 여기서는 mdadm으로 같은 절차를 손으로 했다. md0 구성은 mdadm.conf에 저장하고 initramfs를 다시 만들어 재부팅해도 md0이 같은 이름으로 올라온다. lvextend -r은 논리 볼륨을 늘린 뒤 XFS를 마운트한 채로 늘린다(xfs_growfs). bonding은 VirtualBox 내부망이라 스위치 설정이 필요한 LACP가 아니라 active-backup이고, miimon 100ms로 링크를 확인한다. 화면의 경보 문구는 Alertmanager가 Teams 제목으로 보내는 글 그대로다. 디스크 여유 공간 부족(LinuxDiskSpaceLow, 여유 15% 미만 5분)은 OPS01에 있던 규칙이고, RAID 디스크 장애(LinuxRaidDegraded)와 네트워크 링크 장애(LinuxBondDegraded)는 node_exporter mdadm·bonding 수집기와 함께 이번 실험에 더한 규칙이다. VM 실습망의 Alertmanager는 Teams 전송을 보류해 두어 관제 화면에서 확인한다. 쓰기 검사는 APP01에서 1초마다 PostgreSQL에 한 줄을 넣고 실패를 센 것이다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const $ = id => document.getElementById(id);
+  const srv = $('srv');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  $('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+
+  // 장치 이름은 맨 위 DEV 에서 읽는다('nic.0' 처럼 점 뒤는 목록의 차례)
+  srv.querySelectorAll('[data-dev]').forEach(t => { const [k, i] = t.dataset.dev.split('.'); t.textContent = i == null ? DEV[k] : DEV[k][+i]; });
+
+  // ---- 운영 콘솔의 단계별 내용. 출력은 실제 도구의 형식 그대로이고 숫자가 들어가는 출력은 쓰지 않는다.
+  //      측정값 가운데 단계 결과(재동기화·용량·ping)는 도면에 남겨 끝 모습이 요약이 되게 하고, 콘솔에는 경보까지 걸린 시간과 쓰기 중단만 둔다.
+  //      det 감지(경보 제목, 끝에 해제로 바뀌는지), act 조치(auto 면 사람이 아니라 커널이 한 일), chk 확인.
+  //      RESULT 는 그릴 때마다 다시 읽는다 ----
+  const CONSOLE = () => [
+    null,
+    { det: { al: ALERT.raid, res: ['경보까지', RESULT.raid.alert], clear: true },
+      act: { cmd: `mdadm /dev/${DEV.md} --add /dev/${DEV.fresh}` },
+      chk: { out: 'State : clean' },   // mdadm --detail /dev/md0. 재동기화 중에는 'clean, degraded, recovering' 이다
+      gap: RESULT.raid.writeGap },
+    { det: { al: ALERT.disk, res: ['경보까지', RESULT.lvm.alert], clear: true },
+      act: { cmd: `vgextend ${DEV.vg} /dev/${DEV.md2} && lvextend -r -l +100%FREE ${DEV.vg}/${DEV.lv}` },
+      chk: { out: `Logical volume ${DEV.vg}/${DEV.lv} successfully resized.` },
+      gap: RESULT.lvm.writeGap },
+    { det: { al: ALERT.bond, res: ['경보까지', RESULT.bond.alert], clear: false },
+      act: { auto: true, cmd: `${DEV.bond}: (slave ${DEV.nic[1]}): making interface the new active one` },
+      chk: { out: `Currently Active Slave: ${DEV.nic[1]}` },
+      gap: RESULT.bond.writeGap },
+  ];
+
+  // 알약(조치 줄의 '자동'): 테두리 상자와 글. 측정값 칩: 앞말은 보조 색, 값은 굵게
+  const pill = (parent, cls, text) => {
+    const g = el('g', { class: 'pill ' + cls }, parent);
+    el('rect', { height: 30, rx: 15 }, g);
+    el('text', {}, g).textContent = text;
+    return g;
+  };
+  const chip = (parent, label, value) => {
+    const g = el('g', { class: 'res' }, parent);
+    el('rect', { height: 32, rx: 8 }, g);
+    const t = el('text', {}, g);
+    if (label) el('tspan', {}, t).textContent = label + ' ';
+    el('tspan', { class: 'v' }, t).textContent = value;
+    return g;
+  };
+  // 도면 결과 글: 앞말은 보조 색, 값은 굵게. 값이 비면 글을 비운다
+  const setResult = (t, label, value) => {
+    t.replaceChildren();
+    if (!value) return;
+    if (label) el('tspan', {}, t).textContent = label + ' ';
+    el('tspan', { class: 'v' }, t).textContent = value;
+  };
+  const fillResults = () => {
+    setResult($('r1'), '재동기화', RESULT.raid.resync);
+    setResult($('r2'), '', RESULT.lvm.from && RESULT.lvm.to ? `${RESULT.lvm.from} → ${RESULT.lvm.to}` : '');
+    setResult($('r3'), 'ping', RESULT.bond.pingLoss);
+  };
+  // 경보 한 줄: 색 점과 제목
+  const alertLine = (parent, cls, text) => { const g = el('g', { class: 'al ' + cls }, parent); el('circle', { r: 7 }, g); el('text', {}, g).textContent = text; return g; };
+  const term = (parent, text, cls) => { const t = el('text', { class: 'tm ' + (cls || '') }, parent); t.textContent = text; return t; };
+
+  // 콘솔 줄을 채운다. k=0 은 열린 모습(경보 없음), 1~3 은 단계
+  function fillConsole(k) {
+    const det = $('row-det'), act = $('row-act'), chk = $('row-chk'), gap = $('gap');
+    [det, act, chk, gap].forEach(r => r.replaceChildren());
+    srv.classList.remove('kn');
+    // '경보 없음'·발생·해제 세 줄을 같은 자리에 겹쳐 두고, 같은 점이 초록 → 빨강·노랑 → 초록으로 바뀌어 보이게 한다
+    const st = el('g', { class: 'state' }, det);
+    alertLine(st, 'ok p-none', '경보 없음');
+    if (!k) return;
+    const c = CONSOLE()[k];
+    alertLine(st, c.det.al.sev + ' p-fire', c.det.al.fire);
+    if (c.det.clear) alertLine(st, 'ok p-ok', c.det.al.ok);
+    if (c.det.res[1]) chip(det, ...c.det.res);
+    srv.classList.toggle('kn', !!c.act.auto);
+    if (c.act.auto) pill(act, 'new', '자동'); else term(act, '$', 'pr');
+    term(act, c.act.cmd, 'hi');
+    term(chk, c.chk.out);
+    if (c.gap) chip(gap, '중단', c.gap).classList.add(gapped(c.gap) ? 'warn' : 'good');
+  }
+  // 쓰기 검사 띠: ✓ 14칸. 결과에 0보다 큰 중단 시간이 있으면 고장 무렵 한 칸을 노랑 줄로 그린다('0.5초'도 0보다 크다)
+  const gapped = g => !!g && parseFloat(g.replace(/[^0-9.]/g, '')) > 0;
+  const TICKS = 14, MISS = 4;
+  for (let i = 0; i < TICKS; i++) {
+    const g = el('g', { class: 'tk', transform: `translate(${1300 + i * 24} 624)` }, $('ticks'));
+    el('path', { class: 'ck', d: 'M-6 0 L-2 5 L7 -6' }, g);
+    el('path', { class: 'ms', d: 'M-6 0 H6' }, g);
+  }
+  const ticks = [...$('ticks').children];
+  const setTicks = (n, gapText) => ticks.forEach((t, i) => { t.classList.toggle('on', i < n); t.classList.toggle('miss', i === MISS && gapped(gapText)); });
+
+  // ---- 글자 폭에 맞춰 알약·이름표·콘솔 줄을 놓는다 ----
+  const width = n => n.getBBox().width;
+  const placePill = (g, x, w) => {
+    const r = g.querySelector('rect'), t = g.querySelector('text'), c = g.querySelector('circle');
+    w = w || t.getBBox().width + (c ? 42 : 28);
+    r.setAttribute('x', x); r.setAttribute('width', w);
+    if (c) { c.setAttribute('cx', x + 17); t.setAttribute('x', x + 17 + (w - 17) / 2 + 2); } else t.setAttribute('x', x + w / 2);
+    return w;
+  };
+  // 콘솔 한 줄: 왼쪽 x 부터 차례로 놓는다. 측정값 칩 앞은 넓게 띄운다
+  function flow(row, x, cy) {
+    for (const n of row.children) {
+      let w;
+      if (n.matches('.state, .al')) {
+        const ls = n.matches('.al') ? [n] : [...n.children];
+        ls.forEach(l => { const c = l.querySelector('circle'), t = l.querySelector('text'); c.setAttribute('cx', x + 7); c.setAttribute('cy', cy); t.setAttribute('x', x + 22); t.setAttribute('y', cy + 8); });
+        w = 22 + Math.max(...ls.map(l => l.querySelector('text').getBBox().width)) + 4;
+      } else if (n.matches('.pill')) {
+        n.querySelector('rect').setAttribute('y', cy - 15); n.querySelector('text').setAttribute('y', cy + 8);
+        const c = n.querySelector('circle'); if (c) c.setAttribute('cy', cy);
+        w = placePill(n, x);
+      } else if (n.matches('.res')) {
+        x += 18;
+        const r = n.querySelector('rect'), t = n.querySelector('text');
+        t.setAttribute('x', x + 14); t.setAttribute('y', cy + 8);
+        w = t.getBBox().width + 28;
+        r.setAttribute('x', x); r.setAttribute('y', cy - 16); r.setAttribute('width', w);
+      } else { n.setAttribute('x', x); n.setAttribute('y', cy + 8); w = width(n); }
+      x += w + 14;
+    }
+  }
+  function layout() {
+    const w = $('plate-t').getBBox().width, os = 92 + w + 22 + 34;
+    $('plate-li').setAttribute('x', 92 + w + 22); $('plate-os').setAttribute('x', os);
+    $('plate-bx').setAttribute('width', os + width($('plate-os')) + 18 - 40);
+    placePill($('p-new'), 540 + width($('fresh-t')) + 14);
+    let r1x = 784;
+    srv.querySelectorAll('.pill[data-right]').forEach(g => { const w = g.querySelector('text').getBBox().width + 28; placePill(g, +g.dataset.right - w, w); if (g.matches('.p-uu0')) r1x = 784 - w - 14; });
+    $('r1').setAttribute('x', r1x);
+    srv.querySelectorAll('.pill[data-mid]').forEach(g => { const w = g.querySelector('text').getBBox().width + 28; placePill(g, +g.dataset.mid - w / 2, w); });
+    // 결과 줄: 알약 뒤에 글을 오른쪽 끝(data-end)에 맞춘다(글이 비면 알약만으로 맞춘다)
+    srv.querySelectorAll('[data-end]').forEach(g => {
+      const p = g.querySelector('.pill'), t = g.querySelector('.rv'), pw = p.querySelector('text').getBBox().width + 28;
+      const w = pw + (t.textContent ? width(t) + 12 : 0), x = +g.dataset.end - w;
+      placePill(p, x, pw); t.setAttribute('x', x + pw + 12);
+    });
+    flow($('row-det'), 104, 592); flow($('row-act'), 104, 624); flow($('row-chk'), 104, 656); flow($('gap'), 1272, 656);
+  }
+  fillResults(); fillConsole(0); layout();
+  // 한글 글꼴은 글자 범위별 조각이라 그 글자를 처음 그릴 때 받는다. 창이 숨은 채 열리면 조각이 늦게 와서
+  // 처음 잰 폭이 틀리므로, 이 장에서 재는 글자들을 미리 받아 둔 뒤 다시 맞춘다
+  if (document.fonts) {
+    const SAMPLE = '주 DB Rocky Linux 새 디스크 경보 없음 해제 발생 장애 네트워크 링크 하나 끊김 여유 공간 부족 미만 까지 재동기화 무중단 절체 간격 자동 중단 ping 손실 개 분 초 GiB → [UU] degraded 0123456789';
+    Promise.all(["600 24px 'IBM Plex Sans KR'", "400 22px 'IBM Plex Sans KR'", "600 22px 'IBM Plex Sans KR'", "400 22px 'IBM Plex Mono'", "500 22px 'IBM Plex Mono'"]
+      .map(f => document.fonts.load(f, SAMPLE))).then(layout, () => {});
+    document.fonts.ready.then(layout);
+    document.fonts.addEventListener('loadingdone', layout);
+  }
+  // 숨은 탭에서 열리면 글꼴을 받아도 tspan 폭이 빠진 채로 재어진다(브라우저에서 확인). 화면에 처음 그려지는 때 다시 맞춘다
+  requestAnimationFrame(() => requestAnimationFrame(layout));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) layout(); });
+
+  // ---- 막대: XFS·LVM 막대의 너비(용량)와 사용량 칠. 사용량은 데이터 크기라 막대가 늘어도 길이가 그대로이고, 비율만 줄어든다.
+  //      그림은 md1을 md0과 같은 크기로 보아 두 배로 늘린다(실제 크기는 확인 줄의 측정값) ----
+  const BAR = { x: 40, short: 760, long: 1580, used: .60, full: .92, alarm: .85 };
+  const geo = { vg: 0, lv: 0, use: 0 };
+  function setBars(g) {
+    Object.assign(geo, g);
+    $('vg-b').setAttribute('width', geo.vg);
+    $('lv-b').setAttribute('width', geo.lv); $('lv-c').setAttribute('width', geo.lv);
+    $('use').setAttribute('width', geo.use); $('use-l').setAttribute('width', geo.use);
+    const tx = BAR.x + BAR.alarm * geo.lv;
+    $('tick').setAttribute('x1', tx); $('tick').setAttribute('x2', tx); $('tickl').setAttribute('x', tx - 10);
+  }
+
+  // ---- 시간표 도구: 예약(later), 값 옮기기(tween), 흐르는 점(run). 단계를 바꾸면 모두 멈춘다 ----
+  let timers = [], rafs = new Set();
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const tween = (ms, fn) => {
+    const b = performance.now();
+    const f = now => { const k = Math.min(1, (now - b) / ms); fn(ease(k)); if (k < 1) { const id = requestAnimationFrame(f); rafs.add(id); } };
+    rafs.add(requestAnimationFrame(f));
+  };
+  const lerp = (a, b, k) => a + (b - a) * k;
+  // 점 [x, y, 감춤]: 감춤이 붙은 점부터 다음 점까지는 장비 속이라 점을 감추고 짧게(40) 지나간다.
+  // 길이를 초당 약 450px로 그리되 0.8초보다 짧게 끝내지 않는다
+  const UP = [[945, 48], [945, 100, 1], [945, 148], [945, 176, 1], [860, 201], [570, 201]];   // 스위치 → 위 링크 → bond0 → PostgreSQL
+  function run(pts) {
+    const segs = []; let total = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], L = a[2] ? 40 : Math.hypot(b[0] - a[0], b[1] - a[1]);
+      segs.push({ a, b, L, s: total, hide: !!a[2] }); total += L;
+    }
+    const dot = el('circle', { class: 'dot', r: 11, cx: pts[0][0], cy: pts[0][1] }, $('dots'));
+    tween(Math.max(800, total / 450 * 1000), e => {
+      const d = e * total, g = segs.find(q => d <= q.s + q.L) || segs[segs.length - 1], f = g.L ? Math.min(1, (d - g.s) / g.L) : 1;
+      dot.setAttribute('cx', lerp(g.a[0], g.b[0], f)); dot.setAttribute('cy', lerp(g.a[1], g.b[1], f));
+      dot.style.opacity = g.hide ? 0 : 1;
+      if (e >= 1) dot.remove();
+    });
+  }
+
+  // ---- 단계. end 는 그 단계의 끝 모습을 바로 놓고, play 는 한 번에 한 곳씩 움직인다.
+  //      → 를 누르면 도면은 바로 움직이고, 콘솔은 앞 단계의 조치·확인 줄과 검사 띠를 0.3초(F)에 지운 뒤 이 단계의 줄로 바꾼다.
+  //      검사 띠는 그 단계 동안 한 칸씩 이어진다. 시각은 모두 → 를 누른 때부터 잰다 ----
+  const F = 300;
+  const on = (...c) => srv.classList.add(...c);
+  const consoleEnd = k => { fillConsole(k); layout(); on('k1', 'k2', 'k3'); srv.classList.toggle('kr', CONSOLE()[k].det.clear); setTicks(TICKS, CONSOLE()[k].gap); };
+  const TK0 = 700;
+  const runTicks = (k, until) => { for (let i = 0; i < TICKS; i++) later(TK0 + (until - TK0) * i / (TICKS - 1), () => setTicks(i + 1, CONSOLE()[k].gap)); };
+  const STEPS = [
+    {
+      // 열린 모습: 디스크 둘이 [UU], 사용량 60%, 위 링크가 쓰는 선, 콘솔은 경보 없음과 이어지는 쓰기 검사
+      end: () => { srv.setAttribute('class', 'srv'); setBars({ vg: BAR.short, lv: BAR.short, use: BAR.used * BAR.short }); fillConsole(0); layout(); setTicks(TICKS); },
+    },
+    {
+      // ① 약 3.65초: 디스크 2에 ✕·md0 degraded(0~0.3) → 감지: 같은 점이 빨강으로, 경보 발생(0.4~0.7)
+      //    → 옛 디스크가 빠지고 새 디스크(0.8~1.5) → 조치: mdadm --add(1.5~1.8) → 재동기화 길(1.8~2.7)
+      //    → md0 [UU]와 걸린 시간(2.9~3.2) → 확인: mdadm --detail 의 State 줄, 경보 해제(3.35~3.65)
+      end: () => { on('d2x', 'swap', 'uu'); consoleEnd(1); },
+      play: () => {
+        on('d2x');
+        later(400, () => on('k1'));
+        later(800, () => on('swap'));
+        later(1500, () => on('k2'));
+        later(1800, () => on('sync-on'));
+        later(2900, () => on('uu'));
+        later(3350, () => on('k3', 'kr'));
+        runTicks(1, 3350);
+      },
+    },
+    {
+      // ② 약 3.9초: 사용량이 경보 기준을 넘고(0~0.7) → 감지: 디스크 여유 공간 부족 경보(0.75~1.05) → 빈 슬롯에 md1(1.1~1.65)
+      //    → 조치: vgextend·lvextend -r(1.65~1.95) → 볼륨 그룹(2.0~2.6), 논리 볼륨과 XFS(2.6~3.2)가 늘고
+      //    → 초록으로, '무중단'과 늘린 크기(3.2~3.5) → 확인: 결과 한 줄, 경보 해제(3.6~3.9)
+      end: () => { on('md1', 'ok2'); setBars({ vg: BAR.long, lv: BAR.long, use: BAR.full * BAR.short }); consoleEnd(2); },
+      play: () => {
+        const u0 = geo.use, u1 = BAR.full * BAR.short;
+        tween(700, k => setBars({ use: lerp(u0, u1, k) }));
+        later(470, () => on('hot'));   // 사용량 칠이 경보 기준선을 지나는 때
+        later(750, () => on('k1'));
+        later(1100, () => on('md1'));
+        later(1650, () => on('k2'));
+        later(2000, () => tween(600, k => setBars({ vg: lerp(BAR.short, BAR.long, k) })));
+        later(2600, () => tween(600, k => setBars({ lv: lerp(BAR.short, BAR.long, k) })));
+        later(3200, () => { srv.classList.remove('hot'); on('ok2'); });
+        later(3600, () => on('k3', 'kr'));
+        runTicks(2, 3600);
+      },
+    },
+    {
+      // ③ 약 3.3초: 위 링크로 흐르던 점(0~1.07) → 위 링크에 ✕(1.1~1.4) → bonding 이 대기 링크로 바로 넘김(1.5~1.8)
+      //    → '절체'(1.8~2.1) → 조치(자동): 커널 기록 한 줄(2.2~2.5) → 감지: 경보 발생(2.6~2.9) → 확인: 활성 NIC(3.0~3.3).
+      //    커널은 miimon 100ms 로 먼저 넘기고 경보는 수집·평가 뒤에 뜬다. 끊긴 선은 바꿀 때까지 경보가 발생 상태로 남는다
+      end: () => { on('cut', 'bk', 'ok3'); consoleEnd(3); },
+      play: () => {
+        run(UP);
+        later(1100, () => on('cut'));
+        later(1500, () => on('bk'));
+        later(1800, () => on('ok3'));
+        later(2200, () => on('k2'));
+        later(2600, () => on('k1'));
+        later(3000, () => on('k3'));
+        runTicks(3, 3000);
+      },
+    },
+  ];
+  const LAST = STEPS.length - 1;
+
+  let step = 0;
+  // 앞 단계들의 끝 모습을 움직임 없이 놓은 뒤, 이 단계를 움직이거나(→) 끝 모습으로 바로 놓는다(←, #last, 움직임 줄이기)
+  function render(n, inst) {
+    timers.forEach(clearTimeout); timers = [];
+    rafs.forEach(cancelAnimationFrame); rafs.clear();
+    $('dots').replaceChildren();
+    step = n; stage.dataset.step = n;
+    fillResults();
+    stage.classList.add('inst');
+    for (let k = 0; k < n; k++) STEPS[k].end();
+    if (n === 0 || inst) STEPS[n].end();
+    void srv.getBoundingClientRect();
+    if (inst) { requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('inst'))); return; }
+    stage.classList.remove('inst');
+    if (n === 0) return;
+    // 앞 단계의 조치·확인 줄과 검사 띠를 지우고 감지 줄은 '경보 없음'으로 돌린 뒤, 다 바뀌면 이 단계의 줄로 바꿔 둔다(아직 보이지 않음)
+    srv.classList.remove('k1', 'k2', 'k3', 'kr');
+    setTicks(0);
+    later(F, () => { stage.classList.add('inst'); fillConsole(n); layout(); void srv.getBoundingClientRect(); stage.classList.remove('inst'); });
+    STEPS[n].play();
+  }
+
+  // ---- 증거 화면 창(E 키 도구): 맨 위 EVIDENCE 가운데 실제로 있는 파일만 차례로 보인다. 하나도 없으면 단추를 숨긴 채 둔다.
+  //      없는 파일을 찾으면 브라우저가 콘솔에 404를 남기므로, 발표자가 도구를 켤 때 한 번만 찾는다 ----
+  const fig = $('fig'), img = $('fig-img'), pre = $('fig-pre'), openBtn = $('open-fig');
+  const SHOTS = [];
+  let at = 0, probed = false;
+  const exists = s => /\.txt$/i.test(s.src)
+    ? fetch(s.src).then(r => (r.ok ? r.text() : null)).then(t => { if (t != null) s.text = t; return t != null; }, () => false)
+    : new Promise(ok => { const i = new Image(); i.onload = () => ok(true); i.onerror = () => ok(false); i.src = s.src; });
+  const probe = () => {
+    if (probed || !document.body.classList.contains('tools')) return;
+    probed = true;
+    Promise.all(EVIDENCE.map(s => exists(s).then(y => y && s))).then(list => {
+      SHOTS.push(...list.filter(Boolean));
+      if (SHOTS.length) openBtn.hidden = false;
+    });
+  };
+  probe();
+  new MutationObserver(probe).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  const showShot = n => {
+    at = Math.max(0, Math.min(SHOTS.length - 1, n));
+    const s = SHOTS[at];
+    if (s.text != null) { img.hidden = true; img.removeAttribute('src'); pre.hidden = false; pre.textContent = s.text.trim(); }
+    else { pre.hidden = true; img.hidden = false; img.src = s.src; img.alt = s.cap; }
+    $('fig-cap').textContent = s.cap;
+    $('fig-cnt').textContent = `${at + 1} / ${SHOTS.length}`;
+    $('fig-prev').disabled = at === 0;
+    $('fig-next').disabled = at === SHOTS.length - 1;
+  };
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  // 도구가 꺼져 있으면 숨은 단추를 눌러도 열지 않는다
+  openBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!document.body.classList.contains('tools') || !SHOTS.length) return;
+    showShot(0);
+    try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); }
+    try { fig.focus(); } catch (err) {}
+  });
+  $('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  $('fig-prev').addEventListener('click', e => { e.stopPropagation(); showShot(at - 1); });
+  $('fig-next').addEventListener('click', e => { e.stopPropagation(); showShot(at + 1); });
+  // 닫을 때 숨은 단추에서 초점을 빼 스페이스·엔터로 다시 열리지 않게 한다
+  fig.addEventListener('close', () => openBtn.blur());
+  // 창이 열려 있는 동안은 ← → 를 덱보다 먼저 받아 그림을 넘긴다(덱은 장을 다 읽은 뒤에 같은 자리에 키를 건다)
+  addEventListener('keydown', e => {
+    if (!fig.open) return;
+    const d = { ArrowRight: 1, PageDown: 1, ' ': 1, ArrowLeft: -1, PageUp: -1 }[e.key];
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? SHOTS.length - 1 : d ? at + d : null;
+    if (to === null) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    showShot(to);
+  }, true);
+
+  // ---- 시작: 움직임을 줄인 환경과 #last 는 ③의 끝 모습. 그 밖에는 열린 모습에서 쌓인다 ----
+  if (reduce) {
+    stage.classList.add('done');
+    render(LAST, true);
+    window.deckStep = () => { if (fig.open) { closeFig(); return true; } return false; };
+    return;
+  }
+  if (location.hash === '#last') { stage.classList.add('done'); render(LAST, true); }
+  else render(0, false);
+  // 앞으로는 다음 단계를 움직여 보이고, 뒤로는 앞 단계의 끝 모습을 바로 보인다. 마지막 뒤 → 는 다음 장
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (d > 0 && step < LAST) { render(step + 1, false); return true; }
+    if (d < 0 && step > 0) { render(step - 1, true); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (fig.open) return;
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>

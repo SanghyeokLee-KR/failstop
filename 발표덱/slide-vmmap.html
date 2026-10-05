@@ -1,0 +1,325 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-3 VM 구성도</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --card: #46536A;
+    --edge: #8E9BB3;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --ok: #2DD196;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s cubic-bezier(.45,0,.25,1) both; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s cubic-bezier(.45,0,.25,1) both; }
+  .title .env { animation: fade .6s .25s cubic-bezier(.45,0,.25,1) both; }
+  .tag { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+
+  /* 도면: 처음 설계한 경계형. 작업 PC 한 대(VirtualBox) 테두리 안의 VM 일곱 대를 바깥에서 안쪽으로, 위에서 아래로 그린다.
+     맨 위 외부 인터넷 → VirtualBox NAT → 경계 라우터 pfsense-fw → lab-lan 한 망의 서버 여섯 대(세 칸 두 줄).
+     왼쪽은 VirtualBox 가상 네트워크 세 종류의 뜻과 서버 방화벽, 오른쪽은 host-only 관리망(작업 PC와 라우터의 관리 주소). 두 카드는 좌우 끝 20px에서 거울처럼 놓는다.
+     색은 회색 한 계열이고, 라우터가 맡는 두 가지(작업 PC → EDGE01 포트포워딩, 서버 게이트웨이·DNS·NTP)만 주황으로 가운데 축 양옆에 둔다.
+     좌표는 viewBox 1660×704(머리말 줄과 같은 좌우 끝 130 ~ 1790, 아래 여백 80) */
+  .map { position: absolute; left: 130px; top: 296px; width: 1660px; height: 704px; overflow: visible; }
+  .map text { font-family: var(--sans); }
+  .map .host { fill: rgba(255,255,255,.018); stroke: #6B7A93; stroke-width: 2; }
+  .map .hh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .htag { fill: var(--stage); stroke: #6B7A93; stroke-width: 2; }
+  .map .zone { fill: color-mix(in srgb, var(--c) 5%, var(--stage)); stroke: color-mix(in srgb, var(--c) 40%, transparent); stroke-width: 2; }
+  /* 서버 여섯 대가 놓인 lab-lan 은 옆 카드(관리망)보다 약하지 않게: 테두리는 작업 PC 테두리와 같은 값, 망 이름은 흰색 */
+  .map .c-lan .zone { stroke: #6B7A93; }
+  .map .c-lan .vl { fill: var(--ink); }
+  .map .zh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .vl { font-family: var(--mono); font-weight: 600; fill: var(--c); }
+  .map .ip { font-family: var(--mono); font-size: 22px; font-weight: 400; fill: var(--ink-3); }
+  .map .net { font-family: var(--mono); font-size: 22px; fill: var(--ink-3); }
+  .map .if { font-family: var(--mono); font-size: 22px; fill: var(--ink-3); }
+  .map .lbl { font-size: 22px; fill: var(--ink-2); }
+  .map .link { fill: none; stroke: var(--edge); stroke-width: 3; }
+  .map .tile .bx { fill: #1E2638; stroke: #7D8BA5; stroke-width: 2; }
+  .map .gate .bx { stroke: var(--ink); stroke-width: 2.4; }
+  /* 이름 위계: 방화벽 28 > 서버 26 > 주소·역할 22 */
+  .map .fn { font-size: 28px; font-weight: 600; fill: var(--ink); }
+  .map .sn { font-size: 26px; font-weight: 600; fill: var(--ink); }
+  .map .nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .mrow { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .map .ht { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .map .role { font-family: var(--sans); font-size: 22px; font-weight: 400; fill: var(--ink-3); }
+  .map .addr { font-family: var(--mono); font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  /* 사양은 이름·IP보다 한 단계 흐리게 */
+  .map .spec { font-size: 22px; fill: #A8B3C2; }
+  .map .svc { font-size: 22px; fill: var(--ink-2); }
+  /* 라우터가 맡는 두 가지(포트포워딩 길, 서버 게이트웨이)를 주황으로. 이름표 둘은 같은 굵기 */
+  .map .pf { fill: none; stroke: #E8C07A; stroke-width: 3; stroke-dasharray: 9 7; }
+  .map .pfl { font-size: 22px; font-weight: 600; fill: #E8C07A; }
+  .map .pill rect { fill: #242C3D; stroke: var(--ink-2); stroke-width: 2; }
+  .map .pill text { font-size: 22px; fill: var(--ink); text-anchor: middle; }
+  .map .chip rect { fill: rgba(255,255,255,.03); stroke: #5A6883; stroke-width: 1.6; }
+  .map .chip text { font-size: 22px; fill: var(--ink-2); }
+  .map .key rect.kb { fill: rgba(255,255,255,.02); stroke: #3A4659; stroke-width: 1.6; }
+  .map .kh { font-size: 22px; font-weight: 600; fill: var(--ink-2); }
+  .map .kt { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .map .kd { font-size: 22px; fill: var(--ink-3); }
+  .map .kl { stroke: var(--line); stroke-width: 1.4; }
+  .c-lan { --c: #8A96AB; } .c-pub { --c: #8A96AB; } .c-dmz { --c: #F08A8A; } .c-trd { --c: #F2A65A; } .c-db { --c: #79A7FA; } .c-bak { --c: #4CC9B0; } .c-mgmt { --c: #A3AEBC; }
+
+  /* 등장: 장이 열리면 바깥(위)에서 안쪽(아래)으로 2초 안팎에 한 번 쌓이고 멈춘다. 단계는 없다.
+     하나는 0.6초, 다음 것은 0.2초 뒤에 떠올라 순서가 보인다 */
+  .map .bd { animation: rise .6s cubic-bezier(.45,0,.25,1) both; }
+  /* 바깥 → 안쪽 사슬(인터넷, 작업 PC, 경계 라우터, lab-lan, 서버 두 줄)이 놓이면 양옆 설명이 붙고(출발지인 관리망의 '웹 진입 443'이 먼저 보인다),
+     마지막에 라우터가 맡는 두 가지(포트포워딩 길, 서버 게이트웨이)만 가운데 축 양옆에서 함께 나타난다. 끝은 2.1초 */
+  .map .b1 { animation-delay: .1s; } .map .b2 { animation-delay: .3s; } .map .b3 { animation-delay: .5s; }
+  .map .b4 { animation-delay: .7s; } .map .b5 { animation-delay: .9s; } .map .b6 { animation-delay: 1.1s; }
+  .map .b10 { animation-delay: 1.3s; } .map .b7 { animation-delay: 1.5s; }
+  /* 주황 둘은 떠오르지 않고 제자리에서 나타난다(점선 끝이 EDGE01 테두리 위를 미끄러지지 않게) */
+  .map .b7 { animation-name: fade; }
+  /* 뒤로 돌아와 #last 로 열리면 움직이지 않고 끝 모습 */
+  .stage.done *, .stage.done *::before, .stage.done *::after { animation: none !important; }
+
+  /* 최종 구성도(질문 대비): 교수님 보고본의 VM 운영환경 구성도 원본. E 키 도구를 켤 때만 단추가 보인다 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); outline: none; }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .35s cubic-bezier(.45,0,.25,1); }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fig .bar .cnt { margin-left: auto; font-family: var(--mono); white-space: nowrap; }
+  .fig .bar button { flex: none; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .bar button:disabled { opacity: .35; cursor: default; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 92px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .fig.zoom .view { place-items: start; }
+  .fig.zoom img { max-width: none; max-height: none; width: 3000px; cursor: zoom-out; }
+  .fig .bar #close-fig { margin-left: auto; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-3</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>VM 구성도</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">최종 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
+  </div>
+  <p class="dek">pfSense 라우터 뒤 한 대역에 서버 여섯 대를 두고 시작했습니다.</p>
+
+  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="처음 설계한 경계형 VM 실습망. 작업 PC 한 대의 VirtualBox에 VM 일곱 대(합계 12 vCPU·17.5 GiB), 서버 OS는 Rocky Linux 10.2. 외부 인터넷은 VirtualBox NAT로 경계 라우터 pfsense-fw에 이어진다. pfsense-fw는 LAN 192.168.10.1로 서버의 게이트웨이·DNS·NTP를 맡고, 작업 PC에서 오는 HTTPS 443을 포트포워딩으로 EDGE01에 넘긴다. 서버 여섯 대는 내부 네트워크 lab-lan 192.168.10.0/24 한 망에 있다: 웹 진입 EDGE01 192.168.10.11, APP01 192.168.10.21, APP02 192.168.10.22, 주 DB DB01 192.168.10.31, 예비 DB DB02 192.168.10.32, 관제·DB 백업 OPS01 192.168.10.41(Prometheus·Grafana·Alertmanager, Databasus). 모든 서버는 nftables 기본 차단. 오른쪽 host-only 관리망 192.168.56.0/24에는 pfsense-fw 관리 화면 192.168.56.10과 호스트 어댑터 192.168.56.1이 있다.">
+
+    <!-- 1. 바깥: 외부 인터넷 -->
+    <g class="bd b1">
+      <image href="assets/tint/ui-cloud-side.svg" x="802" y="0" width="56" height="56"/>
+      <text class="lbl" x="868" y="36">외부 인터넷</text>
+    </g>
+
+    <!-- 2. 작업 PC 한 대(VirtualBox) 테두리. 왼쪽 이름표에 서버 OS, 오른쪽 이름표에 VM 수와 자원 합계. 외부로는 VirtualBox NAT 한 줄만 나간다 -->
+    <g class="bd b2">
+      <rect class="host" x="0" y="66" width="1660" height="638" rx="22"/>
+      <rect class="htag" x="12" y="49" width="522" height="34" rx="8"/>
+      <image href="assets/tint/ui-device-desktop-glow.svg" x="26" y="52" width="28" height="28"/>
+      <text class="hh" x="64" y="75">작업 PC<tspan class="ht" dx="14">VirtualBox, 서버 OS Rocky Linux 10.2</tspan></text>
+      <rect class="htag" x="1314" y="49" width="334" height="34" rx="8"/>
+      <text class="ht" x="1330" y="75">VM 7대, 합계 12 vCPU·17.5 GiB</text>
+      <path class="link" d="M830 56 V150"/>
+      <text class="net" x="846" y="116">VirtualBox NAT</text>
+    </g>
+
+    <!-- 3. 경계 라우터 pfsense-fw: 밖은 NAT, 안쪽은 LAN 192.168.10.1. 서버 앞의 유일한 길 -->
+    <g class="bd b3">
+      <g class="tile gate">
+        <rect class="bx" x="550" y="150" width="560" height="88" rx="12"/>
+        <image href="assets/tint/pfsense-glow.svg" x="566" y="165" width="30" height="30"/>
+        <text class="fn" x="608" y="188">pfsense-fw<tspan class="role" dx="14">경계 라우터·NAT</tspan></text>
+        <text class="spec" x="1094" y="188" text-anchor="end">1 vCPU·2 GiB</text>
+        <text class="addr" x="608" y="222"><tspan class="role">LAN</tspan><tspan dx="10">192.168.10.1</tspan></text>
+      </g>
+      <path class="link" d="M830 238 V364"/>
+    </g>
+
+    <!-- 4. 서버 여섯 대가 놓인 lab-lan 한 망. 세 칸 두 줄, 머리글·줄 사이 24, 아래 여백 18 -->
+    <g class="bd b4 c-lan">
+      <rect class="zone" x="20" y="364" width="1620" height="320" rx="16"/>
+      <text class="zh" x="38" y="400"><tspan class="vl">lab-lan</tspan><tspan class="ip" dx="14">192.168.10.0/24</tspan></text>
+    </g>
+    <g class="bd b5">
+      <g class="tile">
+        <rect class="bx" x="36" y="424" width="508" height="94" rx="10"/>
+        <image href="assets/tint/nginx-glow.svg" x="52" y="439" width="28" height="28"/>
+        <text class="sn" x="90" y="462">EDGE01<tspan class="role" dx="12">웹 진입</tspan></text>
+        <text class="addr" x="52" y="500">192.168.10.11</text>
+        <text class="spec" x="528" y="500" text-anchor="end">1 vCPU·1.5 GiB</text>
+      </g>
+      <g class="tile">
+        <rect class="bx" x="576" y="424" width="508" height="94" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="592" y="439" width="28" height="28"/>
+        <text class="sn" x="630" y="462">APP01<tspan class="role" dx="12">앱</tspan></text>
+        <text class="addr" x="592" y="500">192.168.10.21</text>
+        <text class="spec" x="1068" y="500" text-anchor="end">2 vCPU·2 GiB</text>
+      </g>
+      <g class="tile">
+        <rect class="bx" x="1116" y="424" width="508" height="94" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="1132" y="439" width="28" height="28"/>
+        <text class="sn" x="1170" y="462">DB01<tspan class="role" dx="12">주 DB</tspan></text>
+        <text class="addr" x="1132" y="500">192.168.10.31</text>
+        <text class="spec" x="1608" y="500" text-anchor="end">2 vCPU·2 GiB</text>
+      </g>
+    </g>
+    <g class="bd b6">
+      <g class="tile">
+        <rect class="bx" x="36" y="542" width="508" height="124" rx="10"/>
+        <image href="assets/tint/ui-activity-glow.svg" x="52" y="557" width="28" height="28"/>
+        <text class="sn" x="90" y="580">OPS01<tspan class="role" dx="12">관제·DB 백업</tspan></text>
+        <text class="addr" x="52" y="618">192.168.10.41</text>
+        <text class="spec" x="528" y="618" text-anchor="end">2 vCPU·6 GiB</text>
+        <text class="svc" x="52" y="648">Prometheus·Grafana·Alertmanager, Databasus</text>
+      </g>
+      <g class="tile">
+        <rect class="bx" x="576" y="542" width="508" height="124" rx="10"/>
+        <image href="assets/tint/ui-server-glow.svg" x="592" y="557" width="28" height="28"/>
+        <text class="sn" x="630" y="580">APP02<tspan class="role" dx="12">앱</tspan></text>
+        <text class="addr" x="592" y="618">192.168.10.22</text>
+        <text class="spec" x="1068" y="618" text-anchor="end">2 vCPU·2 GiB</text>
+      </g>
+      <g class="tile">
+        <rect class="bx" x="1116" y="542" width="508" height="124" rx="10"/>
+        <image href="assets/tint/ui-database-glow.svg" x="1132" y="557" width="28" height="28"/>
+        <text class="sn" x="1170" y="580">DB02<tspan class="role" dx="12">예비 DB</tspan></text>
+        <text class="addr" x="1132" y="618">192.168.10.32</text>
+        <text class="spec" x="1608" y="618" text-anchor="end">2 vCPU·2 GiB</text>
+      </g>
+    </g>
+
+    <!-- 5. 양옆(서버가 다 쌓인 뒤): 왼쪽은 VirtualBox 가상 네트워크 세 종류와 서버 방화벽, 오른쪽은 host-only 관리망.
+         두 카드는 y 100~340, 좌우 끝 20에서 거울처럼. 관리망의 '웹 진입 443'은 포트포워딩 길의 출발지라 주황 -->
+    <g class="bd b10">
+      <g class="key">
+        <rect class="kb" x="20" y="100" width="470" height="240" rx="14"/>
+        <text class="kt" x="42" y="146">NAT</text><text class="kd" x="196" y="146">pfsense-fw 바깥 연결</text>
+        <text class="kt" x="42" y="190">host-only</text><text class="kd" x="196" y="190">관리망</text>
+        <text class="kt" x="42" y="234">내부 네트워크</text><text class="kd" x="196" y="234">lab-lan 한 망 ≈ 포트 그룹</text>
+        <path class="kl" d="M42 262 H470"/>
+        <g class="pill"><rect x="42" y="278" width="108" height="36" rx="18"/><text x="96" y="304">nftables</text></g>
+        <text class="kd" x="166" y="304">모든 서버 기본 차단</text>
+      </g>
+      <g class="c-mgmt">
+        <rect class="zone" x="1170" y="100" width="470" height="240" rx="16"/>
+        <text class="zh" x="1190" y="140">관리망<tspan class="ip" dx="14">192.168.56.0/24</tspan></text>
+        <text class="net" x="1622" y="140" text-anchor="end">host-only</text>
+      </g>
+      <path class="link" d="M1110 194 H1194 V280 H1212"/>
+      <text class="mrow" x="1212" y="196">pfsense-fw<tspan class="addr" dx="14">192.168.56.10</tspan></text>
+      <text class="role" x="1212" y="230">관리 화면 8443, <tspan class="pfl">웹 진입 443</tspan></text>
+      <g class="tile">
+        <rect class="bx" x="1212" y="252" width="410" height="56" rx="10"/>
+        <image href="assets/tint/ui-device-desktop-glow.svg" x="1226" y="266" width="28" height="28"/>
+        <text class="mrow" x="1264" y="288">호스트 어댑터<tspan class="addr" dx="14">192.168.56.1</tspan></text>
+      </g>
+    </g>
+
+    <!-- 6. 마지막: 라우터가 맡는 두 가지를 가운데 축(LAN 선 x=830) 양옆에 거울처럼.
+         왼쪽은 작업 PC에서 오는 HTTPS 443을 EDGE01로 넘기는 포트포워딩 길(주황 점선), 오른쪽은 서버의 게이트웨이·DNS·NTP -->
+    <g class="bd b7">
+      <path class="pf" d="M740 238 V386 H440 V424"/>
+      <text class="pfl" x="724" y="293" text-anchor="end">포트포워딩 443</text>
+      <text class="pfl" x="724" y="323" text-anchor="end">작업 PC → EDGE01</text>
+      <text class="pfl" x="846" y="293">서버 게이트웨이·DNS·NTP</text>
+      <text class="pfl" x="846" y="323">→ 192.168.10.1</text>
+    </g>
+  </svg>
+
+  <dialog class="fig" id="fig" tabindex="-1" aria-label="Linux VM 운영환경 구성도">
+    <div class="bar"><b>Linux VM 운영환경 구성도</b><span class="cap" id="fig-hint">교수님 보고본 06_VM_운영환경 v2, 그림을 누르면 확대</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" alt="Linux VM 운영환경 구성도 원본: 실습 PC 하이퍼바이저 안의 pfSense 경계 방화벽, 웹 진입 서버, 거래 앱 서버 두 대, 주 DB와 예비 DB, 관제 서버와 Teams 보고"></div>
+  </dialog>
+</div>
+
+<!-- 발표 노트(30초): 설계한 망을 실제로 옮겨 본 것이 VM 실습망입니다.
+작업 PC의 VirtualBox에 pfSense 라우터 한 대와 Rocky Linux 서버 여섯 대, 모두 VM 일곱 대를 올렸습니다.
+설계는 역할마다 VLAN을 나눴지만, VM에서는 먼저 pfSense 라우터 뒤 한 대역에 서버 여섯 대를 두는 경계형으로 시작했습니다.
+모든 서버는 nftables로 기본 차단하고, 관리는 따로 둔 관리망으로만 들어가게 했습니다.
+질문 때: VirtualBox에 pfSense 한 대와 Rocky Linux 서버 여섯 대, 서버는 lab-lan 한 망. 바깥은 pfsense-fw가 NAT로 잇고, 작업 PC의 443을 EDGE01로 포트포워딩. 라우터 주소는 192.168.10.1. 모든 서버는 nftables로 기본 차단하고, 관리는 host-only 관리망으로만 한다. VMware라면 내부 네트워크는 포트 그룹, host-only 관리망은 관리용 포트 그룹에 해당한다. -->
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const $ = id => document.getElementById(id);
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  $('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 뒤로 돌아와 #last 로 열리면 쌓이는 움직임 없이 끝 모습을 바로 보인다
+  if (location.hash === '#last') stage.classList.add('done');
+
+  // ---- 최종 구성도 창(E 키 도구): 교수님 보고본의 Linux VM 운영환경 구성도 v2를 띄운다. 그림을 누르면 확대 ----
+  // 그림이 커서(4000px) 처음 열 때만 읽는다. 도구가 꺼져 있으면 숨은 단추를 눌러도 열지 않는다
+  const fig = $('fig'), img = $('fig-img'), hint = $('fig-hint'), openBtn = $('open-fig');
+  const HINT = '교수님 보고본 06_VM_운영환경 v2, 그림을 누르면 ';
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  openBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!document.body.classList.contains('tools')) return;
+    if (!img.getAttribute('src')) img.src = 'assets/img/vm-v2.png';
+    try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); }
+    try { fig.focus(); } catch (err) {}
+  });
+  $('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  img.addEventListener('click', e => { e.stopPropagation(); hint.textContent = HINT + (fig.classList.toggle('zoom') ? '축소' : '확대'); });
+  // 닫을 때 확대를 풀고, 숨은 단추에서 초점을 빼 스페이스·엔터로 다시 열리지 않게 한다
+  fig.addEventListener('close', () => { fig.classList.remove('zoom'); hint.textContent = HINT + '확대'; openBtn.blur(); });
+
+  // ---- 단계: 없다(열리면 약 2.1초에 걸쳐 한 번 쌓이고 멈춘다). 원본 창이 열려 있으면 닫기만 하고, 아니면 덱이 다음 장이나 앞 장으로 간다 ----
+  window.deckStep = () => { if (fig.open) { closeFig(); return true; } return false; };
+})();
+</script>

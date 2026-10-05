@@ -248,7 +248,7 @@
   <button class="tag-btn orig" id="open-fig" type="button" aria-haspopup="dialog">최종 구성도<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
 
   <h1>설계 방향</h1>
-  <p class="dek">기획 시나리오의 두 장면에 답하도록, 30만 원 · 1명 · 한 달 안에서 설계했습니다.</p>
+  <p class="dek">월 30만 원으로 혼자 한 달 안에 두 장면에 답하도록 설계했습니다.</p>
 
   <div class="qs">
     <section class="q" id="q1">
@@ -410,7 +410,7 @@
       <image href="assets/tint/ui-message-glow.svg" x="1260" y="429" width="32" height="32"/>
       <text class="lb" x="1304" y="452">Teams</text>
       <rect class="zone" x="1215" y="615" width="400" height="195" rx="18"/>
-      <text class="sb" x="1239" y="649">온프레미스 · 직접 둔 서버</text>
+      <text class="sb" x="1239" y="649">온프레미스, 직접 둔 서버</text>
       <path class="wire ask" d="M1100 712 H1240"/>
       <rect class="box ai" id="i-box" x="1240" y="672" width="260" height="68" rx="10"/>
       <image href="assets/tint/ollama-ai.svg" x="1260" y="688" width="36" height="36"/>
@@ -418,7 +418,7 @@
     </g>
     <g class="grp g5">
       <rect class="zone" id="aws-z" x="370" y="362" width="770" height="338" rx="18"/>
-      <text class="sb" x="394" y="394">AWS 서울 · 데이터센터 두 곳</text>
+      <text class="sb" x="394" y="394">AWS 서울, 데이터센터 두 곳</text>
     </g>
     <rect class="ping" id="m-ping" x="910" y="665" width="190" height="60" rx="10" style="stroke:var(--warm)"/>
     <rect class="ping" id="i-ping" x="1240" y="672" width="260" height="68" rx="10" style="stroke:var(--ai)"/>
@@ -429,7 +429,7 @@
     </g>
     <g id="e2" style="opacity:0">
       <rect class="chipbox" id="e2-r" x="1240" y="752" width="380" height="34" rx="17" style="stroke:var(--ai)"/>
-      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">분석</tspan><tspan class="t-1" dx="10">자동 갱신 실패 · 갱신 권고</tspan></text>
+      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">분석</tspan><tspan class="t-1" dx="10">자동 갱신 실패, 갱신 권고</tspan></text>
     </g>
     <g id="e3" style="opacity:0">
       <rect class="chipbox" id="e3-r" x="1240" y="487" width="380" height="34" rx="17" style="stroke:var(--ok)"/>
@@ -442,12 +442,17 @@
   <div class="foot"><span class="k">제약에 맞춰</span><span><b>NAT 게이트웨이 없이</b> 역할별 최소 서버로, 관제는 온프레미스 AI가 제안하고 사람이 승인</span></div>
 
   <dialog class="fig" id="fig" aria-label="거래소 하이브리드 인프라 최종 구성도">
-    <div class="bar"><b>거래소 하이브리드 인프라 · 최종 구성도</b><span>교수님 보고본 01_전체구성 v7 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="bar"><b>거래소 하이브리드 인프라 최종 구성도</b><span>교수님 보고본 01_전체구성 v7, 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도: CloudFront와 S3 웹 화면, 로드밸런서, 거래 서버 두 대와 조회 서버, 주 DB와 예비 DB, 관제 서버, 온프레미스 AI 서버, Teams"></div>
   </dialog>
 </div>
 
-<!-- 발표 노트(1분): 장이 열리면 앞 장 첫 장면의 그 순간(몰린 요청에 두 거래 서버가 빨갛고 응답 지연)에서 시작한다. CPU 막대에 증설 임계 60% 눈금이 생기고, AI 칩이 '위험 · CPU 60% 넘음'을 알리고, 칩 글이 'AI 판단 조회 요청 급증', 'AI 근거 주문·DB는 정상'으로 차례로 바뀐다(60% 경보는 규칙으로도 되지만, 늘려서 풀리는 원인인지 가리는 것이 AI의 몫이라는 연구소장 지적 반영). '승인 · 조회 서버 1대 추가'로 바뀌면 두 서버가 위로 비켜서며 그 칩이 조회 서버 상자가 되어 기동한다. 선이 이어져 요청을 셋이 나눠 받고 사용량이 임계 아래로 내려오면(응답 정상) 제목과 아래 줄이 앞 장의 질문에서 답으로 바뀐다(약 7초). → 로 둘째 칸: 앞 장의 DB 장면(주 DB 한 대)에서 예비 DB가 주 DB에서 갈라져 나와 복제선이 이어지고, 주문마다 같은 기록이 예비 DB로 간다. 주 DB가 멈추면 주문이 거래 서버 앞에서 기다리고, 자동 승격, 옛 DB 재합류 뒤 기다리던 주문이 이어지며 제목이 답으로 바뀐다(약 8초). 한 번 더 → 로 두 칸의 글이 빠지고, 첫 칸 그림(사용자·로드밸런서·서버 셋)과 둘째 칸의 두 DB가 움직여 한 장으로 합쳐진다. 서버에서 주 DB로 선이 이어지고, 관제 서버(서버·DB의 지표), Teams, 온프레미스 AI 서버, AWS 경계가 차례로 붙은 뒤 아래 줄이 뜬다. 세 번째 → 에 AWS 경계가 아래로 늘어나며 관제 서버·Teams·AI 서버가 들어오고, 관제 서버 경보(인증서 만료 14일 미만) → AI 서버 분석 → 관제 서버를 거쳐 Teams 보고(원인·조치안 전달, 실행은 승인 뒤)가 한 번 나온 뒤 아래 줄이 뜬다. 네 번째 → 에 다음 장. ← 로 한 단계씩 되돌리면 그 칸의 과정이 처음부터 다시 나온다. 말할 거리: (첫 칸) "앞 장의 그 순간입니다. CPU가 임계치 60%를 넘자 AI가 위험을 알리고, 주문과 DB는 정상이니 조회 요청이 몰린 것이 원인이라고 짚어 조회 서버 1대 추가를 제안합니다. 승인하면 조회 서버가 켜지고, 셋이 나눠 받아 응답이 정상으로 돌아옵니다. 주문은 DB 기록이 병목이라, 늘리는 건 조회 서버뿐입니다." → (둘째 칸) "DB는 예비 DB를 하나 더 두고, 주문을 두 DB에 모두 기록한 뒤에만 확인합니다. 주 DB가 멈추면 예비 DB가 스스로 이어받고, 옛 DB가 다시 붙으면 기다리던 주문이 이어집니다. 확인받은 주문은 잃지 않습니다." → (합친 그림) "두 답을 합치면 이것이 계획한 아키텍처입니다. NAT 게이트웨이 없이 역할별 최소 서버만 두었습니다." → (관제 장면) "혼자 운영하기 위해 관제 서버, Teams, 온프레미스 AI 서버를 붙였습니다. 예를 들어 관제 서버가 인증서 만료 14일 미만을 잡으면, AI가 원인을 분석하고 그 결과가 Teams로 보고됩니다. 조치는 AI가 제안하고 제가 승인합니다." 사실 확인: 증설 임계 60%는 관리자 설계의 기본값(read.scale_out_cpu, 앱 계층 평균 CPU, 확정값 아님)이고 시연 영상은 50%로 맞춰 찍었다. AWS 값은 실제 시험으로 정한다(ADR 0030). AI는 기본인 수동 모드에서 조치안까지만 내고 실행은 운영자 승인이다(ADR 0035). 자동 모드에서는 허용 목록 안의 '조회 서버 켜기'를 한도 안에서 AI가 실행한다. AWS에서 조회 서버 증설의 기본 제어는 ASG 지표 정책이다. 막대 길이는 그림용 값이다. 조회 서버(app-3)는 Auto Scaling 그룹 0~1대(앱 계층 2~3대, ADR 0030 정정)이고 AWS에는 아직 만들지 못했다(학교 콘솔에서 ASG 조회와 시작 템플릿 생성 거부). 두 거래 서버가 12개 마켓을 6개씩 맡는 리더 구조는 ADR 0034(로컬 검증, 한 대가 멈추면 남은 서버가 넘겨받음). DB 자동 전환은 Patroni 엄격 동기(ADR 0036, 주 DB·예비 DB·관제 서버 세 표)이고 로컬 Docker에서 검증했으며 AWS에는 아직 적용하지 않았다. 그림은 순서만 보인다. 실험(06-2)에서 예비 DB 승격은 22.75초, 주문 재개는 옛 DB가 예비로 다시 붙은 66초였다. 옛 DB가 돌아오지 못하면 엄격 동기는 주문을 계속 멈춘다(유실 대신 중단을 고른 설계). 두 DB는 서로 다른 가용 영역(AZ-a, AZ-c)에 둔다. NAT 게이트웨이는 두 대·30일 기준 약 $92(ADR 0030). 온프레미스 AI 서버 장비는 RTX PRO 6000 Blackwell로 바뀌었고, 판단 평가 수치(04-6)는 개발 PC RTX 4090에서 쟀다. 학교 AWS 보고의 요약은 Gemini였다. 관제 장면의 '인증서 만료 14일 미만'은 관제 서버(bot-1) 워치독의 실제 판정 규칙(deploy/linux/watchdog, public_site)이다. 그 경보를 AI가 분석해 Teams로 보고하는 흐름은 그림용 예시이고, 관제센터 2단계 설계는 인증서 만료 원천을 아직 연결 전으로 적었다. '자동 갱신 실패'도 예시 판단이다. E 키 도구의 '최종 구성도'는 교수님 보고본 01_전체구성 v7이다. 호스트명: 거래 서버 1·2 = app-1·app-2, 조회 서버 = app-3, 주·예비 DB = db-1·db-2, 관제 서버 = bot-1, AI 서버 = ai-1. -->
+
+<!-- 발표 노트(45초): 두 장면에 대한 설계입니다.
+첫째, 주문은 DB 기록이 병목이라 거래 서버를 늘려도 빨라지지 않습니다. 그래서 몰릴 때는 조회 서버를 켜서 요청을 나눠 받고, AI가 제안하면 운영자가 승인합니다.
+→ 1 둘째, DB는 두 대에 모두 기록한 뒤에만 주문을 확인하고, 주 DB가 멈추면 예비 DB가 스스로 이어받습니다.
+→ 2 두 답을 합친 아키텍처입니다. 서버는 AWS 서울의 데이터센터 두 곳에, 판단하는 AI 서버는 온프레미스에 두었습니다.
+→ 3 경보가 나면 AI가 원인과 조치안을 Teams로 보내고, 실행은 사람이 승인한 뒤에 합니다. -->
 
 <script>
 (() => {

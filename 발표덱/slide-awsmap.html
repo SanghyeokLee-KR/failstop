@@ -1,0 +1,733 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-5 AWS 구성도</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #7D8BA5;
+    --wire: #8E9BB3;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --bad: #FF7A7A;
+    --sel: #8FD3FF;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s .1s cubic-bezier(.45,0,.55,1) both; }
+  .title .tag { margin-left: auto; }
+  .title .env { margin-left: 14px; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  /* 부제는 단계마다 바꾸지 않는다. 판정은 도면 안 칩이 맡아 시선이 도면과 제목 줄을 오가지 않게 한다 */
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .2s ease-in-out both; }
+
+  /* 도면: 최종 구성도(arch-v7)의 왼쪽 → 오른쪽 흐름(사용자 → CloudFront → 로드밸런서 → 앱 → DB → 관제)을 그대로 두고,
+     데이터센터(AZ) 두 곳을 위아래 두 띠로 그려 같은 역할이 띠마다 한 대씩 거울처럼 놓이게 했다.
+     두 띠에 걸친 것(로드밸런서, 조회 서버 자동 증설 그룹)은 띠 경계에 걸치거나 띠 앞에 둔다. 관제 서버는 AZ-c에만 있어 AZ-a 오른쪽은 비운다.
+     밖에서 들어오는 쪽은 셋으로 나눴다: 왼쪽은 사용자(서비스 요청), 위는 운영자(관리)와 인터넷(직접 접속). 세 길이 엇갈리지 않는다.
+     아이콘은 실제 색(AWS 공식 아키텍처 아이콘, 오픈소스 공식 로고. assets/aws, assets/color). 길 · 칩 · 판정의 색은 따로 정한다:
+     파랑은 1단계(두 곳) 강조, 초록은 허용, 빨강은 차단, 선 · 테두리 · 글자는 회색. 노랑은 쓰지 않는다(시험 도구가 이 장에 없다).
+     카드 모서리 표식은 오른쪽 위 방패(보안 그룹 = 서버마다 붙은 방화벽), 왼쪽 아래 etcd(DB 자동 전환의 합의 표)로 한 가지 규칙만 쓴다
+     (방패를 오른쪽 위에 두어 인터넷 · 운영자 쪽 길이 위에서 곧장 방패 앞에 닿고, etcd 는 설명 글자와 닿지 않는 왼쪽 아래).
+     층 순서: 구역 → 선 → 길 → 장비 → 글자표 → 끝 표시 · 판정 칩 → 누른 장비 테두리. 길은 장비 밑을 지나 장비 안에서는 가려진다.
+     좌표는 viewBox 1660×700(머리말 줄과 같은 좌우 끝 130 ~ 1790, 무대 위 300 ~ 1000) */
+  .map { position: absolute; left: 130px; top: 300px; width: 1660px; height: 700px; overflow: visible; }
+  .map text { font-family: var(--sans); }
+  .map .region { fill: none; stroke: var(--edge); stroke-width: 2; stroke-dasharray: 10 8; }
+  .map .vpc { fill: color-mix(in srgb, var(--brand) 3%, var(--stage)); stroke: #66748C; stroke-width: 2; }
+  /* 데이터센터 띠: 테두리는 연결선(3px)보다 가볍게 1.5px, 대신 채움을 10%로 두어 밝은 강의실에서도 면으로 남게 한다. 이름은 띠 안 왼쪽 위에 26px 굵게 */
+  .map .lane rect { fill: color-mix(in srgb, var(--brand) 10%, var(--stage)); stroke: #4E5E7C; stroke-width: 1.5; }
+  .map .lane .ln { font-size: 26px; font-weight: 600; fill: var(--ink); }
+  .map .lane .az { font-family: var(--mono); font-size: 22px; font-weight: 500; fill: var(--ink-2); }
+  .map .zh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .zh .ab { font-family: var(--mono); font-size: 22px; font-weight: 500; fill: var(--ink-3); }
+  .map .link { fill: none; stroke: var(--wire); stroke-width: 3; }
+  .map .link.thin { stroke: #6A7489; stroke-width: 2; }
+  .map .link.dash { stroke-width: 2; stroke-dasharray: 7 6; }
+  .map .tip { fill: var(--wire); }
+  .map .tile .bx { fill: #1E2638; stroke: var(--edge); stroke-width: 2.5; }
+  .map .tile.asg .bx { stroke-dasharray: 10 6; }
+  .map .tile .nm { font-size: 26px; font-weight: 500; fill: var(--ink); }
+  .map .tile .sb { font-size: 22px; fill: var(--ink-2); }
+  .map .lbl { font-size: 22px; fill: var(--ink-2); }
+  .map .igw .bx { fill: var(--stage); stroke: transparent; stroke-width: 3; }
+  .map .igw text { font-size: 22px; fill: var(--ink); }
+  .map .igw .sb { fill: var(--ink-3); }
+  .map .bdg circle { fill: var(--stage); stroke: var(--edge); stroke-width: 2; }
+  .map .sg { color: var(--ink-2); }
+  .map .tag-l { font-size: 22px; fill: var(--ink-2); }
+  .map .leg .k { font-size: 22px; font-weight: 600; fill: var(--ink); }
+  .map .leg .d { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+
+  /* 단계 흐름(slide-netmap 과 같은 언어): → 한 번에 흐름 하나. 관계없는 구역 · 장비 · 선 · 글자(data-k)를 0.35초에 흐리고,
+     길을 판정 색으로 그린 뒤 0.2초 있다가 끝 표시(허용은 화살촉, 차단은 ✕)와 판정 칩이 0.3초에 나타나고 멈춘다.
+     길 위 장비 테두리 · 방패와 데이터센터 띠는 길이 거기에 닿는 때(--at)에 켜고, 막은 장비(stop)와 가려다 못 간 장비(aim)는 판정 때 켠다.
+     켜기는 애니메이션이라 흐름을 바꿀 때 클래스를 뗐다 다시 붙여 처음부터 켠다(앞 흐름의 색이 남지 않게).
+     --onc 는 지나간 장비의 색: 허용은 초록, 1단계는 파랑, 막힌 흐름에서 지나기만 한 곳은 흰색 */
+  .map { --onc: var(--ok); }
+  .map[data-v="hi"] { --onc: var(--brand); }
+  .map[data-v="no"] { --onc: var(--ink); }
+  .map [data-k] { transition: opacity .35s ease-in-out; }
+  .map [data-k].dim { opacity: .3; }
+  .map #L-zones [data-k].dim { opacity: .22; }
+  .map [data-k].hid { opacity: 0; }
+  .map .on > .bx, .map .on > circle.bx { animation: lit .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.on .sh circle { animation: lit-s .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.on .sh .sg { animation: lit-c .3s ease-in-out var(--at, 0s) both; }
+  /* 나가는 연결(SSM 에이전트, Teams 보고)과 1단계는 들어오는 규칙을 쓰지 않으므로 방패를 켜지 않는다 */
+  .map.nosg .tile.on .sh circle, .map.nosg .tile.on .sh .sg { animation: none; }
+  .map .tile.stop > .bx { animation: stopped .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.stop .sh circle { animation: stop-s .3s ease-in-out var(--at, 0s) both; }
+  .map .tile.stop .sh .sg { animation: stop-c .3s ease-in-out var(--at, 0s) both; }
+  /* 막은 방패는 ✕가 뜬 0.1초 뒤 한 번 1.3배로 부풀었다 돌아와 '무엇이 막았나'를 짚는다 */
+  .map .tile.stop .sh { transform-box: fill-box; transform-origin: center; animation: pulse .25s ease-in-out var(--px, 0s) both; }
+  .map .tile.aim > .bx { animation: aimed .3s ease-in-out var(--at, 0s) both; }
+  .map .lane.on rect { animation: lane-lit .3s ease-in-out var(--at, 0s) both; }
+  .map .lane.on text { animation: lane-t .3s ease-in-out var(--at, 0s) both; }
+  .map .tag-l.on { animation: lit-t .3s ease-in-out var(--at, 0s) both; }
+  .map .ed.lit circle { animation: ed-lit .3s ease-in-out var(--et, 0s) both; }
+  .map.still, .map.still * { transition: none !important; }
+  /* 길은 6px 판정 색 선이고, 같은 꺾은선을 넓은 흰 선으로 덮은 가림판(mask)의 대시를 당겨 앞에서부터 드러낸다 */
+  #trails, #rings, #marks, #pick { pointer-events: none; }
+  .map .hit { fill: transparent; }
+  .map .trail { fill: none; stroke: var(--v); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+  .map .rv { fill: none; stroke: #fff; stroke-width: 14; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100 200; animation: draw var(--t) cubic-bezier(.45,0,.55,1) var(--d) both; }
+  .map .late { animation: fade .3s ease-in-out var(--e) both; }
+  .map .flow.gone { animation: fadeout .3s ease-in-out forwards; }
+  /* 4단계 뒤 결론: 2단계 초록 길과 3단계 ✕를 0.45로 다시 깔아 '들어오는 길은 이것뿐'을 한 화면에 남긴다 */
+  .map .ghost { animation: ghost .3s ease-in-out var(--g) both; }
+  /* 결론 때 다시 깐 길이 지나는 장비는 같은 때 0.3초에 다시 밝힌다. 'from' 이 없어 그 전까지는 흐림(0.3)이 그대로다 */
+  .map [data-k].back { animation: back .3s ease-in-out var(--g) forwards; }
+  .map .arrow { fill: var(--v); stroke: var(--v); stroke-width: 2; stroke-linejoin: round; }
+  .map .xm circle { fill: var(--stage); stroke: var(--v); stroke-width: 2.8; }
+  .map .xm path { fill: none; stroke: var(--v); stroke-width: 4.2; stroke-linecap: round; }
+  .map .chip rect { fill: var(--stage); stroke: var(--v); stroke-width: 2; }
+  .map .chip .vd { font-size: 24px; font-weight: 700; fill: var(--vt, var(--v)); }
+  .map .chip .pl { font-size: 22px; fill: var(--ink); }
+  /* 장비를 직접 눌러 흐름 보기(질문 대응, slide-netmap 과 같은 방식). 누른 장비는 하늘색 테두리, 관리 접속의 차례(운영자 1, SSM 2)는 번호로,
+     도착지는 판정 때 허용 초록 실선 · 차단 빨강 점선 테두리로 보인다. 마우스를 올리기만 하면 손가락 모양만 바뀐다.
+     키보드로 옮긴 초점만 하늘색 테두리로 보인다 */
+  .map [data-pick] { cursor: pointer; outline: none; }
+  .map [data-pick]:focus-visible > .bx { stroke: var(--sel); stroke-width: 3; }
+  .map g[data-pick]:not(.tile):focus-visible text { fill: var(--sel); }
+  .map .ring { fill: none; stroke: var(--sel); stroke-width: 3; }
+  .map .ring.ok { stroke: var(--ok); }
+  .map .ring.no { stroke: var(--bad); stroke-dasharray: 10 6; }
+  .map .badge circle { fill: var(--stage); stroke: var(--sel); stroke-width: 2.4; }
+  .map .badge text { font-family: var(--mono); font-size: 22px; font-weight: 600; fill: var(--sel); text-anchor: middle; }
+
+  /* 등장: 장이 열리면 바깥 틀 → 데이터센터 띠 → VPC 안 장비 → 바깥 장비 · 선 → 글자표 차례로 0.6초씩 떠올라
+     (0.35 ~ 1.35초에 0.25초 간격으로 출발) 2초 안에 멈춘다. 그 뒤에는 → 를 누르기 전까지 아무것도 움직이지 않는다.
+     길 · 끝 표시 층은 등장 묶음 밖에 두어, 쌓이는 동안 → 를 눌러도 길이 처음부터 보이게 한다 */
+  .map .bd { animation: rise .6s cubic-bezier(.45,0,.55,1) both; }
+  .map .b1 { animation-delay: .35s; } .map .b2 { animation-delay: .6s; } .map .b3 { animation-delay: .85s; }
+  .map .b4 { animation-delay: 1.1s; } .map .b5 { animation-delay: 1.35s; }
+
+  /* 최종 구성도 원본(질문 대비). E 키 도구를 켤 때만 단추가 보인다 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+  .fig::backdrop { background: rgb(8,10,15); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; }
+  .fig .bar .x { margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 0 24px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); border-radius: 6px; background: #fff; cursor: zoom-in; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  .fig.zoom .view { place-items: start; }
+  .fig.zoom img { max-width: none; max-height: none; width: 2600px; cursor: zoom-out; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeout { to { opacity: 0; } }
+  @keyframes ghost { from { opacity: 0; } to { opacity: .45; } }
+  @keyframes back { to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+  @keyframes lit { to { stroke: var(--onc); stroke-width: 3; } }
+  @keyframes lit-s { to { stroke: var(--onc); } }
+  @keyframes lit-c { to { color: var(--onc); } }
+  @keyframes lit-t { to { fill: var(--onc); } }
+  @keyframes stopped { to { stroke: var(--bad); stroke-width: 3; } }
+  @keyframes stop-s { to { stroke: var(--bad); stroke-width: 2.6; } }
+  @keyframes stop-c { to { color: var(--bad); } }
+  @keyframes pulse { 50% { transform: scale(1.3); } }
+  @keyframes aimed { to { stroke: var(--bad); stroke-width: 3; stroke-dasharray: 10 6; } }
+  @keyframes lane-lit { to { fill: color-mix(in srgb, var(--brand) 16%, var(--stage)); stroke: var(--brand); stroke-width: 3; } }
+  @keyframes lane-t { to { fill: var(--glow); } }
+  @keyframes ed-lit { to { stroke: var(--brand); stroke-width: 3; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-5</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>AWS 구성도</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/aws/AWS-Cloud-logo_32_Dark.svg" alt="">최종 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">AWS 배포 구성</span>
+  </div>
+  <p class="dek">개인 AWS의 두 AZ에 서버를 나누고 들어오는 길은 CloudFront와 SSM으로 좁혔습니다.</p>
+
+  <svg class="map" id="map" viewBox="0 0 1660 700" role="img" aria-label="개인 AWS 서울 리전의 최종 구성. 전용 네트워크(VPC) 안에 데이터센터(AZ) 두 곳의 퍼블릭 서브넷을 위아래 띠로 그렸다. 위 띠 AZ-a에는 거래 서버 1과 주 DB, 아래 띠 AZ-c에는 거래 서버 2, 예비 DB, 관제 서버가 있고, 조회 서버 자동 증설 그룹(0~1대, CPU 60%와 AI 판단)은 두 띠에 걸친다. 주 DB와 예비 DB는 PostgreSQL 17을 Patroni가 관리하며 엄격 동기 복제로 잇고, 앱은 HAProxy를 거쳐 주 DB에 붙는다. etcd 합의 표는 주 DB, 예비 DB, 관제 서버에 하나씩 있다. 관제 서버는 Prometheus, Grafana, Alertmanager다. 사용자는 왼쪽에서 CloudFront(웹·API 진입점)를 거쳐 두 AZ에 걸친 로드밸런서로 들어오고, CloudFront는 웹 화면을 S3에서 가져온다. 위에는 인터넷이 인터넷 게이트웨이(NAT 없음)로 VPC에 이어지고, 운영자는 SSM(SSH 대신 원격 관리)으로 관리한다. 서버마다 보안 그룹(서버마다 붙은 방화벽)이 있다. 단계마다 흐름 하나가 허용되는 길이나 막히는 자리로 보이고, 장비를 차례로 누르면 그 흐름을 다시 그린다.">
+    <defs>
+      <!-- 보안 그룹 방패(tabler shield-lock). 색은 currentColor 라 판정 때 테두리와 함께 바뀐다 -->
+      <symbol id="shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12 12l0 2.5"/></g></symbol>
+    </defs>
+    <!-- 격자. 가로: 사용자 6~58 · CloudFront 96~296 · 리전 320~1660 · VPC 332~1650 · 로드밸런서 352~512 · 갈림목 532 · 데이터센터 띠 556~1640
+         (띠 안: 이름 576 · 앱 열 730~968 · 모선 1019 · DB 열 1070~1360 · 관제 열 1386~1618). 인터넷 · 게이트웨이는 주 DB 방패와 같은 x1360.
+         세로: 위 띠 206~425 · 아래 띠 457~676(사이 32, 경계 가운데 441). 카드 가운데는 위 316 · 경계 441 · 아래 566, 높이 76(조회 100, 관제 118). AZ-c 카드 셋은 위끝 y528 · 아이콘 y550 · 이름 줄 y560 이 같다
+         (관제 서버만 설명 두 줄이 아이콘 줄 밑 y602 · 628).
+         카드 안: 아이콘 32(왼쪽 +12) · 이름 26px(+52) · 설명 22px. 리전 위 띠(72~160)에는 S3 · SSM(높이 66, 가운데 121) -->
+
+    <!-- 층 1. 구역: 서울 리전(회색 점선), 전용 네트워크 VPC, 데이터센터 띠 두 개(AZ-a 위, AZ-c 아래) -->
+    <g id="L-zones">
+      <g class="bd b1">
+        <g data-k="z-region"><rect class="region" x="320" y="72" width="1340" height="626" rx="16"/><text class="zh" x="340" y="100">서울 리전</text></g>
+        <g data-k="z-vpc"><rect class="vpc" x="332" y="160" width="1318" height="528" rx="14"/><text class="zh" x="352" y="196">전용 네트워크<tspan class="ab" dx="10">VPC</tspan></text></g>
+      </g>
+      <g class="bd b2">
+        <g class="lane" data-k="z-a"><rect x="556" y="206" width="1084" height="219" rx="12"/><text class="ln" x="576" y="242">데이터센터 1</text><text class="az" x="576" y="270">AZ-a</text></g>
+        <g class="lane" data-k="z-c"><rect x="556" y="457" width="1084" height="219" rx="12"/><text class="ln" x="576" y="493">데이터센터 2</text><text class="az" x="576" y="521">AZ-c</text></g>
+      </g>
+    </g>
+
+    <!-- 층 2. 선. 사용자 줄은 띠 경계(y441). 앱 → DB 는 앱 열 오른쪽 모선(x1019)으로 모아 주 DB 왼쪽 y330으로 들어간다(최종 구성도의 'SQL · HAProxy' 화살표.
+         카드 가운데보다 14 낮춰 그 위 HAProxy 이름표가 거래 서버 1 방패와 닿지 않게 했다).
+         주 DB → 예비 DB 엄격 동기 복제는 DB 카드 왼쪽(x1116)에서 띠 경계를 세로로 넘어 화살촉으로 끝난다.
+         인터넷 → 게이트웨이 선은 들어오는 기본 길이 아니라 한 단계 가늘고 어둡게, SSM → 서버 관리 접속은 짧은 점선으로 -->
+    <g id="L-links">
+      <g class="bd b4">
+        <path class="link" data-k="w-uc" d="M62 441 H96"/>
+        <path class="link" data-k="w-ca" d="M296 441 H352"/>
+        <path class="link" data-k="w-cs" d="M196 377 V121 H470"/>
+        <path class="link thin" data-k="w-ni" d="M1360 56 V135"/>
+        <path class="link" data-k="w-os" d="M840 56 V88"/>
+        <g data-k="w-sm"><path class="link dash" d="M840 154 V278"/><text class="tag-l" x="854" y="236">관리 접속</text></g>
+      </g>
+      <g class="bd b3">
+        <path class="link" data-k="w-af" d="M512 441 H532 M532 316 V566 M532 316 H730 M532 441 H730 M532 566 H730"/>
+        <path class="link" data-k="w-ad" d="M968 330 H1070 M968 441 H1019 M968 566 H1019 M1019 330 V566"/>
+        <g data-k="w-rep"><path class="link" d="M1116 354 V514"/><path class="tip" d="M1107 512 H1125 L1116 527 Z"/></g>
+      </g>
+    </g>
+
+    <!-- 층 3. 흐름의 길과 직접 누른 장비 테두리(스크립트가 채운다). 구역 · 선 위, 장비 밑. 등장 묶음 밖에 둔다.
+         테두리를 장비 밑에 두어 카드 모서리의 방패 · etcd 표식을 가로지르지 않게 한다 -->
+    <g id="trails"></g>
+    <g id="rings"></g>
+
+    <!-- 층 4. 장비. data-pick 이 붙은 것은 직접 눌러 흐름을 볼 수 있는 출발지 · 경유지 · 도착지다(게이트웨이는 지나가는 자리라 누르지 않는다) -->
+    <g id="L-tiles">
+      <g class="bd b4">
+        <!-- 밖: 사용자(왼쪽), 운영자 · 인터넷(위). 입구 아이콘은 모두 52px. 사람 · 구름은 일반 아이콘이라 AWS 어두운 바탕판처럼 흰색 -->
+        <g data-k="user" data-pick tabindex="0" role="button" aria-label="사용자"><rect class="hit" x="0" y="411" width="64" height="94"/><image href="assets/color/users-dark.svg" x="6" y="415" width="52" height="52"/><text class="lbl" x="32" y="497" text-anchor="middle">사용자</text></g>
+        <g data-k="opr" data-pick tabindex="0" role="button" aria-label="운영자"><rect class="hit" x="739" y="0" width="131" height="60"/><text class="lbl" x="802" y="38" text-anchor="end">운영자</text><image href="assets/color/user-dark.svg" x="814" y="4" width="52" height="52"/></g>
+        <g data-k="net" data-pick tabindex="0" role="button" aria-label="인터넷"><rect class="hit" x="1330" y="0" width="130" height="60"/><image href="assets/color/cloud-dark.svg" x="1334" y="4" width="52" height="52"/><text class="lbl" x="1398" y="38">인터넷</text></g>
+        <!-- CloudFront: 리전 밖(글로벌 엣지). 웹 화면(S3)과 API(로드밸런서)의 진입점 -->
+        <g class="tile" data-k="cf" data-pick tabindex="0" role="button" aria-label="CloudFront"><rect class="bx" x="96" y="377" width="200" height="128" rx="12"/><image href="assets/aws/Arch_Amazon-CloudFront_64.svg" x="172" y="389" width="48" height="48"/><text class="nm" x="196" y="470" text-anchor="middle">CloudFront</text><text class="sb" x="196" y="496" text-anchor="middle">웹·API 진입점</text></g>
+        <!-- 리전 안 VPC 밖: S3(웹 화면), SSM(원격 관리). 같은 높이 66, 가운데 y121 -->
+        <g class="tile" data-k="s3" data-pick tabindex="0" role="button" aria-label="S3"><rect class="bx" x="470" y="88" width="200" height="66" rx="10"/><image href="assets/aws/Arch_Amazon-Simple-Storage-Service_64.svg" x="482" y="99" width="44" height="44"/><text class="nm" x="538" y="115">S3</text><text class="sb" x="538" y="143">웹 화면</text></g>
+        <g class="tile" data-k="ssm" data-pick tabindex="0" role="button" aria-label="SSM"><rect class="bx" x="700" y="88" width="280" height="66" rx="10"/><image href="assets/aws/Arch_AWS-Systems-Manager_64.svg" x="712" y="99" width="44" height="44"/><text class="nm" x="768" y="115">SSM</text><text class="sb" x="768" y="143">SSH 대신 원격 관리</text></g>
+        <!-- 인터넷 게이트웨이: VPC 위 테두리에 걸쳐 둔다(바탕색 원이 테두리를 끊는다). NAT 게이트웨이는 두지 않았다 -->
+        <g class="igw" data-k="igw"><text x="1326" y="146" text-anchor="end">인터넷 게이트웨이<tspan class="sb" dx="12">NAT 없음</tspan></text><circle class="bx" cx="1360" cy="160" r="26"/><image href="assets/color/internet-gateway.svg" x="1338" y="138" width="44" height="44"/></g>
+      </g>
+      <g class="bd b3">
+        <!-- 로드밸런서: 두 AZ의 퍼블릭 서브넷에 걸친 ALB. 띠 앞에서 두 띠로 갈라 보낸다 -->
+        <g class="tile" data-k="alb" data-pick tabindex="0" role="button" aria-label="로드밸런서"><rect class="bx" x="352" y="377" width="160" height="128" rx="12"/><image href="assets/aws/Arch_Elastic-Load-Balancing_64.svg" x="408" y="389" width="48" height="48"/><text class="nm" x="432" y="470" text-anchor="middle">로드밸런서</text><text class="sb" x="432" y="496" text-anchor="middle">두 AZ에 걸침</text>
+          <g class="bdg sh"><circle cx="512" cy="377" r="18"/><use class="sg" href="#shield" x="499" y="364" width="26" height="26"/></g></g>
+        <!-- 앱 계층: 거래 서버 두 대는 고정(주문 체결, 조회도 처리), 조회 서버만 자동 증설 그룹(0~1대, 점선)으로 두 띠에 걸친다 -->
+        <g class="tile" data-k="app1" data-pick tabindex="0" role="button" aria-label="거래 서버 1"><rect class="bx" x="730" y="278" width="238" height="76" rx="12"/><image href="assets/color/springboot.svg" x="742" y="300" width="32" height="32"/><text class="nm" x="782" y="310">거래 서버 1</text><text class="sb" x="782" y="340">주문 체결·조회</text>
+          <g class="bdg sh"><circle cx="968" cy="278" r="18"/><use class="sg" href="#shield" x="955" y="265" width="26" height="26"/></g></g>
+        <g class="tile asg" data-k="rd" data-pick tabindex="0" role="button" aria-label="조회 서버"><rect class="bx" x="730" y="391" width="238" height="100" rx="12"/><image href="assets/aws/Arch_Amazon-EC2-Auto-Scaling_64.svg" x="742" y="405" width="32" height="32"/><text class="nm" x="782" y="425">조회 서버</text><text class="sb" x="782" y="455">CPU 60%·AI 판단</text><text class="sb" x="782" y="481">증설 0~1대</text>
+          <g class="bdg sh"><circle cx="968" cy="391" r="18"/><use class="sg" href="#shield" x="955" y="378" width="26" height="26"/></g></g>
+        <g class="tile" data-k="app2" data-pick tabindex="0" role="button" aria-label="거래 서버 2"><rect class="bx" x="730" y="528" width="238" height="76" rx="12"/><image href="assets/color/springboot.svg" x="742" y="550" width="32" height="32"/><text class="nm" x="782" y="560">거래 서버 2</text><text class="sb" x="782" y="590">주문 체결·조회</text>
+          <g class="bdg sh"><circle cx="968" cy="528" r="18"/><use class="sg" href="#shield" x="955" y="515" width="26" height="26"/></g></g>
+        <!-- DB: PostgreSQL 17 두 노드를 Patroni가 관리한다(ADR 0036). etcd 표식은 합의 표를 가진 세 대에만 -->
+        <g class="tile" data-k="dbp" data-pick tabindex="0" role="button" aria-label="주 DB"><rect class="bx" x="1070" y="278" width="290" height="76" rx="12"/><image href="assets/color/postgresql.svg" x="1082" y="300" width="32" height="32"/><text class="nm" x="1120" y="310">주 DB</text><text class="sb" x="1120" y="340">PostgreSQL 17·Patroni</text>
+          <g class="bdg sh"><circle cx="1360" cy="278" r="18"/><use class="sg" href="#shield" x="1347" y="265" width="26" height="26"/></g>
+          <g class="bdg ed"><circle cx="1070" cy="354" r="18"/><image href="assets/color/etcd.svg" x="1057" y="341" width="26" height="26"/></g></g>
+        <g class="tile" data-k="dbs" data-pick tabindex="0" role="button" aria-label="예비 DB"><rect class="bx" x="1070" y="528" width="290" height="76" rx="12"/><image href="assets/color/postgresql.svg" x="1082" y="550" width="32" height="32"/><text class="nm" x="1120" y="560">예비 DB</text><text class="sb" x="1120" y="590">PostgreSQL 17·Patroni</text>
+          <g class="bdg sh"><circle cx="1360" cy="528" r="18"/><use class="sg" href="#shield" x="1347" y="515" width="26" height="26"/></g>
+          <g class="bdg ed"><circle cx="1070" cy="604" r="18"/><image href="assets/color/etcd.svg" x="1057" y="591" width="26" height="26"/></g></g>
+        <!-- 관제 서버(bot-1): 관측 · 경보(Prometheus · Grafana · Alertmanager), 시장 봇, 운영 보고. etcd 세 번째 표. 위끝은 다른 AZ-c 카드와 같은 y528 -->
+        <g class="tile" data-k="ops" data-pick tabindex="0" role="button" aria-label="관제 서버"><rect class="bx" x="1386" y="528" width="232" height="118" rx="12"/><image href="assets/color/prometheus.svg" x="1398" y="550" width="32" height="32"/><image href="assets/color/grafana.svg" x="1434" y="550" width="32" height="32"/><text class="nm" x="1474" y="560">관제 서버</text><text class="sb" x="1398" y="602">Prometheus·Grafana</text><text class="sb" x="1398" y="628">Alertmanager</text>
+          <g class="bdg sh"><circle cx="1618" cy="528" r="18"/><use class="sg" href="#shield" x="1605" y="515" width="26" height="26"/></g>
+          <g class="bdg ed"><circle cx="1386" cy="646" r="18"/><image href="assets/color/etcd.svg" x="1373" y="633" width="26" height="26"/></g></g>
+      </g>
+    </g>
+
+    <!-- 층 5. 글자표: 앱 → 주 DB 선 위의 HAProxy(앱 노드마다 둔 사이드카), 복제선 옆의 '엄격 동기 복제'(AZ-a 띠 안),
+         왼쪽 아래 범례(방패 = 보안 그룹, etcd = 합의 3표) -->
+    <g id="L-labels">
+      <g class="bd b5">
+        <text class="tag-l" data-k="hap" x="1019" y="318" text-anchor="middle">HAProxy</text>
+        <text class="tag-l" data-k="rep" x="1132" y="404">엄격 동기 복제</text>
+        <g class="leg" data-k="legend">
+          <g class="bdg"><circle cx="18" cy="598" r="18"/><use class="sg" href="#shield" x="5" y="585" width="26" height="26"/></g>
+          <text class="k" x="48" y="594">보안 그룹</text><text class="d" x="48" y="622">서버마다 붙은 방화벽</text>
+          <g class="bdg"><circle cx="18" cy="660" r="18"/><image href="assets/color/etcd.svg" x="5" y="647" width="26" height="26"/></g>
+          <text class="k" x="48" y="656">etcd</text><text class="d" x="48" y="684">합의 3표</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- 층 6. 끝 표시와 판정 칩, 층 7. 관리 접속의 차례 번호(스크립트가 채운다) -->
+    <g id="marks"></g>
+    <g id="pick"></g>
+  </svg>
+
+  <dialog class="fig" id="fig" aria-label="최종 구성도 원본">
+    <div class="bar"><b>최종 구성도</b><span id="fig-hint">그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도 원본: 개인 AWS 서울 리전 두 AZ의 CloudFront, S3, 로드밸런서, 거래 서버 두 대와 조회 서버 자동 증설 그룹, PostgreSQL 17 주 DB와 예비 DB, 관제 서버, SSM, 그리고 외부 보관, Microsoft Teams, 온프레미스 AI 서버, CI/CD"></div>
+  </dialog>
+</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 원본 구성도 창(E 키 도구). 도구가 꺼져 있으면 숨은 단추를 눌러도 열지 않고, 닫을 때는 단추에서 초점을 빼
+  // 스페이스 · 엔터로 다시 열리지 않게 한다. 그림을 누르면 누른 자리를 기준으로 키운다(키운 뒤 같은 점이 누른 자리에 오도록 스크롤을 맞춘다)
+  const fig = document.getElementById('fig'), hint = document.getElementById('fig-hint'), openBtn = document.getElementById('open-fig');
+  const view = fig.querySelector('.view'), figImg = document.getElementById('fig-img');
+  const closeFig = () => { if (fig.open) fig.close(); };
+  openBtn.addEventListener('click', e => { e.stopPropagation(); if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); } });
+  document.getElementById('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  figImg.addEventListener('click', e => {
+    e.stopPropagation();
+    const r = figImg.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const zoom = fig.classList.toggle('zoom');
+    hint.textContent = zoom ? '그림을 누르면 축소' : '그림을 누르면 확대';
+    if (!zoom) return;
+    const z = figImg.getBoundingClientRect();
+    view.scrollLeft += z.left + fx * z.width - e.clientX;
+    view.scrollTop += z.top + fy * z.height - e.clientY;
+  });
+  fig.addEventListener('close', () => { fig.classList.remove('zoom'); hint.textContent = '그림을 누르면 확대'; openBtn.blur(); });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const map = $('map');
+
+  // ---- 흐름. 판정은 deploy/terraform/security.tf 의 보안 그룹 규칙 그대로다(들어오는 규칙만 있고, 목록에 없으면 거부).
+  //      로드밸런서는 CloudFront 주소 목록의 443(cloudfront_origin), 허용 목록 주소의 443 · 80, 관제 서버 공인 IP의 443만 받고,
+  //      나가는 길도 거래 · 조회 서버 8080 · 8081뿐이다(alb_targets).
+  //      거래 · 조회 서버는 로드밸런서의 8080(서비스) · 8081(상태 확인)과 관제 서버의 8081 · 9100만, DB는 앱 · 관제 · DB의 5432와 관제 서버의 9187 · 9100만,
+  //      관제 서버는 관제 서버 자신의 9100 · 9088만 받는다. 22번 규칙은 어디에도 없고, 관리는 SSM 에이전트가 밖으로 여는 연결로 한다.
+  //      나가는 길은 모두 열려 있어 관제 서버가 인터넷 게이트웨이로 Teams에 보낸다. S3는 공개를 막고 CloudFront로만 읽힌다(web.tf).
+  //      legs 는 길을 구간으로 나눈 것: r 은 꺾은선, hold 는 구간 끝에서 멈추는 시간(의미 있는 경유지), with 가 참이면 앞 구간과 함께 출발(갈림길),
+  //      mark 는 구간 끝의 화살촉('arrow') · ✕('x'). v 는 판정('ok' 허용, 'no' 차단, 'hi' 1단계 강조).
+  //      now 는 흐림과 같은 때 켤 것, on 은 길이 닿을 때 켤 것, stop 은 막은 장비(판정 때 빨강, 방패 펄스), aim 은 가려다 못 간 장비(빨간 점선),
+  //      keep 은 흐리지 않고 둘 것, hide 는 감출 것(data-k 이름). 나머지는 흐린다. sg 가 거짓이면 켜진 서버의 방패는 켜지 않는다.
+  //      etcd 가 참이면 화살촉 뒤 etcd 표식 셋을 차례로 켠다. ghosts 는 칩 뒤에 0.45로 다시 깔 흐름들, back 은 그때 다시 밝힐 장비다.
+  //      chip 은 판정 칩(길 끝 30px 안. x 는 왼쪽 끝, a 가 'end' 면 오른쪽 끝, y 는 세로 가운데, vd 는 굵은 판정어).
+  //      위 띠 윗부분의 칩과 ✕는 y231에 두어 그 아래 방패(위끝 y260)와 띄운다 ----
+  const Z = ['z-region', 'z-vpc', 'z-a', 'z-c'];
+  const leg = (r, o = {}) => ({ r, ...o });
+  const TRUNK = [[62, 441], [532, 441]];
+  const BR = { app1: [[532, 441], [532, 316], [730, 316]], rd: [[532, 441], [730, 441]], app2: [[532, 441], [532, 566], [730, 566]] };
+  // 인터넷(또는 인터넷 너머의 운영자)에서 게이트웨이까지. 게이트웨이에서 0.45초 멈춘다(공인 IP라 여기까지는 들어온다)
+  const FROM_NET = leg([[1360, 58], [1360, 160]], { hold: .45 });
+  const FROM_OPR = leg([[866, 30], [1360, 30], [1360, 160]], { hold: .45 });
+  // 게이트웨이 → 막히는 자리. ✕는 대상 방패(카드 오른쪽 위) 바로 위에 두어 방패를 가리지 않는다
+  const IN = {
+    app1: [[1360, 160], [1360, 200], [968, 200], [968, 231]],
+    dbp: [[1360, 160], [1360, 231]],
+    ops: [[1360, 160], [1360, 200], [1618, 200], [1618, 484]],
+  };
+  // 운영자 → SSM(0.45초 멈춤) → 대상. 위가 막힌 조회 서버 · 거래 서버 2 는 위 끝으로 들어갈 자리가 없어 그리지 않는다
+  const TO_SSM = leg([[840, 58], [840, 121]], { hold: .45 });
+  const VIA_SSM = {
+    app1: [[840, 121], [840, 278]],
+    dbp: [[840, 121], [840, 200], [1220, 200], [1220, 278]],
+    dbs: [[840, 121], [840, 200], [1500, 200], [1500, 441], [1220, 441], [1220, 528]],
+    ops: [[840, 121], [840, 200], [1506, 200], [1506, 528]],
+  };
+  const SSM_CHIP = { app1: { x: 862, y: 231 }, dbp: { a: 'end', x: 1200, y: 231 }, dbs: { x: 1240, y: 482 }, ops: { a: 'end', x: 1484, y: 482 } };
+  const NET_CHIP = { app1: { x: 998, y: 231 }, dbp: { a: 'end', x: 1332, y: 231 }, ops: { a: 'end', x: 1590, y: 482 } };
+  const USER_CHIP = { x: 96, y: 540 }, SRV_CHIP = { x: 576, y: 640 }, REP_CHIP = { x: 1136, y: 390 };
+
+  const FLOWS = {
+    // 1. 두 곳: 같은 역할을 데이터센터마다 한 대씩. 주 DB(AZ-a)는 예비 DB(AZ-c)로 엄격 동기 복제한다(ADR 0036 결정 3,
+    //    synchronous_mode_strict). 길이 띠 경계에서 0.45초 멈추고, 띠와 거래 서버는 길이 그 높이를 지날 때 차례로 파래지며(AZ-a 먼저, AZ-c 나중),
+    //    화살촉 뒤 etcd 세 표가 차례로 켜진다. 칩은 띠 틈에 끼지 않게 주 DB 아래 AZ-a 띠 안(REP_CHIP)에 둔다
+    two: { v: 'hi', legs: [leg([[1116, 354], [1116, 441]], { hold: .45 }), leg([[1116, 441], [1116, 528]], { mark: 'arrow' })],
+      on: ['app1', 'app2', 'dbp', 'dbs', 'z-a', 'z-c'], sg: false, etcd: true, hide: ['rep'],
+      keep: ['z-region', 'z-vpc', 'alb', 'rd', 'ops', 'w-af', 'w-ad', 'w-rep', 'hap', 'legend'],
+      chip: { ...REP_CHIP, vd: '엄격 동기 복제', t: '예비 DB가 받아야 커밋' } },
+    // 2. 사용자 → 서버: CloudFront 443 → 로드밸런서 → 거래 · 조회 서버 8080. 갈림목(로드밸런서 오른쪽)에서 0.4초 멈춘 뒤 세 서버로 함께 갈라진다
+    web: { v: 'ok', legs: [leg(TRUNK, { hold: .4 }), leg(BR.app1, { mark: 'arrow' }), leg(BR.rd, { with: true, mark: 'arrow' }), leg(BR.app2, { with: true, mark: 'arrow' })],
+      on: ['cf', 'alb', 'app1', 'rd', 'app2'], keep: [...Z, 'user', 'w-uc', 'w-ca', 'w-af', 'legend'],
+      chip: { ...SRV_CHIP, t: 'CloudFront 443 → 서버 8080만' } },
+    // 3. 인터넷 → 주 DB 5432: 서버마다 공인 IP가 있어 게이트웨이까지는 오지만, DB 보안 그룹에 인터넷에서 오는 5432 규칙이 없어 방패 앞에서 멈춘다
+    inet: { v: 'no', legs: [FROM_NET, leg(IN.dbp, { mark: 'x' })],
+      on: ['igw'], stop: ['dbp'], hide: ['w-sm'], keep: [...Z, 'net', 'w-ni', 'legend'],
+      chip: { ...NET_CHIP.dbp, t: '보안 그룹에 인터넷 5432 규칙 없음' } },
+    // 4. 운영자 → SSM → 거래 서버 1: SSM에서 0.45초 멈춘 뒤 서버 위로 들어간다. 들어오는 포트를 쓰지 않으므로 방패는 켜지 않는다.
+    //    칩 뒤에 2단계 · 3단계를 0.45로 다시 깔아 이 장의 결론(사용자는 CloudFront로, 운영자는 SSM으로만)을 남긴다.
+    //    그 길이 지나는 장비(back)는 처음엔 흐렸다가 다시 까는 때 함께 밝혀, 흐린 상자 위로 길이 비치거나 화살촉 끝이 흐리지 않게 한다
+    ssm: { v: 'ok', legs: [TO_SSM, leg(VIA_SSM.app1, { mark: 'arrow' })],
+      on: ['ssm', 'app1'], sg: false, hide: ['w-sm'], keep: [...Z, 'opr', 'w-os'], ghosts: ['web', 'inet'], back: ['user', 'net', 'cf', 'alb', 'rd', 'app2', 'igw', 'dbp'],
+      chip: { ...SSM_CHIP.app1, t: '관리는 SSM으로만, 22 닫힘' } },
+  };
+  const STEPS = [null, 'two', 'web', 'inet', 'ssm'];   // → 로 넘기는 네 단계
+  const LAST = STEPS.length - 1;
+
+  // ---- 직접 누르기의 판정. 근거(security.tf · web.tf)가 있고 도면에 길을 그릴 자리가 있는 조합만 그리고, 나머지는 고른 표시만 푼다 ----
+  const APP = ['app1', 'rd', 'app2'], DB = ['dbp', 'dbs'];
+  const NAME = { app1: '거래 서버 1', rd: '조회 서버', app2: '거래 서버 2', dbp: '주 DB', dbs: '예비 DB', ops: '관제 서버' };
+  const decide = (s, via, d) => {
+    // 관리 접속은 운영자 → SSM → 대상의 세 번 누름만 허용한다
+    if (via) return s === 'opr' && via === 'ssm' && VIA_SSM[d]
+      ? { v: 'ok', legs: [TO_SSM, leg(VIA_SSM[d], { mark: 'arrow' })], on: ['ssm', d], sg: false, hide: ['w-sm'], keep: [...Z, 'w-os'], chip: { ...SSM_CHIP[d], t: '관리는 SSM으로만, 22 닫힘' } } : null;
+    if (s === 'user') {
+      if (d === 'cf') return { v: 'ok', legs: [leg([[62, 441], [96, 441]], { mark: 'arrow' })], on: ['cf'], keep: [...Z, 'w-uc'], chip: { ...USER_CHIP, t: '사용자 → CloudFront 443' } };
+      if (d === 's3') return { v: 'ok', legs: [leg([[62, 441], [196, 441], [196, 121], [470, 121]], { mark: 'arrow' })], on: ['cf', 's3'], keep: [...Z, 'w-uc', 'w-cs'], chip: { ...USER_CHIP, t: '웹 화면은 CloudFront로만' } };
+      if (d === 'alb') return { v: 'ok', legs: [leg([[62, 441], [352, 441]], { mark: 'arrow' })], on: ['cf', 'alb'], keep: [...Z, 'w-uc', 'w-ca', 'legend'], chip: { ...USER_CHIP, t: 'CloudFront 443 → 로드밸런서' } };
+      if (APP.includes(d)) return { v: 'ok', legs: [leg(TRUNK, { hold: .4 }), leg(BR[d], { mark: 'arrow' })], on: ['cf', 'alb', d], keep: [...Z, 'w-uc', 'w-ca', 'w-af', 'legend'], chip: { ...SRV_CHIP, t: 'CloudFront 443 → 서버 8080만' } };
+      // 사용자가 들어올 수 있는 길은 로드밸런서뿐이고, 로드밸런서는 거래 · 조회 서버로만 보낼 수 있다
+      return { v: 'no', legs: [leg(TRUNK, { mark: 'x' })], on: ['cf'], stop: ['alb'], aim: [d], keep: [...Z, 'w-uc', 'w-ca', 'legend'], chip: { ...USER_CHIP, t: '로드밸런서는 서버 8080·8081만' } };
+    }
+    if (s === 'net' && IN[d]) return d === 'dbp' ? FLOWS.inet
+      : { v: 'no', legs: [FROM_NET, leg(IN[d], { mark: 'x' })], on: ['igw'], stop: [d], hide: ['w-sm'], keep: [...Z, 'net', 'w-ni', 'legend'],
+          chip: { ...NET_CHIP[d], t: d === 'app1' ? '8080은 로드밸런서에서만' : '보안 그룹에 인터넷 규칙 없음' } };
+    // 운영자가 서버로 바로 하는 SSH 22: 인터넷 · 게이트웨이를 지나 대상 방패 앞에서 멈춘다(22번 규칙은 어느 보안 그룹에도 없다)
+    if (s === 'opr' && IN[d]) return { v: 'no', legs: [FROM_OPR, leg(IN[d], { mark: 'x' })], on: ['igw'], stop: [d], hide: ['w-sm'], keep: [...Z, 'opr', 'net', 'w-ni', 'legend'], chip: { ...NET_CHIP[d], t: '보안 그룹에 22 규칙 없음' } };
+    if (s === 'alb') {
+      if (APP.includes(d)) return { v: 'ok', legs: [leg([[512, 441], ...BR[d]], { mark: 'arrow' })], on: ['alb', d], keep: [...Z, 'w-af', 'legend'], chip: { ...SRV_CHIP, t: '로드밸런서 → 서버 8080' } };
+      if ([...DB, 'ops'].includes(d)) return { v: 'no', legs: [leg([[432, 441], [532, 441]], { mark: 'x' })], stop: ['alb'], aim: [d], on: [], keep: [...Z, 'legend'], chip: { ...USER_CHIP, t: '로드밸런서는 서버 8080·8081만' } };
+      return null;
+    }
+    // 앱은 노드마다 둔 HAProxy를 거쳐 그때의 주 DB 5432로만 붙는다
+    if (APP.includes(s) && d === 'dbp') {
+      const y = { app1: 330, rd: 441, app2: 566 }[s], r = s === 'app1' ? [[968, 330], [1070, 330]] : [[968, y], [1019, y], [1019, 330], [1070, 330]];
+      return { v: 'ok', legs: [leg(r, { mark: 'arrow' })], on: [s, 'dbp'], hide: ['hap'], keep: [...Z, 'w-ad', 'legend'], chip: { x: 998, y: 231, t: 'HAProxy 거쳐 주 DB 5432' } };
+    }
+    // DB끼리 5432(복제). 복제 연결은 예비 DB가 주 DB 5432로 열고, 데이터는 주 DB에서 예비 DB로 흐른다
+    if (s === 'dbp' && d === 'dbs') return { v: 'ok', legs: [leg([[1116, 354], [1116, 528]], { mark: 'arrow' })], on: ['dbp', 'dbs'], hide: ['rep'], keep: [...Z, 'w-rep', 'legend'], chip: { ...REP_CHIP, t: '주 DB → 예비 DB 엄격 동기 복제' } };
+    if (s === 'dbs' && d === 'dbp') return { v: 'ok', legs: [leg([[1116, 528], [1116, 354]], { mark: 'arrow' })], on: ['dbp', 'dbs'], hide: ['rep'], keep: [...Z, 'w-rep', 'legend'], chip: { ...REP_CHIP, t: '예비 DB → 주 DB 5432' } };
+    if (s === 'ops') {
+      // 나가는 연결: NAT 없이 자기 공인 IP로 게이트웨이를 지나 Teams 웹훅 443(방패는 켜지 않는다)
+      if (d === 'net') return { v: 'ok', legs: [leg([[1506, 528], [1506, 200], [1360, 200], [1360, 160]], { hold: .45 }), leg([[1360, 160], [1360, 58]], { mark: 'arrow' })],
+        on: ['ops', 'igw'], sg: false, keep: [...Z, 'net', 'w-ni'], chip: { x: 1388, y: 104, t: 'Teams 보고 443' } };
+      if (d === 'dbp') return { v: 'ok', legs: [leg([[1506, 528], [1506, 316], [1360, 316]], { mark: 'arrow' })], on: ['ops', 'dbp'], hide: ['rep'], keep: [...Z, 'legend'], chip: { a: 'end', x: 1490, y: 390, t: '관제 서버 → DB 지표 9187' } };
+      // 예비 DB는 옆 틈(8px)이 좁아 띠 틈으로 돌아 위에서 들어간다
+      if (d === 'dbs') return { v: 'ok', legs: [leg([[1500, 528], [1500, 441], [1310, 441], [1310, 528]], { mark: 'arrow' })], on: ['ops', 'dbs'], hide: ['rep'], keep: [...Z, 'legend'], chip: { ...REP_CHIP, t: '관제 서버 → DB 지표 9187' } };
+    }
+    return null;
+  };
+
+  // 덱 공통 속도 기준(slide-netmap 과 같다). 길을 그리는 빠르기(도면 px/초)와 한 구간 그리는 시간의 하한, 상한(초),
+  // 흐리기 DIM, 길이 닿은 뒤 끝 표시 · 칩이 나타나기까지 LAG, 앞 흐름이 사라지는 시간 OUT(CSS 의 .gone 과 같게), 칩 뒤 결론을 다시 깔기까지 GHOST
+  const SPEED = 450, MIN = .8, MAX = 2, DIM = .35, LAG = .2, OUT = .3, GHOST = .3;
+  const COLOR = { ok: '#2DD196', no: '#FF7A7A', hi: '#79A7FA' };
+  const TEXT = { hi: '#A8C8FF' };   // 파란 칩의 굵은 글자는 어두운 바탕에서 읽히게 한 단계 밝게
+  const lenOf = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+
+  // 길이 거리 s 에 닿는 때. 길은 cubic-bezier(.45,0,.55,1)로 그리므로, 진행률 s/L 을 그 곡선에서 거꾸로 풀어 시간 비율을 얻는다
+  const bz = (a, b, u) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3;
+  const timeAt = p => { let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (bz(0, 1, m) < p) lo = m; else hi = m; } return bz(.45, .55, (lo + hi) / 2); };
+  // 꺾은선이 상자 [x, y, w, h] 에 처음 들어가는 거리(들어가지 않으면 null)
+  const hitAt = (pts, r) => {
+    let s = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay);
+      let u0 = 0, u1 = 1;
+      for (const [p, d, lo, hi] of [[ax, bx - ax, r[0], r[0] + r[2]], [ay, by - ay, r[1], r[1] + r[3]]]) {
+        if (d === 0) { if (p < lo || p > hi) { u0 = 2; break; } continue; }
+        let t0 = (lo - p) / d, t1 = (hi - p) / d; if (t0 > t1) [t0, t1] = [t1, t0];
+        u0 = Math.max(u0, t0); u1 = Math.min(u1, t1);
+      }
+      if (u0 <= u1 && u0 <= 1) return s + u0 * L;
+      s += L;
+    }
+    return null;
+  };
+  // 꺾은선에서 점 [x, y] 에 가장 가까운 자리의 [떨어진 정도, 길 위 거리]
+  const nearAt = (pts, [x, y]) => {
+    let s = 0, best = [Infinity, 0];
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay);
+      const u = L ? Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (L * L))) : 0;
+      const d = Math.hypot(ax + (bx - ax) * u - x, ay + (by - ay) * u - y);
+      if (d < best[0]) best = [d, s + u * L];
+      s += L;
+    }
+    return best;
+  };
+  // 흐름의 시간표: 구간마다 시작 시각 start, 그리는 시간 T, 길이 L. 흐림(DIM)이 끝나면 첫 구간이 시작한다.
+  // with 구간은 앞 구간과 같이 출발하고, 다음 구간은 앞서 출발한 구간들이 모두 끝나고 hold 만큼 멈춘 뒤 출발한다
+  const plan = f => {
+    let t = DIM, prev = null;
+    return f.legs.map(l => {
+      const L = lenOf(l.r), T = Math.min(MAX, Math.max(MIN, L / SPEED)), start = l.with && prev ? prev.start : t;
+      const p = { ...l, start, T, L };
+      t = Math.max(t, start + T + (l.hold || 0));
+      prev = p;
+      return p;
+    });
+  };
+  const doneAt = legs => Math.max(...legs.map(l => l.start + l.T));
+  // 길이 장비에 닿는 시각. 상자가 있으면 길이 상자에 처음 들어가는 때, 없으면(사람 · 구름 · 글자표) 가장 가까운 자리를 지나는 때
+  const arrive = (e, legs) => {
+    const b = e.querySelector(':scope > .bx, :scope > rect');
+    const box = b ? (b.tagName === 'circle' ? [+b.getAttribute('cx') - 26, +b.getAttribute('cy') - 26, 52, 52] : ['x', 'y', 'width', 'height'].map(a => +b.getAttribute(a))) : null;
+    let first = null;
+    if (box) for (const l of legs) { const s = hitAt(l.r, box); if (s != null) { const at = l.start + l.T * timeAt(s / l.L); if (first == null || at < first) first = at; } }
+    if (first != null) return first;
+    const bb = e.getBBox(), pt = [bb.x + bb.width / 2, bb.y + bb.height / 2];
+    let best = null;
+    for (const l of legs) { const [d, s] = nearAt(l.r, pt); if (!best || d < best[0]) best = [d, l.start + l.T * timeAt(s / l.L)]; }
+    return best[1];
+  };
+
+  // 판정 칩은 글자 폭을 재서 상자를 맞춘다. 굵은 판정어의 글꼴은 늦게 올 수 있으니 미리 받아 두고 글꼴이 올 때마다 다시 맞춘다
+  const layChip = g => {
+    const c = g.chip, [r, a, b] = g.children, wa = a.getComputedTextLength(), wb = b.getComputedTextLength();
+    const w = 16 + wa + 12 + wb + 16, x = c.a === 'end' ? c.x - w : c.x;
+    r.setAttribute('x', x); r.setAttribute('width', w);
+    a.setAttribute('x', x + 16); b.setAttribute('x', x + 16 + wa + 12);
+  };
+  const relay = () => document.querySelectorAll('#marks .chip').forEach(layChip);
+  if (document.fonts) {
+    document.fonts.load("700 24px 'IBM Plex Sans KR'", '허용차단엄격동기복제').then(relay, () => {});
+    document.fonts.load("400 22px 'IBM Plex Sans KR'", '사용자CloudFront443로드밸런서서버8080만보안그룹에인터넷5432규칙없음관리는SSM으로만22닫힘예비DB가받아야커밋').then(relay, () => {});
+    document.fonts.ready.then(relay);
+    document.fonts.addEventListener('loadingdone', relay);
+  }
+
+  // 끝 표시. 화살촉은 마지막 꺾은선 방향으로 길이 24 · 밑변 30, 끝이 장비 가장자리에서 1px 앞에 온다. ✕는 반지름 19, 팔 ±8
+  const arrow = (g, route) => {
+    const [x, y] = route[route.length - 1], [px, py] = route[route.length - 2], n = Math.hypot(x - px, y - py), ux = (x - px) / n, uy = (y - py) / n;
+    const bx = x - ux * 25, by = y - uy * 25;
+    el('path', { class: 'arrow', d: `M${bx - uy * 15} ${by + ux * 15} L${bx + uy * 15} ${by - ux * 15} L${x - ux} ${y - uy} Z` }, g);
+  };
+  const xmark = (g, [x, y]) => {
+    const m = el('g', { class: 'xm' }, g);
+    el('circle', { cx: x, cy: y, r: 19 }, m);
+    el('path', { d: `M${x - 8} ${y - 8} L${x + 8} ${y + 8} M${x + 8} ${y - 8} L${x - 8} ${y + 8}` }, m);
+  };
+  const dOf = pts => 'M' + pts.map(p => p.join(' ')).join(' L');
+
+  // 흐름 하나의 길 · 끝 표시 · 칩을 놓는다. go 가 참이면 시간표(legs)대로 움직여 그리고, 거짓이면 끝 모습을 바로 놓는다.
+  // 색은 무리마다 따로 박아, 다음 흐름으로 넘어가 사라지는 동안 색이 바뀌지 않게 한다
+  let seq = 0;
+  const paint = (f, legs, go, E) => {
+    const group = (layer, v, cls) => { const n = el('g', { class: 'flow' + (cls ? ' ' + cls : '') }, $(layer)); n.style.setProperty('--v', COLOR[v]); if (TEXT[v]) n.style.setProperty('--vt', TEXT[v]); return n; };
+    const later = (g, t) => { if (go) { g.classList.add('late'); g.style.setProperty('--e', t.toFixed(3) + 's'); } };
+    const gt = group('trails', f.v), gm = group('marks', f.v);
+    legs.forEach(l => {
+      const tr = el('path', { class: 'trail', d: dOf(l.r) }, gt);
+      if (go) {
+        const id = 'rv' + ++seq, m = el('mask', { id, maskUnits: 'userSpaceOnUse', x: -20, y: -20, width: 1700, height: 740 }, gt);
+        const rv = el('path', { class: 'rv', d: dOf(l.r), pathLength: 100 }, m);
+        rv.style.setProperty('--d', l.start.toFixed(3) + 's'); rv.style.setProperty('--t', l.T.toFixed(3) + 's');
+        tr.setAttribute('mask', `url(#${id})`);
+      }
+      if (!l.mark) return;
+      const ga = group('marks', f.v);
+      if (l.mark === 'arrow') arrow(ga, l.r); else xmark(ga, l.r[l.r.length - 1]);
+      later(ga, l.start + l.T + LAG);
+    });
+    const c = el('g', { class: 'chip' }, gm); c.chip = f.chip;
+    el('rect', { y: f.chip.y - 22, height: 44, rx: 8 }, c);
+    el('text', { class: 'vd', y: f.chip.y + 8 }, c).textContent = f.chip.vd || (f.v === 'no' ? '차단' : '허용');
+    el('text', { class: 'pl', y: f.chip.y + 8 }, c).textContent = f.chip.t;
+    later(gm, E);
+    layChip(c);
+    // 결론 다시 깔기: 칩이 다 나타난 뒤(E + 0.3초) 앞 단계들의 길과 끝 표시를 0.45로. 칩은 다시 놓지 않는다
+    for (const k of f.ghosts || []) {
+      const h = FLOWS[k], hl = plan(h), gg = group('trails', h.v, 'ghost'), gk = group('marks', h.v, 'ghost');
+      for (const l of hl) { el('path', { class: 'trail', d: dOf(l.r) }, gg); if (l.mark === 'arrow') arrow(gk, l.r); else if (l.mark === 'x') xmark(gk, l.r[l.r.length - 1]); }
+      [gg, gk].forEach(g => g.style.setProperty('--g', (go ? E + GHOST : 0).toFixed(3) + 's'));
+    }
+  };
+
+  // 흐름 하나를 화면에 놓는다. go 가 참이면 앞 흐름의 길 · 끝 표시 · 칩을 0.3초에 지우면서 흐림을 바꾸고 새 흐름을 움직여 그리고,
+  // 거짓이면(← · #last · 움직임 줄이기 · 직접 누른 흐름에서 돌아올 때) 옮김 없이 끝 모습을 바로 놓는다.
+  // 앞 흐름에서 아직 다 나타나지 않은 칩 · 화살촉은 지금 불투명도에서 줄여, → 를 연달아 눌러도 번쩍이지 않게 한다.
+  // 켜기 표시(on · stop · aim · lit)는 모두 뗐다가 다시 붙여, 앞 흐름의 색이 남지 않고 정한 때(--at)부터 처음부터 켜지게 한다.
+  // pick 은 직접 누른 출발지 · 경유지 · 도착지(도착지 테두리는 판정과 같은 때 허용 초록 · 차단 빨강으로)
+  const render = (f, go, pick) => {
+    [...$('trails').children, ...$('marks').children].forEach(g => {
+      if (!go) { g.remove(); return; }
+      if (g.classList.contains('gone')) return;   // 이미 사라지는 중인 무리는 그대로 둔다
+      g.style.opacity = getComputedStyle(g).opacity; g.classList.remove('late', 'ghost'); g.classList.add('gone');
+      setTimeout(() => g.remove(), OUT * 1000 + 20);
+    });
+    $('pick').replaceChildren(); $('rings').replaceChildren();
+    map.classList.toggle('still', !go);
+    if (f) map.dataset.v = f.v; else delete map.dataset.v;
+    map.classList.toggle('nosg', !!f && f.sg === false);
+    const legs = f ? plan(f) : [], arrived = legs.length ? doneAt(legs) : 0, E = arrived + LAG;
+    const all = [...map.querySelectorAll('[data-k]')], eds = [...map.querySelectorAll('.ed')];
+    all.forEach(e => e.classList.remove('on', 'stop', 'aim', 'back'));
+    eds.forEach(e => e.classList.remove('lit'));
+    void map.getBoundingClientRect();
+    const has = (list, k) => !!f && !!list && list.includes(k);
+    for (const e of all) {
+      const k = e.dataset.k, now = has(f && f.now, k), on = now || has(f && f.on, k), stop = has(f && f.stop, k), aim = has(f && f.aim, k) && !pick;
+      const at = !go ? 0 : on ? (now ? DIM : arrive(e, legs)) : E;
+      e.style.setProperty('--at', at.toFixed(3) + 's');
+      e.style.setProperty('--px', (go ? E + .1 : 0).toFixed(3) + 's');
+      if (on) e.classList.add('on'); if (stop) e.classList.add('stop'); if (aim) e.classList.add('aim');
+      if (has(f && f.back, k)) { e.style.setProperty('--g', (go ? E + GHOST : 0).toFixed(3) + 's'); e.classList.add('back'); }
+      e.classList.toggle('hid', has(f && f.hide, k));
+      e.classList.toggle('dim', !!f && !on && !stop && !aim && !has(f.keep, k) && !has(f.hide, k) && !(pick && pick.includes(k)));
+    }
+    // etcd 표식 셋(주 DB → 예비 DB → 관제 서버)을 화살촉이 닿은 때부터 0.15초 간격으로 켠다
+    if (f && f.etcd) eds.forEach((e, i) => { e.style.setProperty('--et', (go ? arrived + i * .15 : 0).toFixed(3) + 's'); e.classList.add('lit'); });
+    if (f) paint(f, legs, go, E);
+    if (pick) rings(pick, f.v === 'ok', go ? E : null);
+    // 바로 놓을 때는 켜기 · 끝 표시 움직임을 끝 모습으로 넘긴다(장이 열릴 때 쌓이는 움직임 rise 는 그대로 둔다)
+    if (!go) { map.getAnimations({ subtree: true }).forEach(a => { if (a.animationName !== 'rise') a.finish(); }); void document.body.offsetWidth; map.classList.remove('still'); }
+  };
+
+  // 누른 장비 테두리(카드 바깥 6px, 두께 3). 사람 · 구름은 그림과 이름을 함께 덮는 투명 누름 상자 바깥 2px.
+  // 테두리는 장비 층 아래(#rings)에 그려 카드 모서리 표식을 가로지르지 않는다
+  const ring = (k, cls, parent) => {
+    const g = map.querySelector(`[data-k="${k}"]`), r = g.querySelector(':scope > rect.bx') || g.querySelector(':scope > rect.hit');
+    const b = { x: +r.getAttribute('x'), y: +r.getAttribute('y'), width: +r.getAttribute('width'), height: +r.getAttribute('height') }, p = r.classList.contains('bx') ? 6 : 2;
+    return el('rect', { class: 'ring' + (cls ? ' ' + cls : ''), x: b.x - p, y: b.y - p, width: b.width + p * 2, height: b.height + p * 2, rx: 16 }, parent);
+  };
+  // 관리 접속의 차례 번호(운영자 1, SSM 2)는 테두리 왼쪽 위 모서리에, 테두리와 달리 맨 위 층(#pick)에 둔다
+  const badge = (k, n) => {
+    const r = ring(k, '', $('rings')), x = +r.getAttribute('x'), y = +r.getAttribute('y'), b = el('g', { class: 'badge' }, $('pick'));
+    el('circle', { cx: x, cy: y, r: 15 }, b); el('text', { x, y: y + 8 }, b).textContent = n;
+  };
+  // 직접 누른 흐름의 테두리: 출발지 · 경유지는 하늘색(관리 접속이면 차례 번호까지), 도착지는 판정 때(E) 허용 초록 실선 · 차단 빨강 점선
+  const rings = (pick, ok, E) => {
+    pick.slice(0, -1).forEach((k, i) => pick[0] === 'opr' && pick.length === 3 ? badge(k, i + 1) : ring(k, '', $('rings')));
+    const g = el('g', {}, $('rings')); ring(pick[pick.length - 1], ok ? 'ok' : 'no', g);
+    if (E != null) { g.classList.add('late'); g.style.setProperty('--e', E.toFixed(3) + 's'); }
+  };
+
+  // ---- 단계와 직접 누르기. 출발 장비를 누르면 하늘색 테두리로 고르고, 도착 장비를 누르면 판정해 그린다(근거가 없으면 고른 표시만 푼다).
+  //      운영자를 고른 뒤 SSM을 누르면 경유지(차례 2)로 잡고 세 번째를 기다린다. 같은 장비를 다시 누르거나 빈 곳을 누르면 푼다.
+  //      그린 뒤 → · ← 나 도구 끄기(E)는 원래 단계의 끝 모습으로 바로 돌아온다 ----
+  // picked 는 지금 그려 둔 직접 누른 흐름({ pick, ok }), sel 은 고르는 중인 장비들이다
+  let step = 0, picked = null, sel = [];
+  const drawSel = () => {
+    $('pick').replaceChildren(); $('rings').replaceChildren();
+    if (!sel.length) { if (picked) rings(picked.pick, picked.ok, null); return; }
+    sel.forEach((k, i) => sel[0] === 'opr' ? badge(k, i + 1) : ring(k, '', $('rings')));
+  };
+  const unpick = () => { if (sel.length) { sel = []; drawSel(); } };
+  const press = k => {
+    if (sel.includes(k)) { unpick(); return; }
+    if (!sel.length) { sel = [k]; drawSel(); return; }
+    if (sel.length === 1 && sel[0] === 'opr' && k === 'ssm') { sel.push(k); drawSel(); return; }
+    const chosen = [...sel, k], f = decide(sel[0], sel[1], k);
+    sel = [];
+    if (!f) { drawSel(); return; }
+    picked = { pick: chosen, ok: f.v === 'ok' }; render(f, !reduce, chosen);
+  };
+  map.addEventListener('click', e => { const g = e.target.closest('[data-pick]'); if (g) press(g.dataset.k); else unpick(); });
+  stage.addEventListener('click', e => { if (!map.contains(e.target)) unpick(); });
+  map.addEventListener('keydown', e => {
+    const g = e.target.closest && e.target.closest('[data-pick]');
+    if (e.key === 'Enter' && g) { e.preventDefault(); press(g.dataset.k); }
+    if (e.key === 'Escape') unpick();
+  });
+  const show = (n, go) => { step = n; picked = null; sel = []; stage.dataset.step = n; render(FLOWS[STEPS[n]], go); };
+  // 도구를 끄면(E) 직접 누른 흐름을 접고 단계 화면으로 돌아온다
+  new MutationObserver(() => { if (!document.body.classList.contains('tools') && picked) show(step, false); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  show(location.hash === '#last' ? LAST : 0, false);
+  if (location.hash === '#last') document.getAnimations().forEach(a => a.finish());   // 뒤 장에서 돌아오면 쌓이는 움직임 없이 끝 모습으로
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (picked) { show(step, false); return true; }
+    sel = []; $('pick').replaceChildren(); $('rings').replaceChildren();
+    if (d > 0 && step < LAST) { show(step + 1, !reduce); return true; }
+    if (d < 0 && step > 0) { show(step - 1, false); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+
+  // ---- 글자 맞춤 ----
+  // 글꼴을 받은 뒤, 카드 안 글자가 카드 오른쪽 여백 14를 넘으면 1px씩 줄인다(브라우저마다 글꼴 폭이 달라도 튀어나오지 않게).
+  // 가운데 맞춤 글자는 양쪽 여백을 함께 본다. 청중이 보는 글자라 22px 아래로는 줄이지 않는다. 줄이기만 하므로 여러 번 불러도 같다
+  const fitAll = () => {
+    try {
+      for (const t of map.querySelectorAll('.tile text')) {
+        const r = t.closest('.tile').querySelector('.bx'), x0 = +r.getAttribute('x'), x1 = x0 + +r.getAttribute('width');
+        const mid = t.getAttribute('text-anchor') === 'middle';
+        let fs = parseFloat(getComputedStyle(t).fontSize), guard = 0;
+        const over = () => { const b = t.getBBox(); return b.x + b.width > x1 - 14 || (mid && b.x < x0 + 14); };
+        while (over() && fs > 22 && guard++ < 20) { fs -= 1; t.style.fontSize = fs + 'px'; }
+      }
+    } catch (e) {}
+  };
+  fitAll();
+  if (document.fonts) { document.fonts.ready.then(fitAll); document.fonts.addEventListener('loadingdone', fitAll); }
+  addEventListener('load', fitAll);
+  setTimeout(fitAll, 900);
+})();
+</script>
+<!-- 발표 노트(40초): 그다음 개인 AWS에 최종 구성을 올렸습니다. 서울 리전의 데이터센터 두 곳에 역할별로 서버를 나눴습니다.
+→ 1 거래 서버와 DB를 두 곳에 한 대씩 두고, Patroni 자동 전환을 두 데이터센터에 걸쳐 적용했습니다.
+→ 2 사용자는 CloudFront와 로드밸런서를 거쳐 서버의 8080에만 닿습니다.
+→ 3 NAT 비용을 아끼려고 퍼블릭 서브넷을 썼지만, 보안 그룹에 DB로 오는 규칙이 없어 바로 들어올 수 없습니다.
+→ 4 운영자도 SSH 없이 SSM으로만 관리합니다.
+질문 때: 도면의 장비를 차례로 누르면 그 흐름만 다시 그린다(출발 → 도착, 관리 접속은 운영자 → SSM → 서버의 세 번). → 나 ← 를 누르면 원래 단계로 돌아온다.
+조회 서버: 평소 0대이고, 조회 서버 CPU가 60%를 넘으면 AI가 다른 관제 지표도 함께 보고 판단해 1대를 늘린다. 기본은 수동 모드라 AI가 제안하고 운영자가 승인한 뒤 켜고, 자동 모드를 켜 두면 허용 목록과 한도 안에서 AI가 바로 켠다(04-6).
+Patroni 엄격 동기 복제와 자동 전환은 개인 AWS에 적용했다.
+NAT를 두지 않은 까닭: NAT 게이트웨이 두 대의 월 약 92달러를 아끼려고 서버를 퍼블릭 서브넷에 두고, 들어오는 길만 보안 그룹으로 좁혔다. 나가는 연결(SSM 에이전트, 이미지 내려받기, Teams 보고)은 서버의 공인 IP로 인터넷 게이트웨이를 지나 나간다. 고객사 운영이라면 서버를 프라이빗 서브넷에 두고 AZ별 NAT를 둔다.
+AZ-c가 통째로 멈추면: 예비 DB와 etcd 두 표(예비 DB·관제 서버)를 함께 잃어, 주 DB가 과반도 예비 DB도 보지 못해 스스로 내려간다. DB 쓰기·조회가 모두 멈추지만 확인된 커밋은 잃지 않는다(유실 대신 멈춤을 택한 설계). 같은 AZ의 관제 서버도 함께 멈춘다.
+AZ-a가 통째로 멈추면: 예비 DB가 자동 승격해 조회는 다시 되지만, 동기 예비가 없어 옛 주 DB가 예비로 돌아올 때까지 쓰기는 멈춘다.
+로드밸런서 보안 그룹은 CloudFront 주소 목록 말고도 허용 목록 주소의 443·80과 관제 서버 공인 IP의 443(시장 봇)을 받는다. -->

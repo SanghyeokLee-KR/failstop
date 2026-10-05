@@ -1,0 +1,415 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-1 Docker 시험 환경</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #8E9BB3;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage { position: fixed; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center center; transform: translate(-50%, -50%) scale(.5); background: var(--stage); overflow: hidden; }
+  .head { position: absolute; left: 130px; right: 130px; top: 64px; height: 52px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s var(--ease) both; }
+  .title .tag { margin-left: auto; }
+  .title .env { margin-left: 14px; animation: fade .6s .25s var(--ease) both; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s var(--ease) both; }
+  .dek b { font-weight: 600; color: var(--ink); }
+
+  /* 도면: 누가 봐도 Docker 구조로 읽히게 아래에서 위로 쌓는다(2026-10-05 사용자 지시 'Docker 아키텍처처럼, 다른 장과 같은 디자인').
+     맨 아래 Windows(개발 PC) → 그 위 Docker Engine(왼쪽의 docker compose가 명령) → 그 위 Docker 브리지 네트워크 chaos-net → 네트워크 안의 컨테이너.
+     꼴은 04-3 VM 구성도와 같다: 큰 테두리와 이름표, 회색 묶음 상자, 회색 상자(아이콘 · 이름 / 컨테이너 이름 / CPU · 메모리 한도), 회색 선.
+     색은 시험 장치에만: 부하 발생기(k6)와 장애 주입(Toxiproxy)은 노랑 점선. 사양 값은 harness compose 파일 그대로(API · DB 2 vCPU · 2 GiB, 봇 메모리 512m, 나머지 한도 없음).
+     좌표는 viewBox 1660×704(무대 x130 ~ 1790, y296 ~ 1000). 네트워크 y60 ~ 566, 상자 세 줄 y118 · 268 · 418(높이 122, 가운데 179 · 329 · 479), 층 막대 y586 ~ 634 · 646 ~ 692.
+     열: 봇 · k6 40 ~ 290, 로드밸런서 350 ~ 600, 거래 · 조회 서버 660 ~ 950, 장애 주입 1010 ~ 1260, DB 1320 ~ 1620 */
+  .map { position: absolute; left: 130px; top: 296px; width: 1660px; height: 704px; overflow: visible; }
+  .map text { font-family: var(--sans); }
+  .map .host { fill: rgba(255,255,255,.018); stroke: #6B7A93; stroke-width: 2; }
+  .map .htag { fill: var(--stage); stroke: #6B7A93; stroke-width: 2; }
+  .map .hh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .ht { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .map .hc { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); }
+  .map .hc .p { fill: var(--ink-3); }
+  .map .zone { fill: color-mix(in srgb, #8A96AB 5%, var(--stage)); stroke: #6B7A93; stroke-width: 2; }
+  .map .zh { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .tile .bx { fill: #1E2638; stroke: #7D8BA5; stroke-width: 2; }
+  .map .tile.test .bx { stroke: var(--warm); stroke-dasharray: 9 7; stroke-width: 2.4; }
+  .map .sn { font-size: 26px; font-weight: 600; fill: var(--ink); }
+  .map .cn { font-family: var(--mono); font-size: 22px; fill: var(--ink-2); }
+  .map .sp { font-size: 22px; fill: #A8B3C2; }
+  .map .zn { font-family: var(--mono); font-weight: 600; }
+  /* 층 막대: Docker Engine은 상자와 같은 몸통, Windows는 한 단계 옅게(맨 아래 바탕 층) */
+  .map .eng { fill: #1E2638; stroke: #7D8BA5; stroke-width: 2; }
+  .map .os { fill: rgba(255,255,255,.025); stroke: #4E5B70; stroke-width: 2; }
+  .map .lt { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .map .lbl { font-size: 22px; fill: var(--ink-3); }
+  .map .link { fill: none; stroke: var(--edge); stroke-width: 3; }
+  .map .tip { fill: var(--edge); }
+  .map .mk rect { fill: color-mix(in srgb, var(--warm) 8%, var(--stage)); stroke: var(--warm); stroke-width: 2.4; stroke-dasharray: 9 7; }
+  .map .mk text { font-size: 22px; font-weight: 600; fill: var(--warm); }
+
+  /* 열릴 때(약 2.1초): 아래에서 위로 쌓는다. 테두리(0.1) → Windows(0.3) → Docker Engine과 compose(0.5) → 네트워크(0.7) → 봇 · k6 · 로드밸런서(0.9) → 거래 · 조회 서버(1.1) → 장애 주입 · DB(1.3) → 선(1.5, 제자리에서 나타남).
+     아래 옛 설명은 VM 꼴 판의 것이다: PC 테두리와 이름표(0.1초) → 시장 봇 · 부하 발생기(0.3초) → 로드밸런서(0.5초)
+     → Spring Boot API 묶음과 상자 셋(0.7초) → PostgreSQL 묶음과 DB 둘(0.9초) → 선 전체(1.1초) → 장애 주입(1.3초).
+     선과 장애 주입 알약은 떠오르면 선 끝 · 화살촉이 상자나 알약 테두리를 미끄러지므로 제자리에서 나타나게만 한다(04-3과 같은 원칙).
+     한 문장만 하고 넘기는 장이라 단계는 없고, 열린 뒤에는 움직이지 않는다 */
+  .map .bd { animation: rise .6s var(--ease) both; }
+  .map .b1 { animation-delay: .1s; } .map .b2 { animation-delay: .3s; } .map .b3 { animation-delay: .5s; }
+  .map .b4 { animation-delay: .7s; } .map .b5 { animation-delay: .9s; } .map .b6 { animation-delay: 1.1s; } .map .b7 { animation-delay: 1.3s; } .map .b8 { animation-delay: 1.5s; }
+  .map .ln { animation-name: fade; }
+  .stage.done h1, .stage.done .dek, .stage.done .title .env, .stage.done .bd { animation: none !important; }
+
+  /* ---- 장애 주입 설명 창(장애 주입 상자를 누르거나 T): 덱의 다른 장과 같은 꼴(머리줄 · 제목 y158 · 부제 y244 · 흐름 띠 y296~380 · 카드 x130 y404 1660×596)로
+     무대 안에 겹쳐 띄운다. 두 장: ① 장애 주입 시험, ② 찾아 고친 문제와 성능 개선. → 로 넘기고 마지막에서 → 나 Esc 로 닫는다. ← 로 돌아갈 때는 움직임 없이 바로.
+     열 때: 바탕 0.2초 → 제목 · 부제 0.2초 → 띠 0.4초 → 카드 틀 0.6초 → 표 줄 0.7초부터 0.1초 간격 → 막대 1.2초부터 0.6초 → 오른쪽 합계 1.8초(끝 약 2.1초).
+     닫을 때: 내용이 0.2초에 사라진 뒤 바탕이 0.2초에 걷힌다(본 장과 창이 이중으로 비치지 않게).
+     값은 harness 판정 파일 · 측정 문서 그대로(2026-10-05 대조). 부하 시험 회차 수와 날짜는 화면에 쓰지 않는다 ---- */
+  #tox-tile { cursor: pointer; }
+  #tox-tile:hover .bx, #tox-tile:focus-visible .bx { fill: color-mix(in srgb, var(--warm) 10%, #1E2638); }
+  #tox-tile:focus { outline: none; }
+  .tox { position: absolute; inset: 0; z-index: 20; background: var(--stage); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); }
+  .tox.open { opacity: 1; pointer-events: auto; }
+  .tox > :not(.head) { transition: opacity .2s var(--ease); }
+  .tox.closing > :not(.head) { opacity: 0; }
+  .tox .head .r .sec { margin-right: 16px; }
+  .tox .ttl { position: absolute; left: 130px; right: 130px; top: 158px; display: flex; align-items: baseline; gap: 24px; }
+  .tox .ttl h2 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
+  .tox .ttl .env { margin-left: auto; }
+  .tox .ttl .pg { font-family: var(--mono); font-size: 22px; color: var(--ink-3); margin-left: 14px; }
+  .tox .tdek { position: absolute; left: 130px; right: 130px; top: 244px; margin: 0; font-size: 25px; color: var(--ink-2); }
+  .tox.enter .ttl, .tox.enter .tdek { animation: fade .4s .2s var(--ease) backwards; }
+  /* 흐름 띠: 장애를 넣은 자리 네 칸(칸 357, 사이 77, 이름 24px · 설명 22px). ②쪽에서는 .45로 흐린다 */
+  .tox .strip { position: absolute; left: 130px; top: 296px; width: 1660px; height: 84px; overflow: visible; transition: opacity .3s var(--ease); }
+  .tox.enter .strip { animation: rise .6s .4s var(--ease) backwards; }
+  .tox[data-p="2"] .strip { opacity: .45; }
+  .tox .strip text { font-family: var(--sans); }
+  .tox .strip .bx { fill: #1E2638; stroke: #7D8BA5; stroke-width: 2; }
+  .tox .strip .tx { fill: color-mix(in srgb, var(--warm) 8%, #1E2638); stroke: var(--warm); stroke-width: 2.4; stroke-dasharray: 9 7; }
+  .tox .strip .nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .tox .strip .pt { font-family: var(--mono); font-size: 22px; fill: var(--ink-3); }
+  .tox .strip .ds { font-size: 22px; fill: var(--ink-3); }
+  .tox .strip .link { fill: none; stroke: var(--edge); stroke-width: 3; }
+  .tox .strip .tip { fill: var(--edge); }
+  .tox .card { position: absolute; left: 130px; top: 404px; width: 1660px; height: 596px; box-sizing: border-box; background: #0B1019; border: 2px solid var(--line); border-radius: 14px; display: none; }
+  .tox[data-p="1"] .c1, .tox[data-p="2"] .c2 { display: grid; }
+  .tox .c1 { grid-template-columns: 1fr 480px; }
+  .tox.enter .c1 { animation: fade .4s .6s var(--ease) backwards; }
+  .tox .c2 { grid-template-columns: 1fr 1fr; }
+  .tox .c2 .hd { animation: fade .4s var(--ease) backwards; }
+  .tox .c1 .col { transition: opacity .3s var(--ease); }
+  .tox.leaving .c1 .col { opacity: 0; }
+  .tox .col { padding: 26px 40px; display: flex; flex-direction: column; }
+  .tox .col + .col { border-left: 1px solid var(--line); }
+  /* 카드 머리: 이웃 장(04-5 · 04-6)과 같은 꼴. 굵은 28px 이름 + 22px 회색 덧말 + 아래 선 */
+  .tox .hd { display: flex; align-items: baseline; gap: 14px; height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); flex: none; }
+  .tox .hd b { font-size: 28px; font-weight: 600; color: var(--ink); }
+  .tox .hd span { font-size: 22px; color: var(--ink-3); }
+  /* ① 장애 표: 장애 이름(+방법) · 횟수 · 이어받기까지 최대 시간 막대(0~30초, 끝 점선이 목표 30초) */
+  .tox .fr { display: grid; grid-template-columns: 330px 90px 1fr; align-items: center; height: 66px; border-bottom: 1px solid rgba(46,56,72,.6); }
+  .tox .fr .nm { font-size: 24px; font-weight: 600; color: var(--ink); line-height: 1.15; }
+  .tox .fr .nm small { display: block; font-size: 22px; font-weight: 400; color: var(--ink-3); }
+  .tox .fr.tx .nm small { color: var(--warm); }
+  .tox .fr .n { font-family: var(--mono); font-size: 24px; color: var(--ink); text-align: right; padding-right: 28px; }
+  .tox .fr .bar { display: flex; align-items: center; gap: 16px; }
+  .tox .fr .ax { position: relative; flex: none; width: 300px; height: 14px; border-radius: 7px; background: rgba(70,83,106,.35); }
+  .tox .fr .ax::after { content: ''; position: absolute; right: 0; top: -6px; bottom: -6px; border-right: 2px dashed var(--ink-3); }
+  .tox .fr .ax i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; background: var(--ok); }
+  .tox .fr .v { font-family: var(--mono); font-size: 24px; color: var(--ok); white-space: nowrap; }
+  .tox .fr .t { font-size: 22px; color: var(--ink-2); }
+  .tox.enter .c1 .fr { animation: rise .4s var(--ease) backwards; }
+  .tox.enter .c1 .fr { animation-delay: calc(.7s + var(--i) * .1s); }
+  .tox.enter .c1 .fr .ax i { animation: grow .6s 1.2s var(--ease) backwards; }
+  .tox.enter .c1 .fr .v { animation: fade .3s 1.8s var(--ease) backwards; }
+  .tox .big { font-family: var(--mono); font-size: 96px; font-weight: 500; line-height: 1; color: var(--ink); letter-spacing: -.02em; margin-top: 28px; }
+  .tox .big small { font-size: 40px; color: var(--ink-3); margin-left: 6px; }
+  .tox .side p { margin: 14px 0 0; font-size: 22px; line-height: 1.5; color: var(--ink-2); word-break: keep-all; }
+  .tox .side p b { font-weight: 600; color: var(--ok); white-space: nowrap; }
+  .tox .side .rule { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+  .tox.enter .c1 .side > :not(.hd) { animation: fade .3s 1.8s var(--ease) backwards; }
+  /* ② 찾아 고친 문제 · 성능 개선: 이웃 장과 같은 채운 번호 원(34px, 22px 700), 굵은 한 줄 + 아래 한 줄 */
+  .tox .its { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+  .tox .it { position: relative; padding: 0 0 0 54px; }
+  .tox .it .no { position: absolute; left: 0; top: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--ink-2); color: #0B1019; display: grid; place-items: center; font-family: var(--mono); font-size: 22px; font-weight: 700; }
+  .tox .it b { display: block; font-size: 24px; font-weight: 600; color: var(--ink); line-height: 34px; }
+  .tox .it span { display: block; margin-top: 4px; font-size: 22px; color: var(--ink-3); word-break: keep-all; }
+  .tox .it span em { font-style: normal; color: var(--ok); }
+  .tox .it .x { position: absolute; right: 0; top: 4px; font-family: var(--mono); font-size: 36px; color: var(--ok); }
+  .tox .it.pf { padding-right: 140px; }
+  .tox .c2 .it { animation: fade .3s var(--ease) backwards; }
+  .tox .c2 .col:first-child .it:nth-child(1) { animation-delay: .2s; } .tox .c2 .col:first-child .it:nth-child(2) { animation-delay: .4s; } .tox .c2 .col:first-child .it:nth-child(3) { animation-delay: .6s; } .tox .c2 .col:first-child .it:nth-child(4) { animation-delay: .8s; }
+  .tox .c2 .col:last-child .it:nth-child(1) { animation-delay: 1s; } .tox .c2 .col:last-child .it:nth-child(2) { animation-delay: 1.2s; } .tox .c2 .col:last-child .it:nth-child(3) { animation-delay: 1.4s; } .tox .c2 .col:last-child .it:nth-child(4) { animation-delay: 1.6s; }
+  /* ← 로 돌아갈 때는 그 쪽의 끝 모습을 바로 */
+  .tox.inst *, .tox.inst *::before, .tox.inst *::after { animation: none !important; }
+  @keyframes grow { from { width: 0; } }
+  /* 원본 구성도 보기(E 키 도구). 그림은 띠 아래와 화면 끝 사이 가운데에 위아래 같은 여백으로(띠 약 73 + 여백 12×2 + 남는 몇 px를 반씩) */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .25s ease-out; }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: 16px; padding: 14px 24px; font-size: 22px; color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); font-size: 22px; white-space: nowrap; }
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fig .bar .x { flex: none; margin-left: auto; font-family: var(--sans); font-size: 22px; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 12px 24px; }
+  .fig img { max-width: calc(100vw - 48px); max-height: calc(100vh - 104px); border-radius: 6px; background: var(--ink); cursor: zoom-in; }
+  .fig.zoom .view { place-items: start; }
+  .fig.zoom img { max-width: none; max-height: none; width: 260%; cursor: zoom-out; }
+
+  .fs { position: absolute; right: 130px; top: 20px; font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer; opacity: 0; transition: opacity .3s, color .3s; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-1</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>Docker 시험 환경</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-stack-2-side.svg" alt="">원본 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span>
+  </div>
+  <p class="dek">API·DB 컨테이너는 실습 VM 서버와 같은 <b>2 vCPU·2 GiB</b>로 제한했습니다.</p>
+
+  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="개발 PC 한 대(Windows) 위의 Docker 구조. 맨 아래 Windows, 그 위 Docker Engine이 있고, PowerShell 스크립트 demo-obs-up.ps1의 docker compose가 Engine에 컨테이너를 띄우라고 명령한다. Engine 위의 브리지 네트워크 chaos-net 안에 컨테이너가 있다. 시장 봇(chaos-bots, 메모리 512 MiB)과 부하 발생기(grafana/k6)의 요청이 로드밸런서(chaos-lb)를 거쳐 거래 서버 1·2(chaos-api-1·2)와 조회 서버(chaos-api-3)로 간다. 거래 서버 두 대는 장애 주입 장치(chaos-toxiproxy)를 거쳐 주 DB(chaos-pg)에 기록하고, 조회 서버는 주 DB에서 바로 읽는다. 주 DB는 예비 DB(chaos-pg-standby)로 복제한다. API·DB 컨테이너마다 2 vCPU·2 GiB로 제한해 실습 VM 서버와 같은 사양이다(AWS 앱 서버 t3.small도 같은 사양).">
+    <!-- 개발 PC 한 대 테두리와 이름표 -->
+    <g class="bd b1">
+      <rect class="host" x="0" y="20" width="1660" height="684" rx="22"/>
+      <g class="htg"><rect class="htag" x="12" y="3" width="200" height="34" rx="8"/>
+        <image href="assets/tint/ui-device-desktop-glow.svg" x="26" y="6" width="28" height="28"/>
+        <text class="hh" x="64" y="29">개발 PC</text></g>
+    </g>
+    <!-- 맨 아래 층: Windows -->
+    <g class="bd b2">
+      <rect class="os" x="330" y="646" width="1310" height="46" rx="10"/>
+      <image href="assets/tint/ui-device-desktop-side.svg" x="348" y="655" width="28" height="28"/>
+      <text class="lt" x="388" y="678">Windows<tspan class="ht" dx="16">호스트 OS, Docker Desktop이 WSL2 리눅스에서 Engine을 돌림</tspan></text>
+    </g>
+    <!-- 둘째 층: Docker Engine. 왼쪽의 docker compose(PowerShell 스크립트 하나)가 Engine에 명령한다 -->
+    <g class="bd b3">
+      <rect class="eng" x="330" y="586" width="1310" height="48" rx="10"/>
+      <image href="assets/tint/docker-glow.svg" x="346" y="592" width="36" height="36"/>
+      <text class="lt" x="392" y="619">Docker Engine<tspan class="ht" dx="16">compose 파일대로 컨테이너를 띄우고 네트워크와 CPU·메모리 한도를 정함</tspan></text>
+      <g class="tile"><rect class="bx" x="20" y="586" width="270" height="106" rx="10"/><image href="assets/tint/ui-terminal-2-glow.svg" x="36" y="602" width="28" height="28"/><text class="sn" x="74" y="626">docker compose</text><text class="cn" x="36" y="668">.\demo-obs-up.ps1</text></g>
+      <path class="link" d="M290 610 H316"/><path class="tip" d="M316 602 L330 610 L316 618 Z"/>
+    </g>
+    <!-- 셋째 층: Docker 브리지 네트워크 chaos-net. 컨테이너는 모두 이 안에서 서비스 이름으로 서로를 찾는다 -->
+    <g class="bd b4">
+      <rect class="zone" x="20" y="60" width="1620" height="506" rx="16"/>
+      <image href="assets/tint/ui-network-side.svg" x="38" y="74" width="28" height="28"/>
+      <text class="zh" x="76" y="96"><tspan class="zn">chaos-net</tspan><tspan class="ht" dx="16">Docker 브리지 네트워크</tspan></text>
+    </g>
+    <!-- 선: 시장 봇 · 부하 발생기 → 로드밸런서 → 거래 · 조회 서버. 거래 서버 1·2는 한 줄로 합쳐 장애 주입을 지나 주 DB로, 조회 서버는 주 DB로 바로. 주 DB → 예비 DB 복제.
+         상자보다 먼저 그려 선 끝을 상자가 덮는다. 나타나는 때는 맨 끝(1.5초, 제자리에서) -->
+    <g class="bd b8 ln">
+      <path class="link" d="M290 179 H320 V479 H290 M320 329 H336"/><path class="tip" d="M336 321 L350 329 L336 337 Z"/>
+      <path class="link" d="M600 329 H630 M630 179 V479 M630 179 H646 M630 329 H646 M630 479 H646"/>
+      <path class="tip" d="M646 171 L660 179 L646 187 Z M646 321 L660 329 L646 337 Z M646 471 L660 479 L646 487 Z"/>
+      <path class="link" d="M950 179 H996 M950 329 H980 V179 M1260 179 H1306"/><path class="tip" d="M996 171 L1010 179 L996 187 Z M1306 171 L1320 179 L1306 187 Z"/>
+      <path class="link" d="M950 479 H1135 V300 H1290 V209 H1306"/><path class="tip" d="M1306 201 L1320 209 L1306 217 Z"/>
+      <path class="link" d="M1470 240 V404"/><path class="tip" d="M1462 404 L1470 418 L1478 404 Z"/>
+      <text class="lbl" x="1486" y="336">복제</text>
+    </g>
+    <!-- 컨테이너: 봇 · k6(0.9초), 로드밸런서(0.9초) -->
+    <g class="bd b5">
+      <g class="tile"><rect class="bx" x="40" y="118" width="250" height="122" rx="10"/><image href="assets/tint/ui-chart-line-glow.svg" x="56" y="135" width="28" height="28"/><text class="sn" x="94" y="158">시장 봇</text><text class="cn" x="56" y="196">chaos-bots</text><text class="sp" x="56" y="226">메모리 512 MiB</text></g>
+      <g class="tile test"><rect class="bx" x="40" y="418" width="250" height="122" rx="10"/><image href="assets/tint/k6-glow.svg" x="56" y="435" width="28" height="28"/><text class="sn" x="94" y="458">부하 발생기</text><text class="cn" x="56" y="496">grafana/k6</text><text class="sp" x="56" y="526">한도 없음</text></g>
+      <g class="tile"><rect class="bx" x="350" y="268" width="250" height="122" rx="10"/><image href="assets/tint/nginx-glow.svg" x="366" y="285" width="28" height="28"/><text class="sn" x="404" y="308">로드밸런서</text><text class="cn" x="366" y="346">chaos-lb</text><text class="sp" x="366" y="376">한도 없음</text></g>
+    </g>
+    <!-- 거래 · 조회 서버(1.1초) -->
+    <g class="bd b6">
+      <g class="tile"><rect class="bx" x="660" y="118" width="290" height="122" rx="10"/><image href="assets/tint/springboot-glow.svg" x="676" y="135" width="28" height="28"/><text class="sn" x="714" y="158">거래 서버 1</text><text class="cn" x="676" y="196">chaos-api-1</text><text class="sp" x="676" y="226">2 vCPU·2 GiB</text></g>
+      <g class="tile"><rect class="bx" x="660" y="268" width="290" height="122" rx="10"/><image href="assets/tint/springboot-glow.svg" x="676" y="285" width="28" height="28"/><text class="sn" x="714" y="308">거래 서버 2</text><text class="cn" x="676" y="346">chaos-api-2</text><text class="sp" x="676" y="376">2 vCPU·2 GiB</text></g>
+      <g class="tile"><rect class="bx" x="660" y="418" width="290" height="122" rx="10"/><image href="assets/tint/springboot-glow.svg" x="676" y="435" width="28" height="28"/><text class="sn" x="714" y="458">조회 서버</text><text class="cn" x="676" y="496">chaos-api-3</text><text class="sp" x="676" y="526">2 vCPU·2 GiB</text></g>
+    </g>
+    <!-- 장애 주입(Toxiproxy, 시험 장치라 노랑 점선)과 DB(1.3초) -->
+    <g class="bd b7">
+      <g id="tox-tile" tabindex="0" role="button" aria-label="장애 주입 설명 열기"><g class="tile test"><rect class="bx" x="1010" y="118" width="250" height="122" rx="10"/><image href="assets/tint/ui-flask-glow.svg" x="1026" y="135" width="28" height="28"/><text class="sn" x="1064" y="158">장애 주입</text><text class="cn" x="1026" y="196">chaos-toxiproxy</text><text class="sp" x="1026" y="226">한도 없음</text></g></g>
+      <g class="tile"><rect class="bx" x="1320" y="118" width="300" height="122" rx="10"/><image href="assets/tint/postgresql-glow.svg" x="1336" y="135" width="28" height="28"/><text class="sn" x="1374" y="158">주 DB</text><text class="cn" x="1336" y="196">chaos-pg</text><text class="sp" x="1336" y="226">2 vCPU·2 GiB</text></g>
+      <g class="tile"><rect class="bx" x="1320" y="418" width="300" height="122" rx="10"/><image href="assets/tint/postgresql-glow.svg" x="1336" y="435" width="28" height="28"/><text class="sn" x="1374" y="458">예비 DB</text><text class="cn" x="1336" y="496">chaos-pg-standby</text><text class="sp" x="1336" y="526">2 vCPU·2 GiB</text></g>
+    </g>
+  </svg>
+
+  <!-- 장애 주입 설명 창(두 장) -->
+  <div class="tox" id="tox" data-p="1" role="dialog" aria-modal="true" aria-labelledby="tox-h" aria-hidden="true">
+    <div class="head">
+      <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+      <div class="r"><span class="sec">주요 설계 및 구현</span>04-1</div>
+    </div>
+    <div class="ttl"><h2 id="tox-h">장애 주입 시험</h2><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span><span class="pg" id="tox-pg">1 / 2</span></div>
+    <p class="tdek">Toxiproxy로 앱과 DB 사이 연결을 흔들고, Docker로 서버를 멈춰 다른 서버가 이어받는지 확인했습니다.</p>
+    <!-- 흐름 띠: 장애를 넣은 자리 네 칸. 거래 서버(종료 · 멈춤 · 망 분리) → Toxiproxy(지연 · 끊기) → 주 DB(강제 종료) → 예비 DB(자동 승격) -->
+    <svg class="strip" viewBox="0 0 1660 84" aria-label="장애를 넣은 자리: 거래 서버 1·2는 강제 종료·멈춤·망 분리, 그 사이 Toxiproxy(15432·25432)는 DB 연결 지연·끊기, 주 DB는 강제 종료, 그때 예비 DB가 자동 승격한다">
+      <rect class="bx" x="0" y="4" width="357" height="76" rx="12"/><image href="assets/tint/springboot-glow.svg" x="18" y="24" width="36" height="36"/><text class="nm" x="68" y="36">거래 서버 1·2</text><text class="ds" x="68" y="66">종료·멈춤·망 분리</text>
+      <path class="link" d="M357 42 H420"/><path class="tip" d="M420 34 L434 42 L420 50 Z"/>
+      <rect class="tx" x="434" y="4" width="357" height="76" rx="12"/><image href="assets/tint/ui-flask-glow.svg" x="452" y="24" width="36" height="36"/><text class="nm" x="502" y="36">Toxiproxy</text><text class="ds" x="502" y="66" style="fill: var(--warm)">DB 연결 지연·끊기</text>
+      <path class="link" d="M791 42 H854"/><path class="tip" d="M854 34 L868 42 L854 50 Z"/>
+      <rect class="bx" x="868" y="4" width="357" height="76" rx="12"/><image href="assets/tint/postgresql-glow.svg" x="886" y="24" width="36" height="36"/><text class="nm" x="936" y="36">주 DB</text><text class="ds" x="936" y="66">강제 종료</text>
+      <path class="link" d="M1225 42 H1288"/><path class="tip" d="M1288 34 L1302 42 L1288 50 Z"/>
+      <rect class="bx" x="1302" y="4" width="357" height="76" rx="12"/><image href="assets/tint/postgresql-glow.svg" x="1320" y="24" width="36" height="36"/><text class="nm" x="1370" y="36">예비 DB</text><text class="ds" x="1370" y="66">자동 승격</text>
+    </svg>
+    <!-- ① 장애 시험 -->
+    <section class="card c1">
+      <div class="col">
+        <div class="hd"><b>만든 장애</b><span>이어받기까지 걸린 최대 시간</span></div>
+        <div class="fr tx" style="--i:0"><div class="nm">DB 연결 지연<small>Toxiproxy, 200ms</small></div><div class="n">23회</div><div class="t">매칭 리더가 바뀌지 않아야 통과</div></div>
+        <div class="fr tx" style="--i:1"><div class="nm">DB 연결 끊기<small>Toxiproxy</small></div><div class="n">28회</div><div class="bar"><span class="ax"><i style="width:45%"></i></span><span class="v">13.5초</span></div></div>
+        <div class="fr" style="--i:2"><div class="nm">거래 서버 강제 종료<small>docker kill</small></div><div class="n">48회</div><div class="bar"><span class="ax"><i style="width:43%"></i></span><span class="v">12.9초</span></div></div>
+        <div class="fr" style="--i:3"><div class="nm">거래 서버 멈춤<small>docker pause</small></div><div class="n">28회</div><div class="bar"><span class="ax"><i style="width:44.7%"></i></span><span class="v">13.4초</span></div></div>
+        <div class="fr" style="--i:4"><div class="nm">네트워크 단절<small>망에서 분리</small></div><div class="n">17회</div><div class="bar"><span class="ax"><i style="width:37%"></i></span><span class="v">11.1초</span></div></div>
+        <div class="fr" style="--i:5"><div class="nm">주 DB 강제 종료<small>Patroni 자동 승격</small></div><div class="n">15회</div><div class="bar"><span class="ax"><i style="width:90%"></i></span><span class="v">27.0초</span></div></div>
+        <div class="fr" style="--i:6"><div class="nm">그 밖의 시험</div><div class="n">20회</div><div class="t">주 DB 격리, 예비 DB·etcd 정지, 전체 재시작</div></div>
+      </div>
+      <div class="col side">
+        <div class="hd"><b>모두 합한 장애 시험</b></div>
+        <div class="big">179<small>회</small></div>
+        <p>왼쪽 일곱 가지를 모두 더한 수입니다.</p>
+        <div class="rule"><p>막대 끝 점선이 목표 30초입니다.</p><p>끊기·종료·멈춤·단절에서 이어받은 회차는 <b>모두 30초 안</b>이었습니다.</p></div>
+      </div>
+    </section>
+    <!-- ② 찾아 고친 문제 · 성능 개선 -->
+    <section class="card c2">
+      <div class="col">
+        <div class="hd"><b>장애 시험으로 찾아 고친 문제</b></div>
+        <div class="its">
+          <div class="it"><span class="no">1</span><b>지연만 줬는데 매칭 리더가 바뀜</b><span>리더 갱신을 막던 잠금을 고쳐 <em>3회 모두 통과</em></span></div>
+          <div class="it"><span class="no">2</span><b>연결이 끊기면 리더 없이 멈춤</b><span>DB 쪽에 연결 시간 제한을 걸어 <em>고친 직후 13.9초에 이어받음</em></span></div>
+          <div class="it"><span class="no">3</span><b>멈췄던 서버가 만료된 권한을 받음</b><span>고친 뒤 <em>10.0~10.6초</em>에 이어받음</span></div>
+          <div class="it"><span class="no">4</span><b>DB가 돌아오는 순간 주문 오류</b><span>옛 리더의 응답을 503으로 바꿔 <em>주문 500 오류 0건</em></span></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="hd"><b>부하 시험으로 찾아 고친 병목</b><span>고치기 직전 대비</span></div>
+        <div class="its">
+          <div class="it pf"><span class="no">1</span><b>호가 집계 1초 캐시</b><span>놓치지 않고 받은 주문 40 → 80/s 이상</span><span class="x">×2.0</span></div>
+          <div class="it pf"><span class="no">2</span><b>마켓별 기록 스레드</b><span>접수 72.2 → 101.6/s</span><span class="x">×1.4</span></div>
+          <div class="it pf"><span class="no">3</span><b>SQL 넷을 DB 함수 하나로</b><span>접수 125.7 → 160.3/s</span><span class="x">×1.3</span></div>
+          <div class="it pf"><span class="no">4</span><b>마켓별 접수 락</b><span>접수 112.5 → 152.3/s</span><span class="x">×1.4</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <dialog class="fig" id="fig" aria-label="거래소 Docker 시험 환경 원본 구성도">
+    <div class="bar"><b>Docker 시험 환경 원본 구성도</b><span class="cap" id="fig-hint">기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view"><img id="fig-img" src="assets/img/docker-v7.png" alt="Docker 검증 환경 구성도 원본"></div>
+  </dialog>
+</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage'), map = document.getElementById('map');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  document.getElementById('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+  const fig = document.getElementById('fig'), hint = document.getElementById('fig-hint'), openBtn = document.getElementById('open-fig');
+  const HINT = '기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 ';
+  // 닫을 때 숨은 단추에서 초점을 빼 테두리가 남거나 엔터로 다시 열리지 않게 한다(04-3과 같음)
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  openBtn.addEventListener('click', () => { if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (e) { fig.setAttribute('open', ''); } });
+  document.getElementById('close-fig').addEventListener('click', closeFig);
+  document.getElementById('fig-img').addEventListener('click', e => { e.stopPropagation(); hint.textContent = HINT + (fig.classList.toggle('zoom') ? '축소' : '확대'); });
+  fig.addEventListener('click', e => { if (e.target === fig || e.target.classList.contains('view')) closeFig(); });
+  fig.addEventListener('close', () => { fig.classList.remove('zoom'); hint.textContent = HINT + '확대'; openBtn.blur(); });
+
+  // ---- 장애 주입 설명 창: 장애 주입 상자를 누르거나 T 로 연다. → 는 ①에서 ②로, ②에서 닫기. ← 는 ②에서 ①로, ①에서 닫기. Esc 는 닫기 ----
+  const tox = document.getElementById('tox'), toxTile = document.getElementById('tox-tile');
+  const toxPage = (p, inst) => { tox.classList.remove('enter'); tox.classList.toggle('inst', !!inst); tox.dataset.p = p; document.getElementById('tox-pg').textContent = p + ' / 2'; };
+  let toxT = 0, toxT2 = 0;
+  const toxOpen = () => { clearTimeout(toxT); clearTimeout(toxT2); tox.classList.remove('closing'); tox.classList.remove('leaving'); toxPage(1); tox.classList.add('open', 'enter'); tox.setAttribute('aria-hidden', 'false'); };
+  // 닫기: 내용이 0.2초에 사라진 뒤 바탕을 걷는다
+  const toxClose = () => {
+    if (!tox.classList.contains('open')) return;
+    tox.classList.add('closing'); tox.setAttribute('aria-hidden', 'true'); toxTile.blur();
+    clearTimeout(toxT); clearTimeout(toxT2);
+    toxT = setTimeout(() => tox.classList.remove('open'), 200);
+    toxT2 = setTimeout(() => tox.classList.remove('closing', 'inst', 'enter', 'leaving'), 400);
+  };
+  const toxStep = d => {
+    const p = +tox.dataset.p;
+    if (tox.classList.contains('leaving')) return true;
+    // 1 → 2: 1쪽 내용이 0.3초에 물러난 뒤 2쪽(카드 틀은 그대로)
+    if (d > 0 && p < 2) { tox.classList.remove('enter'); tox.classList.add('leaving'); clearTimeout(toxT); toxT = setTimeout(() => { tox.classList.remove('leaving'); toxPage(2, false); }, 300); }
+    else if (d < 0 && p > 1) toxPage(p - 1, true); else toxClose();
+    return true;
+  };
+  toxTile.addEventListener('click', toxOpen);
+  toxTile.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toxOpen(); } });
+  tox.addEventListener('click', () => toxStep(1));
+  addEventListener('keydown', e => {
+    if (tox.classList.contains('open')) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); toxClose(); return; }
+      // 이 장만 따로 열었을 때도 → ← 로 넘긴다(덱 안에서는 덱이 deckStep 으로 부른다)
+      if (window.parent === window && (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowLeft')) { e.preventDefault(); toxStep(e.key === 'ArrowLeft' ? -1 : 1); return; }
+    }
+    if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey && !fig.open) { e.preventDefault(); tox.classList.contains('open') ? toxClose() : toxOpen(); }
+  }, true);
+
+  // 단계는 없다(한 문장 하고 넘기는 장). #last(뒤 장에서 돌아올 때)는 열림 움직임 없이 끝 모습
+  if (location.hash === '#last') stage.classList.add('done');
+  window.deckStep = d => { if (tox.classList.contains('open')) return toxStep(d); if (fig.open) { closeFig(); return true; } return false; };
+
+  // 글자 맞춤: 상자 안 이름이 오른쪽 여백 14를 넘으면 1px씩 줄인다(22px 아래로는 줄이지 않는다)
+  const fitAll = () => {
+    try {
+      for (const t of map.querySelectorAll('.tile text')) {
+        const r = t.closest('.tile').querySelector('.bx'), x1 = +r.getAttribute('x') + +r.getAttribute('width');
+        let fs = parseFloat(getComputedStyle(t).fontSize), guard = 0;
+        while (t.getBBox().x + t.getBBox().width > x1 - 14 && fs > 22 && guard++ < 20) { fs -= 1; t.style.fontSize = fs + 'px'; }
+      }
+      // 테두리 이름표: 글자 양옆 16을 남기고 감싼다(왼쪽 이름표는 x12에서 시작, 오른쪽 이름표는 x1648에서 끝)
+      for (const g of map.querySelectorAll('.htg')) {
+        const r = g.querySelector('.htag'), b = g.querySelector('text').getBBox();
+        if (g.dataset.end) { r.setAttribute('x', b.x - 16); r.setAttribute('width', 1648 - (b.x - 16)); }
+        else r.setAttribute('width', b.x + b.width + 16 - 12);
+      }
+    } catch (e) {}
+  };
+  fitAll();
+  if (document.fonts) { document.fonts.ready.then(fitAll); document.fonts.addEventListener('loadingdone', fitAll); }
+  addEventListener('load', fitAll);
+})();
+</script>
+<!-- 발표 노트(25초): 먼저 개발 PC의 Docker에 실제와 같은 구성을 올리고, 거래 서버와 DB를 VM과 같은 2 vCPU·2 GiB로 제한해 PC 성능 때문에 병목이 가려지지 않게 했습니다.
+그리고 연결 지연과 끊김, 서버 강제 종료 같은 장애를 일부러 넣어 179번 시험했습니다.
+(장애 주입 상자를 누르거나 T: 장애 주입 설명 창. 질문이 오거나 시간이 남을 때 연다. 창 숫자 근거: harness/evidence 판정 JSON(장애 179회 = E1 23 · E2 28 · E4 31 · E6 17 · E7 28 · E5 17 · COLD 6 · Patroni E-P 20 · 시연 9), 주 DB 강제 종료 15회 승격 20.9~27.0초, 고친 문제 e1-lease-starvation-20260913 · ADR 0004 · pml-s3-gate-20260924-0830 · measurements/20260925, 성능 gateoff-20260903-2vcpu · 20260910 · 20260911 · 20260914. 부하 시험 회차 수는 근거가 없어 쓰지 않는다. 날짜가 다른 절대값끼리의 배수는 쓰지 않는다.)
+질문 때: API 세 개는 docker-compose.demo-obs.yml 의 cpus 2.0 · memory 2g(기본 chaos 파일의 1.0 · 1g를 덮음), DB 두 개(chaos-pg · chaos-pg-standby)도 cpus 2 · mem_limit 2g다. 시장 봇은 메모리 512m만 걸었다. nginx는 AWS의 같은 자리인 ALB가 스스로 늘어나므로 한도 없이 작업 프로세스를 4개로 뒀다(1개면 초당 약 6천 건에서 병목, harness/nginx/nginx.conf 1~3행). toxiproxy · k6는 시험 장치라 걸지 않았다.
+한도를 건 이유: 걸지 않으면 chaos-pg가 이 PC의 16코어 가운데 평균 9.7 · 최대 14.8코어를 써서 AWS의 2코어 DB에서 생길 병목이 가려졌다(docker-compose.demo-obs.yml 주석).
+장애 주입은 toxiproxy로 거래 서버와 주 DB 사이에 지연 · 끊김을 넣는다(부록 A2). 이 그림은 비동기 시연 구성(-DbMode async)이고, 영상의 Patroni 구성과는 다르다(인자 없이 부르면 Patroni 노드가 있는 PC에서는 Patroni로 뜬다).
+원본 구성도(E 키)는 기본 카오스 구성이라 예비 DB가 없다. 예비 DB, MSP 화면과 수집 경로, 백업 작업은 시연 오버레이(docker-compose.demo-obs.yml)가 더한다. Prometheus · Grafana 같은 관측 컨테이너는 기본 구성(obs 프로필)에도 있어 원본에 그려져 있다.
+api-3(조회 서버)은 profiles: scale 이라 기본 기동에 없고 조정기가 붙였다 뗀다(AWS 조회 서버 0~1대와 같은 자리). 장애 주입을 거치지 않는 것은 증설 시험 대상이라서다: 태우면 DB 차단 실험이 증설 노드까지 끊어 두 실험이 서로를 깬다(docker-compose.chaos.yml 주석).
+k6는 시험 스크립트가 그때그때 grafana/k6 컨테이너로 같은 망에 띄운다(demo-obs-up.ps1이 띄우는 것이 아니다). nginx는 쓰기를 api-1로 보내고 api-2를 쓰기 예비로 두며, 조회는 세 대에 나눈다. -->

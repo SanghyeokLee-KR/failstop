@@ -1,0 +1,422 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 04-4 리눅스 서버 운영</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #7D8BA5;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s var(--ease) both; }
+  .title .tag { margin-left: auto; }
+  .title .env { margin-left: 14px; animation: fade .6s .25s var(--ease) both; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s var(--ease) both; }
+
+  /* 위 띠: 다섯 분야(계정·권한 → 서비스 → 로그 → 네트워크 → 디스크). 흐름이 아니라 차례라 칸 사이 화살표는 없다.
+     → 한 번에 한 칸이 파랗게 켜지고 아래 카드가 그 분야의 명령 · 출력으로 바뀐다(04-6 AI 관제와 같은 띠 + 카드 꼴).
+     좌표는 무대 x130 ~ 1790, y300 ~ 376. 칸은 폭 308 · 높이 76, 사이 30 */
+  .areas { position: absolute; left: 130px; top: 300px; width: 1660px; height: 76px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 30px; }
+  .area { display: grid; grid-template-columns: 36px 1fr; column-gap: 14px; align-items: center; padding: 0 16px; box-sizing: border-box; height: 76px; border-radius: 12px; background: #1E2638; border: 2.5px solid var(--edge); transition: opacity .35s var(--ease); }
+  .area svg { width: 36px; height: 36px; fill: none; stroke: var(--glow); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .area b { display: block; font-size: 24px; font-weight: 600; line-height: 30px; color: var(--ink); }
+  .area span { display: block; font-size: 22px; line-height: 28px; color: var(--ink-2); white-space: nowrap; }
+  .stage:not([data-step="0"]) .area:not(.on) { opacity: .45; }
+  /* 켜졌다 꺼진 칸이 등장 움직임(rise)을 처음부터 다시 돌지 않게, 열림 뒤에는 꺼진 칸의 움직임을 끈다 */
+  .stage:not([data-step="0"]) .area:not(.on) { animation: none; }
+  .stage:not(.inst) .area.on { animation: lit .3s var(--ease) both; }
+  .area.on { border-color: var(--brand); border-width: 3px; }
+
+  /* 아래 카드: 왼쪽은 그 분야의 실제 명령과 출력(증거본 캡처의 글을 그대로 옮기고, 뺀 부분은 … 로 표시), 오른쪽은 같은 번호의 설정 · 시험 · 결과.
+     번호는 늘 1 설정 / 2 시험(서비스는 실제 장애) / 3 결과. 상자 색은 역할에 고정한다:
+     설정 하늘 실선, 시험 노랑 점선(덱의 장애 주입 표식), 실제 장애 빨강 실선, 결과 흰색 실선. 판정 색(거부 · 차단 빨강, 자동 재기동 파랑,
+     보존 · 해제 초록, 경보 노랑)은 오른쪽 결과 줄의 알약에만 쓴다.
+     터미널 틀은 단계마다 같은 자리(무대 y440)와 같은 크기(1044×520)라 단계가 바뀌어도 눈이 자리를 다시 찾지 않는다 */
+  .card { position: absolute; left: 130px; top: 404px; width: 1660px; height: 596px; box-sizing: border-box; background: #0B1019; border: 2px solid var(--line); border-radius: 14px; }
+  .card .shot { position: absolute; left: 20px; top: 20px; width: 1044px; height: 552px; display: grid; place-items: start center; }
+  .card .side { position: absolute; left: 1100px; top: 20px; width: 536px; height: 552px; box-sizing: border-box; padding-top: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 24px; }
+  .card .side::before { content: ''; position: absolute; left: -18px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
+
+  .term { position: relative; margin-top: 16px; width: 1044px; height: 520px; box-sizing: border-box; border-radius: 10px; background: #05070B; border: 1px solid #222A37; box-shadow: 0 14px 40px rgba(0,0,0,.5); }
+  .term .tb { display: flex; align-items: center; gap: 14px; height: 44px; box-sizing: border-box; padding: 0 18px; border-bottom: 1px solid #1B2230; font-size: 22px; color: var(--ink-3); }
+  .term .tb i { display: inline-flex; gap: 7px; }
+  .term .tb i::before, .term .tb i::after, .term .tb i em { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: #2A3242; }
+  .term .tb b { font-weight: 600; color: var(--ink-2); }
+  .term .body { position: relative; padding: 16px 26px 18px; }
+  /* 줄 높이 40, 22px 글자. 상자는 줄 안쪽(위아래 3px)에 그려 붙은 두 상자 사이가 6px 뜬다 */
+  .term .ln { height: 40px; line-height: 40px; font-family: var(--mono); font-size: 22px; white-space: pre; color: var(--ink-2); }
+  .term .ln.c, .term .ln.k { color: var(--ink); }
+  .term .ln.c::before { content: '$ '; color: var(--ok); }
+  .term .ln.m { color: var(--ink-3); }
+  .tg { position: absolute; left: 12px; right: 12px; box-sizing: border-box; border: 3px solid var(--c); border-radius: 8px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 12%, transparent); }
+  .tg.test { border-style: dashed; }
+  /* 번호 원은 상자 오른쪽 변 가운데(04-6과 같은 꼴). 줄 글은 오른쪽 여백 안에서 끝나 원에 가리지 않는다 */
+  .tg b, .side .row .n { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--c); color: #0B1019; font-family: var(--mono); font-size: 22px; font-weight: 700; font-style: normal; }
+  .tg b { position: absolute; right: -17px; top: calc(50% - 17px); }
+
+  .side .row { display: grid; grid-template-columns: 34px 110px 1fr; column-gap: 12px; align-items: start; }
+  .side .row .n { margin-top: 1px; }
+  .side .row .k { line-height: 36px; color: var(--c); font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .side .row p { margin: 0; font-size: 24px; line-height: 36px; color: var(--ink); word-break: keep-all; text-wrap: balance; }
+  .side .row p .pl { display: inline-block; margin-right: 10px; padding: 0 12px; height: 34px; line-height: 30px; box-sizing: border-box; border-radius: 17px; border: 2px solid var(--v); background: color-mix(in srgb, var(--v) 14%, transparent); color: var(--v); font-size: 22px; font-weight: 700; vertical-align: 1px; }
+  .side .hd { display: flex; align-items: baseline; gap: 14px; height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .side .hd b { font-size: 28px; font-weight: 600; color: var(--ink); }
+  .side .hd span { font-size: 22px; color: var(--ink-3); }
+
+  /* 열린 모습: 직접 설치해 systemd 서비스로 운영한 구성 요소(왼쪽, 띠의 분야와 겹치지 않게)와 이 장을 읽는 법(오른쪽).
+     오른쪽 '읽는 법' 머리의 위를 왼쪽 목록 머리의 위에 맞춘다 */
+  .ov { width: 100%; padding: 0 24px; box-sizing: border-box; }
+  .ov .k { height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; }
+  .ov .k b { font-size: 28px; font-weight: 600; color: var(--ink); }
+  .ov .k span { font-size: 22px; color: var(--ink-3); }
+  .ov .r { display: grid; grid-template-columns: 300px 150px 1fr; column-gap: 20px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid var(--line); }
+  .ov .r:last-child { border-bottom: 0; }
+  .ov .r .h { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+  .ov .r .o { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .ov .r .s { font-size: 24px; color: var(--ink-2); word-break: keep-all; }
+
+  /* 단계에 들어설 때만 움직인다. 앞 카드 내용(복사본)이 0 ~ 0.3초에 사라진 뒤, 같은 자리의 틀 안에서 새 글(제목 줄 · 터미널 줄 · 오른쪽 머리)이
+     0.3초부터 0.4초에 나타나 두 글이 같은 자리에 겹쳐 비치지 않는다. 번호 상자와 오른쪽 줄은 --at(0.9초부터 0.5초 간격)에 0.3초.
+     열린 모습에서 ①로 넘어갈 때만 터미널 틀 자체도 0.3초부터 떠오른다. inst(← · #last)는 움직임 없이 */
+  .card.go .term .tb > *, .card.go .term .ln, .card.go .side .hd { animation: fade .4s var(--ease) .3s both; }
+  .card.go.first .term { animation: fade .4s var(--ease) .3s both; }
+  .card.go .tg { animation: mark .3s var(--ease) var(--at) both; }
+  .card.go .row { animation: fade .3s var(--ease) var(--at) both; }
+  .card .ghost { position: absolute; inset: 0; pointer-events: none; animation: leave .3s var(--ease) both; }
+  .card .ghost * { animation: none !important; }
+
+  /* 열릴 때(약 2.0초): 제목 → 부제 → 칩, 띠의 다섯 칸을 0.35초부터 0.2초 간격으로, 카드(1.4초) */
+  .bd { animation: rise .6s var(--ease) backwards; }
+  .b1 { animation-delay: .35s; } .b2 { animation-delay: .55s; } .b3 { animation-delay: .75s; } .b4 { animation-delay: .95s; } .b5 { animation-delay: 1.15s; } .b6 { animation-delay: 1.4s; }
+
+  .stage.inst *, .stage.inst *::before, .stage.inst *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; }
+  .stage.done h1, .stage.done .dek, .stage.done .title .env, .stage.done .bd { animation: none !important; }
+
+  /* 원본 캡처(E 키 도구): 지금 분야의 증거본 캡처(계정 ID · 공인 주소가 있는 머리와 바닥은 잘라 냄)를 위아래로 */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); outline: none; }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .35s var(--ease); }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: calc(16px * var(--k, 1)); padding: calc(14px * var(--k, 1)) calc(24px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  /* 설명 줄은 잘리지 않게 두 줄까지 늘어난다(디스크처럼 출처가 긴 분야) */
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; white-space: normal; text-wrap: balance; }
+  .fig .bar button { margin-left: auto; flex: none; font-family: var(--sans); font-size: calc(22px * var(--k, 1)); color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: calc(5px * var(--k, 1)) calc(12px * var(--k, 1)); cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: calc(18px * var(--k, 1)); padding: 0 calc(24px * var(--k, 1)) calc(24px * var(--k, 1)); }
+  .fig figure { margin: 0; }
+  .fig figcaption { margin: 0 0 calc(6px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); color: var(--ink-2); }
+  .fig figure img { display: block; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes mark { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+  @keyframes lit { from { border-color: var(--edge); border-width: 2.5px; } to { border-color: var(--brand); border-width: 3px; } }
+  @keyframes leave { from { opacity: 1; } to { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-4</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>리눅스 서버 운영</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-terminal-2-side.svg" alt="">원본 캡처<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS</span>
+  </div>
+  <p class="dek">학교 EC2에 서비스를 직접 설치하고 설정마다 명령 출력으로 확인했습니다.</p>
+
+  <div class="areas" id="areas"></div>
+  <div class="card bd b6" id="card" aria-live="polite"><div class="shot" id="shot"></div><div class="side" id="side"></div></div>
+
+  <dialog class="fig" id="fig" tabindex="-1" aria-label="원본 캡처">
+    <div class="bar"><b>원본 캡처</b><span class="cap" id="fig-cap"></span><button id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view" id="fig-view"></div>
+  </dialog>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  $('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 분야 아이콘(tabler 계열 선 아이콘, 색은 CSS). 디스크는 04-3 vmserver 의 i-disk 와 같은 꼴
+  const IC = {
+    acct: '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12 12l0 2.5"/>',
+    svc: '<path d="M8 9l3 3l-3 3"/><path d="M13 15l3 0"/><path d="M3 6a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"/>',
+    log: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 15l2 2l4 -4"/>',
+    net: '<path d="M6 9a6 6 0 1 0 12 0a6 6 0 0 0 -12 0"/><path d="M12 3c1.333 .333 2 2.333 2 6s-.667 5.667 -2 6"/><path d="M12 3c-1.333 .333 -2 2.333 -2 6s.667 5.667 2 6"/><path d="M6 9h12"/><path d="M3 20h7"/><path d="M14 20h7"/><path d="M10 20a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M12 15v3"/>',
+    disk: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="4"/><path d="M12 10l3 5"/><path d="M7.5 18h1"/>',
+  };
+  const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
+  // 역할 색(상자 · 번호 원 · 오른쪽 이름)과 판정 색(오른쪽 알약에만)
+  const C = { set: 'var(--glow)', test: 'var(--warm)', real: 'var(--bad)', res: 'var(--ink)' };
+  const V = { deny: 'var(--bad)', keep: 'var(--ok)', auto: 'var(--brand)', warn: 'var(--warm)' };
+  const ROLE = { set: '설정', test: '시험', real: '실제 장애', res: '결과' };
+
+  // 다섯 분야. 터미널은 증거본(failstop/증거본) 캡처에서 줄을 골라 옮긴 발췌다. 한 줄 안에서 줄인 곳(명령 끝은 늘 '; …')과
+  // 같은 출력 묶음 가운데를 줄인 곳은 … 로 쓰고(088 명령과 ②의 325 두 조각은 앞뒤를 골라 옮긴 발췌), 프롬프트의 호스트 이름은 $ 로 줄이며 계정 ID · 공인 주소는 넣지 않는다. 줄 종류: c 명령, k 명령의 이어지는 줄, o 출력, m 설명 줄(# …).
+  // tags 는 터미널 위 번호 상자 [역할, 첫 줄, 끝 줄](늘 1 설정 · 2 시험 또는 실제 장애 · 3 결과 차례), rows 는 오른쪽 [역할, 글, 판정 알약…],
+  // shots 는 원본 캡처(E 키 도구, assets/linux 에 머리 · 바닥을 잘라 둔 것)
+  const AREAS = [
+    { k: 'acct', name: '계정·권한', sub: '서비스 전용 계정', host: 'app-1', role: '거래 서버',
+      src: '증거본 2026-09-19_학교AWS 124',
+      lines: [
+        ['c', 'id exchange && getent passwd exchange'],
+        ['o', 'uid=993(exchange) gid=993(exchange) groups=993(exchange)'],
+        ['o', 'exchange:x:993:993::/var/lib/exchange:/sbin/nologin'],
+        ['c', 'stat -c "%U:%G %a %n" /opt/exchange /etc/exchange /var/lib/exchange'],
+        ['o', 'root:exchange 750 /opt/exchange'],
+        ['o', 'root:exchange 750 /etc/exchange'],
+        ['o', 'exchange:exchange 750 /var/lib/exchange'],
+        ['c', 'sudo -n -u exchange touch /opt/exchange/permission-check'],
+        ['o', "touch: cannot touch '/opt/exchange/permission-check': Permission denied"],
+      ],
+      tags: [['set', 2, 6], ['test', 7, 7], ['res', 8, 8]],
+      rows: [['set', '서비스 전용 계정은 로그인 불가<br>실행·설정 폴더는 root 소유 750'], ['test', '그 계정으로 실행 폴더에 파일 쓰기'], ['res', '쓰기 권한이 없어 막힘', ['거부', 'deny']]],
+      shots: [['assets/linux/acct-124.png', 950, 320, '124 서비스 계정 만들기, 폴더 권한, 그 계정으로 쓰기 시험']] },
+    // 줄 순서를 바꿨다: 실제로는 325의 한 줄(systemctl show → journalctl) 뒤에 326(한도 조회)을 실행했다. 줄 자체는 모두 원문이다
+    { k: 'svc', name: '서비스', sub: 'systemd', host: 'bot-1', role: '관제 서버',
+      src: '증거본 2026-09-19_학교AWS 325·326(순서 재배치)',
+      lines: [
+        ['c', 'systemctl show grafana-server -p DropInPaths -p MemoryHigh -p MemoryMax'],
+        ['o', 'MemoryHigh=335544320'],
+        ['o', 'MemoryMax=402653184'],
+        ['o', 'DropInPaths=/etc/systemd/system/grafana-server.service.d/limits.conf'],
+        ['c', "sudo journalctl -u grafana-server --since '10 minutes ago' --no-pager \\"],
+        ['k', "    | grep -E 'level=error|level=warn|oom|Failed' | tail -10"],
+        ['o', "… systemd[1]: grafana-server.service: Failed with result 'oom-kill'."],
+        ['c', 'systemctl show grafana-server -p … -p NRestarts -p SubState'],
+        ['o', 'NRestarts=1'],
+        ['o', 'SubState=running'],
+      ],
+      tags: [['set', 0, 3], ['real', 4, 6], ['res', 7, 9]],
+      rows: [['set', 'systemd 유닛으로 Grafana 실행<br>메모리 한도 384MiB'], ['real', '운영 중 Grafana가<br>메모리 한도에 걸려 강제 종료'], ['res', 'systemd가 다시 띄움<br>원인을 찾아 한도를 896MiB로 늘림', ['자동 재기동', 'auto']]],
+      shots: [['assets/linux/svc-325.png', 950, 304, '325 강제 종료 기록과 재시작 횟수'], ['assets/linux/svc-326.png', 950, 68, '326 그때 걸려 있던 메모리 한도']] },
+    // tee 출력 7줄 중 Compress=yes, SystemKeepFree=1G, RuntimeMaxUse=64M 세 줄은 … 로 줄였다
+    { k: 'log', name: '로그', sub: 'journald', host: 'app-1', role: '거래 서버',
+      src: '증거본 2026-09-19_학교AWS 088·098·104',
+      lines: [
+        ['c', "printf … | sudo -n tee /etc/systemd/journald.conf.d/60-exchange-lab.conf"],
+        ['o', '[Journal]'],
+        ['o', 'Storage=persistent'],
+        ['o', '…'],
+        ['o', 'SystemMaxUse=256M'],
+        ['o', '…'],
+        ['o', 'MaxRetentionSec=7day'],
+        ['c', 'sudo -n systemctl reboot; …'],
+        ['o', 'The system will reboot now!'],
+        ['c', "sudo -n journalctl -b -1 -t exchange-lab --no-pager; …"],
+        ['o', '… exchange-lab[2982]: journal-persistence-check-20260919-before-reboot'],
+      ],
+      tags: [['set', 1, 6], ['test', 7, 8], ['res', 9, 10]],
+      rows: [['set', 'journald를 영구 보관으로 두고<br>256MiB·7일 상한'], ['test', '서버를 실제로 재부팅'], ['res', '재부팅 전 시험 로그를<br>이전 부팅에서 찾음', ['보존', 'keep']]],
+      shots: [['assets/linux/log-088.png', 950, 172, '088 journald 보존 설정'], ['assets/linux/log-098.png', 950, 250, '098 시험 로그를 남기고 재부팅'], ['assets/linux/log-104.png', 950, 234, '104 재부팅 뒤 이전 부팅의 시험 로그']] },
+    // 400의 요청 결과는 차례대로이고, 사이의 줄은 … 로 줄였다
+    { k: 'net', name: '네트워크', sub: 'Nginx·HTTPS', host: 'app-1', role: '거래 서버',
+      src: '증거본 2026-09-19_학교AWS 232·400',
+      lines: [
+        ['c', "ss -lnt '( sport = :8080 or sport = :8081 )'"],
+        ['o', 'LISTEN   0   100   [::ffff:127.0.0.1]:8080   *:*'],
+        ['o', 'LISTEN   0   100   [::ffff:127.0.0.1]:8081   *:*'],
+        ['m', '# 공개 HTTPS 주소로 요청'],
+        ['o', 'GET /api/admin/health: 403, expected=403'],
+        ['o', 'GET /api/v1/admin: 403, expected=403'],
+        ['o', 'GET /actuator/health: 403, expected=403'],
+        ['o', '…'],
+        ['o', 'GET /api/v1/markets: 200, expected=200'],
+        ['o', '…'],
+        ['o', 'PASS: TLS 검증, 공개 경로, 관리 경로 차단, 데모 조회'],
+      ],
+      tags: [['set', 0, 2], ['test', 3, 3], ['res', 4, 6]],
+      rows: [['set', '앱은 127.0.0.1에서만 듣고<br>밖은 Nginx HTTPS로만 받음'], ['test', '공개 HTTPS 주소로 관리 경로 요청'], ['res', '밖에서 관리 경로는 403', ['차단', 'deny']]],
+      shots: [['assets/linux/net-232.png', 950, 240, '232 앱이 듣는 주소'], ['assets/linux/net-400.png', 950, 252, '400 공개 HTTPS 주소로 공개·관리 경로 요청']] },
+    // 규칙은 저장소 파일, df 는 app-1, REPORT 두 줄은 bot-1(관제 서버)의 경보 · 보고 상태 확인 출력이다
+    { k: 'disk', name: '디스크', sub: '용량 경보', host: 'app-1·bot-1', role: '거래 서버·관제 서버',
+      src: 'deploy/linux/reporting/school-alerts.yml, 증거본 2026-09-20_백업_복구_보고 023·039·050',
+      lines: [
+        ['m', '# 경보 규칙 school-alerts.yml'],
+        ['o', '- alert: LinuxDiskSpaceLow'],
+        ['o', '  expr: … avail_bytes / … size_bytes < … 0.15'],
+        ['o', '  for: 5m'],
+        ['c', 'clear; date -u; sudo python3 /tmp/disk-alert-exercise.py'],
+        ['o', '…'],
+        ['o', 'Filesystem      Size  Used Avail Use% Mounted on'],
+        ['o', '/dev/loop0      115M  109M  3.4M  98% /mnt/exchange-disk-alert-test'],
+        ['m', '# 관제 서버 bot-1의 경보·보고 상태'],
+        ['o', "REPORT … 'sent' … incident= [('LinuxDiskSpaceLow', 'firing')]"],
+        ['o', "REPORT … 'sent' … incident= [('LinuxDiskSpaceLow', 'resolved')]"],
+      ],
+      tags: [['set', 1, 3], ['test', 4, 7], ['res', 9, 10]],
+      rows: [['set', '여유 15% 미만이 5분 이어지면 경보'], ['test', '시험용 디스크만 98%까지 채우고<br>운영 디스크는 그대로'], ['res', 'Teams로 발생과 해제를 보고', ['경보', 'warn'], ['해제', 'keep']]],
+      shots: [['assets/linux/disk-023.png', 760, 136, '023 시험용 디스크를 98%까지 채움'], ['assets/linux/disk-039.png', 1912, 330, '039 경보 발생과 보고 전송'], ['assets/linux/disk-050.png', 1912, 200, '050 경보 해제 보고 전송']] },
+  ];
+  // 열린 모습: 직접 설치해 systemd 서비스로 운영한 구성 요소(증거본 2026-09-19_학교AWS 114~116 · 228 · 299 · 302 · 387, 177~192, 266~270 · 277)
+  const HOSTS = [['app-1', '거래 서버', 'Java 21 앱, Nginx, Certbot'], ['db-primary·db-standby', '주 DB·예비 DB', 'PostgreSQL 17'], ['bot-1', '관제 서버', 'Prometheus, Grafana, Alertmanager, 시장 봇']];
+  const LAST = AREAS.length;
+  const T0 = .9, GAP = .5, AN = .15, LN = 40, PAD = 16;
+  const card = $('card'), shot = $('shot'), side = $('side');
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  $('areas').innerHTML = AREAS.map((a, i) => `<div class="area bd b${i + 1}" data-i="${i + 1}">${svg(a.k)}<div><b>${a.name}</b><span>${a.sub}</span></div></div>`).join('');
+
+  function overview() {
+    shot.innerHTML = `<div class="ov"><div class="k"><b>직접 설치한 구성 요소</b><span>모두 systemd 서비스로 운영</span></div>${HOSTS.map(([h, o, s]) => `<div class="r"><span class="h">${h}</span><span class="o">${o}</span><span class="s">${s}</span></div>`).join('')}</div>`;
+    side.innerHTML = `<div class="hd"><b>읽는 법</b><span>분야마다 같은 순서</span></div>` +
+      [['set', '직접 넣은 설정'], ['test', '일부러 일으킨 상황'], ['res', '명령 출력으로 확인']].map(([r, t], j) =>
+        `<div class="row" style="--c:${C[r]}"><i class="n">${j + 1}</i><span class="k">${ROLE[r]}</span><p>${t}</p></div>`).join('');
+  }
+  function area(a) {
+    const tags = a.tags.map(([r, s, e], j) =>
+      `<i class="tg ${r}" style="--c:${C[r]}; --at:${(T0 + j * GAP).toFixed(2)}s; top:${PAD + s * LN + 3}px; height:${(e - s + 1) * LN - 6}px"><b>${j + 1}</b></i>`).join('');
+    shot.innerHTML = `<div class="term"><div class="tb"><i><em></em></i><b>${a.host}</b><span>${a.role}</span></div><div class="body">` +
+      a.lines.map(([t, x]) => `<div class="ln ${t}">${esc(x)}</div>`).join('') + tags + `</div></div>`;
+    // 오른쪽 줄은 같은 번호의 상자와 같은 때
+    const idx = r => a.tags.findIndex(t => t[0] === r);
+    side.innerHTML = `<div class="hd"><b>${a.name}</b><span>${a.host} ${a.role}</span></div>` +
+      a.rows.map(([r, t, ...vs]) => `<div class="row" style="--c:${C[r]}; --at:${(T0 + idx(r) * GAP + AN).toFixed(2)}s"><i class="n">${idx(r) + 1}</i><span class="k">${ROLE[r]}</span><p>${
+        vs.map(([w, v]) => `<span class="pl" style="--v:${V[v]}">${w}</span>`).join('')}${t}</p></div>`).join('');
+  }
+  // 열린 모습은 오른쪽 '읽는 법' 머리의 위를 왼쪽 목록 머리의 위에 맞춘다(둘 다 칸 안 위아래 가운데)
+  const alignTop = () => {
+    const c = shot.firstElementChild;
+    side.style.paddingTop = '';
+    if (!c || !c.classList.contains('ov')) return;
+    const top = Math.max(0, (552 - c.offsetHeight) / 2);
+    c.style.marginTop = top + 'px'; side.style.paddingTop = top + 'px';
+  };
+
+  // ---- 원본 캡처(E 키 도구). 지금 분야(열린 모습에서는 첫 분야)의 캡처를 위아래로 놓고, 창에 다 들어가게 줄인다(2배까지 키움) ----
+  const fig = $('fig'), openBtn = $('open-fig');
+  const showFig = () => {
+    const a = AREAS[Math.max(0, step - 1)], k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    fig.style.setProperty('--k', k);
+    $('fig-cap').textContent = `${a.name}, ${a.src}. 계정 ID·공인 주소가 있는 머리와 바닥은 잘라 냄. 화면의 터미널은 이 캡처에서 줄을 골라 옮김`;
+    const view = $('fig-view');
+    view.innerHTML = a.shots.map(([s, w, h, t]) => `<figure><figcaption>${t}</figcaption><img src="${s}" alt="${t}" data-w="${w}" data-h="${h}"></figure>`).join('');
+    const W = view.clientWidth - 48 * k, H = view.clientHeight - 24 * k - a.shots.length * (40 * k) - (a.shots.length - 1) * 18 * k;
+    const z = Math.min(2, W / Math.max(...a.shots.map(s => s[1])), H / a.shots.reduce((t, s) => t + s[2], 0));
+    view.querySelectorAll('img').forEach(im => { im.style.width = Math.round(+im.dataset.w * z) + 'px'; im.style.height = Math.round(+im.dataset.h * z) + 'px'; });
+  };
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  // 도구가 꺼져 있으면 숨은 단추를 눌러도 열지 않는다
+  openBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!document.body.classList.contains('tools')) return;
+    try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); }
+    showFig();
+    try { fig.focus(); } catch (err) {}
+  });
+  $('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  fig.addEventListener('click', e => e.stopPropagation());
+  fig.addEventListener('close', () => { openBtn.blur(); });
+  addEventListener('resize', () => { if (fig.open) showFig(); });
+
+  // ---- 단계: 0 열림(직접 설치한 구성 요소와 읽는 법), 1~5 분야 하나씩. 그다음 → 는 다음 장.
+  //      앞으로는 앞 카드 내용의 복사본을 얹어 0.3초에 사라지게 하고 새 글을 그 뒤에 보이며, 뒤로는 앞 단계의 끝 모습을 바로 ----
+  let step = 0;
+  const render = (n, inst) => {
+    card.querySelectorAll('.ghost').forEach(g => g.remove());
+    const from = step;
+    if (!inst && n > 0) {
+      const g = document.createElement('div'); g.className = 'ghost'; g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = `<div class="shot">${shot.innerHTML}</div><div class="side" style="${side.getAttribute('style') || ''}">${side.innerHTML}</div>`;
+      card.appendChild(g); g.addEventListener('animationend', () => g.remove());
+    }
+    stage.classList.toggle('inst', !!inst); step = n; stage.dataset.step = n;
+    document.querySelectorAll('.area').forEach(e => e.classList.toggle('on', +e.dataset.i === n));
+    card.classList.remove('go', 'first'); void card.offsetWidth;
+    if (n === 0) overview(); else area(AREAS[n - 1]);
+    alignTop();
+    if (!inst && n > 0) card.classList.add('go');
+    if (!inst && n === 1 && from === 0) card.classList.add('first');
+  };
+  if (document.fonts) document.fonts.ready.then(alignTop);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash === '#last') { stage.classList.add('done'); render(LAST, true); }
+  else render(0, false);
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (d > 0 && step < LAST) { render(step + 1, false); return true; }
+    if (d < 0 && step > 0) { render(step - 1, true); return true; }
+    return false;
+  };
+  addEventListener('keydown', e => {
+    if (!fig.open) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeFig(); }
+  }, true);
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (fig.open) return;
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>
+<!-- 발표 노트(50초): 이제 클라우드입니다. 학교 EC2에 서비스를 직접 설치해 리눅스로 운영하며, 다섯 분야마다 상황을 만들어 명령 출력으로 확인했습니다.
+→ 1 앱은 로그인할 수 없는 전용 계정으로 돌고, 그 계정으로 실행 폴더에 쓰려 하면 막힙니다.
+→ 2 Grafana가 메모리 한도로 죽었을 때 systemd가 다시 띄웠고, 원인을 찾아 한도를 늘렸습니다.
+→ 3 로그는 재부팅해도 남게 해 두고, 실제로 재부팅한 뒤 이전 부팅의 로그를 찾았습니다.
+→ 4 앱은 서버 안에서만 듣고, 밖에서는 Nginx HTTPS로만 들어옵니다.
+→ 5 디스크를 98%까지 채워 경보가 Teams로 오는 것까지 봤습니다.
+질문 때: Grafana는 한도를 올린 뒤에도 멈춰서, cgroup 통계로 실제 사용량 약 615MiB가 회수 기준 512MiB를 넘는 것을 확인했다. 실행 폴더는 root 소유다. 로그는 256MiB·7일 상한, 앱은 8080·8081에서만 듣고 공개 주소로 관리 경로를 요청하면 403이다. 디스크 경보는 여유 15% 미만이 5분 이어질 때다.
+시험 디스크는 128MiB loop 장치이고 7분 뒤 자동으로 공간을 돌려받게 예약했다. 실제 디스크가 차면 df·du로 원인을 찾고 journal vacuum·logrotate 뒤 볼륨을 늘린다(04-3 LVM).
+앱 유닛은 Restart=on-failure, MemoryMax=1400M, StartLimitBurst=3(300초)이다(deploy/linux/app/exchange-app.service). 80번은 열려 있고 308로 HTTPS로 넘긴다. DB는 hostssl·TLS 1.3 연결만 받는다.
+앱이 127.0.0.1에서만 들으면 Prometheus는? Nginx가 사설 9101 경로로 지표만 내주고, 보안 그룹에서 출발지를 봇 SG 하나로 제한했다.
+Amazon Linux 2023의 journald는 원래 영구 저장이 아닌가? 기본 이미지에 /var/log/journal이 있었고, 여기에 256MiB·여유 1G·메모리 64MiB·7일 상한을 명시하고 실제 재부팅으로 확인했다.
+Grafana 한도: 강제 종료 때 MemoryHigh 320MiB·MemoryMax 384MiB였고, 이후 512/640MiB → 768/896MiB로 바꿔 해결했다(부록 C1 트러블슈팅).
+서비스 칸의 줄 순서: 실제로는 325(상태 조회 → 기록 조회) 뒤에 326(한도 조회)을 실행했다. 화면은 설정 → 장애 → 결과 순으로 놓았다. -->

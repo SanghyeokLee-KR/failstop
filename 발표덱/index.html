@@ -11,25 +11,95 @@
     opacity: 0; transition: opacity .3s;
   }
   body.tools .bar { opacity: .85; }
+
+  /* 연습 타이머(P): 발표 연습 때만 켜는 오른쪽 아래 시계. 말한 시간(영상 재생 중은 따로 셈)과 이 장의 권장 시간을 견준다 */
+  .tm {
+    position: fixed; right: 16px; bottom: 36px; z-index: 3; display: none;
+    min-width: 300px; padding: 12px 16px 14px; border-radius: 12px; box-sizing: border-box;
+    background: rgba(8,10,15,.88); border: 1px solid #2E3848; color: #F0F3F7;
+    font: 15px/1.35 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    box-shadow: 0 8px 28px rgba(0,0,0,.4); user-select: none;
+  }
+  body.timer .tm { display: block; }
+  .tm .big { display: flex; align-items: baseline; gap: 8px; font-family: 'IBM Plex Mono', Consolas, monospace; }
+  .tm .big b { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
+  .tm .big span { color: #8390A1; font-size: 17px; }
+  .tm .big i { margin-left: auto; font-style: normal; font-size: 15px; padding: 2px 8px; border-radius: 999px; background: #1A2130; }
+  .tm .row { display: flex; justify-content: space-between; gap: 16px; margin-top: 6px; color: #BAC4D1; }
+  .tm .row b { font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 500; color: #F0F3F7; }
+  .tm .meter { position: relative; height: 6px; margin-top: 8px; border-radius: 3px; background: #1E2638; overflow: hidden; }
+  .tm .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #2DD196; }
+  .tm .hint { margin-top: 8px; color: #8390A1; font-size: 13px; }
+  .tm .ok { color: #2DD196 !important; } .tm .warn { color: #E8C07A !important; } .tm .bad { color: #FF7A7A !important; }
+  .tm .meter i.warn { background: #E8C07A; } .tm .meter i.bad { background: #FF7A7A; }
+  .tm.paused .big b { opacity: .45; }
+
+  /* 연습 기록(K): 장마다 권장 시간과 실제로 머문 시간 */
+  .rep {
+    position: fixed; inset: 0; z-index: 4; display: none; place-items: center; background: rgba(8,10,15,.78);
+    font: 16px/1.4 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #F0F3F7;
+  }
+  body.report .rep { display: grid; }
+  .rep .box { width: min(860px, 92vw); max-height: 88vh; overflow: auto; padding: 24px 28px; border-radius: 14px; background: #131824; border: 1px solid #2E3848; box-sizing: border-box; }
+  .rep h2 { margin: 0 0 4px; font-size: 22px; }
+  .rep p { margin: 0 0 14px; color: #BAC4D1; }
+  .rep table { width: 100%; border-collapse: collapse; }
+  .rep th, .rep td { padding: 6px 8px; border-bottom: 1px solid #2E3848; text-align: right; font-family: 'IBM Plex Mono', Consolas, monospace; }
+  .rep th:first-child, .rep td:first-child, .rep th:nth-child(2), .rep td:nth-child(2) { text-align: left; }
+  .rep td:nth-child(2) { font-family: inherit; }
+  .rep th { color: #8390A1; font-weight: 500; }
+  .rep .est { color: #8390A1; font-size: 13px; margin-left: 4px; }
+  .rep .ok { color: #2DD196; } .rep .warn { color: #E8C07A; } .rep .bad { color: #FF7A7A; }
+  .rep tfoot td { font-weight: 600; border-bottom: 0; padding-top: 10px; }
 </style>
 <iframe id="f" title="발표 장"></iframe>
 <div class="bar" id="bar"></div>
+<div class="tm" id="tm" aria-live="off">
+  <div class="big"><b id="tm-talk">0:00</b><span id="tm-goal">/ 13:00</span><i id="tm-pace">계획대로</i></div>
+  <div class="row"><span id="tm-slide">이 장</span><b id="tm-cur">0:00 / 0:00</b></div>
+  <div class="meter"><i id="tm-bar" style="width:0"></i></div>
+  <div class="row"><span>영상</span><b id="tm-vid">0:00</b></div>
+  <div class="hint">P 숨김 · O 멈춤/계속 · Shift+P 처음부터 · K 기록</div>
+</div>
+<div class="rep" id="rep"><div class="box" id="rep-box"></div></div>
 <script>
-// 장 순서(v4, 2026-09-27): 표지 · 목차 · 01 기획 배경(혼잣말 말풍선, 고가용성) · 02 기획 시나리오(두 장면, 2026-09-30 목표 및 요구사항 장을 대신함) · 03 설계 방향(두 장면의 답과 계획한 아키텍처, 2026-09-30 시스템 구성 장을 대신함) · 04 주요 설계 및 구현(구축 순서, Docker, 부하·장애 시험(2026-10-02 추가), 네트워크, VM, AWS, Linux 운영, AI 관제) · 05 테스트 및 검증 · 06 결과(트래픽, DB 장애, 요약) · 07 시연 · 보고 전달 · 08 트러블슈팅 · 마무리.
+// 장 순서(v4, 2026-09-27): 표지 · 목차 · 01 기획 배경(혼잣말 말풍선, 고가용성) · 02 기획 시나리오(두 장면, 2026-09-30 목표 및 요구사항 장을 대신함) · 03 설계 방향(두 장면의 답과 계획한 아키텍처, 2026-09-30 시스템 구성 장을 대신함) · 04 주요 설계 및 구현(구축 순서, Docker, 네트워크, VM, AWS, Linux 운영, AI 관제) · 05 테스트 및 검증 · 06 결과(트래픽, DB 장애, 요약) · 07 시연 · 보고 전달 · 08 트러블슈팅 · 마무리.
+// 부록 B(2026-10-05): 05 테스트 및 검증(slide-02)과 06-1·06-2 결과(slide-r1·slide-r2)는 사용자가 들은 조언(부록으로 빼거나 없애라)에 따라 본편에서 빼고 마무리 바로 뒤 부록 B1~B3으로 옮긴다. 06-3 결과 요약(slide-sum)도 같은 날 사용자 결정으로 부록 B4로 옮겼다. 질문이 오면 → 로 넘겨 연다.
+// 부록(2026-10-04): 개발 단계 검증 두 장(A1 트래픽 천장, A2 부하·장애 시험)은 13분 본편에서 빼고 마무리 뒤에 둔다. 질문이 오면 → 로 넘겨 연다.
+// 04-2 네트워크 구성도(slide-netmap, 2026-10-04): 표 없이 한 장 전체를 VLAN 구성도로 그린 새 장. 기존 04-2(slide-net)는 2026-10-05 사용자 결정으로 덱 순서에서 뺐다(파일은 그대로).
 // ← → 로 넘기고, F 는 전체 화면, N 은 발표자 노트 창, E 는 발표자 도구(원본·증거 단추, 쪽 번호). 장 안에 단계가 있으면(구성 공개, 부하·장애 두 장면, 도면 흐름, 측정 단계, AI 네 장면, 보고서 두 쪽) 단계부터 넘긴다.
 // 07 시연 장에서는 V 또는 '영상 재생' 단추로 7분 영상을 띄운다. 영상 창이 열려 있는 동안은 장이 키를 먼저 받아 넘어가지 않는다(Esc로 닫기).
 // 파일을 더블클릭(file://)으로 열면 장 안 단계·노트·목차가 동작하지 않는다. 덱 폴더를 HTTP로 연다(실행 방법.txt).
+// 04-3 VM 세 장(slide-vmmap, slide-vmfw, slide-vmdb, 2026-10-05): VM 구성도, pfSense 투명 방화벽, DB 이중화와 백업. 기존 VM 장(slide-vm.html)과 pfSense·Databasus 장(slide-vmsec.html)은 파일로만 남기고 덱 순서에서 뺀다.
+// 04-3 서버 단면도(slide-vmserver, 2026-10-05): 리눅스를 강조하려는 사용자 결정으로 DB01 한 대 안의 RAID1·LVM 증설·bonding 을 보이는 장. vmfw 다음, vmdb 앞(서버 안 → 서버 사이 → 서버 밖). 결과 숫자는 사용자가 장 파일 맨 위 RESULT 에 채운다.
+// 04-4 AWS 새 장(slide-awsmap, 2026-10-05): 최종 구성도(arch-v7)에 맞춰 다시 그리는 장. 기존 04-4(slide-aws)는 2026-10-05 사용자 결정으로 덱 순서에서 뺐다(파일은 그대로).
+// 07 시연: 사용자 결정(2026-10-05)으로 옛 막대 장(slide-demo, 시간대별로 영상에서 볼 것)을 그대로 쓴다. 새로 지었던 slide-demomap은 파일만 남긴다.
+// 08 트러블슈팅 새 장(slide-trouble, 2026-10-05): 04-5와 같은 띠 + 카드 꼴, 셋째 사례는 사용자 결정으로 수집기 대신 504(가상 스레드). 옛 08(slide-linux2)은 파일만 남긴다.
+// 트러블슈팅(slide-trouble)은 2026-10-05 사용자 결정('트러블 슈팅도 부록으로 옮겨')으로 본편에서 빼 부록 맨 끝 C1(부록·트러블슈팅)로 옮겼다. 본편은 보고 전달 → 마무리.
+// 보고 전달 새 장(slide-reportmap, 2026-10-05): 두 갈래 도면과 Teams 카드 1:1 · PDF 발췌를 04-6과 같은 띠 + 카드 꼴로. 옛 보고 전달(slide-report)은 파일만 남긴다.
+// 마무리 새 장(slide-close, 2026-10-05): 02 기획 시나리오의 두 장면 그림을 '답' 상태로 되살리고 결과 숫자를 타일로. 옛 마무리(slide-end)는 파일만 남긴다.
+// 04-5 Linux 운영 새 장(slide-linuxops, 2026-10-05): 사용자 지시('부숴 보고 확인'은 AI 티가 나 바꾸라는 조언, 모양은 알아서)로 04-6과 같은 띠 + 카드 꼴로 새로 지었다. 옛 04-5(slide-05)는 파일만 남긴다.
+// 04-6 AI 관제 새 장(slide-aimap, 2026-10-05): 사용자 지시('페이지 다시 만드는 것')로 캡처 슬라이드쇼 대신 새로 지었다. 흐름 띠 + 콘솔 화면 꼴(사용자 결정: 'AI 덱은 콘솔 화면을 보여 주는 것'). 옛 04-6(slide-ai)은 파일만 남긴다.
+// 04-1 Docker 새 장(slide-dockermap, 2026-10-05): 사용자 지시('다른 페이지와 디자인 콘셉트를 지키면서')로 04-3 VM 구성도와 같은 꼴(테두리 이름표, 회색 묶음 상자)로 새로 지었다. 옛 04-1(slide-docker-lab)은 파일만 남긴다.
+// 04-1 Docker 컨테이너 장(slide-dockerbox, 2026-10-05): 사용자 판단('예전이 더 좋았다', '컨테이너에 cpu ram 크기', '도커 컨테이너처럼')으로 옛 04-1 꼴을 바탕으로 카드를 화물 컨테이너 모양 + CPU·메모리 줄로 다시 지었다. slide-dockermap은 파일만 남긴다.
+// 04-1 Docker 아키텍처 장(slide-dockerarch, 2026-10-05): 사용자 지시('컨테이너처럼이 아니라 누가 봐도 Docker 아키텍처처럼, 다른 장과 같은 디자인')로 Windows → Docker Engine → chaos-net → 컨테이너 층 구조를 04-3 VM 구성도 꼴로 새로 그렸다. slide-dockerbox는 파일만 남긴다.
+// 리눅스 서버 운영(학교 EC2)을 VM 묶음 뒤 · AWS 구성도 앞으로 옮겼다(2026-10-05 사용자 결정. 실제 순서 학교 EC2 → 개인 AWS, AWS 뒤에 AI 관제가 바로 이어짐). 번호도 04-4 리눅스, 04-5 AWS로 맞바꿨다.
 const SLIDES = ['cover.html', 'slide-toc.html', 'slide-story.html', 'slide-bg.html', 'slide-design.html',
-  'slide-build.html', 'slide-docker.html', 'slide-docker-runs.html', 'slide-net.html', 'slide-vm.html', 'slide-aws.html', 'slide-05.html', 'slide-ai.html',
-  'slide-02.html', 'slide-r1.html', 'slide-r2.html', 'slide-sum.html', 'slide-demo.html', 'slide-report.html', 'slide-linux2.html', 'slide-end.html'];
+  'slide-build.html', 'slide-dockerarch.html', 'slide-netmap.html', 'slide-vmmap.html', 'slide-vmfw.html', 'slide-vmserver.html', 'slide-vmdb.html', 'slide-linuxops.html', 'slide-awsmap.html', 'slide-aimap.html',
+  'slide-demo.html', 'slide-reportmap.html', 'slide-close.html',
+  'slide-02.html', 'slide-r1.html', 'slide-r2.html', 'slide-sum.html',
+  'slide-docker-ceiling.html', 'slide-docker-runs.html',
+  'slide-trouble.html'];
 const f = document.getElementById('f'), bar = document.getElementById('bar');
 let i = Math.max(0, Math.min(SLIDES.length - 1, parseInt(location.hash.slice(1) || '0', 10) || 0));
 
 // last 가 참이면 장을 마지막 단계로 연다(뒤로 돌아온 경우). 각 장이 주소의 #last 를 읽는다.
 function show(last) {
   f.src = SLIDES[i] + (last ? '#last' : '');
-  bar.textContent = `${String(i).padStart(2, '0')} / ${String(SLIDES.length - 1).padStart(2, '0')}  ← → 넘김 · F 전체 화면 · N 발표자 노트 · E 도구`;
+  applyTheme();
+  bar.textContent = `${String(i).padStart(2, '0')} / ${String(SLIDES.length - 1).padStart(2, '0')}  ← → 넘김 · F 전체 화면 · N 발표자 노트 · E 도구 · P 연습 타이머 · L 화이트 모드 · G 구성도`;
   try { history.replaceState(null, '', '#' + i); } catch (e) {}
+  if (typeof noteVisit === 'function' && tmTick) noteVisit();
 }
 function step(d) {
   // 장 안에 원본 그림 창이 열려 있으면 넘기지 않고 창부터 닫는다.
@@ -44,10 +114,36 @@ function step(d) {
   } catch (e) {}
   const n = i + d;
   if (n < 0 || n >= SLIDES.length) return;
-  i = n; show(d < 0);
+  tmAdvance(); i = n; show(d < 0);
+}
+// 화이트 모드(L): 장 문서가 만들어지자마자 <html data-theme="light" data-slide="파일이름"> 을 붙여 어두운 화면이 잠깐 보이지 않게 한다.
+// 고른 모드는 이 브라우저에 기억한다. 색 규칙은 deck.css 맨 아래에 있다.
+let theme = 'dark';
+try { theme = localStorage.getItem('deck-theme') === 'light' ? 'light' : 'dark'; } catch (e) {}
+function markTheme(doc) {
+  if (!doc || !doc.documentElement) return false;
+  const el = doc.documentElement;
+  el.dataset.slide = SLIDES[i].replace(/\.html$/, '');
+  if (theme === 'light') el.dataset.theme = 'light'; else delete el.dataset.theme;
+  return true;
+}
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  document.body.style.background = theme === 'light' ? '#E6EAF0' : '';
+  const want = SLIDES[i], t0 = Date.now();
+  const tick = () => {
+    let doc = null; try { doc = f.contentDocument; } catch (e) {}
+    if (doc && doc.URL.includes(want) && markTheme(doc)) return;
+    if (Date.now() - t0 < 3000) requestAnimationFrame(tick);
+  };
+  tick();
+}
+function setTheme(v) {
+  theme = v; try { localStorage.setItem('deck-theme', v); } catch (e) {}
+  applyTheme(); try { markTheme(f.contentDocument); } catch (e) {}
 }
 // 목차 장에서 항목을 누르면 그 장으로 바로 간다.
-window.goTo = n => { if (n >= 0 && n < SLIDES.length) { i = n; show(false); } };
+window.goTo = n => { if (n >= 0 && n < SLIDES.length) { tmAdvance(); i = n; show(false); } };
 
 // 발표자 노트 창: 장마다 맨 아래 주석 '발표 노트(시간): …'를 읽어 보여 준다. 다음 장 제목과 경과 시간도 함께.
 let notesWin = null, started = 0, tick = 0;
@@ -112,7 +208,105 @@ function openNotes() {
   paintNotes(); paintClock();
 }
 
+// 연습 타이머(P): 말한 시간 13분을 목표로, 장마다 노트의 권장 시간(발표 노트(N초))과 실제로 머문 시간을 견준다.
+// 시연 장에서 영상 창이 열려 있는 동안은 '영상'으로 따로 세어 말한 시간에 넣지 않는다(영상 7분은 13분과 별도).
+// 노트가 아직 없는 장(표지~04 구축 순서)은 심사단이 잡은 추정치를 쓰고 기록 표에 '추정'으로 표시한다. 노트에 시간을 넣으면 그 값을 쓴다.
+const TALK_GOAL = 13 * 60;
+const EST = { 'cover.html': 10, 'slide-toc.html': 10, 'slide-story.html': 30, 'slide-bg.html': 40, 'slide-design.html': 50, 'slide-build.html': 25 };
+const plan = {};       // 장 → { s: 권장 초, est: 추정인가 }
+const spent = {};      // 장 번호 → 말한 밀리초
+let tmOn = false, tmRun = false, tmLast = 0, vidMs = 0, tmTick = 0, visited = [];
+function loadPlan() {
+  return Promise.all(SLIDES.map(s => plan[s] ? null : fetch(s).then(r => r.text()).then(t => {
+    const m = t.match(/발표 노트\((\d+)초/);
+    plan[s] = m ? { s: +m[1], est: false } : { s: EST[s] || 0, est: true };
+  }).catch(() => { plan[s] = { s: EST[s] || 0, est: true }; })));
+}
+const mmss = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+function videoOpen() {
+  try { return SLIDES[i] === 'slide-demo.html' && !!f.contentDocument.querySelector('dialog.vid[open]'); } catch (e) { return false; }
+}
+function tmAdvance() {
+  const now = Date.now();
+  if (tmRun && tmLast) {
+    const d = now - tmLast;
+    if (videoOpen()) vidMs += d; else spent[i] = (spent[i] || 0) + d;
+  }
+  tmLast = now;
+}
+function talkMs() { return Object.values(spent).reduce((a, b) => a + b, 0); }
+function paintTimer() {
+  tmAdvance();
+  if (!tmOn) return;
+  const $ = id => document.getElementById(id);
+  const talk = talkMs(), cur = spent[i] || 0, p = plan[SLIDES[i]] || { s: 0, est: true };
+  $('tm-talk').textContent = mmss(talk);
+  $('tm-talk').className = talk > TALK_GOAL * 1000 ? 'bad' : talk > (TALK_GOAL - 60) * 1000 ? 'warn' : '';
+  // 앞선 장들의 권장 합 + 이 장에서 권장 안에 쓴 만큼과 실제 말한 시간을 견준다. 양수면 늦음
+  const before = visited.filter(k => k !== i).reduce((a, k) => a + (plan[SLIDES[k]] ? plan[SLIDES[k]].s : 0), 0) * 1000;
+  const delta = talk - (before + Math.min(cur, p.s * 1000));
+  const pace = $('tm-pace');
+  pace.textContent = Math.abs(delta) < 5000 ? '계획대로' : (delta > 0 ? mmss(delta) + ' 늦음' : mmss(-delta) + ' 여유');
+  pace.className = Math.abs(delta) < 5000 ? 'ok' : delta > 30000 ? 'bad' : delta > 0 ? 'warn' : 'ok';
+  $('tm-slide').textContent = `이 장 ${String(i).padStart(2, '0')}${p.est ? ' (추정)' : ''}`;
+  $('tm-cur').textContent = p.s ? `${mmss(cur)} / ${mmss(p.s * 1000)}` : mmss(cur);
+  const r = p.s ? cur / (p.s * 1000) : 0, lvl = r > 1 ? 'bad' : r > .8 ? 'warn' : '';
+  $('tm-cur').className = lvl;
+  $('tm-bar').style.width = Math.min(100, r * 100).toFixed(1) + '%';
+  $('tm-bar').className = lvl;
+  $('tm-vid').textContent = mmss(vidMs) + (videoOpen() ? ' 재생 중' : '');
+  document.getElementById('tm').classList.toggle('paused', !tmRun);
+  if (document.body.classList.contains('report')) paintReport();
+}
+function noteVisit() { if (!visited.includes(i)) visited.push(i); }
+function setTimer(v) {
+  tmOn = v; document.body.classList.toggle('timer', v);
+  if (v && !tmTick) {
+    loadPlan().then(paintTimer);
+    tmRun = true; tmLast = Date.now(); visited = [i];
+    tmTick = setInterval(paintTimer, 250);
+  }
+  paintTimer();
+}
+function resetTimer() {
+  for (const k in spent) delete spent[k];
+  vidMs = 0; visited = []; noteVisit(); tmRun = true; tmLast = Date.now(); paintTimer();
+}
+function paintReport() {
+  const rows = SLIDES.map((s, k) => ({ k, s, p: plan[s] || { s: 0, est: true }, a: spent[k] || 0 })).filter(r => r.a > 0 || (r.k <= 17 && r.p.s));
+  const t = r => (titleCache[r.k] || r.s).replace(/^페일스톱\s*/, '');
+  const cls = r => !r.p.s ? '' : r.a > r.p.s * 1000 * 1.1 ? 'bad' : r.a > r.p.s * 1000 ? 'warn' : 'ok';
+  const sumP = rows.reduce((a, r) => a + r.p.s, 0) * 1000, sumA = rows.reduce((a, r) => a + r.a, 0);
+  document.getElementById('rep-box').innerHTML = `<h2>연습 기록</h2>
+    <p>말한 시간 ${mmss(talkMs())} / 목표 13:00 · 영상 ${mmss(vidMs)} · 노트 권장 합 ${mmss(sumP)}. K 또는 Esc로 닫기</p>
+    <table><thead><tr><th>장</th><th>제목</th><th>권장</th><th>실제</th><th>차이</th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td>${String(r.k).padStart(2, '0')}</td><td>${t(r)}${r.p.est ? '<span class="est">추정</span>' : ''}</td>
+      <td>${r.p.s ? mmss(r.p.s * 1000) : '-'}</td><td class="${cls(r)}">${r.a ? mmss(r.a) : '-'}</td>
+      <td class="${cls(r)}">${r.a && r.p.s ? (r.a >= r.p.s * 1000 ? '+' : '−') + mmss(Math.abs(r.a - r.p.s * 1000)) : ''}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td></td><td>합</td><td>${mmss(sumP)}</td><td>${mmss(sumA)}</td><td>${(sumA >= sumP ? '+' : '−') + mmss(Math.abs(sumA - sumP))}</td></tr></tfoot></table>`;
+}
+function toggleReport(v) {
+  if (v) { loadPlan().then(() => Promise.all(SLIDES.map((s, k) => titleOf(k)))).then(paintReport); paintReport(); }
+  document.body.classList.toggle('report', v);
+}
+
 function key(e) {
+  // 연습 타이머: P 켜고 끄기, Shift+P 처음부터, O 멈춤·계속, K 기록 표
+  if (e.code === 'KeyP' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (e.shiftKey) { if (!tmOn) setTimer(true); resetTimer(); } else setTimer(!tmOn); return; }
+  if (e.code === 'KeyO' && tmOn && !e.ctrlKey && !e.metaKey) { e.preventDefault(); tmAdvance(); tmRun = !tmRun; tmLast = Date.now(); paintTimer(); return; }
+  // 구성도 보기(G): 발표 중 그 장의 원본 · 최종 구성도 창을 도구(E)를 켜지 않고 바로 연다. 다시 G 나 → 를 누르면 닫힌다(창이 없는 장에서는 아무 일도 없음)
+  if (e.code === 'KeyG' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    try {
+      const d = f.contentDocument, open = d.querySelector('dialog[open]');
+      // 장마다 원본 창은 도구(E)가 켜져 있을 때만 열리게 막아 두었으므로, 누르는 그 순간에만 도구 표시를 붙였다 뗀다(화면에 도구 단추는 그려지지 않는다)
+      if (open) open.close(); else { const btn = d.getElementById('open-fig'); if (btn) { const had = d.body.classList.contains('tools'); d.body.classList.add('tools'); btn.click(); if (!had) d.body.classList.remove('tools'); } }
+    } catch (err) {}
+    return;
+  }
+  if (e.code === 'KeyL' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); setTheme(theme === 'light' ? 'dark' : 'light'); return; }
+  if (e.code === 'KeyK' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleReport(!document.body.classList.contains('report')); return; }
+  if (e.key === 'Escape' && document.body.classList.contains('report')) { e.preventDefault(); toggleReport(false); return; }
   if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); step(1); }
   if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); step(-1); }
   if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') {
@@ -136,11 +330,13 @@ addEventListener('keydown', key);
 f.addEventListener('load', () => {
   try {
     f.contentWindow.addEventListener('keydown', e => {
-      if (['ArrowRight', 'PageDown', ' ', 'ArrowLeft', 'PageUp', 'f', 'F', 'n', 'N', 'e', 'E'].includes(e.key) || ['KeyF', 'KeyN', 'KeyE'].includes(e.code)) { e.stopImmediatePropagation(); key(e); }
+      if (['ArrowRight', 'PageDown', ' ', 'ArrowLeft', 'PageUp', 'f', 'F', 'n', 'N', 'e', 'E'].includes(e.key) || ['KeyF', 'KeyN', 'KeyE', 'KeyP', 'KeyK', 'KeyL', 'KeyG'].includes(e.code)
+        || (e.code === 'KeyO' && tmOn) || (e.key === 'Escape' && document.body.classList.contains('report'))) { e.stopImmediatePropagation(); key(e); }
     }, true);
     f.contentWindow.focus();
     if (typeof f.contentWindow.deckTools === 'function') f.contentWindow.deckTools(tools);
   } catch (e) {}
+  try { markTheme(f.contentDocument); } catch (e) {}
   paintNotes();
 });
 show(false);

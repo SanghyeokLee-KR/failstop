@@ -192,10 +192,10 @@
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/aws/AWS-Cloud-logo_32_Dark.svg" alt="">최종 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env" style="margin-left:14px"><img src="assets/tint/amazonwebservices-side.svg" alt="">AWS 배포 구성</span>
   </div>
-  <p class="dek">데이터센터(AZ) 두 곳에 나눠 두고, 들어오는 길만 역할별 보안 그룹으로 좁힘 · 서버의 나가는 길은 모두 허용</p>
+  <p class="dek">데이터센터(AZ) 두 곳에 나눠 두고, 들어오는 길만 역할별 보안 그룹으로 좁힘, 서버의 나가는 길은 모두 허용</p>
 
   <dialog class="fig" id="fig" aria-label="거래소 하이브리드 인프라 최종 구성도">
-    <div class="bar"><b>거래소 하이브리드 인프라 · 최종 구성도</b><span>교수님 보고본 01_전체구성 v7 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="bar"><b>거래소 하이브리드 인프라 최종 구성도</b><span>교수님 보고본 01_전체구성 v7, 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도 원본"></div>
   </dialog>
 
@@ -219,7 +219,7 @@
     <path class="wire" d="M480 382 H495 M495 237 V519 M495 237 H520 M495 382 H520 M495 519 H520"/>
     <path class="wire" d="M720 237 H745 M720 382 H745 M720 519 H745 M745 237 V519 M745 237 H770"/>
     <path class="wire sync" d="M864 278 V478 M876 278 V478"/>
-    <text class="sm" x="890" y="386">동기 복제 · 자동 전환</text>
+    <text class="sm" x="890" y="386">동기 복제·자동 전환</text>
     <path class="wire out rpt" d="M1190 504 H1230 V98 H1206 M1136 82 V58" marker-end="url(#arr)"/>
     <circle class="rpt-dot" cx="1190" cy="504" r="4"/>
     <path class="wire out" d="M80 695 H320"/>
@@ -237,12 +237,12 @@
     <rect class="card" x="120" y="328" width="164" height="108" rx="12"/>
     <image href="assets/aws/Arch_Amazon-CloudFront_64.svg" x="184" y="336" width="36" height="36"/>
     <text class="nm" x="202" y="398" text-anchor="middle">웹 화면</text>
-    <text class="sb" x="202" y="424" text-anchor="middle">CloudFront · S3</text>
+    <text class="sb" x="202" y="424" text-anchor="middle">CloudFront·S3</text>
 
     <rect class="card" x="320" y="318" width="160" height="128" rx="12"/>
     <image href="assets/aws/Arch_Elastic-Load-Balancing_64.svg" x="378" y="326" width="44" height="44"/>
     <text class="nm" x="400" y="398" text-anchor="middle">로드밸런서</text>
-    <text class="sb" x="400" y="424" text-anchor="middle">ALB · 두 곳 모두</text>
+    <text class="sb" x="400" y="424" text-anchor="middle">ALB, 두 곳 모두</text>
     <text class="cap" x="28" y="474">웹 진입<tspan class="cs" x="28" dy="28">= 웹 화면 + 로드밸런서</tspan></text>
 
     <!-- 앱 계층: 거래 서버 두 대는 고정, 조회 서버만 Auto Scaling 그룹(두 곳에 걸침) -->
@@ -284,13 +284,13 @@
     <!-- 인터넷 게이트웨이: VPC 경계에 걸쳐 둔다. 주소 변환(NAT) 게이트웨이를 두지 않은 이유(비용, ADR 0030)를 바로 아래에 적는다 -->
     <rect class="card svc" x="1016" y="82" width="190" height="32" rx="8"/>
     <text class="sm" x="1111" y="104" text-anchor="middle" style="fill:var(--ink-2)">인터넷 게이트웨이</text>
-    <text class="sm warm" x="1190" y="138" text-anchor="end">주소 변환(NAT) 게이트웨이 없음 · 비용 절감</text>
+    <text class="sm warm" x="1190" y="138" text-anchor="end">주소 변환(NAT) 게이트웨이 없음, 비용 절감</text>
 
     <!-- 리전 서비스: AWS 원격 관리(SSM, SSH 대신), CloudWatch(증설 지표) -->
     <rect class="card svc" x="320" y="666" width="256" height="58" rx="10"/>
     <image href="assets/aws/Arch_AWS-Systems-Manager_64.svg" x="332" y="681" width="28" height="28"/>
     <text class="nm" x="370" y="689">AWS 원격 관리(SSM)</text>
-    <text class="sb warm" x="370" y="714">SSH 대신 · 포트 없음</text>
+    <text class="sb warm" x="370" y="714">SSH 대신, 포트 없음</text>
     <rect class="card svc" x="592" y="666" width="246" height="58" rx="10"/>
     <image href="assets/aws/Arch_Amazon-CloudWatch_64.svg" x="604" y="681" width="28" height="28"/>
     <text class="nm" x="642" y="689">CloudWatch</text>
@@ -316,7 +316,7 @@
   <div class="side">
     <section class="blk">
       <!-- AWS에서 잰 결과가 아니라 terraform 보안 그룹 규칙을 그대로 재생한 것임을 머리에 밝힌다 -->
-      <div class="k">보안 그룹 규칙대로 재생<span class="hint orig"> · 두 곳을 차례로 선택</span></div>
+      <div class="k">보안 그룹 규칙대로 재생<span class="hint orig">, 두 곳을 차례로 선택</span></div>
       <div class="res" id="res" aria-live="polite">
         <div class="top"><div class="fr" id="res-fr"><span class="ph">출발지 → 도착지</span></div><div class="vd" id="res-vd">—</div></div>
         <div class="ip" id="res-ip"></div>
@@ -330,25 +330,20 @@
       </div>
     </section>
     <section class="blk">
-      <div class="k">보안 그룹 규칙 · 목록 밖은 거부</div>
+      <div class="k">보안 그룹 규칙, 목록 밖은 거부</div>
       <div class="sg" id="sg">
         <div data-rule="cf"><span>웹 화면 → 로드밸런서</span><span class="p">443</span></div>
         <div data-rule="lb"><span>로드밸런서 → 거래·조회</span><span class="p">8080·8081</span></div>
         <div data-rule="db"><span>거래·조회 서버 → DB</span><span class="p">5432·8008</span></div>
-        <div data-rule="rep"><span>DB ↔ DB · 관제 서버</span><span class="p w">복제·투표</span></div>
+        <div data-rule="rep"><span>DB ↔ DB·관제 서버</span><span class="p w">복제·투표</span></div>
         <div data-rule="inet"><span>인터넷 → 서버·DB 직접</span><span class="p n">차단</span></div>
-        <div data-rule="ssh"><span>SSH 22 · 관리는 SSM만</span><span class="p n">차단</span></div>
+        <div data-rule="ssh"><span>SSH 22, 관리는 SSM만</span><span class="p n">차단</span></div>
         <span class="c">8008은 DB 상태 확인 포트<br>투표: 세 대 중 둘이 동의해 주 DB 결정</span>
       </div>
     </section>
   </div>
 </div>
 
-<!-- 발표 노트(60초): VM의 원칙을 AWS에서는 역할별 보안 그룹으로 옮겼고, 목록에 없는 길은 기본 거부다. 사용자는 웹 진입(웹 화면과 로드밸런서)으로만 들어오고, DB 5432는 거래·조회·관제 서버와 다른 DB에만 열었다. SSH 포트는 없고 운영자는 AWS 원격 관리(SSM)로만 들어간다. 주소 변환(NAT) 게이트웨이는 한 달 상시 운영 비용 때문에 두지 않았다(화면에는 '주소 변환(NAT) 게이트웨이 없음'. 공인 IPv4를 쓰는 서버의 1:1 주소 변환은 인터넷 게이트웨이가 한다). 데이터센터(AZ) 두 곳에 거래 서버와 DB를 나눠 두고, 조회 서버만 Auto Scaling으로 늘린다.
-→ 세 번: ① 사용자 → 거래 서버 1(허용, 웹 화면·로드밸런서 경유) ② 사용자 → 주 DB(차단, 인터넷 허용 규칙 없음) ③ 거래 서버 2 → 주 DB(허용, 5432). 보안 그룹 규칙대로 재생한 것이며 AWS에서 잰 결과가 아니다.
-세부(질문 대비): 규칙은 terraform security.tf에 있다. 로드밸런서는 거래·조회 서버의 8080·8081로만 나간다. NAT 대신 서버마다 공인 IPv4와 인터넷 게이트웨이를 쓴다(ADR 0030, NAT 두 대 기준 약 $92/30일과 데이터 처리 요금을 피함). 배치는 AZ-a에 거래 서버 1과 주 DB, AZ-c에 거래 서버 2·예비 DB·관제 서버, 조회 서버는 두 AZ에 걸친 Auto Scaling(0~1대)이다. etcd 세 표는 주 DB·예비 DB·관제 서버에 하나씩(ADR 0036). 8008은 Patroni 상태 확인 포트다(화면에는 'DB 상태 확인 포트'). 세 대 투표(etcd)는 03 시스템 구성 장에서 설명했고, 이 장에서는 규칙표 각주 한 줄(세 대 중 둘이 동의해 주 DB 결정)로 다시 풀었다. 'VPC 공개 서브넷'은 화면에서 '서버마다 공인 주소'로 적었다. 서버의 나가는 길 전면 허용은 부제에 적었다(로드밸런서의 나가는 규칙은 거래·조회 서버 8080·8081뿐).
-사실 범위: 규칙은 terraform security.tf와 ADR 0036만 따르고, 규칙이 없는 조합은 '보안 그룹 기본 거부'로 보인다. 사용자 → 로드밸런서 직접 접속은 공개 허용 목록 주소에만 열려 '조건부'로 보인다. 표의 Patroni 8008·etcd 2379/2380은 ADR 0036 설계 값이며 terraform 규칙에는 아직 반영 전이다(현재 security.tf: ALB 443·80 ← 허용 대역, 443 ← CloudFront prefix list·관제 공인 IP, 거래·조회 8080·8081 ← ALB, 8081·9100·9187 ← 관제, DB 5432 ← 거래·조회·관제·DB, 실행 역할의 나가는 길 0.0.0.0/0, SSH 규칙 없음). 화면의 '자동 증설 0~1대'는 조회 서버 Auto Scaling 그룹(ASG)이다. 로드밸런서 위 'API·실시간 요청만 서버로'는 API(/api/*)와 실시간 연결(/ws/*)만 거래·조회 서버로 보내고 화면은 CloudFront·S3가 준다는 뜻이다(web.tf 88~92). 조회 서버 ASG 0~1대는 ADR 0030의 정정값이고, terraform variables.tf는 아직 최소 1대 이상만 허용한다(read_capacity.min >= 1 검증, ADR 0030 22행). 빠른 버튼에서 뺀 '로드밸런서 → 주 DB'(차단)와 '운영자 → 주 DB'(SSM)는 장비를 차례로 눌러 보일 수 있다. 질의 대비: 나가는 규칙은 전 서버 0.0.0.0/0(패키지·SSM·보고)이라 제목은 들어오는 길에 한정한다. AZ-c에는 예비 DB와 관제 서버(etcd 두 표)가 함께 있어 AZ-c를 잃으면 과반을 잃고, 어느 AZ를 잃어도 엄격 동기라 주문은 멈추며 확인받은 주문 유실은 0이다. 옛 노드를 영영 잃으면 새 예비 DB를 붙이는 사람 절차가 필요하다(ADR 0036).
-호스트명: 거래 서버 1·2 = engine-a·engine-c(app-1·app-2), 조회 서버 = app-3, 주·예비 DB = db-primary·db-standby, 관제 서버 = bot. -->
 
 <script src="deck.js"></script>
 <script>
@@ -452,7 +447,7 @@
   const viaSsm = id => [[80, 695], [320, 695], hop(346, 695, 'SSM 세션', 'ssm', 200, 684), [346, 666], [346, LANE], ...upTo(id)];
   // 게이트웨이 경유 이름표는 Teams 카드 왼쪽에 띄운다(게이트웨이 아래 줄은 NAT 설명이 차지한다)
   // 관제 서버에서 나가는 길은 리전 테두리(x 1216) 밖 x 1230으로 올라가 게이트웨이 오른쪽으로 들어간다
-  const toIgwOut = [[1190, 504], [1230, 504], [1230, 98], hop(1206, 98, '443 · 웹훅', 'igw', 1054, 40, 'end'), [1136, 98], [1136, 54]];
+  const toIgwOut = [[1190, 504], [1230, 504], [1230, 98], hop(1206, 98, '443 웹훅', 'igw', 1054, 40, 'end'), [1136, 98], [1136, 54]];
 
   const PORT = { app: '8080·8081', rd: '8080·8081' };
   const nb = t => t.replace(/ /g, '\u00a0');
@@ -461,7 +456,7 @@
     if (a === b) return { k: 'na', why: '같은 곳' };
     // 사용자
     if (A.c === 'ext') {
-      if (B.c === 'cf') return { k: 'ok', rule: 'cf', path: [[80, ROW], [120, ROW], [146, ROW]], ip: 'TCP 443 · HTTPS', where: '웹 진입의 첫 관문\n화면과 API 요청을 함께 받음' };
+      if (B.c === 'cf') return { k: 'ok', rule: 'cf', path: [[80, ROW], [120, ROW], [146, ROW]], ip: 'TCP 443 HTTPS', where: '웹 진입의 첫 관문\n화면과 API 요청을 함께 받음' };
       if (B.c === 'app' || B.c === 'rd') return { k: 'ok', rule: 'lb', path: viaWeb(b), ip: 'TCP 443 → ' + PORT[B.c], where: '로드밸런서를 거쳐야만 도착\n서버로 직접 접속은 차단' };
       if (B.c === 'alb') return { k: 'na', vd: '조건부', why: '허용 목록 주소만 443·80\n일반 사용자는 웹 화면을 거침' };
       if (B.c === 'db' || B.c === 'ops') return { k: 'no', rule: 'inet', path: direct([36, ROW], b), at: b, ip: 'TCP ' + (B.c === 'db' ? '5432' : '9100'), why: nb(B.n) + ' 보안 그룹에\n인터넷 허용 규칙 없음' };
@@ -469,7 +464,7 @@
     }
     // 운영자: 서버에는 SSM 세션으로만. SSH 22는 어디에도 열지 않았다
     if (A.c === 'op') {
-      if (['app', 'rd', 'db', 'ops'].includes(B.c)) return { k: 'ok', rule: 'ssh', path: viaSsm(b), ip: 'SSM 세션 · 들어오는 포트 없음', where: 'AWS 원격 관리(SSM)로 접속\nSSH 22는 모든 서버에서 차단', ruleClass: 'hit-no' };
+      if (['app', 'rd', 'db', 'ops'].includes(B.c)) return { k: 'ok', rule: 'ssh', path: viaSsm(b), ip: 'SSM 세션, 들어오는 포트 없음', where: 'AWS 원격 관리(SSM)로 접속\nSSH 22는 모든 서버에서 차단', ruleClass: 'hit-no' };
       return { k: 'na', why: '관리 접속 대상 아님' };
     }
     if (B.c === 'ext' || B.c === 'op') return { k: 'na', why: '안에서 먼저 여는 연결 없음' };
@@ -488,7 +483,7 @@
     }
     // 거래·조회 서버
     if (A.c === 'app' || A.c === 'rd') {
-      if (B.c === 'db') return { k: 'ok', rule: 'db', path: appToDb(a, b), ip: 'TCP 5432 · 8008', where: b === 'dbp' ? '보안 그룹이 5432·8008 허용\nDB 길잡이(HAProxy)는 주 DB로만 연결' : '보안 그룹은 허용\n평소 연결은 DB 길잡이가 주 DB로' };
+      if (B.c === 'db') return { k: 'ok', rule: 'db', path: appToDb(a, b), ip: 'TCP 5432·8008', where: b === 'dbp' ? '보안 그룹이 5432·8008 허용\nDB 길잡이(HAProxy)는 주 DB로만 연결' : '보안 그룹은 허용\n평소 연결은 DB 길잡이가 주 DB로' };
       if (B.c === 'app' || B.c === 'rd') {
         const path = [[right(a), cy(a)], [735, cy(a)], [735, cy(b)], [right(b), cy(b)]];
         return { k: 'no', rule: null, path, at: b, ip: 'TCP 8080', why: nb(B.n) + ' 보안 그룹은\n로드밸런서와 관제 서버만 받음' };
@@ -498,7 +493,7 @@
     }
     // DB
     if (A.c === 'db') {
-      if (B.c === 'db') return { k: 'ok', rule: 'rep', path: a === 'dbp' ? [[870, bot('dbp')], [870, top('dbs')], [870, top('dbs') + 18]] : [[870, top('dbs')], [870, bot('dbp')], [870, bot('dbp') - 18]], ip: 'TCP 5432 · 8008 · 2379·2380', where: '실시간 복제와 상태 확인\n투표(etcd)로 주 DB 결정' };
+      if (B.c === 'db') return { k: 'ok', rule: 'rep', path: a === 'dbp' ? [[870, bot('dbp')], [870, top('dbs')], [870, top('dbs') + 18]] : [[870, top('dbs')], [870, bot('dbp')], [870, bot('dbp') - 18]], ip: 'TCP 5432·8008, 2379·2380', where: '실시간 복제와 상태 확인\n투표(etcd)로 주 DB 결정' };
       if (B.c === 'ops') return { k: 'ok', rule: 'rep', path: [[right(a), cy(a)], [985, cy(a)], [985, cy('ops')], [1000, cy('ops')], [1020, cy('ops')]], ip: 'TCP 2379·2380', where: '주 DB를 정하는 투표\n관제 서버가 세 번째 표' };
       if (B.c === 'app' || B.c === 'rd') return { k: 'no', rule: null, path: [[left(a), cy(a)], [745, cy(a)], [745, cy(b)], [right(b), cy(b)]], at: b, ip: 'TCP', why: nb(B.n) + ' 보안 그룹은\n로드밸런서와 관제 서버만 받음' };
       return { k: 'na', why: '보고는 관제 서버만 보냄' };
@@ -506,11 +501,11 @@
     // 관제 서버: 지표 수집, etcd, 시장 봇 요청, Teams 보고
     if (A.c === 'ops') {
       const oy = cy('ops');
-      if (B.c === 'tm') return { k: 'ok', rule: null, path: toIgwOut, ip: 'TCP 443 · Workflows 웹훅', where: '인터넷 게이트웨이로 바로 나감\n주소 변환(NAT) 게이트웨이 없음' };
-      if (B.c === 'db') return { k: 'ok', rule: null, path: b === 'dbs' ? [[1000, oy], [985, oy], [970, oy], [950, oy]] : [[1000, oy], [985, oy], [985, cy('dbp')], [970, cy('dbp')], [950, cy('dbp')]], ip: 'TCP 9187·9100 · 2379·2380', where: 'DB 지표 수집\n투표(etcd) 참여' };
+      if (B.c === 'tm') return { k: 'ok', rule: null, path: toIgwOut, ip: 'TCP 443 Workflows 웹훅', where: '인터넷 게이트웨이로 바로 나감\n주소 변환(NAT) 게이트웨이 없음' };
+      if (B.c === 'db') return { k: 'ok', rule: null, path: b === 'dbs' ? [[1000, oy], [985, oy], [970, oy], [950, oy]] : [[1000, oy], [985, oy], [985, cy('dbp')], [970, cy('dbp')], [950, cy('dbp')]], ip: 'TCP 9187·9100, 2379·2380', where: 'DB 지표 수집\n투표(etcd) 참여' };
       if (B.c === 'app' || B.c === 'rd') return { k: 'ok', rule: null, path: [[cx('ops'), bot('ops')], [cx('ops'), LANE], ...upTo(b)], ip: 'TCP 8081·9100', where: '앱 지표는 8081\n서버 지표는 9100' };
       // 공인 IP로 나가 인터넷 쪽(왼쪽 끝)으로 돌아 로드밸런서 아래로 다시 들어온다(웹 진입 설명 두 줄 아래 y 530)
-      if (B.c === 'alb') return { k: 'ok', rule: null, path: [[1190, 504], [1230, 504], [1230, 98], hop(1206, 98, '공인 IP로 나가 다시 들어옴', 'igw', 1054, 40, 'end'), [1136, 98], [1136, TOPC], [X0, TOPC], [X0, 530], [400, 530], [400, bot('alb')]], ip: 'TCP 443 · 관제 서버 공인 IP만', where: '시장 봇 주문이\n공개 로드밸런서로 들어감' };
+      if (B.c === 'alb') return { k: 'ok', rule: null, path: [[1190, 504], [1230, 504], [1230, 98], hop(1206, 98, '공인 IP로 나가 다시 들어옴', 'igw', 1054, 40, 'end'), [1136, 98], [1136, TOPC], [X0, TOPC], [X0, 530], [400, 530], [400, bot('alb')]], ip: 'TCP 443, 관제 서버 공인 IP만', where: '시장 봇 주문이\n공개 로드밸런서로 들어감' };
       return { k: 'na', why: '관계 없음' };
     }
     return { k: 'na', why: '관계 없음' };

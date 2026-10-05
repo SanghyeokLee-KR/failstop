@@ -1,0 +1,322 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 06 마무리</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #7D8BA5;
+    --wire: #6A7489;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ai: #C6C0F2;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s var(--ease) both; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s var(--ease) both; }
+
+  /* 두 칸: 02 기획 시나리오와 같은 구도(왼쪽 트래픽 급증, 오른쪽 DB 장애, 자리는 새 장들의 내용 시작선 300에 맞춤). 열리면 02의 문제 장면 그대로이고,
+     → 한 번에 한 장면씩 '답' 상태로 바뀐 뒤 결과 숫자가 아래 타일에 뜬다. 칸은 x130 ~ 930 · x990 ~ 1790.
+     세로: 윗선 300, 번호 · 장면 이름 316 ~ 352, 문장 366 ~ 408(32px 한 줄), 그림 432 ~ 702(800×270), 결과 타일 730 ~ 876, 마무리 띠 900 ~ 990(두 줄).
+     색: 구조는 회색, 초록은 답과 결과에만, 빨강은 열린 상태의 문제 표시와 '02' 번호 글자에만(답 단계에서 꺼짐),
+     노랑은 주문 대기에만, 라벤더는 조회 서버 부제의 'AI', 파랑은 '01' 번호 글자, 하늘은 '감사합니다' */
+  .col { position: absolute; top: 300px; width: 800px; height: 576px; transition: opacity .35s var(--ease); }
+  /* 칸 윗선은 02 기획 시나리오와 같은 2px #46536A. 머리 줄과 함께 떠오른다 */
+  .col .tl { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: #46536A; }
+  .col.a { left: 130px; } .col.b { left: 990px; }
+  .stage[data-step="1"] .col.b, .stage[data-step="2"] .col.a { opacity: .45; }
+  .col .hd { position: absolute; left: 0; right: 0; top: 16px; height: 36px; display: flex; align-items: center; gap: 14px; font-size: 24px; color: var(--ink-2); }
+  .col .hd b { font-family: var(--mono); font-size: 22px; font-weight: 500; }
+  .col.a .hd b { color: var(--brand); } .col.b .hd b { color: var(--bad); }
+  .col .hd .env { margin-left: auto; }
+  .col .say { position: absolute; left: 0; right: 0; top: 66px; height: 42px; }
+  .col .say span { position: absolute; left: 0; top: 0; font-size: 32px; font-weight: 600; line-height: 42px; white-space: nowrap; transition: opacity .3s var(--ease); }
+  .col .say .q { color: var(--ink-3); }
+  .col .say .ans { color: var(--ink); opacity: 0; }
+  .stage.g1 .col.a .say .q, .stage.g2 .col.b .say .q { opacity: 0; }
+  .stage.g1 .col.a .say .ans, .stage.g2 .col.b .say .ans { opacity: 1; }
+  .stage[data-step="1"]:not(.inst) .col.a .say .ans, .stage[data-step="2"]:not(.inst) .col.b .say .ans { transition-delay: .3s; }
+
+  .sc { position: absolute; left: 0; top: 132px; width: 800px; height: 270px; overflow: visible; }
+  .sc text { font-family: var(--sans); }
+  .sc .wire { fill: none; stroke: var(--wire); stroke-width: 2; }
+  .sc .tile .bx { fill: #1E2638; stroke: var(--edge); stroke-width: 2.5; }
+  .sc .tile .nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .sc .tile .sb { font-size: 22px; fill: var(--ink-2); }
+  .sc .sm { font-size: 22px; fill: var(--ink-3); }
+  .sc .flag { font-size: 22px; font-weight: 700; }
+  .sc .go { fill: none; stroke: var(--ok); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+  .sc .tip { fill: var(--ok); stroke: var(--ok); stroke-width: 2; stroke-linejoin: round; }
+  .sc .xm circle { fill: var(--stage); stroke: var(--bad); stroke-width: 2.8; }
+  .sc .xm path { fill: none; stroke: var(--bad); stroke-width: 4.2; stroke-linecap: round; }
+  .sc [data-t] { transition: opacity .3s var(--ease); }
+  .sc .bx { transition: stroke .3s var(--ease), stroke-width .3s var(--ease); }
+
+  /* 그림 A 열린 상태: 거래 서버 둘이 빨간 테두리, '응답 지연', 조회 서버 자리는 빈 점선. 답(g1): 조회 서버가 채워지고 초록 길, '응답 정상' */
+  #a1 .bx, #a2 .bx { stroke: var(--bad); stroke-width: 3; }
+  .stage.g1 #a1 .bx, .stage.g1 #a2 .bx { stroke: var(--edge); stroke-width: 2.5; }
+  #a-slot { fill: none; stroke: #4E5E7C; stroke-width: 2; stroke-dasharray: 10 6; }
+  #a-rd .bx { stroke-dasharray: 10 6; }
+  #a-rd, #a-ok, #a-go, #a-tip { opacity: 0; }
+  .stage.g1 #a-rd, .stage.g1 #a-ok, .stage.g1 #a-tip { opacity: 1; }
+  .stage.g1 #a-slot-t, .stage.g1 #a-late { opacity: 0; }
+  .stage.g1 #a-go { opacity: 1; }
+  .stage[data-step="1"]:not(.inst) #a-rd { transition-delay: .35s; transition-duration: .5s; }
+  .stage[data-step="1"]:not(.inst) #a-slot-t { transition-delay: .35s; }
+  .stage[data-step="1"]:not(.inst) #a-go { animation: draw .8s cubic-bezier(.45,0,.55,1) .85s both; }
+  .stage[data-step="1"]:not(.inst) #a-tip, .stage[data-step="1"]:not(.inst) #a1 .bx, .stage[data-step="1"]:not(.inst) #a2 .bx { transition-delay: 1.85s; }
+  /* 같은 자리의 글을 바꿀 때는 나가는 글이 0.15초에 사라진 끝에서 들어오는 글이 0.25초에 나타나 두 글이 겹쳐 비치지 않는다 */
+  .stage[data-step="1"]:not(.inst) #a-late { transition-delay: 1.85s; transition-duration: .15s; }
+  .stage[data-step="1"]:not(.inst) #a-ok { transition-delay: 2s; transition-duration: .25s; }
+
+  /* 그림 B 열린 상태: 주 DB가 빨간 테두리와 ✕, 복제 선이 끊김(점선 0.5), 거래 서버 앞에 '주문 대기'.
+     답(g2): 아래 칸이 주 DB로 자동 승격(0.35초) → 0.4초 멈춤 → 위 칸이 예비 DB로 다시 붙음(1.15초, 복제 선 회복)
+     → 그 뒤에야 초록 주문 길(1.45 ~ 2.25초)과 '주문 재개'. 엄격 동기라 예비가 다시 붙기 전에는 주문 길을 그리지 않는다 */
+  #b-top .bx { stroke: var(--bad); stroke-width: 3; }
+  .stage.g2 #b-top .bx { stroke: var(--edge); stroke-width: 2.5; }
+  .stage.g2 #b-bot .bx { stroke: var(--ok); stroke-width: 3; }
+  /* 복제 선: 끊긴 점선(0.5)과 이어진 실선을 따로 두고 1.15초에 엇갈려 바꾼다(점선 모양은 움직일 수 없어서) */
+  .sc .rep { fill: none; stroke: var(--wire); stroke-width: 2; }
+  .sc .rep.o { stroke-dasharray: 6 6; opacity: .5; }
+  .sc .rep.n { opacity: 0; }
+  .stage.g2 .sc .rep.o { opacity: 0; }
+  .stage.g2 .sc .rep.n { opacity: 1; }
+  #b-x, #b-old, #b-wait, #b-dots, #b-top .n0, #b-top .s0, #b-bot .n0, #b-bot .s0 { opacity: 1; }
+  #b-top .n1, #b-top .s1, #b-bot .n1, #b-bot .s1, #b-go, #b-tip, #b-ok { opacity: 0; }
+  .stage.g2 #b-x, .stage.g2 #b-old, .stage.g2 #b-wait, .stage.g2 #b-dots, .stage.g2 #b-top .n0, .stage.g2 #b-top .s0, .stage.g2 #b-bot .n0, .stage.g2 #b-bot .s0 { opacity: 0; }
+  .stage.g2 #b-top .n1, .stage.g2 #b-top .s1, .stage.g2 #b-bot .n1, .stage.g2 #b-bot .s1, .stage.g2 #b-go, .stage.g2 #b-tip, .stage.g2 #b-ok { opacity: 1; }
+/* ②: 0.35 아래 칸 초록(0.3초)과 옛 이름 사라짐(0.15초) → 0.5 새 이름(0.25초) → 0.75 ~ 1.15 멈춤 0.4초
+   → 1.15 위 칸 · ✕ · 옛 길 · 복제 선(0.3초)과 옛 이름 사라짐 → 1.3 새 이름 → 1.45 ~ 2.25 초록 주문 길 → 2.45 끝 표시 · 대기 사라짐 → 2.6 주문 재개 */
+.stage[data-step="2"]:not(.inst) #b-bot .bx { transition-delay: .35s; }
+.stage[data-step="2"]:not(.inst) #b-bot .n0, .stage[data-step="2"]:not(.inst) #b-bot .s0 { transition-delay: .35s; transition-duration: .15s; }
+.stage[data-step="2"]:not(.inst) #b-bot .n1, .stage[data-step="2"]:not(.inst) #b-bot .s1 { transition-delay: .5s; transition-duration: .25s; }
+.stage[data-step="2"]:not(.inst) #b-top .bx, .stage[data-step="2"]:not(.inst) #b-x, .stage[data-step="2"]:not(.inst) #b-old, .stage[data-step="2"]:not(.inst) .sc .rep { transition-delay: 1.15s; }
+.stage[data-step="2"]:not(.inst) #b-top .n0, .stage[data-step="2"]:not(.inst) #b-top .s0 { transition-delay: 1.15s; transition-duration: .15s; }
+.stage[data-step="2"]:not(.inst) #b-top .n1, .stage[data-step="2"]:not(.inst) #b-top .s1 { transition-delay: 1.3s; transition-duration: .25s; }
+.stage[data-step="2"]:not(.inst) #b-go { animation: draw .8s cubic-bezier(.45,0,.55,1) 1.45s both; }
+.stage[data-step="2"]:not(.inst) #b-tip { transition-delay: 2.45s; }
+.stage[data-step="2"]:not(.inst) #b-wait, .stage[data-step="2"]:not(.inst) #b-dots { transition-delay: 2.45s; transition-duration: .15s; }
+.stage[data-step="2"]:not(.inst) #b-ok { transition-delay: 2.6s; transition-duration: .25s; }
+
+  /* 결과 타일: 칸마다 388×146 두 개, 사이 24. 값은 파일 맨 위 RESULT 한 곳에서 오고, 빈 값은 그리지 않는다 */
+  .tiles { position: absolute; left: 0; top: 430px; display: flex; gap: 24px; }
+  .rt { width: 388px; height: 146px; box-sizing: border-box; padding: 22px 26px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.02); opacity: 0; transform: translateY(10px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+  .rt b { display: block; font-family: var(--mono); font-size: 64px; font-weight: 500; line-height: 64px; color: var(--ok); letter-spacing: -.02em; }
+  .rt b small { font-size: 30px; color: var(--ink-3); margin-left: 4px; letter-spacing: 0; }
+  .rt span { display: block; margin-top: 12px; font-size: 24px; line-height: 32px; color: var(--ink); white-space: nowrap; }
+  .stage.g1 .col.a .rt, .stage.g2 .col.b .rt { opacity: 1; transform: none; }
+  .stage[data-step="1"]:not(.inst) .col.a .rt:nth-child(1) { transition-delay: 2.25s; }
+  .stage[data-step="1"]:not(.inst) .col.a .rt:nth-child(2) { transition-delay: 2.65s; }
+  .stage[data-step="2"]:not(.inst) .col.b .rt:nth-child(1) { transition-delay: 2.85s; }
+  .stage[data-step="2"]:not(.inst) .col.b .rt:nth-child(2) { transition-delay: 3.25s; }
+
+  /* 마무리 띠(③): 윗선과 두 줄. 첫 줄은 구조(몰려도 · 멈춰도), 둘째 줄은 운영자로서의 다짐(0.2초 뒤), 오른쪽 아래 '감사합니다'(0.4초 뒤).
+     타일 아래 끝 876에서 24 띄운 900에 윗선, 두 줄이 990 안에서 끝난다 */
+  .band { position: absolute; left: 130px; right: 130px; top: 900px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; align-items: last baseline; justify-content: space-between; opacity: 0; transform: translateY(12px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+  .band p { margin: 0; font-size: 30px; line-height: 38px; font-weight: 600; color: var(--ink); }
+  .band p.me { margin-top: 4px; font-size: 24px; line-height: 32px; font-weight: 500; color: var(--ink-2); opacity: 0; transition: opacity .6s var(--ease); }
+  .stage.g3 .band p.me { opacity: 1; }
+  .stage[data-step="3"]:not(.inst) .band p.me { transition-delay: .55s; }
+  .band b { font-size: 34px; line-height: 32px; font-weight: 600; color: var(--glow); white-space: nowrap; opacity: 0; transition: opacity .6s var(--ease); }
+  .stage.g3 .band, .stage.g3 .band b { opacity: 1; transform: none; }
+  .stage[data-step="3"]:not(.inst) .band { transition-delay: .35s; }
+  .stage[data-step="3"]:not(.inst) .band b { transition-delay: .75s; }
+
+  /* 열릴 때(약 1.6초): 제목 → 부제 → A 머리 · 문장(0.35초) → A 그림(0.55초) → B 머리 · 문장(0.75초) → B 그림(0.95초). 그림은 문제 상태로 멈춰 있다 */
+  .bd { animation: rise .6s var(--ease) backwards; }
+  .b1 { animation-delay: .35s; } .b2 { animation-delay: .55s; } .b3 { animation-delay: .75s; } .b4 { animation-delay: .95s; }
+
+  .stage.inst *, .stage.inst *::before, .stage.inst *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; }
+  .stage.done h1, .stage.done .dek, .stage.done .bd { animation: none !important; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">마무리</span>06</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title"><h1>마무리</h1></div>
+  <p class="dek">기획 시나리오의 두 장면을 그대로 재현해 시험했습니다.</p>
+
+  <!-- A. 트래픽 급증 -->
+  <section class="col a" id="col-a">
+    <i class="tl bd b1"></i>
+    <div class="hd bd b1"><b>01</b>트래픽 급증<span class="env" id="env-a"></span></div>
+    <div class="say bd b1"><span class="q">요청이 한꺼번에 몰려도 서버는 버텨야 한다</span><span class="ans">조회 서버를 켜서 몰린 요청을 나눠 받는다</span></div>
+    <svg class="sc bd b2" viewBox="0 0 800 270" role="img" aria-label="트래픽 급증의 답: 사용자 요청이 로드밸런서를 거쳐 거래 서버 두 대로 몰려 응답이 늦어지자, 조회 서버를 켜서 몰린 요청을 나눠 받고 응답이 정상으로 돌아온다. 조회 서버는 CPU 60%를 넘으면 AI가 다른 지표도 함께 보고 판단해 0대에서 1대로 늘린다.">
+      <path class="wire" d="M66 59 L190 135 M66 134 H190 M66 209 L190 135"/>
+      <path class="wire" d="M290 135 H335 M335 44 V135 M335 44 H380 M335 135 H380"/>
+      <path class="go" id="a-go" d="M290 135 H335 V226 H380" pathLength="1"/>
+      <image href="assets/tint/ui-users-side.svg" x="20" y="36" width="46" height="46"/>
+      <image href="assets/tint/ui-users-side.svg" x="20" y="111" width="46" height="46"/>
+      <image href="assets/tint/ui-users-side.svg" x="20" y="186" width="46" height="46"/>
+      <text class="sm" x="43" y="262" text-anchor="middle">사용자</text>
+      <g class="tile"><rect class="bx" x="190" y="103" width="100" height="64" rx="10"/><image href="assets/tint/ui-arrows-split-glow.svg" x="222" y="117" width="36" height="36"/></g>
+      <text class="sm" x="240" y="197" text-anchor="middle">로드밸런서</text>
+      <g class="tile" id="a1"><rect class="bx" x="380" y="8" width="280" height="72" rx="12"/><image href="assets/tint/ui-server-glow.svg" x="398" y="28" width="32" height="32"/><text class="nm" x="442" y="39">거래 서버 1</text><text class="sb" x="442" y="66">주문 체결·조회</text></g>
+      <g class="tile" id="a2"><rect class="bx" x="380" y="99" width="280" height="72" rx="12"/><image href="assets/tint/ui-server-glow.svg" x="398" y="119" width="32" height="32"/><text class="nm" x="442" y="130">거래 서버 2</text><text class="sb" x="442" y="157">주문 체결·조회</text></g>
+      <rect id="a-slot" x="380" y="190" width="280" height="72" rx="12"/>
+      <text class="sm" id="a-slot-t" data-t x="520" y="234" text-anchor="middle">조회 서버 0대</text>
+      <g class="tile" id="a-rd" data-t><rect class="bx" x="380" y="190" width="280" height="72" rx="12"/><image href="assets/tint/ui-server-2-glow.svg" x="398" y="210" width="32" height="32"/><text class="nm" x="442" y="221">조회 서버</text><text class="sb" x="442" y="248">CPU 60%·<tspan fill="var(--ai)">AI</tspan> 판단</text></g>
+      <path class="tip" id="a-tip" data-t d="M356 211 L356 241 L379 226 Z"/>
+      <text class="flag" id="a-late" data-t x="684" y="98" style="fill: var(--bad)">응답 지연</text>
+      <text class="flag" id="a-ok" data-t x="684" y="142" style="fill: var(--ok)">응답 정상</text>
+    </svg>
+    <div class="tiles" id="tiles-a"></div>
+  </section>
+
+  <!-- B. DB 장애 -->
+  <section class="col b" id="col-b">
+    <i class="tl bd b3"></i>
+    <div class="hd bd b3"><b>02</b>DB 장애<span class="env" id="env-b"></span></div>
+    <div class="say bd b3"><span class="q">DB가 갑자기 멈춰도 받은 주문은 지켜야 한다</span><span class="ans">예비 DB가 스스로 이어받고 받은 주문은 지킨다</span></div>
+    <svg class="sc bd b4" viewBox="0 0 800 270" role="img" aria-label="DB 장애의 답: 주 DB가 멈춰 주문이 거래 서버 앞에서 기다리자, Patroni가 예비 DB를 주 DB로 자동 승격하고, 옛 주 DB가 예비로 다시 붙어 엄격 동기 복제가 돌아온 뒤 주문이 다시 이어진다. 확인받은 주문은 잃지 않는다.">
+      <path class="wire" d="M66 135 H150"/>
+      <path class="wire" id="b-old" data-t d="M400 135 H460 V44 H520"/>
+      <path class="rep o" data-t d="M596 80 V190 M606 80 V190"/><path class="rep n" data-t d="M596 80 V190 M606 80 V190"/>
+      <text class="sm" x="620" y="141" style="fill: var(--ink-2)">엄격 동기 복제</text>
+      <path class="go" id="b-go" d="M400 135 H460 V226 H520" pathLength="1"/>
+      <image href="assets/tint/ui-users-side.svg" x="20" y="111" width="46" height="46"/>
+      <text class="sm" x="43" y="188" text-anchor="middle">사용자</text>
+      <g class="tile"><rect class="bx" x="150" y="99" width="250" height="72" rx="12"/><image href="assets/tint/ui-server-glow.svg" x="168" y="119" width="32" height="32"/><text class="nm" x="212" y="130">거래 서버</text><text class="sb" x="212" y="157">HAProxy</text></g>
+      <!-- 위 칸: 열린 상태 '주 DB'(멈춤) → 답 '예비 DB'(다시 붙음). 아래 칸: '예비 DB' → '주 DB'(자동 승격) -->
+      <g class="tile" id="b-top"><rect class="bx" x="520" y="8" width="260" height="72" rx="12"/><image href="assets/tint/ui-database-glow.svg" x="538" y="28" width="32" height="32"/>
+        <text class="nm n0" data-t x="582" y="39">주 DB</text><text class="sb s0" data-t x="582" y="66">Patroni</text>
+        <text class="nm n1" data-t x="582" y="39">예비 DB</text><text class="sb s1" data-t x="582" y="66">다시 붙음</text></g>
+      <g class="tile" id="b-bot"><rect class="bx" x="520" y="190" width="260" height="72" rx="12"/><image href="assets/tint/ui-database-glow.svg" x="538" y="210" width="32" height="32"/>
+        <text class="nm n0" data-t x="582" y="221">예비 DB</text><text class="sb s0" data-t x="582" y="248">Patroni</text>
+        <text class="nm n1" data-t x="582" y="221">주 DB</text><text class="sb s1" data-t x="582" y="248" style="fill: var(--ok)">자동 승격</text></g>
+      <g class="xm" id="b-x" data-t><circle cx="780" cy="8" r="16"/><path d="M773 1 L787 15 M787 1 L773 15"/></g>
+      <text class="flag" id="b-wait" data-t x="150" y="80" style="fill: var(--warm)">주문 대기</text>
+      <g id="b-dots" data-t style="fill: var(--warm)">
+        <circle cx="270" cy="66" r="5"/><circle cx="288" cy="66" r="5"/><circle cx="306" cy="66" r="5"/><circle cx="324" cy="66" r="5"/><circle cx="342" cy="66" r="5"/>
+        <circle cx="270" cy="84" r="5"/><circle cx="288" cy="84" r="5"/><circle cx="306" cy="84" r="5"/><circle cx="324" cy="84" r="5"/><circle cx="342" cy="84" r="5"/>
+      </g>
+      <text class="flag" id="b-ok" data-t x="150" y="80" style="fill: var(--ok)">주문 재개</text>
+      <path class="tip" id="b-tip" data-t d="M496 211 L496 241 L519 226 Z"/>
+    </svg>
+    <div class="tiles" id="tiles-b"></div>
+  </section>
+
+  <div class="band" id="band"><div><p>두 장면을 시험하는 동안 받은 주문은 한 건도 잃지 않았습니다</p><p class="me">고객사 서버에서도 직접 확인한 것만 보고하는 엔지니어가 되겠습니다</p></div><b>감사합니다</b></div>
+</div>
+
+<script>
+(() => {
+  // ======== 사용자가 채우는 곳(이 장의 결과 값은 여기 한곳에만 있다) ========
+  // v 와 u(단위)를 넣은 타일만 그리고, v 가 빈칸('')이면 그 타일은 그리지 않는다(남은 타일은 왼쪽부터 채움).
+  // env 가 빈칸이면 칩을 그리지 않는다. 아이콘은 env 에 'Docker' 가 있으면 docker, 'AWS' 면 AWS, 'VM' 이면 서버.
+  // 월요일에 개인 AWS 값이 오면 env 를 '개인 AWS' 로 바꾸고 v · u · t 만 바꾼다(칸 자리와 크기는 그대로)
+  // 지금 값은 바로 앞 05 시연 영상과 같은 회차(13회차, 로컬 Docker)라, 청중이 방금 본 숫자와 같다(2026-10-05 심사단 공통 의견)
+  const RESULT = {
+    traffic: { env: '로컬 Docker', items: [
+      { v: '9,000', u: '건', t: '초당 몰린 요청' },               // 영상 2:05 자막 · 6:53 실측 요약 화면
+      { v: '18', u: '초', t: '승인 뒤 조회 서버 합류' },          // 영상 6:53 실측 요약 화면(승인 → app-3 합류)
+    ] },
+    failover: { env: '로컬 Docker', items: [
+      { v: '27', u: '초', t: '예비 DB가 주 DB로 오르기까지' },    // harness/evidence/demo-patroni-failover-20260927-1505 result.json promote_s 27.044, 영상 4:50
+      { v: '0', u: '건', t: '확인받은 쓰기 16,858건 중 유실' },   // 같은 폴더 ackrec-verify.json acked 16858 · missing 0(실험용 확인 쓰기, 주문 974건 · 체결 661건도 대조), 영상 6:05
+    ] },
+  };
+
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  $('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  const icon = env => /docker/i.test(env) ? 'assets/tint/docker-side.svg' : /AWS/.test(env) ? 'assets/tint/amazonwebservices-side.svg' : 'assets/tint/ui-server-2-side.svg';
+  const fill = (key, envId, tilesId) => {
+    const r = RESULT[key];
+    $(envId).innerHTML = r.env ? `<img src="${icon(r.env)}" alt="">${r.env}` : '';
+    $(envId).style.display = r.env ? '' : 'none';
+    $(tilesId).innerHTML = r.items.filter(it => it.v !== '').map(it => `<div class="rt"><b>${it.v}<small>${it.u}</small></b><span>${it.t}</span></div>`).join('');
+  };
+  fill('traffic', 'env-a', 'tiles-a');
+  fill('failover', 'env-b', 'tiles-b');
+
+  // ---- 단계: 0 열림(02의 문제 장면 그대로), 1 트래픽 급증의 답, 2 DB 장애의 답, 3 마무리 한 문장. 그다음 → 는 다음 장(부록).
+  //      stage 의 g1~g3 은 '그 단계 이상'(CSS 가 답 상태를 이것으로 정한다). 앞으로는 움직여 바꾸고, 뒤로는 앞 단계의 끝 모습을 바로 ----
+  const LAST = 3;
+  let step = 0;
+  const render = (n, inst) => {
+    stage.classList.toggle('inst', !!inst); step = n; stage.dataset.step = n;
+    for (let k = 1; k <= LAST; k++) stage.classList.toggle('g' + k, n >= k);
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash === '#last') { stage.classList.add('done'); render(LAST, true); }
+  else render(0, false);
+  window.deckStep = d => {
+    if (d > 0 && step < LAST) { render(step + 1, false); return true; }
+    if (d < 0 && step > 0) { render(step - 1, true); return true; }
+    return false;
+  };
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>
+<!-- 발표 노트(55초): 처음 고른 두 장면에 대한 답입니다. 숫자는 영상과 같은 회차입니다.
+→ 1 요청이 몰릴 때는 조회 서버를 켜서 나눠 받았습니다. 초당 9,000건이 몰렸을 때, 운영자가 승인하고 18초 만에 조회 서버가 합류했습니다.
+→ 2 DB가 멈췄을 때는 Patroni가 27초 만에 예비 DB를 올렸고, 주문은 약 96초 뒤 다시 받았지만 확인받은 쓰기 1만 6천여 건과 주문 974건 중 사라진 것은 없었습니다.
+→ 3 두 장면을 시험하는 동안 받은 주문은 한 건도 잃지 않았습니다. 고객사 서버에서도 직접 확인한 것만 보고하는 엔지니어가 되겠습니다. 감사합니다.
+답변 준비:
+- 엄격 동기라 예비 DB가 다시 붙기 전까지 새 주문은 멈춥니다. 영상 회차는 95.9초에 재개했고, 로컬 반복 실험에서는 실험 도구가 60초에 옛 DB를 다시 켜 66초에 재개했습니다(부록 B3). 예비 DB만 죽어도 쓰기는 멈추고(E-P2a 쓰기 423, 조회 200) 받은 주문을 잃지 않는 쪽을 고른 결정입니다.
+- 조회 서버 한 대로는 평소의 13배(초당 약 4,490건)에서 요청의 7.4%를 거절했습니다. 동시 처리 상한이 4이고 로드밸런서가 429를 다른 서버로 다시 보내지 않기 때문입니다(20260926 43행).
+- 주문 병목의 근거: 초당 185건일 때 DB CPU 238.5%, 앱 143.5%(로컬, 과도 구간 표본, harness/evidence/accept-concurrency-20260913). 거래 서버를 늘려도 DB 커밋이 병목이라 빨라지지 않습니다(ADR 0034).
+- 화면 숫자는 영상과 같은 13회차(로컬 Docker) 값입니다. 같은 구성의 반복 실험(9/25)은 승격 22.75~23.18초였고, 조회 서버가 요청의 1/3을 받고 늘리고 줄이는 동안 오류 0건이었습니다(docs/measurements/20260925.md, 20260926.md). 개인 AWS 값이 오면 파일 맨 위 RESULT를 바꿉니다.
+- 영상 요약 화면은 '증설 기준 50% 초과'인데 그림은 CPU 60%? 로컬 시연 스택은 요청 제한 때문에 CPU가 60%에 닿지 않아 50%로 낮췄다. AWS 기준은 60%다.
+- 증설은 누가 켜나? 기본은 수동 모드라 AI가 제안하고 운영자가 승인한 뒤 켠다. 자동 모드를 켜 두면 허용 목록과 한도 안에서 AI가 바로 켠다.
+- AI가 잘못 판단하면? 04-6의 정책 검사와 운영자 승인, 잘못 실행 0/111. -->

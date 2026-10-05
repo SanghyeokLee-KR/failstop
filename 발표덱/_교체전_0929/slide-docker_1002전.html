@@ -196,7 +196,6 @@
   </div>
 </div>
 
-<!-- 발표 노트(35초): 서버에 올리기 전에 PC 한 대에 실제와 같은 구성을 Docker로 띄웠다. 위 줄은 서비스 흐름: 시장 봇(가상 거래자)의 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 가고, DB 앞에 장애 주입 장치(Toxiproxy)를 두어 지연·끊김을 넣거나 컨테이너를 강제로 멈췄다. 아래 줄은 관측과 알림: 지표를 모아(Prometheus·Grafana) 경보를 내고 알림을 보낸다. 로컬 스택은 Teams 웹훅 제약으로 알림을 Discord로 받았고(harness/alertmanager/alertmanager.yml), AWS에서는 Teams로 보낸다. 화면(v5)은 이 차이를 그대로 적었다. AI 판단은 이 스택에 붙이지 않았다. 같은 PC의 RTX 4090·Ollama로 시나리오 37개를 세 번씩(111회) 따로 평가했다(09-25, docs/measurements/20260925.md). DGX Spark 결과가 아니다. 이 스택의 DB는 한 대이고, DB 두 대의 자동 전환은 망을 따로 둔 Patroni 스택(harness/patroni)에서, 두 리더(마켓 분할)와 조회 서버는 S7 스택(exchange-pml)에서 따로 실험했다. 결과 장의 '로컬 Docker' 수치가 여기서 나왔다. 원본: 교수님_보고본/02_검증환경. -->
 
 <script>
 (() => {

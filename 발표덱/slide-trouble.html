@@ -1,0 +1,466 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페일스톱 부록 C1 트러블슈팅</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0F131B;
+    --stage: #131824;
+    --line: #2E3848;
+    --edge: #7D8BA5;
+    --wire: #6A7489;
+    --ink: #F0F3F7;
+    --ink-2: #BAC4D1;
+    --ink-3: #8390A1;
+    --brand: #79A7FA;
+    --glow: #A8C8FF;
+    --ok: #2DD196;
+    --warm: #E8C07A;
+    --bad: #FF7A7A;
+    --ease: cubic-bezier(.45,0,.25,1);
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', 'IBM Plex Sans KR', Consolas, 'Courier New', monospace;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .stage {
+    position: fixed; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(.5);
+    background: var(--stage);
+    overflow: hidden;
+  }
+
+  .head {
+    position: absolute; left: 130px; right: 130px; top: 64px; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .head .l { display: flex; align-items: center; gap: 20px; font-size: 22px; color: var(--ink-2); }
+  .head .l i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .head .code { font-family: var(--mono); font-weight: 500; letter-spacing: .06em; color: var(--ink); }
+  .head .r { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+  .head .r .sec { font-family: var(--sans); color: var(--ink-3); margin-right: 16px; }
+
+  .title { position: absolute; left: 130px; right: 130px; top: 150px; display: flex; align-items: baseline; gap: 24px; }
+  h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; animation: rise .6s 0s var(--ease) both; }
+  .title .tag { margin-left: auto; }
+  .title .env { margin-left: 14px; animation: fade .6s .25s var(--ease) both; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; white-space: nowrap; }
+  .tag img { width: 26px; height: 26px; }
+  button.tag { font-family: var(--sans); background: transparent; cursor: pointer; }
+  .tag .mx { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; }
+  .dek { position: absolute; left: 130px; right: 130px; top: 232px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .6s .15s var(--ease) both; }
+
+  /* 위 띠: 원인을 좁혀 간 방법 네 칸(증상 → 단서 → 조치 → 확인). 흐름이라 칸 사이에 회색 선과 작은 화살촉을 둔다(04-6과 같은 꼴).
+     칸 색은 역할 색이고 아래 번호 상자와 같은 뜻이다: 증상 빨강(04-5의 실제 장애), 단서 노랑, 조치 하늘(04-5의 설정), 확인 흰색(04-5의 결과).
+     번호 상자가 뜰 때 같은 역할의 칸이 함께 켜진다. 좌표는 viewBox 1660×84(무대 x130 ~ 1790, y296 ~ 380). 칸은 폭 357 · 높이 76, 사이 77 */
+  .flow { position: absolute; left: 130px; top: 296px; width: 1660px; height: 84px; overflow: visible; }
+  .flow text { font-family: var(--sans); }
+  .flow .wire { fill: none; stroke: var(--wire); stroke-width: 2; }
+  .flow .tip { fill: var(--wire); }
+  .flow .node .bx { fill: #1E2638; stroke: var(--edge); stroke-width: 2.5; }
+  .flow .node .nm { font-size: 24px; font-weight: 600; fill: var(--ink); }
+  .flow .node .sb { font-size: 22px; fill: var(--ink-2); }
+  .flow .node .ic { fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .flow .node { transition: opacity .35s var(--ease); }
+  .stage:not([data-step="0"]) .flow .node:not(.on) { opacity: .45; }
+  .flow .node.on .bx { animation: litn .3s var(--ease) var(--lt) both; }
+  .flow .node.on .ic { animation: litc .3s var(--ease) var(--lt) both; }
+
+  /* 아래 카드: 04-5와 같은 틀. 왼쪽은 실제 명령과 출력(증거본 캡처 · 명령 기록에서 줄을 골라 옮긴 발췌, 줄인 곳은 …), 오른쪽은 같은 번호의 설명.
+     터미널 틀은 단계마다 같은 자리(무대 y440)와 같은 크기(1044×520) */
+  .card { position: absolute; left: 130px; top: 404px; width: 1660px; height: 596px; box-sizing: border-box; background: #0B1019; border: 2px solid var(--line); border-radius: 14px; }
+  .card .shot { position: absolute; left: 20px; top: 20px; width: 1044px; height: 552px; display: grid; place-items: start center; }
+  .card .side { position: absolute; left: 1100px; top: 20px; width: 536px; height: 552px; box-sizing: border-box; padding-top: 16px; display: flex; flex-direction: column; justify-content: flex-start; gap: 24px; }
+  .card .side::before { content: ''; position: absolute; left: -18px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
+  .card.wide > .side { display: none; }
+
+  .term { position: relative; margin-top: 16px; width: 1044px; height: 520px; box-sizing: border-box; border-radius: 10px; background: #05070B; border: 1px solid #222A37; box-shadow: 0 14px 40px rgba(0,0,0,.5); }
+  .term .tb { display: flex; align-items: center; gap: 14px; height: 44px; box-sizing: border-box; padding: 0 18px; border-bottom: 1px solid #1B2230; font-size: 22px; color: var(--ink-3); }
+  .term .tb i { display: inline-flex; gap: 7px; }
+  .term .tb i::before, .term .tb i::after, .term .tb i em { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: #2A3242; }
+  .term .tb b { font-weight: 600; color: var(--ink-2); }
+  .term .body { position: relative; padding: 16px 26px 18px; }
+  .term .ln { height: 40px; line-height: 40px; font-family: var(--mono); font-size: 22px; white-space: pre; color: var(--ink-2); }
+  .term .ln.c, .term .ln.k { color: var(--ink); }
+  .term .ln.c::before { content: '$ '; color: var(--ok); }
+  .term .ln.m { color: var(--ink-3); }
+  .tg { position: absolute; left: 12px; right: 12px; box-sizing: border-box; border: 3px solid var(--c); border-radius: 8px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 12%, transparent); }
+  .tg b, .an .no { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--c); color: #0B1019; font-family: var(--mono); font-size: 22px; font-weight: 700; font-style: normal; }
+  .tg b { position: absolute; right: -17px; top: calc(50% - 17px); }
+
+  .side .hd { display: flex; align-items: baseline; gap: 14px; height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .side .hd b { font-size: 28px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .side .hd span { font-size: 22px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .an { display: grid; grid-template-columns: 34px 1fr; column-gap: 16px; align-items: start; }
+  .an .no { margin-top: 1px; }
+  .an h3 { margin: 0; font-size: 26px; font-weight: 600; line-height: 36px; color: var(--ink); word-break: keep-all; text-wrap: balance; }
+  .an h3 .pl { display: inline-block; margin-right: 10px; padding: 0 12px; height: 34px; line-height: 30px; box-sizing: border-box; border-radius: 17px; border: 2px solid var(--v); background: color-mix(in srgb, var(--v) 14%, transparent); color: var(--v); font-size: 22px; font-weight: 700; vertical-align: 2px; }
+  .an p { margin: 2px 0 0; font-size: 22px; line-height: 32px; color: var(--ink-2); word-break: keep-all; text-wrap: balance; }
+  .side .ft { padding-top: 18px; border-top: 1px solid var(--line); font-size: 22px; line-height: 32px; color: var(--ink-3); word-break: keep-all; text-wrap: balance; }
+  .side .ft i { font-style: normal; color: var(--fc); font-weight: 600; margin-right: 10px; }
+
+  /* 열린 모습: 앞(04-5)에서 본 장애를 짧게 되짚고(왼쪽), 이 장에서 쓰는 두 말 '조이는 선 · 강제 종료 선'을 정의한다(오른쪽) */
+  .ov { width: 100%; padding: 0 24px; box-sizing: border-box; }
+  .ov .k, .df .k { height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; }
+  .ov .k b, .df .k b { font-size: 28px; font-weight: 600; color: var(--ink); }
+  .ov .k span, .df .k span { font-size: 22px; color: var(--ink-3); }
+  .ov .r { display: grid; grid-template-columns: 250px 140px 1fr; column-gap: 20px; align-items: baseline; padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .ov .r:last-child { border-bottom: 0; }
+  .ov .r .h { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+  .ov .r .o { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
+  .ov .r .s { font-size: 24px; color: var(--ink-2); word-break: keep-all; }
+  .ov .r.hot .s { color: var(--warm); }
+  .df { display: flex; flex-direction: column; gap: 22px; }
+  .df .d b.m { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--glow); margin-right: 12px; }
+  .df .d span { font-size: 24px; font-weight: 600; color: var(--ink); }
+  .df .d p { margin: 4px 0 0; font-size: 22px; line-height: 32px; color: var(--ink-2); }
+
+  /* ⑤ 같은 방식으로 고친 세 가지: 카드 전체를 표로. 열은 위 띠의 네 칸과 같은 자리(무대 x152 · 586 · 1020 · 1454, 폭 317). 행은 위아래 여백이 같게 */
+  .tb5 { position: absolute; left: 0; top: 33px; width: 1619px; }
+  .tb5 .row { padding: 22px 0 24px; border-bottom: 1px solid var(--line); }
+  .tb5 .row:last-child { border-bottom: 0; }
+  .tb5 .rh { display: flex; align-items: baseline; gap: 14px; }
+  .tb5 .rh b { font-size: 26px; font-weight: 600; color: var(--ink); }
+  .tb5 .rh span { font-family: var(--mono); font-size: 22px; color: var(--ink-3); }
+  .tb5 .cells { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 317px); column-gap: 117px; }
+  .tb5 .cells p { margin: 0; padding-left: 14px; border-left: 3px solid var(--c); font-size: 22px; line-height: 32px; color: var(--ink-2); word-break: keep-all; text-wrap: balance; }
+  .tb5 .cells code { font-family: var(--mono); font-size: 22px; color: var(--glow); }
+
+  /* 단계에 들어설 때만 움직인다(04-5와 같은 박자). 앞 카드 내용(복사본)이 0 ~ 0.3초에 사라지고, 새 글이 0.3초부터 0.4초에 나타나며,
+     번호 상자 · 같은 번호의 설명 · 같은 역할의 띠 칸이 0.9초부터 0.5초 간격으로 0.3초, 끝 줄은 마지막 번호 0.5초 뒤. inst(← · #last)는 움직임 없이 */
+  .card.go .term .tb > *, .card.go .term .ln, .card.go .side .hd, .card.go .tb5 .row { animation: fade .4s var(--ease) .3s both; }
+  .card.go.first .term { animation: fade .4s var(--ease) .3s both; }
+  .card.go .tg { animation: mark .3s var(--ease) var(--at) both; }
+  .card.go .an, .card.go .ft, .card.go .tb5 .cells p { animation: fade .3s var(--ease) var(--at) both; }
+  .card .ghost { position: absolute; inset: 0; pointer-events: none; animation: leave .3s var(--ease) both; }
+  .card .ghost * { animation: none !important; }
+
+  /* 열릴 때(약 1.95초): 제목 → 부제 → 칩, 띠 네 칸(0.35 ~ 0.95초), 회색 선(1.15초), 카드(1.35초) */
+  .bd { animation: rise .6s var(--ease) backwards; }
+  .b1 { animation-delay: .35s; } .b2 { animation-delay: .55s; } .b3 { animation-delay: .75s; } .b4 { animation-delay: .95s; } .b5 { animation-delay: 1.15s; } .b6 { animation-delay: 1.35s; }
+
+  .stage.inst *, .stage.inst *::before, .stage.inst *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; }
+  .stage.done h1, .stage.done .dek, .stage.done .title .env, .stage.done .bd { animation: none !important; }
+
+  /* 원본 캡처(E 키 도구): 지금 단계의 캡처만, 창에 맞춰 줄임(04-5와 같은 방식) */
+  .fig { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); outline: none; }
+  .fig::backdrop { background: rgba(8,10,15,.95); }
+  .fig[open] { display: flex; flex-direction: column; animation: fade .35s var(--ease); }
+  .fig .bar { flex: none; display: flex; align-items: center; gap: calc(16px * var(--k, 1)); padding: calc(14px * var(--k, 1)) calc(24px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); color: var(--ink-3); }
+  .fig .bar b { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .fig .bar .cap { color: var(--ink-2); min-width: 0; white-space: normal; text-wrap: balance; }
+  .fig .bar button { margin-left: auto; flex: none; font-family: var(--sans); font-size: calc(22px * var(--k, 1)); color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: calc(5px * var(--k, 1)) calc(12px * var(--k, 1)); cursor: pointer; }
+  .fig .view { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: calc(18px * var(--k, 1)); padding: 0 calc(24px * var(--k, 1)) calc(24px * var(--k, 1)); }
+  .fig figure { margin: 0; }
+  .fig figcaption, .fig .note { margin: 0 0 calc(6px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); color: var(--ink-2); }
+  .fig figure img { display: block; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+  .fig pre.tx { margin: 0; padding: calc(14px * var(--k, 1)) calc(18px * var(--k, 1)); border-radius: 6px; background: #05070B; border: 1px solid #222A37; font-family: var(--mono); font-size: calc(20px * var(--k, 1)); line-height: 1.45; color: var(--ink-2); white-space: pre; }
+
+  .fs {
+    position: absolute; right: 130px; top: 20px;
+    font-family: var(--sans); font-size: 17px; color: var(--ink-3); background: transparent;
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 12px; cursor: pointer;
+    opacity: 0; transition: opacity .3s, color .3s;
+  }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes mark { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+  @keyframes leave { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes litn { to { stroke: var(--rc); stroke-width: 3; } }
+  @keyframes litc { to { stroke: var(--rc); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; } }
+</style>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js"></script>
+
+<div class="stage" id="stage" data-step="0">
+  <div class="head">
+    <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
+    <div class="r"><span class="sec">부록·트러블슈팅</span>C1</div>
+  </div>
+  <button class="fs" id="fs" type="button">전체 화면 (F)</button>
+
+  <div class="title">
+    <h1>관제 화면이 멈춘 원인을 좁혀 가며 해결</h1>
+    <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-terminal-2-side.svg" alt="">원본 캡처<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
+    <span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS</span>
+  </div>
+  <p class="dek">systemd가 다시 올린 뒤에도 멈춘 Grafana, 서버 안의 기록으로 원인을 좁혀 고침</p>
+
+  <svg class="flow" id="flow" viewBox="0 0 1660 84" role="img" aria-label="원인을 좁혀 간 방법: 증상(눈에 보인 현상) → 단서(서버 안의 기록) → 조치(설정 변경) → 확인(같은 명령으로 다시)">
+    <g class="bd b5">
+      <path class="wire" d="M357 42 H434"/><path class="tip" d="M420 35 L434 42 L420 49 Z"/>
+      <path class="wire" d="M791 42 H868"/><path class="tip" d="M854 35 L868 42 L854 49 Z"/>
+      <path class="wire" d="M1225 42 H1302"/><path class="tip" d="M1288 35 L1302 42 L1288 49 Z"/>
+    </g>
+    <g id="nodes"></g>
+  </svg>
+
+  <div class="card bd b6" id="card" aria-live="polite"><div class="shot" id="shot"></div><div class="side" id="side"></div></div>
+
+  <dialog class="fig" id="fig" tabindex="-1" aria-label="원본 캡처">
+    <div class="bar"><b>원본 캡처</b><span class="cap" id="fig-cap"></span><button id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="view" id="fig-view"></div>
+  </dialog>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
+  fit(); addEventListener('resize', fit);
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
+  $('fs').addEventListener('click', toggleFs);
+  addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
+
+  // 역할: 띠 칸 · 번호 상자 · 번호 원 · 설명 번호가 같은 색을 쓴다
+  const ROLES = {
+    sym:  { c: 'var(--bad)',  nm: '증상', sb: '눈에 보인 현상', ic: '<path d="M12 9v4"/><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z"/><path d="M12 16h.01"/>' },
+    clue: { c: 'var(--warm)', nm: '단서', sb: '서버 안의 기록', ic: '<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/>' },
+    fix:  { c: 'var(--glow)', nm: '조치', sb: '설정 변경', ic: '<path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"/>' },
+    chk:  { c: 'var(--ink)',  nm: '확인', sb: '같은 명령으로 다시', ic: '<path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 12l2 2l4 -4"/>' },
+  };
+  const ORDER = ['sym', 'clue', 'fix', 'chk'];
+  $('nodes').innerHTML = ORDER.map((r, i) => { const x = i * 434, o = ROLES[r];
+    return `<g class="node bd b${i + 1}" data-r="${r}" style="--rc:${o.c}"><rect class="bx" x="${x}" y="4" width="357" height="76" rx="12"/>` +
+      `<g transform="translate(${x + 16} 24) scale(1.5)"><g class="ic">${o.ic}</g></g><text class="nm" x="${x + 64}" y="38">${o.nm}</text><text class="sb" x="${x + 64}" y="66">${o.sb}</text></g>`; }).join('');
+
+  // 단계. 터미널은 증거본(failstop/증거본/2026-09-19_학교AWS)의 캡처와 명령 기록(Linux_명령실행.log)에서 줄을 골라 옮긴 발췌다.
+  // 한 줄 안에서 줄인 곳(명령 끝은 '; …')과 출력 묶음 가운데를 줄인 곳은 … 로 쓰고, 프롬프트의 호스트 이름은 $ 로 줄이며 날짜는 넣지 않는다.
+  // tags 는 [역할, 첫 줄, 끝 줄], an 은 같은 번호의 설명 [제목, 글, 알약], ft 는 끝 줄 [굵은 말, 글, 역할], pre 는 단계 첫머리에 켤 띠 칸
+  const STEPS = [
+    null,
+    // 324(명령 기록 12:46:34Z, 출력의 SSM 오류 줄은 로그 원문) · 325
+    { hd: ['첫 판단', '접속 경로부터 의심'], pre: ['sym'],
+      lines: [
+        ['c', "sudo grep -E 'connection refused|dial tcp|connect:|3000' \\"],
+        ['k', '    /var/log/amazon/ssm/amazon-ssm-agent.log | tail -8; …'],
+        ['o', '… ERROR … dial tcp 127.0.0.1:3000: connect: connection refused'],
+        ['o', '…'],
+        ['o', 'active'],
+        ['o', 'curl: (28) Operation timed out after 3002 milliseconds …'],
+        ['c', 'systemctl show grafana-server -p …; sudo cat …/memory.events; …'],
+        ['o', 'NRestarts=1'],
+        ['o', 'MemoryCurrent=395542528'],
+        ['o', '…'],
+        ['o', 'high 4010'],
+      ],
+      tags: [['clue', 2, 2], ['clue', 4, 5], ['clue', 7, 10]],
+      an: [['SSM 기록: 3000번 연결 거부', 'Grafana가 연결을 받지 않음'], ['서버 안에서도 시간 초과', '서비스는 active, 접속 경로를 빼도 같은 증상'], ['다시 올라와도 한도 바로 아래', '약 377MiB, 조이는 선을 4,010번 넘음']],
+      ft: ['판단 정정', '접속 경로가 아니라 Grafana의 메모리 한도', 'clue'],
+      src: '증거본 2026-09-19_학교AWS 324 · 325', shots: [['assets/linux/svc-325.png', 950, 304, '325 서버 안에서도 시간 초과, 강제 종료 기록, 조이는 선 4,010번']],
+      pres: [['324 SSM 에이전트 기록(명령 기록 원문, 세션 이름은 …)', '2026-09-19 12:42:44.9278 ERROR [ssm-session-worker] […] [DataBackend] [pluginName=Port]\nUnable to dial connection to server: dial tcp 127.0.0.1:3000: connect: connection refused']] },
+    // 326 · 329 · 333
+    { hd: ['1차 조치와 재발', '한도만 올림'],
+      lines: [
+        ['c', '… && sudo systemctl restart grafana-server && systemctl show … && …'],
+        ['o', 'MemoryHigh=536870912'],
+        ['o', 'MemoryMax=671088640'],
+        ['c', 'for n in 1 2 3; do curl -fsS … /api/health; sleep 5; done; …'],
+        ['o', 'Grafana HTTP 200 time=0.000984s'],
+        ['o', '…'],
+        ['m', '# 관제 화면 6개를 새로 올린 뒤'],
+        ['c', 'curl -fsS --max-time 5 http://127.0.0.1:3000/api/health; …'],
+        ['o', 'curl: (28) Operation timed out after 5002 milliseconds …'],
+        ['o', '…'],
+        ['o', 'high 13898'],
+      ],
+      tags: [['fix', 1, 2], ['chk', 3, 5], ['sym', 7, 10]],
+      an: [['한도를 512/640MiB로 올림', '설정 파일을 백업하고 다시 시작'], ['세 번 모두 바로 응답', 'HTTP 200, 1ms 안쪽'], ['화면 6개를 새로 올리자 다시 멈춤', '5초 시간 초과, 조이는 선 13,898번', ['재발', 'var(--bad)']]],
+      src: '증거본 2026-09-19_학교AWS 326 · 329 · 333', shots: [['assets/linux/tr-329.png', 950, 511, '326 · 329 한도를 512/640MiB로 바꾼 뒤 세 번 응답'], ['assets/img/linux-grafana-2.png', 950, 478, '333 · 334 화면 6개를 올린 뒤 다시 시간 초과, 조이는 선 13,898번']] },
+    // 334
+    { hd: ['다시 좁힘', 'cgroup에서 쓰는 양 확인'],
+      lines: [
+        ['c', "sudo grep -E '^(anon|file|kernel|slab|sock) ' \\"],
+        ['k', '    …/grafana-server.service/memory.stat; …; cat /proc/pressure/memory'],
+        ['o', 'anon 644571136'],
+        ['o', 'file 73728'],
+        ['o', '…'],
+        ['o', 'some avg10=94.77 avg60=94.98 avg300=78.67 total=692941436'],
+        ['o', 'full avg10=91.42 avg60=93.56 avg300=77.76 total=682822489'],
+      ],
+      tags: [['clue', 2, 2], ['clue', 5, 6]],
+      an: [['쓰는 메모리 약 615MiB', '조이는 선 512MiB보다 큼'], ['메모리를 기다린 시간 91~95%', '서버 전체가 거의 멈춰 있음']],
+      ft: ['원인', '쓰는 양이 조이는 선을 늘 넘어 계속 조여짐, 한도만 올려서는 다시 걸림', 'sym'],
+      src: '증거본 2026-09-19_학교AWS 334', shots: [['assets/img/linux-grafana-2.png', 950, 478, '334 cgroup 메모리 통계와 서버 전체 메모리 압박']] },
+    // 335에서 서버에 넣은 grafana-server.service.d/limits.conf(저장소 deploy/linux/observability/grafana-limits.conf와 같은 내용) · 342 · 343
+    { hd: ['2차 조치와 확인', '먼저 회수하게 하고 다시'],
+      lines: [
+        ['m', '# grafana-server.service.d/limits.conf'],
+        ['o', 'Environment=GOMEMLIMIT=512MiB'],
+        ['o', 'MemoryHigh=768M'],
+        ['o', 'MemoryMax=896M'],
+        ['c', 'for n in 1 2 3 4 5 6; do …; curl … /api/health; …; sleep 10; done; …'],
+        ['o', '13:04:16 UTC'],
+        ['o', 'Grafana HTTP 200 time=0.001047s'],
+        ['o', 'NRestarts=0'],
+        ['o', 'MemoryCurrent=513421312'],
+        ['o', '…'],
+        ['o', 'high 0'],
+      ],
+      tags: [['fix', 1, 3], ['chk', 4, 8], ['chk', 10, 10]],
+      an: [['Go가 512MiB에서 먼저 회수', '두 선은 768/896MiB, 백업하고 다시 시작'], ['화면을 바꿔 가며 6번 모두 응답', '10초 간격, 약 490MiB, 재시작 0'], ['조이는 선 0번', '강제 종료도 0번', ['정상', 'var(--ok)']]],
+      ft: ['이후', '모든 서버 수집을 붙인 뒤에도 약 503MiB, 조이는 선·강제 종료 0', 'chk'],
+      src: '증거본 2026-09-19_학교AWS 335 · 342 · 343 · 370, 저장소 deploy/linux/observability/grafana-limits.conf', shots: [['assets/img/linux-grafana-3.png', 1100, 738, '342 · 343 화면을 바꿔 가며 10초마다 6번, 조이는 선 · 강제 종료 0'], ['assets/linux/tr-370.png', 950, 322, '370 모든 서버 수집 뒤에도 약 503MiB']] },
+    'table',
+  ];
+  // ⑤ 같은 방식으로 고친 세 가지(증상 · 단서 · 조치 · 확인).
+  // 504: 증거본 2026-09-21_앱장애_행 01 · 02 · 52(TXT 원문)와 README, 143: 2026-09-20_백업_복구_보고 049와 deploy/linux/app/exchange-app.service,
+  // 예비 DB: 2026-09-20_백업_복구_보고 044 ~ 046(다시 붙인 것은 옛 주 DB 인스턴스 db-primary)
+  const CASES = [
+    ['앱은 살아 있는데 API만 504', 'app-1', ['앱은 active,<br>API만 30초 뒤 504', '커널 CPU 57~64%,<br>스레드 덤프 두 번 같은 자리', '설정을 백업하고<br>가상 스레드 끄고 재시작', '커널 CPU 1~2%,<br>API 200']],
+    ['정상 종료가 실패로 기록됨', 'app-1·bot-1', ['멈추면 failed로 남음', 'Java가 종료 신호에<br>143으로 끝남', '<code>SuccessExitStatus=143</code>', '다른 오류는 그대로 실패']],
+    ['옛 주 DB를 예비로 다시 붙이다 막힘', 'db-primary', ['다시 붙인 예비 DB가<br>복제를 못 받음', '비밀번호가 빠지고<br>없는 슬롯을 가리킴', '0600 비밀번호 파일,<br>슬롯 지정 비움', '<code>streaming</code>,<br>받은 위치 = 재생 위치']],
+  ];
+  const LAST = STEPS.length - 1;
+  const T0 = .9, GAP = .5, LN = 40, PAD = 16;
+  const card = $('card'), shot = $('shot'), side = $('side');
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function overview() {
+    shot.innerHTML = `<div class="ov"><div class="k"><b>앞에서 본 장애</b><span>bot-1 관제 서버</span></div>` +
+      [['grafana-server', '관제 화면', 'Prometheus 지표를 그리는 Grafana'], ['oom-kill', '강제 종료', '한도 384MiB를 넘어 종료'], ['NRestarts=1', '다시 올림', 'systemd가 다시 올렸지만 화면은 계속 멈춤', 1]].map(([h, o, s, hot]) =>
+        `<div class="r${hot ? ' hot' : ''}"><span class="h">${h}</span><span class="o">${o}</span><span class="s">${s}</span></div>`).join('') + `</div>`;
+    side.innerHTML = `<div class="df"><div class="k"><b>메모리 한도 두 줄</b><span>systemd</span></div>` +
+      [['MemoryHigh', '조이는 선', '넘으면 커널이 회수하며 느리게 함'], ['MemoryMax', '강제 종료 선', '넘으면 서비스를 강제 종료']].map(([m, n, p]) =>
+        `<div class="d"><b class="m">${m}</b><span>${n}</span><p>${p}</p></div>`).join('') + `</div>`;
+  }
+  // 열린 모습은 왼쪽 목록과 오른쪽 정의의 머리 위를 맞추고, 내용 전체를 카드 안 위아래 가운데에 둔다(04-5와 같은 처리)
+  const alignTop = () => {
+    const c = shot.firstElementChild;
+    side.style.paddingTop = '';
+    if (!c || !c.classList.contains('ov')) return;
+    const top = Math.max(0, (552 - c.offsetHeight) / 2);
+    c.style.marginTop = top + 'px'; side.style.paddingTop = top + 'px';
+  };
+  if (document.fonts) document.fonts.ready.then(alignTop);
+  function terminal(s) {
+    const tags = s.tags.map(([r, a, e], j) =>
+      `<i class="tg" style="--c:${ROLES[r].c}; --at:${(T0 + j * GAP).toFixed(2)}s; top:${PAD + a * LN + 3}px; height:${(e - a + 1) * LN - 6}px"><b>${j + 1}</b></i>`).join('');
+    shot.innerHTML = `<div class="term"><div class="tb"><i><em></em></i><b>bot-1</b><span>관제 서버</span></div><div class="body">` +
+      s.lines.map(([t, x]) => `<div class="ln ${t}">${esc(x)}</div>`).join('') + tags + `</div></div>`;
+    side.innerHTML = `<div class="hd"><b>${s.hd[0]}</b><span>${s.hd[1]}</span></div>` +
+      s.an.map(([t, d, pl], j) => `<div class="an" style="--c:${ROLES[s.tags[j][0]].c}; --at:${(T0 + j * GAP).toFixed(2)}s"><span class="no">${j + 1}</span><div><h3>${pl ? `<span class="pl" style="--v:${pl[1]}">${pl[0]}</span>` : ''}${t}</h3><p>${d}</p></div></div>`).join('') +
+      (s.ft ? `<div class="ft" style="--fc:${ROLES[s.ft[2]].c}; --at:${(T0 + s.an.length * GAP).toFixed(2)}s"><i>${s.ft[0]}</i>${s.ft[1]}</div>` : '');
+  }
+  function table() {
+    shot.innerHTML = `<div class="tb5">` + CASES.map(([n, h, cells]) =>
+      `<div class="row"><div class="rh"><b>${n}</b><span>${h}</span></div><div class="cells">` +
+      cells.map((c, j) => `<p style="--c:${ROLES[ORDER[j]].c}; --at:${(T0 + j * GAP).toFixed(2)}s">${c}</p>`).join('') + `</div></div>`).join('') + `</div>`;
+    side.innerHTML = '';
+  }
+  // 띠 칸 켜기: 그 단계에 나오는 역할의 칸을, 그 역할의 첫 번호 상자가 뜨는 때(pre 는 0초, ⑤는 열마다)에 켠다
+  const lightNodes = (n, inst) => {
+    const s = STEPS[n], when = {};
+    if (s === 'table') ORDER.forEach((r, j) => { when[r] = T0 + j * GAP; });
+    else if (s) { (s.pre || []).forEach(r => { when[r] = 0; }); s.tags.forEach(([r], j) => { if (!(r in when)) when[r] = T0 + j * GAP; }); }
+    document.querySelectorAll('#nodes .node').forEach(g => {
+      g.classList.remove('on'); void g.getBoundingClientRect();
+      const r = g.dataset.r;
+      if (r in when) { g.style.setProperty('--lt', (inst ? 0 : when[r]).toFixed(2) + 's'); g.classList.add('on'); }
+    });
+  };
+
+  // ---- 원본 캡처(E 키 도구): 지금 단계(열린 모습에서는 ①)의 캡처를 위아래로, 창에 맞춰 줄인다. ⑤는 원문 파일 이름만 ----
+  const fig = $('fig'), openBtn = $('open-fig');
+  const showFig = () => {
+    const s = STEPS[Math.max(1, step)], k = Math.min(innerWidth / 1920, innerHeight / 1080), view = $('fig-view');
+    fig.style.setProperty('--k', k);
+    if (s === 'table') {
+      $('fig-cap').textContent = '같은 방식으로 고친 세 가지. 증거본 TXT 원문과 캡처(계정 ID · 공인 주소가 있는 머리와 바닥은 잘라 냄)';
+      view.innerHTML =
+        `<figure><figcaption>504 · 장애 중 vmstat(2026-09-21_앱장애_행 01-pre-state)</figcaption><pre class="tx">procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 5  0      0  66916    840 1178804    0    0     1    34  108   27  1  1 98  0  0
+ 5  0      0  66924    840 1178868    0    0     0     0 2854 573169 43 57  0  0  0
+ 3  0      0  66924    840 1178868    0    0     0    52 7852 544109 36 64  0  0  0</pre></figure>` +
+        `<figure><figcaption>504 · 조치 뒤 vmstat(52-정상화-검증)</figcaption><pre class="tx">procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 0  0      0 277392    840 1167908    0    0     1    34  118   78  1  1 98  0  0
+ 0  0      0 277360    840 1167920    0    0     0     4  805  796 16  1 83  0  0
+ 2  0      0 277108    840 1167928    0    0     0     4 1005 1227 39  2 59  0  0</pre></figure>` +
+        `<figure><figcaption>143 · 앱 유닛(2026-09-20_백업_복구_보고 049)</figcaption><img src="assets/linux/tr-049.png" alt="SuccessExitStatus=143, ActiveState=active" style="width:${Math.round(760 * k)}px"></figure>` +
+        `<figure><figcaption>예비 DB 재연결 · 다시 붙인 db-primary(046)</figcaption><img src="assets/linux/tr-046.png" alt="pg_is_in_recovery t, 받은 위치와 재생 위치 0/176F9A98, streaming" style="width:${Math.round(650 * k)}px"></figure>`;
+      return;
+    }
+    $('fig-cap').textContent = `${s.hd[0]}, ${s.src}. 계정 ID · 공인 주소가 있는 머리와 바닥, 사용자 이름이 든 줄은 잘라 냄. 화면의 터미널은 이 원문에서 줄을 골라 옮김`;
+    view.innerHTML = (s.pres || []).map(([t, x]) => `<figure><figcaption>${t}</figcaption><pre class="tx">${x}</pre></figure>`).join('') +
+      s.shots.map(([src, w, h, t]) => `<figure><figcaption>${t}</figcaption><img src="${src}" alt="${t}" data-w="${w}" data-h="${h}"></figure>`).join('');
+    const pres = [...view.querySelectorAll('pre')].reduce((t, p) => t + p.parentElement.offsetHeight + 18 * k, 0);
+    const W = view.clientWidth - 48 * k, H = view.clientHeight - 24 * k - pres - s.shots.length * (40 * k) - (s.shots.length - 1) * 18 * k;
+    const z = Math.min(2, W / Math.max(...s.shots.map(x => x[1])), H / s.shots.reduce((t, x) => t + x[2], 0));
+    view.querySelectorAll('img').forEach(im => { im.style.width = Math.round(+im.dataset.w * z) + 'px'; im.style.height = Math.round(+im.dataset.h * z) + 'px'; });
+  };
+  const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
+  openBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!document.body.classList.contains('tools')) return;
+    try { fig.showModal(); } catch (err) { fig.setAttribute('open', ''); }
+    showFig();
+    try { fig.focus(); } catch (err) {}
+  });
+  $('close-fig').addEventListener('click', e => { e.stopPropagation(); closeFig(); });
+  fig.addEventListener('click', e => e.stopPropagation());
+  fig.addEventListener('close', () => { openBtn.blur(); });
+  addEventListener('resize', () => { if (fig.open) showFig(); });
+
+  // ---- 단계: 0 열림(앞에서 본 장애와 두 말), 1 판단 정정, 2 1차 조치와 재발, 3 원인, 4 2차 조치와 확인, 5 같은 방식으로 고친 세 가지.
+  //      그다음 → 는 다음 장. 앞으로는 앞 카드 내용의 복사본을 얹어 0.3초에 사라지게 하고 새 글을 그 뒤에 보이며, 뒤로는 앞 단계의 끝 모습을 바로 ----
+  let step = 0;
+  const render = (n, inst) => {
+    card.querySelectorAll('.ghost').forEach(g => g.remove());
+    const from = step;
+    if (!inst && n > 0) {
+      const g = document.createElement('div'); g.className = 'ghost'; g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = `<div class="shot">${shot.innerHTML}</div>${card.classList.contains('wide') ? '' : `<div class="side">${side.innerHTML}</div>`}`;
+      card.appendChild(g); g.addEventListener('animationend', () => g.remove());
+    }
+    stage.classList.toggle('inst', !!inst); step = n; stage.dataset.step = n;
+    card.classList.remove('go', 'first', 'wide'); void card.offsetWidth;
+    const s = STEPS[n];
+    if (n === 0) overview(); else if (s === 'table') { card.classList.add('wide'); table(); } else terminal(s);
+    alignTop();
+    lightNodes(n, inst);
+    if (!inst && n > 0) card.classList.add('go');
+    if (!inst && n === 1 && from === 0) card.classList.add('first');
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash === '#last') { stage.classList.add('done'); render(LAST, true); }
+  else render(0, false);
+  window.deckStep = d => {
+    if (fig.open) { closeFig(); return true; }
+    if (d > 0 && step < LAST) { render(step + 1, false); return true; }
+    if (d < 0 && step > 0) { render(step - 1, true); return true; }
+    return false;
+  };
+  addEventListener('keydown', e => {
+    if (!fig.open) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeFig(); }
+  }, true);
+  if (window.parent === window) addEventListener('keydown', e => {
+    if (fig.open) return;
+    if (e.key === 'ArrowRight' || e.key === ' ') window.deckStep(1);
+    if (e.key === 'ArrowLeft') window.deckStep(-1);
+  });
+})();
+</script>
+<!-- 발표 노트(70초): 앞에서 systemd가 다시 올린 Grafana는 다시 올라온 뒤에도 화면이 계속 멈췄습니다. systemd 메모리 한도에는 두 줄이 있습니다. MemoryHigh를 넘으면 커널이 회수하며 느려지고, MemoryMax를 넘으면 강제 종료됩니다.
+→ 1 처음엔 SSM 접속 경로를 의심했습니다. 그런데 SSM 기록에는 Grafana의 3000번이 연결을 거부했다고 남아 있었고, 서버 안에서 직접 불러도 시간 초과였습니다. 다시 올라온 Grafana는 강제 종료 선 384MiB 바로 아래에서 조이는 선을 4천 번 넘고 있었습니다.
+→ 2 한도를 512/640MiB로 올리자 세 번 모두 바로 응답했지만, 관제 화면 6개를 새로 올리자 다시 멈췄고 조이는 선을 1만 3천 번 넘었습니다.
+→ 3 cgroup 메모리 통계를 보니 Grafana가 실제로 쓰는 양이 약 615MiB로 조이는 선 512MiB보다 컸고, 서버 전체가 시간의 91% 넘게 메모리를 기다렸습니다. 한도만 올려서는 다시 걸린다는 뜻입니다.
+→ 4 그래서 Grafana가 512MiB에서 먼저 스스로 회수하게 하고, 두 선은 768/896MiB로 올렸습니다. 같은 명령으로 화면을 바꿔 가며 10초마다 여섯 번 확인해 모두 응답했고, 조이는 선은 한 번도 넘지 않았습니다. 이후 모든 서버의 수집을 붙인 뒤에도 같았습니다.
+→ 5 같은 방식으로 세 가지를 더 고쳤습니다. 앱이 살아 있는데 API만 504를 낼 때는 커널 CPU와 스레드 덤프로 원인을 좁혀 가상 스레드를 껐고, 정상 종료가 실패로 남는 문제는 종료 코드 143을 성공으로 등록했고, 예비 DB를 다시 붙일 때는 비밀번호 파일과 슬롯 설정을 고쳐 복제를 이었습니다.
+질문 때:
+- GOMEMLIMIT은 강제 상한인가? Go 런타임이 회수를 앞당기는 목표일 뿐이라 MemoryMax를 함께 둔다(docs/reports/AWS_작업.md 259행).
+- bot-1 서비스들의 MemoryMax 합이 메모리 1,909MiB보다 크지 않은가? 크다. 상한은 서비스 하나만 막아 호스트 OOM 위험은 남는다. 장시간 여유는 재지 않았다(AWS_작업.md 788행).
+- 91%는 Grafana의 값인가? 서버 전체의 PSI(/proc/pressure/memory)다. 서비스 하나는 cgroup의 memory.pressure를 본다.
+- 경보로 먼저 알 수 있었나? 지금 경보 규칙에는 메모리 압박 경보가 없다. PSI는 node_exporter pressure 수집기로 이미 모으고 있어 규칙만 더하면 된다.
+- 강제 종료부터 확인까지 얼마나? 12:42:45 강제 종료부터 13:05:06 마지막 확인까지 약 22분(UTC).
+- 504 사례의 원인은 확정했나? 실행 중 상태를 관측한 것이고 같은 조건을 재현해 확정하지는 않았다. 가상 스레드를 끈 것은 증상의 원인 경로를 없앤 조치다. 진단 때 연 임시 SSH 규칙은 발표 전에 지웠는지 확인한다.
+- 예비 DB 재연결은 왜 수동인가? 학교 AWS는 비동기 복제 · 수동 승격으로 시험했다. 07 시연의 Patroni 자동 재합류와는 다른 환경이다.
+- 수집기 사례: node_exporter 기본 수집기 중 이 서버에 없는 장치 · 기능을 읽는 12개(bcachefs · bonding · conntrack · fibrechannel · hwmon · infiniband · ipvs · nfs · nfsd · rapl · tapestats · zfs)가 늘 실패로 표시돼, 쓸 수집기 15개만 지정했다(271 · 275). -->

@@ -48,16 +48,17 @@
     animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
   }
 
-  /* 목차: 번호 · 장 이름 · 그 장의 제목 문장 · 성격. 02의 하위 장은 들여 쓰고 세로선으로 묶는다. */
+  /* 목차: 번호 · 장 이름 · 그 장의 제목 문장 · 성격. 하위 장이 생기면 li.sub 로 들여 쓰고 연결선으로 묶는다(지금은 없음, 2026-10-05 사용자 결정으로 보고 전달 줄을 뺐다). */
   .toc { position: absolute; left: 130px; right: 130px; top: 270px; margin: 0; padding: 0; list-style: none; }
   .toc li { border-top: 1px solid var(--line); animation: fade .6s ease-out both; }
   .toc li:last-child { border-bottom: 1px solid var(--line); }
   .toc button {
     width: 100%; display: grid; grid-template-columns: 150px 470px 1fr; align-items: baseline;
-    padding: 15px 0; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+    padding: 21px 0; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
     transition: background .2s;
   }
-  .toc button:hover { background: rgba(121,167,250,.045); }
+  /* 마우스 강조는 목록 위에서 포인터가 한 번 움직인 뒤부터(장이 열릴 때 포인터가 우연히 걸쳐 있어도 한 줄만 밝게 열리지 않게) */
+  .toc.ptr button:hover { background: rgba(121,167,250,.045); }
   .toc button.soon { cursor: default; } .toc button.soon:hover { background: transparent; } .toc button.soon:hover .nm { color: var(--ink); } .toc button.soon:hover .no { color: var(--ink-3); }
   .toc button:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
   .no { font-family: var(--mono); font-size: 40px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; padding-left: 4px; }
@@ -65,15 +66,15 @@
   .ln { font-size: 26px; color: var(--ink-3); word-break: keep-all; }
   .tg { justify-self: end; padding-right: 8px; font-size: 19px; color: var(--side); white-space: nowrap; }
   .tg b { font-weight: 500; color: var(--ok); }
-  .toc button:hover .nm { color: var(--glow); }
-  .toc button:hover .no { color: var(--brand); }
+  .toc.ptr button:hover .nm { color: var(--glow); }
+  .toc.ptr button:hover .no { color: var(--brand); }
 
-  .toc li.sub button { padding: 14px 0; }
-  .toc li.sub .no { font-size: 26px; padding-left: 40px; position: relative; color: var(--ink-4); }
-  .toc li.sub .no::before { content: ''; position: absolute; left: 14px; top: -14px; bottom: -14px; border-left: 1.5px solid var(--card); }
-  .toc li.sub.last .no::before { bottom: 50%; }
-  .toc li.sub .no::after { content: ''; position: absolute; left: 14px; top: 50%; width: 16px; border-top: 1.5px solid var(--card); }
-  .toc li.sub .nm { font-size: 30px; font-weight: 500; color: var(--ink-2); padding-left: 40px; }
+  .toc li.sub button { padding: 18px 0; }
+  .toc li.sub .no { font-size: 26px; padding-left: 40px; color: var(--ink-4); }
+  /* 하위 줄 연결선(ㄴ자)은 이름 칸 안에: 세로선이 위 줄 이름('시연') 시작 바로 아래(x292)에서 내려와 가로선이 '보고 전달' 앞(x310)까지 닿는다 */
+  .toc li.sub .nm { position: relative; font-size: 30px; font-weight: 500; color: var(--ink-2); padding-left: 40px; }
+  .toc li.sub .nm::before { content: ''; position: absolute; left: 12px; top: -18px; bottom: 50%; border-left: 1.5px solid var(--card); }
+  .toc li.sub .nm::after { content: ''; position: absolute; left: 12px; top: 50%; width: 18px; border-top: 1.5px solid var(--card); }
   .toc li.sub .ln { font-size: 24px; }
   .toc li.sub { border-top-color: rgba(46,56,72,.55); }
 
@@ -89,6 +90,8 @@
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  /* 뒤 장에서 ← 로 돌아올 때(#last)는 열림 움직임 없이 끝 모습 */
+  .stage.done *, .stage.done *::before, .stage.done *::after { animation: none !important; }
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
@@ -104,19 +107,18 @@
 
   <!-- data-go 는 index.html 의 SLIDES 순서 번호다. 장을 넣거나 빼면 함께 고친다. -->
   <ol class="toc" id="toc">
-    <li><button type="button" data-go="2"><span class="no">01</span><span class="nm">기획 배경</span><span class="ln">고가용성을 보여 주려고 고른 거래소, 몰려도 멈춰도 이어지는 구조</span></button></li>
-    <li><button type="button" data-go="3"><span class="no">02</span><span class="nm">기획 시나리오</span><span class="ln">주문이 몰릴 때, DB가 멈출 때 두 장면</span></button></li>
-    <li><button type="button" data-go="4"><span class="no">03</span><span class="nm">설계 방향</span><span class="ln">두 장면에 대한 답과 계획한 아키텍처</span></button></li>
-    <li><button type="button" data-go="5"><span class="no">04</span><span class="nm">주요 설계 및 구현</span><span class="ln">Docker에서 AWS까지 네 단계, Linux 운영, AI 관제</span></button></li>
-    <li><button type="button" data-go="13"><span class="no">05</span><span class="nm">테스트 및 검증</span><span class="ln">어디서, 어떻게 부수고 쟀나</span></button></li>
-    <li><button type="button" data-go="14"><span class="no">06</span><span class="nm">결과</span><span class="ln">트래픽이 몰렸을 때 · DB가 멈췄을 때 · 요구사항별 달성</span></button></li>
-    <li><button type="button" data-go="17"><span class="no">07</span><span class="nm">시연</span><span class="ln">7분 영상 · 부하 증설부터 DB 자동 전환, AI 상담까지</span></button></li>
-    <li class="sub last"><button type="button" data-go="18"><span class="no">&nbsp;</span><span class="nm">보고 전달</span><span class="ln">경보가 Teams 카드와 2쪽 보고서로</span></button></li>
-    <li><button type="button" data-go="19"><span class="no">08</span><span class="nm">트러블슈팅</span><span class="ln">시연에서 본 관제 화면이 멈춘 원인을 서버 기록으로 좁혀 해결</span></button></li>
+    <li><button type="button" data-go="2"><span class="no">01</span><span class="nm">기획 배경</span><span class="ln">고가용성을 보여 주려고 거래소를 고른 이유</span></button></li>
+    <li><button type="button" data-go="3"><span class="no">02</span><span class="nm">기획 시나리오</span><span class="ln">요청이 몰릴 때와 DB가 멈출 때의 두 장면</span></button></li>
+    <li><button type="button" data-go="4"><span class="no">03</span><span class="nm">설계 방향</span><span class="ln">두 장면에 답하도록 그린 전체 구조</span></button></li>
+    <li><button type="button" data-go="5"><span class="no">04</span><span class="nm">주요 설계 및 구현</span><span class="ln">Docker부터 VM·Linux·AWS를 거쳐 AI 관제까지</span></button></li>
+    <li><button type="button" data-go="15"><span class="no">05</span><span class="nm">시연</span><span class="ln">부하 증설과 DB 자동 전환을 담은 7분 영상</span></button></li>
+    <li><button type="button" data-go="17"><span class="no">06</span><span class="nm">마무리</span><span class="ln">시험으로 확인한 결과와 앞으로의 다짐</span></button></li>
   </ol>
 </div>
 
-<!-- 발표 노트(15초): 끝에 "먼저, 이 프로젝트를 기획하게 된 배경과 설계 방향이 결정된 과정을 짧게 보여드리겠습니다."라고 말하고 → (다음 장 말풍선이 저절로 나온다). 왜 했는지(기획 배경과 기획 시나리오 두 장면)를 먼저, 그다음 구성과 구현, 검증, 결과, 마지막에 7분 시연 영상과 Teams·PDF 보고 전달. 04의 네트워크·AWS 장은 눌러 보는 흐름 시연, 06은 측정값 재생. -->
+
+<!-- 발표 노트(10초): 발표는 이 순서로 진행하겠습니다.
+기획 배경과 두 장면, 설계와 구축 과정을 말씀드린 뒤, 7분 시연 영상을 보여 드리고 마무리하겠습니다. -->
 
 <script>
 (() => {
@@ -135,6 +137,9 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
   // 항목을 누르면 덱(index.html)에서 그 장으로 간다. 이 장만 따로 열었을 때는 아무 일도 하지 않는다.
+  if (location.hash === '#last') stage.classList.add('done');
+  const toc = document.getElementById('toc');
+  toc.addEventListener('pointermove', () => toc.classList.add('ptr'), { once: true });
   const rows = [...document.querySelectorAll('#toc li')];
   rows.forEach((li, k) => { li.style.animationDelay = (0.25 + k * 0.06) + 's'; });
   document.getElementById('toc').addEventListener('click', e => {

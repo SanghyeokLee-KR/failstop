@@ -61,21 +61,29 @@
   .fig.zoom img { max-width: none; max-height: none; width: 260%; cursor: zoom-out; }
 
   /* 도면: PC 한 대 테두리 안에 위는 서비스 흐름, 아래는 관측과 알림.
-     단계 0 서비스 흐름 → 단계 1 거래 경로에 장애 주입(Toxiproxy)을 끼움 → 단계 2 관측과 알림 */
-  .dia { position: absolute; left: 90px; top: 318px; width: 1660px; height: 620px; overflow: visible; }
+     단계 0 서비스 흐름 → 단계 1 거래 경로에 장애 주입(Toxiproxy)을 끼움 → 단계 2 관측과 알림
+     → 단계 3 AI 관제센터의 경보와 제안 → 단계 4 운영자 승인과 조회 서버 켜짐.
+     .atN 은 'N 단계 이상'이라는 뜻이다(스크립트가 단다). 한 번 나온 것은 뒤 단계에서도 남는다 */
+  .dia { position: absolute; left: 90px; top: 318px; width: 1660px; height: 680px; overflow: visible; }
   .dia text { font-family: var(--sans); }
-  .dia .pc { fill: var(--pc); stroke: var(--line); stroke-width: 1.6; }
+  /* PC 한 대 테두리. 처음에는 위 두 줄만 감싸고, 관측 줄이 들어오는 단계 2에서 아래로 자라
+     PC 한 대가 점점 채워지는 장면이 된다. CSS 높이를 모르는 브라우저는 속성값(전체 높이)을 쓴다 */
+  .dia .pc { fill: var(--pc); stroke: var(--line); stroke-width: 1.6; height: 288px; transition: height .7s cubic-bezier(.2,.7,.2,1); }
+  .stage.at2 .dia .pc { height: 592px; }
+  .dia .frame { animation: fade .8s .1s ease-out both; }
+  .dia .pcl { font-size: 22px; font-weight: 600; fill: var(--ink-2); }
   .dia .sec { font-size: 24px; font-weight: 600; fill: var(--ink-2); }
-  .dia .lane { font-size: 22px; fill: var(--ink-3); }
+  .dia .lane { font-size: 22px; fill: var(--ink-2); }
   .dia .tap { fill: var(--ai); stroke: var(--stage); stroke-width: 2; }
   .dia .s2 .lo .side { opacity: 0; transition: opacity .4s; }
-  .stage[data-step="2"] .dia .s2 .lo .side { opacity: 1; transition-delay: 1s; }
+  .stage.at2 .dia .s2 .lo .side { opacity: 1; transition-delay: 1s; }
   .dia .lane.hi { font-size: 24px; fill: var(--ink-2); }
   .dia .nm { font-size: 25px; font-weight: 600; fill: var(--ink); }
-  .dia .sb { font-size: 22px; fill: var(--ink-3); }
+  /* 보조 글씨는 프로젝터에서도 읽히도록 한 단계 밝은 ink-2 를 쓴다 */
+  .dia .sb { font-size: 22px; fill: var(--ink-2); }
   .dia .box { fill: var(--box); stroke: var(--card); stroke-width: 1.6; }
   .dia .box.back { opacity: .7; }
-  .dia .box.test { stroke: var(--warm); stroke-dasharray: 8 6; }
+  .dia .box.test { stroke: var(--warm); stroke-dasharray: 8 6; transition: stroke .4s; }
   .dia .box.lg { stroke-width: 2; }
   .dia .box.hero { fill: color-mix(in srgb, var(--warm) 12%, var(--stage)); stroke: var(--warm); stroke-width: 2.2; }
   .dia .test-k { font-size: 22px; font-weight: 600; fill: var(--warm); }
@@ -84,29 +92,76 @@
   .dia .ahp { fill: none; stroke: var(--wire); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .dia .obs { fill: none; stroke: var(--obs); stroke-width: 1.6; marker-end: url(#ahd); }
   .dia .obs.nm { marker-end: none; }
-  .dia .brk { stroke-dasharray: 1640; stroke-dashoffset: 1640; }
-  .stage[data-step="2"] .dia .brk { animation: draw .8s .15s cubic-bezier(.4,0,.2,1) forwards; }
-  .stage.instant .dia .brk { animation-duration: 0s; animation-delay: 0s; }
+  /* 묶음 선은 transition으로 그린다. animation으로 그리면 ← 로 돌아오거나 마지막 단계로 열 때 다시 그려졌다 */
+  .dia .brk { stroke-dasharray: 1640; stroke-dashoffset: 1640; transition: stroke-dashoffset .8s .15s cubic-bezier(.4,0,.2,1); }
+  .stage.at2 .dia .brk { stroke-dashoffset: 0; }
   .dia .s2 .lo { opacity: 0; transition: opacity .4s; }
-  .stage[data-step="2"] .dia .s2 .lo { opacity: 1; transition-delay: .75s; }
+  .stage.at2 .dia .s2 .lo { opacity: 1; transition-delay: .75s; }
   .dia .ahd { fill: none; stroke: var(--obs); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .dia .sep { stroke: var(--line); stroke-width: 1; }
   .dia .nd { animation: rise .6s cubic-bezier(.2,.7,.2,1) both; }
   .dia .wires { animation: fade .6s 1.3s ease-out both; }
-  /* 단계 1·2는 → 로 나온다 */
+  /* 단계 1부터는 → 로 나온다 */
   .dia .s1, .dia .s2 { opacity: 0; transform: translateY(-22px); transition: opacity .5s, transform .6s cubic-bezier(.2,.7,.2,1); }
   .dia .s2 { transform: translateY(14px); }
-  .stage[data-step="1"] .dia .s1, .stage[data-step="2"] .dia .s1, .stage[data-step="2"] .dia .s2 { opacity: 1; transform: none; }
-  /* 관측 단계에서는 장애 주입의 노란 면을 낮춰 시선이 관측 줄로 가게 한다 */
-  .stage[data-step="2"] .dia .box.hero { fill: var(--box); stroke-width: 1.6; transition: fill .4s; }
+  .stage.at1 .dia .s1, .stage.at2 .dia .s2 { opacity: 1; transform: none; }
+  /* 관측 단계부터는 장애 주입의 노란 면을 낮춰 시선이 관측 줄로 가게 한다 */
+  .stage.at2 .dia .box.hero { fill: var(--box); stroke-width: 1.6; transition: fill .4s, stroke .4s; }
   .dia .test-k { transition: fill .4s; }
-  .stage[data-step="2"] .dia .test-k { fill: var(--ink-3); }
+  .stage.at2 .dia .test-k { fill: var(--ink-3); }
+  /* AI 단계부터는 시험 장치의 노란 점선도 낮춰 보라(AI)와 초록(승인)만 눈에 띄게 한다 */
+  .stage.at3 .dia .box.test { stroke: color-mix(in srgb, var(--warm) 30%, var(--card)); }
   .stage[data-step="1"] .dia .s1 .box.hero { animation: pulse 1.1s 1.4s ease-in-out 2; transform-box: fill-box; transform-origin: center; }
 
   .dia .s1 .tx { opacity: 0; transition: opacity .45s; }
-  .stage[data-step="1"] .dia .s1 .tx, .stage[data-step="2"] .dia .s1 .tx { opacity: 1; transition-delay: .8s; }
+  .stage.at1 .dia .s1 .tx { opacity: 1; transition-delay: .8s; }
   .dia .k6n { transition: stroke .4s, fill .4s; }
   .stage[data-step="1"] .dia .k6n { stroke-width: 2.2; fill: color-mix(in srgb, var(--warm) 12%, var(--stage)); }
+
+  /* 단계 3·4: AI 관제센터. 경보를 받은 AI가 같은 PC의 로컬 LLM으로 판단해 조치를 제안하고, 운영자가 승인한 뒤에야
+     꺼져 있던 조회 서버가 켜져 합류한다(수동 모드). 2026-09-27 로컬 시연 스택에서 실제로 돈 흐름이다(앱 서버 3 켜기).
+     도면을 한 바퀴 도는 고리로 그린다. 지표 → Alertmanager → AI 관제센터(오른쪽 아래) → 아래 길로 제안 → 운영자(왼쪽 아래)
+     → 왼쪽 길로 승인 → 조회 서버. 단계 3은 경보와 AI 제안까지, 단계 4는 승인부터다. 발표자가 'AI는 여기까지'라고
+     말할 틈을 두려고 나눴다. 색과 칩 모양은 03 설계 방향 장을 따른다 */
+  .dia .alm { fill: none; stroke: var(--warm); stroke-width: 1.6; }
+  .dia .alm-dot { fill: var(--warm); }
+  .dia .box.ai { stroke: var(--ai); fill: color-mix(in srgb, var(--ai) 6%, var(--stage)); }
+  .dia .nm.ai { fill: var(--ai); }
+  .dia .ask { fill: none; stroke: var(--ai); stroke-width: 1.8; stroke-dasharray: 8 7; }
+  .dia .aha { fill: none; stroke: var(--ai); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .dia .ok-line { fill: none; stroke: var(--ok); stroke-width: 1.8; stroke-dasharray: 8 7; }
+  .dia .aho { fill: none; stroke: var(--ok); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 점선은 dash 값으로 그려 나갈 수 없어서, 흰 실선 마스크를 그려 나가며 점선을 드러낸다 */
+  .dia .mk { fill: none; stroke: #fff; stroke-width: 20; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .dia .chipbox { fill: #1A2130; stroke-width: 1.6; }
+  .dia .chip { font-size: 22px; }
+  .dia .t-ai { font-family: var(--mono); font-weight: 600; fill: var(--ai); }
+  .dia .t-ail { font-weight: 600; fill: var(--ai); }
+  .dia .t-warm { font-weight: 600; fill: var(--warm); }
+  .dia .t-ok { font-weight: 600; fill: var(--ok); }
+  .dia .t-1 { font-weight: 500; fill: var(--ink); }
+  .dia .ping { fill: none; stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .dia .s3 .n3, .dia .s3 .c { opacity: 0; transition: opacity .45s, transform .6s cubic-bezier(.2,.7,.2,1); }
+  .dia .s3 .n3 { transform: translateY(14px); }
+  .dia .s3 .c { transform: translateY(6px); }
+  /* 단계 3: AI 관제센터와 운영자가 나오고, 경보 칩 → 제안 선(운영자까지) → AI 제안 칩 순서 */
+  .stage.at3 .dia .s3 .n3, .stage.at3 .dia .s3 .c1, .stage.at3 .dia .s3 .c2 { opacity: 1; transform: none; }
+  .stage.at3 .dia .s3 .n3 { transition-delay: .15s; }
+  .stage.at3 .dia .s3 .c1 { transition-delay: 1s; }
+  .stage.at3 .dia .mk-prop { stroke-dashoffset: 0; transition: stroke-dashoffset 1.4s 1.6s cubic-bezier(.4,0,.2,1); }
+  .stage.at3 .dia .s3 .c2 { transition-delay: 2.1s; }
+  /* 단계 4: 승인 칩 → 승인 선(조회 서버까지) → 조회 서버 켜짐. 테두리만 초록으로 바꾼다.
+     도면의 조회 서버가 곧 시연에서 켠 노드라 카드를 더 겹치지 않는다 */
+  .stage.at4 .dia .s3 .c3 { opacity: 1; transform: none; transition-delay: .2s; }
+  .stage.at4 .dia .mk-appr { stroke-dashoffset: 0; transition: stroke-dashoffset 1.1s .4s cubic-bezier(.4,0,.2,1); }
+  .dia .box.rd { transition: stroke .4s; }
+  .stage.at4 .dia .box.rd { stroke: var(--ok); stroke-width: 2.2; transition-delay: 1.4s; }
+  /* 핑은 그 단계에 → 로 들어올 때만 울린다. 다음 단계로 가면 규칙이 풀려 다시 울리지 않고,
+     ← 로 돌아오거나 마지막 단계로 열면(quiet) 울리지 않는다 */
+  .stage[data-step="3"] .dia .ping.p-ai { animation: ping 1s .8s cubic-bezier(.2,.7,.2,1); }
+  .stage[data-step="3"] .dia .ping.p-op { animation: ping 1s 3s cubic-bezier(.2,.7,.2,1); }
+  .stage[data-step="4"] .dia .ping.p-rd { animation: ping 1s 1.4s cubic-bezier(.2,.7,.2,1); }
+  .stage.quiet .dia .ping { animation: none !important; }
 
   .stage.instant * { transition-duration: 0s !important; transition-delay: 0s !important; }
 
@@ -116,8 +171,8 @@
 
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  @keyframes draw { to { stroke-dashoffset: 0; } }
   @keyframes pulse { 50% { transform: scale(1.04); } }
+  @keyframes ping { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.35); } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
@@ -135,18 +190,28 @@
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-stack-2-side.svg" alt="">원본 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span>
   </div>
-  <p class="dek">서버에 올리기 전, 운영 구성을 본떠 같은 장애를 몇 번이고 재현</p>
+  <p class="dek">서버에 올리기 전, 운영 구성을 본떠 같은 장애를 몇 번이고 재현하고 AI 관제까지 같은 PC에서 시험</p>
 
   <dialog class="fig" id="fig" aria-label="거래소 Docker 검증 환경 구성도 원본">
     <div class="bar"><b>Docker 검증 환경 구성도 · 원본</b><span>교수님 보고본 02_검증환경 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/docker-v7.png" alt="Docker 검증 환경 구성도 원본"></div>
   </dialog>
 
-  <svg class="dia" viewBox="0 0 1660 620" role="img" aria-label="PC 한 대의 Docker 안. 시장 봇의 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 간다. 거래 서버는 DB 두 대에 기록하고, 조회 서버는 DB에서 읽는다. 다음 단계에서 시험 장치 둘을 더한다. 부하 시험 도구 k6가 요청을 넣고, 거래 서버와 DB 사이에 장애 주입 장치(Toxiproxy)가 끼어 지연과 끊김을 넣는다. 마지막 단계에서 서버와 DB의 지표를 Prometheus로 모아 Grafana로 보고, 기준을 넘으면 Alertmanager가 메신저로 알린다. k6와 장애 주입 장치는 운영에는 없는 시험용이다.">
+  <svg class="dia" viewBox="0 0 1660 680" role="img" aria-label="PC 한 대의 Docker 안. 시장 봇의 요청이 로드밸런서를 거쳐 거래 서버 두 대와 조회 서버로 간다. 거래 서버는 DB 두 대에 기록하고, 조회 서버는 DB에서 읽는다. 다음 단계에서 시험 장치 둘을 더한다. 부하 시험 도구 k6가 요청을 넣고, 거래 서버와 DB 사이에 장애 주입 장치(Toxiproxy)가 끼어 지연과 끊김을 넣는다. 마지막 단계에서 서버와 DB의 지표를 Prometheus로 모아 Grafana로 보고, 기준을 넘으면 Alertmanager가 메신저로 알린다. k6와 장애 주입 장치는 운영에는 없는 시험용이다. 끝으로 AI 관제센터가 경보를 받는다. 앱 CPU가 50%를 넘었다는 경보에 같은 PC의 로컬 LLM이 판단해 조회 서버 켜기를 운영자에게 제안한다. 마지막 단계에서 운영자가 승인한 뒤에야 조회 서버가 켜져 합류한다. 이 모두가 개발 PC 한 대 안에서 돈다.">
     <defs>
       <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="ahp" d="M1 1 L9 5 L1 9"/></marker>
       <marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="ahd" d="M1 1 L9 5 L1 9"/></marker>
+      <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="aha" d="M1 1 L9 5 L1 9"/></marker>
+      <marker id="aho" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="aho" d="M1 1 L9 5 L1 9"/></marker>
+      <!-- 단계 3의 제안 선과 승인 선을 그려 나가는 마스크. 경로는 아래 보이는 선과 같아야 한다 -->
+      <mask id="m-prop" maskUnits="userSpaceOnUse" x="0" y="0" width="1660" height="680"><path class="mk mk-prop" d="M1460 612 V646 H155 V617" pathLength="1"/></mask>
+      <mask id="m-appr" maskUnits="userSpaceOnUse" x="0" y="0" width="1660" height="680"><path class="mk mk-appr" d="M155 512 V366 H870 V350" pathLength="1"/></mask>
     </defs>
+    <!-- PC 한 대 테두리. 제목의 'PC 한 대'를 그림으로 보인다. Docker 컨테이너와 로컬 LLM이 모두 이 PC 안에서 돈다 -->
+    <g class="frame">
+      <rect class="pc" x="12" y="84" width="1636" height="592" rx="22"/>
+      <text class="pcl" x="1640" y="63" text-anchor="end">개발 PC 한 대 · Docker와 로컬 LLM</text>
+    </g>
     <g class="wires">
       <path class="wire nm" d="M270 158 H300 V226"/>
       <path class="wire" d="M300 226 H326"/>
@@ -175,7 +240,8 @@
       <text class="nm" x="718" y="150">거래 서버 2대</text><text class="sb" x="718" y="180">마켓을 반씩 맡음</text>
     </g>
     <g class="nd" style="animation-delay:.95s">
-      <rect class="box" x="640" y="246" width="300" height="96" rx="14"/>
+      <!-- 단계 3에서 AI 제안을 승인하면 테두리가 초록으로 바뀐다(켜짐) -->
+      <rect class="box rd" x="640" y="246" width="300" height="96" rx="14"/>
       <image href="assets/tint/ui-server-2-glow.svg" x="660" y="270" width="44" height="44"/>
       <text class="nm" x="718" y="286">조회 서버</text><text class="sb" x="718" y="316">DB 읽기 전담</text>
     </g>
@@ -225,11 +291,47 @@
         </g>
       </g>
     </g>
+
+    <!-- 단계 3: AI 관제센터와 운영자. 아래 줄의 양 끝 빈칸(DB 열, 시장 봇 열)에 두고 도면을 한 바퀴 도는 고리를 만든다.
+         AI 관제센터 → 아래 길로 제안 → 운영자 → 왼쪽 길로 승인 → 조회 서버 -->
+    <g class="s3">
+      <g class="n3">
+        <path class="ask" d="M540 55 H572"/><path class="ok-line" d="M580 55 H612"/><text class="lane" x="624" y="63">= AI 제안 · 운영자 승인</text>
+        <path class="ask" d="M1270 564 H1306" marker-end="url(#aha)"/>
+        <rect class="box ai" x="1310" y="516" width="300" height="96" rx="14"/>
+        <image href="assets/tint/ollama-ai.svg" x="1330" y="540" width="44" height="44"/>
+        <text class="nm ai" x="1388" y="556">AI 관제센터</text><text class="sb" x="1388" y="586">로컬 LLM · 수동 모드</text>
+        <!-- 운영자는 Grafana 대시보드를 보고, AI 제안을 승인한다 -->
+        <path class="obs" d="M330 564 H274"/>
+        <rect class="box" x="40" y="516" width="230" height="96" rx="14"/>
+        <image href="assets/tint/ui-users-glow.svg" x="60" y="540" width="44" height="44"/>
+        <text class="nm" x="118" y="556">운영자</text><text class="sb" x="118" y="586">승인해야 실행</text>
+      </g>
+      <!-- 경보 칩은 Alertmanager → AI 관제센터 화살표 바로 위에 두고, 짧은 선과 점으로 화살표에 붙인다 -->
+      <g class="c c1">
+        <path class="alm" d="M1288 504 V560"/><circle class="alm-dot" cx="1288" cy="564" r="4"/>
+        <rect class="chipbox" x="1153" y="470" width="270" height="34" rx="17" style="stroke:var(--warm)"/>
+        <text class="chip" x="1169" y="494"><tspan class="t-warm">경보</tspan><tspan class="t-1" dx="10">앱 CPU 50% 넘음</tspan></text>
+      </g>
+      <!-- 제안 선: AI 관제센터 아래에서 내려와 맨 아래 길로 운영자까지 간다 -->
+      <path class="ask" d="M1460 612 V646 H155 V617" mask="url(#m-prop)" marker-end="url(#aha)"/>
+      <g class="c c2">
+        <rect class="chipbox" x="655" y="629" width="270" height="34" rx="17" style="stroke:var(--ai)"/>
+        <text class="chip" x="671" y="653"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">제안</tspan><tspan class="t-1" dx="10">조회 서버 켜기</tspan></text>
+      </g>
+      <!-- 승인 선: 운영자 위로 올라가 두 줄 사이 통로를 지나 조회 서버 아래로 들어간다 -->
+      <path class="ok-line" d="M155 512 V366 H870 V350" mask="url(#m-appr)" marker-end="url(#aho)"/>
+      <g class="c c3">
+        <rect class="chipbox" x="330" y="349" width="310" height="34" rx="17" style="stroke:var(--ok)"/>
+        <text class="chip" x="346" y="373"><tspan class="t-ok">승인</tspan><tspan class="t-1" dx="10">운영자가 누른 뒤 실행</tspan></text>
+      </g>
+      <rect class="ping p-ai" x="1310" y="516" width="300" height="96" rx="14" style="stroke:var(--ai)"/>
+      <rect class="ping p-op" x="40" y="516" width="230" height="96" rx="14" style="stroke:var(--ok)"/>
+      <rect class="ping p-rd" x="640" y="246" width="300" height="96" rx="14" style="stroke:var(--ok)"/>
+    </g>
   </svg>
 </div>
 
-<!-- 발표 노트(35초, 장 안에서 → 두 번): 서버에 올리기 전에, 운영과 같은 흐름을 PC 한 대에 Docker로 띄웠다. 위 줄은 서비스 흐름: 시장 봇(가상 주문)의 요청이 로드밸런서(nginx)를 거쳐 거래 서버 두 대(12개 마켓을 반씩 맡는 두 리더)와 조회 서버로 간다. 거래 서버의 DB 연결 앞에는 시험용 장애 주입 장치(Toxiproxy)를 두어 지연·끊김을 넣는다. 조회 서버는 장애 주입을 거치지 않고 DB로 바로 간다(원본 구성도의 '조회 경로만 :5432 직접 · Toxiproxy 우회'). DB는 주 DB와 예비 DB 두 대(Patroni)이고 주 DB가 멈추면 예비 DB가 자동 승격한다. 아래 줄은 관측과 알림: 서버와 DB의 지표를 Prometheus로 모아 Grafana로 보고, 기준을 넘으면 경보가 메신저로 나간다. 같은 장애를 몇 번이고 다시 만들 수 있다는 게 핵심이다(다음 장에서 실제로 몇 번 했는지). 장이 열리면 서비스 흐름이 왼쪽부터 그려진다. → 로 시험 장치 둘이 더해진다. k6(부하 시험)가 왼쪽에 나오고, 거래 서버와 DB 사이에 장애 주입(Toxiproxy)이 끼어든다(거래 경로에만, 조회 서버는 거치지 않음). 점선 범례도 이때 나온다. k6가 먼저, Toxiproxy가 0.4초 뒤에 나온다. 상자는 굵은 줄이 이름, 둘째 줄이 하는 일이다(로드밸런서 '주문·조회 나눔': 주문은 마켓에 따라 두 거래 서버로, 조회는 조회 서버로 보낸다). k6가 먼저, Toxiproxy가 0.8초 뒤 노랗게 끼어든다. 두 시험 장치는 노란 점선이고(범례는 왼쪽 위, k6와 같은 열). Toxiproxy 칸의 'DB 연결 장애 주입'은 끊기와 늦추기를 함께 말한다. 늦추기(E1) 결과는 둘째 장 표에 없으니 질문이 나오면 노트의 E1 23회로 답한다, 관측 단계에서도 노란 테두리가 남는다. 바깥 틀은 없다(제목이 PC 한 대). DB 칸의 '주→예비 자동 전환'은 Patroni와 etcd 세 대가 맡는다, 한 번 더 → 로 관측과 알림 줄이 나온다. 세 번째 → 에 다음 장(부하 시험과 장애 시험). ← 는 한 단계씩 되돌린다. 말할 거리: "서버에 올리기 전에, 운영 구성을 PC 한 대의 Docker로 옮겼습니다. 시장 봇이 주문을 넣고, 거래 서버 두 대와 조회 서버가 받아 DB 두 대에 기록합니다." → "여기에 시험 장치 둘을 더합니다. k6로 부하를 걸고, Toxiproxy를 거래 경로에 끼워, DB 연결을 늦추거나 끊는 장애를 원할 때마다 넣습니다." → "지표는 Prometheus로 모아 기준을 넘으면 경보가 메신저로 갑니다. 이 환경에서 실제로 한 시험이 다음 장입니다."
-질문 대비: 그림은 실험마다 띄운 구성을 한 장에 합친 것이다. 로드밸런서 칸의 '마켓별로 나눔'은 nginx가 주문 요청의 마켓 힌트(X-Exchange-Market)로 두 거래 서버 중 하나를 고르고, 조회 요청은 조회 서버로 보내는 설정을 말한다(harness/evidence/pml-app3-read-20260926-1220/smoke/lb/nginx.partition-relay.conf 92~125행). 아래 줄은 가운데 Prometheus가 지표를 모으고, 왼쪽 Grafana로 보고, 오른쪽 Alertmanager가 기준을 넘으면 메신저로 알린다. 관측 단계에서 지표를 내는 칸(시장 봇, 거래 서버, 조회 서버, DB)에 점이 찍힌다. 묶음 선은 그 지표를 모아 Prometheus로 보낸다는 뜻이고, Prometheus가 먼저 나온 뒤 Grafana와 Alertmanager가 양옆에 나온다. 로드밸런서와 Toxiproxy는 지표 대신 연결 검사(blackbox)로만 지켜본다. 시장 봇 부제 '상시 가상 주문'은 운영에서도 늘 도는 봇이라는 뜻이다(k6는 시험 때만). 수집 대상: 거래 서버, 시장 봇, DB 익스포터, 컨테이너 통계(cstats)를 모으고 로드밸런서·거래 서버·Toxiproxy·DB는 연결 검사(blackbox)로 지켜본다(harness/prometheus/prometheus.yml 18~115행). 장애 주입 칸 위의 '거래 경로에 지연 · 끊김' 글은 화면에서 뺐으니 말로 '지연과 끊김을 넣는다'고 한다. 두 리더 시험은 S7 스택(DB 한 대), DB 자동 전환은 Patroni 스택(PostgreSQL 두 대, etcd 세 대, HAProxy), 조회 서버 시험은 exchange-pml 스택에서 했다(harness/evidence/pml-S7-20260926-0300, patroni-20260925-1015, pml-app3-read-20260926-1220). Patroni 실험은 회차마다 스택을 새로 세우고 끝에 지웠다(patroni-20260925-1015/README.md 3행). 알림: 로컬 설정상 받는 곳은 Discord다(harness/alertmanager/alertmanager.yml 33~37행, Teams 웹훅이 참여자 2명 이상을 요구해서 8~10행). 실제 Discord 수신 기록은 없고, 경로는 시험 수신기로 확인했다(리더가 없어지자 LeaderAbsent 발화 10초 뒤 POST 도착, harness/evidence/gateoff-20260903-2vcpu/README.md 542~552행). 그래서 화면에는 '알림'으로만 적었다. AWS에서는 Teams로 보낸다. 원본 구성도: 교수님 보고본 02_검증환경(E 키 도구로 연다). -->
 
 <script>
 (() => {
@@ -247,11 +349,13 @@
   fig.addEventListener('close', () => fig.classList.remove('zoom'));
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // ---- 단계: 0 서비스 흐름, 1 장애 주입을 끼움, 2 관측과 알림. ← 는 한 단계씩 되돌린다 ----
-  const LAST = 2;
+  // ---- 단계: 0 서비스 흐름, 1 장애 주입을 끼움, 2 관측과 알림, 3 AI 경보와 제안, 4 운영자 승인. ← 는 한 단계씩 되돌린다 ----
+  // atN 클래스는 'N 단계 이상'이다. CSS가 한 번 나온 것을 뒤 단계에서도 남기는 데 쓴다
+  const LAST = 4;
   let step = 0;
   const set = (n, instant) => {
-    step = n; stage.classList.toggle('instant', !!instant); stage.dataset.step = n;
+    step = n; stage.classList.toggle('instant', !!instant); stage.classList.toggle('quiet', !!instant); stage.dataset.step = n;
+    for (let k = 1; k <= LAST; k++) stage.classList.toggle('at' + k, n >= k);
     if (instant) requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('instant')));
   };
   set(location.hash === '#last' ? LAST : 0, location.hash === '#last');

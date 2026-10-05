@@ -96,8 +96,8 @@
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
-  <h1>네 단계로 쌓아 올린 운영 환경</h1>
-  <p class="dek">PC 한 대에서 부수고 재 보며 시작해, AWS에 배포하기까지</p>
+  <h1>주요 설계 및 구현 순서</h1>
+  <p class="dek">로컬 Docker에서 먼저 시험한 뒤 VM을 거쳐 AWS에 배포했습니다.</p>
   <div class="end"><i aria-hidden="true"></i>AWS 배포 완료</div>
 
   <div class="tl">
@@ -108,8 +108,8 @@
         <div class="no">01</div>
         <h2>Docker 실험</h2>
         <div class="env2"><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></div>
-        <div class="row"><div class="k">만든 것</div><p>실제와 같은 구성을 PC 한 대에</p></div>
-        <div class="row chk"><div class="k">확인한 것</div><p>장애와 부하를 재현해 수치 측정</p></div>
+        <div class="row"><div class="k">만든 것</div><p>PC 한 대에 띄운 실제와 같은 구성</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>장애와 부하를 재현해 잰 수치</p></div>
       </section>
       <section class="st">
         <div class="node"><img src="assets/tint/cisco-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
@@ -124,24 +124,26 @@
         <div class="no">03</div>
         <h2>Linux VM</h2>
         <div class="env2"><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></div>
-        <div class="row"><div class="k">만든 것</div><p>방화벽, 서버별 규칙, DB 백업</p></div>
-        <div class="row chk"><div class="k">확인한 것</div><p>허용·차단 시험과 백업 복원</p></div>
+        <div class="row"><div class="k">만든 것</div><p>투명 방화벽·RAID·이중화·백업</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>차단·디스크 교체·백업 복원 시험</p></div>
       </section>
       <section class="st">
         <div class="node"><img src="assets/tint/amazonwebservices-glow.svg" alt=""><b><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></b></div>
         <div class="no">04</div>
         <h2>AWS 배포</h2>
         <div class="env2"><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS → 개인 AWS</span></div>
-        <div class="row"><div class="k">만든 것</div><p>역할별 서버, 자동 증설·전환</p></div>
-        <div class="row chk"><div class="k">확인한 것</div><p>학교 계정 운영, 개인 계정 배포</p></div>
+        <div class="row"><div class="k">만든 것</div><p>역할별 서버와 DB 자동 전환</p></div>
+        <div class="row chk"><div class="k">확인한 것</div><p>학교 EC2에서 리눅스 운영 점검</p></div>
       </section>
     </div>
   </div>
 
-  <div class="foot"><b>뒤 결과 장의 수치</b>는 이 단계들에서 잰 값이고, 장마다 어디서 쟀는지 같은 표시(<span class="env" style="padding:1px 9px 2px 7px"><img src="assets/tint/docker-side.svg" alt="" style="width:22px;height:22px">로컬 Docker</span>)로 밝힘</div>
+  <div class="foot"><b>뒤 장의 수치</b>는 이 네 단계에서 잰 값이고, 어디서 쟀는지는 장마다 오른쪽 위에 <span class="env" style="padding:1px 9px 2px 7px"><img src="assets/tint/docker-side.svg" alt="" style="width:22px;height:22px">로컬 Docker</span> 같은 표시로 밝혔습니다.</div>
 </div>
 
-<!-- 발표 노트(30초): 네 단계로 쌓았다. 01 Docker로 PC 한 대에 실제와 같은 구성을 만들어 장애와 부하를 재현했다(실험마다 1~2회). 06 결과의 수치 대부분이 여기서 나왔다. 02 Packet Tracer로 망을 역할별로 나누고 허용·차단 규칙을 설계했다. 03 Linux VM에서 pfSense 방화벽과 서버별 nftables, Databasus 백업을 구성하고 허용·차단과 복원을 시험했다. 04 AWS는 학교 계정에서 Linux 운영과 장애 알림(Teams)을 확인했고, 개인 계정에 최종 구성으로 배포했다(발표 시점 기준 완료, 사용자 결정 2026-09-26·27). 결과 장마다 측정 환경을 칩으로 밝힌다. -->
+
+<!-- 발표 노트(12초): 이 설계를 Docker 시험, Packet Tracer 망 설계, VM 실습, AWS 배포의 네 단계로 구축했습니다.
+장마다 오른쪽 위에 어디서 잰 값인지 표시했습니다. -->
 
 <script>
 (() => {
