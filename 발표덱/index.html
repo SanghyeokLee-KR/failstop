@@ -75,10 +75,10 @@
 // 04-4 AWS 새 장(slide-awsmap, 2026-10-05): 최종 구성도(arch-v7)에 맞춰 다시 그리는 장. 기존 04-4(slide-aws)는 2026-10-05 사용자 결정으로 덱 순서에서 뺐다(파일은 그대로).
 // 07 시연: 사용자 결정(2026-10-05)으로 옛 막대 장(slide-demo, 시간대별로 영상에서 볼 것)을 그대로 쓴다. 새로 지었던 slide-demomap은 파일만 남긴다.
 // 08 트러블슈팅 새 장(slide-trouble, 2026-10-05): 04-5와 같은 띠 + 카드 꼴, 셋째 사례는 사용자 결정으로 수집기 대신 504(가상 스레드). 옛 08(slide-linux2)은 파일만 남긴다.
-// 트러블슈팅(slide-trouble)은 2026-10-05 사용자 결정('트러블 슈팅도 부록으로 옮겨')으로 본편에서 빼 부록 맨 끝 C1(부록·트러블슈팅)로 옮겼다. 본편은 보고 전달 → 마무리.
+// 트러블슈팅(slide-trouble)은 2026-10-05 사용자 결정('트러블 슈팅도 부록으로 옮겨')으로 본편에서 빼 부록 맨 끝 C1(부록·트러블슈팅)로 옮겼다. 본편 끝 순서는 2026-10-09 사용자 결정으로 보고 전달 → 시연 영상 → 시스템 엔지니어 장(맨 끝)이다.
 // 보고 전달 새 장(slide-reportmap, 2026-10-05): 두 갈래 도면과 Teams 카드 1:1 · PDF 발췌를 04-6과 같은 띠 + 카드 꼴로. 옛 보고 전달(slide-report)은 파일만 남긴다.
-// 시스템 엔지니어로서 할 수 있는 것(slide-engineer, 2026-10-08 사용자 화이트보드): 마무리 다음, 본편 맨 끝 장이고 질의응답 5분 동안 띄워 둔다. 왼쪽은 보안 장비가 없는 곳(pfSense CE · Databasus · OS 예약 백업), 오른쪽은 서버를 맡았을 때의 통제(서버 안 · 서버 사이 · 서비스 전체). 다짐과 '감사합니다'를 마무리 장에서 이 장으로 옮겼다.
-// 마무리 새 장(slide-close, 2026-10-05): 02 기획 시나리오의 두 장면 그림을 '답' 상태로 되살리고 결과 숫자를 타일로. 옛 마무리(slide-end)는 파일만 남긴다.
+// 시스템 엔지니어로서 할 수 있는 것(slide-engineer, 2026-10-08 사용자 화이트보드): 시연 영상 다음, 본편 맨 끝 장이고 질의응답 5분 동안 띄워 둔다. 왼쪽은 보안 장비가 없는 곳(pfSense CE · Databasus · OS 예약 백업), 오른쪽은 서버를 맡았을 때의 통제(서버 안 · 서버 사이 · 서비스 전체). 다짐과 '감사합니다'를 마무리 장에서 이 장으로 옮겼다.
+// 마무리 장(slide-close, 2026-10-05)은 2026-10-09 사용자 결정으로 덱에서 뺐다(파일도 지웠고 Git 기록에 남아 있다). 06 마무리는 시스템 엔지니어 장이 맡는다.
 // 04-5 Linux 운영 새 장(slide-linuxops, 2026-10-05): 사용자 지시('부숴 보고 확인'은 AI 티가 나 바꾸라는 조언, 모양은 알아서)로 04-6과 같은 띠 + 카드 꼴로 새로 지었다. 옛 04-5(slide-05)는 파일만 남긴다.
 // 04-6 AI 관제 새 장(slide-aimap, 2026-10-05): 사용자 지시('페이지 다시 만드는 것')로 캡처 슬라이드쇼 대신 새로 지었다. 흐름 띠 + 콘솔 화면 꼴(사용자 결정: 'AI 덱은 콘솔 화면을 보여 주는 것'). 옛 04-6(slide-ai)은 파일만 남긴다.
 // 04-1 Docker 새 장(slide-dockermap, 2026-10-05): 사용자 지시('다른 페이지와 디자인 콘셉트를 지키면서')로 04-3 VM 구성도와 같은 꼴(테두리 이름표, 회색 묶음 상자)로 새로 지었다. 옛 04-1(slide-docker-lab)은 파일만 남긴다.
@@ -87,7 +87,7 @@
 // 리눅스 서버 운영(학교 EC2)을 VM 묶음 뒤 · AWS 구성도 앞으로 옮겼다(2026-10-05 사용자 결정. 실제 순서 학교 EC2 → 개인 AWS, AWS 뒤에 AI 관제가 바로 이어짐). 번호도 04-4 리눅스, 04-5 AWS로 맞바꿨다.
 const SLIDES = ['cover.html', 'slide-toc.html', 'slide-story.html', 'slide-bg.html', 'slide-design.html',
   'slide-build.html', 'slide-dockerarch.html', 'slide-netmap.html', 'slide-vmmap.html', 'slide-vmfw.html', 'slide-vmserver.html', 'slide-vmdb.html', 'slide-linuxops.html', 'slide-awsmap.html', 'slide-aimap.html',
-  'slide-demo.html', 'slide-reportmap.html', 'slide-close.html', 'slide-engineer.html',
+  'slide-reportmap.html', 'slide-demo.html', 'slide-engineer.html',
   'slide-02.html', 'slide-r1.html', 'slide-r2.html', 'slide-sum.html',
   'slide-docker-ceiling.html', 'slide-docker-runs.html',
   'slide-trouble.html'];
