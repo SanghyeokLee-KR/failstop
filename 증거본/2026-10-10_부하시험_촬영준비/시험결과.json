@@ -1,0 +1,34 @@
+﻿{
+  "date_kst": "2026-10-10",
+  "load_started_kst": "01:05:31",
+  "ai_proposed_kst": "01:08:39",
+  "approved_kst": "01:09:40",
+  "flow_app3_running_kst": "01:10:36",
+  "observed_approval_to_running_seconds": 56,
+  "k6": {
+    "http_requests": 3089706,
+    "mean_request_rate": 6989.176655280487,
+    "http_req_failed_fraction": 0.26598679615471504,
+    "http_req_duration_p95_ms": 39.8383005,
+    "dropped_iterations": 42244
+  },
+  "post_join_1min_sample": {
+    "app1_requests_per_second": 2465.022222222222,
+    "app2_requests_per_second": 2463.1777777777775,
+    "app3_requests_per_second": 2459.7111111111108,
+    "status_429_per_second": 900.4444444444443,
+    "observed_status_503_per_second": 0
+  },
+  "limits": [
+    "HTTP failure fraction includes non-success and transport failures; complete status breakdown not collected",
+    "503 zero is a point-in-time 1-minute sample, not full-run proof of zero 5xx",
+    "load-1 direct private ALB read test; not CloudFront end-to-end traffic",
+    "raw video preserved; edited video omits waiting intervals"
+  ],
+  "cleanup": {
+    "load1": "stopped",
+    "app3": "Warmed:Stopped",
+    "market_bots": "unchanged",
+    "cpu_credit_configuration": "unchanged"
+  }
+}

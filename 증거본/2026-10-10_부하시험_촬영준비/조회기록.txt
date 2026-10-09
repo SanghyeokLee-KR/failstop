@@ -1,0 +1,593 @@
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "~ $ aws ec2 describe-instances --region ap-northeast-2 --filters Name=vpc-id,Values=vpc-0fde453622068a4cb --query 'Reservations[].Instances[].{Name:Tags[?Key==`Name`]|[0].Value,Id:InstanceId,State:State.Name,Type:InstanceType}' --output table --no-cli-pager"
+          - generic: "--------------------------------------------------------------------"
+          - generic: "| DescribeInstances |"
+          - generic: +----------------------+------------------+----------+-------------+
+          - generic: "| Id | Name | State | Type |"
+          - generic: +----------------------+------------------+----------+-------------+
+          - generic: "| i-0b3a8481650ab9289 | failstop-bot-1 | running | t3.medium |"
+          - generic: "| i-09c0dc7cf4eab07fb | load-1 | stopped | c6i.xlarge |"
+          - generic: "| i-054deba20ceb2e29c | failstop-db-2 | running | t3.medium |"
+          - generic: "| i-0945b54d03197c79d | failstop-app-2 | running | t3.small |"
+          - generic: "| i-02ba5862189497035 | failstop-app-3 | stopped | t3.small |"
+          - generic: "| i-0d72b6a147b140a40 | failstop-db-1 | running | t3.medium |"
+          - generic: "| i-0e773f9b1c6e08182 | failstop-app-1 | running | t3.small |"
+          - generic: +----------------------+------------------+----------+-------------+
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "}"
+          - generic: "}"
+          - generic: "],"
+          - generic: "\"WarmPoolConfiguration\": {"
+          - generic: "\"MinSize\": 0,"
+          - generic: "\"PoolState\": \"Stopped\","
+          - generic: "\"InstanceReusePolicy\": {"
+          - generic: "\"ReuseOnScaleIn\": true"
+          - generic: "}"
+          - generic: "}"
+          - generic: "}"
+          - generic: "~ $ aws autoscaling describe-auto-scaling-groups --region ap-northeast-2 --auto-scaling-group-names failstop-read-asg --query 'AutoScalingGroups[].{Min:MinSize,Desired:DesiredCapacity,Max:MaxSize}' --output table --no-cli-pager"
+          - generic: "---------------------------"
+          - generic: "|DescribeAutoScalingGroups|"
+          - generic: +---------+-------+-------+
+          - generic: "| Desired | Max | Min |"
+          - generic: +---------+-------+-------+
+          - generic: "| 0 | 1 | 0 |"
+          - generic: +---------+-------+-------+
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "\"ReuseOnScaleIn\": true"
+          - generic: "}"
+          - generic: "}"
+          - generic: "}"
+          - generic: "~ $ aws autoscaling describe-auto-scaling-groups --region ap-northeast-2 --auto-scaling-group-names failstop-read-asg --query 'AutoScalingGroups[].{Min:MinSize,Desired:DesiredCapacity,Max:MaxSize}' --output table --no-cli-pager"
+          - generic: "---------------------------"
+          - generic: "|DescribeAutoScalingGroups|"
+          - generic: +---------+-------+-------+
+          - generic: "| Desired | Max | Min |"
+          - generic: +---------+-------+-------+
+          - generic: "| 0 | 1 | 0 |"
+          - generic: +---------+-------+-------+
+          - generic: ~ $ aws ec2 describe-instance-credit-specifications --region ap-northeast-2 --instance-ids i-0e773f9b1c6e08182 i-0945b54d03197c79d i-02ba5862189497035 i-0d72b6a147b140a40 --query 'InstanceCreditSpecifications[].[InstanceId,CpuCredits]' --output text --no-cli-pager && aws autosca
+          - generic: ling describe-warm-pool --region ap-northeast-2 --auto-scaling-group-name failstop-read-asg --query 'Instances[].[InstanceId,LifecycleState]' --output text --no-cli-pager
+          - generic: i-0e773f9b1c6e08182 unlimited
+          - generic: i-0d72b6a147b140a40 unlimited
+          - generic: i-0945b54d03197c79d unlimited
+          - generic: i-02ba5862189497035 unlimited
+          - generic: i-02ba5862189497035 Warmed:Stopped
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "| Desired | Max | Min |"
+          - generic: +---------+-------+-------+
+          - generic: "| 0 | 1 | 0 |"
+          - generic: +---------+-------+-------+
+          - generic: ~ $ aws ec2 describe-instance-credit-specifications --region ap-northeast-2 --instance-ids i-0e773f9b1c6e08182 i-0945b54d03197c79d i-02ba5862189497035 i-0d72b6a147b140a40 --query 'InstanceCreditSpecifications[].[InstanceId,CpuCredits]' --output text --no-cli-pager && aws autosca
+          - generic: ling describe-warm-pool --region ap-northeast-2 --auto-scaling-group-name failstop-read-asg --query 'Instances[].[InstanceId,LifecycleState]' --output text --no-cli-pager
+          - generic: i-0e773f9b1c6e08182 unlimited
+          - generic: i-0d72b6a147b140a40 unlimited
+          - generic: i-0945b54d03197c79d unlimited
+          - generic: i-02ba5862189497035 unlimited
+          - generic: i-02ba5862189497035 Warmed:Stopped
+          - generic: "~ $ aws ec2 describe-security-group-rules --region ap-northeast-2 --security-group-rule-ids sgr-0b71c1684963a499f --query 'SecurityGroupRules[].{Group:GroupId,From:FromPort,To:ToPort,Source:ReferencedGroupInfo.GroupId}' --output table --no-cli-pager"
+          - generic: "-----------------------------------------------------------------"
+          - generic: "| DescribeSecurityGroupRules |"
+          - generic: +------+------------------------+------------------------+------+
+          - generic: "| From | Group | Source | To |"
+          - generic: +------+------------------------+------------------------+------+
+          - generic: "| 443 | sg-0a636f509cabd3b3c | sg-0c858239a18a2c185 | 443 |"
+          - generic: +------+------------------------+------------------------+------+
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: +------+------------------------+------------------------+------+
+          - generic: "| 443 | sg-0a636f509cabd3b3c | sg-0c858239a18a2c185 | 443 |"
+          - generic: +------+------------------------+------------------------+------+
+          - generic: ~ $ aws ec2 start-instances --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --output json --no-cli-pager
+          - generic: "{"
+          - generic: "\"StartingInstances\": ["
+          - generic: "{"
+          - generic: "\"InstanceId\": \"i-09c0dc7cf4eab07fb\","
+          - generic: "\"CurrentState\": {"
+          - generic: "\"Code\": 0,"
+          - generic: "\"Name\": \"pending\""
+          - generic: "},"
+          - generic: "\"PreviousState\": {"
+          - generic: "\"Code\": 80,"
+          - generic: "\"Name\": \"stopped\""
+          - generic: "}"
+          - generic: "}"
+          - generic: "]"
+          - generic: "}"
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id "$loadcheck" --query StandardOutputContent --output text --no-cli-pager | grep -E "systemd-run|k6 run|stages:|target:|duration:|timeout:|REGION=|UNIT=|insecure|executor:"
+          - generic: REGION=ap-northeast-2
+          - generic: UNIT=failstop-read-load
+          - generic: systemd-run --unit "$UNIT" --collect -p LimitNOFILE=65536 \
+          - generic: /usr/local/bin/k6 run --quiet --summary-export "/var/log/failstop-load/read-$stamp.json" \
+          - generic: "insecureSkipTLSVerify: true,"
+          - generic: "executor: 'ramping-arrival-rate',"
+          - generic: "stages: ["
+          - generic: "{ target: RATE, duration: __ENV.RAMP || '60s' },"
+          - generic: "{ target: RATE, duration: __ENV.HOLD || '10m' },"
+          - generic: "{ target: 0, duration: '20s' },"
+          - generic: "timeout: '5s',"
+          - generic: "~ $ loadrun=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters '{\"commands\":[\"failstop-read-load start 7500 15m 45s 16:1:1 KRW-XRP\"]}' --query Command.CommandId --output text)"
+          - generic: "~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id \"$loadrun\" --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json --no-cli-pager"
+          - generic: "{"
+          - generic: "\"Status\": \"Success\","
+          - generic: "\"Output\": \"started failstop-read-load alb=172.31.40.147,172.31.27.88,172.31.9.75 rate=7500 hold=15m ramp=45s mix=16:1:1 focus=KRW-XRP summary=/var/log/failstop-load/read-20261009T160531Z.json\\n\","
+          - generic: "\"Error\": \"Running as unit: failstop-read-load.service\\n\""
+          - generic: "}"
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"__name__\":\"probe_success\",\"account\":\"personal\",\"customer\":\"exchange\",\"environment\":\"aws\",\"instance\":\"10.66.0.2:11434\",\"job\":\"blackbox-ai\",\"node\":\"ai-1\",\"role\":\"ai\",\"service\":\"llm\"},\"value\":[1791562104.066,\"1"
+          - generic: "\"]}]}}"
+          - generic: ~ $ readtg=$(aws elbv2 describe-target-groups --region ap-northeast-2 --names failstop-read --query 'TargetGroups[0].TargetGroupArn' --output text) && aws elbv2 describe-target-health --region ap-northeast-2 --target-group-arn "$readtg" --query 'TargetHealthDescriptions[].[Targe
+          - generic: t.Id,TargetHealth.State]' --output text --no-cli-pager
+          - generic: i-0945b54d03197c79d healthy
+          - generic: i-0e773f9b1c6e08182 healthy
+          - generic: i-02ba5862189497035 healthy
+          - generic: "~ $ readmetrics=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters '{\"commands\":[\"curl -fsSG --max-time 5 http://127.0.0.1:9090/api/v1/query --data-urlencode '\\''query=sum by (instance,status) (rate(h"
+          - generic: "ttp_server_requests_seconds_count{job=\\\"exchange-api\\\"}[1m]))'\\''\"]}' --query Command.CommandId --output text)"
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-0b3a8481650ab9289 --command-id "$readmetrics" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"2278.9333333333334\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"2161.9777777777776\"]},{\"metric\":"
+          - generic: "{\"instance\":\"172.31.32.40:9101\",\"status\":\"503\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"201\"},\"value\":[1791562272.575,\"1.622222222222222\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"503\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":"
+          - generic: "{\"instance\":\"172.31.32.40:9101\",\"status\":\"101\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"422\"},\"value\":[1791562272.575,\"0.02222222222222222\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"404\"},\"value\":[1791562272.575,\"0\"]},{\"metri"
+          - generic: "c\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"201\"},\"value\":[1791562272.575,\"1.7333333333333332\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"401\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"101\"},\"value\":[1791562272.575,\"0\"]},{\"metri"
+          - generic: "c\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"401\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"422\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"750.4444444444443\"]},{\"metric"
+          - generic: "\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"453.7999999999999\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"423\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"423\"},\"value\":[1791562272.575,\"0\"]},{\"metric\""
+          - generic: ":{\"instance\":\"172.31.32.40:9101\",\"status\":\"403\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"403\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"404\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172"
+          - generic: ".31.0.40:9101\",\"status\":\"204\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"400\"},\"value\":[1791562272.575,\"0.6888888888888888\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"400\"},\"value\":[1791562272.575,\"0.7999999999999999\"]},{\"metric\""
+          - generic: ":{\"instance\":\"172.31.43.63:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"1173.164845\"]},{\"metric\":{\"instance\":\"172.31.43.63:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"430.08819166666666\"]}]}}"
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: i-02ba5862189497035 healthy
+          - generic: "~ $ readmetrics=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters '{\"commands\":[\"curl -fsSG --max-time 5 http://127.0.0.1:9090/api/v1/query --data-urlencode '\\''query=sum by (instance,status) (rate(h"
+          - generic: "ttp_server_requests_seconds_count{job=\\\"exchange-api\\\"}[1m]))'\\''\"]}' --query Command.CommandId --output text)"
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-0b3a8481650ab9289 --command-id "$readmetrics" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"2278.9333333333334\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"2161.9777777777776\"]},{\"metric\":"
+          - generic: "{\"instance\":\"172.31.32.40:9101\",\"status\":\"503\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"201\"},\"value\":[1791562272.575,\"1.622222222222222\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"503\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":"
+          - generic: "{\"instance\":\"172.31.32.40:9101\",\"status\":\"101\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"422\"},\"value\":[1791562272.575,\"0.02222222222222222\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"404\"},\"value\":[1791562272.575,\"0\"]},{\"metri"
+          - generic: "c\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"201\"},\"value\":[1791562272.575,\"1.7333333333333332\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"401\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"101\"},\"value\":[1791562272.575,\"0\"]},{\"metri"
+          - generic: "c\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"401\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"422\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"750.4444444444443\"]},{\"metric"
+          - generic: "\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"453.7999999999999\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"423\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"423\"},\"value\":[1791562272.575,\"0\"]},{\"metric\""
+          - generic: ":{\"instance\":\"172.31.32.40:9101\",\"status\":\"403\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"403\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"404\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172"
+          - generic: ".31.0.40:9101\",\"status\":\"204\"},\"value\":[1791562272.575,\"0\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\",\"status\":\"400\"},\"value\":[1791562272.575,\"0.6888888888888888\"]},{\"metric\":{\"instance\":\"172.31.0.40:9101\",\"status\":\"400\"},\"value\":[1791562272.575,\"0.7999999999999999\"]},{\"metric\""
+          - generic: ":{\"instance\":\"172.31.43.63:9101\",\"status\":\"429\"},\"value\":[1791562272.575,\"1173.164845\"]},{\"metric\":{\"instance\":\"172.31.43.63:9101\",\"status\":\"200\"},\"value\":[1791562272.575,\"430.08819166666666\"]}]}}"
+          - generic: "~ $ readfinal=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters '{\"commands\":[\"curl -fsSG --max-time 5 http://127.0.0.1:9090/api/v1/query --data-urlencode '\\''query=sum by (instance) (rate(http_serve"
+          - generic: "r_requests_seconds_count{job=\\\"exchange-api\\\"}[1m]))'\\''\",\"curl -fsSG --max-time 5 http://127.0.0.1:9090/api/v1/query --data-urlencode '\\''query=sum by (status) (rate(http_server_requests_seconds_count{job=\\\"exchange-api\\\",status=~\\\"429|5..\\\"}[1m]))'\\''\"]}' --query Command.Comma"
+          - generic: ndId --output text)
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-0b3a8481650ab9289 --command-id "$readfinal" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"instance\":\"172.31.0.40:9101\"},\"value\":[1791562345.985,\"2465.022222222222\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\"},\"value\":[1791562345.985,\"2463.1777777777775\"]},{\"metric\":{\"instance\":\"172.31.43.63:9101\""
+          - generic: "},\"value\":[1791562345.985,\"2459.7111111111108\"]}]}}{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"status\":\"503\"},\"value\":[1791562345.993,\"0\"]},{\"metric\":{\"status\":\"429\"},\"value\":[1791562345.993,\"900.4444444444443\"]}]}}"
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "r_requests_seconds_count{job=\\\"exchange-api\\\"}[1m]))'\\''\",\"curl -fsSG --max-time 5 http://127.0.0.1:9090/api/v1/query --data-urlencode '\\''query=sum by (status) (rate(http_server_requests_seconds_count{job=\\\"exchange-api\\\",status=~\\\"429|5..\\\"}[1m]))'\\''\"]}' --query Command.Comma"
+          - generic: ndId --output text)
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-0b3a8481650ab9289 --command-id "$readfinal" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"instance\":\"172.31.0.40:9101\"},\"value\":[1791562345.985,\"2465.022222222222\"]},{\"metric\":{\"instance\":\"172.31.32.40:9101\"},\"value\":[1791562345.985,\"2463.1777777777775\"]},{\"metric\":{\"instance\":\"172.31.43.63:9101\""
+          - generic: "},\"value\":[1791562345.985,\"2459.7111111111108\"]}]}}{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"status\":\"503\"},\"value\":[1791562345.993,\"0\"]},{\"metric\":{\"status\":\"429\"},\"value\":[1791562345.993,\"900.4444444444443\"]}]}}"
+          - generic: "~ $ loadstop=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters '{\"commands\":[\"failstop-read-load stop\",\"ls -lh /var/log/failstop-load/read-20261009T160531Z.json\"]}' --query Command.CommandId --output"
+          - generic: text)
+          - generic: "~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id \"$loadstop\" --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json --no-cli-pager"
+          - generic: "{"
+          - generic: "\"Status\": \"Success\","
+          - generic: "\"Output\": \"stopped failstop-read-load\\n-rw-r--r--. 1 root root 2.9K Oct 9 16:12 /var/log/failstop-load/read-20261009T160531Z.json\\n\","
+          - generic: "\"Error\": \"\""
+          - generic: "}"
+          - generic: "~ $ loadsummary=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters '{\"commands\":[\"python3 -c '\\''import json; d=json.load(open(\\\"/var/log/failstop-load/read-20261009T160531Z.json\\\")); print(json.dumps"
+          - generic: "({k:v for k,v in d.get(\\\"metrics\\\",{}).items() if k in [\\\"http_reqs\\\",\\\"http_req_failed\\\",\\\"http_req_duration\\\",\\\"dropped_iterations\\\",\\\"iterations\\\"]},ensure_ascii=False))'\\''\"]}' --query Command.CommandId --output text)"
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id "$loadsummary" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"iterations\": {\"count\": 3089706, \"rate\": 6989.176655280487}, \"dropped_iterations\": {\"count\": 42244, \"rate\": 95.55950586420484}, \"http_reqs\": {\"count\": 3089706, \"rate\": 6989.176655280487}, \"http_req_failed\": {\"passes\": 821821, \"fails\": 2267885, \"value\": 0.26598679615471504}, \"ht"
+          - generic: "tp_req_duration\": {\"avg\": 21.13791203826314, \"p(50)\": 5.1697375, \"p(95)\": 39.8383005, \"p(99)\": 399.68973155000094, \"max\": 5000.98517}}"
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"
+
+    - slider "CloudShell 크기 조정":
+    - button "닫기 CloudShell":
+    - iframe [active] [id="wm35-MgeeshFtPAOYJ9sU"]:
+      - alert
+      - main:
+        - list "알림"
+        - heading "CloudShell" [level=3]:
+          - generic: CloudShell
+        - button "CloudShell 작업":
+          - text: 작업
+        - generic "새 브라우저 탭에서 열기":
+          - link:
+            - /url: https://ap-northeast-2.console.aws.amazon.com/cloudshell/home/?region=ap-northeast-2
+        - generic "기본 설정":
+          - button "기본 설정":
+        - group "Pane 1":
+          - list:
+            - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+              - button "ap-northeast-2" [pressed]
+              - text: ×
+          - text: 
+          - button "새로운 탭 추가":
+        - group "Terminal e9d0b284-f6e0-43e5-a13d-4aa84e4c11b5 tab":
+          - generic: CloudShell 터미널 입력
+          - textbox "CloudShell 터미널 입력" [active]: ~ $
+          - generic: "~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id \"$loadstop\" --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json --no-cli-pager"
+          - generic: "{"
+          - generic: "\"Status\": \"Success\","
+          - generic: "\"Output\": \"stopped failstop-read-load\\n-rw-r--r--. 1 root root 2.9K Oct 9 16:12 /var/log/failstop-load/read-20261009T160531Z.json\\n\","
+          - generic: "\"Error\": \"\""
+          - generic: "}"
+          - generic: "~ $ loadsummary=$(aws ssm send-command --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters '{\"commands\":[\"python3 -c '\\''import json; d=json.load(open(\\\"/var/log/failstop-load/read-20261009T160531Z.json\\\")); print(json.dumps"
+          - generic: "({k:v for k,v in d.get(\\\"metrics\\\",{}).items() if k in [\\\"http_reqs\\\",\\\"http_req_failed\\\",\\\"http_req_duration\\\",\\\"dropped_iterations\\\",\\\"iterations\\\"]},ensure_ascii=False))'\\''\"]}' --query Command.CommandId --output text)"
+          - generic: ~ $ aws ssm get-command-invocation --region ap-northeast-2 --instance-id i-09c0dc7cf4eab07fb --command-id "$loadsummary" --query StandardOutputContent --output text --no-cli-pager
+          - generic: "{\"iterations\": {\"count\": 3089706, \"rate\": 6989.176655280487}, \"dropped_iterations\": {\"count\": 42244, \"rate\": 95.55950586420484}, \"http_reqs\": {\"count\": 3089706, \"rate\": 6989.176655280487}, \"http_req_failed\": {\"passes\": 821821, \"fails\": 2267885, \"value\": 0.26598679615471504}, \"ht"
+          - generic: "tp_req_duration\": {\"avg\": 21.13791203826314, \"p(50)\": 5.1697375, \"p(95)\": 39.8383005, \"p(99)\": 399.68973155000094, \"max\": 5000.98517}}"
+          - generic: ~ $ aws ec2 stop-instances --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb --query 'StoppingInstances[].[InstanceId,CurrentState.Name]' --output text --no-cli-pager
+          - generic: i-09c0dc7cf4eab07fb stopping
+          - generic: ~ $ aws ec2 describe-instances --region ap-northeast-2 --instance-ids i-09c0dc7cf4eab07fb i-02ba5862189497035 --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output text --no-cli-pager && aws autoscaling describe-warm-pool --region ap-northeast-2 --auto-scaling-gr
+          - generic: oup-name failstop-read-asg --query 'Instances[].[InstanceId,LifecycleState]' --output text --no-cli-pager
+          - generic: i-09c0dc7cf4eab07fb stopped
+          - generic: i-02ba5862189497035 stopped
+          - generic: i-02ba5862189497035 Warmed:Stopped
+          - generic: ~ $
+  - button "CloudShell":
+    - generic: CloudShell
+  - button "AWS용 에이전트 툴킷":
+    - text: AWS용 에이전트 툴킷
+  - button "의견"
+  - button "Console 모바일 앱":
+    - generic: Console 모바일 앱
+  - generic: © 2026, Amazon Web Services, Inc. 또는 계열사.
+  - list:
+    - link "개인 정보 보호":
+      - /url: https://aws.amazon.com/privacy/
+    - link "약관":
+      - /url: https://aws.amazon.com/terms/
+    - button "쿠키 기본 설정"

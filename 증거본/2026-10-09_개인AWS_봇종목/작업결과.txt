@@ -1,0 +1,12 @@
+2026-10-09 개인 AWS bot-1 종목 확장
+대상: failstop-bot-1 / i-0b3a8481650ab9289
+설정: /etc/exchange-bot/bot.env
+백업: /etc/exchange-bot/bot.env.before-quote-markets-20261009T142729Z
+BTC/ETH/XRP: MM 2, Taker 1, Trend 1, Noise 1. 전체 target OPS 6.
+SOL/DOGE/ADA/TRX: 종목당 MM 1, 나머지 0. 호가 전용.
+첫 기동은 TasksMax=512로 native thread 생성에 실패. 기존 3종목 복구 후 한도를 1280으로 시험하여 7종목 기동 성공.
+적용 명령: sudo systemctl set-property exchange-bot.service TasksMax=1280
+최종 확인: active/running, NRestarts=0, TasksCurrent=965, MemoryCurrent=434499584, MemoryMax=805306368.
+실제 공개 orderbook API에서 네 종목 모두 매수/매도 호가 3단계 확인. 체결이나 현재가 변화는 보장하지 않음.
+봇 풀 구현이 종목별로 다수의 대기 스레드를 생성하는 구조는 수정하지 않음. 장시간 메모리 안정성은 별도 관측 필요.
+설정 원복 시 위 백업을 bot.env로 복사하고 서비스 재시작. TasksMax를 먼저 512로 낮추면 7종목 서비스가 다시 기동 실패할 수 있으므로 구성부터 원복할 것.

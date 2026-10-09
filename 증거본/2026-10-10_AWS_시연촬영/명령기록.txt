@@ -1,0 +1,1527 @@
+=== 2026-10-10 02:53:38     ===
+$ aws ec2 describe-instances --query Reservations[].Instances[].[Tags[?Key=='Name']|[0].Value,InstanceId,State.Name,InstanceType] --output text
+failstop-bot-1	i-0b3a8481650ab9289	running	t3.medium
+load-1	i-09c0dc7cf4eab07fb	stopped	c6i.xlarge
+failstop-db-2	i-054deba20ceb2e29c	running	t3.medium
+failstop-app-2	i-0945b54d03197c79d	running	t3.small
+failstop-app-3	i-02ba5862189497035	stopped	t3.small
+failstop-db-1	i-0d72b6a147b140a40	running	t3.medium
+failstop-app-1	i-0e773f9b1c6e08182	running	t3.small
+(exit 0)
+
+=== 2026-10-10 02:53:39     ===
+$ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names failstop-read-asg --query AutoScalingGroups[0].{Min:MinSize,Desired:DesiredCapacity,Max:MaxSize,Instances:Instances[].{Id:InstanceId,State:LifecycleState}} --output json
+{
+    "Min": 0,
+    "Desired": 0,
+    "Max": 1,
+    "Instances": []
+}
+(exit 0)
+
+=== 2026-10-10 02:53:40     ===
+$ aws autoscaling describe-warm-pool --auto-scaling-group-name failstop-read-asg --query Instances[].{Id:InstanceId,State:LifecycleState} --output json
+[
+    {
+        "Id": "i-02ba5862189497035",
+        "State": "Warmed:Stopped"
+    }
+]
+(exit 0)
+
+=== 2026-10-10 02:53:48     ===
+$ aws ec2 start-instances --instance-ids i-09c0dc7cf4eab07fb --output json
+{
+    "StartingInstances": [
+        {
+            "InstanceId": "i-09c0dc7cf4eab07fb",
+            "CurrentState": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PreviousState": {
+                "Code": 80,
+                "Name": "stopped"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 02:54:03     ===
+$ aws ssm describe-instance-information --filters Key=InstanceIds,Values=i-09c0dc7cf4eab07fb --query InstanceInformationList[0].{Ping:PingStatus,Agent:AgentVersion,Platform:PlatformName} --output json
+{
+    "Ping": "Online",
+    "Agent": "3.3.5226.0",
+    "Platform": "Amazon Linux"
+}
+(exit 0)
+
+=== 2026-10-10 02:54:11     ===
+$ aws ssm send-command --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters {"commands":["command -v failstop-read-load","grep -nE \"^(usage|case|  start|  stop|  status)|RATE=|HOLD=|RAMP=|MIX=|FOCUS=\" $(command -v failstop-read-load) | head -30","systemctl is-active failstop-read-load || true"]} --query Command.CommandId --output text
+8bbcb49e-9062-4488-81c2-5bb313df94e5
+(exit 0)
+
+=== 2026-10-10 02:54:18     ===
+$ aws ssm get-command-invocation --command-id 8bbcb49e-9062-4488-81c2-5bb313df94e5 --instance-id i-09c0dc7cf4eab07fb --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "/usr/local/sbin/failstop-read-load\n15:case \"${1:-}\" in\n33:            -E ALB_IPS=\"$alb\" -E RATE=\"$rate\" -E HOLD=\"$hold\" -E RAMP=\"$ramp\" -E MIX=\"$mix\" -E FOCUS=\"$focus\" \\\ninactive\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 02:57:31     ===
+$ aws ssm send-command --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters {"commands":["failstop-read-load start 7500 15m 45s 16:1:1 KRW-XRP"]} --query Command.CommandId --output text
+847e5543-a1c6-481c-80f3-c98577c8fb0a
+(exit 0)
+
+=== 2026-10-10 02:57:37     ===
+$ aws ssm get-command-invocation --command-id 847e5543-a1c6-481c-80f3-c98577c8fb0a --instance-id i-09c0dc7cf4eab07fb --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "started failstop-read-load alb=172.31.21.135,172.31.45.148,172.31.6.59 rate=7500 hold=15m ramp=45s mix=16:1:1 focus=KRW-XRP summary=/var/log/failstop-load/read-20261009T175733Z.json\n",
+    "Err": "Running as unit: failstop-read-load.service\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:10:34     ===
+$ aws ssm send-command --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters {"commands":["failstop-read-load stop"]} --query Command.CommandId --output text
+3bdcbf33-5b71-48b2-987c-cd6a154255ed
+(exit 0)
+
+=== 2026-10-10 03:10:41     ===
+$ aws ssm get-command-invocation --command-id 3bdcbf33-5b71-48b2-987c-cd6a154255ed --instance-id i-09c0dc7cf4eab07fb --query {Status:Status,Out:StandardOutputContent} --output json
+{
+    "Status": "Success",
+    "Out": "stopped failstop-read-load\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:11:33     ===
+$ aws ssm send-command --instance-ids i-0d72b6a147b140a40 i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters {"commands":["hostname","systemctl is-enabled patroni etcd 2>&1 | tr \"\n\" \" \"; echo","systemctl is-active patroni etcd 2>&1 | tr \"\n\" \" \"; echo","C=$(ls /etc/patroni/*.yml /etc/patroni.yml 2>/dev/null | head -1); echo cfg=$C; patronictl -c $C list 2>&1 | head -12"]} --query Command.CommandId --output text
+7862be8d-7f19-4c10-9baf-6eb41f896c70
+(exit 0)
+
+=== 2026-10-10 03:11:44     ===
+$ aws ssm get-command-invocation --command-id 7862be8d-7f19-4c10-9baf-6eb41f896c70 --instance-id i-0d72b6a147b140a40 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "db-1\nenabled enabled \nactive active \ncfg=/etc/patroni/patroni.yml\n/var/lib/amazon/ssm/i-0d72b6a147b140a40/document/orchestration/7862be8d-7f19-4c10-9baf-6eb41f896c70/awsrunShellScript/0.awsrunShellScript/_script.sh: line 6: patronictl: command not found\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:11:46     ===
+$ aws ssm get-command-invocation --command-id 7862be8d-7f19-4c10-9baf-6eb41f896c70 --instance-id i-054deba20ceb2e29c --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "db-2\nenabled enabled \nactive active \ncfg=/etc/patroni/patroni.yml\n/var/lib/amazon/ssm/i-054deba20ceb2e29c/document/orchestration/7862be8d-7f19-4c10-9baf-6eb41f896c70/awsrunShellScript/0.awsrunShellScript/_script.sh: line 6: patronictl: command not found\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:11:54     ===
+$ aws ssm send-command --instance-ids i-0d72b6a147b140a40 --document-name AWS-RunShellScript --parameters {"commands":["P=$(systemctl show -p ExecStart patroni | grep -o \"path=[^ ;]*\" | cut -d= -f2); echo patroni=$P; D=$(dirname $P); ls $D | grep -i patronictl; $D/patronictl -c /etc/patroni/patroni.yml list 2>&1 | head -12"]} --query Command.CommandId --output text
+bae4cec4-88de-44e4-b2fd-8c46220c97e7
+(exit 0)
+
+=== 2026-10-10 03:12:04     ===
+$ aws ssm get-command-invocation --command-id bae4cec4-88de-44e4-b2fd-8c46220c97e7 --instance-id i-0d72b6a147b140a40 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "patroni=/opt/patroni/bin/patroni\npatronictl\n+ Cluster: failstop-db (7693423538786229765) ------+----+-------------+-----+------------+-----+\n| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\n| db-1   | 172.31.0.20  | Leader       | running   |  3 |             |     |            |     |\n| db-2   | 172.31.32.20 | Sync Standby | streaming |  3 |  5/612E3FE8 |   0 | 5/612E3FE8 |   0 |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:13:25     ===
+$ aws ec2 stop-instances --instance-ids i-0d72b6a147b140a40 --force --output json
+{
+    "StoppingInstances": [
+        {
+            "InstanceId": "i-0d72b6a147b140a40",
+            "CurrentState": {
+                "Code": 64,
+                "Name": "stopping"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:14:22     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters {"commands":["/opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml list 2>&1 | head -8","journalctl -u patroni --since \"-3min\" --no-pager 2>&1 | grep -iE \"promot|leader|lock|failover\" | tail -8"]} --query Command.CommandId --output text
+069dc34a-4814-4e6e-9237-4a03385f940f
+(exit 0)
+
+=== 2026-10-10 03:14:30     ===
+$ aws ssm get-command-invocation --command-id 069dc34a-4814-4e6e-9237-4a03385f940f --instance-id i-054deba20ceb2e29c --query {Status:Status,Out:StandardOutputContent} --output json
+{
+    "Status": "Success",
+    "Out": "2026-10-09 18:14:25,610 - ERROR - Failed to get list of machines from https://172.31.0.20:2379/v3beta: MaxRetryError(\"HTTPSConnectionPool(host='172.31.0.20', port=2379): Max retries exceeded with url: /version (Caused by ConnectTimeoutError(<HTTPSConnection(host='172.31.0.20', port=2379) at 0x7f27fbb5a710>, 'Connection to 172.31.0.20 timed out. (connect timeout=1.6666666666666667)'))\")\n+ Cluster: failstop-db (7693423538786229765) ---+-------------+-----+------------+-----+\n| Member | Host         | Role   | State   | TL | Receive LSN | Lag | Replay LSN | Lag |\n+--------+--------------+--------+---------+----+-------------+-----+------------+-----+\n| db-2   | 172.31.32.20 | Leader | running |  4 |             |     |            |     |\n+--------+--------------+--------+---------+----+-------------+-----+------------+-----+\nOct 09 18:14:08 db-2 patroni[204322]: 2026-10-09 18:14:08.803 UTC [204322] exchange_bot@exchange DETAIL:  Process holding the lock: 204328. Wait queue: 204322.\nOct 09 18:14:09 db-2 patroni[204322]: 2026-10-09 18:14:09.801 UTC [204322] exchange_bot@exchange LOG:  process 204322 still waiting for ShareLock on transaction 4978015 after 1997.967 ms\nOct 09 18:14:09 db-2 patroni[204322]: 2026-10-09 18:14:09.801 UTC [204322] exchange_bot@exchange DETAIL:  Process holding the lock: 204328. Wait queue: 204322.\nOct 09 18:14:09 db-2 patroni[204322]: 2026-10-09 18:14:09.803 UTC [204322] exchange_bot@exchange ERROR:  canceling statement due to lock timeout\nOct 09 18:14:10 db-2 patroni[1991]: 2026-10-09 18:14:10,769 INFO: Lock owner: db-2; I am db-2\nOct 09 18:14:10 db-2 patroni[1991]: 2026-10-09 18:14:10,921 INFO: no action. I am (db-2), the leader with the lock\nOct 09 18:14:20 db-2 patroni[1991]: 2026-10-09 18:14:20,769 INFO: Lock owner: db-2; I am db-2\nOct 09 18:14:20 db-2 patroni[1991]: 2026-10-09 18:14:20,921 INFO: no action. I am (db-2), the leader with the lock\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:14:39     ===
+$ aws ec2 start-instances --instance-ids i-0d72b6a147b140a40 --output json
+{
+    "StartingInstances": [
+        {
+            "InstanceId": "i-0d72b6a147b140a40",
+            "CurrentState": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PreviousState": {
+                "Code": 80,
+                "Name": "stopped"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:16:07     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters {"commands":["systemctl is-active failstop-reporting.service","journalctl -u failstop-reporting.service --since \"-40min\" --no-pager 2>&1 | grep -viE \"webhook\.|https://|token|secret\" | grep -iE \"teams|deliver|ì „ì†¡|fail|error|status|http [0-9]|retry|dead\" | tail -25"]} --query Command.CommandId --output text
+
+aws: [ERROR]: An error occurred (ParamValidation): Error parsing parameter '--parameters': Invalid JSON: Invalid \escape: line 1 column 161 (char 160)
+JSON received: {"commands":["systemctl is-active failstop-reporting.service","journalctl -u failstop-reporting.service --since \"-40min\" --no-pager 2>&1 | grep -viE \"webhook\.|https://|token|secret\" | grep -iE \"teams|deliver|Àü¼Û|fail|error|status|http [0-9]|retry|dead\" | tail -25"]}
+(exit 252)
+
+=== 2026-10-10 03:16:16     ===
+$ aws ssm get-command-invocation --command-id 
+aws: [ERROR]: An error occurred (ParamValidation): Error parsing parameter '--parameters': Invalid JSON: Invalid \escape: line 1 column 161 (char 160)
+JSON received: {"commands":["systemctl is-active failstop-reporting.service","journalctl -u failstop-reporting.service --since \"-40min\" --no-pager 2>&1 | grep -viE \"webhook\.|https://|token|secret\" | grep -iE \"teams|deliver|Àü¼Û|fail|error|status|http [0-9]|retry|dead\" | tail -25"]} --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+
+aws: [ERROR]: An error occurred (ValidationException) when calling the GetCommandInvocation operation: 2 validation errors detected: Value '
+aws: [ERROR]: An error occurred (ParamValidation): Error parsing parameter '--parameters': Invalid JSON: Invalid \escape: line 1 column 161 (char 160)
+JSON received: {"commands":["systemctl is-active failstop-reporting.service","journalctl -u failstop-reporting.service --since \"-40min\" --no-pager 2>&1 | grep -viE \"webhook\.|https://|token|secret\" | grep -iE \"teams|deliver|\xc0\xfc¨ù\xdb|fail|error|status|http [0-9]|retry|dead\" | tail -25"]}' at 'commandId' failed to satisfy constraint: Member must satisfy regular expression pattern: ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$; Value '
+aws: [ERROR]: An error occurred (ParamValidation): Error parsing parameter '--parameters': Invalid JSON: Invalid \escape: line 1 column 161 (char 160)
+JSON received: {"commands":["systemctl is-active failstop-reporting.service","journalctl -u failstop-reporting.service --since \"-40min\" --no-pager 2>&1 | grep -viE \"webhook\.|https://|token|secret\" | grep -iE \"teams|deliver|\xc0\xfc¨ù\xdb|fail|error|status|http [0-9]|retry|dead\" | tail -25"]}' at 'commandId' failed to satisfy constraint: Member must have length less than or equal to 36
+(exit 254)
+
+=== 2026-10-10 03:16:25     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+bcd986fd-ccba-4b9e-aeaf-70a9bef00290
+(exit 0)
+
+=== 2026-10-10 03:16:34     ===
+$ aws ssm get-command-invocation --command-id bcd986fd-ccba-4b9e-aeaf-70a9bef00290 --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "active\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:16:53     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+2fe5f65a-ed74-47e5-984c-0ec4220c8448
+(exit 0)
+
+=== 2026-10-10 03:17:02     ===
+$ aws ssm get-command-invocation --command-id 2fe5f65a-ed74-47e5-984c-0ec4220c8448 --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "JOB incident:25719ce447bcc0c8b2b2517f53c385b603c3d4df4da8e40e885 dead 1 10-09 18:14:57 10-09 18:14:59 report_generation_failed\nJOB incident:a628ae773f24a55bdf82f8ee79756109ba7345ab34a2e554e4e dead 1 10-09 18:14:39 10-09 18:14:43 report_generation_failed\nJOB incident:9454ef851b42c08ff3a78ad656d04838582c16ea38895e4c08e dead 1 10-09 18:14:27 10-09 18:14:43 report_generation_failed\nJOB incident:8137b80a78063632ccd1e48c3677453b17f361b2d235a0439a1 dead 1 10-09 18:14:24 10-09 18:14:42 report_generation_failed\nJOB incident:b17628ca90a8fc15fc6f2fc0ec774a6b88d56057dfc3e96d713 sent 1 10-09 18:14:24 10-09 18:14:42 \nJOB incident:360225b72bbff187c34248ae39b8fcd5f846d28c4fe9e031df7 sent 1 10-09 18:14:24 10-09 18:14:34 \nJOB incident:b596fca5a360a25c5448b50f6d971c7acffe354937b99c78d2b sent 1 10-09 18:07:42 10-09 18:07:51 \nJOB incident:42c81775fd446ed9a4ef412a5778ae8756528714439030cabb1 sent 1 10-09 18:02:42 10-09 18:02:52 \nTRY incident:25719ce447bcc0c8b2b2517f53c385b603c3d4df4da8e40e885 1 10-09 18:14:59 dead report_generation_failed\nTRY incident:a628ae773f24a55bdf82f8ee79756109ba7345ab34a2e554e4e 1 10-09 18:14:43 dead report_generation_failed\nTRY incident:9454ef851b42c08ff3a78ad656d04838582c16ea38895e4c08e 1 10-09 18:14:43 dead report_generation_failed\nTRY incident:8137b80a78063632ccd1e48c3677453b17f361b2d235a0439a1 1 10-09 18:14:42 dead report_generation_failed\nTRY incident:b17628ca90a8fc15fc6f2fc0ec774a6b88d56057dfc3e96d713 1 10-09 18:14:42 sent \nTRY incident:360225b72bbff187c34248ae39b8fcd5f846d28c4fe9e031df7 1 10-09 18:14:34 sent \nTRY incident:b596fca5a360a25c5448b50f6d971c7acffe354937b99c78d2b 1 10-09 18:07:51 sent \nTRY incident:42c81775fd446ed9a4ef412a5778ae8756528714439030cabb1 1 10-09 18:02:52 sent \nTRY incident:3bba6ab130c2defd4da4ccfe4ada3d26c4479bc29e01505faf7 1 10-09 16:13:34 sent \nTRY incident:b052dd6a1fe3b223296aa5a659d9d4c8c300cec0095dbce686f 1 10-09 16:08:37 sent \n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:17:33     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+6ef4df92-1301-43ec-8fd0-7ba670d630ba
+(exit 0)
+
+{
+    "Status": "Success",
+    "Out": "Traceback (most recent call last):\n  File \"/tmp/diag_report.py\", line 8, in <module>\n    print('job', row[0][:40], 'keys', sorted(payload.keys()), 'incident keys', sorted((payload.get('incident') or {}).keys())[:12])\nAttributeError: 'list' object has no attribute 'keys'\n",
+    "Err": ""
+}
+=== 2026-10-10 03:18:05     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+a35ea85b-f7f3-43ac-9998-062e557a0d91
+(exit 0)
+
+{
+    "Status": "Success",
+    "Out": "job incident:25719ce447bcc0c8b2b2517f53c385b keys ['incident', 'window_end'] records 1 labels [['DatabaseExporterUnavailable']] ['firing']\ncollect ok, facts 19\ncard FAILED AttributeError\n   diag_report.py 17 <module>\n   presentation.py 440 card\n   presentation.py 355 build_brief\n"
+}
+=== 2026-10-10 03:18:56     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+256f69d7-f4a0-490a-b53a-2415a58f9641
+(exit 0)
+
+{
+    "Status": "Success",
+    "Out": "job incident:25719ce447bcc0c8b2b2517f53c385b keys ['incident', 'window_end'] records 1 labels [['DatabaseExporterUnavailable']] ['firing']\ncollect ok, facts 19\nanalyzer mode ollama\ncard ok\n-rw-r--r--. 1 root root 39466 2026-10-06 deploy/reporting/presentation.py\n-rw-r--r--. 1 root root 34693 2026-10-06 deploy/reporting/reporter.py\n"
+}
+=== 2026-10-10 03:19:46     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+9a6e1c7d-2c0d-4ef0-80e0-b3d7d9964575
+(exit 0)
+
+{
+    "Status": "Success",
+    "Out": "job incident:25719ce447bcc0c8b2b2517f53c385b keys ['incident', 'window_end'] records 1 labels [['DatabaseExporterUnavailable']] ['firing']\ncollect ok, facts 19\nanalyze ok mode ollama error None keys ['hypotheses', 'mode', 'model', 'next_checks', 'observations', 'reason', 'summary', 'usage']\ncard ok\n"
+}
+=== 2026-10-10 03:22:07     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+7b84d0f3-7863-4978-bbaa-a14a2c5b340e
+(exit 0)
+
+=== 2026-10-10 03:22:24     ===
+$ aws ssm get-command-invocation --command-id 7b84d0f3-7863-4978-bbaa-a14a2c5b340e --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "expected=09d86d4addc1d295\nactual=6ee572e4031db78b\ncompile-ok\nactive\n",
+    "Err": "/var/lib/amazon/ssm/i-0b3a8481650ab9289/document/orchestration/7b84d0f3-7863-4978-bbaa-a14a2c5b340e/awsrunShellScript/0.awsrunShellScript/_script.sh: line 5: patch: command not found\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:22:35     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+e1b4fdb4-bc87-432e-a77f-809e8436294d
+(exit 0)
+
+=== 2026-10-10 03:22:51     ===
+$ aws ssm get-command-invocation --command-id e1b4fdb4-bc87-432e-a77f-809e8436294d --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "hash-ok\ncompile-ok\nactual=09d86d4addc1d295\nactive\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:23:32     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+28fe77b0-f441-4d85-9f96-30e36a8f7bcb
+(exit 0)
+
+=== 2026-10-10 03:24:28     ===
+$ aws ssm get-command-invocation --command-id 28fe77b0-f441-4d85-9f96-30e36a8f7bcb --instance-id i-0b3a8481650ab9289 --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "requeued 4\nincident:0e015f87535e54ca022ec sent 1 None\nincident:61e0e7ece1e39f55ce9ad sent 1 None\nincident:8dc54b7572f9d24f211c7 sent 1 None\nincident:5ee8c6a63e22b9cbb2e4b sent 1 None\nincident:8889078eb3212506a5c12 sent 1 None\nincident:f904a4564463e5b5dbbe5 sent 1 None\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:24:36     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+7af02f17-4562-4a2a-9a5f-9077e45b2eda
+(exit 0)
+
+=== 2026-10-10 03:24:45     ===
+$ aws ssm get-command-invocation --command-id 7af02f17-4562-4a2a-9a5f-9077e45b2eda --instance-id i-0b3a8481650ab9289 --query {Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Out": "incident:42c81775fd446 sent 1 None created 18:02:42 sent 18:02:52\nincident:b596fca5a360a sent 1 None created 18:07:42 sent 18:07:51\nincident:360225b72bbff sent 1 None created 18:14:24 sent 18:14:34\nincident:b17628ca90a8f sent 1 None created 18:14:24 sent 18:14:42\nincident:8137b80a78063 sent 2 None created 18:14:24 sent 18:23:42\nincident:9454ef851b42c sent 2 None created 18:14:27 sent 18:23:51\nincident:a628ae773f24a sent 2 None created 18:14:39 sent 18:23:59\nincident:25719ce447bcc sent 2 None created 18:14:57 sent 18:24:07\nincident:f904a4564463e sent 1 None created 18:19:24 sent 18:19:34\nincident:8889078eb3212 sent 1 None created 18:19:24 sent 18:19:42\nincident:5ee8c6a63e22b sent 1 None created 18:19:24 sent 18:19:49\nincident:8dc54b7572f9d sent 1 None created 18:19:27 sent 18:20:04\nincident:61e0e7ece1e39 sent 1 None created 18:19:39 sent 18:20:11\nincident:0e015f87535e5 sent 1 None created 18:19:57 sent 18:20:19\n",
+    "Err": ""
+}
+(exit 0)
+
+=== 2026-10-10 03:24:59     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+d943639a-5b13-4194-9cad-99515a5e04e0
+(exit 0)
+
+=== 2026-10-10 03:25:07     ===
+$ aws ssm get-command-invocation --command-id d943639a-5b13-4194-9cad-99515a5e04e0 --instance-id i-054deba20ceb2e29c --query StandardOutputContent --output text
++ Cluster: failstop-db (7693423538786229765) ------+----+-------------+-----+------------+-----+
+| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Sync Standby | streaming |  4 |  5/6E921458 |   0 | 5/6E921458 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  4 |             |     |            |     |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+(exit 0)
+
+=== 2026-10-10 03:25:15     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+d274f15c-fc4f-4721-a3ed-f9a37b91564f
+(exit 0)
+
+=== 2026-10-10 03:25:56     ===
+$ aws ssm get-command-invocation --command-id d274f15c-fc4f-4721-a3ed-f9a37b91564f --instance-id i-054deba20ceb2e29c --query {Status:Status,Out:StandardOutputContent} --output json
+{
+    "Status": "Success",
+    "Out": "| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\n| db-1   | 172.31.0.20  | Sync Standby | streaming |  4 |  5/6EAD3570 |   0 | 5/6EAD3570 |   0 |\n| db-2   | 172.31.32.20 | Leader       | running   |  4 |             |     |            |     |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\nSwitchover failed, details: 401, no auth header received\n+ Cluster: failstop-db (7693423538786229765) ------+----+-------------+-----+------------+-----+\n| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\n| db-1   | 172.31.0.20  | Sync Standby | streaming |  4 |  5/6EE09560 |   0 | 5/6EE09560 |   0 |\n| db-2   | 172.31.32.20 | Leader       | running   |  4 |             |     |            |     |\n+--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:26:42     ===
+$ aws ec2 stop-instances --instance-ids i-054deba20ceb2e29c --force --output json
+{
+    "StoppingInstances": [
+        {
+            "InstanceId": "i-054deba20ceb2e29c",
+            "CurrentState": {
+                "Code": 64,
+                "Name": "stopping"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:27:37     ===
+$ aws ec2 start-instances --instance-ids i-054deba20ceb2e29c --output json
+{
+    "StartingInstances": [
+        {
+            "InstanceId": "i-054deba20ceb2e29c",
+            "CurrentState": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PreviousState": {
+                "Code": 80,
+                "Name": "stopped"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:29:30     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_params.json --query Command.CommandId --output text
+0d80d330-11a9-43b1-9c87-6373fcc30b7f
+(exit 0)
+
+=== 2026-10-10 03:29:41     ===
+$ aws ssm get-command-invocation --command-id 0d80d330-11a9-43b1-9c87-6373fcc30b7f --instance-id i-0b3a8481650ab9289 --query StandardOutputContent --output text
+incident:61e0e7ece1e39 sent 1 None created 03:19:39 sent 03:20:11
+incident:0e015f87535e5 sent 1 None created 03:19:57 sent 03:20:19
+incident:7fab40b74244c sent 1 None created 03:27:39 sent 03:27:49
+incident:d07b0c2354fb1 sent 1 None created 03:27:39 sent 03:27:57
+incident:91a71dfae19d3 sent 1 None created 03:27:39 sent 03:28:05
+incident:4dadc3c25e070 sent 2 None created 03:27:54 sent 03:28:53
+/var/lib/amazon/ssm/i-0b3a8481650ab9289/document/orchestration/0d80d330-11a9-43b1-9c87-6373fcc30b7f/awsrunShellScript/0.awsrunShellScript/_script.sh: line 2: /opt/patroni/bin/patronictl: No such file or directory
+(exit 0)
+
+=== 2026-10-10 03:29:43     ===
+$ aws ssm get-command-invocation --command-id 826f1a83-e7ed-4f18-b67f-63d26465b5fc --instance-id i-0d72b6a147b140a40 --query StandardOutputContent --output text
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Leader       | running   |  5 |             |     |            |     |
+| db-2   | 172.31.32.20 | Sync Standby | streaming |  5 |  5/73C1B5C8 |   0 | 5/73C1B5C8 |   0 |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+(exit 0)
+
+=== 2026-10-10 03:36:37     ===
+$ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names failstop-read-asg --query AutoScalingGroups[0].{Desired:DesiredCapacity,Instances:Instances[].{Id:InstanceId,State:LifecycleState}} --output json
+{
+    "Desired": 1,
+    "Instances": [
+        {
+            "Id": "i-02ba5862189497035",
+            "State": "InService"
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:36:39     ===
+$ aws autoscaling set-desired-capacity --auto-scaling-group-name failstop-read-asg --desired-capacity 0
+
+(exit 0)
+
+=== 2026-10-10 03:36:40     ===
+$ aws ec2 stop-instances --instance-ids i-09c0dc7cf4eab07fb --output json
+{
+    "StoppingInstances": [
+        {
+            "InstanceId": "i-09c0dc7cf4eab07fb",
+            "CurrentState": {
+                "Code": 64,
+                "Name": "stopping"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:41:30     ===
+$ aws autoscaling describe-warm-pool --auto-scaling-group-name failstop-read-asg --query Instances[].{Id:InstanceId,State:LifecycleState} --output json
+[]
+(exit 0)
+
+=== 2026-10-10 03:41:31     ===
+$ aws ec2 describe-instances --query Reservations[].Instances[].[Tags[?Key=='Name']|[0].Value,State.Name] --output text
+failstop-bot-1	running
+load-1	stopped
+failstop-db-2	running
+failstop-app-2	running
+failstop-app-3	running
+failstop-db-1	running
+failstop-app-1	running
+(exit 0)
+
+=== 2026-10-10 03:41:39     ===
+$ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names failstop-read-asg --query AutoScalingGroups[0].{Desired:DesiredCapacity,Instances:Instances[].{Id:InstanceId,State:LifecycleState,Protected:ProtectedFromScaleIn}} --output json
+{
+    "Desired": 1,
+    "Instances": [
+        {
+            "Id": "i-02ba5862189497035",
+            "State": "InService",
+            "Protected": false
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:41:40     ===
+$ aws autoscaling describe-scaling-activities --auto-scaling-group-name failstop-read-asg --max-items 4 --query Activities[].{T:StartTime,Status:StatusCode,D:Description,C:Cause} --output json
+[
+    {
+        "T": "2026-10-09T18:06:06.908000+00:00",
+        "Status": "Successful",
+        "D": "Launching a new EC2 instance from warm pool: i-02ba5862189497035",
+        "C": "At 2026-10-09T18:05:56Z a user request explicitly set group desired capacity changing the desired capacity from 0 to 1.  At 2026-10-09T18:06:06Z an instance was started in response to a difference between desired and actual capacity, increasing the capacity from 0 to 1."
+    },
+    {
+        "T": "2026-10-09T16:14:14.375000+00:00",
+        "Status": "Successful",
+        "D": "Terminating EC2 instance: i-02ba5862189497035",
+        "C": "At 2026-10-09T16:14:09Z a user request explicitly set group desired capacity changing the desired capacity from 1 to 0.  At 2026-10-09T16:14:14Z an instance was taken out of service in response to a difference between desired and actual capacity, shrinking the capacity from 1 to 0.  At 2026-10-09T16:14:14Z instance i-02ba5862189497035 was selected for scale in to warm pool."
+    },
+    {
+        "T": "2026-10-09T16:09:52.090000+00:00",
+        "Status": "Successful",
+        "D": "Launching a new EC2 instance from warm pool: i-02ba5862189497035",
+        "C": "At 2026-10-09T16:09:49Z a user request explicitly set group desired capacity changing the desired capacity from 0 to 1.  At 2026-10-09T16:09:51Z an instance was started in response to a difference between desired and actual capacity, increasing the capacity from 0 to 1."
+    },
+    {
+        "T": "2026-10-07T08:12:11.133000+00:00",
+        "Status": "Successful",
+        "D": "Terminating EC2 instance: i-02ba5862189497035",
+        "C": "At 2026-10-07T08:12:00Z a user request explicitly set group desired capacity changing the desired capacity from 1 to 0.  At 2026-10-07T08:12:11Z an instance was taken out of service in response to a difference between desired and actual capacity, shrinking the capacity from 1 to 0.  At 2026-10-07T08:12:11Z instance i-02ba5862189497035 was selected for scale in to warm pool."
+    }
+]
+(exit 0)
+
+=== 2026-10-10 03:43:26     ===
+$ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names failstop-read-asg --query AutoScalingGroups[0].{Desired:DesiredCapacity,Instances:Instances} --output json
+{
+    "Desired": 0,
+    "Instances": []
+}
+(exit 0)
+
+=== 2026-10-10 03:43:26     ===
+$ aws autoscaling describe-warm-pool --auto-scaling-group-name failstop-read-asg --query Instances[].{Id:InstanceId,State:LifecycleState} --output json
+[
+    {
+        "Id": "i-02ba5862189497035",
+        "State": "Warmed:Stopped"
+    }
+]
+(exit 0)
+
+=== 2026-10-10 03:54:54     ===
+$ aws ec2 start-instances --instance-ids i-09c0dc7cf4eab07fb --output json
+{
+    "StartingInstances": [
+        {
+            "InstanceId": "i-09c0dc7cf4eab07fb",
+            "CurrentState": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PreviousState": {
+                "Code": 80,
+                "Name": "stopped"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 03:55:21     ===
+$ aws ssm send-command --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters {"commands":["failstop-read-load start 7500 4m 30s 16:1:1 KRW-XRP"]} --query Command.CommandId --output text
+a4791fbc-bd13-4d88-8390-dee0433ef4cf
+(exit 0)
+
+=== 2026-10-10 03:55:28     ===
+$ aws ssm get-command-invocation --command-id a4791fbc-bd13-4d88-8390-dee0433ef4cf --instance-id i-09c0dc7cf4eab07fb --query {Status:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output json
+{
+    "Status": "Success",
+    "Out": "started failstop-read-load alb=172.31.21.135,172.31.45.148,172.31.6.59 rate=7500 hold=4m ramp=30s mix=16:1:1 focus=KRW-XRP summary=/var/log/failstop-load/read-20261009T185523Z.json\n",
+    "Err": "Running as unit: failstop-read-load.service\n"
+}
+(exit 0)
+
+=== 2026-10-10 03:57:07     ===
+$ aws ssm send-command --instance-ids i-09c0dc7cf4eab07fb --document-name AWS-RunShellScript --parameters {"commands":["failstop-read-load stop"]} --query Command.CommandId --output text
+299b0550-1f6a-4b77-996a-b59edc7c64a6
+(exit 0)
+
+=== 2026-10-10 03:57:14     ===
+$ aws ssm get-command-invocation --command-id 299b0550-1f6a-4b77-996a-b59edc7c64a6 --instance-id i-09c0dc7cf4eab07fb --query StandardOutputContent --output text
+stopped failstop-read-load
+(exit 0)
+
+=== 2026-10-10 03:57:26     ===
+$ aws ec2 stop-instances --instance-ids i-09c0dc7cf4eab07fb --output json
+{
+    "StoppingInstances": [
+        {
+            "InstanceId": "i-09c0dc7cf4eab07fb",
+            "CurrentState": {
+                "Code": 64,
+                "Name": "stopping"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 04:36:03     ===
+$ aws ec2 stop-instances --instance-ids i-0d72b6a147b140a40 --force --output json
+{
+    "StoppingInstances": [
+        {
+            "InstanceId": "i-0d72b6a147b140a40",
+            "CurrentState": {
+                "Code": 64,
+                "Name": "stopping"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 04:36:59     ===
+$ aws ec2 start-instances --instance-ids i-0d72b6a147b140a40 --output json
+{
+    "StartingInstances": [
+        {
+            "InstanceId": "i-0d72b6a147b140a40",
+            "CurrentState": {
+                "Code": 0,
+                "Name": "pending"
+            },
+            "PreviousState": {
+                "Code": 80,
+                "Name": "stopped"
+            }
+        }
+    ]
+}
+(exit 0)
+
+=== 2026-10-10 04:46:19     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters file://ssm_patroni.json --query Command.CommandId --output text
+8e4e3ac1-c09d-4d31-8144-525080561cef
+(exit 0)
+
+=== 2026-10-10 04:46:21     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_outbox.json --query Command.CommandId --output text
+3493d608-5c9c-4f51-9642-702df3839740
+(exit 0)
+
+=== 2026-10-10 04:46:27     ===
+$ aws ssm get-command-invocation --command-id 8e4e3ac1-c09d-4d31-8144-525080561cef --instance-id i-054deba20ceb2e29c --query StandardOutputContent --output text
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Sync Standby | streaming |  6 |  5/9D49CAB0 |   0 | 5/9D49CAB0 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  6 |             |     |            |     |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+(exit 0)
+
+=== 2026-10-10 04:46:28     ===
+$ aws ssm get-command-invocation --command-id 3493d608-5c9c-4f51-9642-702df3839740 --instance-id i-0b3a8481650ab9289 --query {Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	incident:58f0a4b6bd3ff sent 1 None created 04:37:09 sent 04:37:20
+incident:874f8b60087cb sent 1 None created 04:37:09 sent 04:37:28
+incident:b7927ec5e8f8d sent 1 None created 04:37:09 sent 04:37:36
+incident:5582f1ce7692e sent 1 None created 04:37:42 sent 04:37:50
+incident:af16f3e737f9a sent 1 None created 04:42:09 sent 04:42:18
+incident:a471a8794eefc sent 1 None created 04:42:09 sent 04:42:25
+incident:433dd05522cfe sent 1 None created 04:42:09 sent 04:42:32
+incident:8ab05f206dbaa sent 1 None created 04:42:42 sent 04:42:51
+(exit 0)
+
+=== 2026-10-10 05:23:56     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+3ec43e6a-cebe-4543-b08b-16defb4ee82f
+(exit 0)
+
+=== 2026-10-10 05:24:00     ===
+$ aws ssm get-command-invocation --command-id 3ec43e6a-cebe-4543-b08b-16defb4ee82f --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	LISTEN 0      4096               127.0.0.1:9090       0.0.0.0:*    users:(("prometheus",pid=15608,fd=7))     
+== up
+{'__name__': 'up', 'account': 'personal', 'customer': 'exchange', 'environment': 'aws', 'instance': '172.31.0.40:9101', 'job': 'exchange-api', 'node': 'app-1', 'role': 'app', 'service': 'api'} 1
+{'__name__': 'up', 'account': 'personal', 'customer': 'exchange', 'environment': 'aws', 'instance': '172.31.32.40:9101', 'job': 'exchange-api', 'node': 'app-2', 'role': 'app', 'service': 'api'} 1
+{'__name__': 'up', 'account': 'personal', 'customer': 'exchange', 'environment': 'aws', 'instance': '172.31.43.63:9101', 'job': 'exchange-api', 'node': 'app-3', 'role': 'reader', 'service': 'api'} 1
+== reads
+success None
+== all
+{'instance': '172.31.0.40:9101', 'node': 'app-1'} 2514.533
+{'instance': '172.31.32.40:9101', 'node': 'app-2'} 2511
+{'instance': '172.31.43.63:9101', 'node': 'app-3'} 2499.266
+== cpu
+{'instance': '172.31.0.40:9101', 'node': 'app-1'} 0.544252
+{'instance': '172.31.32.40:9101', 'node': 'app-2'} 0.533333
+{'instance': '172.31.43.63:9101', 'node': 'app-3'} 0.823589
+	Success
+(exit 0)
+
+=== 2026-10-10 05:24:19     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+32b30978-de9f-4c36-b33d-2a4caa30c64a
+(exit 0)
+
+=== 2026-10-10 05:24:26     ===
+$ aws ssm get-command-invocation --command-id 32b30978-de9f-4c36-b33d-2a4caa30c64a --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	== uri_top
+{'node': 'app-1', 'status': '200', 'uri': '/api/v1/markets'} 2124.066
+{'node': 'app-2', 'status': '200', 'uri': '/api/v1/markets'} 2024.466
+{'node': 'app-3', 'status': '200', 'uri': '/api/v1/markets'} 1253.066
+{'node': 'app-3', 'status': '429', 'uri': '/api/v1/markets'} 964.6666
+{'node': 'app-2', 'status': '429', 'uri': '/api/v1/markets'} 193.5333
+{'node': 'app-1', 'status': '200', 'uri': '/api/v1/candles/{unit}'} 132.5333
+{'node': 'app-2', 'status': '200', 'uri': '/api/v1/candles/{unit}'} 132.1333
+{'node': 'app-1', 'status': '200', 'uri': '/api/v1/trades'} 132
+{'node': 'app-2', 'status': '200', 'uri': '/api/v1/trades'} 128
+{'node': 'app-1', 'status': '429', 'uri': '/api/v1/markets'} 100
+{'node': 'app-3', 'status': '200', 'uri': '/api/v1/trades'} 82.8
+{'node': 'app-3', 'status': '200', 'uri': '/api/v1/candles/{unit}'} 78.46666
+== READS
+{'instance': '172.31.0.40:9101'} 0
+{'instance': '172.31.32.40:9101'} 0
+{'instance': '172.31.43.63:9101'} 0
+== REJ
+{'instance': '172.31.0.40:9101'} 0
+{'instance': '172.31.32.40:9101'} 0
+{'instance': '172.31.43.63:9101'} 0
+== WRITES
+{'instance': '172.31.0.40:9101'} 0
+{'instance': '172.31.32.40:9101'} 0
+{'instance': '172.31.43.63:9101'} 0
+	Success
+(exit 0)
+
+=== 2026-10-10 05:25:08     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+6d0a0939-e981-4101-95c9-e4f3dd1689eb
+(exit 0)
+
+=== 2026-10-10 05:25:16     ===
+$ aws ssm get-command-invocation --command-id 6d0a0939-e981-4101-95c9-e4f3dd1689eb --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	54:  - job_name: exchange-api
+55-    metrics_path: /metrics
+56-    static_configs:
+57-      - targets: ['172.31.0.40:9101']
+58-        labels: {customer: exchange, environment: aws, account: personal, role: app, node: app-1, service: api}
+59-      - targets: ['172.31.32.40:9101']
+60-        labels: {customer: exchange, environment: aws, account: personal, role: app, node: app-2, service: api}
+--
+113:  - job_name: exchange-api-reader
+114-    metrics_path: /metrics
+115-    ec2_sd_configs:
+116-      - region: ap-northeast-2
+7:  scrape_interval: 15s
+149:    scrape_interval: 5s
+== samples10s 2026-10-09T18:07:30Z
+app-2 1
+app-3 1
+== samples30s 2026-10-09T18:07:30Z
+app-1 2
+app-2 2
+app-3 2
+== rate10s 2026-10-09T18:07:30Z
+empty None
+== samples10s 2026-10-09T18:08:00Z
+app-2 1
+app-3 1
+== samples30s 2026-10-09T18:08:00Z
+app-1 2
+app-2 2
+app-3 2
+== rate10s 2026-10-09T18:08:00Z
+empty None
+== scrape_interval_hint 2026-10-09T18:08:00Z
+app-1 0.049230
+app-2 0.045086
+app-3 0.025597
+== samples10s 2026-10-09T18:08:04Z
+app-2 1
+== samples30s 2026-10-09T18:08:04Z
+app-1 2
+app-2 2
+app-3 2
+== rate10s 2026-10-09T18:08:04Z
+empty None
+	Success
+(exit 0)
+
+=== 2026-10-10 05:25:28     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+4de0c13d-ec5a-46c8-ba11-c0e1b4a8dee6
+(exit 0)
+
+=== 2026-10-10 05:25:34     ===
+$ aws ssm get-command-invocation --command-id 4de0c13d-ec5a-46c8-ba11-c0e1b4a8dee6 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	7:  scrape_interval: 15s
+31:  - job_name: prometheus
+36:  # bot-1 ÀÇ node_exporter ´Â ÇÐ±³Ã³·³ ·çÇÁ¹é¿¡¸¸ ¿¬´Ù. °°Àº È£½ºÆ®ÀÇ Prometheus ¸¸ ÀÐ´Â´Ù.
+37:  - job_name: linux
+42:  - job_name: linux-host
+54:  - job_name: exchange-api
+62:  - job_name: postgres
+71:  - job_name: patroni
+80:  - job_name: etcd
+89:  # ¼­ºñ½º °æ·Î È­¸éÀÇ ¿ÜºÎ Á¢¼Ó¡¤CloudFront¡¤ALB Ä­. bot-1 ÀÇ blackbox_exporter(127.0.0.1:9115)°¡ Âî¸¥´Ù(install-blackbox.sh).
+92:  - job_name: blackbox-http
+103:        target_label: __param_target
+105:        target_label: __param_module
+107:        target_label: instance
+108:      - target_label: __address__
+109:        replacement: 127.0.0.1:9115
+113:  - job_name: exchange-api-reader
+117:        port: 9101
+119:        filters:
+120:          - name: tag:Role
+121:            values: [app-3]
+123:            values: [running]
+126:        target_label: __address__
+127:        replacement: '${1}:9101'
+128:      - target_label: job
+129:        replacement: exchange-api
+130:      - target_label: customer
+131:        replacement: exchange
+132:      - target_label: environment
+133:        replacement: aws
+134:      - target_label: account
+135:        replacement: personal
+136:      - target_label: role
+137:        replacement: reader
+138:      - target_label: node
+139:        replacement: app-3
+140:      - target_label: service
+141:        replacement: api
+148:  - job_name: exchange-admin
+149:    scrape_interval: 5s
+155:      - target_label: instance
+156:        replacement: exchange-admin
+159:        regex: 'exchange_ops_threshold|exchange_msp_.*'
+162:  # Á¶È¸ Àü¿ë app-3 ÀÇ È£½ºÆ® ÁöÇ¥(node_exporter 9100). À§ exchange-api-reader ¿Í °°Àº ¹æ½ÄÀ¸·Î EC2 ÅÂ±×·Î Ã£´Â´Ù. ¾Û °èÃþ CPU ÆÐ³ÎÀÌ
+164:  - job_name: linux-host-reader
+167:        port: 9100
+169:        filters:
+170:          - name: tag:Role
+171:            values: [app-3]
+173:            values: [running]
+176:        target_label: __address__
+177:        replacement: '${1}:9100'
+178:      - target_label: job
+179:        replacement: linux-host
+180:      - target_label: customer
+181:        replacement: exchange
+182:      - target_label: environment
+183:        replacement: aws
+184:      - target_label: account
+185:        replacement: personal
+186:      - target_label: role
+187:        replacement: reader
+188:      - target_label: node
+189:        replacement: app-3
+190:      - target_label: service
+191:        replacement: infra
+194:  # È£½ºÆ® ÁöÇ¥(node_exporter 9100, load-1 º¸¾È ±×·ìÀÌ bot-1 ±×·ì¿¡¸¸ ¿¬´Ù)¸¸ ÀÐ´Â´Ù. ¼­ºñ½º Èå¸§ÀÇ ºÎÇÏ ¹ß»ý±â Ä­ÀÌ up{job="load"}
+196:  - job_name: load
+199:        port: 9100
+201:        filters:
+202:          - name: tag:Role
+203:            values: [load-1]
+205:            values: [running]
+208:        target_label: __address__
+209:        replacement: '${1}:9100'
+210:      - target_label: customer
+211:        replacement: exchange
+212:      - target_label: environment
+213:        replacement: aws
+214:      - target_label: account
+	Success
+(exit 0)
+
+=== 2026-10-10 05:28:25     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+64b69a7c-a2a4-4c77-b7bf-0b3f2c10bd00
+(exit 0)
+
+=== 2026-10-10 05:28:32     ===
+$ aws ssm get-command-invocation --command-id 64b69a7c-a2a4-4c77-b7bf-0b3f2c10bd00 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	{"status":"success","data":{"version":"3.13.3","revision":"b273ae3adeb64ad630d65ef7f16440df95658410","branch":"HEAD","buildUser":"root@a29bd0364bed","buildDate":"20260907-11:42:33","goVersion":"go1.26
+== READS_range10s
+empty None
+== READS_range30s
+172.31.0.40:9101 16 ['2320.2', '2320.2', '2320.2', '2121.6', '2121.6', '2121.6', '2121.6', '2121.6', '2121.6', '2121.6', '2354.1', '2354.1', '2354.1', '2354.1', '2354.1', '2354.1']
+172.31.32.40:9101 16 ['2063.6', '2063.6', '2063.6', '2063.6', '2063.6', '2063.6', '2063.6', '2055.0', '2055.0', '2055.0', '2055.0', '2055.0', '2055.0', '2055.0', '2055.0', '2267.5']
+172.31.43.63:9101 13 ['301.10', '333.46', '365.82', '398.18', '430.54', '462.90', '485.4', '485.4', '762.39', '819.75', '860.33', '860.33', '860.33']
+	Success
+(exit 0)
+
+=== 2026-10-10 05:29:12     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+b3cdb887-ce28-42c1-860b-9a7ca702b33c
+(exit 0)
+
+=== 2026-10-10 05:29:18     ===
+$ aws ssm get-command-invocation --command-id b3cdb887-ce28-42c1-860b-9a7ca702b33c --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	  - job_name: exchange-admin
+    scrape_interval: 5s
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['127.0.0.1:8081']
+        labels: {customer: exchange, environment: aws, account: personal, role: observability, node: bot-1, service: admin}
+    relabel_configs:
+      - target_label: instance
+        replacement: exchange-admin
+    metric_relabel_configs:
+      - source_labels: [__name__]
+  alertmanager.service                                  loaded active     running       Failstop personal AWS alerts (Alertmanager)
+  blackbox_exporter.service                             loaded active     running       Prometheus blackbox exporter (failstop service path probes)
+  etcd.service                                          loaded active     running       etcd member for Patroni (failstop-db)
+  exchange-bot.service                                  loaded active     running       Exchange market bot via HTTPS
+  failstop-cloudfront-textfile.service                  loaded activating start   start Write CloudFront request rate for node_exporter textfile collector
+  failstop-read-capacity.service                        loaded active     running       Failstop read tier reconciler (admin desired nodes to read Auto Scaling group)
+  failstop-reporting.service                            loaded active     running       Failstop operational evidence and Teams reporting
+total 0
+drwxr-xr-x. 3 root root 20 Oct  6 10:30 .
+drwxr-xr-x. 6 root root 84 Oct  6 10:30 ..
+drwxr-xr-x. 3 root root 23 Oct  6 10:30 deploy
+	Success
+(exit 0)
+
+=== 2026-10-10 05:29:28     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+a8682891-49a4-4f1d-9f5a-93daaa362745
+(exit 0)
+
+=== 2026-10-10 05:29:35     ===
+$ aws ssm get-command-invocation --command-id a8682891-49a4-4f1d-9f5a-93daaa362745 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+grep: (standard input): binary file matches
+failed to run commands: exit status 1	pid=834395
+exchang+ Fri Oct  9 14:30:12 2026 /usr/bin/java -Duser.timezone=UTC -Xms128m -Xmx384m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange-bot/current/app.jar
+jar=
+total 183796
+dr-xr-xr-x.  2 root root       32768 Oct  7 00:28 .
+drwxr-xr-x. 12 root root         144 Sep 28 23:37 ..
+-rwxr-xr-x.  1 root root       53144 Jan 28  2026 [
+-rwxr-xr-x.  1 root root       33488 Feb  1  2023 ac
+-rwxr-xr-x.  1 root root       16120 Nov 11  2025 acpi_listen
+-rwxr-xr-x.  1 root root       32784 Nov 24  2025 addr2line
+-rwxr-xr-x.  1 root root          33 Jan 28  2023 alias
+-rwxr-xr-x.  1 root root    16934944 Sep  8 17:45 amazon-ssm-agent
+lrwxrwxrwx.  1 root root          25 Sep 28 23:38 apropos -> /etc/alternatives/apropos
+lrwxrwxrwx.  1 root root           6 Feb  1  2023 apropos.man-db -> whatis
+-rwxr-xr-x.  1 root root       57680 Nov 24  2025 ar
+-rwxr-xr-x.  1 root root       32512 Jan 28  2026 arch
+-rwxr-xr-x.  1 root root       15760 Sep 22 20:21 arpaname
+-rwxr-xr-x.  1 root root       36288 Nov  3  2023 arping
+-rwxr-xr-x.  1 root root      719952 Nov 24  2025 as
+-rwxr-xr-x.  1 root root       40696 Aug 21 14:15 aserver
+-rwsr-xr-x.  1 root root       58064 Jan 30  2023 at
+lrwxrwxrwx.  1 root root           2 Jan 30  2023 atq -> at
+lrwxrwxrwx.  1 root root           2 Jan 30  2023 atrm -> at
+-rwxr-xr-x.  1 root root       16200 Jan 29  2023 attr
+-rwxr-xr-x.  1 root root       15197 Apr 30 17:09 audit2allow
+lrwxrwxrwx.  1 root root          11 Apr 30 17:09 audit2why -> audit2allow
+-rwxr-xr-x.  1 root root       19968 Oct 21  2025 aulast
+-rwxr-xr-x.  1 root root       15784 Oct 21  2025 aulastlog
+-rwxr-xr-x.  1 root root       15784 Oct 21  2025 ausyscall
+-rwxr-xr-x.  1 root root       36440 Oct 21  2025 auvirt
+lrwxrwxrwx.  1 root root           4 Jul 28 23:58 awk -> gawk
+-rwxr-xr-x.  1 root root         819 Sep 21 18:30 aws
+-rwxr-xr-x.  1 root root        1231 Sep 21 18:30 aws_completer
+-rwxr-xr-x.  1 root root       53112 Jan 28  2026 b2sum
+-rwxr-xr-x.  1 root root       36640 Jan 28  2026 base32
+-rwxr-xr-x.  1 root root       36632 Jan 28  2026 base64
+-rwxr-xr-x.  1 root root       32528 Jan 28  2026 basename
+-rwxr-xr-x.  1 root root       49240 Jan 28  2026 basenc
+-rwxr-xr-x.  1 root root     1440144 Jan 28  2023 bash
+lrwxrwxrwx.  1 root root          10 Jan 28  2023 bashbug -> bashbug-64
+-rwxr-xr-x.  1 root root        7202 Jan 28  2023 bashbug-64
+-rwxr-xr-x.  1 root root         140 Jan 30  2023 batch
+-rwxr-xr-x.  1 root root       91480 Jan 30  2023 bc
+-rwxr-xr-x.  1 root root          30 Jan 28  2023 bg
+-rwxr-xr-x.  1 root root       98872 Sep 24 06:27 bootctl
+lrwxrwxrwx.  1 root root           5 Jan 29  2023 bunzip2 -> bzip2
+-rwxr-xr-x.  1 root root      106912 Sep 24 06:27 busctl
+lrwxrwxrwx.  1 root root           5 Jan 29  2023 bzcat -> bzip2
+lrwxrwxrwx.  1 root root           6 Jan 29  2023 bzcmp -> bzdiff
+-rwxr-xr-x.  1 root root        2144 Jan 29  2023 bzdiff
+lrwxrwxrwx.  1 root root           6 Jan 29  2023 bzegrep -> bzgrep
+lrwxrwxrwx.  1 root root           6 Jan 29  2023 bzfgrep -> bzgrep
+-rwxr-xr-x.  1 root root        2058 Jan 29  2023 bzgrep
+-rwxr-xr-x.  1 root root       41168 Jan 29  2023 bzip2
+-rwxr-xr-x.  1 root root       16376 Jan 29  2023 bzip2recover
+lrwxrwxrwx.  1 root root           6 Jan 29  2023 bzless -> bzmore
+-rwxr-xr-x.  1 root root        1263 Jan 29  2023 bzmore
+-rwxr-xr-x.  1 root root       28120 Nov 24  2025 c++filt
+-rwxr-xr-x.  1 root root        1648 Jun 11 16:21 ca-legacy
+-rwxr-xr-x.  1 root root       53352 Jul 10 19:10 cal
+lrwxrwxrwx.  1 root root           3 Mar  5  2026 captoinfo -> tic
+-rwxr-xr-x.  1 root root       36616 Jan 28  2026 cat
+-rwxr-xr-x.  1 root root        3289 Jul 13 12:13 catchsegv
+-rwxr-xr-x.  1 root root       37512 Feb  1  2023 catman
+-rwxr-xr-x.  1 root root          30 Jan 28  2023 cd
+-rwxr-xr-x.  1 root root       14464 Sep 25 01:52 centrino-decode
+lrwxrwxrwx.  1 root root          53 Sep 23 06:10 cfn-ca-uninstall -> ../..//opt/aws/apitools/cfn-init/bin/cfn-ca-uninstall
+lrwxrwxrwx.  1 root root          57 Sep 23 06:10 cfn-elect-cmd-leader -> ../..//opt/aws/apitools/cfn-init/bin/cfn-elect-cmd-leader
+lrwxrwxrwx.  1 root root          53 Sep 23 06:10 cfn-get-metadata -> ../..//opt/aws/apitools/cfn-init/bin/cfn-get-metadata
+lrwxrwxrwx.  1 root root          44 Sep 23 06:10 cfn-hup -> ../..//opt/aws/apitools/cfn-init/bin/cfn-hup
+lrwxrwxrwx.  1 root root          45 Sep 23 06:10 cfn-init -> ../..//opt/aws/apitools/cfn-init/bin/cfn-init
+lrwxrwxrwx.  1 root root          55 Sep 23 06:10 cfn-send-cmd-event -> ../..//opt/aws/apitools/cfn-init/bin/cfn-send-cmd-event
+lrwxrwxrwx.  1 root root          56 Sep 23 06:10 cfn-send-cmd-result -> ../..//opt/aws/apitools/cfn-init/bin/cfn-send-cmd-result
+lrwxrwxrwx.  1 root root          47 Sep 23 06:10 cfn-signal -> ../..//opt/aws/apitools/cfn-init/bin/cfn-signal
+-rwxr-xr-x.  1 root root       23992 Jul 14 18:37 chacl
+-rwsr-xr-x.  1 root root       74360 Nov 20  2023 chage
+-rwxr-xr-x.  1 root root         225 Feb  2  2023 chardetect
+-rwxr-xr-x.  1 root root       16336 Jan 30  2023 chattr
+-rwxr-xr-x.  1 root root       13855 Apr 30 17:09 chcat
+-rwxr-xr-x.  1 root root       61768 Jan 28  2026 chcon
+-rwxr-xr-x.  1 root root      467256 Jan 30  2023 checkmodule
+-rwxr-xr-x.  1 root root      533312 Jan 30  2023 checkpolicy
+-rwxr-xr-x.  1 root root         961 Feb  2  2023 chevron
+-rwxr-xr-x.  1 root root       57600 Jan 28  2026 chgrp
+-rwxr-xr-x.  1 root root       36528 Jul 10 19:10 chmem
+-rwxr-xr-x.  1 root root       57600 Jan 28  2026 chmod
+-rwxr-xr-x.  1 root root       24144 Jul 10 19:10 choom
+-rwxr-xr-x.  1 root root       57608 Jan 28  2026 chown
+-rwxr-xr-x.  1 root root       99320 Jan 22  2026 chronyc
+-rwxr-xr-x.  1 root root       28256 Jul 10 19:10 chrt
+-rwxr-xr-x.  1 root root       15824 Aug 21 21:21 chvt
+-rwxr-xr-x.  1 root root       24712 May 31  2023 cifsiostat
+-rwxr-xr-x.  1 root root       32432 Jan 28  2026 cksum
+-rwxr-xr-x.  1 root root       15792 Mar  5  2026 clear
+-rwxr-xr-x.  1 root root       27968 Nov  3  2023 clockdiff
+-rwxr-xr-x.  1 root root         972 Jul 30  2025 cloud-id
+-rwxr-xr-x.  1 root root         976 Jul 30  2025 cloud-init
+-rwxr-xr-x.  1 root root        2112 Jul 30  2025 cloud-init-per
+-rwxr-xr-x.  1 root root       45472 Jan 29  2023 cmp
+-rwxr-xr-x.  1 root root       24080 Jul 10 19:10 col
+-rwxr-xr-x.  1 root root       19952 Jul 10 19:10 colcrt
+-rwxr-xr-x.  1 root root       15824 Jul 10 19:10 colrm
+-rwxr-xr-x.  1 root root       36480 Jul 10 19:10 column
+-rwxr-xr-x.  1 root root       36696 Jan 28  2026 comm
+-rwxr-xr-x.  1 root root          35 Jan 28  2023 command
+-rwxr-xr-x.  1 root root       73944 Sep 24 06:27 coredumpctl
+-rwxr-xr-x.  1 root root      144680 Jan 28  2026 cp
+-rwxr-xr-x.  1 root root      149144 Feb 15  2024 cpio
+-rwxr-xr-x.  1 root root       92240 Sep 25 01:52 cpupower
+lrwxrwxrwx.  1 root root           4 Dec 10  2024 csh -> tcsh
+-rwxr-xr-x.  1 root root      111568 Jan 28  2026 csplit
+-rwxr-xr-x.  1 root root      247408 Sep 22 20:02 curl
+-rwxr-xr-x.  1 root root       44944 Jan 28  2026 cut
+-rwxr-xr-x.  1 root root      344208 Apr  7  2026 cvtsudoers
+-rwxr-xr-x.  1 root root     1694568 Jan 30  2023 cyrusbdb2current
+-rwxr-xr-x.  1 root root      106616 Jan 28  2026 date
+-rwxr-xr-x.  1 root root      241792 Jan 31  2023 dbus-broker
+-rwxr-xr-x.  1 root root      133224 Jan 31  2023 dbus-broker-launch
+-rwxr-xr-x.  1 root root       49680 Jan 30  2023 dc
+-rwxr-xr-x.  1 root root       69856 Jan 28  2026 dd
+-rwxr-xr-x.  1 root root       15840 Aug 21 21:21 deallocvt
+lrwxrwxrwx.  1 root root          22 Sep 15 20:50 debuginfo-install -> /usr/libexec/dnf-utils
+-rwxr-xr-x.  1 root root       19952 Apr  1  2025 debuginfod-find
+-rwxr-xr-x.  1 root root       47728 Sep 22 20:21 delv
+-rwxr-xr-x.  1 root root       86848 Jan 28  2026 df
+-rwxr-xr-x.  1 root root      149576 Jan 29  2023 diff
+-rwxr-xr-x.  1 root root       57896 Jan 29  2023 diff3
+-rwxr-xr-x.  1 root root      152592 Sep 22 20:21 dig
+-rwxr-xr-x.  1 root root      141016 Jan 28  2026 dir
+-rwxr-xr-x.  1 root root       40832 Jan 28  2026 dircolors
+-rwxr-xr-x.  1 root root       32344 Jan 28  2026 dirname
+-rwxr-xr-x.  1 root root         953 Jan 29  2023 distro
+-rwxr-xr-x.  1 root root       73776 Jul 10 19:10 dmesg
+lrwxrwxrwx.  1 root root           5 Sep 15 20:48 dnf -> dnf-3
+-rwxr-xr-x.  1 root root        2092 Sep 15 20:48 dnf-3
+lrwxrwxrwx.  1 root root           8 Jan 31  2023 dnsdomainname -> hostname
+-rwxr-xr-x.  1 root root       24040 Sep 22 20:21 dnstap-read
+lrwxrwxrwx.  1 root root           8 Jan 31  2023 domainname -> hostname
+-rwxr-xr-x.  1 root root       95230 Aug 21 14:06 dracut
+-rwxr-xr-x.  1 root root      157200 Jan 28  2026 du
+-rwxr-xr-x.  1 root root      168080 Aug 21 21:21 dumpkeys
+-rwxr-xr-x.  1 root root      237840 Oct 23  2025 dwz
+-rwxr-xr-x.  1 root root        9895 Aug 25 21:03 ec2-metadata
+-rwxr-xr-x.  1 root root       28232 Jan 28  2026 echo
+-rwxr-xr-x.  1 root root       53864 Jan 29  2023 ed
+-rwxr-xr-x.  1 root root      107848 Feb 10  2023 efisecdb
+-rwxr-xr-x.  1 root root       38256 Feb 10  2023 efivar
+-rwxr-xr-x.  1 root root          45 Jan 30  2023 egrep
+-rwxr-xr-x.  1 root root       44944 Jul 10 19:10 eject
+-rwxr-xr-x.  1 root root       37080 Nov 24  2025 elfedit
+-rwxr-xr-x.  1 root root        2976 May 18 20:17 encguess
+-rwxr-xr-x.  1 root root       45368 Jan 28  2026 env
+-rwxr-xr-x.  1 root root       37024 Jan 28  2023 envsubst
+lrwxrwxrwx.  1 root root          26 Sep 23 17:07 epmd -> /usr/lib64/erlang/bin/epmd
+-rwxr-xr-x.  1 root root      194112 Jan 30  2023 eqn
+lrwxrwxrwx.  1 root root          25 Sep 23 17:07 erl -> /usr/lib64/erlang/bin/erl
+lrwxrwxrwx.  1 root root          26 Sep 23 17:07 erlc -> /usr/lib64/erlang/bin/erlc
+lrwxrwxrwx.  1 root root          29 Sep 23 17:07 escript -> /usr/lib64/erlang/bin/escript
+lrwxrwxrwx.  1 root root          15 Aug 25 17:50 ex -> /usr/libexec/vi
+-rwxr-xr-x.  1 root root       40784 Jan 28  2026 expand
+-rwxr-xr-x.  1 root root      111312 Jan 28  2026 expr
+-rwxr-xr-x.  1 root root       73872 Jan 28  2026 factor
+-rwxr-xr-x.  1 root root       24040 Jul 10 19:10 fallocate
+-rwxr-xr-x.  1 root root       28224 Jan 28  2026 false
+-rwxr-xr-x.  1 root root          30 Jan 28  2023 fc
+-rwxr-xr-x.  1 root root         139 Jan 31  2023 fc-cache
+-rwxr-xr-x.  1 root root       24512 Jan 31  2023 fc-cache-64
+-rwxr-xr-x.  1 root root       20400 Jan 31  2023 fc-cat
+-rwxr-xr-x.  1 root root       16208 Jan 31  2023 fc-conflist
+-rwxr-xr-x.  1 root root       16208 Jan 31  2023 fc-list
+-rwxr-xr-x.  1 root root       20320 Jan 31  2023 fc-match
+-rwxr-xr-x.  1 root root       16208 Jan 31  2023 fc-pattern
+-rwxr-xr-x.  1 root root       16208 Jan 31  2023 fc-query
+-rwxr-xr-x.  1 root root       16208 Jan 31  2023 fc-scan
+-rwxr-xr-x.  1 root root       16216 Jan 31  2023 fc-validate
+-rwxr-xr-x.  1 root root          30 Jan 28  2023 fg
+-rwxr-xr-x.  1 root root       15816 Aug 21 21:21 fgconsole
+-rwxr-xr-x.  1 root root          45 Jan 30  2023 fgrep
+-rwxr-xr-x.  1 root root       49056 May  7 00:22 filan
+-rwxr-xr-x.  1 root root       29064 Aug 30  2023 file
+-rwxr-xr-x.  1 root root       24152 Jul 10 19:10 fincore
+-rwxr-xr-x.  1 root root      292856 Jan 30  2023 find
+lrwxrwxrwx.  1 root root          22 Sep 15 20:50 find-repos-of-install -> /usr/libexec/dnf-utils
+-rwxr-xr-x.  1 root root       66576 Jul 10 19:10 findmnt
+-rwxr-xr-x.  1 root root        1764 Feb 24  2026 fips-finish-install
+-rwxr-xr-x.  1 root root        8213 Feb 24  2026 fips-mode-setup
+-rwxr-xr-x.  1 root root       24216 Jul 10 19:10 flock
+-rwxr-xr-x.  1 root root       40800 Jan 28  2026 fmt
+-rwxr-xr-x.  1 root root       36648 Jan 28  2026 fold
+-rwxr-xr-x.  1 root root       24584 Feb 10  2023 free
+-rwxr-xr-x.  1 root root       32280 Aug 11 22:23 funzip
+-rwxr-xr-x.  1 root root       75200 Jan 30  2023 fuse2fs
+-rwxr-xr-x.  1 root root       24056 Jul 27 20:23 gapplication
+-rwxr-xr-x.  1 root root      718088 Jul 28 23:58 gawk
+-rwxr-xr-x.  1 root root       53008 Jul 27 20:23 gdbus
+-rwxr-xr-x.  1 root root       28200 Jul 13 12:14 gencat
+lrwxrwxrwx.  1 root root           3 Jan 30  2023 geqn -> eqn
+-rwxr-xr-x.  1 root root       36160 Jul 13 12:14 getconf
+-rwxr-xr-x.  1 root root       36792 Jul 13 12:14 getent
+-rwxr-xr-x.  1 root root       32320 Jul 14 18:37 getfacl
+-rwxr-xr-x.  1 root root       25040 Jan 29  2023 getfattr
+-rwxr-xr-x.  1 root root       15808 Aug 21 21:21 getkeycodes
+-rwxr-xr-x.  1 root root       24104 Jul 10 19:10 getopt
+-rwxr-xr-x.  1 root root          35 Jan 28  2023 getopts
+-rwxr-xr-x.  1 root root       36992 Jan 28  2023 gettext
+-rwxr-xr-x.  1 root root        5191 Jan 28  2023 gettext.sh
+-rwxr-xr-x.  1 root root      106664 Jul 27 20:23 gio
+-rwxr-xr-x.  1 root root       19872 Jul 27 20:23 gio-querymodules-64
+-rwxr-xr-x.  1 root root       57104 Jul 27 20:23 glib-compile-schemas
+lrwxrwxrwx.  1 root root           4 Jan 30  2023 gneqn -> neqn
+lrwxrwxrwx.  1 root root           5 Jan 30  2023 gnroff -> nroff
+-rwsr-xr-x.  1 root root       78680 Nov 20  2023 gpasswd
+-rwxr-xr-x.  1 root root      937600 Jun 30 20:58 gpg
+-rwxr-xr-x.  1 root root       41176 Jan 29  2023 gpg-error
+lrwxrwxrwx.  1 root root           3 Jun 30 20:58 gpg2 -> gpg
+-rwxr-xr-x.  1 root root       84424 May 19  2025 gpgme-json
+lrwxrwxrwx.  1 root root           3 Jan 30  2023 gpic -> pic
+-rwxr-xr-x.  1 root root      104184 Nov 24  2025 gprof
+-rwxr-xr-x.  1 root root       28280 Jun 16 10:44 gr2fonttest
+-rwxr-xr-x.  1 root root      162576 Jan 30  2023 grep
+-rwxr-xr-x.  1 root root       99184 Jan 30  2023 groff
+-rwxr-xr-x.  1 root root      171360 Jan 30  2023 grops
+-rwxr-xr-x.  1 root root      125224 Jan 30  2023 grotty
+-rwxr-xr-x.  1 root root       36616 Jan 28  2026 groups
+-rwxr-xr-x.  1 root root       22538 Jun 30 19:17 growpart
+-rwxr-xr-x.  1 root root        4522 May 25 02:27 grub2-amazon-setup
+-rwxr-xr-x.  1 root root      474672 May 25 02:27 grub2-editenv
+-rwxr-xr-x.  1 root root     1137416 May 25 02:27 grub2-file
+-rwxr-xr-x.  1 root root      276096 May 25 02:27 grub2-menulst2cfg
+-rwxr-xr-x.  1 root root      448928 May 25 02:27 grub2-mkimage
+-rwxr-xr-x.  1 root root      302000 May 25 02:27 grub2-mkpasswd-pbkdf2
+-rwxr-xr-x.  1 root root      289000 May 25 02:27 grub2-mkrelpath
+-rwxr-xr-x.  1 root root     1051952 May 25 02:27 grub2-mount
+-rwxr-xr-x.  1 root root      322568 May 25 02:27 grub2-script-check
+-rwxr-xr-x.  1 root root       32432 Jul 27 20:23 gsettings
+lrwxrwxrwx.  1 root root           6 Jan 30  2023 gsoelim -> soelim
+lrwxrwxrwx.  1 root root           3 Dec 18  2023 gtar -> tar
+lrwxrwxrwx.  1 root root           3 Jan 30  2023 gtbl -> tbl
+lrwxrwxrwx.  1 root root           5 Jan 30  2023 gtroff -> troff
+-rwxr-xr-x.  1 root root        2350 Feb  8  2023 gunzip
+-rwxr-xr-x.  1 root root        6451 Feb  8  2023 gzexe
+-rwxr-xr-x.  1 root root      100088 Feb  8  2023 gzip
+-rwxr-xr-x.  1 root root       36568 Jul 10 19:10 hardlink
+-rwxr-xr-x.  1 root root          32 Jan 28  2023 hash
+-rwxr-xr-x.  1 root root       40848 Jan 28  2026 head
+-rwxr-xr-x.  1 root root       52936 Jul 10 19:10 hexdump
+-rwxr-xr-x.  1 root root       22919 Aug 20 09:19 hibinit-agent
+-rwxr-xr-x.  1 root root      156664 Sep 24 06:27 homectl
+-rwxr-xr-x.  1 root root      123888 Sep 22 20:21 host
+-rwxr-xr-x.  1 root root       32520 Jan 28  2026 hostid
+-rwxr-xr-x.  1 root root       24512 Jan 31  2023 hostname
+-rwxr-xr-x.  1 root root       32512 Sep 24 06:27 hostnamectl
+-rwxr-xr-x.  1 root root      105232 Jan 31  2023 hunspell
+lrwxrwxrwx.  1 root root           7 Jul 10 19:10 i386 -> setarch
+-rwxr-xr-x.  1 root root       65840 Jul 13 12:14 iconv
+-rwxr-xr-x.  1 root root       40760 Jan 28  2026 id
+-rwxr-xr-x.  1 root root      320376 Jan 30  2023 info
+-rwxr-xr-x.  1 root root       69600 Mar  5  2026 infocmp
+lrwxrwxrwx.  1 root root           3 Mar  5  2026 infotocap -> tic
+-rwxr-xr-x.  1 root root      148824 Jan 28  2026 install
+-rwxr-xr-x.  1 root root       19968 Jul 10 19:10 ionice
+-rwxr-xr-x.  1 root root       57800 May 31  2023 iostat
+-rwxr-xr-x.  1 root root       24136 Jul 10 19:10 ipcmk
+-rwxr-xr-x.  1 root root       24072 Jul 10 19:10 ipcrm
+-rwxr-xr-x.  1 root root       40568 Jul 10 19:10 ipcs
+-rwxr-xr-x.  1 root root       36400 Jul 10 19:10 irqtop
+-rwxr-xr-x.  1 root root       15808 Jul 10 19:10 isosize
+lrwxrwxrwx.  1 root root          22 Oct  6 05:43 java -> /etc/alternatives/java
+-rwxr-xr-x.  1 root root         129 Apr 17  2023 jemalloc.sh
+-rwxr-xr-x.  1 root root          32 Jan 28  2023 jobs
+-rwxr-xr-x.  1 root root       53224 Jan 28  2026 join
+-rwxr-xr-x.  1 root root       77968 Sep 24 06:27 journalctl
+-rwxr-xr-x.  1 root root        1698 Feb 16  2023 jp.py
+-rwxr-xr-x.  1 root root       32216 Jun 15 20:38 jq
+lrwxrwxrwx.  1 root root          14 Feb  2  2023 jsondiff -> ./jsondiff-3.9
+lrwxrwxrwx.  1 root root          14 Feb  2  2023 jsondiff-3 -> ./jsondiff-3.9
+-rwxr-xr-x.  1 root root        1021 Feb  2  2023 jsondiff-3.9
+lrwxrwxrwx.  1 root root          15 Feb  2  2023 jsonpatch -> ./jsonpatch-3.9
+lrwxrwxrwx.  1 root root          15 Feb  2  2023 jsonpatch-3 -> ./jsonpatch-3.9
+-rwxr-xr-x.  1 root root        3664 Feb  2  2023 jsonpatch-3.9
+lrwxrwxrwx.  1 root root          17 Feb  2  2023 jsonpointer -> ./jsonpointer-3.9
+lrwxrwxrwx.  1 root root          17 Feb  2  2023 jsonpointer-3 -> ./jsonpointer-3.9
+-rwxr-xr-x.  1 root root        1840 Feb  2  2023 jsonpointer-3.9
+-rwxr-xr-x.  1 root root         973 Feb  2  2023 jsonschema
+-rwxr-xr-x.  1 root root       16160 Aug 21 21:21 kbd_mode
+-rwxr-xr-x.  1 root root       19952 Aug 21 21:21 kbdinfo
+-rwxr-xr-x.  1 root root       19952 Aug 21 21:21 kbdrate
+-rwxr-xr-x.  1 root root       13067 Sep 24 06:27 kernel-install
+-rwxr-xr-x.  1 root root       65656 Feb 25  2025 keyctl
+lrwxrwxrwx.  1 root root          25 Oct  6 05:43 keytool -> /etc/alternatives/keytool
+-rwxr-xr-x.  1 root root       32320 Jul 10 19:10 kill
+-rwxr-xr-x.  1 root root       33848 Feb  1  2023 killall
+-rwxr-xr-x.  1 root root      165640 Sep 17 13:58 kmod
+-rwxr-xr-x.  1 root root       36432 Jul 10 19:10 last
+lrwxrwxrwx.  1 root root           4 Jul 10 19:10 lastb -> last
+-rwxr-xr-x.  1 root root       33312 Feb  1  2023 lastcomm
+-rwxr-xr-x.  1 root root       29984 Nov 20  2023 lastlog
+-rwxr-xr-x.  1 root root       24384 Feb  1  2023 lchfn
+-rwxr-xr-x.  1 root root       24384 Feb  1  2023 lchsh
+lrwxrwxrwx.  1 root root          20 Sep 28 23:38 ld -> /etc/alternatives/ld
+-rwxr-xr-x.  1 root root     1222568 Nov 24  2025 ld.bfd
+lrwxrwxrwx.  1 root root          29 Jul 13 12:13 ld.so -> ../lib64/ld-linux-x86-64.so.2
+-rwxr-xr-x.  1 root root        5446 Jul 13 12:13 ldd
+-rwxr-xr-x.  1 root root      212744 May 16  2024 less
+-rwxr-xr-x.  1 root root       16336 May 16  2024 lessecho
+-rwxr-xr-x.  1 root root       25984 May 16  2024 lesskey
+-rwxr-xr-x.  1 root root        3580 May 16  2024 lesspipe.sh
+-rwxr-xr-x.  1 root root       91080 Feb  1  2023 lexgrog
+-rwxr-xr-x.  1 root root       32536 Jan 28  2026 link
+-rwxr-xr-x.  1 root root        5997 Feb  1  2023 linux-boot-prober
+lrwxrwxrwx.  1 root root           7 Jul 10 19:10 linux32 -> setarch
+lrwxrwxrwx.  1 root root           7 Jul 10 19:10 linux64 -> setarch
+-rwxr-xr-x.  1 root root       57576 Jan 28  2026 ln
+-rwxr-xr-x.  1 root root      205416 Aug 21 21:21 loadkeys
+-rwxr-xr-x.  1 root root       32480 Aug 21 21:21 loadunimap
+-rwxr-xr-x.  1 root root       60664 Jul 13 12:14 locale
+-rwxr-xr-x.  1 root root       32472 Sep 24 06:27 localectl
+-rwxr-xr-x.  1 root root      321936 Jul 13 12:14 localedef
+-rwxr-xr-x.  1 root root       41216 Jul 10 19:10 logger
+-rwxr-xr-x.  1 root root       44784 Jul 10 19:10 login
+-rwxr-xr-x.  1 root root       65744 Sep 24 06:27 loginctl
+-rwxr-xr-x.  1 root root       32520 Jan 28  2026 logname
+-rwxr-xr-x.  1 root root       19920 Jul 10 19:10 look
+-rwxr-xr-x.  1 root root      141016 Jan 28  2026 ls
+-rwxr-xr-x.  1 root root       16336 Jan 30  2023 lsattr
+-rwxr-xr-x.  1 root root      127640 Jul 10 19:10 lsblk
+-rwxr-xr-x.  1 root root      102912 Jul 10 19:10 lscpu
+-rwxr-xr-x.  1 root root       16067 Aug 21 14:06 lsinitrd
+-rwxr-xr-x.  1 root root       53024 Jul 10 19:10 lsipc
+-rwxr-xr-x.  1 root root       24088 Jul 10 19:10 lsirq
+-rwxr-xr-x.  1 root root       32632 Jul 10 19:10 lslocks
+-rwxr-xr-x.  1 root root       53008 Jul 10 19:10 lslogins
+-rwxr-xr-x.  1 root root         941 Feb  1  2023 lsmcli
+-rwxr-xr-x.  1 root root       33072 Feb  1  2023 lsmd
+-rwxr-xr-x.  1 root root       36680 Jul 10 19:10 lsmem
+-rwxr-xr-x.  1 root root       40568 Jul 10 19:10 lsns
+-rwxr-xr-x.  1 root root      175800 May 20  2025 lsof
+-rwxr-xr-x.  1 root root         614 Sep  4 20:57 make-dummy-cert
+lrwxrwxrwx.  1 root root          21 Sep 28 23:38 man -> /etc/alternatives/man
+-rwxr-xr-x.  1 root root       33560 Feb  1  2023 man-recode
+-rwxr-xr-x.  1 root root      123096 Feb  1  2023 man.man-db
+-rwxr-xr-x.  1 root root      141056 Feb  1  2023 mandb
+-rwxr-xr-x.  1 root root       33368 Feb  1  2023 manpath
+-rwxr-xr-x.  1 root root       32424 Aug 21 21:21 mapscrn
+-rwxr-xr-x.  1 root root       28240 Jul 10 19:10 mcookie
+-rwxr-xr-x.  1 root root       40688 Jan 28  2026 md5sum
+-rwxr-xr-x.  1 root root       15800 Jul 10 19:10 mesg
+lrwxrwxrwx.  1 root root          22 Feb  1  2023 miniterm-3.9.py -> /usr/bin/miniterm-3.py
+-rwxr-xr-x.  1 root root       35101 Feb  1  2023 miniterm-3.py
+lrwxrwxrwx.  1 root root          22 Feb  1  2023 miniterm.py -> /usr/bin/miniterm-3.py
+-rwxr-xr-x.  1 root root       70032 Jan 28  2026 mkdir
+-rwxr-xr-x.  1 root root       40864 Jan 28  2026 mkfifo
+-rwxr-xr-x.  1 root root       45016 Jan 28  2026 mknod
+-rwxr-xr-x.  1 root root       40840 Jan 28  2026 mktemp
+-rwxr-xr-x.  1 root root       28984 Feb  1  2023 mmdblookup
+-rwxr-xr-x.  1 root root       29176 Feb  1  2023 modulemd-validator
+-rwxr-xr-x.  1 root root       44768 Jul 10 19:10 more
+-rwsr-xr-x.  1 root root       48760 Jul 10 19:10 mount
+-rwxr-xr-x.  1 root root       19928 Jul 10 19:10 mountpoint
+-rwxr-xr-x.  1 root root       53640 May 31  2023 mpstat
+-rwxr-xr-x.  1 root root       28608 Jan 28  2023 msgattrib
+-rwxr-xr-x.  1 root root       28512 Jan 28  2023 msgcat
+-rwxr-xr-x.  1 root root       28712 Jan 28  2023 msgcmp
+-rwxr-xr-x.  1 root root       28512 Jan 28  2023 msgcomm
+-rwxr-xr-x.  1 root root       24408 Jan 28  2023 msgconv
+-rwxr-xr-x.  1 root root       24408 Jan 28  2023 msgen
+-rwxr-xr-x.  1 root root       24416 Jan 28  2023 msgexec
+-rwxr-xr-x.  1 root root       36944 Jan 28  2023 msgfilter
+-rwxr-xr-x.  1 root root       86888 Jan 28  2023 msgfmt
+-rwxr-xr-x.  1 root root      124592 Jan 28  2023 msggrep
+-rwxr-xr-x.  1 root root       69840 Jan 28  2023 msginit
+-rwxr-xr-x.  1 root root       78072 Jan 28  2023 msgmerge
+-rwxr-xr-x.  1 root root       41056 Jan 28  2023 msgunfmt
+-rwxr-xr-x.  1 root root       28512 Jan 28  2023 msguniq
+-rwxr-xr-x.  1 root root      140504 Jan 28  2026 mv
+-rwxr-xr-x.  2 root root       36480 Sep 22 20:21 named-checkzone
+-rwxr-xr-x.  2 root root       36480 Sep 22 20:21 named-compilezone
+-rwxr-xr-x.  1 root root       15768 Sep 22 20:21 named-nzd2nzf
+-rwxr-xr-x.  1 root root       24072 Jul 10 19:10 namei
+-rwxr-xr-x.  1 root root      308864 Feb 19  2025 nano
+lrwxrwxrwx.  1 root root          22 Sep 15 20:50 needs-restarting -> /usr/libexec/dnf-utils
+-rwxr-xr-x.  1 root root         916 Jan 30  2023 neqn
+-rwxr-xr-x.  1 root root      161744 Feb  1  2023 netstat
+-rwxr-xr-x.  1 root root      119320 Sep 24 06:27 networkctl
+-rwxr-xr-x.  1 root root       43616 Nov 20  2023 newgidmap
+-rwsr-xr-x.  1 root root       42392 Nov 20  2023 newgrp
+-rwxr-xr-x.  1 root root       39504 Nov 20  2023 newuidmap
+-rwxr-xr-x.  1 root root       36984 Jan 28  2023 ngettext
+-rwxr-xr-x.  1 root root       36616 Jan 28  2026 nice
+lrwxrwxrwx.  1 root root           8 Jan 31  2023 nisdomainname -> hostname
+-rwxr-xr-x.  1 root root      10728--output truncated--	Failed
+(exit 0)
+
+=== 2026-10-10 05:29:45     ===
+$ aws ssm send-command --instance-ids i-0e773f9b1c6e08182 --document-name AWS-RunShellScript --parameters file://ssm_jar.json --query Command.CommandId --output text
+
+aws: [ERROR]: An error occurred (ParamValidation): Error parsing parameter '--parameters': Invalid JSON: Invalid \escape: line 1 column 44 (char 43)
+JSON received: {"commands": ["for P in $(pgrep -f 'java .*\.jar'); do J=$(tr '\000' '\n' < /proc/$P/cmdline | grep -m1 'jar$'); echo \"pid=$P jar=$J\"; done", "J=$(for P in $(pgrep -f 'java .*\.jar'); do tr '\000' '\n' < /proc/$P/cmdline | grep -m1 'jar$'; done | head -1); [ -f \"$J\" ] && ls -la \"$J\" && unzip -l \"$J\" | grep -c 'kr/exchange/admin/msp/FlowQuery' && unzip -p \"$J\" 'BOOT-INF/classes/kr/exchange/admin/msp/FlowQuery.class' | strings | grep -aoE '\[[0-9]+s\]' | sort | uniq -c"]}
+(exit 252)
+
+=== 2026-10-10 05:29:51     ===
+$ aws ssm get-command-invocation --command-id --instance-id i-0e773f9b1c6e08182 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+
+aws: [ERROR]: An error occurred (ParamValidation): argument --command-id: expected one argument
+
+usage: aws [options] <command> <subcommand> [<subcommand> ...] [parameters]
+To see help text, you can run:
+
+  aws help
+  aws <command> help
+  aws <command> <subcommand> help
+(exit 252)
+
+=== 2026-10-10 05:30:03     ===
+$ aws ssm send-command --instance-ids i-0e773f9b1c6e08182 --document-name AWS-RunShellScript --parameters file://ssm_jar.json --query Command.CommandId --output text
+75db5d64-8afb-432e-804b-a2dda035a11d
+(exit 0)
+
+=== 2026-10-10 05:30:10     ===
+$ aws ssm get-command-invocation --command-id 75db5d64-8afb-432e-804b-a2dda035a11d --instance-id i-0e773f9b1c6e08182 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	pid=101229 jar=-jar
+	Success
+(exit 0)
+
+=== 2026-10-10 05:30:20     ===
+$ aws ssm send-command --instance-ids i-0e773f9b1c6e08182 --document-name AWS-RunShellScript --parameters file://ssm_jar.json --query Command.CommandId --output text
+faead429-8ec2-460f-813e-6495d951945e
+(exit 0)
+
+=== 2026-10-10 05:30:28     ===
+$ aws ssm get-command-invocation --command-id faead429-8ec2-460f-813e-6495d951945e --instance-id i-0e773f9b1c6e08182 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	pid=101229 jar=/opt/exchange/current/app.jar
+-rw-r-----. 1 root exchange 60748142 Oct  6 05:53 /opt/exchange/current/app.jar
+     1345  10-06-2026 04:53   BOOT-INF/classes/kr/exchange/admin/msp/FlowQuery$Need.class
+     6319  10-06-2026 04:53   BOOT-INF/classes/kr/exchange/admin/msp/FlowQuery.class
+      5 [10s]
+      1 [15s]
+	Success
+(exit 0)
+
+=== 2026-10-10 05:30:49     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+80a3f820-a897-428b-a5e0-b74ccf652afc
+(exit 0)
+
+=== 2026-10-10 05:30:55     ===
+$ aws ssm get-command-invocation --command-id 80a3f820-a897-428b-a5e0-b74ccf652afc --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	172.31.16.30:8404 users:(("haproxy",pid=2033,fd=7))
+127.0.0.1:9090 users:(("prometheus",pid=15608,fd=7))
+127.0.0.1:5000 users:(("haproxy",pid=2033,fd=8))
+/etc/prometheus/prometheus.yml:7:  scrape_interval: 15s
+/etc/prometheus/prometheus.yml:8:  evaluation_interval: 15s
+/etc/prometheus/prometheus.yml:149:    scrape_interval: 5s
+/etc/prometheus:
+prometheus.yml
+prometheus.service
+	Success
+(exit 0)
+
+=== 2026-10-10 05:31:03     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_jar.json --query Command.CommandId --output text
+d19a8f89-6ed8-4748-8114-06cc99d0a235
+(exit 0)
+
+=== 2026-10-10 05:31:11     ===
+$ aws ssm get-command-invocation --command-id d19a8f89-6ed8-4748-8114-06cc99d0a235 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	pid=834395 jar=/opt/exchange-bot/current/app.jar
+-r--r--r--. 1 root root 60773935 Oct  7 06:01 /opt/exchange-bot/current/app.jar
+     1440  10-07-2026 02:03   BOOT-INF/classes/kr/exchange/admin/msp/FlowQuery$Need.class
+     7298  10-07-2026 02:03   BOOT-INF/classes/kr/exchange/admin/msp/FlowQuery.class
+	Success
+(exit 0)
+
+=== 2026-10-10 05:31:34     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_jar.json --query Command.CommandId --output text
+7c398ebd-37d4-46ec-b53e-f5c418e2a751
+(exit 0)
+
+=== 2026-10-10 05:31:42     ===
+$ aws ssm get-command-invocation --command-id 7c398ebd-37d4-46ec-b53e-f5c418e2a751 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	"[Lkr/exchange/admin/msp/FlowQuery;
+$()[Lkr/exchange/admin/msp/FlowQuery;
+window
+!0 * max by(instance) (up{
+0 * max(up{
+up{
+'max by(instance) (process_cpu_usage{
+hsum by(instance) (rate(
+gsum by(instance) (rate(
+fsum by(instance) (rate(
+:max by(instance, partition) (exchange_leader_is_leader{
+6max by(instance, partition) (exchange_leader_epoch{
+Cmax by(instance, state) (exchange_write_availability_state{
+Gmax by(instance) (exchange_leader_lease_last_renew_age_seconds{
+0sum(rate(exchange_trades_total{
+Hsum(rate(
+max by(node) (up{
+max by(node) (pg_up{
+-max by(node) (pg_wal_position_in_recovery{
+.sum by(node) (pg_stat_database_numbackends{
+8sum by(node) (rate(pg_stat_database_xact_commit{
+s]))
+max(up{job=~"
+(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+---
+	Success
+(exit 0)
+
+=== 2026-10-10 06:11:58     ===
+$ aws ssm send-command --instance-ids i-0d72b6a147b140a40 --document-name AWS-RunShellScript --parameters file://ssm_db.json --query Command.CommandId --output text
+7f864bba-1b02-43b1-8d0f-013b4216cb93
+(exit 0)
+
+=== 2026-10-10 06:12:05     ===
+$ aws ssm get-command-invocation --command-id 7f864bba-1b02-43b1-8d0f-013b4216cb93 --instance-id i-0d72b6a147b140a40 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	+ Cluster: failstop-db (7693423538786229765) ------+----+-------------+-----+------------+-----+
+| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Sync Standby | streaming |  6 |  5/BA73C020 |   0 | 5/BA73C020 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  6 |             |     |            |     |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+active active 
+	Success
+(exit 0)
+
+=== 2026-10-10 06:12:13     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters file://ssm_db2stop.json --query Command.CommandId --output text
+91c2bdc7-901c-427c-883f-e7715f3a5c16
+(exit 0)
+
+=== 2026-10-10 06:12:26     ===
+$ aws ssm get-command-invocation --command-id 91c2bdc7-901c-427c-883f-e7715f3a5c16 --instance-id i-054deba20ceb2e29c --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	21:12:14
+21:12:15
+inactive active 
+	Success
+(exit 0)
+
+=== 2026-10-10 06:12:27     ===
+$ aws ssm send-command --instance-ids i-0d72b6a147b140a40 --document-name AWS-RunShellScript --parameters file://ssm_db.json --query Command.CommandId --output text
+c00e8aa9-afa2-4c64-846a-a5209e878767
+(exit 0)
+
+=== 2026-10-10 06:12:33     ===
+$ aws ssm get-command-invocation --command-id c00e8aa9-afa2-4c64-846a-a5209e878767 --instance-id i-0d72b6a147b140a40 --query {S:Status,Out:StandardOutputContent} --output text
++ Cluster: failstop-db (7693423538786229765) ----+-------------+-----+------------+-----+
+| Member | Host         | Role    | State   | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+--------------+---------+---------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Leader  | running |  7 |             |     |            |     |
+| db-2   | 172.31.32.20 | Replica | stopped |    |     unknown |     |    unknown |     |
++--------+--------------+---------+---------+----+-------------+-----+------------+-----+
+active active 
+	Success
+(exit 0)
+
+=== 2026-10-10 06:12:40     ===
+$ aws ssm send-command --instance-ids i-054deba20ceb2e29c --document-name AWS-RunShellScript --parameters file://ssm_db2start.json --query Command.CommandId --output text
+faa0a492-7046-4341-9668-22e28e63c0c7
+(exit 0)
+
+=== 2026-10-10 06:13:06     ===
+$ aws ssm get-command-invocation --command-id faa0a492-7046-4341-9668-22e28e63c0c7 --instance-id i-054deba20ceb2e29c --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	21:12:41
+active active 
+	Success
+(exit 0)
+
+=== 2026-10-10 06:13:07     ===
+$ aws ssm send-command --instance-ids i-0d72b6a147b140a40 --document-name AWS-RunShellScript --parameters file://ssm_db.json --query Command.CommandId --output text
+0fd3f049-1bbc-4dee-b008-f88c7c210daf
+(exit 0)
+
+=== 2026-10-10 06:13:13     ===
+$ aws ssm get-command-invocation --command-id 0fd3f049-1bbc-4dee-b008-f88c7c210daf --instance-id i-0d72b6a147b140a40 --query {S:Status,Out:StandardOutputContent} --output text
++ Cluster: failstop-db (7693423538786229765) ------+----+-------------+-----+------------+-----+
+| Member | Host         | Role         | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+| db-1   | 172.31.0.20  | Leader       | running   |  7 |             |     |            |     |
+| db-2   | 172.31.32.20 | Sync Standby | streaming |  7 |  5/BDD5DDA0 |   0 | 5/BDD5DDA0 |   0 |
++--------+--------------+--------------+-----------+----+-------------+-----+------------+-----+
+active active 
+	Success
+(exit 0)
+
+=== 2026-10-10 06:13:25     ===
+$ aws ssm send-command --instance-ids i-0b3a8481650ab9289 --document-name AWS-RunShellScript --parameters file://ssm_prom.json --query Command.CommandId --output text
+de532c48-ab66-4649-b1ba-1f1fedcfabc9
+(exit 0)
+
+=== 2026-10-10 06:13:32     ===
+$ aws ssm get-command-invocation --command-id de532c48-ab66-4649-b1ba-1f1fedcfabc9 --instance-id i-0b3a8481650ab9289 --query {S:Status,Out:StandardOutputContent,Err:StandardErrorContent} --output text
+	== write_state
+{'node': 'app-1', 'state': 'ACTIVE'} 1
+{'node': 'app-2', 'state': 'ACTIVE'} 1
+== trades_1m
+{} 1.044444
+== suspended_max_5m
+{'node': 'app-1'} 1
+{'node': 'app-2'} 1
+incident:448d0353595cd sent 1 None created 06:13:09 sent 06:13:19
+incident:0d5a130952cad sent 1 None created 06:13:09 sent 06:13:26
+	Success
+(exit 0)
+
