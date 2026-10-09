@@ -77,7 +77,8 @@
   .card .side::before { content: ''; position: absolute; left: -18px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
   .ex { position: relative; flex: none; overflow: visible; }
   .ex .clip { position: absolute; inset: 0; overflow: hidden; border-radius: 8px; box-shadow: 0 14px 40px rgba(0,0,0,.5); }
-  .ex .clip img { position: absolute; display: block; }
+  /* 원본 한 쪽에서 필요한 부분만 보인다. 큰 그림을 자식으로 넣지 않고 배경으로 잘라, 창 밖으로 나가는 요소가 없게 한다 */
+  .ex .clip { background-repeat: no-repeat; }
   .mk { position: absolute; box-sizing: border-box; border: 3px solid var(--c); border-radius: 8px; box-shadow: 0 0 0 2px #0B1019, 0 0 0 6px color-mix(in srgb, var(--c) 30%, transparent); }
   .mk.dash { border-style: dashed; }
   .mk b, .an .no { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--c); color: #0B1019; font-family: var(--mono); font-size: 22px; font-weight: 700; font-style: normal; }
@@ -245,7 +246,7 @@
       const k = ck || s.scale;
       const marks = s.marks.map((m, j) => [m, j]).filter(([[x, y, w, h]]) => y >= cy - 1 && y + h <= cy + ch + 1).map(([[x, y, w, h, c, d], j]) =>
         `<i class="mk${d ? ' dash' : ''}" style="--c:${C[c]}; --at:${(T0 + j * GAP).toFixed(2)}s; left:${((x - cx) * k).toFixed(1)}px; top:${((y - cy) * k).toFixed(1)}px; width:${(w * k).toFixed(1)}px; height:${(h * k).toFixed(1)}px"><b>${j + 1}</b></i>`).join('');
-      return `<div class="ex" style="width:${Math.round(cw * k)}px; height:${Math.round(ch * k)}px"><div class="clip"><img src="${s.img}" alt="${s.alt}" style="left:${(-cx * k).toFixed(1)}px; top:${(-cy * k).toFixed(1)}px; width:${(s.W * k).toFixed(1)}px; height:${(s.H * k).toFixed(1)}px"></div>${marks}</div>`;
+      return `<div class="ex" style="width:${Math.round(cw * k)}px; height:${Math.round(ch * k)}px"><div class="clip" role="img" aria-label="${s.alt}" style="background-image:url('${s.img}'); background-position:${(-cx * k).toFixed(1)}px ${(-cy * k).toFixed(1)}px; background-size:${(s.W * k).toFixed(1)}px ${(s.H * k).toFixed(1)}px"></div>${marks}</div>`;
     });
     shot.innerHTML = exs.join('');
     shot.style.gap = s.cuts.length > 1 && s.k === 'p2' ? '16px' : '24px';
