@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
+import { useOpsDetail } from "@/lib/admin/detailStore";
 import { CHECK_VIEW_WORD, checkView, visibleChecks } from "@/lib/admin/aiPolicy";
 import { stepDelays } from "@/lib/admin/motion";
 import { joinDots } from "@/lib/admin/text";
@@ -39,7 +40,7 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
   const brief: AiJudgment | null = ai?.history.find((h) => h.id === id) ?? null;
   const [first] = useState(() => !seen.has(id));
   const [loaded, setLoaded] = useState<{ id: string; j: AiJudgment | null; failed: boolean } | null>(null);
-  const lazy = brief?.lazy === true;
+  const lazy = brief === null || brief.lazy === true;
   useEffect(() => {
     seen.add(id);
   }, [id]);
@@ -56,10 +57,10 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
   }, [lazy, id]);
   const full = lazy && loaded?.id === id ? loaded : null;
   const j: AiJudgment | null = full?.j ?? brief;
-  if (!ai || !j) {
+  if (!j) {
     return (
-      <Modal name="judgment" width={960} title="판단 기록을 찾지 못했습니다" onClose={onClose}>
-        <p className={styles.note}>관제 판은 최근 판단 기록만 싣습니다. 이 기록은 판에서 빠졌거나 AI 원천이 연결 전입니다.</p>
+      <Modal name="judgment" width={960} title={full === null ? "판단 기록을 불러오는 중입니다" : "판단 기록을 찾지 못했습니다"} onClose={onClose}>
+        <p className={styles.note}>{full === null ? "사건에 연결된 판단 ID로 상세를 조회합니다." : full.failed ? "조회에 실패했습니다. 다시 열어 재시도할 수 있습니다." : "서버에 이 판단 기록이 없습니다."}</p>
       </Modal>
     );
   }
@@ -86,13 +87,16 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
       badge={<StateChip tone={resultTone(j.outcome)} label={j.outcome} shape={resultTone(j.outcome) === "warning" ? "triangle" : undefined} />}
       sub={
         <>
-          <span>모델 {ai.model}</span>
+          <span>모델 {j.model ?? (sim ? ai?.model : null) ?? "당시 모델 기록 없음"}</span>
           <span>근거와 값은 판단한 순간의 것이라 지금 판의 값과 다를 수 있습니다</span>
           {sim && <SimMark />}
         </>
       }
       onClose={onClose}
     >
+      {j.incidentId && <p className={styles.note}>
+        <button type="button" className={styles.linkBtn} onClick={() => useOpsDetail.getState().openIncident(j.incidentId as string)}>연결된 사건 · 조치 기록 · 사후 검토 보기</button>
+      </p>}
       {tr === null ? (
         <section className={styles.section}>
           <p className={styles.stepText}>{j.summary}</p>
@@ -111,7 +115,7 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
           <div className={styles.judgeGrid}>
             <section className={styles.section} aria-label="판단 시각 근거">
               <div className={styles.sectionHead}>
-                <span className={styles.sectionTitle}>근거 스냅숏</span>
+                <span className={styles.sectionTitle}>판단 당시 실측 근거</span>
                 <span className={`${styles.sectionMeta} num`}>{tr.evidenceAt ? `수집 ${hms(tr.evidenceAt)}` : "수집 없음"}</span>
               </div>
               {tr.evidence.length === 0 ? (
@@ -234,7 +238,12 @@ export default function JudgmentDetail({ center, id, sim, onClose }: { center: C
             </ol>
           </div>
           <details className={styles.raw}>
-            <summary>판단 기록 원문(JSON)</summary>
+            <summary>AI 입력 근거 JSON · 저장된 수집값</summary>
+            <p className={styles.note}>관리 서버가 판단 당시 저장한 입력 근거입니다. Prometheus HTTP 응답 원문이나 현재 지표가 아닙니다.</p>
+            {j.evidenceSnapshot ? <pre>{JSON.stringify(j.evidenceSnapshot, null, 2)}</pre> : <p className={styles.note}>이 기록에는 수집값 JSON이 제공되지 않습니다. 위의 근거 요약을 확인해 주세요.</p>}
+          </details>
+          <details className={styles.raw}>
+            <summary>판단 과정 JSON · 화면 표시용</summary>
             <pre>{JSON.stringify(j, null, 2)}</pre>
           </details>
         </>

@@ -1,5 +1,23 @@
 /* 상세 층의 본문(디자인 시스템 §12-13). 층의 뼈대(머리·본문·단추 줄)는 layer.module.css가 맡는다 */
 
+.reviewLead {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.reviewItem + .reviewItem { margin-top: var(--space-3); }
+.reviewItem { overflow-wrap: anywhere; }
+.reviewChecks {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+.reviewChecks li + li { margin-top: var(--space-2); }
+.review { min-width: 0; }
+
 .section {
   display: flex;
   flex-direction: column;

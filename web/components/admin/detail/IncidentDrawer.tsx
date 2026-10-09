@@ -10,7 +10,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import { escalationOf, incidentSections, incidentTimes, judgmentAt, todayMeans } from "@/lib/admin/opsDetail";
+import { escalationOf, incidentSections, incidentTimes, todayMeans } from "@/lib/admin/opsDetail";
+import { incidentJudgmentId } from "@/lib/admin/incidentReview";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import { consoleRouteFor, runbookById, runbookHref } from "@/lib/admin/runbooks";
 import { useCan } from "@/lib/admin/store";
@@ -26,6 +27,7 @@ import { Lifecycle, OpenElapsed } from "../control/Timeline";
 import { EscalationBar, NextPage } from "../incidents/Escalation";
 import StatusShape from "../StatusShape";
 import PostmortemForm from "./PostmortemForm";
+import IncidentReview from "./IncidentReview";
 import adminStyles from "../admin.module.css";
 import controlStyles from "../control/control.module.css";
 import styles from "./detail.module.css";
@@ -246,6 +248,8 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
         <Lifecycle inc={inc} events={asc} />
       </section>
 
+      {!pendingEvents && <IncidentReview inc={inc} events={events} history={history} onOpenJudgment={onOpenJudgment} />}
+
       <section className={styles.section} aria-label="확인·해제까지">
         <div className={styles.sectionHead}>
           <span className={styles.sectionTitle}>확인·해제까지</span>
@@ -333,9 +337,9 @@ export default function IncidentDrawer({ center, id, sim, onClose, onOpenJudgmen
           events={sec.ai}
           empty="이 사건에 AI 판단 기록이 없습니다"
           link={(e) => {
-            const j = judgmentAt(history, e.at);
+            const judgmentId = incidentJudgmentId(e, history);
             return (
-              <button type="button" className={styles.linkBtn} disabled={j === null} title={j === null ? "판이 싣는 최근 판단 기록 밖입니다" : undefined} onClick={() => j && onOpenJudgment(j.id)}>
+              <button type="button" className={styles.linkBtn} disabled={judgmentId === null} title={judgmentId === null ? "판단 참조를 찾지 못했습니다" : undefined} onClick={() => judgmentId && onOpenJudgment(judgmentId)}>
                 판단 과정
               </button>
             );

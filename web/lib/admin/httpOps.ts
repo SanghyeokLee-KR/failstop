@@ -372,6 +372,7 @@ export interface WireIncidentEvent {
   actor_id?: string | null;
   text?: string | null;
   at?: string;
+  ref?: { decision_id?: number | string | null; action_id?: number | string | null };
 }
 
 export interface WireChatReply {
@@ -688,6 +689,8 @@ export function eventOf(e: WireIncidentEvent, incidentId: string | null): Incide
     actorName: e.actor_id ?? (actor === "SYSTEM" ? "시스템" : actor === "AI" ? "AI 운영" : ""),
     text: e.text ?? "",
     incidentId,
+    decisionId: str(e.ref?.decision_id),
+    actionId: str(e.ref?.action_id),
   };
 }
 
@@ -1080,7 +1083,8 @@ export function judgmentBriefOf(d: WireDecision): AiJudgment {
   const summary = [outcome, d.model ? `모델 ${d.model}` : "", conf === null ? "" : `확신도 ${conf}%`, d.error ? reasonWord(d.error) : ""]
     .filter(Boolean)
     .join(" · ");
-  return { id: String(d.id ?? ""), at: d.decided_at ?? "", summary, outcome, trace: null, lazy: true, confidencePct: conf };
+  return { id: String(d.id ?? ""), at: d.decided_at ?? "", summary, outcome, trace: null, lazy: true, confidencePct: conf,
+    model: d.model ?? null, incidentId: str(d.incident_id) };
 }
 
 /**
@@ -1210,7 +1214,7 @@ export function judgmentOf(d: WireDecision, ctx: ProposalContext): AiJudgment {
     checks,
     result: [brief.outcome, ...proposals.map((p) => `${p.title} · ${STATUS_WORD[p.status]}`), ...dropped].filter(Boolean).join(" · "),
   };
-  return { ...brief, summary: d.situation ?? brief.summary, trace, lazy: false };
+  return { ...brief, summary: d.situation ?? brief.summary, trace, lazy: false, evidenceSnapshot: ev };
 }
 
 const STATUS_WORD: Record<AiProposalStatus, string> = {

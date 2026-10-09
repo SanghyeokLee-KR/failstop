@@ -74,7 +74,7 @@ export default function IncidentFocus({ inc, log, policy }: { inc: Incident; log
           }
         />
         <button type="button" className={`${controlStyles.smallBtn} ${styles.focusDetail}`} aria-haspopup="dialog" onClick={openDrawer}>
-          상세·담당·사후 분석
+          상세·사후 검토
         </button>
       </div>
 

@@ -990,6 +990,9 @@ export interface IncidentEvent {
   actorName: string;
   text: string;
   incidentId: string | null;
+  /** 서버 사건 기록의 참조. 시각이 가까운 다른 판단과 섞지 않는다. */
+  decisionId?: string | null;
+  actionId?: string | null;
 }
 
 export interface Incident {
@@ -1407,6 +1410,10 @@ export interface FlowMeasured {
 
 export interface AiJudgment {
   id: string;
+  /** 판단 당시 저장된 모델·사건·입력 근거. 현재 관제 지표로 덮어쓰지 않는다. */
+  model?: string | null;
+  incidentId?: string | null;
+  evidenceSnapshot?: Record<string, unknown> | null;
   at: string;
   summary: string;
   outcome: string;
