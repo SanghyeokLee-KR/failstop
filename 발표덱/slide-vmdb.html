@@ -74,9 +74,14 @@ const EVIDENCE_HA = [
      위 줄: 왼쪽 300×72 DB01 상자(404–476, 가운데 440) → 174px 선과 20px 화살촉(이름 기준선 424) → 오른쪽 상자.
      아래 줄: 300×140 상자 둘(860–1000). 장비 상자는 모두 같은 첫 줄(아이콘 30px·굵은 이름 26px·회색 역할 22px)이고,
      140 높이 상자는 줄 기준선이 상자 위 +44(장비) / +94(하는 일) / +126(세부)로 같다 */
-  .cols { position: absolute; left: 130px; right: 130px; top: 296px; height: 704px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 72px; }
-  .cols::before { content: ''; position: absolute; left: 50%; top: 6px; bottom: 6px; width: 1px; background: var(--line); animation: fade .6s .3s var(--ease) both; }
+  .cols { position: absolute; left: 130px; right: 130px; top: 296px; height: 704px; }
   .col { display: flex; flex-direction: column; min-width: 0; }
+  /* 장면 A(단계 0~2): ① 이중화만 화면 가운데(794 폭 도면). 장면 B(단계 3부터): ② 백업, 왼쪽 1 데이터 백업 · 오른쪽 2 OS 백업 */
+  .col.l { position: absolute; left: 433px; top: 0; width: 794px; }
+  .col.r { position: absolute; inset: 0; }
+  .bkg { position: relative; display: grid; grid-template-columns: 794px 794px; column-gap: 72px; margin-top: 156px; }
+  .bkg::before { content: ''; position: absolute; left: 830px; top: -24px; bottom: -24px; width: 1px; background: var(--line); }
+  .dg.bk1 { height: 290px; } .dg.bk2 { height: 296px; }
   .ch { margin: 0; display: flex; align-items: center; gap: 12px; height: 56px; flex: none; font-size: 34px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
   .ch span { font-size: 24px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
   .n { flex: none; font-style: normal; font-family: var(--mono); font-weight: 700; font-size: 22px; color: var(--stage); background: var(--ink); border-radius: 50%; width: 32px; height: 32px; display: inline-grid; place-items: center; }
@@ -104,7 +109,7 @@ const EVIDENCE_HA = [
      → Patroni와 etcd 표(1.1초) → 오른쪽 머리(1.6초)와 DB01(1.7초). 하나는 0.6초 */
   .bd { animation: rise .6s var(--ease) both; }
   .col.l > .ch { animation-delay: .35s; } .ha .t1 { animation-delay: .6s; } .ha .t2 { animation-delay: .85s; } .ha .t3 { animation-delay: 1.1s; }
-  .col.r > .ch { animation-delay: 1.6s; } .loop .t1, .bk .t1 { animation-delay: 1.7s; }
+
 
   /* 단계(→ 한 번에 하나). 들어설 때만 움직이고, 숨은 상태는 keyframes 시작에만 두어 끝 모습이 곧 기본 모습이다(←·#last 는 움직임 없이).
      ① 자동 전환(약 3.4초): DB01 멈춤 — 상자가 흐려지고 DB01에 닿던 복제·HAProxy 길이 사라지며 역할이 '멈춤'(0~0.5초)
@@ -138,9 +143,14 @@ const EVIDENCE_HA = [
   .stage[data-step="2"] .b02 { animation-delay: .2s !important; } .stage[data-step="2"] .b05 { animation-delay: .5s !important; } .stage[data-step="2"] .b10 { animation-delay: 1s !important; }
   .stage[data-step="2"] .b20 { animation-delay: 2s !important; }
   .loop .w1 { animation-delay: 1s !important; } .loop .w2 { animation-delay: 1.3s !important; } .loop .w3 { animation-delay: 2.3s !important; }
-  .stage.done .bd, .stage.done h1, .stage.done .dek, .stage.done .title .env, .stage.done .cols::before { animation: none !important; }
+  .stage.done .bd, .stage.done h1, .stage.done .dek, .stage.done .title .env { animation: none !important; }
+  /* 장면 바꾸기: 단계 3에 들어서면 이중화가 0.35초에 사라지고 백업이 0.25초 뒤 들어온다. 백업의 첫 그림(③)은 그 뒤 0.6초부터 */
+  .stage.g3 .col.l { opacity: 0; pointer-events: none; }
+  .stage:not(.g3) .col.r { visibility: hidden; }
+  .stage[data-step="3"]:not(.inst) .col.l { animation: out .35s var(--ease) both; }
+  .stage[data-step="3"]:not(.inst) .col.r { animation: fade .45s .25s var(--ease) both; }
 
-  /* 오른쪽 ② 백업(2026-10-08): 서버 밖에 두 가지 백업을 위아래로 둔다. 위 1 데이터 백업(Databasus), 아래 2 OS 백업(Kopia). 둘 다 Apache-2.0.
+  /* ② 백업(2026-10-08, 10-09 배치 변경): 서버 밖에 두 가지 백업을 나란히 둔다. 왼쪽 1 데이터 백업(Databasus), 오른쪽 2 OS 백업(Kopia). 둘 다 Apache-2.0.
      ③ 데이터 백업(약 1.6초): DB01 → OPS01 길(0~0.5초) → OPS01(0.6초) → OPS01 → EDGE01 길(0.8~1.3초) → EDGE01(1.4초)
      ④ 복원 검증(약 2.0초): EDGE01 → 임시 DB 길(0~0.8초) → 임시 DB(0.8초) → 원본 대조 점선(1.0~1.8초) → '표 109개 일치'(1.8초)
      ⑤ OS 백업(약 1.6초): DB01 → OPS01 길(0~0.8초) → OPS01 · 'Kopia 저장소'(0.8초) → 오른쪽 설명 · 단계 표 '백업'(1.2초)
@@ -162,9 +172,10 @@ const EVIDENCE_HA = [
   .stage[data-step="7"]:not(.inst) .wipe { animation: sweep 1.4s var(--ease) .2s both; }
   .stage[data-step="7"]:not(.inst) .scan { animation: scan 1.4s var(--ease) .2s both; }
   .stage[data-step="7"]:not(.inst) .barfill { animation: sweep 1.8s var(--ease) .2s both; }
-  .stage[data-step="3"] .n3-02 { animation-delay: 0.2s !important; } .stage[data-step="3"] .n3-04 { animation-delay: 0.4s !important; } .stage[data-step="3"] .n3-06 { animation-delay: 0.6s !important; } .stage[data-step="3"] .n3-08 { animation-delay: 0.8s !important; }
-  .stage[data-step="3"] .n3-10 { animation-delay: 1s !important; } .stage[data-step="3"] .n3-12 { animation-delay: 1.2s !important; } .stage[data-step="3"] .n3-14 { animation-delay: 1.4s !important; } .stage[data-step="3"] .n3-16 { animation-delay: 1.6s !important; }
-  .stage[data-step="3"] .n3-18 { animation-delay: 1.8s !important; } .stage[data-step="3"] .n3-20 { animation-delay: 2s !important; } .stage[data-step="3"] .n3-24 { animation-delay: 2.4s !important; } .stage[data-step="4"] .n4-02 { animation-delay: 0.2s !important; }
+  .stage[data-step="3"] .k3 { animation-delay: .6s !important; }
+  .stage[data-step="3"] .n3-02 { animation-delay: 0.8s !important; } .stage[data-step="3"] .n3-04 { animation-delay: 1.0s !important; } .stage[data-step="3"] .n3-06 { animation-delay: 1.2s !important; } .stage[data-step="3"] .n3-08 { animation-delay: 1.4s !important; }
+  .stage[data-step="3"] .n3-10 { animation-delay: 1.6s !important; } .stage[data-step="3"] .n3-12 { animation-delay: 1.8s !important; } .stage[data-step="3"] .n3-14 { animation-delay: 2.0s !important; } .stage[data-step="3"] .n3-16 { animation-delay: 2.2s !important; }
+  .stage[data-step="3"] .n3-18 { animation-delay: 2.4s !important; } .stage[data-step="3"] .n3-20 { animation-delay: 2.6s !important; } .stage[data-step="3"] .n3-24 { animation-delay: 3.0s !important; } .stage[data-step="4"] .n4-02 { animation-delay: 0.2s !important; }
   .stage[data-step="4"] .n4-04 { animation-delay: 0.4s !important; } .stage[data-step="4"] .n4-06 { animation-delay: 0.6s !important; } .stage[data-step="4"] .n4-08 { animation-delay: 0.8s !important; } .stage[data-step="4"] .n4-10 { animation-delay: 1s !important; }
   .stage[data-step="4"] .n4-12 { animation-delay: 1.2s !important; } .stage[data-step="4"] .n4-14 { animation-delay: 1.4s !important; } .stage[data-step="4"] .n4-16 { animation-delay: 1.6s !important; } .stage[data-step="4"] .n4-18 { animation-delay: 1.8s !important; }
   .stage[data-step="4"] .n4-20 { animation-delay: 2s !important; } .stage[data-step="4"] .n4-24 { animation-delay: 2.4s !important; } .stage[data-step="5"] .n5-02 { animation-delay: 0.2s !important; } .stage[data-step="5"] .n5-04 { animation-delay: 0.4s !important; }
@@ -277,7 +288,7 @@ const EVIDENCE_HA = [
   <p class="dek">이중화만으로는 지운 데이터도 망가진 OS도 되돌릴 수 없어, 서버 밖에 데이터 백업과 OS 백업을 더했습니다.</p>
 
   <div class="cols">
-    <!-- 왼쪽: ① 이중화. Patroni가 관리하는 DB01 → DB02 엄격 동기 복제와 앱 서버의 HAProxy, etcd 합의 3표. → ① 자동 전환, → ② pg_rewind 되돌림 -->
+    <!-- 장면 A: ① 이중화(화면 가운데). Patroni가 관리하는 DB01 → DB02 엄격 동기 복제와 앱 서버의 HAProxy, etcd 합의 3표. → ① 자동 전환, → ② pg_rewind 되돌림 -->
     <section class="col l" aria-label="이중화">
       <h2 class="ch bd"><i class="n">1</i>이중화<span>서버가 멈출 때</span></h2>
       <svg class="dg ha" id="ha" viewBox="0 0 794 630" role="img" aria-label="주 DB DB01과 예비 DB DB02를 Patroni가 관리하고 엄격 동기 복제로 잇는다. 앱 서버 APP01·02는 HAProxy로 지금의 주 DB에만 연결한다. etcd 합의 표는 DB01, DB02, OPS01에 하나씩 있다. DB01이 멈추면 남은 두 표로 Patroni가 DB02를 주 DB로 올리고 HAProxy가 연결을 DB02로 옮긴다. DB01이 돌아오면 pg_rewind로 되감아 예비 DB로 붙고, DB02에서 DB01로 엄격 동기 복제가 이어진다">
@@ -338,13 +349,14 @@ const EVIDENCE_HA = [
       </svg>
     </section>
 
-    <!-- 오른쪽: ② 백업. 서버 밖에 두 가지 백업을 위아래로 둔다(둘 다 Apache-2.0 오픈소스).
-         위 1 데이터 백업: 관제 서버의 Databasus가 DB01 거래 DB를 매일 암호화해 받아 웹 진입 서버에 7일 보관하고, 임시 DB에 되살려 원본과 대조한다(→ ③ ④).
-         아래 2 OS 백업: Kopia가 DB01의 OS 설정과 DB 데이터를 관제 서버 저장소에 매일 받는다. 서버 계정은 쓰기만 되어 랜섬웨어가 지우지 못하고,
+    <!-- 장면 B(→ 세 번째부터): ② 백업. 서버 밖에 두 가지 백업을 왼쪽·오른쪽에 둔다(둘 다 Apache-2.0 오픈소스).
+         왼쪽 1 데이터 백업: 관제 서버의 Databasus가 DB01 거래 DB를 매일 암호화해 받아 웹 진입 서버에 7일 보관하고, 임시 DB에 되살려 원본과 대조한다(→ ③ ④).
+         오른쪽 2 OS 백업: Kopia가 DB01의 OS 설정과 DB 데이터를 관제 서버 저장소에 매일 받는다. 서버 계정은 쓰기만 되어 랜섬웨어가 지우지 못하고,
          감염된 OS는 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다(→ ⑤ 백업, ⑥ 랜섬웨어, ⑦ OS 초기화, ⑧ 복원) -->
     <section class="col r" aria-label="백업">
       <h2 class="ch bd"><i class="n">2</i>백업<span>서버 밖에 데이터와 OS를 따로</span></h2>
-      <svg class="dg bk" viewBox="0 0 794 630" role="img" aria-label="백업 두 가지. 1 데이터 백업: 관제 서버 OPS01의 Databasus(Apache-2.0)가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고 SFTP로 웹 진입 서버 EDGE01에 7일 보관한다. 그 백업을 임시 DB에 복원해 pg_restore 종료 코드 0, 표 109개가 원본과 같은 것을 확인했다. 2 OS 백업: Kopia(Apache-2.0)가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. 서버 계정은 쓰기만 되어 랜섬웨어가 DB01을 차지해 백업을 지우려 해도 거부된다. 감염된 OS는 디스크를 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다. VM 실습망 시험에서 DB01의 디스크 두 개를 지우고 OS를 새로 설치한 뒤 15분 22초 만에 되살려 기준값 6가지가 같았고, 백업 삭제 시도 세 가지는 모두 거부됐다">
+      <div class="bkg">
+      <svg class="dg bk bk1" viewBox="0 0 794 290" role="img" aria-label="백업 두 가지 가운데 1 데이터 백업(왼쪽), 2 OS 백업은 오른쪽. 1 데이터 백업: 관제 서버 OPS01의 Databasus(Apache-2.0)가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고 SFTP로 웹 진입 서버 EDGE01에 7일 보관한다. 그 백업을 임시 DB에 복원해 pg_restore 종료 코드 0, 표 109개가 원본과 같은 것을 확인했다. 2 OS 백업: Kopia(Apache-2.0)가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. 서버 계정은 쓰기만 되어 랜섬웨어가 DB01을 차지해 백업을 지우려 해도 거부된다. 감염된 OS는 디스크를 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다. VM 실습망 시험에서 DB01의 디스크 두 개를 지우고 OS를 새로 설치한 뒤 15분 22초 만에 되살려 기준값 6가지가 같았고, 백업 삭제 시도 세 가지는 모두 거부됐다">
         <!-- ===== 1 데이터 백업(Databasus) ===== -->
         <g class="bd t1">
           <g class="num"><circle cx="14" cy="19" r="14"/><text x="14" y="25" text-anchor="middle">1</text></g>
@@ -390,8 +402,8 @@ const EVIDENCE_HA = [
         <text class="hd k4 pop n4-18" x="1" y="248" style="font-size:20px">원본과 대조</text>
         <text class="ok k4 pop n4-18" x="1" y="276" style="font-size:20px">표 109개 일치</text>
 
-        <line class="sep bd t1" x1="0" y1="302" x2="794" y2="302"/>
-
+      </svg>
+      <svg class="dg bk bk2" viewBox="0 316 794 296" role="img" aria-label="2 OS 백업: Kopia(Apache-2.0)가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. 서버 계정은 쓰기만 되어 랜섬웨어가 백업을 지우려 해도 거부된다. 감염된 OS는 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다. 실습망에서 디스크 두 개를 지우고 재설치해 15분 22초에 되살려 기준값 6가지가 같았다">
         <!-- ===== 2 OS 백업(Kopia) ===== -->
         <g class="bd t1">
           <g class="num"><circle cx="14" cy="335" r="14"/><text x="14" y="341" text-anchor="middle">2</text></g>
@@ -488,6 +500,7 @@ const EVIDENCE_HA = [
           <text class="tiny" x="330" y="606">설치 8분 · 복원 3분, 패키지 · 설정 · DB 데이터 모두</text>
         </g>
       </svg>
+      </div>
     </section>
   </div>
 
