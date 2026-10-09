@@ -51,7 +51,7 @@
      오른쪽은 보안 쪽 셋(pfSense CE · Databasus · Kopia, 화이트보드 '보안 장비가 없는 곳'. 10-09 Kopia 추가). 본편 마지막 장이고 질의응답 5분 동안 띄워 둔다.
      06 마무리와 같은 구도라 칸은 x130 ~ 930 · x990 ~ 1790, 윗선 300, 번호 · 칸 이름 316 ~ 352, 문장 366 ~ 408(32px 한 줄).
      카드는 432 ~ 876 한 높이에 맞춘다. 두 칸 모두 세 장(140, 사이 12)이라 카드가 3 × 2 로 나란하다.
-     카드: 그림 · 이름 · 꼬리표, 한 줄 설명(24px, 존댓말 문장), 이 프로젝트에서 한 근거(21px, 환경 이름만 밝게).
+     카드: 선 그림 · 이름 · 역할 꼬리표(22px), 한 줄 설명(24px, 존댓말 문장), 이 프로젝트에서 한 근거(22px, 환경 이름만 밝게).
      오른쪽 머리 끝에는 세 도구가 모두 오픈소스라는 표를 둔다. 마무리 띠는 900 ~ 990.
      색: 구조는 회색, 번호는 01 파랑 · 02 초록, 하늘은 '감사합니다' */
   .col { position: absolute; top: 300px; width: 800px; height: 576px; }
@@ -72,9 +72,9 @@
   }
   .it img { width: 48px; height: 48px; margin-top: 2px; }
   .it .nm { display: flex; align-items: baseline; gap: 12px; font-size: 26px; font-weight: 600; line-height: 34px; color: var(--ink); white-space: nowrap; }
-  .it .nm em { font-style: normal; font-family: var(--mono); font-size: 19px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 0 9px; line-height: 28px; }
+  .it .nm em { font-style: normal; font-family: var(--sans); font-size: 22px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; line-height: 30px; }
   .it .ds { margin: 6px 0 0; font-size: 24px; line-height: 32px; color: var(--ink-2); white-space: nowrap; }
-  .it .ev { margin: 4px 0 0; font-size: 21px; line-height: 26px; color: var(--ink-3); white-space: nowrap; }
+  .it .ev { margin: 4px 0 0; font-size: 22px; line-height: 28px; color: var(--ink-3); white-space: nowrap; }
   .it .ev b { font-weight: 500; color: var(--ink-2); }
 
   /* 마무리 띠: 06 마무리와 같은 꼴. 첫 줄은 두 칸을 묶는 한 문장, 둘째 줄은 다짐, 오른쪽 아래 '감사합니다' */
@@ -114,7 +114,7 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title"><h1>시스템 엔지니어로서 할 수 있는 것</h1></div>
-  <p class="dek">이 프로젝트에서 직접 해 본 것을 고객사 현장에 그대로 가져갈 수 있습니다.</p>
+  <p class="dek">이 프로젝트에서 직접 해 본 것을 고객사 현장에서도 쓸 수 있습니다.</p>
 
   <!-- 01. IT 인프라: 리눅스 · 네트워크 · 서버 인프라 -->
   <section class="col a">
@@ -125,7 +125,7 @@
       <li class="it card bd a2">
         <img src="assets/tint/linux-side.svg" alt="">
         <div>
-          <div class="nm">리눅스<em>Linux</em></div>
+          <div class="nm">리눅스<em>서버 운영</em></div>
           <p class="ds">계정 · 서비스 · 로그 · 디스크를 직접 설정하고 복구했습니다</p>
           <p class="ev"><b>학교 EC2 · VM 6대</b> · RAID1 교체 · LVM 무중단 증설</p>
         </div>
@@ -133,7 +133,7 @@
       <li class="it card bd a3">
         <img src="assets/tint/ui-network-side.svg" alt="">
         <div>
-          <div class="nm">네트워크<em>Network</em></div>
+          <div class="nm">네트워크<em>망 분리</em></div>
           <p class="ds">VLAN · ACL로 구역을 나누고 필요한 통신만 열었습니다</p>
           <p class="ev"><b>Packet Tracer · VM</b> · nftables 6대 중앙 관리 · bonding</p>
         </div>
@@ -141,7 +141,7 @@
       <li class="it card bd a4">
         <img src="assets/tint/ui-server-2-side.svg" alt="">
         <div>
-          <div class="nm">서버 인프라<em>Infrastructure</em></div>
+          <div class="nm">서버 인프라<em>구축 · 배포</em></div>
           <p class="ds">Docker에서 VM · 학교 EC2 · 개인 AWS까지 직접 구축했습니다</p>
           <p class="ev"><b>개인 AWS</b> · DB 자동 전환 41.6초 · 확인받은 주문 유실 0건</p>
         </div>
@@ -156,10 +156,10 @@
     <p class="say bd b1">보안 장비가 없는 곳도 오픈소스로 지킬 수 있습니다</p>
     <ul class="items">
       <li class="it card bd b2">
-        <img src="assets/tint/pfsense-side.svg" alt="">
+        <img src="assets/tint/ui-wall-side.svg" alt="">
         <div>
           <div class="nm">pfSense CE<em>투명 방화벽</em></div>
-          <p class="ds">장비를 새로 사지 않고 기존 망에 그대로 끼웁니다</p>
+          <p class="ds">서버 주소를 바꾸지 않고 기존 망에 그대로 끼웁니다</p>
           <p class="ev"><b>VM 실습망</b> · L2 ~ L7 검사 · IDS 탐지 · SQL 주입 403</p>
         </div>
       </li>
@@ -175,7 +175,7 @@
         <img src="assets/tint/ui-shield-lock-side.svg" alt="">
         <div>
           <div class="nm">Kopia<em>OS 백업</em></div>
-          <p class="ds">서버를 빼앗겨도 OS 백업은 지워지지 않습니다</p>
+          <p class="ds">서버를 빼앗겨도 그 서버에서는 백업을 지울 수 없습니다</p>
           <p class="ev"><b>VM 실습망</b> · 디스크를 지우고 15분 22초에 복원</p>
         </div>
       </li>
@@ -204,8 +204,8 @@
 왼쪽은 IT 인프라 엔지니어의 기본기입니다. 리눅스는 학교 EC2와 VM 여섯 대에서 계정, 서비스, 로그, 디스크를 직접 설정하고 장애를 내 복구해 봤습니다.
 네트워크는 역할마다 VLAN을 나누고 ACL로 필요한 통신만 열었고, 서버 방화벽 여섯 대는 원본 하나로 관리했습니다.
 서버 인프라는 Docker에서 시작해 VM, 학교 EC2, 개인 AWS까지 직접 구축했고, 주 DB가 멈춰도 41.6초 만에 넘어가 확인받은 주문을 하나도 잃지 않았습니다.
-오른쪽은 보안입니다. 보안 장비가 없는 곳이라면 무료인 pfSense CE를 기존 망에 그대로 끼워 L2부터 L7까지 거르고 침입을 탐지할 수 있고,
-백업은 Databasus로 매일 암호화해 서버 밖에 두고 복원까지 확인할 수 있습니다. OS는 Kopia로 따로 백업하는데, 서버 계정은 저장소에 쓰기만 돼서 서버를 빼앗겨도 백업은 지워지지 않습니다.
+오른쪽은 보안입니다. 보안 장비가 없는 곳이라면 무료인 pfSense CE를 서버 주소를 바꾸지 않고 기존 망에 그대로 끼워 L2부터 L7까지 거르고 침입을 탐지할 수 있고,
+백업은 Databasus로 매일 암호화해 서버 밖에 두고 복원까지 확인할 수 있습니다. OS는 Kopia로 따로 백업하는데, 서버 계정은 저장소에 쓰기만 돼서 서버를 빼앗겨도 그 서버에서는 백업을 지울 수 없습니다.
 리눅스 · 네트워크 · 서버를 기본으로, 보안 장비가 없는 곳은 오픈소스로 지키겠습니다. 고객사 서버에서도 직접 확인한 것만 보고하는 엔지니어가 되겠습니다. 감사합니다.
 질문 때:
 - 리눅스: 학교 EC2(Amazon Linux 2023)에서 계정 · 서비스 · 로그 · 네트워크 · 디스크 다섯 분야(04-4), VM 실습망 Rocky Linux 10.2 여섯 대는 kickstart로 설치, DB01에서 RAID1 디스크 교체 · LVM 무중단 증설 · bonding(04-3 서버 단면도).
