@@ -140,9 +140,9 @@ const EVIDENCE_HA = [
   .stage[data-step="0"] .flow .r0, .stage[data-step="1"] .flow .r1, .stage[data-step="2"] .flow .r2 { border-color: var(--brand); background: rgba(121,167,250,.07); }
 
   .col.r { position: absolute; inset: 0; }
-  .bkg { position: relative; display: grid; grid-template-columns: 794px 794px; column-gap: 72px; margin-top: 156px; }
-  .bkg::before { content: ''; position: absolute; left: 830px; top: -24px; bottom: -24px; width: 1px; background: var(--line); }
-  .dg.bk1 { height: 290px; } .dg.bk2 { height: 296px; }
+  .bkg { position: relative; display: grid; grid-template-columns: 794px 794px; column-gap: 72px; margin-top: 14px; }
+  .bkg::before { content: ''; position: absolute; left: 830px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .dg.bk1, .dg.bk2 { height: 560px; }
   .ch { margin: 0; display: flex; align-items: center; gap: 12px; height: 56px; flex: none; font-size: 34px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
   .ch span { font-size: 24px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
   .n { flex: none; font-style: normal; font-family: var(--mono); font-weight: 700; font-size: 22px; color: var(--stage); background: var(--ink); border-radius: 50%; width: 32px; height: 32px; display: inline-grid; place-items: center; }
@@ -168,35 +168,35 @@ const EVIDENCE_HA = [
   .col.l > .ch { animation-delay: .35s; }
 
   /* 단계(→ 한 번에 하나). stage 의 g1~g8 은 '그 단계 이상'이고, ←·#last 는 움직임 없이(.inst) 끝 모습만 보인다 */
-  .dg .draw { stroke-dasharray: 1; stroke-dashoffset: 0; }
   .stage.done .flow .h7, .stage.done .flow .fr.r0, .stage.done .bd, .stage.done h1, .stage.done .dek, .stage.done .title .env { animation: none !important; }
   /* 장면 바꾸기: 단계 3에 들어서면 이중화가 0.35초에 사라지고 백업이 0.25초부터 겹쳐 들어온다. 백업의 첫 그림(③)은 그 뒤 0.6초부터 */
   .stage.g3 .col.l { opacity: 0; pointer-events: none; }
   .stage:not(.g3) .col.r { visibility: hidden; }
   .stage[data-step="3"]:not(.inst) .col.l { animation: out .35s var(--ease) both; }
   .stage[data-step="3"]:not(.inst) .col.r { animation: fade .45s .25s var(--ease) both; }
+  /* 'Apache-2.0 오픈소스'는 백업 도구(Databasus·Kopia)의 표라 백업 장면에서만 보인다(이중화의 Patroni는 MIT, HAProxy는 GPLv2). 'VM 실습망' 왼쪽에 두고 자리는 그대로 비워, VM 표가 늘 오른쪽 끝에서 움직이지 않는다 */
+  .stage:not(.g3) .title .env.oss { visibility: hidden; }
+  .stage.g3 .title .env.oss { animation: none; }
+  .stage[data-step="3"]:not(.inst) .title .env.oss { animation: oss-in .45s .25s var(--ease) both; }  /* 여는 fade 와 이름이 같으면 다시 시작되지 않는다 */
 
-  /* ② 백업(2026-10-08, 10-09 배치 변경): 서버 밖에 두 가지 백업을 나란히 둔다. 왼쪽 1 데이터 백업(Databasus), 오른쪽 2 OS 백업(Kopia). 둘 다 Apache-2.0.
-     ③ 데이터 백업(약 1.6초): DB01 → OPS01 길(0~0.5초) → OPS01(0.6초) → OPS01 → EDGE01 길(0.8~1.3초) → EDGE01(1.4초)
-     ④ 복원 검증(약 2.0초): EDGE01 → 임시 DB 길(0~0.8초) → 임시 DB(0.8초) → 원본 대조 점선(1.0~1.8초) → '표 109개 일치'(1.8초)
-     ⑤ OS 백업(약 1.6초): DB01 → OPS01 길(0~0.8초) → OPS01 · 'Kopia 저장소'(0.8초) → 오른쪽 설명 · 단계 표 '백업'(1.2초)
-     ⑥ 랜섬웨어(약 2.4초): 아래에서 '랜섬웨어'가 DB01로(0~0.4초) → DB01 빨간 테두리 · 흔들림 · '파일 암호화됨' · 자물쇠(0.4~1.0초)
-        → 백업을 지우려는 빨간 길(1.2~2.0초) → ✕ · '삭제 시도 → 거부'(2.0초) · 설명 · 단계 표 '감염'(2.0초)
-     ⑦ OS 초기화(약 2.0초): DB01 안을 왼쪽에서 오른쪽으로 쓸어 지움(0.2~1.6초)과 아래 재설치 막대(0.2~2.0초) → 'OS 초기화'(0.8초) → 설명 · 단계 표 '초기화'(1.0초)
-     ⑧ 복원(약 2.0초): OPS01 → DB01 초록 길(0~0.8초) → '스냅숏으로 복원'(0.8초) → DB01 초록 테두리 · '복원 완료'(1.0초) → 시험 결과 · 단계 표 '복원'(1.4초)
-     kN 은 그 단계부터 보이고, uptoN 은 N 단계까지만 보인다(다음 단계에 들어서며 0.3초에 사라짐). nN-xx 는 N 단계 안의 시점(xx/10초) */
+  /* ② 백업(2026-10-08, 10-09 다시 그림): 서버 밖에 두 가지 백업을 나란히 둔다. 왼쪽 1 데이터 백업(Databasus), 오른쪽 2 OS 백업(Kopia). 둘 다 Apache-2.0.
+     움직임은 이중화 장면처럼 페이드(0.3초)뿐이고, 옛 글이 꺼진 뒤 새 글이 들어온다.
+     상자가 먼저 나오고, 그 상자를 가리키는 화살표는 0.2초 뒤에 나온다(이중화 장면의 '연결선은 상자 뒤에'와 같다).
+     ③ 데이터 백업: OPS01(0.6초) → SSL 화살표(0.8초) → EDGE01(1.2초) → SFTP 화살표(1.4초). 장면이 바뀐 뒤 그리기 시작해 0.6초씩 늦다
+     ④ 복원 검증: 임시 DB(0) → EDGE01 → 임시 DB 화살표(0.2초) → 원본 대조 점선(0.6초) → '표 109개 일치'(1.0초)
+     ⑤ OS 백업: 단계 표 · OPS01(0) → 스냅숏 화살표(0.2초) → 설명 · 단계 표 '백업'(0.6초)
+     ⑥ 랜섬웨어(가정): 아래에서 DB01로(0~0.4초) → DB01 빨간 테두리 · '파일 암호화됨'(0.4초) · 자물쇠(0.6초)
+        → 백업을 지우려는 빨간 길(1.0초) → ✕ · '삭제 시도 → 거부' · 설명 · 단계 표 '감염'(1.4초)
+     ⑦ OS 초기화: 세 칸짜리 재설치 막대(0.2~2.0초)와 칸 이름(0.4 · 1.0 · 1.6초) → 'OS 초기화'(0.4초) → 설명 · 단계 표 '초기화'(1.0초)
+     ⑧ 복원: 지난 글이 꺼진 뒤(0~0.6초) OPS01 → DB01 초록 길(0.4초) → DB01 초록 테두리 · '복원 완료'(0.6초) → 왼쪽 아래 '되살린 것'과 시험 결과 · 단계 표 '복원'(1.0초)
+     kN 은 그 단계부터 보이고, uptoN 은 N 단계까지만 보인다(다음 단계에 들어서며 0.3초에 사라짐, od3 는 0.3초 늦게). nN-xx 는 N 단계 안의 시점(xx/10초) */
   .stage:not(.g3) .k3, .stage:not(.g4) .k4, .stage:not(.g5) .k5, .stage:not(.g6) .k6, .stage:not(.g7) .k7, .stage:not(.g8) .k8 { visibility: hidden; }
   .stage.g6 .upto5, .stage.g7 .upto6, .stage.g8 .upto7 { opacity: 0; }
   .stage[data-step="6"]:not(.inst) .upto5, .stage[data-step="7"]:not(.inst) .upto6, .stage[data-step="8"]:not(.inst) .upto7 { animation: out .3s var(--ease) 0s both; }
+  .stage[data-step="8"]:not(.inst) .upto7.od3 { animation-delay: .3s; }
   .stage[data-step="3"]:not(.inst) .k3.pop, .stage[data-step="4"]:not(.inst) .k4.pop, .stage[data-step="5"]:not(.inst) .k5.pop,
   .stage[data-step="6"]:not(.inst) .k6.pop, .stage[data-step="7"]:not(.inst) .k7.pop, .stage[data-step="8"]:not(.inst) .k8.pop { animation: fade .3s var(--ease) both; }
-  .stage[data-step="3"]:not(.inst) .k3.draw, .stage[data-step="4"]:not(.inst) .k4.draw, .stage[data-step="5"]:not(.inst) .k5.draw,
-  .stage[data-step="6"]:not(.inst) .k6.draw, .stage[data-step="8"]:not(.inst) .k8.draw { animation: draw .8s var(--ease) both; }
-  .stage[data-step="3"]:not(.inst) .k3.draw.q { animation-duration: .5s; }
   .stage[data-step="6"]:not(.inst) .k6.up { animation: rise .4s var(--ease) both; }
-  .stage[data-step="6"]:not(.inst) .shk { animation: shake .5s var(--ease) .4s both; }
-  .stage[data-step="7"]:not(.inst) .wipe { animation: sweep 1.4s var(--ease) .2s both; }
-  .stage[data-step="7"]:not(.inst) .scan { animation: scan 1.4s var(--ease) .2s both; }
   .stage[data-step="7"]:not(.inst) .barfill { animation: sweep 1.8s var(--ease) .2s both; }
   .stage[data-step="3"] .k3 { animation-delay: .6s !important; }
   .stage[data-step="3"] .n3-02 { animation-delay: 0.8s !important; } .stage[data-step="3"] .n3-04 { animation-delay: 1.0s !important; } .stage[data-step="3"] .n3-06 { animation-delay: 1.2s !important; } .stage[data-step="3"] .n3-08 { animation-delay: 1.4s !important; }
@@ -216,16 +216,17 @@ const EVIDENCE_HA = [
   .stage[data-step="8"] .n8-04 { animation-delay: 0.4s !important; } .stage[data-step="8"] .n8-06 { animation-delay: 0.6s !important; } .stage[data-step="8"] .n8-08 { animation-delay: 0.8s !important; } .stage[data-step="8"] .n8-10 { animation-delay: 1s !important; }
   .stage[data-step="8"] .n8-12 { animation-delay: 1.2s !important; } .stage[data-step="8"] .n8-14 { animation-delay: 1.4s !important; } .stage[data-step="8"] .n8-16 { animation-delay: 1.6s !important; } .stage[data-step="8"] .n8-18 { animation-delay: 1.8s !important; }
   .stage[data-step="8"] .n8-20 { animation-delay: 2s !important; } .stage[data-step="8"] .n8-24 { animation-delay: 2.4s !important; }
-  .bk .sh { font-size: 26px; font-weight: 600; fill: var(--ink); }
-  .bk .sh tspan.tool { font-size: 22px; font-weight: 500; fill: var(--ink-2); }
-  .bk .num circle { fill: var(--ink-2); } .bk .num text { font-family: var(--mono); font-size: 18px; font-weight: 700; fill: var(--stage); }
-  .bk .nm2 { font-size: 24px; font-weight: 600; fill: var(--ink); }
-  .bk .nm2 tspan { font-size: 20px; font-weight: 400; fill: var(--ink-2); }
-  .bk .small { font-size: 20px; fill: var(--ink-3); }
-  .bk .tiny { font-size: 18px; fill: var(--ink-3); }
-  .bk .sep { stroke: var(--line); stroke-width: 1.5; }
-  .dg .wipe { fill: rgba(232,192,122,.13); transform-box: fill-box; transform-origin: left center; }
-  .dg .scan { fill: var(--warm); opacity: 0; }
+  .bk .sh { font-size: 28px; font-weight: 600; fill: var(--ink); }
+  .bk .sh tspan.tool { font-size: 24px; font-weight: 500; fill: var(--ink-2); }
+  .bk .num circle { fill: var(--ink-2); } .bk .num text { font-family: var(--mono); font-size: 22px; font-weight: 700; fill: var(--stage); }
+  .bk .nm2 { font-size: 26px; font-weight: 600; fill: var(--ink); }
+  .bk .nm2 tspan { font-size: 22px; font-weight: 400; fill: var(--ink-2); }
+  .bk .l2 { font-size: 22px; fill: var(--ink-2); } .bk .rl2 { font-size: 22px; fill: var(--ink-3); }
+  .bk .small { font-size: 22px; fill: var(--ink-3); }
+  .bk .al { font-size: 22px; fill: var(--ink-2); }
+  .bk .ex { font-size: 24px; font-weight: 600; fill: var(--ink); } .bk .ex.bad { fill: var(--bad); } .bk .ex.warm { fill: var(--warm); } .bk .ex.ok { fill: var(--ok); }
+  .bk .okl { font-size: 22px; font-weight: 600; fill: var(--ok); } .bk .okl.big { font-size: 26px; }
+  .bk .badt { font-size: 22px; }
   .dg .frame { fill: none; stroke-width: 3; }
   .dg .frame.red { stroke: var(--bad); } .dg .frame.green { stroke: var(--ok); }
   .dg .ro.bad, .dg .badt { fill: var(--bad); } .dg .ro.warm { fill: var(--warm); } .dg .ro.ok { fill: var(--ok); }
@@ -235,13 +236,12 @@ const EVIDENCE_HA = [
   .dg .xm path { fill: none; stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
   .dg .lock rect { fill: rgba(255,122,122,.18); stroke: var(--bad); stroke-width: 2.2; }
   .dg .lock path { fill: none; stroke: var(--bad); stroke-width: 2.2; }
-  .dg .lic rect { fill: rgba(45,209,150,.10); stroke: rgba(45,209,150,.6); stroke-width: 1.5; }
-  .dg .lic text { font-family: var(--mono); font-size: 17px; font-weight: 600; fill: var(--ok); }
-  .dg .lane { font-size: 20px; font-weight: 600; } .dg .lane.bad { fill: var(--bad); } .dg .lane.ok { fill: var(--ok); }
+  .dg .lane { font-size: 22px; font-weight: 600; } .dg .lane.bad { fill: var(--bad); } .dg .lane.ok { fill: var(--ok); }
+  .dg .barcut { fill: var(--stage); }
   .dg .barbg { fill: #2A3142; } .dg .barfill { fill: var(--warm); transform-box: fill-box; transform-origin: left center; }
   /* OS 백업 단계 표(머리 오른쪽): 회색 칸 넷 위에 그 단계에 이른 칸만 색을 덮는다(파랑 백업 · 빨강 감염 · 노랑 초기화 · 초록 복원) */
   .dg .pill rect { fill: var(--stage); stroke: var(--line); stroke-width: 1.5; }
-  .dg .pill text { font-size: 18px; fill: var(--ink-3); }
+  .dg .pill text { font-size: 22px; fill: var(--ink-3); }
   .dg .pill.on text { fill: var(--ink); font-weight: 600; }
   .dg .pill.on.c1 rect { fill: #1E2B45; stroke: var(--brand); }
   .dg .pill.on.c2 rect { fill: #3A2229; stroke: var(--bad); }
@@ -285,14 +285,10 @@ const EVIDENCE_HA = [
   }
 
   @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes oss-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
   @keyframes out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes dim { from { opacity: 1; } to { opacity: .4; } }
-  @keyframes undim { from { opacity: .4; } to { opacity: 1; } }
-  @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(4px); } }
   @keyframes sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes scan { 0% { opacity: 1; transform: translateX(0); } 90% { opacity: 1; transform: translateX(290px); } 100% { opacity: 0; transform: translateX(290px); } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 <link rel="stylesheet" href="deck.css">
@@ -308,8 +304,8 @@ const EVIDENCE_HA = [
   <div class="title">
     <h1>DB 이중화와 백업</h1>
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-file-check-side.svg" alt="">증거 화면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
-    <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
     <span class="env oss" style="margin-left:14px"><img src="assets/tint/ui-shield-check-side.svg" alt="">Apache-2.0 오픈소스</span>
+    <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
   </div>
   <p class="dek">이중화만으로는 지운 데이터도 망가진 OS도 되돌릴 수 없어, 서버 밖에 데이터 백업과 OS 백업을 더했습니다.</p>
 
@@ -405,148 +401,162 @@ const EVIDENCE_HA = [
     <section class="col r" aria-label="백업">
       <h2 class="ch bd"><i class="n">2</i>백업<span>서버 밖에 데이터와 OS를 따로</span></h2>
       <div class="bkg">
-      <svg class="dg bk bk1" viewBox="0 0 794 290" role="img" aria-label="백업 두 가지 가운데 1 데이터 백업(왼쪽), 2 OS 백업은 오른쪽. 1 데이터 백업: 관제 서버 OPS01의 Databasus(Apache-2.0)가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고 SFTP로 웹 진입 서버 EDGE01에 7일 보관한다. 그 백업을 임시 DB에 복원해 pg_restore 종료 코드 0, 표 109개가 원본과 같은 것을 확인했다. 2 OS 백업: Kopia(Apache-2.0)가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. 서버 계정은 쓰기만 되어 랜섬웨어가 DB01을 차지해 백업을 지우려 해도 거부된다. 감염된 OS는 디스크를 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다. VM 실습망 시험에서 DB01의 디스크 두 개를 지우고 OS를 새로 설치한 뒤 15분 22초 만에 되살려 기준값 6가지가 같았고, 백업 삭제 시도 세 가지는 모두 거부됐다">
-        <!-- ===== 1 데이터 백업(Databasus) ===== -->
+      <svg class="dg bk bk1" viewBox="0 0 794 560" role="img" aria-label="백업 두 가지 가운데 1 데이터 백업(왼쪽), 2 OS 백업은 오른쪽. 1 데이터 백업: 관제 서버 OPS01의 Databasus가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고 SFTP로 웹 진입 서버 EDGE01에 7일 보관한다. 그 백업을 임시 DB에 복원해 pg_restore가 종료 코드 0으로 끝났고, 원본과 대조해 표 109개가 같았다">
+        <!-- ===== 1 데이터 백업(Databasus): DB01 → OPS01 → EDGE01, 아래 줄은 복원 검증. 상자는 이름 · 역할 · 내용 순 ===== -->
         <g class="bd t1">
-          <g class="num"><circle cx="14" cy="19" r="14"/><text x="14" y="25" text-anchor="middle">1</text></g>
-          <text class="sh" id="sh1" x="38" y="28">데이터 백업<tspan class="tool" dx="12">Databasus</tspan></text>
-          <g class="lic" data-after="sh1"><rect x="0" y="6" width="116" height="28" rx="6"/><text x="58" y="26" text-anchor="middle">Apache-2.0</text></g>
-          <rect class="bx" x="1" y="48" width="228" height="98" rx="11"/>
-          <image href="assets/tint/ui-database-glow.svg" x="16" y="62" width="28" height="28"/>
-          <text class="nm2" x="52" y="84">DB01<tspan dx="10">백업 원본</tspan></text>
-          <text class="small" x="16" y="126">거래 DB</text>
+          <g class="num"><circle cx="16" cy="22" r="16"/><text x="16" y="30" text-anchor="middle">1</text></g>
+          <text class="sh" x="44" y="32">데이터 백업<tspan class="tool" dx="12">Databasus</tspan></text>
+          <rect class="bx" x="1" y="84" width="213" height="180" rx="11"/>
+          <image href="assets/tint/ui-database-glow.svg" x="18" y="104" width="30" height="30"/>
+          <text class="nm2" x="58" y="129">DB01</text>
+          <text class="rl2" x="18" y="166">DB 서버</text>
+          <text class="l2" x="18" y="212">거래 DB · 백업 원본</text>
         </g>
-        <path class="ar k3 draw q" pathLength="1" d="M229 97 H263"/>
-        <path class="hdp k3 pop n3-04" d="M283 97 L263 88 L263 106 Z"/>
-        <text class="tiny k3 pop n3-04" x="256" y="82" text-anchor="middle">SSL</text>
+        <!-- 상자가 먼저, 그 상자를 가리키는 화살표는 0.2초 뒤 -->
+        <g class="k3 pop">
+          <rect class="bx" x="290" y="84" width="214" height="180" rx="11"/>
+          <image href="assets/tint/ui-activity-glow.svg" x="307" y="104" width="30" height="30"/>
+          <text class="nm2" x="347" y="129">OPS01</text>
+          <text class="rl2" x="307" y="166">관제 서버</text>
+          <text class="l2" x="307" y="212">매일 <tspan class="m">09:00</tspan> 암호화</text>
+        </g>
+        <g class="k3 pop n3-02">
+          <path class="ar" d="M214 174 H270"/><path class="hdp" d="M290 174 L270 165 L270 183 Z"/>
+          <text class="al" x="252" y="156" text-anchor="middle">SSL</text>
+        </g>
         <g class="k3 pop n3-06">
-          <rect class="bx" x="283" y="48" width="228" height="98" rx="11"/>
-          <image href="assets/tint/ui-activity-glow.svg" x="298" y="62" width="28" height="28"/>
-          <text class="nm2" x="334" y="84">OPS01<tspan dx="10">관제</tspan></text>
-          <text class="small" x="298" y="126">매일 <tspan class="m">09:00</tspan> 암호화</text>
+          <rect class="bx" x="580" y="84" width="213" height="180" rx="11"/>
+          <image href="assets/tint/nginx-glow.svg" x="597" y="104" width="30" height="30"/>
+          <text class="nm2" x="637" y="129">EDGE01</text>
+          <text class="rl2" x="597" y="166">웹 진입 서버</text>
+          <text class="l2" x="597" y="212">서버 밖 · 7일 보존</text>
         </g>
-        <path class="ar k3 draw q n3-08" pathLength="1" d="M511 97 H545"/>
-        <path class="hdp k3 pop n3-12" d="M565 97 L545 88 L545 106 Z"/>
-        <text class="tiny k3 pop n3-12" x="538" y="82" text-anchor="middle">SFTP</text>
-        <g class="k3 pop n3-14">
-          <rect class="bx" x="565" y="48" width="228" height="98" rx="11"/>
-          <image href="assets/tint/nginx-glow.svg" x="580" y="62" width="28" height="28"/>
-          <text class="nm2" x="616" y="84">EDGE01</text>
-          <text class="small" x="580" y="126">서버 밖 · 7일 보존</text>
+        <g class="k3 pop n3-08">
+          <path class="ar" d="M504 174 H560"/><path class="hdp" d="M580 174 L560 165 L560 183 Z"/>
+          <text class="al" x="542" y="156" text-anchor="middle">SFTP</text>
         </g>
-        <!-- ④ 복원 검증: EDGE01 → 임시 DB, 임시 DB ↔ 원본 대조(점선, 양 끝 점) -->
-        <path class="ar k4 draw" pathLength="1" d="M679 147 V214 H531"/>
-        <path class="hdp k4 pop n4-08" d="M511 214 L531 205 L531 223 Z"/>
-        <text class="small k4 pop n4-08" x="605" y="244" text-anchor="middle">백업으로 복원</text>
-        <g class="k4 pop n4-08">
-          <rect class="bx tmp" x="283" y="172" width="228" height="86" rx="11"/>
-          <image href="assets/tint/ui-database-glow.svg" x="298" y="186" width="28" height="28"/>
-          <text class="nm2" x="334" y="208">임시 DB</text>
-          <text class="ok m" x="298" y="244" style="font-size:20px">pg_restore 0</text>
+        <!-- ④ 복원 검증: 임시 DB가 먼저, EDGE01의 백업이 그리로 복원되고(→), 임시 DB와 원본을 대조한다(점선, 양 끝 점) -->
+        <g class="k4 pop">
+          <rect class="bx tmp" x="290" y="380" width="214" height="150" rx="11"/>
+          <image href="assets/tint/ui-database-glow.svg" x="307" y="400" width="30" height="30"/>
+          <text class="nm2" x="347" y="425">임시 DB</text>
+          <text class="okl" x="307" y="478">pg_restore 성공</text>
+          <text class="small" x="307" y="512">종료 코드 0</text>
         </g>
-        <mask id="m-cmp2" maskUnits="userSpaceOnUse" x="0" y="0" width="794" height="630"><path class="k4 draw n4-10" pathLength="1" d="M283 214 H115 V147" fill="none" stroke="#fff" stroke-width="12"/></mask>
-        <path class="ar cmp k4" mask="url(#m-cmp2)" d="M283 214 H115 V147"/>
-        <circle class="dot k4 pop n4-10" cx="283" cy="214" r="6"/>
-        <circle class="dot k4 pop n4-18" cx="115" cy="147" r="6"/>
-        <text class="hd k4 pop n4-18" x="1" y="248" style="font-size:20px">원본과 대조</text>
-        <text class="ok k4 pop n4-18" x="1" y="276" style="font-size:20px">표 109개 일치</text>
-
+        <g class="k4 pop n4-02">
+          <path class="ar" d="M687 264 V455 H524"/><path class="hdp" d="M504 455 L524 446 L524 464 Z"/>
+          <text class="al" x="608" y="496" text-anchor="middle">백업으로 복원</text>
+        </g>
+        <g class="k4 pop n4-06">
+          <path class="ar cmp" d="M290 455 H107 V266"/>
+          <circle class="dot" cx="290" cy="455" r="6"/><circle class="dot" cx="107" cy="266" r="6"/>
+        </g>
+        <g class="k4 pop n4-10">
+          <text class="ex" x="1" y="508">원본과 대조</text>
+          <text class="okl big" x="1" y="546">표 109개 일치</text>
+        </g>
       </svg>
-      <svg class="dg bk bk2" viewBox="0 316 794 296" role="img" aria-label="2 OS 백업: Kopia(Apache-2.0)가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. 서버 계정은 쓰기만 되어 랜섬웨어가 백업을 지우려 해도 거부된다. 감염된 OS는 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다. 실습망에서 디스크 두 개를 지우고 재설치해 15분 22초에 되살려 기준값 6가지가 같았다">
+      <svg class="dg bk bk2" viewBox="0 0 794 560" role="img" aria-label="2 OS 백업: Kopia가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. DB01 계정은 저장소에 쓰기만 되어, 랜섬웨어가 DB01을 차지했다고 가정하고 DB01 root로 백업 삭제 · 보존 줄이기 · 저장소 정비를 시도하면 모두 거부된다(실습망 시험). 감염된 OS는 디스크를 지우고 kickstart로 새로 설치한 뒤 사고 전 스냅숏으로 패키지 목록 · /etc · DB 데이터를 되살린다. 실습망에서 DB01의 디스크 두 개를 지운 때부터 서비스까지 15분 22초(재설치 483초, 되살리기 167초 포함)가 걸렸고 기준값 6가지가 같았다">
         <!-- ===== 2 OS 백업(Kopia) ===== -->
         <g class="bd t1">
-          <g class="num"><circle cx="14" cy="335" r="14"/><text x="14" y="341" text-anchor="middle">2</text></g>
-          <text class="sh" id="sh2" x="38" y="344">OS 백업<tspan class="tool" dx="12">Kopia</tspan></text>
-          <g class="lic" data-after="sh2"><rect x="0" y="322" width="116" height="28" rx="6"/><text x="58" y="342" text-anchor="middle">Apache-2.0</text></g>
+          <g class="num"><circle cx="16" cy="22" r="16"/><text x="16" y="30" text-anchor="middle">2</text></g>
+          <text class="sh" x="44" y="32">OS 백업<tspan class="tool" dx="12">Kopia</tspan></text>
         </g>
-        <!-- 단계 표: 백업 → 감염 → 초기화 → 복원 -->
+        <!-- 단계 표: 백업 → 감염 → 초기화 → 복원. 회색 칸 넷 위에 그 단계에 이른 칸만 색을 덮는다 -->
         <g class="k5 pop">
-          <g class="pill"><rect x="424" y="320" width="86" height="30" rx="15"/><text x="467" y="341" text-anchor="middle">백업</text></g>
-          <g class="pill"><rect x="526" y="320" width="86" height="30" rx="15"/><text x="569" y="341" text-anchor="middle">감염</text></g>
-          <g class="pill"><rect x="628" y="320" width="86" height="30" rx="15"/><text x="671" y="341" text-anchor="middle">초기화</text></g>
-          <g class="pill"><rect x="730" y="320" width="63" height="30" rx="15"/><text x="761" y="341" text-anchor="middle">복원</text></g>
+          <g class="pill"><rect x="408" y="4" width="84" height="36" rx="18"/><text x="450" y="30" text-anchor="middle">백업</text></g>
+          <g class="pill"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">감염</text></g>
+          <g class="pill"><rect x="596" y="4" width="104" height="36" rx="18"/><text x="648" y="30" text-anchor="middle">초기화</text></g>
+          <g class="pill"><rect x="710" y="4" width="83" height="36" rx="18"/><text x="751.5" y="30" text-anchor="middle">복원</text></g>
         </g>
-        <g class="pill on c1 k5 pop n5-12"><rect x="424" y="320" width="86" height="30" rx="15"/><text x="467" y="341" text-anchor="middle">백업</text></g>
-        <g class="pill on c2 k6 pop n6-20"><rect x="526" y="320" width="86" height="30" rx="15"/><text x="569" y="341" text-anchor="middle">감염</text></g>
-        <g class="pill on c3 k7 pop n7-10"><rect x="628" y="320" width="86" height="30" rx="15"/><text x="671" y="341" text-anchor="middle">초기화</text></g>
-        <g class="pill on c4 k8 pop n8-14"><rect x="730" y="320" width="63" height="30" rx="15"/><text x="761" y="341" text-anchor="middle">복원</text></g>
-        <defs><clipPath id="clip-db"><rect x="1" y="368" width="298" height="110" rx="11"/></clipPath></defs>
-        <!-- DB01: 상태마다 둘째 · 셋째 줄을 바꿔 놓는다 -->
-        <g class="bd t1"><g class="shk">
-          <rect class="bx" x="1" y="368" width="298" height="110" rx="11"/>
-          <g clip-path="url(#clip-db)"><rect class="wipe k7 upto7" x="1" y="368" width="298" height="110"/><rect class="scan k7 upto7" x="1" y="368" width="6" height="110"/></g>
-          <rect class="frame red k6 upto6 pop n6-04" x="1" y="368" width="298" height="110" rx="11"/>
-          <rect class="frame green k8 pop n8-10" x="1" y="368" width="298" height="110" rx="11"/>
-          <image href="assets/tint/ui-database-glow.svg" x="16" y="382" width="28" height="28"/>
-          <text class="nm2" x="52" y="404">DB01<tspan dx="10">지킬 서버</tspan></text>
-          <text class="ro upto5" x="16" y="442">OS · 설정 · DB 데이터</text>
-          <text class="small upto5" x="16" y="468">/etc · /var/lib/pgsql 등 6곳</text>
-          <text class="ro bad k6 upto6 pop n6-04" x="16" y="442">파일 암호화됨</text>
-          <text class="badt k6 upto6 pop n6-06" x="16" y="468" style="font-size:20px">서비스 멈춤</text>
-          <g class="k6 upto6 pop n6-06 lock" transform="translate(206 420)"><rect x="0" y="10" width="20" height="16" rx="3"/><path d="M4.5 10 V6.5 a5.5 5.5 0 0 1 11 0 V10"/></g>
-          <g class="k6 upto6 pop n6-08 lock" transform="translate(236 420)"><rect x="0" y="10" width="20" height="16" rx="3"/><path d="M4.5 10 V6.5 a5.5 5.5 0 0 1 11 0 V10"/></g>
-          <g class="k6 upto6 pop n6-10 lock" transform="translate(266 420)"><rect x="0" y="10" width="20" height="16" rx="3"/><path d="M4.5 10 V6.5 a5.5 5.5 0 0 1 11 0 V10"/></g>
-          <text class="ro warm k7 upto7 pop n7-08" x="16" y="442">OS 초기화</text>
-          <text class="k7 upto7 pop n7-08" x="16" y="468" style="font-size:20px">디스크를 지우고 새로 설치</text>
-          <text class="ro ok k8 pop n8-10" x="16" y="442">복원 완료</text>
-          <text class="k8 pop n8-10" x="16" y="468" style="font-size:20px">서비스 정상 · 기준값 일치</text>
-        </g></g>
-        <!-- 매일 OS 스냅숏: DB01 → OPS01 -->
-        <path class="ar k5 draw" pathLength="1" d="M300 394 H475"/>
-        <path class="hdp k5 pop n5-08" d="M495 394 L475 385 L475 403 Z"/>
-        <text class="small k5 pop n5-08" x="397" y="384" text-anchor="middle">매일 OS 스냅숏</text>
-        <g class="k5 pop n5-08">
-          <rect class="bx" x="495" y="368" width="298" height="110" rx="11"/>
-          <image href="assets/tint/ui-activity-glow.svg" x="510" y="382" width="28" height="28"/>
-          <text class="nm2" x="546" y="404">OPS01<tspan dx="10">관제</tspan></text>
-          <text class="ro" x="510" y="442">Kopia 저장소</text>
-          <text class="small" x="510" y="468">쓰기만 허용 · AES-256</text>
+        <g class="pill on c1 k5 pop n5-06"><rect x="408" y="4" width="84" height="36" rx="18"/><text x="450" y="30" text-anchor="middle">백업</text></g>
+        <g class="pill on c2 k6 pop n6-14"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">감염</text></g>
+        <g class="pill on c3 k7 pop n7-10"><rect x="596" y="4" width="104" height="36" rx="18"/><text x="648" y="30" text-anchor="middle">초기화</text></g>
+        <g class="pill on c4 k8 pop n8-10"><rect x="710" y="4" width="83" height="36" rx="18"/><text x="751.5" y="30" text-anchor="middle">복원</text></g>
+        <!-- DB01: 상태마다 내용 두 줄과 테두리를 바꿔 놓는다(옛 글이 꺼진 뒤 새 글) -->
+        <g class="bd t1">
+          <rect class="bx" x="1" y="84" width="299" height="180" rx="11"/>
+          <rect class="frame red k6 upto6 pop n6-04" x="1" y="84" width="299" height="180" rx="11"/>
+          <rect class="frame green k8 pop n8-06" x="1" y="84" width="299" height="180" rx="11"/>
+          <image href="assets/tint/ui-database-glow.svg" x="18" y="104" width="30" height="30"/>
+          <text class="nm2" x="58" y="129">DB01</text>
+          <text class="rl2" x="18" y="166">지킬 서버</text>
+          <text class="ro upto5" x="18" y="212">OS · 설정 · DB 데이터</text>
+          <text class="small upto5" x="18" y="246">/etc · /var/lib/pgsql 등 6곳</text>
+          <text class="ro bad k6 upto6 pop n6-04" x="18" y="212">파일 암호화됨</text>
+          <text class="badt k6 upto6 pop n6-04" x="18" y="246">서비스 멈춤</text>
+          <g class="k6 upto6 pop n6-06 lock" transform="translate(262 190)"><rect x="0" y="10" width="20" height="16" rx="3"/><path d="M4.5 10 V6.5 a5.5 5.5 0 0 1 11 0 V10"/></g>
+          <text class="ro warm k7 upto7 od3 pop n7-04" x="18" y="212">OS 초기화</text>
+          <text class="l2 k7 upto7 od3 pop n7-04" x="18" y="246">디스크를 지우고 새로 설치</text>
+          <text class="ro ok k8 pop n8-06" x="18" y="212">복원 완료</text>
+          <text class="l2 k8 pop n8-06" x="18" y="246">서비스 정상 · 기준값 일치</text>
         </g>
-        <!-- ⑥ 삭제 시도(빨강) → ✕. ⑦까지 남고 ⑧에서 같은 자리의 복원 길로 바뀐다 -->
-        <path class="ar red k6 upto7 draw n6-12" pathLength="1" d="M300 446 H455"/>
-        <g class="xm k6 upto7 pop n6-20"><circle cx="474" cy="446" r="15"/><path d="M467 439 L481 453 M481 439 L467 453"/></g>
-        <text class="lane bad k6 upto7 pop n6-20" x="382" y="474" text-anchor="middle">삭제 시도 → 거부</text>
+        <!-- ⑤ 매일 OS 스냅숏: OPS01이 먼저, DB01 → OPS01 화살표는 0.2초 뒤 -->
+        <g class="k5 pop">
+          <rect class="bx" x="494" y="84" width="299" height="180" rx="11"/>
+          <image href="assets/tint/ui-activity-glow.svg" x="511" y="104" width="30" height="30"/>
+          <text class="nm2" x="551" y="129">OPS01</text>
+          <text class="rl2" x="511" y="166">관제 서버</text>
+          <text class="ro" x="511" y="212">Kopia 저장소</text>
+          <text class="small" x="511" y="246">쓰기만 허용 · AES-256</text>
+        </g>
+        <g class="k5 pop n5-02">
+          <path class="ar" d="M300 134 H474"/><path class="hdp" d="M494 134 L474 125 L474 143 Z"/>
+          <text class="al" x="397" y="116" text-anchor="middle">매일 OS 스냅숏</text>
+        </g>
+        <!-- ⑥ 삭제 시도(빨강) → ✕. ⑦까지 남고 ⑧에서 같은 자리의 복원 길(초록)로 바뀐다 -->
+        <g class="k6 upto7 pop n6-10"><path class="ar red" d="M300 210 H452"/></g>
+        <g class="k6 upto7 pop n6-14">
+          <g class="xm"><circle cx="472" cy="210" r="16"/><path d="M465 203 L479 217 M479 203 L465 217"/></g>
+          <text class="lane bad" x="386" y="250" text-anchor="middle">삭제 시도 → 거부</text>
+        </g>
         <!-- ⑧ 복원(초록): OPS01 → DB01 -->
-        <path class="ar green k8 draw" pathLength="1" d="M495 446 H320"/>
-        <path class="hdp green k8 pop n8-08" d="M300 446 L320 437 L320 455 Z"/>
-        <text class="lane ok k8 pop n8-08" x="397" y="474" text-anchor="middle">스냅숏으로 복원</text>
-        <!-- ⑥ 랜섬웨어: 아래에서 DB01로 -->
+        <g class="k8 pop n8-04">
+          <path class="ar green" d="M494 210 H320"/><path class="hdp green" d="M300 210 L320 201 L320 219 Z"/>
+          <text class="lane ok" x="397" y="250" text-anchor="middle">스냅숏으로 복원</text>
+        </g>
+        <!-- ⑥ 랜섬웨어(가정): 아래에서 DB01로 -->
         <g class="k6 upto6 up">
-          <path class="ar red" d="M150 528 V498"/>
-          <path class="hdp red" d="M150 479 L141 498 L159 498 Z"/>
-          <text class="ro bad" x="150" y="558" text-anchor="middle">랜섬웨어</text>
-          <text class="small" x="150" y="586" text-anchor="middle">root 탈취 · 파일 암호화</text>
+          <path class="ar red" d="M150 340 V286"/><path class="hdp red" d="M150 266 L141 286 L159 286 Z"/>
+          <text class="ro bad" x="150" y="384" text-anchor="middle">랜섬웨어(가정)</text>
+          <text class="small" x="150" y="420" text-anchor="middle">root 탈취 · 파일 암호화</text>
         </g>
-        <!-- ⑦ 재설치 진행 막대: 왼쪽부터 차오르고 아래 세 칸이 차례로 켜진다 -->
+        <!-- ⑦ 재설치 진행 막대: 세 칸(지움 · 설치 · Kopia 연결)이 왼쪽부터 차오르고, 칸마다 가운데 아래 이름이 차례로 켜진다 -->
         <g class="k7 upto7 pop">
-          <text class="ro warm" x="150" y="516" text-anchor="middle" style="font-size:21px">kickstart로 OS 새로 설치</text>
-          <rect class="barbg" x="1" y="530" width="298" height="14" rx="7"/>
-          <rect class="barfill" x="1" y="530" width="298" height="14" rx="7"/>
+          <text class="ex warm" x="150" y="384" text-anchor="middle">kickstart로 OS 새로 설치</text>
+          <rect class="barbg" x="1" y="404" width="298" height="14" rx="7"/>
+          <rect class="barfill" x="1" y="404" width="298" height="14" rx="7"/>
+          <rect class="barcut" x="99" y="400" width="4" height="22"/><rect class="barcut" x="198" y="400" width="4" height="22"/>
         </g>
-        <text class="tiny k7 upto7 pop n7-04" x="50" y="572" text-anchor="middle">디스크 지움</text>
-        <text class="tiny k7 upto7 pop n7-10" x="150" y="572" text-anchor="middle">OS 설치</text>
-        <text class="tiny k7 upto7 pop n7-16" x="250" y="572" text-anchor="middle">Kopia 연결</text>
+        <text class="small k7 upto7 pop n7-04" x="50" y="456" text-anchor="middle">지움</text>
+        <text class="small k7 upto7 pop n7-10" x="150" y="456" text-anchor="middle">설치</text>
+        <text class="small k7 upto7 pop n7-16" x="246" y="456" text-anchor="middle">Kopia 연결</text>
+        <!-- ⑧ 되살린 것(왼쪽 아래) -->
+        <g class="k8 pop n8-10">
+          <text class="ex ok" x="1" y="384">되살린 것</text>
+          <text class="small" x="1" y="420">패키지 목록 · /etc · DB 데이터</text>
+        </g>
         <!-- 오른쪽 아래 설명(⑤~⑦)과 시험 결과(⑧) -->
-        <g class="k5 upto5 pop n5-12">
-          <text class="hd" x="330" y="516" style="font-size:21px">이 서버 계정은 저장소에 쓰기만</text>
-          <text class="small" x="330" y="546">지우기 · 보존 줄이기는 OPS01만 한다</text>
-          <text class="small" x="330" y="576">DB01을 빼앗겨도 지난 백업은 남는다</text>
+        <g class="k5 upto5 pop n5-06">
+          <text class="ex" x="350" y="384">이 서버 계정은 저장소에 쓰기만</text>
+          <text class="small" x="350" y="420">지우기 · 보존 줄이기는 OPS01만 한다</text>
+          <text class="small" x="350" y="456">DB01을 빼앗겨도 지난 백업은 남는다</text>
         </g>
-        <g class="k6 upto6 pop n6-20">
-          <text class="ro bad" x="330" y="516" style="font-size:21px">감염된 root로 백업을 지우려 하면</text>
-          <text class="small" x="330" y="546">삭제 · 보존 줄이기 · 저장소 정비</text>
-          <text class="ok" x="330" y="576" style="font-size:20px">세 가지 모두 거부, 백업은 그대로</text>
+        <g class="k6 upto6 pop n6-14">
+          <text class="ex bad" x="350" y="384">감염된 root로 백업을 지우려 하면</text>
+          <text class="small" x="350" y="420">삭제 · 보존 줄이기 · 저장소 정비</text>
+          <text class="okl" x="350" y="456">실습망 시험: 세 가지 모두 거부</text>
         </g>
         <g class="k7 upto7 pop n7-10">
-          <text class="ro warm" x="330" y="516" style="font-size:21px">감염된 OS는 믿지 않는다</text>
-          <text class="small" x="330" y="546">디스크를 지우고 OS를 새로 설치</text>
-          <text class="small" x="330" y="576">Kopia만 다시 연결해 사고 전 스냅숏으로</text>
+          <text class="ex warm" x="350" y="384">감염된 OS는 믿지 않는다</text>
+          <text class="small" x="350" y="420">디스크를 지우고 OS를 새로 설치한 뒤</text>
+          <text class="small" x="350" y="456">사고 전 스냅숏을 되살린다</text>
         </g>
-        <g class="k8 pop n8-14">
-          <text class="hd" x="330" y="516" style="font-size:21px">VM 실습망 시험 결과</text>
-          <text class="ok" x="330" y="546" style="font-size:20px">디스크를 지우고 재설치, 15분 22초에 복원</text>
-          <text class="ok" x="330" y="576" style="font-size:20px">기준값 6가지 일치 · 삭제 시도 3가지 거부</text>
-          <text class="tiny" x="330" y="606">설치 8분 · 복원 3분, 패키지 · 설정 · DB 데이터 모두</text>
+        <g class="k8 pop n8-10">
+          <text class="ex" x="350" y="384">VM 실습망 시험 결과</text>
+          <text class="okl" x="350" y="420">지운 때부터 서비스까지 15분 22초</text>
+          <text class="okl" x="350" y="456">기준값 6가지 일치 · 삭제 시도 3가지 거부</text>
+          <text class="small" x="350" y="492">재설치 483초 · 되살리기 167초 포함</text>
         </g>
       </svg>
       </div>
@@ -568,9 +578,9 @@ const EVIDENCE_HA = [
 → 3 매일 거래 DB를 암호화해 DB 서버 밖에 7일 보관합니다. 실습망이라 웹 진입 서버에 뒀고, 운영이라면 백업 전용 VLAN과 외부로 옮깁니다.
 → 4 그 백업을 임시 DB에 되살려 표 109개가 원본과 같은 것까지 확인했습니다. 여기까지가 데이터 백업이고, Databasus는 Apache-2.0 오픈소스입니다.
 → 5 데이터만이 아니라 OS도 따로 백업합니다. Apache-2.0 오픈소스인 Kopia로 DB01의 설정과 데이터를 매일 관제 서버 저장소에 받는데, 이 서버 계정은 쓰기만 됩니다.
-→ 6 랜섬웨어가 DB01을 차지해 백업까지 지우려 해도, 삭제 · 보존 기간 줄이기 · 저장소 정비 세 가지가 모두 거부됩니다.
+→ 6 랜섬웨어가 DB01을 차지했다고 가정하고 DB01 root로 백업을 지워 보면, 삭제 · 보존 기간 줄이기 · 저장소 정비 세 가지가 모두 거부됩니다. 실습망에서 실제로 시도한 결과입니다.
 → 7 감염된 OS는 믿지 않습니다. 디스크를 지우고 kickstart로 새로 설치합니다.
-→ 8 그다음 Kopia로 사고 전 스냅숏을 되살립니다. 실습망에서 DB01의 디스크 두 개를 실제로 지우고 OS를 새로 설치해 되살리는 데 15분 22초가 걸렸고, 행 수 · 해시 등 기준값 6가지가 모두 같았습니다.
+→ 8 그다음 Kopia로 사고 전 스냅숏을 되살립니다. 실습망에서 DB01의 디스크 두 개를 실제로 지우고 OS를 새로 설치해 되살리는 데 15분 22초가 걸렸고(재설치 8분, 되살리기 3분 포함), 행 수 · 해시 등 기준값 6가지가 모두 같았습니다.
 질문 때: VM 거래 DB에는 거래 데이터가 없어(마켓·주문·원장 0건) 데이터가 많을 때의 복원 시간은 재지 않았다. 승격은 etcd 세 표 가운데 남은 두 표로 판단한다. 백업은 하루 한 번 논리 백업이라 잘못 지운 사고에서는 최대 하루치를 잃을 수 있고, 시점 복구(PITR)는 켜지 않았다. 실습망이라 'DB 서버 밖'이라는 조건만 맞춰 웹 진입 서버에 두었고, 설계(04-2)대로라면 백업 서버 VLAN과 외부 보관이다. 대조는 표 개수와 주요 표의 행 수까지 했다. 백업 원본은 DB01 주소로 정해 두어, 전환 뒤에는 대상을 바꿔야 한다. 고친다면 HAProxy 쓰기 포트(지금의 주 DB)를 백업 원본으로 둔다.
 OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라이브의 DB01 · OPS01로 했다(증거본 2026-10-08_VM_Kopia_OS백업). 시험은 두 번 했다. 1부는 DB 데이터 · 설정, 방화벽 규칙 원본, 수집기 서비스 유닛을 지운 뒤 그 경로만 되살렸다(34초). 2부는 DB01 안에서 OS · 데이터 디스크를 지워 부팅이 안 되게 한 뒤 저장소 kickstart로 Rocky Linux 10.2를 새로 설치(483초)하고 os-rebuild.sh로 패키지 80개 · /etc · 데이터를 되살렸다(167초). 지운 때부터 서비스까지 922초. 패키지는 인터넷(PGDG)에서 다시 받았다. 기준값은 서비스 상태, exchange 표 118개, 시험 표 10,000행과 데이터 해시, /etc 해시, DB 설정 해시. 거부 메시지: 스냅숏 삭제 access denied, 정책 변경 access denied, 정비는 서버에서만(operation supported only on direct repository). Kopia는 SELinux 문맥을 되살리지 않아 복원 뒤 restorecon을 돌렸다. 백업 동안 DB를 16초 멈췄다(일관된 사본). 저장소가 OPS01 한 곳이라 저장소 자체를 잃는 경우는 외부 보존 잠금으로 한 번 더 복제해야 한다. Kopia · Databasus · pfSense CE 모두 Apache-2.0이다. -->
 
@@ -585,14 +595,6 @@ OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라�
   $('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // Apache-2.0 표는 도구 이름 뒤 14px에 놓는다(Databasus · Kopia). 글꼴을 읽은 뒤 한 번 더 맞춘다
-  const lic = () => document.querySelectorAll('.lic[data-after]').forEach(g => {
-    const n = $(g.dataset.after);
-    const bb = n.getBBox();   // 이름 뒤 tspan 의 dx 까지 넣은 실제 폭
-    g.setAttribute('transform', `translate(${(bb.x + bb.width + 14).toFixed(1)} 0)`);
-  });
-  lic();
-  if (document.fonts) document.fonts.ready.then(lic);
 
   // ---- 전환 결과 글줄: RESULT 에 값이 있는 것만 오른쪽 '자동 전환 순서' 2번 줄 아래에 붙인다(빈 값이면 줄째 없음) ----
   const lines = [['자동 전환', RESULT.failoverTime], ['확인된 커밋 유실', RESULT.lostCommits]].filter(r => String(r[1] || '').trim());
