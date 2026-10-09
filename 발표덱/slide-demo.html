@@ -160,8 +160,8 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <h1>시연 영상</h1>
-  <p class="dek">배포가 전부 끝나고 녹화한 7분 영상입니다.</p>
-  <div class="tr"><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC, 로컬 Docker</span><button class="play" id="play" type="button" aria-haspopup="dialog" aria-keyshortcuts="V" title="영상 재생 (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z"/></svg>영상 재생<span class="len">7:00</span></button></div>
+  <p class="dek">배포가 전부 끝나고 개인 AWS에서 녹화한 7분 영상입니다.</p>
+  <div class="tr"><span class="env"><img src="assets/tint/ui-cloud-side.svg" alt="">개인 AWS, 서울 리전</span><button class="play" id="play" type="button" aria-haspopup="dialog" aria-keyshortcuts="V" title="영상 재생 (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z"/></svg>영상 재생<span class="len">7:00</span></button></div>
 
   <div class="bar" aria-hidden="true">
     <div class="scale" id="scale"></div>
@@ -174,10 +174,10 @@
 </div>
 
 <dialog class="vid" id="vid" aria-label="시연 영상 7분">
-  <video id="vv" src="assets/video/failstop-demo-7min.mp4" controls preload="auto" playsinline></video>
+  <video id="vv" src="assets/video/failstop-aws-demo-v4.mp4" controls preload="auto" playsinline></video>
   <div class="vch" id="vch" aria-hidden="true"><span class="no" id="vno">01</span><b id="vtt"></b><span class="tm" id="vtm">0:00 / 7:00</span><i class="mini" id="mini"></i></div>
   <button class="x" id="vx" type="button">닫기 (Esc)</button>
-  <p class="err" id="verr" hidden>영상을 열 수 없음<code>assets/video/failstop-demo-7min.mp4</code></p>
+  <p class="err" id="verr" hidden>영상을 열 수 없음<code>assets/video/failstop-aws-demo-v4.mp4</code></p>
 </dialog>
 
 
@@ -198,22 +198,22 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // 네 구간의 경계(초). 13회차 편집본(정확히 7:00)에서 장면이 바뀌는 시각이다. 영상을 바꾸면 이 줄만 고친다
-  const CUT = [0, 73, 254, 372, 420];
+  // 네 구간의 경계(초). 개인 AWS v4 편집본(6:59.6)에서 장면이 바뀌는 시각이다(영상/03_클로드_AWS시연/2_편집설정/장면구성.py). 영상을 바꾸면 이 줄만 고친다
+  const CUT = [0, 42.5, 259.9, 354.9, 420];
   // 칸 색은 덱의 색 뜻을 따른다: 평상시 · 통과는 초록, 경보 · 부하는 노랑, 장애는 빨강, AI는 라벤더(04-6과 같음)
-  // 글머리는 칸마다 넷, 한 줄씩(칸 안쪽 폭 약 372px). 굵은 숫자는 결과(9,000건 · 27초 · 0건)만
+  // 글머리는 칸마다 넷, 한 줄씩(칸 안쪽 폭 약 372px). 굵은 숫자는 결과(7,500건 · 95%)만
   const P = [
     { c: '#2DD196', t: '거래와 평상시 관제',
-      li: ['시장 봇이 주문하는 리플 1분봉 화면', '수동 모드로 둔 AI 관제센터', '2초마다 실측값으로 그린 서비스 흐름', 'Grafana 서비스 관제'],
+      li: ['시장 봇 주문으로 움직이는 리플 1분봉', '조치는 승인 뒤에만 하는 AI 관제센터', '실측값으로 그린 서비스 흐름', 'Grafana 서비스 관제'],
       see: '관제 화면의 숫자는 모두<br>실제 거래에서 잰 값입니다.' },
     { c: '#E8C07A', t: '부하 시험과 AI 증설',
-      li: ['부하 발생기로 <b>초당 9,000건</b>', '앱 CPU가 증설 기준을 넘어 경보', 'AI가 조회 서버 켜기를 제안', '승인 뒤 앱 서버 3이 조회 서버로 합류'],
+      li: ['리플 조회 부하 목표 <b>초당 7,500건</b>', '앱 CPU가 증설 기준 60%를 넘어 경보', 'AI가 앱 서버 3 켜기 제안(확신도 <b>95%</b>)', '승인 약 1분 뒤 앱 서버 3 합류'],
       see: '운영자가 승인한 뒤에<br>조회 서버가 켜집니다.' },
     { c: '#FF7A7A', t: 'DB 장애와 자동 전환',
-      li: ['주 DB 강제 종료로 끊긴 서비스 흐름', 'Patroni가 <b>27초</b> 만에 예비 DB 승격', '옛 주 DB 되감기 합류 뒤 거래 재개', '확인받은 쓰기 대조로 사라진 주문 <b>0건</b>'],
-      see: '거래는 잠시 멈추지만<br>확인받은 주문은 남습니다.' },
-    { c: '#C6C0F2', t: 'AI 상담과 요약',
-      li: ['AI에게 방금 일을 질문', '조회 전용이라 실행은 없음', '답에 근거·모델·수집 시각', '실측 요약 화면으로 마무리'],
+      li: ['거래 중 주 DB 서버 강제 종료', 'Patroni가 예비 DB를 새 주 DB로 승격', '예비가 돌아올 때까지 쓰기 보류', '옛 주 DB 되감기 합류 뒤 거래 재개'],
+      see: '거래는 잠시 멈추지만<br>엄격 동기로 쓰기를 지킵니다.' },
+    { c: '#C6C0F2', t: 'AI 상담과 보고서',
+      li: ['AI에게 방금 일을 질문', '조회 전용이라 실행은 없음', '답에 근거·모델·수집 시각', '실제 HTML 보고서로 마무리'],
       see: 'AI는 답만 하고<br>명령은 실행하지 않습니다.' },
   ];
   const TOTAL = CUT[CUT.length - 1];
@@ -248,7 +248,7 @@
     parts.classList.remove('focus');
     mark.classList.remove('show'); mark.style.left = '100%';
   }
-  // 들어올 때: 열림이 끝난 2.0초에 시작해, 7분을 6초 빠르기로 훑는다. 구간 경계(1:13 · 4:14 · 6:12)에 닿으면 다음 구간과 칸을 켜고 0.45초 멈춘다.
+  // 들어올 때: 열림이 끝난 2.0초에 시작해, 7분을 6초 빠르기로 훑는다. 구간 경계(0:43 · 4:20 · 5:55)에 닿으면 다음 구간과 칸을 켜고 0.45초 멈춘다.
   // 7:00에 닿고 0.2초 뒤 0.3초에 네 구간을 모두 켜고 재생 표시를 지운다(끝 약 9.9초). 훑기는 Web Animations로 만들어
   // 숨은 창에서도 getAnimations()로 시점을 옮겨 볼 수 있다. 영상을 틀면 훑기를 멈추고 영상 시각을 따른다
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || location.hash === '#last';
@@ -353,17 +353,16 @@
   }, true);
 })();
 </script>
-<!-- 발표 노트(18초 + 영상 7분): 이제 7분 시연 영상입니다. 평상시 관제, 요청 급증과 AI 증설, DB 장애와 자동 전환, AI 상담 순서입니다.
-영상 속 AI는 녹화 당시의 20B 모델이고, 04-6 AI 관제의 평가는 그 뒤 바꾼 모델로 한 것입니다.
+<!-- 발표 노트(18초 + 영상 7분): 이제 개인 AWS에서 찍은 7분 시연 영상입니다. 평상시 관제, 요청 급증과 AI 증설, DB 장애와 자동 전환, AI 상담과 보고서 순서입니다.
 (V 또는 재생 단추로 영상, 끝나면 Esc로 닫기)
-영상 속 경보가 Teams로 간 모습은 앞 장(장애 보고 전달)에서 보여 드린 것입니다(보고 전달의 카드 · PDF는 같은 13회차 경보 00:03 발생 · 00:05 해제 · 00:06 보고, 증거본/2026-09-27_학교AWS_발표서버/README.md).
+영상은 2026-10-10 개인 AWS(서울 리전)에서 녹화한 v4 편집본이다(영상/03_클로드_AWS시연, 명령·출력은 증거본/2026-10-10_AWS_시연촬영).
 질문 때:
-- AWS에서 찍었나? 로컬 Docker 시연 스택에서 AWS 배치대로 그린 화면이고 값은 실측이다. 개인 AWS에도 Patroni 엄격 동기를 적용했다.
-- 04-6 평가는 qwen3.6 35B인데 영상은? 녹화 당시 개발 PC 모델이 gpt-oss:20b였다. 같은 평가에서 잘못 실행될 조치가 2/111이었고, 수동 모드라 실행은 승인 뒤에만 된다.
-- 증설 기준 50%(영상 2:19 자막)? 로컬 시연 스택은 요청 제한 때문에 CPU가 60%대에 닿지 않아 50%로 낮췄다(로드맵 09-27). AWS 기준은 60%다.
-- 영상의 승격 숫자? 이 영상은 13회차 값이다(승격 27.0초, 재개 95.9초, 확인받은 쓰기 16,858건 · 주문 974건 대조 유실 0). 마지막 장의 41.6초는 개인 AWS에서 잰 값이라 다르다. 같은 구성의 반복 실험(9/25)은 승격 22.75~23.18초였다.
-- 재개까지 95.9초, 옛 주 DB가 안 돌아오면? 엄격 동기 두 대라 동기 예비가 없으면 쓰기를 멈춘다. 새 예비를 붙이거나 엄격 모드를 잠시 푸는 것은 운영자가 판단한다.
-- Grafana에서 앱 서버 3 CPU가 비스듬히 오른다? 꺼져 있던 동안 값이 없어 앞뒤 점을 직선으로 이은 것이다.
-- AI 상담 답의 '리더 부재·파티션 재구축 실패'는? 해제 전에 남아 있던 경보(LeaderAbsent · PartitionRebuildFailing · FailoverRtoExceeded)를 근거로 답한 것이다. 답 화면의 근거 칩에 '값 없음'이 함께 보여 사람이 확인하게 되어 있고, 그래서 결정은 사람이 한다. FailoverRtoExceeded는 매칭 리더 리스의 공백(옛 리더 마지막 심박 ~ 승격)이 30초를 넘으면 울린다(harness/prometheus/rules/exchange-alerts.yml 64~65행). 13회차에서 실제로 30초를 넘었는지는 기록으로 다시 확인할 것.
-- '앱 서버 3'과 '조회 서버'? 같은 노드다. 영상과 Docker 구성의 이름은 app-3(api-3)이고, 맡은 역할이 조회 서버다.
-- 영상 이동: 이 맥의 덱 서버에서는 받는 도중 끊길 수 있어 한 번은 저절로 다시 받는다. 처음부터 재생만 하고, 발표 PC의 발표 주소에서 리허설한다. -->
+- AWS에서 찍었나? 그렇다. 화면은 실제 배포 사이트(관리 콘솔·거래 화면·Grafana)이고, 부하와 주 DB 강제 종료도 실제로 돌렸다. Grafana DB 관제 두 장면만 시험 시각의 기록을 다시 열어 녹화했다(화면 위 시각 범위가 그 구간이다).
+- 영상 속 AI 모델은? 판단 #12는 온프레미스 qwen3.6-35b-a3b(nb512)가 냈다. 수동 모드라 실행은 운영자 승인 뒤에만 된다.
+- 부하는 얼마였나? load-1이 리플 조회를 초당 7,500건 목표로 보냈고, 서비스 흐름 조회는 초당 약 7,200건까지 올랐다. 앱 평균 CPU가 증설 기준 60%를 넘어 경보가 났다.
+- 앱 서버 3이 언제 합류했나? 승인 03:05:49, 정상 합류 03:06:56(약 67초). 합류 직후 약 11초는 수집값이 없어 흐름 선이 회색이었다가 초록으로 바뀐다. 그때 앱 3도 초당 약 2,500건을 처리했다(Prometheus).
+- 승격·재개에 몇 초? 이 영상은 촬영용 시험이라 Patroni 로그로 초를 따로 재지 않았다. 강제 종료한 서버를 다시 켜면 약 30초 뒤 예비로 합류하고 쓰기가 재개됐다. 마지막 장의 41.6초는 따로 잰 개인 AWS 값이다.
+- 유실은? 이 촬영 시험에서는 확정된 주문 대조를 하지 않았다. 그래서 영상에 '유실 0건'을 쓰지 않았다.
+- Grafana DB 관제의 '미수집'은? 장애 중에는 두 DB 값이 다 있어야 판정하는 칸이라 비워 둔다. 영상에서는 오른쪽(DB 대상·진행 경보)을 키워 보였다.
+- 영상 속 Teams 전송은? 이 장애의 사건 보고 4건이 첫 시도에 모두 전송됐다.
+- 영상 이동: 덱 서버에서는 받는 도중 끊길 수 있어 한 번은 저절로 다시 받는다. 처음부터 재생만 하고, 발표 PC의 발표 주소에서 리허설한다. -->
