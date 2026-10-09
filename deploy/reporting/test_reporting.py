@@ -284,6 +284,35 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(self.row()["status"], "dead")
         self.assertNotIn("http://", self.row()["error"])
 
+    def test_card_falls_back_to_facts_when_model_analysis_breaks_card(self):
+        self.store.enqueue("test", "daily", {})
+        real_card = card
+        calls = []
+
+        def flaky_card(report):
+            calls.append(report["analysis"].get("mode"))
+            if report["analysis"].get("mode") != "facts-only":
+                raise TypeError("model output shape")
+            return real_card(report)
+        with patch("reporter.card", side_effect=flaky_card), \
+                patch("reporter.analyze", return_value={"mode": "ollama", "summary": "x", "observations": [], "hypotheses": [], "next_checks": [None]}):
+            drain_one(self.store, self.config, self.sender)
+        self.assertEqual(calls, ["ollama", "facts-only"])
+        self.assertEqual(self.row()["status"], "sent")
+
+    def test_generation_error_retries_then_dead_letter_with_type_only(self):
+        self.store.enqueue("test", "daily", {})
+        with patch("reporter.collect", side_effect=KeyError("secret-path")):
+            drain_one(self.store, self.config, self.sender)
+            self.assertEqual(self.row()["status"], "queued")
+            self.assertEqual(self.row()["error"], "report_generation_failed_KeyError")
+            for _ in range(2):
+                with self.store.connect() as db:
+                    db.execute("UPDATE jobs SET available=?", (time.time() - 1,))
+                drain_one(self.store, self.config, self.sender)
+        self.assertEqual(self.row()["status"], "dead")
+        self.assertNotIn("secret", self.row()["error"])
+
     def test_retry_count_is_bounded(self):
         self.store.enqueue("test", "daily", {})
         with self.store.connect() as db:

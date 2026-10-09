@@ -342,7 +342,15 @@ def drain_one(store, config, sender, key=None):
         if report.get("kind") == "msp":
             message = msp_events.card(report, config)
         else:
-            message = card(report)
+            try:
+                message = card(report)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                # 모델 분석이 카드 형식에 맞지 않아도 보고 자체는 보낸다. 분석만 빼고 수집한 사실로 다시 만든다
+                if not isinstance(report.get("evidence"), dict) or report.get("analysis", {}).get("mode") == "facts-only":
+                    raise
+                report = {**report, "analysis": fallback_analysis(
+                    report["evidence"], "AI 분석을 보고 형식에 담지 못해 수집한 사실로 보고했습니다.")}
+                message = card(report)
             artifact_state = None
             try:
                 links = publish_artifacts(report, config)
@@ -363,8 +371,10 @@ def drain_one(store, config, sender, key=None):
         retryable = error.status in (0, 408, 429) or error.status >= 500
         state = "queued" if retryable and job["attempts"] < 5 else "dead"
         store.finish(job, state, error.code + ("_" + str(error.status) if error.status else ""), retry_delay(error.retry_after, job["attempts"]))
-    except (ValueError, KeyError, TypeError, OSError):
-        store.finish(job, "dead", "report_generation_failed")
+    except (ValueError, KeyError, TypeError, AttributeError, OSError) as error:
+        # 장애 한가운데에는 근거 원천이 잠깐 이상한 응답을 줄 수 있어 몇 번 다시 만든다. 기록에는 예외 종류만 남긴다(메시지는 경로·값을 담을 수 있음)
+        state = "queued" if job["attempts"] < 2 else "dead"
+        store.finish(job, state, "report_generation_failed_" + type(error).__name__, retry_delay(None, job["attempts"] + 3))
     return True
 
 
