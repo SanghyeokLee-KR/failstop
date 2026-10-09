@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   /* 발표 마지막 장(slide-engineer)을 띄워 둔 채 받는 질의응답 5분용 한 장 메모. 화면 배치를 그대로 따라
-     위 줄은 01 IT 인프라(리눅스 · 네트워크 · 서버 인프라), 아래 줄은 02 보안(pfSense CE · Databasus)과 공통 질문이다.
+     위 줄은 01 IT 인프라(리눅스 · 네트워크 · 서버 인프라), 가운데 줄은 02 보안(pfSense CE · Databasus · Kopia), 맨 아래 띠는 공통 질문이다.
      A4 가로 한 장에 인쇄된다 */
   :root {
     --ink: #111827; --ink-2: #374151; --ink-3: #6B7280; --line: #E5E7EB; --soft: #F8FAFC;
@@ -18,7 +18,7 @@
   * { box-sizing: border-box; }
   html { background: #E9EDF3; }
   body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { width: 297mm; min-height: 210mm; margin: 16px auto; padding: 9mm 10mm 8mm; background: #fff; box-shadow: 0 2px 12px rgba(16,24,40,.08); }
+  .page { width: 297mm; min-height: 210mm; margin: 16px auto; padding: 8mm 10mm 7mm; background: #fff; box-shadow: 0 2px 12px rgba(16,24,40,.08); }
 
   header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 7px; border-bottom: 2px solid var(--ink); }
   header h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: -.01em; }
@@ -27,7 +27,7 @@
   .rule span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--soft); }
   .rule b { color: var(--ink); }
 
-  .row { display: grid; grid-template-columns: 30mm repeat(3, minmax(0, 1fr)); gap: 0 8px; margin-top: 9px; }
+  .row { display: grid; grid-template-columns: 30mm repeat(3, minmax(0, 1fr)); gap: 0 8px; margin-top: 7px; }
   .lab { padding: 8px 8px 8px 0; border-right: 3px solid; }
   .lab b { display: block; font-family: var(--mono); font-size: 13px; }
   .lab span { display: block; margin-top: 3px; font-size: 14px; font-weight: 600; line-height: 1.3; }
@@ -35,20 +35,24 @@
   .row.a .lab { border-color: var(--a); } .row.a .lab b { color: var(--a); }
   .row.b .lab { border-color: var(--b); } .row.b .lab b { color: var(--b); }
 
-  .card { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px 7px; display: flex; flex-direction: column; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 6px; display: flex; flex-direction: column; }
   .card h2 { margin: 0 0 4px; font-size: 15px; line-height: 1.3; display: flex; align-items: baseline; gap: 6px; }
   .card h2 i { font-style: normal; font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
   .row.a .card h2 { color: var(--a); } .row.b .card h2 { color: var(--b); }
   .card.common { background: var(--soft); }
   .row .card.common h2 { color: var(--ink-2); }
   .card.common h2 i { font-family: var(--sans); }
+  .row.c { grid-template-columns: 30mm minmax(0, 1fr); }
+  .row.c .lab { border-color: var(--ink-3); } .row.c .lab b { color: var(--ink-3); }
+  .card.common dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+  .card.common dl > div > dt:first-child { margin-top: 2px; }
   dl { margin: 0; }
-  dt { margin-top: 6px; font-size: 12.6px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+  dt { margin-top: 5px; font-size: 12.4px; font-weight: 700; line-height: 1.35; color: var(--ink); }
   dt::before { content: 'Q '; font-family: var(--mono); color: var(--ink-3); font-weight: 500; }
-  dd { margin: 1px 0 0; font-size: 12.1px; line-height: 1.45; color: var(--ink-2); }
+  dd { margin: 1px 0 0; font-size: 11.7px; line-height: 1.38; color: var(--ink-2); }
   dd b { color: var(--ink); font-weight: 700; white-space: nowrap; }
   .row.a dd b.n { color: var(--a); } .row.b dd b.n { color: var(--b); }
-  .lim { margin-top: auto; padding-top: 5px; }
+  .lim { margin-top: auto; padding-top: 4px; }
   .lim p { margin: 4px 0 0; padding: 3px 7px; border-radius: 5px; background: var(--warn-soft); font-size: 11.4px; line-height: 1.4; color: #7C2D12; }
   .lim p b { color: var(--warn); }
 
@@ -59,7 +63,8 @@
   }
   @media screen and (max-width: 1150px) {
     .page { width: auto; margin: 0; padding: 16px; }
-    .row { grid-template-columns: 1fr; gap: 8px; }
+    .row, .row.c { grid-template-columns: 1fr; gap: 8px; }
+    .card.common dl { grid-template-columns: 1fr; }
     .lab { border-right: 0; border-left: 3px solid; padding-left: 10px; }
     header { flex-direction: column; align-items: flex-start; }
     .rule { flex-wrap: wrap; white-space: normal; }
@@ -74,7 +79,7 @@
   </header>
 
   <section class="row a">
-    <div class="lab"><b>01</b><span>IT 인프라</span><em>리눅스 · 네트워크 · 서버를 직접 구축하고 운영했다</em></div>
+    <div class="lab"><b>01</b><span>IT 인프라</span><em>리눅스 · 네트워크 · 서버를 직접 구축하고 운영했습니다</em></div>
 
     <article class="card">
       <h2>리눅스 <i>Linux</i></h2>
@@ -117,7 +122,7 @@
   </section>
 
   <section class="row b">
-    <div class="lab"><b>02</b><span>보안</span><em>보안 장비가 없는 곳도 오픈소스로 지킨다</em></div>
+    <div class="lab"><b>02</b><span>보안</span><em>보안 장비가 없는 곳도 오픈소스로 지킬 수 있습니다</em></div>
 
     <article class="card">
       <h2>pfSense CE <i>투명 방화벽</i></h2>
@@ -145,15 +150,30 @@
       <div class="lim"><p><b>한계</b> 백업 대상이 DB01 주소로 고정이라 전환 뒤엔 바꿔야 합니다. 고친다면 HAProxy 쓰기 포트를 대상으로.</p></div>
     </article>
 
-    <article class="card common">
-      <h2>공통 <i>자주 나올 질문</i></h2>
+    <article class="card">
+      <h2>Kopia <i>OS 백업</i></h2>
       <dl>
-        <dt>실제 운영과 다른 점은?</dt>
-        <dd>VM 실습망은 PC 한 대 위의 가상망이라 <b>절차 훈련</b>입니다. 학교 · 개인 AWS는 실제 클라우드이고, 거래는 실제 돈이 없는 모의 거래입니다.</dd>
-        <dt>다시 한다면 무엇을 더하나요?</dt>
-        <dd><b>방화벽 두 대 구성</b>, Suricata 차단 모드와 오탐 조정, <b>시점 복구(PITR)</b>, 복원 시험 정기 자동화입니다.</dd>
-        <dt>비용은 어떻게 관리했나요?</dt>
-        <dd>월 <b>40만 원</b> 예산 기준으로 설계했습니다. 조회 서버는 평소 <b>0대</b>로 두고 몰릴 때만 켜서 돈이 드는 시간을 줄였습니다.</dd>
+        <dt>서버를 빼앗기면 백업도 지워지지 않나요?</dt>
+        <dd>DB01 계정은 저장소에 <b>쓰기만</b> 됩니다. 실습망에서 DB01 root로 삭제 · 보존 줄이기 · 정비 <b class="n">3가지</b>를 시도해 모두 거부됐습니다.</dd>
+        <dt>OS를 통째로 잃으면요?</dt>
+        <dd>디스크 <b class="n">2개</b>를 지우고 재설치(<b class="n">483초</b>), 패키지 목록 · /etc · DB 데이터 복원(<b class="n">167초</b>). 지운 때부터 <b class="n">15분 22초</b>, 기준값 <b class="n">6가지</b> 일치.</dd>
+        <dt>Databasus와 왜 따로 두나요?</dt>
+        <dd>Databasus는 <b>DB 데이터</b>만, Kopia는 설정 · 서비스 유닛까지 받아 <b>새로 깐 OS</b>를 그대로 되살립니다.</dd>
+      </dl>
+      <div class="lim"><p><b>한계</b> 랜섬웨어는 가정. 백업 중 DB 약 16초 정지, 저장소는 OPS01 한 곳뿐입니다.</p></div>
+    </article>
+  </section>
+
+  <section class="row c">
+    <div class="lab"><span>공통</span><em>자주 나올 질문</em></div>
+    <article class="card common">
+      <dl>
+        <div><dt>실제 운영과 다른 점은?</dt>
+        <dd>VM 실습망은 PC 한 대 위의 가상망이라 <b>절차 훈련</b>입니다. 학교 · 개인 AWS는 실제 클라우드이고, 거래는 실제 돈이 없는 모의 거래입니다.</dd></div>
+        <div><dt>다시 한다면 무엇을 더하나요?</dt>
+        <dd><b>방화벽 두 대 구성</b>, Suricata 차단 모드와 오탐 조정, <b>시점 복구(PITR)</b>, 복원 시험 정기 자동화입니다.</dd></div>
+        <div><dt>비용은 어떻게 관리했나요?</dt>
+        <dd>월 <b>40만 원</b> 예산 기준으로 설계했습니다. 조회 서버는 평소 <b>0대</b>로 두고 몰릴 때만 켜서 돈이 드는 시간을 줄였습니다.</dd></div>
       </dl>
     </article>
   </section>
