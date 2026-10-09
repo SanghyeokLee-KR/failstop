@@ -248,7 +248,7 @@
   <button class="tag-btn orig" id="open-fig" type="button" aria-haspopup="dialog">최종 구성도<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
 
   <h1>설계 방향</h1>
-  <p class="dek">월 30만 원으로 혼자 한 달 안에 두 장면에 답하도록 설계했습니다.</p>
+  <p class="dek">트래픽이 몰리거나 DB에 장애가 나도 서비스가 멈추지 않도록, 두 시나리오에 대응하는 HA 구조를 설계했습니다.</p>
 
   <div class="qs">
     <section class="q" id="q1">
@@ -286,10 +286,10 @@
           <text class="chip" id="a1-cat" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-bad" dx="10">위험</tspan><tspan class="t-2" dx="8">· CPU 60% 넘음</tspan></text>
         </g>
         <g id="a1-cj" style="opacity:0">
-          <text class="chip" id="a1-cjt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">판단</tspan><tspan class="t-1" dx="10">조회 요청 급증</tspan></text>
+          <text class="chip" id="a1-cjt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="10">판단</tspan><tspan class="t-2" dx="8">· 조회 요청 급증</tspan></text>
         </g>
         <g id="a1-ck" style="opacity:0">
-          <text class="chip" id="a1-ckt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">근거</tspan><tspan class="t-1" dx="10">주문·DB는 정상</tspan></text>
+          <text class="chip" id="a1-ckt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="10">근거</tspan><tspan class="t-2" dx="8">· 주문·DB는 정상</tspan></text>
         </g>
         <g id="a1-cb" style="opacity:0">
           <path class="ck" d="M487 251 l5 5 l10 -11"/>
@@ -326,7 +326,7 @@
       </svg></div>
       <div class="cc">
         <p class="chk ask"><span>확인할 것</span>어디서 먼저 막히는지, 무엇을 늘려야 하는지</p>
-        <p class="chk ans"><span>설계</span>주문은 DB 기록이 병목이라, 늘리는 것은 조회 서버뿐</p>
+        <p class="chk ans"><span>설계</span>오토스케일링으로 조회 서버 수평 확장</p>
       </div>
     </section>
 
@@ -373,7 +373,7 @@
       </svg></div>
       <div class="cc">
         <p class="chk ask"><span>확인할 것</span>받은 주문이 남는지, 사람 없이 넘어가는지</p>
-        <p class="chk ans"><span>설계</span>두 DB에 모두 기록한 뒤에만 주문을 확인</p>
+        <p class="chk ans"><span>설계</span>Active-Standby 이중화로 예비 DB 자동 승격</p>
       </div>
     </section>
   </div>
@@ -410,7 +410,7 @@
       <image href="assets/tint/ui-message-glow.svg" x="1260" y="429" width="32" height="32"/>
       <text class="lb" x="1304" y="452">Teams</text>
       <rect class="zone" x="1215" y="615" width="400" height="195" rx="18"/>
-      <text class="sb" x="1239" y="649">온프레미스, 직접 둔 서버</text>
+      <text class="sb" x="1239" y="649">온프레미스 · DGX Spark</text>
       <path class="wire ask" d="M1100 712 H1240"/>
       <rect class="box ai" id="i-box" x="1240" y="672" width="260" height="68" rx="10"/>
       <image href="assets/tint/ollama-ai.svg" x="1260" y="688" width="36" height="36"/>
@@ -418,7 +418,7 @@
     </g>
     <g class="grp g5">
       <rect class="zone" id="aws-z" x="370" y="362" width="770" height="338" rx="18"/>
-      <text class="sb" x="394" y="394">AWS 서울, 데이터센터 두 곳</text>
+      <text class="sb" x="394" y="394">AWS 서울 · 데이터센터 두 곳</text>
     </g>
     <rect class="ping" id="m-ping" x="910" y="665" width="190" height="60" rx="10" style="stroke:var(--warm)"/>
     <rect class="ping" id="i-ping" x="1240" y="672" width="260" height="68" rx="10" style="stroke:var(--ai)"/>
@@ -429,7 +429,7 @@
     </g>
     <g id="e2" style="opacity:0">
       <rect class="chipbox" id="e2-r" x="1240" y="752" width="380" height="34" rx="17" style="stroke:var(--ai)"/>
-      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">분석</tspan><tspan class="t-1" dx="10">자동 갱신 실패, 갱신 권고</tspan></text>
+      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">분석</tspan><tspan class="t-1" dx="10">자동 갱신 실패 · 갱신 권고</tspan></text>
     </g>
     <g id="e3" style="opacity:0">
       <rect class="chipbox" id="e3-r" x="1240" y="487" width="380" height="34" rx="17" style="stroke:var(--ok)"/>
@@ -439,14 +439,13 @@
     </g>
   </svg>
 
-  <div class="foot"><span class="k">제약에 맞춰</span><span><b>NAT 게이트웨이 없이</b> 역할별 최소 서버로, 관제는 온프레미스 AI가 제안하고 사람이 승인</span></div>
+  <div class="foot"><span class="k">제약에 맞춰</span><span><b>최소 서버</b>로 HA를 구성하고, AI는 관제 지표를 분석해 원인과 조치안을 제안하도록 설계했습니다.</span></div>
 
   <dialog class="fig" id="fig" aria-label="거래소 하이브리드 인프라 최종 구성도">
-    <div class="bar"><b>거래소 하이브리드 인프라 최종 구성도</b><span>교수님 보고본 01_전체구성 v7, 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="bar"><b>거래소 하이브리드 인프라 · 최종 구성도</b><span>교수님 보고본 01_전체구성 v7 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도: CloudFront와 S3 웹 화면, 로드밸런서, 거래 서버 두 대와 조회 서버, 주 DB와 예비 DB, 관제 서버, 온프레미스 AI 서버, Teams"></div>
   </dialog>
 </div>
-
 
 <!-- 발표 노트(45초): 두 장면에 대한 설계입니다.
 첫째, 주문은 DB 기록이 병목이라 거래 서버를 늘려도 빨라지지 않습니다. 그래서 몰릴 때는 조회 서버를 켜서 요청을 나눠 받고, AI가 제안하면 운영자가 승인합니다.

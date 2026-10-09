@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>질의응답 메모 · 시스템 엔지니어로서 할 수 있는 것</title>
+<link rel="stylesheet" href="assets/fonts/plex.css">
+<style>
+  /* 발표 마지막 장(slide-engineer)을 띄워 둔 채 받는 질의응답 5분용 한 장 메모. 화면 배치를 그대로 따라
+     위 줄은 01 IT 인프라(리눅스 · 네트워크 · 서버 인프라), 아래 줄은 02 보안(pfSense CE · Databasus)과 공통 질문이다.
+     A4 가로 한 장에 인쇄된다 */
+  :root {
+    --ink: #111827; --ink-2: #374151; --ink-3: #6B7280; --line: #E5E7EB; --soft: #F8FAFC;
+    --a: #2563EB; --b: #059669; --warn: #B45309; --warn-soft: #FFF7ED;
+    --sans: 'IBM Plex Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: #E9EDF3; }
+  body { margin: 0; font-family: var(--sans); color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 297mm; min-height: 210mm; margin: 16px auto; padding: 9mm 10mm 8mm; background: #fff; box-shadow: 0 2px 12px rgba(16,24,40,.08); }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 7px; border-bottom: 2px solid var(--ink); }
+  header h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: -.01em; }
+  header h1 small { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-left: 8px; letter-spacing: 0; }
+  .rule { display: flex; gap: 6px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+  .rule span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--soft); }
+  .rule b { color: var(--ink); }
+
+  .row { display: grid; grid-template-columns: 30mm repeat(3, minmax(0, 1fr)); gap: 0 8px; margin-top: 9px; }
+  .lab { padding: 8px 8px 8px 0; border-right: 3px solid; }
+  .lab b { display: block; font-family: var(--mono); font-size: 13px; }
+  .lab span { display: block; margin-top: 3px; font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .lab em { display: block; margin-top: 6px; font-style: normal; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+  .row.a .lab { border-color: var(--a); } .row.a .lab b { color: var(--a); }
+  .row.b .lab { border-color: var(--b); } .row.b .lab b { color: var(--b); }
+
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px 7px; display: flex; flex-direction: column; }
+  .card h2 { margin: 0 0 4px; font-size: 15px; line-height: 1.3; display: flex; align-items: baseline; gap: 6px; }
+  .card h2 i { font-style: normal; font-family: var(--mono); font-size: 10.5px; font-weight: 500; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+  .row.a .card h2 { color: var(--a); } .row.b .card h2 { color: var(--b); }
+  .card.common { background: var(--soft); }
+  .row .card.common h2 { color: var(--ink-2); }
+  .card.common h2 i { font-family: var(--sans); }
+  dl { margin: 0; }
+  dt { margin-top: 6px; font-size: 12.6px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+  dt::before { content: 'Q '; font-family: var(--mono); color: var(--ink-3); font-weight: 500; }
+  dd { margin: 1px 0 0; font-size: 12.1px; line-height: 1.45; color: var(--ink-2); }
+  dd b { color: var(--ink); font-weight: 700; white-space: nowrap; }
+  .row.a dd b.n { color: var(--a); } .row.b dd b.n { color: var(--b); }
+  .lim { margin-top: auto; padding-top: 5px; }
+  .lim p { margin: 4px 0 0; padding: 3px 7px; border-radius: 5px; background: var(--warn-soft); font-size: 11.4px; line-height: 1.4; color: #7C2D12; }
+  .lim p b { color: var(--warn); }
+
+  @page { size: A4 landscape; margin: 0; }
+  @media print {
+    html { background: #fff; }
+    .page { margin: 0; box-shadow: none; width: 297mm; height: 210mm; overflow: hidden; }
+  }
+  @media screen and (max-width: 1150px) {
+    .page { width: auto; margin: 0; padding: 16px; }
+    .row { grid-template-columns: 1fr; gap: 8px; }
+    .lab { border-right: 0; border-left: 3px solid; padding-left: 10px; }
+    header { flex-direction: column; align-items: flex-start; }
+    .rule { flex-wrap: wrap; white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>시스템 엔지니어로서 할 수 있는 것<small>질의응답 5분 · 마지막 장을 띄워 둔 채 답한다</small></h1>
+    <div class="rule"><span><b>1</b> 결론 한 문장 먼저</span><span><b>2</b> 숫자와 어디서(VM · 학교 EC2 · 개인 AWS)</span><span><b>3</b> 안 한 것은 안 했다고</span></div>
+  </header>
+
+  <section class="row a">
+    <div class="lab"><b>01</b><span>IT 인프라</span><em>리눅스 · 네트워크 · 서버를 직접 구축하고 운영했다</em></div>
+
+    <article class="card">
+      <h2>리눅스 <i>Linux</i></h2>
+      <dl>
+        <dt>직접 무엇을 해 봤나요?</dt>
+        <dd>학교 EC2에서 <b>계정 · 서비스 · 로그 · 네트워크 · 디스크</b> 다섯 분야를 상황을 만들어 확인했습니다. VM <b class="n">6대</b>는 Rocky Linux를 kickstart로 설치했습니다.</dd>
+        <dt>디스크가 고장 나면요?</dt>
+        <dd>RAID1이라 <b>남은 디스크로 DB가 계속</b> 씁니다. 새 디스크를 넣어 다시 맞추면(mdadm) 경보가 풀립니다.</dd>
+        <dt>용량이 차면요?</dt>
+        <dd><b class="n">85%</b>를 넘으면 RAID1 묶음을 붙이고 lvextend -r로 <b>마운트한 채 늘립니다</b>.</dd>
+      </dl>
+      <div class="lim"><p><b>사례</b> Grafana가 메모리 한도로 죽음 → cgroup으로 실사용 약 615MiB 확인 → 한도 768/896MiB로.</p></div>
+    </article>
+
+    <article class="card">
+      <h2>네트워크 <i>Network</i></h2>
+      <dl>
+        <dt>망은 어떻게 나눴나요?</dt>
+        <dd>역할마다 <b>VLAN</b>(DMZ · 관리 · 거래 · 조회 · DB · 백업 · AI)을 나누고 <b>ACL로 필요한 통신만</b> 엽니다. 예: 거래 서버 → 주 DB는 <b class="n">5432</b>만, SSH는 점프 서버를 거쳐야만.</dd>
+        <dt>실제 장비로 했나요?</dt>
+        <dd>구성도와 ACL은 <b>Packet Tracer</b>로 설계하고 ping으로 확인했습니다(8080 · 5432는 ACL 설정으로). 실제 차단은 VM의 pfSense · nftables와 AWS 보안 그룹에서 했습니다.</dd>
+        <dt>서버 방화벽은 어떻게 관리하나요?</dt>
+        <dd>nftables <b class="n">6대</b>를 <b>원본 하나</b>로 점검 → 계획 → 적용하고 어긋나면 되돌립니다. 적용 뒤 확인이 실패하면 VM이 <b class="n">90초</b> 뒤 스스로 되돌립니다.</dd>
+      </dl>
+      <div class="lim"><p><b>덧붙임</b> 선 이중화(bonding)는 VirtualBox라 active-backup. 개인 AWS와 온프레미스 AI 서버는 WireGuard로 잇습니다.</p></div>
+    </article>
+
+    <article class="card">
+      <h2>서버 인프라 <i>Infrastructure</i></h2>
+      <dl>
+        <dt>어떤 순서로 구축했나요?</dt>
+        <dd>Docker로 검증 → VM 6대로 역할 분리 → 학교 EC2에서 Linux 운영 → <b>개인 AWS</b>에 다시 배포(CloudFront → ALB → 앱 2대 · DB 2대 · 봇 · 관측).</dd>
+        <dt>DB가 멈추면요?</dt>
+        <dd>Patroni 엄격 동기로 자동 승격. 개인 AWS 시험에서 승격 <b class="n">41.6초</b>, 주문 재개 <b class="n">92.9초</b>, 확인받은 주문 <b>유실 0건</b>.</dd>
+        <dt>요청이 몰리면요? AI는요?</dt>
+        <dd>CPU <b class="n">60%</b>를 넘으면 AI가 app-3 켜기를 제안하고 <b>운영자가 승인</b>하면 붙습니다(CPU 65~71% → 52~59%). 평가 <b class="n">111번</b> 중 잘못 실행 <b class="n">0번</b>.</dd>
+      </dl>
+      <div class="lim"><p><b>사례</b> 10/7 백업 타이머가 켜지지 않아 하루 빠진 걸 경보로 찾아 고쳤습니다(매일 03:40, 검증 뒤 S3).</p></div>
+    </article>
+  </section>
+
+  <section class="row b">
+    <div class="lab"><b>02</b><span>보안</span><em>보안 장비가 없는 곳도 오픈소스로 지킨다</em></div>
+
+    <article class="card">
+      <h2>pfSense CE <i>투명 방화벽</i></h2>
+      <dl>
+        <dt>왜 투명(브리지) 방식인가요?</dt>
+        <dd>서버 <b class="n">6대</b>의 주소 · 경로 · DNS를 <b>한 줄도 안 바꾸고</b> 라우터와 서버 사이에 끼울 수 있어서입니다. 경계형(NAT)일 때는 6대 설정을 모두 바꿔야 했습니다.</dd>
+        <dt>HTTPS는 어떻게 검사하나요?</dt>
+        <dd>HAProxy가 웹 서버 인증서로 <b>TLS를 풀어 검사한 뒤 다시 암호화</b>합니다. SQL 주입 · 경로 탐색 <b class="n">403</b>, TRACE <b class="n">405</b>.</dd>
+        <dt>방화벽이 죽으면요?</dt>
+        <dd>한 대라 <b>단일 장애 지점</b>입니다. 재부팅 때 약 <b class="n">82초</b> 끊겼습니다. 운영이면 두 대 구성이나 작업 시간 공지입니다.</dd>
+      </dl>
+      <div class="lim"><p><b>한계</b> Suricata는 경보(탐지)만. 차단 모드와 오탐 조정은 안 했습니다.</p></div>
+    </article>
+
+    <article class="card">
+      <h2>Databasus <i>DB 백업</i></h2>
+      <dl>
+        <dt>복원해 봤나요?</dt>
+        <dd>복원 검증 에이전트로 임시 DB에 되살려 표 <b class="n">109개</b>가 원본과 같은 것을 확인했습니다(표 개수와 주요 표 행 수).</dd>
+        <dt>최대 얼마나 잃을 수 있나요?</dt>
+        <dd>하루 한 번 논리 백업이라 <b>최대 하루치</b>입니다. 시점 복구(PITR)는 켜지 않았고, 줄이려면 WAL 아카이브를 더합니다.</dd>
+        <dt>백업은 어디에, 왜 Databasus?</dt>
+        <dd>암호화해 <b>DB 서버 밖</b>(SFTP 전용 계정)에 <b class="n">7일</b>. 오픈소스이고 웹 화면에서 예약 · 보관 · 복원 검증이 돼 작은 현장에서 다루기 쉽습니다.</dd>
+      </dl>
+      <div class="lim"><p><b>한계</b> 백업 대상이 DB01 주소로 고정이라 전환 뒤엔 바꿔야 합니다. 고친다면 HAProxy 쓰기 포트를 대상으로.</p></div>
+    </article>
+
+    <article class="card common">
+      <h2>공통 <i>자주 나올 질문</i></h2>
+      <dl>
+        <dt>실제 운영과 다른 점은?</dt>
+        <dd>VM 실습망은 PC 한 대 위의 가상망이라 <b>절차 훈련</b>입니다. 학교 · 개인 AWS는 실제 클라우드이고, 거래는 실제 돈이 없는 모의 거래입니다.</dd>
+        <dt>다시 한다면 무엇을 더하나요?</dt>
+        <dd><b>방화벽 두 대 구성</b>, Suricata 차단 모드와 오탐 조정, <b>시점 복구(PITR)</b>, 복원 시험 정기 자동화입니다.</dd>
+        <dt>비용은 어떻게 관리했나요?</dt>
+        <dd>월 <b>40만 원</b> 예산 기준으로 설계했습니다. 조회 서버는 평소 <b>0대</b>로 두고 몰릴 때만 켜서 돈이 드는 시간을 줄였습니다.</dd>
+      </dl>
+    </article>
+  </section>
+</div>
+</body>
+</html>

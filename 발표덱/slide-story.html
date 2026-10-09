@@ -240,9 +240,8 @@
   <div class="prog orig" aria-hidden="true"><i id="prog"></i></div>
 </div>
 
-
 <!-- 발표 노트(35초): 먼저 이 장면을 잠시 봐 주십시오.
-(말풍선 1~5가 나오는 약 15초 동안 말하지 않고 함께 화면을 본다. 5번 통장 말풍선에서 저절로 멈추면 반응을 기다린다)
+(말풍선 1~5가 1.5초 간격으로 약 7.5초 동안 나온다. 말하지 않고 함께 화면을 본다. 5번 통장 말풍선에서 반응을 기다린다)
 네, 현실의 조건은 이랬습니다.
 → 운영 예산은 월 30만 원, 운영 인력은 저 혼자, 배포 기간은 한 달이었습니다.
 그래서 고가용성을 보여 줄 수 있는 거래소를 이 조건 안에서 만들고, 혼자서도 운영할 수 있도록 관제에 AI를 활용하기로 했습니다. -->
@@ -264,15 +263,16 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // 자동 재생: 장이 열리면 '입력 중' 점 → 말풍선 순서로 저절로 나온다(약 16초).
-  // 5번(통장)에서 사람이 머리를 감싸고 잔액 카드가 뜨며, 6번에서 다시 턱을 괸다.
+  // 자동 재생: 장이 열리면 '입력 중' 점 → 말풍선 순서로 저절로 나온다(약 13초).
+  // 5번(통장)에서 사람이 머리를 감싸고 잔액 카드가 뜨며, 6번에서 다시 턱을 괸다. 끝까지 키 입력 없이 이어진다.
   // → 는 재생 중이면 다음 말풍선을 바로 부르고, 끝났으면 다음 장으로. ← 는 앞 장. R 은 처음부터 다시
   const items = [...document.querySelectorAll('#talk li')];
   const think = document.getElementById('think'), bal = document.getElementById('bal');
   const typing = document.getElementById('typing'), nod = document.getElementById('nod'), prog = document.getElementById('prog');
   const MONEY = 4, LAST = items.length - 1, TARGET = 300000;
-  // 말풍선이 나오는 시각(초): 청중이 한 줄을 읽을 만큼(약 3초) 간격을 둔다. 앞의 0.7초는 '입력 중' 점
-  const AT = [1.6, 3.8, 6.8, 11.2, 14.6, 18.6], END = 20.2;
+  // 말풍선이 나오는 시각(초): 1~5번은 1.5초 간격이다(2026-10-07 사용자 요청, 이전에는 약 3초). 6번은 5번 통장 장면(잔액이 굴러
+  // 내려가고 머리를 감싸는 1.55초)이 끝나도록 종전처럼 4초 뒤에 둔다. 앞의 0.7초는 '입력 중' 점
+  const AT = [1.5, 3.0, 4.5, 6.0, 7.5, 11.5], END = 13.1;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let cur = -1, t0 = 0, raf = 0, rollRaf = 0, done = false, released = false;
   const fmt = n => n.toLocaleString('ko-KR');
@@ -316,8 +316,7 @@
   }
   function tick(now) {
     if (!t0) t0 = now;
-    // 5번(통장) 뒤에서는 웃음을 기다리도록 저절로 넘어가지 않는다. 6번은 → 로 부른다
-    if (!released && cur === MONEY && (now - t0) / 1000 > AT[LAST] - .75) t0 = now - (AT[LAST] - .75) * 1000;
+    // 6번까지 키를 누르지 않아도 AT 시각대로 끝까지 저절로 나온다
     const t = (now - t0) / 1000;
     stage.classList.toggle('fin', t >= AT[LAST] + 1.2);
     let k = -1; AT.forEach((a, j) => { if (t >= a) k = j; });

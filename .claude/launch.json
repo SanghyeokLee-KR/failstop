@@ -22,7 +22,7 @@
     {
       "name": "deck-d",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["D:\\마지막 프로젝트\\발표_09_29\\serve.mjs", "8090"],
+      "runtimeArgs": ["D:\\마지막 프로젝트\\발표덱\\serve.mjs", "8090"],
       "port": 8090
     }
   ]
