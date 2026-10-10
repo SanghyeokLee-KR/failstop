@@ -174,10 +174,10 @@
 </div>
 
 <dialog class="vid" id="vid" aria-label="시연 영상 7분">
-  <video id="vv" src="assets/video/failstop-aws-demo-v4.mp4" controls preload="auto" playsinline></video>
+  <video id="vv" src="assets/video/failstop-aws-demo-v9.mp4" controls preload="auto" playsinline></video>
   <div class="vch" id="vch" aria-hidden="true"><span class="no" id="vno">01</span><b id="vtt"></b><span class="tm" id="vtm">0:00 / 7:00</span><i class="mini" id="mini"></i></div>
   <button class="x" id="vx" type="button">닫기 (Esc)</button>
-  <p class="err" id="verr" hidden>영상을 열 수 없음<code>assets/video/failstop-aws-demo-v4.mp4</code></p>
+  <p class="err" id="verr" hidden>영상을 열 수 없음<code>assets/video/failstop-aws-demo-v9.mp4</code></p>
 </dialog>
 
 
@@ -198,8 +198,8 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // 네 구간의 경계(초). 개인 AWS v4 편집본(6:59.6)에서 장면이 바뀌는 시각이다(영상/03_클로드_AWS시연/2_편집설정/장면구성.py). 영상을 바꾸면 이 줄만 고친다
-  const CUT = [0, 42.5, 259.9, 354.9, 420];
+  // 네 구간의 경계(초). v9 최종본은 v4 원본의 장면 순서와 6분 59.6초 길이를 유지한다.
+  const CUT = [0, 42.5, 259.9, 354.9, 419.6];
   // 칸 색은 덱의 색 뜻을 따른다: 평상시 · 통과는 초록, 경보 · 부하는 노랑, 장애는 빨강, AI는 라벤더(04-6과 같음)
   // 글머리는 칸마다 넷, 한 줄씩(칸 안쪽 폭 약 372px). 굵은 숫자는 결과(7,500건 · 95%)만
   const P = [
@@ -213,7 +213,7 @@
       li: ['거래 중 주 DB 서버 강제 종료', 'Patroni가 예비 DB를 새 주 DB로 승격', '예비가 돌아올 때까지 쓰기 보류', '옛 주 DB 되감기 합류 뒤 거래 재개'],
       see: '거래는 잠시 멈추지만<br>엄격 동기로 쓰기를 지킵니다.' },
     { c: '#C6C0F2', t: 'AI 상담과 보고서',
-      li: ['AI에게 방금 일을 질문', '조회 전용이라 실행은 없음', '답에 근거·모델·수집 시각', '실제 HTML 보고서로 마무리'],
+      li: ['별도 AWS 시험에 대한 AI 상담', '조회 전용이라 실행은 없음', '답에 근거·모델·수집 시각', 'PDF 보고서의 실측값과 확인 사항'],
       see: 'AI는 답만 하고<br>명령은 실행하지 않습니다.' },
   ];
   const TOTAL = CUT[CUT.length - 1];
@@ -355,7 +355,8 @@
 </script>
 <!-- 발표 노트(18초 + 영상 7분): 이제 개인 AWS에서 찍은 7분 시연 영상입니다. 평상시 관제, 요청 급증과 AI 증설, DB 장애와 자동 전환, AI 상담과 보고서 순서입니다.
 (V 또는 재생 단추로 영상, 끝나면 Esc로 닫기)
-영상은 2026-10-10 개인 AWS(서울 리전)에서 녹화한 v4 편집본이다(영상/03_클로드_AWS시연, 명령·출력은 증거본/2026-10-10_AWS_시연촬영).
+영상은 2026-10-10 개인 AWS(서울 리전)에서 녹화한 원본에 도윤 내레이션·자막·BGM과 강조를 더한 v9 최종본이다(영상/03_클로드_AWS시연, 명령·출력은 증거본/2026-10-10_AWS_시연촬영).
+5분 55초 이후 AI 상담·보고서는 별도 AWS 시험 사례이며, 앞선 DB 장애와 같은 사건으로 설명하지 않는다.
 질문 때:
 - AWS에서 찍었나? 그렇다. 화면은 실제 배포 사이트(관리 콘솔·거래 화면·Grafana)이고, 부하와 주 DB 강제 종료도 실제로 돌렸다. Grafana DB 관제 두 장면만 시험 시각의 기록을 다시 열어 녹화했다(화면 위 시각 범위가 그 구간이다).
 - 영상 속 AI 모델은? 판단 #12는 온프레미스 qwen3.6-35b-a3b(nb512)가 냈다. 수동 모드라 실행은 운영자 승인 뒤에만 된다.

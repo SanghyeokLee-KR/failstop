@@ -12,6 +12,7 @@
 # 제출 도면은 바이트 고정. PNG 재생성 경로가 따로 있어 SVG를 임의로 건드리지 않는다.
 제출_20260901/diagram/** -text
 
+*.mp4 binary
 *.png binary
 *.jpg binary
 *.jpeg binary
