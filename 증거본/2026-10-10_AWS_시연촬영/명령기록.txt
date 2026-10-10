@@ -1525,3 +1525,15 @@ incident:0d5a130952cad sent 1 None created 06:13:09 sent 06:13:26
 	Success
 (exit 0)
 
+=== 2026-10-10 12:26:41     ===
+$ aws autoscaling describe-auto-scaling-groups --query AutoScalingGroups[].{name:AutoScalingGroupName,min:MinSize,max:MaxSize,desired:DesiredCapacity,warm:WarmPoolConfiguration.PoolState} --output json
+
+aws: [ERROR]: Your session has expired. Please reauthenticate using 'aws login'.
+(exit 255)
+
+=== 2026-10-10 12:26:42     ===
+$ aws autoscaling describe-policies --query ScalingPolicies[].{asg:AutoScalingGroupName,name:PolicyName,type:PolicyType,enabled:Enabled,target:TargetTrackingConfiguration.TargetValue,metric:TargetTrackingConfiguration.PredefinedMetricSpecification.PredefinedMetricType,disableScaleIn:TargetTrackingConfiguration.DisableScaleIn} --output json
+
+aws: [ERROR]: Your session has expired. Please reauthenticate using 'aws login'.
+(exit 255)
+

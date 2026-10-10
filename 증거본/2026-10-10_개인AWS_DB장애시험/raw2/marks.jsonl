@@ -1,0 +1,11 @@
+{"t": 1791598628615, "what": "watch start"}
+{"t": 1791598653134, "what": "snapshot sent"}
+{"t": 1791598657547, "what": "snapshot done"}
+{"t": 1791598657608, "what": "crash sent"}
+{"t": 1791598658599, "what": "crash send returned"}
+{"t": 1791598684301, "what": "promoted seen"}
+{"t": 1791598685486, "what": "old stopped seen"}
+{"t": 1791598687441, "what": "start old ok"}
+{"t": 1791598724622, "what": "resumed seen"}
+{"t": 1791598729125, "what": "old sync standby seen"}
+{"t": 1791598749487, "what": "watch stop"}

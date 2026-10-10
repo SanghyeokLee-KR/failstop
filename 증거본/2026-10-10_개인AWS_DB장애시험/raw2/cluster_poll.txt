@@ -1,0 +1,9 @@
+1791598668652 | db-1   | 172.31.0.20  | Sync Standby | streaming |  8 |  6/3315C320 |   0 | 6/3315C320 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  8 |             |     |            |     |
+1791598673090 | db-1   | 172.31.0.20  | Sync Standby | streaming |  8 |  6/3315C320 |   0 | 6/3315C320 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  8 |             |     |            |     |
+1791598679828 | db-1   | 172.31.0.20  | Sync Standby | streaming |  8 |  6/3315C320 |   0 | 6/3315C320 |   0 |
+| db-2   | 172.31.32.20 | Leader       | running   |  8 |             |     |            |     |
+1791598684197 | db-1   | 172.31.0.20 | Leader | running |  8 |             |     |            |     |
+1791598729050 | db-1   | 172.31.0.20  | Leader       | running   |  9 |             |     |            |     |
+| db-2   | 172.31.32.20 | Sync Standby | streaming |  9 |  6/375CE0A0 |   0 | 6/375CE0A0 |   0 |

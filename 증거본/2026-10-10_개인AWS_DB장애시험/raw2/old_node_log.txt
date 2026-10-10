@@ -1,0 +1,13 @@
+1791598659.013030539
+2026-10-10T02:08:19.775824+0000 db-2 patroni[11264]: 2026-10-10 02:08:19.775 UTC [11264] LOG:  checkpoint starting: time
+2026-10-10T02:13:19.054063+0000 db-2 patroni[11264]: 2026-10-10 02:13:19.053 UTC [11264] LOG:  checkpoint starting: time
+2026-10-10T02:14:18.132729+0000 db-2 patroni[27807]: 2026-10-10 02:14:18.132 UTC [27807] replicator@[unknown] LOG:  standby "db-1" is now a synchronous standby with priority 1
+2026-10-10T02:14:18.348897+0000 db-2 patroni[27807]: 2026-10-10 02:14:18.348 UTC [27807] replicator@[unknown] LOG:  standby "db-1" is now a synchronous standby with priority 1
+2026-10-10T02:18:18.956417+0000 db-2 systemd[1]: Started patroni.service - Patroni PostgreSQL HA (failstop-db).
+2026-10-10T02:18:20.385155+0000 db-2 patroni[2015]:   Backup start location: 0/0
+2026-10-10T02:18:20.385155+0000 db-2 patroni[2015]:   wal_level setting: replica
+2026-10-10T02:18:21.420152+0000 db-2 patroni[2015]:   Backup start location: 0/0
+2026-10-10T02:18:21.420152+0000 db-2 patroni[2015]:   wal_level setting: replica
+2026-10-10T02:18:21.595798+0000 db-2 patroni[2015]: 2026-10-10 02:18:21,594 INFO: running pg_rewind from db-1
+2026-10-10T02:18:21.648528+0000 db-2 patroni[2015]: 2026-10-10 02:18:21,648 INFO: running pg_rewind from dbname=postgres user=postgres host=172.31.0.20 port=5432 sslmode=verify-full sslrootcert=/etc/patroni/tls/ca.crt target_session_attrs=r
+2026-10-10T02:18:22.508956+0000 db-2 patroni[2015]: 2026-10-10 02:18:22,508 INFO: running pg_rewind from db-1 in progress

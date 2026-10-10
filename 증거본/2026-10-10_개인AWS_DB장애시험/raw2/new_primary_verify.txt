@@ -1,0 +1,15 @@
+{"orders_checked" : 196, "orders_present" : 196, "trades_checked" : 129, "trades_present" : 129, "last_order_before_t0" : 1791598658.707072, "first_order_after_t0" : 1791598729.143265, "first_trade_after_t0" : 1791598729.142000, "role" : "primary", "timeline" 
+2026-10-10T02:17:40.400781+0000 db-1 patroni[2019]: 2026-10-10 02:17:40,400 INFO: no action. I am (db-1), a secondary, and following a leader (db-2)
+2026-10-10T02:17:50.348068+0000 db-1 patroni[2019]: 2026-10-10 02:17:50,347 INFO: no action. I am (db-1), a secondary, and following a leader (db-2)
+2026-10-10T02:18:02.041122+0000 db-1 patroni[2019]: 2026-10-10 02:18:02,040 INFO: promoted self to leader by acquiring session lock
+2026-10-10T02:18:02.042827+0000 db-1 patroni[2368]: server promoting
+2026-10-10T02:18:02.043029+0000 db-1 patroni[2071]: 2026-10-10 02:18:02.042 UTC [2071] LOG:  received promote request
+2026-10-10T02:18:03.232236+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,046 INFO: Lock owner: db-1; I am db-1
+2026-10-10T02:18:03.232937+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,231 WARNING: No standbys available!
+2026-10-10T02:18:03.232937+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,232 INFO: Assigning synchronous standby status to ['*']
+2026-10-10T02:18:03.333927+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,333 INFO: no action. I am (db-1), the leader with the lock
+2026-10-10T02:18:03.851160+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,734 INFO: Lock owner: db-1; I am db-1
+2026-10-10T02:18:03.851331+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,850 WARNING: No standbys available!
+2026-10-10T02:18:03.851331+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,850 INFO: Assigning synchronous standby status to ['*']
+2026-10-10T02:18:03.900599+0000 db-1 patroni[2019]: 2026-10-10 02:18:03,900 INFO: no action. I am (db-1), the leader with the lock
+2026-10-10T02:18:13.840794+0000 db-1 patroni[2019]: 2026-10-10 02:18:13,734 INFO: Lock owner: db-1; I am db-1

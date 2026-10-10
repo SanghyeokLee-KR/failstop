@@ -1,0 +1,11 @@
+{"t": 1791597764822, "what": "watch start"}
+{"t": 1791597789247, "what": "snapshot sent"}
+{"t": 1791597793674, "what": "snapshot done"}
+{"t": 1791597793736, "what": "kill sent"}
+{"t": 1791597795264, "what": "kill done"}
+{"t": 1791597804380, "what": "promoted seen"}
+{"t": 1791597804442, "what": "start db-1 sent"}
+{"t": 1791597806477, "what": "start db-1 done"}
+{"t": 1791598441091, "what": "start db-1 retry sent"}
+{"t": 1791598470374, "what": "db-1 sync standby seen"}
+{"t": 1791598490632, "what": "watch stop"}

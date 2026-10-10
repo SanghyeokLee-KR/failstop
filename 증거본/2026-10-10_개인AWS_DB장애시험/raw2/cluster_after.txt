@@ -1,0 +1,2 @@
+| db-1   | 172.31.0.20  | Leader       | running   |  9 |             |     |            |     |
+| db-2   | 172.31.32.20 | Sync Standby | streaming |  9 |  6/38317978 |   0 | 6/38317978 |   0 |

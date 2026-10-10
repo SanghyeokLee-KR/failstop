@@ -1,0 +1,3 @@
+{"orders_present" : 211, "trades_present" : 127, "role" : "primary"}
+kernel.panic = 5
+kernel.sysrq = 16
