@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 B3 결과 DB 장애</title>
+<title>페일스톱 부록 05 DB 승격과 주문 재개는 별도로 측정</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -122,16 +122,19 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>DB 승격과 주문 재개는 별도로 측정</h1><p class="ab-sub">확인받은 기록의 유실을 막기 위해, 동기 예비 DB가 없는 동안 쓰기를 멈췄습니다.</p><div class="ab-content"><div class="ab-stats"><div class="ab-stat"><strong>22.75<small>초</small></strong><b>예비 DB 자동 승격</b><p>주 DB 강제 종료 시점부터</p></div><div class="ab-stat"><strong>66.14<small>초</small></strong><b>주문 재개</b><p>옛 DB가 동기 예비로 재합류한 뒤</p></div><div class="ab-stat"><strong>0<small>건</small></strong><b>확인받은 기록 유실</b><p>DB 수준 ACK 기록과 사후 대조</p></div></div><div class="ab-panel ab-wide"><h2>실제 기록의 순서</h2><ol class="ab-timeline"><li><b>0초</b><span>주 DB 종료</span></li><li><b>22.75초</b><span>예비 DB 승격</span></li><li><b>26.67초</b><span>조회 복구</span></li><li><b>60.42초</b><span>옛 DB 재기동</span></li><li><b>66.14초</b><span>주문 재개</span></li></ol><div class="ab-note">옛 DB는 시험 도구가 다시 켰습니다. 돌아오지 않으면 동기 예비 DB를 복구할 때까지 쓰기는 중단됩니다.</div></div></div><p class="ab-scope">2026.09.25 · 로컬 Docker · E-P1 회차. 시연 영상의 승격 27.0초, 개인 AWS의 23.0초(2026-10-10 전원 차단 시험)와 다른 시험입니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·시험 결과</span>B3</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>05 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>23초 만에 예비 DB 자동 승격, 사라진 주문 0건</h1>
+    <h1>DB 승격 22.75초 · 주문 재개 66.14초</h1>
     <span class="env" style="margin-left:auto"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker, DB 두 대 실험</span>
   </div>
   <p class="dek"><b class="qn">장면 02</b>DB가 멈췄을 때, 대가로 주문은 옛 DB가 다시 붙은 66초에 재개</p>
@@ -178,9 +181,9 @@
 
   <div class="ans">
     <div class="row" style="animation-delay:.4s"><div class="n ok">22.75<small>초</small></div><div class="t">사람 개입 없이 예비 DB 승격<span>봇 주문을 넣는 중에도 약 23초, 조회는 27초에 복구</span></div></div>
-    <div class="row" style="animation-delay:.52s"><div class="n ok">0<small>건</small></div><div class="t">확인받은 주문 유실<span>모든 실험에서 확인 기록과 대조<br>중복도, 두 DB의 동시 확인도 0</span></div></div>
+    <div class="row" style="animation-delay:.52s"><div class="n ok">0<small>건</small></div><div class="t">확인받은 기록 유실<span>해당 DB 장애 시험의 ACK 기록 대조<br>중복도, 두 DB의 동시 확인도 0</span></div></div>
     <div class="row" style="animation-delay:.64s"><div class="n">66.1<small>초</small></div><div class="t">주문 재개<span>옛 DB가 예비로 다시 붙은 뒤<br>실험 도구가 60초에 다시 켬</span></div></div>
-    <div class="lim"><b>대가</b>유실 0을 지키려고 두 DB에 모두 기록한 뒤에만 확인. 그래서 한&nbsp;대를 잃으면 예비 DB가 다시 붙을 때까지 주문 중단<span class="if"><b>옛 DB가 돌아오지 않으면</b>운영자가 새 예비 DB를 붙일 때까지 멈춤(목표 60분, 확정 전)</span></div>
+    <div class="lim"><b>대가</b>유실 0을 지키려고 두 DB에 모두 기록한 뒤에만 확인. 그래서 한&nbsp;대를 잃으면 예비 DB가 다시 붙을 때까지 주문 중단<span class="if"><b>옛 DB가 돌아오지 않으면</b>운영자가 새 예비 DB를 붙일 때까지 멈춤(복구 시간은 별도 검증 필요)</span></div>
   </div>
 </div>
 
@@ -193,6 +196,7 @@
     stage.style.transform = `translate(-50%, -50%) scale(${s})`;
   };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => {
     try {
       if (document.fullscreenElement) document.exitFullscreen();
@@ -285,3 +289,9 @@
   if (reduce) state(67.5); else play();
 })();
 </script>
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+DB가 승격되는 시간과 주문을 다시 받는 시간은 다릅니다. 두 사본을 확보한 뒤 주문을 재개했고, 확인받은 기록은 사후에 대조했습니다.
+질문 때: 이 장은 9월 25일 E-P1. 승격 22.75초, 조회 복구 26.67초, 주문 재개 66.14초다. 옛 주 DB는 도구가 60.42초에 재기동했다. 단일 호스트 Docker 시험이며 모든 장애나 두 DB의 동시 손실까지 유실 0을 보장하지 않는다.
+근거: harness/evidence/patroni-20260925-1015/README.md, harness/evidence/patroni-EP-20260925-1014/의 E-P1 판정.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->

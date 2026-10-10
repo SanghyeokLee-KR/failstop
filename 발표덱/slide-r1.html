@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 B2 결과 트래픽</title>
+<title>페일스톱 부록 04 조회 서버 분산과 이탈 시 동작 확인</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -124,11 +124,14 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>조회 서버 분산과 이탈 시 동작 확인</h1><p class="ab-sub">서버 추가·종료는 시험 도구가 실행했습니다. 이 회차는 조회 경로 검증입니다.</p><div class="ab-content"><div class="ab-stats"><div class="ab-stat"><strong>33.5<small>%</small></strong><b>조회 서버가 받은 비율</b><p>345건/초 · 120초 · 41,480건</p></div><div class="ab-stat"><strong>0<small>건</small></strong><b>클라이언트 오류</b><p>강제 종료 전후 28,685건</p></div><div class="ab-stat"><strong>0<small>건</small></strong><b>조회 서버로 전달된 쓰기</b><p>LB 쓰기 기록 5,880건 대조</p></div></div><div class="ab-panel ab-wide"><h2>조회 서버를 강제로 종료했을 때</h2><div class="ab-flow"><span>조회 서버 가동<br><b>3대가 분산 처리</b></span><span class="ab-arrow">→</span><span>조회 서버 종료<br><b>남은 2대가 처리</b></span><span class="ab-arrow">→</span><span>조회 서버 재기동<br><b>8.37~9.03초 뒤 준비</b></span></div><div class="ab-note">오류는 0건이었지만, 다른 노드로 재시도하면서 일부 요청은 최대 2.004초 지연됐습니다.</div></div><p class="ab-caption">별도 상한 없는 부하 약 4,490건/초에서는 7.4%가 HTTP 429로 거절됐습니다.</p></div><p class="ab-scope">2026.09.26 · 로컬 Docker · 1회 판정 주행. 약 9초는 컨테이너 재기동이며 EC2 기동 시간이 아닙니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·시험 결과</span>B2</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>04 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -182,8 +185,8 @@
   </div>
 
   <div class="ans">
-    <div class="row" data-on="1" style="animation-delay:.4s"><div class="n ok">1/3</div><div class="t">세 대가 똑같이 나눔<span>조회 서버 몫 33.5%, 90번 요청하면 세 대가 30번씩</span></div></div>
-    <div class="row" data-on="2" style="animation-delay:.52s"><div class="n ok">0<small>건</small></div><div class="t">켜고 끄는 동안 오류<span>예고 없이 강제로 꺼도</span></div></div>
+    <div class="row" data-on="1" style="animation-delay:.4s"><div class="n ok">1/3</div><div class="t">조회 부하를 약 1/3씩 분산<span>조회 서버 몫 33.5%, 90번 요청하면 순차 검사는 30번씩</span></div></div>
+    <div class="row" data-on="2" style="animation-delay:.52s"><div class="n ok">0<small>건</small></div><div class="t">켜고 끄는 동안 오류<span>강제 종료 전후 · 일부 요청 최대 2.004초 지연</span></div></div>
     <div class="row" data-on="1" style="animation-delay:.64s"><div class="n ok">0<small>건</small></div><div class="t">조회 서버로 간 주문<span>주문은 두 리더에만, 조회 서버는 거절</span></div></div>
     <div class="row" data-on="3" style="animation-delay:.76s"><div class="n"><small class="pre">약</small>9<small>초</small></div><div class="t">다시 켜서 조회를 받을 준비까지<span>8.37~9.03초, 컨테이너 재기동 기준(EC2 기동 아님)</span></div></div>
     <div class="lim"><b>한계</b>켜고 끄기는 실험 도구가 정해진 순서로 실행(지표에 따른 자동&nbsp;증설은 아님). 속도 제한 없이 약 13배(초당 약 4,490건)로 몰면 요청의 7.4%를 조회 서버가 과부하로 거절</div>
@@ -199,6 +202,7 @@
     stage.style.transform = `translate(-50%, -50%) scale(${s})`;
   };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => {
     try {
       if (document.fullscreenElement) document.exitFullscreen();
@@ -293,3 +297,9 @@
   if (!reduce) requestAnimationFrame(tick);
 })();
 </script>
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+조회 서버가 요청의 약 3분의 1을 맡았고, 강제로 종료해도 클라이언트 오류는 없었습니다. 다만 재시도 때문에 일부 요청은 약 2초 늦어졌습니다.
+질문 때: 자동 증설 성능을 측정한 회차가 아니다. R2는 41,480건, api-3 비율 0.335, p95 3.01ms. C2 전체 28,685건 오류 0, 중단 구간 최대 지연 2,004.1ms. nginx가 실패한 업스트림 대신 다른 노드로 재시도했다. 오류 0이 지연 0을 뜻하지 않는다.
+근거: harness/evidence/pml-app3-read-20260926-1220/README.md와 verdict.json.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->

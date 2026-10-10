@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 A2 부하·장애 시험</title>
+<title>페일스톱 부록 03 부하 병목 4곳 개선 · 장애 5유형 검증</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -160,11 +160,14 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage" data-scene="0">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>부하 병목 4곳 개선 · 장애 5유형 검증</h1><p class="ab-sub">k6로 병목을 찾고, Toxiproxy와 Docker로 장애를 주입해 인계 시간을 확인했습니다.</p><div class="ab-content"><div class="ab-cols"><section class="ab-panel"><h2>부하 시험에서 고친 것</h2><table class="ab-table ab-compact"><thead><tr><th scope="col">병목 → 개선</th><th scope="col">접수량</th></tr></thead><tbody><tr><th scope="row">호가 집계 반복 → 표시용 1초 캐시</th><td><b>×2.0 이상</b></td></tr><tr><th scope="row">기록 스레드 1개 → 마켓별 분리</th><td><b>×1.4</b></td></tr><tr><th scope="row">여러 SQL 왕복 → DB 함수로 묶기</th><td><b>×1.3</b></td></tr><tr><th scope="row">전체 접수 락 → 마켓별 분리</th><td><b>×1.4</b></td></tr></tbody></table><p class="ab-caption">서로 다른 조건의 시험이므로 배수를 곱해 총 개선율로 표현하지 않습니다.</p></section><section class="ab-panel"><h2>앱 인계·DB 승격까지 <small>각 유형의 최장값</small></h2><table class="ab-table ab-compact"><thead><tr><th scope="col">장애 유형</th><th scope="col">회차</th><th scope="col">최장</th></tr></thead><tbody><tr><th scope="row">DB 연결 끊기</th><td>28</td><td>13.5초</td></tr><tr><th scope="row">앱 강제 종료</th><td>48</td><td>12.9초</td></tr><tr><th scope="row">앱 일시정지</th><td>28</td><td>13.4초</td></tr><tr><th scope="row">앱 네트워크 단절</th><td>17</td><td>11.1초</td></tr><tr><th scope="row">주 DB 강제 종료</th><td>15</td><td>27.0초</td></tr></tbody></table><div class="ab-note">마지막 행은 예비 DB가 주 DB로 바뀐 시간입니다. 주문은 동기 예비가 붙은 뒤 재개합니다.</div></section></div></div><p class="ab-scope">로컬 개발 검증의 대표 회차 집계입니다. 개선 배수는 각 변경 직전 대비이며, DB 승격과 주문 재개는 별도 지표입니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·개발 단계 검증</span>A2</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>03 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -176,7 +179,7 @@
 
   <div class="tabs">
     <div class="tab t0"><b>부하 시험</b><em>4<small>곳</small></em></div>
-    <div class="tab t1"><b>장애 시험</b><em>179<small>회</small></em></div>
+    <div class="tab t1"><b>대표 장애 유형</b><em>5<small>가지</small></em></div>
   </div>
 
   <svg class="mini" viewBox="0 0 440 320" aria-hidden="true">
@@ -222,9 +225,9 @@
 
   <!-- 장면 2: 장애 시험. 만든 장애 · 횟수 · 이어받기까지 최대 시간 -->
   <section class="pane p1" aria-label="장애 시험의 종류와 결과">
-    <div class="th"><span>만든 장애·방법</span><span class="rh"><span class="rb"><span>장애 후 이어받기까지, 최장</span><span class="g30">목표 30초</span></span><span></span></span></div>
+    <div class="th"><span>만든 장애·방법</span><span class="rh"><span class="rb"><span>앱 인계·DB 승격까지, 최장</span><span class="g30">목표 30초</span></span><span></span></span></div>
     <div id="rows1"></div>
-    <div class="end" id="end1">만든 장애 5가지 모두 <b>30초 안에 이어받음</b></div>
+    <div class="end" id="end1">대표 5유형 <b>앱 인계·DB 승격 30초 이내</b> · 주문 재개는 별도</div>
   </section>
 </div>
 
@@ -234,6 +237,7 @@
   const stage = document.getElementById('stage');
   const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
@@ -372,3 +376,9 @@
   });
 })();
 </script>
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+부하 시험으로 병목 네 곳을 고쳤고, 장애는 유형별로 반복해서 확인했습니다. 여기서 DB 시간은 주문 재개가 아니라 승격까지입니다.
+질문 때: 표의 대표 5유형은 136회다. 기존 자료의 179회는 다른 장애 유형까지 포함한 전체 판정 파일 수이므로 136회와 섞지 않는다. 실패·무효 회차를 포함한 전체 통과율로 해석하지 않는다. 배수는 변경 직전 대비이며 조건이 달라 누적 곱을 하지 않는다.
+근거: 원본 HTML LOAD·FAULT 배열의 회차별 출처 주석과 harness/evidence 판정 JSON. 2026-10-05 대조 기준.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->

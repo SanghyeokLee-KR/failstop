@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04 구축 순서</title>
+<title>페일스톱 04 구축·검증 과정</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -112,7 +112,7 @@
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
-  <h1>구현 과정</h1>
+  <h1>구축·검증 과정</h1>
   <p class="dek">로컬에서 먼저 검증하고, 단계마다 시험으로 확인하며 범위를 넓혔습니다.</p>
 
   <div class="pipe">
@@ -133,7 +133,7 @@
     <section class="card" id="c3">
       <div class="no">3단계</div>
       <h2>서버 구축</h2>
-      <div class="env2"><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></div>
+      <div class="env2"><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">Linux VM 실습망</span></div>
       <p class="desc">서버별 방화벽<i class="mid">·</i>DB 백업<span><svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>접속 차단<i class="mid">·</i>백업 복원 확인</span></p>
     </section>
     <div class="cn" aria-hidden="true"><i class="fill"></i><svg class="hd" viewBox="0 0 18 26"><path d="M5 4l9 9l-9 9"/></svg></div>
@@ -141,14 +141,20 @@
       <div class="no">4단계</div>
       <h2>클라우드 배포</h2>
       <div class="env2"><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">AWS</span></div>
-      <p class="desc">자동 증설<i class="mid">·</i>DB 이중화<span><svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>부하 대응<i class="mid">·</i>DB 전환 확인</span></p>
+      <p class="desc">조회 증설<i class="mid">·</i>DB 이중화<span><svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>부하 대응<i class="mid">·</i>DB 전환 확인</span></p>
     </section>
   </div>
 
 </div>
 
-<!-- 발표 노트(12초): 이 설계를 Docker 시험, Packet Tracer 망 설계, VM 실습, AWS 배포의 네 단계로 구축했습니다.
-장마다 오른쪽 위에 어디서 잰 값인지 표시했습니다. -->
+<!-- 발표 노트(15초): (카드가 차례로 켜지는 동안 설명을 시작한다.)
+앞서 설명드린 설계를 Docker에서 먼저 검증했습니다.
+이후 망 설계와 Linux 서버 구축을 거쳐 AWS에 배포했습니다.
+
+(네 단계가 모두 보이는 상태에서, 다음 장으로 넘기며)
+먼저 Docker에서 무엇을 확인했는지 보여드리겠습니다.
+
+(운영 메모: 약 15초 분량. 애니메이션은 약 4.7초에 끝나고 네 카드가 모두 남는다. 카드의 세부 항목은 다음 장부터 설명한다.) -->
 
 <script>
 (() => {

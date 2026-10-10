@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04-4 리눅스 서버 운영</title>
+<title>페일스톱 04-5 리눅스 서버 운영</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -67,10 +67,9 @@
   .stage:not(.inst) .area.on { animation: lit .3s var(--ease) both; }
   .area.on { border-color: var(--brand); border-width: 3px; }
 
-  /* 아래 카드: 왼쪽은 그 분야의 실제 명령과 출력(증거본 캡처의 글을 그대로 옮기고, 뺀 부분은 … 로 표시), 오른쪽은 같은 번호의 설정 · 시험 · 결과.
-     번호는 늘 1 설정 / 2 시험(서비스는 실제 장애) / 3 결과. 상자 색은 역할에 고정한다:
-     설정 하늘 실선, 시험 노랑 점선(덱의 장애 주입 표식), 실제 장애 빨강 실선, 결과 흰색 실선. 판정 색(거부 · 차단 빨강, 자동 재기동 파랑,
-     보존 · 해제 초록, 경보 노랑)은 오른쪽 결과 줄의 알약에만 쓴다.
+  /* 아래 카드: 왼쪽은 명령 출력·설정 파일의 발췌, 오른쪽은 같은 번호의 설명이다. 뺀 부분은 … 로 표시한다.
+     설정·조치는 하늘색, 시험·확인은 노랑, 실제 장애는 빨강, 결과는 흰색으로 구분한다.
+     시험의 차단이 의도대로 동작했으면 오른쪽에 초록색 '차단 확인'으로 표시한다.
      터미널 틀은 단계마다 같은 자리(무대 y440)와 같은 크기(1044×520)라 단계가 바뀌어도 눈이 자리를 다시 찾지 않는다 */
   .card { position: absolute; left: 130px; top: 404px; width: 1660px; height: 596px; box-sizing: border-box; background: #0B1019; border: 2px solid var(--line); border-radius: 14px; }
   .card .shot { position: absolute; left: 20px; top: 20px; width: 1044px; height: 552px; display: grid; place-items: start center; }
@@ -99,21 +98,28 @@
   .side .row .k { line-height: 36px; color: var(--c); font-size: 22px; font-weight: 700; white-space: nowrap; }
   .side .row p { margin: 0; font-size: 24px; line-height: 36px; color: var(--ink); word-break: keep-all; text-wrap: balance; }
   .side .row p .pl { display: inline-block; margin-right: 10px; padding: 0 12px; height: 34px; line-height: 30px; box-sizing: border-box; border-radius: 17px; border: 2px solid var(--v); background: color-mix(in srgb, var(--v) 14%, transparent); color: var(--v); font-size: 22px; font-weight: 700; vertical-align: 1px; }
+  .side .row.result p { font-size: 27px; font-weight: 600; line-height: 38px; text-wrap: initial; }
+  .side .row.result .verdict { display: block; margin-bottom: 10px; }
+  .side .row.result p small { display: block; margin-top: 8px; font-size: 22px; line-height: 30px; font-weight: 400; color: var(--ink-2); }
   .side .hd { display: flex; align-items: baseline; gap: 14px; height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
   .side .hd b { font-size: 28px; font-weight: 600; color: var(--ink); }
   .side .hd span { font-size: 22px; color: var(--ink-3); }
 
-  /* 열린 모습: 직접 설치해 systemd 서비스로 운영한 구성 요소(왼쪽, 띠의 분야와 겹치지 않게)와 이 장을 읽는 법(오른쪽).
-     오른쪽 '읽는 법' 머리의 위를 왼쪽 목록 머리의 위에 맞춘다 */
+  /* 첫 화면은 다섯 분야의 확인 결과를 먼저 보여 주고, 오른쪽에는 학교 EC2의 역할을 남긴다. */
   .ov { width: 100%; padding: 0 24px; box-sizing: border-box; }
   .ov .k { height: 44px; box-sizing: border-box; padding-bottom: 10px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; }
   .ov .k b { font-size: 28px; font-weight: 600; color: var(--ink); }
   .ov .k span { font-size: 22px; color: var(--ink-3); }
-  .ov .r { display: grid; grid-template-columns: 300px 150px 1fr; column-gap: 20px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid var(--line); }
+  .ov .r { display: grid; grid-template-columns: 160px 220px 1fr; column-gap: 20px; align-items: baseline; padding: 20px 0; border-bottom: 1px solid var(--line); }
   .ov .r:last-child { border-bottom: 0; }
-  .ov .r .h { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+  .ov .r .h { font-size: 25px; font-weight: 600; color: var(--ink); white-space: nowrap; }
   .ov .r .o { font-size: 22px; color: var(--ink-3); white-space: nowrap; }
   .ov .r .s { font-size: 24px; color: var(--ink-2); word-break: keep-all; }
+  .side .server { border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+  .side .server:last-child { border-bottom: 0; }
+  .side .server b { display: block; font-family: var(--mono); font-size: 23px; font-weight: 500; color: var(--ink); }
+  .side .server span { display: block; margin-top: 5px; font-size: 22px; color: var(--ink-3); }
+  .side .server p { margin: 6px 0 0; font-size: 23px; line-height: 34px; color: var(--ink-2); word-break: keep-all; }
 
   /* 단계에 들어설 때만 움직인다. 앞 카드 내용(복사본)이 0 ~ 0.3초에 사라진 뒤, 같은 자리의 틀 안에서 새 글(제목 줄 · 터미널 줄 · 오른쪽 머리)이
      0.3초부터 0.4초에 나타나 두 글이 같은 자리에 겹쳐 비치지 않는다. 번호 상자와 오른쪽 줄은 --at(0.9초부터 0.5초 간격)에 0.3초.
@@ -166,7 +172,7 @@
 <div class="stage" id="stage" data-step="0">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">주요 설계 및 구현</span>04-4</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-5</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -175,7 +181,7 @@
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-terminal-2-side.svg" alt="">원본 캡처<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS</span>
   </div>
-  <p class="dek">학교 EC2에 서비스를 직접 설치하고 설정마다 명령 출력으로 확인했습니다.</p>
+  <p class="dek">학교 EC2에서 권한 분리부터 장애 진단·복구까지 직접 확인했습니다.</p>
 
   <div class="areas" id="areas"></div>
   <div class="card bd b6" id="card" aria-live="polite"><div class="shot" id="shot"></div><div class="side" id="side"></div></div>
@@ -206,16 +212,16 @@
   };
   const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
   // 역할 색(상자 · 번호 원 · 오른쪽 이름)과 판정 색(오른쪽 알약에만)
-  const C = { set: 'var(--glow)', test: 'var(--warm)', real: 'var(--bad)', res: 'var(--ink)' };
+  const C = { set: 'var(--glow)', fix: 'var(--glow)', test: 'var(--warm)', check: 'var(--warm)', real: 'var(--bad)', res: 'var(--ink)' };
   const V = { deny: 'var(--bad)', keep: 'var(--ok)', auto: 'var(--brand)', warn: 'var(--warm)' };
-  const ROLE = { set: '설정', test: '시험', real: '실제 장애', res: '결과' };
+  const ROLE = { set: '설정', fix: '조치', test: '시험', check: '확인', real: '실제 장애', res: '결과' };
 
   // 다섯 분야. 터미널은 증거본(failstop/증거본) 캡처에서 줄을 골라 옮긴 발췌다. 한 줄 안에서 줄인 곳(명령 끝은 늘 '; …')과
   // 같은 출력 묶음 가운데를 줄인 곳은 … 로 쓰고(088 명령과 ②의 325 두 조각은 앞뒤를 골라 옮긴 발췌), 프롬프트의 호스트 이름은 $ 로 줄이며 계정 ID · 공인 주소는 넣지 않는다. 줄 종류: c 명령, k 명령의 이어지는 줄, o 출력, m 설명 줄(# …).
-  // tags 는 터미널 위 번호 상자 [역할, 첫 줄, 끝 줄](늘 1 설정 · 2 시험 또는 실제 장애 · 3 결과 차례), rows 는 오른쪽 [역할, 글, 판정 알약…],
+  // tags 는 터미널 위 번호 상자 [역할, 첫 줄, 끝 줄], rows 는 오른쪽 [역할, 글, 판정 알약…]이다.
   // shots 는 원본 캡처(E 키 도구, assets/linux 에 머리 · 바닥을 잘라 둔 것)
   const AREAS = [
-    { k: 'acct', name: '계정·권한', sub: '서비스 전용 계정', host: 'app-1', role: '거래 서버',
+    { k: 'acct', name: '계정·권한', sub: '실행 경로 보호', host: 'app-1', role: '거래 서버',
       src: '증거본 2026-09-19_학교AWS 124',
       lines: [
         ['c', 'id exchange && getent passwd exchange'],
@@ -229,28 +235,27 @@
         ['o', "touch: cannot touch '/opt/exchange/permission-check': Permission denied"],
       ],
       tags: [['set', 2, 6], ['test', 7, 7], ['res', 8, 8]],
-      rows: [['set', '서비스 전용 계정은 로그인 불가<br>실행·설정 폴더는 root 소유 750'], ['test', '그 계정으로 실행 폴더에 파일 쓰기'], ['res', '쓰기 권한이 없어 막힘', ['거부', 'deny']]],
+      rows: [['set', '서비스 전용 계정으로 실행<br>실행·설정 폴더는 root 소유'], ['test', '서비스 계정으로<br>실행 폴더에 파일 쓰기'], ['res', '실행 폴더 쓰기 차단<small>데이터 경로는 서비스 계정 소유</small>', ['차단 확인', 'keep']]],
       shots: [['assets/linux/acct-124.png', 950, 320, '124 서비스 계정 만들기, 폴더 권한, 그 계정으로 쓰기 시험']] },
-    // 줄 순서를 바꿨다: 실제로는 325의 한 줄(systemctl show → journalctl) 뒤에 326(한도 조회)을 실행했다. 줄 자체는 모두 원문이다
-    { k: 'svc', name: '서비스', sub: 'systemd', host: 'bot-1', role: '관제 서버',
+    // 325·326의 출력을 한도 → 장애 → 재기동 뒤 확인 순서로 발췌했다. 조치와 재검증은 다음 클릭에서 보여 준다.
+    { k: 'svc', name: '서비스', heading: '서비스 · 장애 진단', sub: '장애 진단·복구', host: 'bot-1', role: '관제 서버',
       src: '증거본 2026-09-19_학교AWS 325·326(순서 재배치)',
       lines: [
-        ['c', 'systemctl show grafana-server -p DropInPaths -p MemoryHigh -p MemoryMax'],
+        ['m', '# 당시 systemd 메모리 한도 (326)'],
         ['o', 'MemoryHigh=335544320'],
         ['o', 'MemoryMax=402653184'],
-        ['o', 'DropInPaths=/etc/systemd/system/grafana-server.service.d/limits.conf'],
-        ['c', "sudo journalctl -u grafana-server --since '10 minutes ago' --no-pager \\"],
-        ['k', "    | grep -E 'level=error|level=warn|oom|Failed' | tail -10"],
+        ['m', '# journalctl 강제 종료 기록 (325)'],
         ['o', "… systemd[1]: grafana-server.service: Failed with result 'oom-kill'."],
-        ['c', 'systemctl show grafana-server -p … -p NRestarts -p SubState'],
+        ['m', '# 자동 재기동 뒤 상태와 서버 내부 HTTP 요청 (325)'],
         ['o', 'NRestarts=1'],
         ['o', 'SubState=running'],
+        ['o', 'curl: (28) Operation timed out after 3002 milliseconds …'],
       ],
-      tags: [['set', 0, 3], ['real', 4, 6], ['res', 7, 9]],
-      rows: [['set', 'systemd 유닛으로 Grafana 실행<br>메모리 한도 384MiB'], ['real', '운영 중 Grafana가<br>메모리 한도에 걸려 강제 종료'], ['res', 'systemd가 다시 띄움<br>원인을 찾아 한도를 896MiB로 늘림', ['자동 재기동', 'auto']]],
+      tags: [['set', 0, 2], ['real', 3, 4], ['check', 5, 8]],
+      rows: [['set', 'Grafana를 systemd로 관리<br>메모리 상한 384MiB'], ['real', '메모리 한도 초과로 종료<br>로그에서 oom-kill 확인'], ['check', '자동 재기동 뒤에도<br>서버 안에서 HTTP 시간 초과']],
       shots: [['assets/linux/svc-325.png', 950, 304, '325 강제 종료 기록과 재시작 횟수'], ['assets/linux/svc-326.png', 950, 68, '326 그때 걸려 있던 메모리 한도']] },
     // tee 출력 7줄 중 Compress=yes, SystemKeepFree=1G, RuntimeMaxUse=64M 세 줄은 … 로 줄였다
-    { k: 'log', name: '로그', sub: 'journald', host: 'app-1', role: '거래 서버',
+    { k: 'log', name: '로그', sub: '재부팅 후 보존', host: 'app-1', role: '거래 서버',
       src: '증거본 2026-09-19_학교AWS 088·098·104',
       lines: [
         ['c', "printf … | sudo -n tee /etc/systemd/journald.conf.d/60-exchange-lab.conf"],
@@ -266,10 +271,10 @@
         ['o', '… exchange-lab[2982]: journal-persistence-check-20260919-before-reboot'],
       ],
       tags: [['set', 1, 6], ['test', 7, 8], ['res', 9, 10]],
-      rows: [['set', 'journald를 영구 보관으로 두고<br>256MiB·7일 상한'], ['test', '서버를 실제로 재부팅'], ['res', '재부팅 전 시험 로그를<br>이전 부팅에서 찾음', ['보존', 'keep']]],
+      rows: [['set', '로그를 디스크에 보관<br>용량 256MiB·기간 7일 상한'], ['test', '시험 로그를 남긴 뒤<br>서버를 실제로 재부팅'], ['res', '재부팅 전 로그 조회<small>이전 부팅 기록에서 시험 로그 확인</small>', ['보존 확인', 'keep']]],
       shots: [['assets/linux/log-088.png', 950, 172, '088 journald 보존 설정'], ['assets/linux/log-098.png', 950, 250, '098 시험 로그를 남기고 재부팅'], ['assets/linux/log-104.png', 950, 234, '104 재부팅 뒤 이전 부팅의 시험 로그']] },
     // 400의 요청 결과는 차례대로이고, 사이의 줄은 … 로 줄였다
-    { k: 'net', name: '네트워크', sub: 'Nginx·HTTPS', host: 'app-1', role: '거래 서버',
+    { k: 'net', name: '네트워크', sub: '공개·관리 분리', host: 'app-1', role: '거래 서버',
       src: '증거본 2026-09-19_학교AWS 232·400',
       lines: [
         ['c', "ss -lnt '( sport = :8080 or sport = :8081 )'"],
@@ -284,11 +289,11 @@
         ['o', '…'],
         ['o', 'PASS: TLS 검증, 공개 경로, 관리 경로 차단, 데모 조회'],
       ],
-      tags: [['set', 0, 2], ['test', 3, 3], ['res', 4, 6]],
-      rows: [['set', '앱은 127.0.0.1에서만 듣고<br>밖은 Nginx HTTPS로만 받음'], ['test', '공개 HTTPS 주소로 관리 경로 요청'], ['res', '밖에서 관리 경로는 403', ['차단', 'deny']]],
+      tags: [['set', 0, 2], ['test', 3, 3], ['res', 4, 8]],
+      rows: [['set', '앱은 127.0.0.1에 바인딩<br>외부 요청은 Nginx HTTPS 경유'], ['test', '공개 주소로<br>조회·관리 경로를 각각 요청'], ['res', '공개 조회 200<br>관리 경로 403', ['접속 분리 확인', 'keep']]],
       shots: [['assets/linux/net-232.png', 950, 240, '232 앱이 듣는 주소'], ['assets/linux/net-400.png', 950, 252, '400 공개 HTTPS 주소로 공개·관리 경로 요청']] },
     // 규칙은 저장소 파일, df 는 app-1, REPORT 두 줄은 bot-1(관제 서버)의 경보 · 보고 상태 확인 출력이다
-    { k: 'disk', name: '디스크', sub: '용량 경보', host: 'app-1·bot-1', role: '거래 서버·관제 서버',
+    { k: 'disk', name: '디스크', sub: '발생·해제 알림', host: 'app-1·bot-1', role: '거래·관제 서버',
       src: 'deploy/linux/reporting/school-alerts.yml, 증거본 2026-09-20_백업_복구_보고 023·039·050',
       lines: [
         ['m', '# 경보 규칙 school-alerts.yml'],
@@ -304,23 +309,43 @@
         ['o', "REPORT … 'sent' … incident= [('LinuxDiskSpaceLow', 'resolved')]"],
       ],
       tags: [['set', 1, 3], ['test', 4, 7], ['res', 9, 10]],
-      rows: [['set', '여유 15% 미만이 5분 이어지면 경보'], ['test', '시험용 디스크만 98%까지 채우고<br>운영 디스크는 그대로'], ['res', 'Teams로 발생과 해제를 보고', ['경보', 'warn'], ['해제', 'keep']]],
+      rows: [['set', '여유 15% 미만이<br>5분 이어지면 경보'], ['test', '별도 시험 디스크를 98% 채운 뒤<br>공간을 돌려 경보 해제 확인'], ['res', '발생·해제 보고 전송<small>Teams 보고 상태 sent 확인</small>', ['전송 확인', 'keep']]],
       shots: [['assets/linux/disk-023.png', 760, 136, '023 시험용 디스크를 98%까지 채움'], ['assets/linux/disk-039.png', 1912, 330, '039 경보 발생과 보고 전송'], ['assets/linux/disk-050.png', 1912, 200, '050 경보 해제 보고 전송']] },
   ];
-  // 열린 모습: 직접 설치해 systemd 서비스로 운영한 구성 요소(증거본 2026-09-19_학교AWS 114~116 · 228 · 299 · 302 · 387, 177~192, 266~270 · 277)
-  const HOSTS = [['app-1', '거래 서버', 'Java 21 앱, Nginx, Certbot'], ['db-primary·db-standby', '주 DB·예비 DB', 'PostgreSQL 17'], ['bot-1', '관제 서버', 'Prometheus, Grafana, Alertmanager, 시장 봇']];
-  const LAST = AREAS.length;
+  // 실제 설정과 복구 확인 출력. 342·343은 10초 간격 6회 확인이며 장시간 안정성 측정으로 확대하지 않는다.
+  const SERVICE_RECOVERY = {
+    k: 'svc', name: '서비스', heading: '서비스 · 복구 확인', host: 'bot-1', role: '관제 서버',
+    src: '증거본 2026-09-19_학교AWS 335·342·343·370, deploy/linux/observability/grafana-limits.conf',
+    lines: [
+      ['m', '# limits.conf · 최종 적용 설정 (335)'],
+      ['o', 'Environment=GOMEMLIMIT=512MiB'],
+      ['o', 'MemoryHigh=768M'],
+      ['o', 'MemoryMax=896M'],
+      ['m', '# 10초 간격 6회 확인 중 첫 응답 발췌 (342)'],
+      ['o', 'Grafana HTTP 200 time=0.001047s'],
+      ['o', 'NRestarts=0'],
+      ['o', '…'],
+      ['m', '# 마지막 확인 뒤 cgroup memory.events (343)'],
+      ['o', 'high 0'],
+      ['o', 'oom_kill 0'],
+    ],
+    tags: [['fix', 0, 3], ['check', 4, 7], ['res', 8, 10]],
+    rows: [['fix', 'Go 메모리 회수 기준 512MiB<br>systemd 한도 768/896MiB'], ['check', '관제 화면을 바꿔 가며<br>10초 간격으로 6회 응답 확인'], ['res', '6회 모두 HTTP 200<small>확인 구간 재시작·OOM 기록 0</small>', ['복구 확인', 'keep']]],
+    shots: [['assets/img/linux-grafana-3.png', 1100, 738, '342·343 10초 간격 6회 응답, 재시작·메모리 이벤트 확인'], ['assets/linux/tr-370.png', 950, 322, '370 전체 서버 지표 수집을 붙인 뒤 정상 응답 확인']],
+  };
+  const SCENES = [AREAS[0], AREAS[1], SERVICE_RECOVERY, ...AREAS.slice(2)];
+  const HOSTS = [['app-1', '거래 서버', 'Java 21 앱 · Nginx'], ['db-primary · db-standby', '주 DB·예비 DB', 'PostgreSQL 17'], ['bot-1', '관제 서버', 'Prometheus · Grafana · Alertmanager']];
+  const OUTCOMES = [['계정·권한', '서비스 계정 분리', '실행 폴더 쓰기 차단'], ['서비스', '메모리 한도 조정', 'Grafana 응답 복구 확인'], ['로그', 'journald 보존 설정', '재부팅 전 로그 조회'], ['네트워크', 'Nginx 접속 제어', '공개 조회 허용 · 관리 경로 차단'], ['디스크', '별도 시험 디스크', '경보 발생·해제 보고 전송']];
+  const LAST = SCENES.length;
   const T0 = .9, GAP = .5, AN = .15, LN = 40, PAD = 16;
   const card = $('card'), shot = $('shot'), side = $('side');
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  $('areas').innerHTML = AREAS.map((a, i) => `<div class="area bd b${i + 1}" data-i="${i + 1}">${svg(a.k)}<div><b>${a.name}</b><span>${a.sub}</span></div></div>`).join('');
+  $('areas').innerHTML = AREAS.map((a, i) => `<div class="area bd b${i + 1}" data-key="${a.k}">${svg(a.k)}<div><b>${a.name}</b><span>${a.sub}</span></div></div>`).join('');
 
   function overview() {
-    shot.innerHTML = `<div class="ov"><div class="k"><b>직접 설치한 구성 요소</b><span>모두 systemd 서비스로 운영</span></div>${HOSTS.map(([h, o, s]) => `<div class="r"><span class="h">${h}</span><span class="o">${o}</span><span class="s">${s}</span></div>`).join('')}</div>`;
-    side.innerHTML = `<div class="hd"><b>읽는 법</b><span>분야마다 같은 순서</span></div>` +
-      [['set', '직접 넣은 설정'], ['test', '일부러 일으킨 상황'], ['res', '명령 출력으로 확인']].map(([r, t], j) =>
-        `<div class="row" style="--c:${C[r]}"><i class="n">${j + 1}</i><span class="k">${ROLE[r]}</span><p>${t}</p></div>`).join('');
+    shot.innerHTML = `<div class="ov"><div class="k"><b>직접 확인한 운영 결과</b><span>설정과 실제 동작을 대조</span></div>${OUTCOMES.map(([h, o, s]) => `<div class="r"><span class="h">${h}</span><span class="o">${o}</span><span class="s">${s}</span></div>`).join('')}</div>`;
+    side.innerHTML = `<div class="hd"><b>운영한 서버</b><span>학교 EC2</span></div>` + HOSTS.map(([h, r, s]) => `<div class="server"><b>${h}</b><span>${r}</span><p>${s}</p></div>`).join('');
   }
   function area(a) {
     const tags = a.tags.map(([r, s, e], j) =>
@@ -329,25 +354,25 @@
       a.lines.map(([t, x]) => `<div class="ln ${t}">${esc(x)}</div>`).join('') + tags + `</div></div>`;
     // 오른쪽 줄은 같은 번호의 상자와 같은 때
     const idx = r => a.tags.findIndex(t => t[0] === r);
-    side.innerHTML = `<div class="hd"><b>${a.name}</b><span>${a.host} ${a.role}</span></div>` +
-      a.rows.map(([r, t, ...vs]) => `<div class="row" style="--c:${C[r]}; --at:${(T0 + idx(r) * GAP + AN).toFixed(2)}s"><i class="n">${idx(r) + 1}</i><span class="k">${ROLE[r]}</span><p>${
-        vs.map(([w, v]) => `<span class="pl" style="--v:${V[v]}">${w}</span>`).join('')}${t}</p></div>`).join('');
+    side.innerHTML = `<div class="hd"><b>${a.heading || a.name}</b><span>${a.host} ${a.role}</span></div>` +
+      a.rows.map(([r, t, ...vs]) => `<div class="row${r === 'res' ? ' result' : ''}" style="--c:${C[r]}; --at:${(T0 + idx(r) * GAP + AN).toFixed(2)}s"><i class="n">${idx(r) + 1}</i><span class="k">${ROLE[r]}</span><p>${vs.length ? `<span class="verdict">${
+        vs.map(([w, v]) => `<span class="pl" style="--v:${V[v]}">${w}</span>`).join('')}</span>` : ''}${t}</p></div>`).join('');
   }
-  // 열린 모습은 오른쪽 '읽는 법' 머리의 위를 왼쪽 목록 머리의 위에 맞춘다(둘 다 칸 안 위아래 가운데)
+  // 첫 화면의 결과 목록과 서버 목록은 위쪽 기준선을 맞춘다.
   const alignTop = () => {
     const c = shot.firstElementChild;
     side.style.paddingTop = '';
     if (!c || !c.classList.contains('ov')) return;
-    const top = Math.max(0, (552 - c.offsetHeight) / 2);
+    const top = 28;
     c.style.marginTop = top + 'px'; side.style.paddingTop = top + 'px';
   };
 
   // ---- 원본 캡처(E 키 도구). 지금 분야(열린 모습에서는 첫 분야)의 캡처를 위아래로 놓고, 창에 다 들어가게 줄인다(2배까지 키움) ----
   const fig = $('fig'), openBtn = $('open-fig');
   const showFig = () => {
-    const a = AREAS[Math.max(0, step - 1)], k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    const a = SCENES[Math.max(0, step - 1)], k = Math.min(innerWidth / 1920, innerHeight / 1080);
     fig.style.setProperty('--k', k);
-    $('fig-cap').textContent = `${a.name}, ${a.src}. 계정 ID·공인 주소가 있는 머리와 바닥은 잘라 냄. 화면의 터미널은 이 캡처에서 줄을 골라 옮김`;
+    $('fig-cap').textContent = `${a.name}, ${a.src}. 캡처에서 계정 ID·공인 주소가 있는 머리와 바닥은 잘라 냄. 화면의 터미널은 명령 출력·설정 파일의 발췌`;
     const view = $('fig-view');
     view.innerHTML = a.shots.map(([s, w, h, t]) => `<figure><figcaption>${t}</figcaption><img src="${s}" alt="${t}" data-w="${w}" data-h="${h}"></figure>`).join('');
     const W = view.clientWidth - 48 * k, H = view.clientHeight - 24 * k - a.shots.length * (40 * k) - (a.shots.length - 1) * 18 * k;
@@ -368,7 +393,7 @@
   fig.addEventListener('close', () => { openBtn.blur(); });
   addEventListener('resize', () => { if (fig.open) showFig(); });
 
-  // ---- 단계: 0 열림(직접 설치한 구성 요소와 읽는 법), 1~5 분야 하나씩. 그다음 → 는 다음 장.
+  // ---- 단계: 0 결과 개요, 1 계정, 2~3 서비스 장애와 복구, 4 로그, 5 네트워크, 6 디스크. 그다음 → 는 다음 장.
   //      앞으로는 앞 카드 내용의 복사본을 얹어 0.3초에 사라지게 하고 새 글을 그 뒤에 보이며, 뒤로는 앞 단계의 끝 모습을 바로 ----
   let step = 0;
   const render = (n, inst) => {
@@ -380,9 +405,9 @@
       card.appendChild(g); g.addEventListener('animationend', () => g.remove());
     }
     stage.classList.toggle('inst', !!inst); step = n; stage.dataset.step = n;
-    document.querySelectorAll('.area').forEach(e => e.classList.toggle('on', +e.dataset.i === n));
+    document.querySelectorAll('.area').forEach(e => e.classList.toggle('on', e.dataset.key === SCENES[n - 1]?.k));
     card.classList.remove('go', 'first'); void card.offsetWidth;
-    if (n === 0) overview(); else area(AREAS[n - 1]);
+    if (n === 0) overview(); else area(SCENES[n - 1]);
     alignTop();
     if (!inst && n > 0) card.classList.add('go');
     if (!inst && n === 1 && from === 0) card.classList.add('first');
@@ -407,16 +432,53 @@
   });
 })();
 </script>
-<!-- 발표 노트(50초): 이제 클라우드입니다. 학교 EC2에 서비스를 직접 설치해 리눅스로 운영하며, 다섯 분야마다 상황을 만들어 명령 출력으로 확인했습니다.
-→ 1 앱은 로그인할 수 없는 전용 계정으로 돌고, 그 계정으로 실행 폴더에 쓰려 하면 막힙니다.
-→ 2 Grafana가 메모리 한도로 죽었을 때 systemd가 다시 띄웠고, 원인을 찾아 한도를 늘렸습니다.
-→ 3 로그는 재부팅해도 남게 해 두고, 실제로 재부팅한 뒤 이전 부팅의 로그를 찾았습니다.
-→ 4 앱은 서버 안에서만 듣고, 밖에서는 Nginx HTTPS로만 들어옵니다.
-→ 5 디스크를 98%까지 채워 경보가 Teams로 오는 것까지 봤습니다.
+<!-- 발표 노트(시간 미지정):
+(AWS 구성도에서 넘어와, 다섯 분야가 보이는 첫 화면)
+앞에서는 최종 AWS 구성을 보여드렸습니다.
+이번에는 서버를 직접 운영하면서 어떤 설정을 했고, 문제가 생겼을 때 어떻게 확인했는지 말씀드리겠습니다.
+이 장의 기록은 학교 EC2에서 서비스를 설치하고 운영할 때 남긴 것입니다.
+
+→ 1 (계정·권한. 실행 폴더의 소유자와 마지막 Permission denied를 짚는다.)
+먼저 앱은 로그인할 수 없는 전용 계정으로 실행했습니다.
+실행·설정 폴더는 root가 관리하고, 앱이 쓰는 데이터 경로는 서비스 계정 소유로 나눴습니다.
+서비스 계정이 실행·설정 경로를 함부로 바꾸지 못하게 하기 위해서입니다.
+설정한 뒤에는 그 계정으로 실행 폴더에 파일을 만들어 봤고, 화면처럼 쓰기가 차단됐습니다.
+
+→ 2 (서비스 · 장애 진단. oom-kill 기록과 HTTP 시간 초과를 짚는다.)
+운영 중에는 Grafana가 멈추는 문제도 있었습니다.
+로그를 보니 제가 설정한 메모리 한도에 걸려 강제 종료된 것이었습니다.
+systemd가 자동으로 다시 띄워서 상태는 running이었는데, 서버 안에서 보낸 HTTP 요청은 계속 시간 초과가 났습니다.
+그래서 cgroup 통계까지 들어가 실제 메모리 사용량을 확인했습니다.
+
+→ 3 (서비스 · 복구 확인. 설정 변경 뒤의 응답 기록으로 전환한다.)
+처음에는 한도를 올리자 응답이 돌아왔지만, 관제 화면 여러 개를 열었을 때 다시 멈췄습니다.
+최종적으로는 Go의 메모리 회수 기준과 systemd 한도를 함께 조정했습니다.
+그 뒤에는 관제 화면을 바꿔 가며 10초 간격으로 여섯 번 확인했고, 모두 정상 응답을 받았습니다.
+그 확인 구간에서 재시작과 메모리 부족에 따른 강제 종료 기록도 없었습니다.
+
+→ 4 (로그. 이전 부팅의 시험 로그를 짚는다.)
+장애가 난 뒤 원인을 찾을 수 있도록 로그는 디스크에 남기고, 보관 용량과 기간에 상한을 뒀습니다.
+시험 로그를 남긴 후 실제로 재부팅해서, 이전 부팅의 로그가 조회되는 것까지 확인했습니다.
+
+→ 5 (네트워크. 공개 조회 200과 관리 경로 403을 함께 보여준다.)
+접속은 공개 서비스와 관리 경로를 나눴습니다.
+앱은 서버 내부 주소에만 바인딩하고 외부 요청은 Nginx의 HTTPS를 거치게 했습니다.
+공개 주소로 확인했을 때 일반 조회는 200으로 응답했고, 관리 경로는 403으로 차단됐습니다.
+
+→ 6 (디스크. 시험용 loop 장치와 두 보고 상태를 짚는다.)
+마지막은 용량이 부족할 때 담당자에게 알리는 경보입니다.
+별도 시험용 디스크를 98%까지 채워 경보를 발생시킨 다음, 공간을 돌려 경보가 해제되는 것까지 확인했습니다.
+발생과 해제 두 경우 모두 Teams 보고가 전송된 기록을 확인했습니다.
+
+(다음 AI 관제 장으로 넘어가며)
+이렇게 모은 서버 지표와 경보를 AI 판단에 어떻게 연결했는지 이어서 보여드리겠습니다.
+
+[질의응답 참고]
 질문 때: Grafana는 한도를 올린 뒤에도 멈춰서, cgroup 통계로 실제 사용량 약 615MiB가 회수 기준 512MiB를 넘는 것을 확인했다. 실행 폴더는 root 소유다. 로그는 256MiB·7일 상한, 앱은 8080·8081에서만 듣고 공개 주소로 관리 경로를 요청하면 403이다. 디스크 경보는 여유 15% 미만이 5분 이어질 때다.
-시험 디스크는 128MiB loop 장치이고 7분 뒤 자동으로 공간을 돌려받게 예약했다. 실제 디스크가 차면 df·du로 원인을 찾고 journal vacuum·logrotate 뒤 볼륨을 늘린다(04-3 LVM).
+시험 디스크는 128MiB loop 장치이고 7분 뒤 자동으로 공간을 돌려받게 예약했다. 실제 디스크 부족은 df·du로 어느 파일시스템과 경로가 찼는지 확인한 뒤, 보존 조건에 맞는 로그 정리 또는 볼륨 확장을 선택한다(04-3 LVM). 이 장의 경보 시험은 운영 파일시스템을 채운 시험이 아니다.
 앱 유닛은 Restart=on-failure, MemoryMax=1400M, StartLimitBurst=3(300초)이다(deploy/linux/app/exchange-app.service). 80번은 열려 있고 308로 HTTPS로 넘긴다. DB는 hostssl·TLS 1.3 연결만 받는다.
 앱이 127.0.0.1에서만 들으면 Prometheus는? Nginx가 사설 9101 경로로 지표만 내주고, 보안 그룹에서 출발지를 봇 SG 하나로 제한했다.
 Amazon Linux 2023의 journald는 원래 영구 저장이 아닌가? 기본 이미지에 /var/log/journal이 있었고, 여기에 256MiB·여유 1G·메모리 64MiB·7일 상한을 명시하고 실제 재부팅으로 확인했다.
-Grafana 한도: 강제 종료 때 MemoryHigh 320MiB·MemoryMax 384MiB였고, 이후 512/640MiB → 768/896MiB로 바꿔 해결했다(부록 C1 트러블슈팅).
-서비스 칸의 줄 순서: 실제로는 325(상태 조회 → 기록 조회) 뒤에 326(한도 조회)을 실행했다. 화면은 설정 → 장애 → 결과 순으로 놓았다. -->
+Grafana 한도: 강제 종료 때 MemoryHigh 320MiB·MemoryMax 384MiB였고, 이후 512/640MiB로 한 번 올려도 재발했다. 최종적으로 GOMEMLIMIT=512MiB, MemoryHigh=768M, MemoryMax=896M을 적용했다. GOMEMLIMIT은 Go 런타임의 메모리 회수 목표이며 강제 상한이 아니다(부록 C1 트러블슈팅). 342·343은 10초 간격 6회 확인 기록이고 370은 전체 서버 수집 뒤 재확인이다. 장시간 안정성 측정으로 설명하지 않는다.
+서비스 칸의 줄 순서: 실제로는 325(상태 조회 → 기록 조회) 뒤에 326(한도 조회)을 실행했다. 첫 화면은 당시 한도 → 강제 종료 → 자동 재기동 뒤 확인 순서로 발췌했다. 다음 클릭의 복구 확인은 335의 설정과 342·343 출력이며, 원본 창에서 확인할 수 있다.
+증거 범위: 이 장의 기록은 학교 EC2이다. 앞 장의 개인 AWS 구성도와 같은 시점·환경의 결과로 설명하지 않는다. -->

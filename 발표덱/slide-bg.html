@@ -126,7 +126,7 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <h1>기획 시나리오</h1>
-  <p class="dek">거래소를 실제로 운영한다면 가장 먼저 겪게 될 두 장면을 골랐습니다.</p>
+  <p class="dek">부하 대응과 주문 기록 보존을 두 가지 상황에서 확인합니다.</p>
 
   <div class="qs">
     <section class="q">
@@ -158,13 +158,13 @@
         <rect class="gfill" id="s1-g2" x="690" y="186" width="0" height="12" rx="6"/>
         <text class="flag" id="s1-late" x="736" y="140" text-anchor="middle" style="fill:var(--bad)">응답 지연</text>
       </svg>
-      <p class="chk"><span>확인할 것</span>어디서 먼저 막히는지, 무엇을 늘려야 하는지</p>
+      <p class="chk"><span>확인할 것</span>응답 지연의 원인, 증설 후 부하 분산</p>
     </section>
 
     <section class="q">
       <div class="no"><b>02</b>DB 장애</div>
-      <h2><em>DB가 갑자기 멈춰도</em><br>받은 주문은 지켜야 한다</h2>
-      <svg class="scene" id="s2" viewBox="0 0 790 270" role="img" aria-label="주문이 거래 서버를 거쳐 주 DB에 기록되다가 주 DB가 멈추자 주문이 거래 서버 앞에 쌓여 기다리는 장면">
+      <h2><em>DB가 갑자기 멈춰도</em><br>접수 완료된 주문은 지켜야 한다</h2>
+      <svg class="scene" id="s2" viewBox="0 0 790 270" role="img" aria-label="주 DB가 멈춰 새 주문 처리가 대기하고, 이미 접수 완료된 주문 기록의 보존을 확인해야 하는 장면">
         <path class="wire" d="M84 135 H230 M420 135 H540"/>
         <g id="s2-dots"></g>
         <image href="assets/tint/ui-users-side.svg" x="36" y="111" width="46" height="46"/>
@@ -177,19 +177,29 @@
         <text class="lb" x="630" y="142">주 DB</text>
         <path class="x" id="s2-x" d="M700 116 L720 136 M720 116 L700 136"/>
         <text class="flag" id="s2-wait" x="474" y="72" text-anchor="middle" style="fill:var(--warm)">주문 대기</text>
-        <text class="flag" id="s2-q" x="635" y="204" text-anchor="middle" style="fill:var(--bad)">받은 주문 유실 위험</text>
+        <text class="flag" id="s2-q" x="635" y="204" text-anchor="middle" style="fill:var(--bad)">주문 기록 유실 위험</text>
       </svg>
-      <p class="chk"><span>확인할 것</span>받은 주문이 남는지, 사람 없이 넘어가는지</p>
+      <p class="chk"><span>확인할 것</span>접수 완료 주문의 보존, 예비 DB 자동 전환</p>
     </section>
   </div>
 
-  <div class="foot"><span class="k">AI의 역할</span>흩어진 경보와 지표를 모아 원인을 짚고, 다음에 할 일을 제안합니다.</div>
+  <div class="foot"><span class="k">AI의 역할</span>지표와 경보를 함께 분석해 원인 후보와 조치안을 제안합니다.</div>
 </div>
 
-<!-- 발표 노트(30초): 거래소를 실제로 운영한다면 가장 먼저 겪게 될 두 장면을 골랐습니다.
-첫째, 요청이 한꺼번에 몰리면 응답이 늦어집니다. 어디서 막히는지 찾고 무엇을 늘릴지 판단해야 합니다.
-→ 1 둘째, 주 DB가 갑자기 멈추면 받은 주문을 잃을 위험이 생깁니다. 주문이 남는지, 사람 없이 넘어가는지가 기준입니다.
-→ 2 두 장면 모두에서 AI는 흩어진 경보와 지표를 모아 원인을 짚고, 할 일을 제안합니다. -->
+<!-- 발표 노트(30초): (왼쪽 요청이 몰리는 애니메이션을 보며)
+그래서 두 가지 상황을 정했습니다.
+첫째는 요청이 몰릴 때입니다. 어디서 응답이 늦어지는지, 서버를 늘리면 부하가 나뉘는지 확인합니다.
+
+→ 1 (오른쪽 DB 장애 장면으로 전환)
+둘째는 주 DB가 멈출 때입니다. 접수 완료된 주문이 남아 있는지, 예비 DB가 자동으로 이어받는지 확인합니다.
+
+→ 2 (두 문제 장면이 멈추고 AI 역할이 나타남)
+AI는 이때 지표와 경보를 보고 원인과 조치안을 제안하도록 했습니다.
+
+(다음 장으로 넘기며)
+이 두 상황에 맞춰 설계한 구조를 보여드리겠습니다.
+
+(운영 메모: 문장은 약 30초 분량. 두 번째 문단을 말하는 동안 DB 장애 애니메이션이 재생된다. 그림의 움직임을 하나씩 설명하거나 별도로 기다리지 않는다.) -->
 
 <script>
 (() => {
@@ -263,7 +273,7 @@
     $('s1-late').classList.toggle('on', Math.max(...s1.load) > .82);
   }
 
-  // 장면 2: 주문이 주 DB로 들어가다 DB가 멈추면 거래 서버 앞에 쌓인다. 10초마다 되풀이
+  // 장면 2: 주문이 주 DB로 들어가다 DB가 멈추면 처리를 기다린다. 설명 중에는 반복하고 AI 단계에서는 멈춘다.
   const s2 = { layer: $('s2-dots'), parts: [], stack: [], t0: 0, last: 0, down: false };
   const S2_PATH = [[84, 135], [230, 135], [420, 135], [540, 135]];
   function reset2(now) {
@@ -272,6 +282,23 @@
     s2.layer.style.opacity = 1;
     $('s2-db').classList.remove('hot'); $('s2-x').classList.remove('on');
     $('s2-q').classList.remove('on'); $('s2-wait').classList.remove('on');
+  }
+  function queue2(el) {
+    const i = s2.stack.length;
+    if (i >= 15) { el.remove(); return; }
+    el.setAttribute('class', 'dot stuck');
+    el.setAttribute('cx', 446 + (i % 5) * 14);
+    el.setAttribute('cy', 118 - Math.floor(i / 5) * 14);
+    s2.stack.push(el);
+    $('s2-wait').classList.add('on');
+  }
+  function freeze2() {
+    s2.parts.forEach(p => p.el.remove()); s2.parts = [];
+    s2.down = true; s2.layer.style.opacity = 1;
+    $('s2-db').classList.add('hot'); $('s2-x').classList.add('on');
+    $('s2-q').classList.add('on');
+    // 빨리 넘기거나 뒤 장에서 돌아와도 문제 상황이 보이도록 설명용 대기열을 남긴다.
+    while (s2.stack.length < 10) queue2(dot(s2.layer));
   }
   function step2(now) {
     const t = (now - s2.t0) / 1000;
@@ -291,10 +318,7 @@
       p.d = (now - p.b) * 0.3;
       const stopAt = 190 + 146 + 4;   // 거래 서버 오른쪽 끝
       if (s2.down && p.d >= stopAt - 1) {
-        // 멈춘 주문은 거래 서버 위로 한 줄씩 쌓인다
-        const i = s2.stack.length, el = p.el; el.setAttribute('class', 'dot stuck'); $('s2-wait').classList.add('on');
-        el.setAttribute('cx', 446 + (i % 5) * 14); el.setAttribute('cy', 118 - Math.floor(i / 5) * 14);
-        if (i < 15) s2.stack.push(el); else el.remove();
+        queue2(p.el);
         return false;
       }
       if (p.d >= lenOf(S2_PATH)) { p.el.remove(); return false; }
@@ -309,12 +333,15 @@
     step = n; stage.dataset.step = n;
     s1.frozen = n >= 1;
     if (s1.frozen) s1.layer.style.opacity = 0;
+    pending2 = false;
+    s2.on = n === 1;
     if (n === 0) {  // 첫 장면을 처음부터, 둘째 장면은 멈춘 채 비운다
       s1.parts.forEach(p => p.el.remove()); s1.parts = []; s1.layer.style.opacity = 1; s1.t0 = 0;
+      s1.load = [0, 0];
       reset2(performance.now());
     }
-    else if (!s2.on) pending2 = true;                          // 둘째 장면은 넘어온 순간부터 재생
-    s2.on = n >= 1;
+    else if (n === 1) pending2 = true;  // 뒤로 돌아와도 DB 장애 과정을 처음부터 재생한다.
+    else freeze2();                    // AI 역할을 설명할 때는 두 문제 장면을 유지한다.
   }
 
   if (reduce) {
@@ -323,6 +350,7 @@
     $('s1-g1').setAttribute('width', 88); $('s1-g1').style.fill = 'var(--bad)';
     $('s1-g2').setAttribute('width', 84); $('s1-g2').style.fill = 'var(--bad)';
     $('s1-b1').classList.add('hot'); $('s1-b2').classList.add('hot'); $('s2-db').classList.add('hot');
+    freeze2();
     stage.dataset.step = LAST;
     window.deckStep = () => false;
     return;

@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 B4 결과 요약</title>
+<title>페일스톱 부록 07 확인한 결과와 남은 검증 범위</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -104,15 +104,18 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>확인한 결과와 남은 검증 범위</h1><p class="ab-sub">환경과 회차가 다른 결과를 하나의 성능이나 복구 시간으로 합치지 않았습니다.</p><div class="ab-content"><table class="ab-table ab-summary"><thead><tr><th scope="col">항목</th><th scope="col">확인한 결과</th><th scope="col">여기까지 확인</th></tr></thead><tbody><tr><th scope="row">조회 분산</th><td>조회 서버 몫 33.5% · 종료 전후 오류 0</td><td>로컬 경로 시험 · 최대 지연 2.004초</td></tr><tr><th scope="row">앱 인계</th><td>남은 앱이 마켓 6개 인계 · 11~13초</td><td>로컬 대표 2회차</td></tr><tr><th scope="row">DB 전환</th><td>승격 22.75초 · 주문 재개 66.14초</td><td>동기 예비 복구 후 쓰기 재개</td></tr><tr><th scope="row">DB 기록 보존</th><td>확인받은 기록의 유실 0</td><td>해당 단일 노드 장애 시험 범위</td></tr><tr><th scope="row">DB 백업 복원</th><td>테이블 수 109개 · 핵심 3개 표 행 수 대조</td><td>전체 내용 대조·시점 복구는 미검증</td></tr><tr><th scope="row">서버 운영</th><td>Teams 발생·해제 알림 · 차단 경로 거부</td><td>학교 EC2·VM에서 시험한 대상</td></tr><tr><th scope="row">AI 판단</th><td>기대 판단 일치 90/111 · 정책 차단 9건</td><td>조치 미제안 12건 · 실제 실행 시험 아님</td></tr></tbody></table></div><p class="ab-scope">로컬 Docker · 학교 EC2 · VM · 개발 PC 평가를 구분한 요약입니다. 개인 AWS의 구성과 시험은 본편에서 별도로 설명합니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·시험 결과</span>B4</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>07 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
-  <h1>요구사항 일곱 중 <em>다섯 달성</em>, <em class="w">둘 부분 달성</em></h1>
+  <h1>검증 결과와 <em class="w">남은 범위</em></h1>
 
   <p class="dek">장애·트래픽 수치는 로컬 Docker에서 실험마다 1~2회 쟀고, 실제 운영과 알림은 학교 AWS·VM에서 확인</p>
 
@@ -121,19 +124,19 @@
     <thead><tr><th>기준</th><th>상황</th><th>목표</th><th>결과</th><th>판정</th><th>측정 환경</th></tr></thead>
     <tbody>
       <tr class="el"><td><div class="kind"><i></i>탄력성</div><div class="fq">늘어도 버티는지</div></td><td class="rq">조회가 몰릴 때</td><td class="tg">조회 서버 <code>0 ↔ 1</code>대</td>
-        <td class="val">세 대가 <code>1/3</code>씩, 켜고 끌 때 오류 <code>0</code><small>실험 도구가 정해진 순서로 켜고 끔, 지표 기반 자동 증설은 아직</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+        <td class="val">세 대가 <code>1/3</code>씩, 켜고 끌 때 오류 <code>0</code><small>실험 도구가 정해진 순서로 켜고 끔, 이 회차는 지표 기반 자동 증설 시험이 아님</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="ha"><td><div class="kind"><i></i>고가용성</div><div class="fq">멈춰도 이어지는지</div></td><td class="rq">거래 서버 한 대 멈춤</td><td class="tg">30초 안<span class="ab">RTO</span></td>
         <td class="val"><code>11~13</code>초<small>남은 서버가 마켓 6개를 넘겨받음, 2회</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="ha"><td><div class="kind cont"><i></i>고가용성</div></td><td class="rq">주 DB 멈춤</td><td class="tg">승격에 사람 개입 0회</td>
         <td class="val">승격 <code>23</code>초, 주문 재개 <code>66</code>초<small>재개는 옛 DB가 예비로 다시 붙은 뒤</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="dr"><td><div class="kind"><i></i>재해 복구</div><div class="fq">잃어도 되살리는지</div></td><td class="rq">DB 장애 중 받은 주문</td><td class="tg">유실 0건<span class="ab">RPO</span></td>
-        <td class="val">유실 <code>0</code>, 중복 <code>0</code><small>DB 장애 실험 모든 회차</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
+        <td class="val">유실 <code>0</code>, 중복 <code>0</code><small>해당 DB 장애 시험의 확인 기록 대조</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/docker-side.svg" alt="">로컬 Docker</span></td></tr>
       <tr class="dr"><td><div class="kind cont"><i></i>재해 복구</div></td><td class="rq">DB를 통째로 잃음</td><td class="tg">원본과 일치</td>
-        <td class="val">테이블 <code>109</code>개 일치<small>거래 데이터 없는 DB, 표 3개만 행 수 대조</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></td></tr>
+        <td class="val">테이블 수 <code>109</code>개 일치<small>거래 데이터 없는 DB, 표 3개만 행 수 대조</small></td><td><span class="mk part"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>부분</span></td><td><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></td></tr>
       <tr class="op"><td><div class="kind"><i></i>운영 기본</div><div class="fq">알리고 막는지</div></td><td class="rq">서버·DB·디스크 이상</td><td class="tg">막힌 길 통과 0<br>발생·해제 알림</td>
         <td class="val">Teams에 발생·해제 보고 도착, 막힌 길 접속 모두 거절<small>예비 DB·앱 정지, 디스크 부족, 보고 요약은 Gemini</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/amazonwebservices-side.svg" alt="">학교 AWS·VM</span></td></tr>
-      <tr class="op"><td><div class="kind"><i></i>AI 관제</div><div class="fq">맡겨도 안전한지</div></td><td class="rq">AI가 조치를 제안할 때</td><td class="tg">잘못된 실행 0회</td>
-        <td class="val">111번 판단 중 잘못 실행될 조치 <code>0</code><small>명령이 든 경보 12/12에 조치 안 함</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC, RTX 4090</span></td></tr>
+      <tr class="op"><td><div class="kind"><i></i>AI 관제</div><div class="fq">맡겨도 안전한지</div></td><td class="rq">AI가 조치를 제안할 때</td><td class="tg">정책 통과 오조치 후보 0</td>
+        <td class="val">기대 판단 일치 <code>90/111</code><small>정책 차단 9건 · 조치 미제안 12건 · 오조치 후보 0</small></td><td><span class="mk ok"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>달성</span></td><td><span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC, RTX 4090</span></td></tr>
     </tbody>
   </table>
 
@@ -141,7 +144,7 @@
     <div class="k">남은 한계</div>
     <p><b>DB 한 대를 잃으면</b>예비 DB가 다시 붙을 때까지 새 주문 중단</p>
     <p><b>DB를 통째로 잃으면</b>마지막 백업 뒤 주문은 복구 불가</p>
-    <p><b>조회 서버의 한계</b>13배 부하에선 7.4% 거절, 자동 증설 확인 전</p>
+    <p><b>조회 서버의 한계</b>13배 부하에선 7.4% 거절, 로컬 조회 경로 시험 범위</p>
     <p><b>측정 횟수</b>실험마다 1~2회, 반복 안정성 확인 전</p>
   </div>
 </div>
@@ -155,6 +158,7 @@
     stage.style.transform = `translate(-50%, -50%) scale(${s})`;
   };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => {
     try {
       if (document.fullscreenElement) document.exitFullscreen();
@@ -170,3 +174,9 @@
   });
 })();
 </script>
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+시험한 범위와 아직 확인하지 못한 부분도 함께 남겼습니다.
+(검증 범위에 관한 질문을 받았을 때만 열고, 해당 항목을 설명한 뒤 질의응답 화면으로 돌아간다.)
+질문 때: AI 111회는 S/H 37개 상황×3회이며 기대 판단 일치90, 정책이 차단한 부적합 제안9, 조치 미제안12다. 정책 적용 뒤 오조치 후보0은 실제 서버에서 111회 실행했다는 뜻이 아니다. 로컬의 짧은 시험에서 나온 오류0을 장기 무장애나 모든 장애에 대한 보장으로 확대하지 않는다.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->

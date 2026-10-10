@@ -248,7 +248,7 @@
   <button class="tag-btn orig" id="open-fig" type="button" aria-haspopup="dialog">최종 구성도<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
 
   <h1>설계 방향</h1>
-  <p class="dek">트래픽이 몰리거나 DB에 장애가 나도 서비스가 멈추지 않도록, 두 시나리오에 대응하는 HA 구조를 설계했습니다.</p>
+  <p class="dek">조회 요청을 분산하고, DB 장애 시 주문 기록을 보존하며 서비스를 복구하도록 설계했습니다.</p>
 
   <div class="qs">
     <section class="q" id="q1">
@@ -257,7 +257,7 @@
         <h2 class="ask"><em>요청이 한꺼번에 몰려도</em><br>서버는 버텨야 한다</h2>
         <h2 class="ans"><em>조회 서버를 켜서</em><br>몰린 요청을 나눠 받는다</h2>
       </div>
-      <div class="sw" id="w1"><svg class="scene" id="a1" viewBox="0 0 790 270" role="img" aria-label="두 거래 서버의 CPU가 증설 임계 60%를 넘자 AI가 위험을 알리고 원인을 조회 요청 급증, 근거를 주문·DB 정상으로 짚고, 조회 서버 1대 추가가 승인되면 조회 서버가 기동해 요청을 셋이 나눠 받으면서 사용량이 임계 아래로 내려오는 장면">
+      <div class="sw" id="w1"><svg class="scene" id="a1" viewBox="0 0 790 270" role="img" aria-label="두 거래 서버의 CPU가 증설 임계 60%를 넘으면 경보가 발생하고, AI가 조회 서버 1대 추가를 제안한다. 운영자가 승인하면 조회 서버가 기동하고 요청을 나눠 받으며 부하가 줄어드는 설계 설명">
         <path class="wire" d="M84 60 L282 135 M84 135 H282 M84 210 L282 135"/>
         <path class="wire" id="a1-l0" d="M382 135 L470 75"/>
         <path class="wire" id="a1-l1" d="M382 135 L470 195"/>
@@ -283,17 +283,14 @@
         <rect class="ping" id="a1-ping" x="470" y="200" width="190" height="50" rx="10"/>
         <rect class="nb" id="a1-nb" x="470" y="234" width="320" height="34" rx="17" style="opacity:0"/>
         <g id="a1-ca" style="opacity:0">
-          <text class="chip" id="a1-cat" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-bad" dx="10">위험</tspan><tspan class="t-2" dx="8">· CPU 60% 넘음</tspan></text>
+          <text class="chip" id="a1-cat" x="486" y="258"><tspan class="t-bad">경보</tspan><tspan class="t-2" dx="10">· CPU 60% 초과</tspan></text>
         </g>
         <g id="a1-cj" style="opacity:0">
-          <text class="chip" id="a1-cjt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="10">판단</tspan><tspan class="t-2" dx="8">· 조회 요청 급증</tspan></text>
-        </g>
-        <g id="a1-ck" style="opacity:0">
-          <text class="chip" id="a1-ckt" x="486" y="258"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="10">근거</tspan><tspan class="t-2" dx="8">· 주문·DB는 정상</tspan></text>
+          <text class="chip" id="a1-cjt" x="486" y="258"><tspan class="t-ai">AI 제안</tspan><tspan class="t-2" dx="10">· 조회 서버 1대 추가</tspan></text>
         </g>
         <g id="a1-cb" style="opacity:0">
           <path class="ck" d="M487 251 l5 5 l10 -11"/>
-          <text class="chip" id="a1-cbt" x="510" y="258"><tspan class="t-ok">승인</tspan><tspan class="t-2" dx="8">· 조회 서버 1대 추가</tspan></text>
+          <text class="chip" id="a1-cbt" x="510" y="258"><tspan class="t-ok">운영자 승인</tspan><tspan class="t-2" dx="8">· 증설 진행</tspan></text>
         </g>
         <g id="a1-bc" style="opacity:0">
           <image href="assets/tint/ui-server-2-glow.svg" x="492" y="209" width="32" height="32"/>
@@ -325,16 +322,16 @@
         <text class="flag drop" id="a1-fine" x="736" y="94" text-anchor="middle" style="fill:var(--ok)">응답 정상</text>
       </svg></div>
       <div class="cc">
-        <p class="chk ask"><span>확인할 것</span>어디서 먼저 막히는지, 무엇을 늘려야 하는지</p>
-        <p class="chk ans"><span>설계</span>오토스케일링으로 조회 서버 수평 확장</p>
+        <p class="chk ask"><span>확인할 것</span>응답 지연의 원인, 증설 후 부하 분산</p>
+        <p class="chk ans"><span>설계</span>수동 스케일링으로 조회 서버 수평 확장</p>
       </div>
     </section>
 
     <section class="q" id="q2">
       <div class="no"><b>02</b>DB 장애</div>
       <div class="hh">
-        <h2 class="ask"><em>DB가 갑자기 멈춰도</em><br>받은 주문은 지켜야 한다</h2>
-        <h2 class="ans"><em>예비 DB가 스스로 이어받고</em><br>받은 주문은 지킨다</h2>
+        <h2 class="ask"><em>DB가 갑자기 멈춰도</em><br>접수 완료된 주문은 지켜야 한다</h2>
+        <h2 class="ans"><em>예비 DB가 스스로 이어받고</em><br>접수 완료된 주문은 지킨다</h2>
       </div>
       <div class="sw" id="w2"><svg class="scene" id="a2" viewBox="0 0 790 270" role="img" aria-label="주 DB에서 예비 DB가 갈라져 나와 주문을 두 DB에 함께 기록하다가, 주 DB가 멈추면 주문이 기다리고 예비 DB가 스스로 주 DB가 된 뒤 옛 주 DB가 예비로 다시 붙으면 기다리던 주문이 이어지는 장면">
         <g class="drop">
@@ -372,7 +369,7 @@
         <text class="flag drop" id="a2-re" x="678" y="143" style="fill:var(--ink-2)">재합류</text>
       </svg></div>
       <div class="cc">
-        <p class="chk ask"><span>확인할 것</span>받은 주문이 남는지, 사람 없이 넘어가는지</p>
+        <p class="chk ask"><span>확인할 것</span>접수 완료 주문의 보존, 예비 DB 자동 전환</p>
         <p class="chk ans"><span>설계</span>Active-Standby 이중화로 예비 DB 자동 승격</p>
       </div>
     </section>
@@ -409,7 +406,7 @@
       <rect class="box" id="t-box" x="1240" y="415" width="260" height="60" rx="10"/>
       <image href="assets/tint/ui-message-glow.svg" x="1260" y="429" width="32" height="32"/>
       <text class="lb" x="1304" y="452">Teams</text>
-      <rect class="zone" x="1215" y="615" width="400" height="195" rx="18"/>
+      <rect class="zone" x="1215" y="615" width="450" height="195" rx="18"/>
       <text class="sb" x="1239" y="649">온프레미스 · DGX Spark</text>
       <path class="wire ask" d="M1100 712 H1240"/>
       <rect class="box ai" id="i-box" x="1240" y="672" width="260" height="68" rx="10"/>
@@ -425,21 +422,21 @@
     <rect class="ping" id="t-ping" x="1240" y="415" width="260" height="60" rx="10" style="stroke:var(--ok)"/>
     <g id="e1" style="opacity:0">
       <rect class="chipbox" id="e1-r" x="850" y="737" width="310" height="34" rx="17" style="stroke:var(--warm)"/>
-      <text class="chip" id="e1-t" x="866" y="761"><tspan class="t-warm">경보</tspan><tspan class="t-2" dx="10">인증서 만료 14일 미만</tspan></text>
+      <text class="chip" id="e1-t" x="866" y="761"><tspan class="t-warm">경보</tspan><tspan class="t-2" dx="10">앱 CPU 60% 초과</tspan></text>
     </g>
     <g id="e2" style="opacity:0">
       <rect class="chipbox" id="e2-r" x="1240" y="752" width="380" height="34" rx="17" style="stroke:var(--ai)"/>
-      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI</tspan><tspan class="t-ail" dx="6">분석</tspan><tspan class="t-1" dx="10">자동 갱신 실패 · 갱신 권고</tspan></text>
+      <text class="chip" id="e2-t" x="1256" y="776"><tspan class="t-ai">AI 제안</tspan><tspan class="t-1" dx="10">조회 부하 증가 · 서버 1대 추가</tspan></text>
     </g>
     <g id="e3" style="opacity:0">
       <rect class="chipbox" id="e3-r" x="1240" y="487" width="380" height="34" rx="17" style="stroke:var(--ok)"/>
-      <text class="chip" id="e3-t" x="1256" y="511"><tspan class="t-ok">보고</tspan><tspan class="t-2" dx="10">원인·조치안 전달, 실행은 승인 뒤</tspan></text>
+      <text class="chip" id="e3-t" x="1256" y="511"><tspan class="t-ok">보고</tspan><tspan class="t-2" dx="10">증설 조치안 전달 · 실행은 승인 뒤</tspan></text>
     </g>
     <circle class="pk" id="pk" r="7" cx="1100" cy="712" style="opacity:0"/>
     </g>
   </svg>
 
-  <div class="foot"><span class="k">제약에 맞춰</span><span><b>최소 서버</b>로 HA를 구성하고, AI는 관제 지표를 분석해 원인과 조치안을 제안하도록 설계했습니다.</span></div>
+  <div class="foot"><span class="k">예산 안에서</span><span><b>핵심 서버를 이중화</b>하고, AI가 지표 분석과 조치 제안을 돕도록 설계했습니다.</span></div>
 
   <dialog class="fig" id="fig" aria-label="거래소 하이브리드 인프라 최종 구성도">
     <div class="bar"><b>거래소 하이브리드 인프라 · 최종 구성도</b><span>교수님 보고본 01_전체구성 v7 · 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
@@ -447,11 +444,22 @@
   </dialog>
 </div>
 
-<!-- 발표 노트(45초): 두 장면에 대한 설계입니다.
-첫째, 주문은 DB 기록이 병목이라 거래 서버를 늘려도 빨라지지 않습니다. 그래서 몰릴 때는 조회 서버를 켜서 요청을 나눠 받고, AI가 제안하면 운영자가 승인합니다.
-→ 1 둘째, DB는 두 대에 모두 기록한 뒤에만 주문을 확인하고, 주 DB가 멈추면 예비 DB가 스스로 이어받습니다.
-→ 2 두 답을 합친 아키텍처입니다. 서버는 AWS 서울의 데이터센터 두 곳에, 판단하는 AI 서버는 온프레미스에 두었습니다.
-→ 3 경보가 나면 AI가 원인과 조치안을 Teams로 보내고, 실행은 사람이 승인한 뒤에 합니다. -->
+<!-- 발표 노트(45초): (왼쪽 증설 과정을 보며)
+먼저, 요청이 몰리면 조회 서버를 추가해 부하를 나눕니다.
+주문 처리 구조는 유지하면서 조회 계층을 늘리는 방식입니다. 이번 시연에서는 AI가 제안하고 운영자가 승인합니다.
+
+→ 1 (오른쪽 DB 전환 과정)
+DB는 두 대에 기록된 것을 확인한 뒤 주문 접수 완료를 알립니다.
+주 DB가 멈추면 예비 DB가 자동으로 이어받도록 했습니다.
+
+→ 2 (두 그림이 합쳐짐)
+두 구조를 합친 모습입니다. 핵심 서버는 AWS에, AI 서버는 온프레미스에 두었습니다.
+
+→ 3 (관제 서버에서 AI와 Teams로 연결)
+관제 서버가 모은 지표를 AI가 분석하고, 조치안은 Teams로도 전달합니다.
+DB 전환은 자동으로, 서버 증설은 운영자 승인 뒤에 실행하는 구성입니다.
+
+(운영 메모: 약 45초 분량. 증설 그림은 약 13초, DB 전환 그림은 약 8초에 마지막 상태가 된다. 설명과 함께 재생하며, 전환 버튼은 각 문단이 끝날 때 누른다. 그림은 동작 순서를 설명하며 실제 기동·복구 시간은 시연에서 확인한다.) -->
 
 <script>
 (() => {
@@ -501,16 +509,15 @@
   const dot = (layer, c = 'dot', r = 5) => { const el = document.createElementNS(NS, 'circle'); el.setAttribute('r', r); el.setAttribute('class', c); layer.appendChild(el); return el; };
 
   // ---- 첫 칸(한 번 재생 후 머묾) ----
-  // 앞 장 첫 장면의 막힌 순간(두 서버 빨강·응답 지연)에서 시작한다. 0.8초에 증설 임계 60% 눈금, 1.3초에 AI 칩이 경보를 알린다.
-  // 2.5초에 AI 판단(조회 요청 급증, 이때 요청 점이 밝아진다), 3.8초에 AI 근거(주문·DB는 정상)로 칩 글이 한 줄씩 바뀐다. 경보는 규칙으로도
-  // 되지만, 늘려서 풀리는 원인인지 가리는 것은 AI의 몫이다. 5.1초에 승인, 5.7초부터 두 서버가 위로 비켜서며 칩이 조회 서버 상자로
-  // 줄어든다. 기동 뒤 선이 이어지면 셋이 나눠 받아 로드밸런서 뒤 흐름이 느긋해지고, 응답 정상이 되면 8.7초에 제목과 아래 줄이 답으로 바뀐다
-  const T1 = { TH: .8, AI: 1.3, WHY: 2.5, WHY2: 3.8, OK: 5.1, MOVE: 5.7, MOVE_D: .8, BOOT_D: .8, WIRE_D: .35, SOLVE: 8.7 };
+  // 앞 장의 부하가 몰린 상태에서 시작한다. 경보 → AI 증설 제안 → 운영자 승인 순으로 문구를 세 번만 바꾼다.
+  // 경보와 제안은 약 3초씩 보여 주고, 승인 뒤 상자가 조회 서버로 바뀌어 기동한다. 준비가 끝나면 선을 연결하고 부하를 분산한다.
+  // 약 13초에 제목과 아래 줄이 답으로 바뀐다. 발표용 시간이며 실제 서버 기동 시간을 나타내지는 않는다.
+  const T1 = { TH: .8, ALERT: 1.1, WHY: 3.9, OK: 7.0, MOVE: 8.7, MOVE_D: .9, BOOT_D: 1.5, WIRE_D: .45, SOLVE: 12.6 };
   T1.BOOT = T1.MOVE + T1.MOVE_D; T1.READY = T1.BOOT + T1.BOOT_D; T1.SPLIT = T1.READY + T1.WIRE_D;
   const BOX_A = [[45, 60], [165, 60]], BOX_B = [[20, 50], [110, 50]];   // 앞 장 배치 → 세 대 배치(위쪽 y, 높이)
   const BAR_A = [66, 186], BAR_B = [39, 129];
   const CHIP = { y: 234, h: 34 }, SLOT = { x: 470, y: 200, w: 190, h: 50 };
-  const CW = { a: 300, j: 300, k: 300, b: 300 };   // 칩 상태별 너비(글꼴을 받은 뒤 글자에 맞춘다). 칩은 오른쪽 끝(790)을 고정하고 왼쪽으로 넓어진다
+  const CW = { a: 300, j: 300, b: 300 };   // 칩 상태별 너비(글꼴을 받은 뒤 글자에 맞춘다). 칩은 오른쪽 끝(790)을 고정하고 왼쪽으로 넓어진다
   const SRC1 = [[84, 60], [84, 135], [84, 210]];
   const LOAD_JAM = [.9, .87, 0], LOAD_OK = [.56, .54, .52];   // 그림용 사용량. 셋이 나누면 임계(0.6) 아래로 내려온다
   const a1 = { layer: $('a1-dots'), parts: [], t0: 0, last: 0, n: 0, load: LOAD_JAM.slice(), m: -1, cy: [75, 195, 225], fired: {}, frozen: false, still: false };
@@ -537,13 +544,13 @@
     $('a1-cpu').setAttribute('y', hy);
     $('a1-late').setAttribute('y', lerp(140, 94, m));
   }
-  // AI 알림 칩 → 승인 → 조회 서버 상자(기동 → 준비)
+  // 경보 → AI 제안 → 승인 → 조회 서버 상자(기동 → 준비)
   function node1(t) {
     const nb = $('a1-nb');
-    const a = ease(clamp((t - T1.AI) / .3)), k = ease(clamp((t - T1.MOVE) / T1.MOVE_D));
+    const a = ease(clamp((t - T1.ALERT) / .3)), k = ease(clamp((t - T1.MOVE) / T1.MOVE_D));
     const s = k > 0 ? 1 : .94 + .06 * a;   // 나타날 때 살짝 커진다
     const g = (t0) => ease(clamp((t - t0) / .35));
-    const cw = lerp(lerp(lerp(CW.a, CW.j, g(T1.WHY)), CW.k, g(T1.WHY2)), CW.b, g(T1.OK));
+    const cw = lerp(lerp(CW.a, CW.j, g(T1.WHY)), CW.b, g(T1.OK));
     const w = lerp(cw, SLOT.w, k) * s, h = lerp(CHIP.h, SLOT.h, k) * s;
     const x = lerp(790 - cw, SLOT.x, k) + (1 - s) * cw / 2, y = lerp(CHIP.y, SLOT.y, k) + (1 - s) * CHIP.h / 2;
     attr(nb, { x, y, width: w, height: h, rx: lerp(h / 2, 10, k) });
@@ -551,10 +558,9 @@
     // 글이 겹쳐 보이지 않게 앞 글이 사라진 뒤 다음 글이 나타난다. 글은 칩 왼쪽 끝을 따라 움직인다
     const tr = `translate(${x - 470} ${y - CHIP.y})`;
     $('a1-ca').style.opacity = t < T1.WHY ? a : 1 - clamp((t - T1.WHY) / .15);
-    $('a1-cj').style.opacity = clamp((t - T1.WHY - .15) / .2) * (1 - clamp((t - T1.WHY2) / .15));
-    $('a1-ck').style.opacity = clamp((t - T1.WHY2 - .15) / .2) * (1 - clamp((t - T1.OK) / .15));
+    $('a1-cj').style.opacity = clamp((t - T1.WHY - .15) / .2) * (1 - clamp((t - T1.OK) / .15));
     $('a1-cb').style.opacity = clamp((t - T1.OK - .15) / .2) * (1 - clamp((t - T1.MOVE) / (T1.MOVE_D * .1)));
-    for (const id of ['a1-ca', 'a1-cj', 'a1-ck', 'a1-cb']) $(id).setAttribute('transform', tr);
+    for (const id of ['a1-ca', 'a1-cj', 'a1-cb']) $(id).setAttribute('transform', tr);
     $('a1-bc').style.opacity = clamp((t - T1.MOVE - T1.MOVE_D * .12) / (T1.MOVE_D * .25));   // 승인 글이 빠지자마자 서버 글이 들어온다
     $('a1-bc').setAttribute('transform', `translate(${x - SLOT.x} ${y - SLOT.y})`);   // 줄어드는 상자와 함께 움직인다
     const half = T1.MOVE + T1.MOVE_D * .15;
@@ -569,7 +575,7 @@
     const wl = $('a1-l2');   // 준비되면 로드밸런서에서 선이 이어진다
     wl.style.opacity = t >= T1.READY ? 1 : 0;
     wl.style.strokeDashoffset = 1 - ease(clamp((t - T1.READY) / T1.WIRE_D));
-    if (t >= T1.AI && !a1.fired.ai) { a1.fired.ai = true; kick('a1-cping'); }
+    if (t >= T1.ALERT && !a1.fired.alert) { a1.fired.alert = true; kick('a1-cping'); }
     if (t >= T1.READY && !a1.fired.ready) { a1.fired.ready = true; kick('a1-ping'); }
   }
   function load1(t) {
@@ -605,7 +611,7 @@
     a1.layer.style.opacity = 1; $('q1').classList.remove('solved');
   }
   function freeze1() {   // 둘째 칸으로 넘어가면 답의 상태로 멈춘다(요청 점은 치운다)
-    a1.frozen = true; a1.still = false; a1.fired = { ai: true, ready: true };
+    a1.frozen = true; a1.still = false; a1.fired = { alert: true, ready: true };
     a1.parts.forEach(p => p.el.remove()); a1.parts = []; a1.layer.style.opacity = 0;
   }
   function step1(now) {
@@ -613,7 +619,7 @@
     const t = a1.frozen ? 99 : (now - a1.t0) / 1000;
     lay1(ease(clamp((t - T1.MOVE) / T1.MOVE_D)));
     $('a1').classList.toggle('th', t >= T1.TH);
-    $('a1').classList.toggle('hi', t >= T1.WHY && t < T1.WHY2 + .2);
+    $('a1').classList.toggle('hi', t >= T1.WHY && t < T1.OK);
     node1(t); load1(t);
     if (!a1.frozen) dots1(now, t);
     if (t >= T1.SOLVE) $('q1').classList.add('solved');
@@ -747,7 +753,7 @@
   const fitChip = () => {
     try {
       const right = id => { const r = $(id).getBBox(); return Math.ceil(r.x + r.width + 16 - 470); };
-      CW.a = right('a1-cat'); CW.j = right('a1-cjt'); CW.k = right('a1-ckt'); CW.b = right('a1-cbt');
+      CW.a = right('a1-cat'); CW.j = right('a1-cjt'); CW.b = right('a1-cbt');
       attr($('a1-cping'), { x: 790 - CW.a, width: CW.a });
     } catch (e) {}
   };

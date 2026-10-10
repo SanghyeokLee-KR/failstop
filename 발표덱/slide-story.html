@@ -103,7 +103,9 @@
   }
   .talk li.in { opacity: .6; transform: none; }
   .talk li.on { opacity: 1; border-color: var(--c, var(--brand)); }
-  .stage.broke .talk li.in:not(.on):not(.after):not(.money) { opacity: .22; }
+  .stage.broke:not(.fin) .talk li.in:not(.on):not(.after):not(.money) { opacity: .22; }
+  /* 재생이 끝나면 부하·주문 기록·운영 대상이 함께 읽히도록 남긴다. */
+  .stage.fin .talk li.key { opacity: 1; }
   .talk li::before {
     content: ''; position: absolute; left: -10px; top: 22px; width: 16px; height: 16px;
     background: #1A2130; border-left: 1.5px solid var(--c, var(--brand)); border-bottom: 1.5px solid var(--c, var(--brand));
@@ -116,7 +118,7 @@
   .talk em { font-style: normal; font-weight: 600; position: relative; white-space: nowrap; }
   .talk em::after { content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 3px; border-radius: 2px; background: var(--u); transform: scaleX(0); transform-origin: left; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
   .talk li.in em::after { transform: scaleX(1); }
-  .stage.broke .talk li:not(.on) em::after { opacity: .3; }
+  .stage.broke:not(.fin) .talk li:not(.on) em::after { opacity: .3; }
   .talk li.in em:nth-of-type(1)::after { transition-delay: .45s; }
   .talk li.in em:nth-of-type(2)::after { transition-delay: .7s; }
   .talk li.in em:nth-of-type(3)::after { transition-delay: .95s; }
@@ -153,11 +155,10 @@
   .stage.fin .bank { opacity: .6; transition-delay: 0s; }
   .stage.broke .talk li:not(.on) .cdl { opacity: .4; }
   .head .r .sec { display: none; }
-  /* 마지막 말풍선 뒤 한 박자: 제목 아래 결론 한 줄 */
-  .kick { position: absolute; left: 130px; top: 250px; margin: 0; font-size: 34px; font-weight: 600; color: var(--ink); opacity: 0; transform: translateY(10px); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1); }
-  .stage.fin .kick { opacity: 1; transform: none; }
+  /* 제목과 함께 목적을 먼저 보여 주고, 말풍선으로 선택 과정을 설명한다. */
+  .kick { position: absolute; left: 130px; top: 250px; margin: 0; font-size: 34px; font-weight: 600; color: var(--ink); animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
   .kick .hl { color: var(--brand); }
-  /* 제약 조건 세 칩: 결론 줄과 같은 높이 오른쪽에, 결론 뒤 차례로 */
+  /* 제약 조건 세 칩은 말풍선 재생이 끝날 때 오른쪽에 정리한다. */
   .cons { position: absolute; right: 130px; top: 246px; display: flex; align-items: center; gap: 12px; }
   .cons .k { font-size: 22px; color: var(--ink-3); margin-right: 4px; opacity: 0; transition: opacity .5s .2s; }
   .cons .c { display: inline-flex; align-items: baseline; gap: 10px; padding: 7px 16px 8px; border: 1.5px solid var(--line); border-radius: 999px; background: #161C29; opacity: 0; transform: translateY(10px); transition: opacity .5s, transform .6s cubic-bezier(.34,1.4,.64,1); }
@@ -195,10 +196,10 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <h1>기획 배경</h1>
-  <p class="kick">월 30만 원으로 구축하는 <span class="hl">고가용성</span> 인프라 프로젝트</p>
+  <p class="kick">모의 거래소로 검증하는 <span class="hl">고가용성 인프라</span></p>
   <div class="cons" aria-label="제약 조건"><span class="k">제약 조건</span><span class="c"><i>운영 예산</i><b class="w">30만 원</b></span><span class="c"><i>운영 인력</i><b>1명</b></span><span class="c"><i>배포 기간</i><b>한 달</b></span></div>
 
-  <div class="bank" aria-hidden="true"><div class="k">통장 잔액</div><div class="v"><span id="bal">0</span><small>원</small></div></div>
+  <div class="bank" aria-hidden="true"><div class="k">월 운영 예산</div><div class="v"><span id="bal">0</span><small>원</small></div></div>
 
   <svg class="me" viewBox="0 0 460 600" aria-hidden="true">
     <g class="think" id="think"><circle cx="226" cy="140" r="8"/><circle cx="252" cy="104" r="11"/><circle cx="286" cy="60" r="14"/></g>
@@ -229,22 +230,27 @@
   </svg>
 
   <ol class="talk" id="talk">
-    <li class="th">이번 인프라 프로젝트, 뭘로 하지?</li>
-    <li>내 인프라 역량을 총동원해서, <em class="u-ha">고가용성 플랫폼</em>을 만들자.</li>
-    <li><em class="u-tr">대규모 트래픽</em>을 견디고, <em class="u-da">중요한 데이터</em>를 지키고,<br><em class="u-ch">장애 상황</em>도 버틸 수 있어야 해.</li>
-    <li><b class="aha">아하!</b> 그렇다면, <em class="u-ex">가상화폐 거래소</em>를 만들어 보자.<svg class="cdl" viewBox="0 0 64 30" aria-hidden="true"><path d="M6 12 V26 M20 10 V24 M34 8 V22 M50 1 V20" stroke="#8390A1" stroke-width="1.5"/><rect x="2" y="15" width="8" height="8" rx="1" fill="#FF7A7A"/><rect x="16" y="13" width="8" height="7" rx="1" fill="#79A7FA"/><rect x="30" y="11" width="8" height="8" rx="1" fill="#FF7A7A"/><rect x="46" y="3" width="8" height="15" rx="1" fill="#FF7A7A"/></svg></li>
-    <li class="money">근데… 통장에 <b>30만 원</b>밖에 없네?</li>
-    <li class="aib after">운영도 혼자 해야 하니, <em class="u-ai">관제에 AI</em>를 활용하자.</li>
+    <li class="th">서버를 운영해 보려면, 어떤 서비스가 좋을까?</li>
+    <li class="key"><em class="u-tr">요청이 몰릴 때</em>도, <em class="u-ch">서버가 멈췄을 때</em>도 확인해 보자.</li>
+    <li class="key">그때도 <em class="u-da">주문 기록</em>은 <em class="u-ha">온전히 남아 있어야</em> 하잖아.</li>
+    <li class="key"><b class="aha">아하!</b> 만들어 둔 <em class="u-ex">모의 거래소</em>를 직접 운영해 보자.<svg class="cdl" viewBox="0 0 64 30" aria-hidden="true"><path d="M6 12 V26 M20 10 V24 M34 8 V22 M50 1 V20" stroke="#8390A1" stroke-width="1.5"/><rect x="2" y="15" width="8" height="8" rx="1" fill="#FF7A7A"/><rect x="16" y="13" width="8" height="7" rx="1" fill="#79A7FA"/><rect x="30" y="11" width="8" height="8" rx="1" fill="#FF7A7A"/><rect x="46" y="3" width="8" height="15" rx="1" fill="#FF7A7A"/></svg></li>
+    <li class="money">근데… 한 달 운영비는 <b>30만 원</b>까지네.</li>
+    <li class="aib after">지표와 경보를 보고, <em class="u-ai">AI가 조치를 제안</em>하게 하자.</li>
     <div class="typing" id="typing" aria-hidden="true"><i></i><i></i><i></i></div>
   </ol>
   <div class="prog orig" aria-hidden="true"><i id="prog"></i></div>
 </div>
 
-<!-- 발표 노트(35초): 먼저 이 장면을 잠시 봐 주십시오.
-(말풍선 1~5가 1.5초 간격으로 약 7.5초 동안 나온다. 말하지 않고 함께 화면을 본다. 5번 통장 말풍선에서 반응을 기다린다)
-네, 현실의 조건은 이랬습니다.
-→ 운영 예산은 월 30만 원, 운영 인력은 저 혼자, 배포 기간은 한 달이었습니다.
-그래서 고가용성을 보여 줄 수 있는 거래소를 이 조건 안에서 만들고, 혼자서도 운영할 수 있도록 관제에 AI를 활용하기로 했습니다. -->
+<!-- 발표 노트(35초): (장 진입 직후, 0~5초)
+먼저, 기획 배경을 짧은 애니메이션으로 보여드리겠습니다.
+
+(도입을 말한 뒤에는 청중이 말풍선을 읽도록 기다린다. 장을 연 시점부터 약 20초에 마지막 AI 말풍선과 제약 조건이 모두 보인다. 도입 시간은 이 20초에 포함된다.)
+
+(약 20~35초, 마지막 화면에서 설명)
+부하 대응과 주문 기록 보존을 함께 확인하려고 모의 거래소를 골랐습니다.
+혼자 운영하는 만큼, 지표 분석과 조치 제안에는 AI의 도움을 받았습니다.
+
+(한 박자 쉰 뒤 다음 장. 말풍선을 하나씩 읽거나 관객의 웃음을 기다리지는 않는다.) -->
 
 <script>
 (() => {
@@ -263,16 +269,16 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 
-  // 자동 재생: 장이 열리면 '입력 중' 점 → 말풍선 순서로 저절로 나온다(약 13초).
+  // 자동 재생: 장이 열리면 '입력 중' 점 → 말풍선 순서로 저절로 나온다(약 20초).
   // 5번(통장)에서 사람이 머리를 감싸고 잔액 카드가 뜨며, 6번에서 다시 턱을 괸다. 끝까지 키 입력 없이 이어진다.
   // → 는 재생 중이면 다음 말풍선을 바로 부르고, 끝났으면 다음 장으로. ← 는 앞 장. R 은 처음부터 다시
   const items = [...document.querySelectorAll('#talk li')];
   const think = document.getElementById('think'), bal = document.getElementById('bal');
   const typing = document.getElementById('typing'), nod = document.getElementById('nod'), prog = document.getElementById('prog');
   const MONEY = 4, LAST = items.length - 1, TARGET = 300000;
-  // 말풍선이 나오는 시각(초): 1~5번은 1.5초 간격이다(2026-10-07 사용자 요청, 이전에는 약 3초). 6번은 5번 통장 장면(잔액이 굴러
-  // 내려가고 머리를 감싸는 1.55초)이 끝나도록 종전처럼 4초 뒤에 둔다. 앞의 0.7초는 '입력 중' 점
-  const AT = [1.5, 3.0, 4.5, 6.0, 7.5, 11.5], END = 13.1;
+  // 말풍선 사이에 2.7~2.8초의 읽을 시간을 둔다. 예산 장면은 4초, 마지막 AI 설명은 3초 남긴다.
+  // 다음 말풍선 앞의 0.7초는 '입력 중' 점으로 표시한다.
+  const AT = [1.5, 4.2, 7.0, 9.8, 12.6, 16.6], END = 19.6;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let cur = -1, t0 = 0, raf = 0, rollRaf = 0, done = false, released = false;
   const fmt = n => n.toLocaleString('ko-KR');
@@ -318,7 +324,7 @@
     if (!t0) t0 = now;
     // 6번까지 키를 누르지 않아도 AT 시각대로 끝까지 저절로 나온다
     const t = (now - t0) / 1000;
-    stage.classList.toggle('fin', t >= AT[LAST] + 1.2);
+    stage.classList.toggle('fin', t >= END - .4);
     let k = -1; AT.forEach((a, j) => { if (t >= a) k = j; });
     if (k !== cur) show(k);
     const next = k + 1;
@@ -333,7 +339,7 @@
   if (location.hash === '#last' || reduce) finish(); else play();
   window.deckStep = d => {
     // 재생 중 → 는 다음 말풍선을 바로 부른다(이후 자동 재생은 그 자리부터 이어짐). 끝났으면 다음 장
-    // 이미 '입력 중' 점이 떠 있으면 말풍선을 바로 부른다. 6번 뒤 결론 줄이 아직이면 결론부터 보인다
+    // 이미 '입력 중' 점이 떠 있으면 말풍선을 바로 부른다. 6번 뒤에는 제약 조건을 포함한 끝 화면을 보인다.
     if (d > 0 && !done) {
       const n = cur + 1, now = performance.now();
       if (n > LAST) { if (!stage.classList.contains('fin')) { finish(); return true; } cancelAnimationFrame(raf); return false; }

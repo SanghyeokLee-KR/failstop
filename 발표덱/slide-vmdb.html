@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04-3 DB 이중화와 백업</title>
+<title>페일스톱 04-3 DB 이중화와 데이터·OS 복구</title>
 <script>
 // ======== 사용자가 채우는 곳(이 장의 설정은 여기 한곳에만 있다) ========
 // VM 실습망 Patroni 자동 전환의 실측 결과. 값을 넣은 항목만 오른쪽 '자동 전환 순서' 2번 줄 아래 글줄로 그리고,
@@ -183,10 +183,10 @@ const EVIDENCE_HA = [
      움직임은 이중화 장면처럼 페이드(0.3초)뿐이고, 옛 글이 꺼진 뒤 새 글이 들어온다.
      상자가 먼저 나오고, 그 상자를 가리키는 화살표는 0.2초 뒤에 나온다(이중화 장면의 '연결선은 상자 뒤에'와 같다).
      ③ 데이터 백업: OPS01(0.6초) → SSL 화살표(0.8초) → EDGE01(1.2초) → SFTP 화살표(1.4초). 장면이 바뀐 뒤 그리기 시작해 0.6초씩 늦다
-     ④ 복원 검증: 임시 DB(0) → EDGE01 → 임시 DB 화살표(0.2초) → 원본 대조 점선(0.6초) → '표 109개 일치'(1.0초)
+     ④ 복원 검증: 임시 DB(0) → EDGE01 → 임시 DB 화살표(0.2초) → 원본 대조 점선(0.6초) → '테이블 수와 주요 표 행 수 대조'(1.0초)
      ⑤ OS 백업: 단계 표 · OPS01(0) → 스냅숏 화살표(0.2초) → 설명 · 단계 표 '백업'(0.6초)
-     ⑥ 랜섬웨어(가정): 아래에서 DB01로(0~0.4초) → DB01 빨간 테두리 · '파일 암호화됨'(0.4초) · 자물쇠(0.6초)
-        → 백업을 지우려는 빨간 길(1.0초) → ✕ · '삭제 시도 → 거부' · 설명 · 단계 표 '감염'(1.4초)
+     ⑥ 랜섬웨어(가정): 아래에서 DB01로(0~0.4초) → DB01 빨간 테두리 · 'root 권한 탈취 가정'(0.4초) · 자물쇠(0.6초)
+        → 백업을 지우려는 빨간 길(1.0초) → ✕ · '삭제 시도 → 거부' · 설명 · 단계 표 '침해'(1.4초)
      ⑦ OS 초기화: 세 칸짜리 재설치 막대(0.2~2.0초)와 칸 이름(0.4 · 1.0 · 1.6초) → 'OS 초기화'(0.4초) → 설명 · 단계 표 '초기화'(1.0초)
      ⑧ 복원: 지난 글이 꺼진 뒤(0~0.6초) OPS01 → DB01 초록 길(0.4초) → DB01 초록 테두리 · '복원 완료'(0.6초) → 왼쪽 아래 '되살린 것'과 시험 결과 · 단계 표 '복원'(1.0초)
      kN 은 그 단계부터 보이고, uptoN 은 N 단계까지만 보인다(다음 단계에 들어서며 0.3초에 사라짐, od3 는 0.3초 늦게). nN-xx 는 N 단계 안의 시점(xx/10초) */
@@ -302,12 +302,12 @@ const EVIDENCE_HA = [
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>DB 이중화와 백업</h1>
+    <h1>DB 이중화와 데이터·OS 복구</h1>
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-file-check-side.svg" alt="">증거 화면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env oss" style="margin-left:14px"><img src="assets/tint/ui-shield-check-side.svg" alt="">Apache-2.0 오픈소스</span>
     <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
   </div>
-  <p class="dek">이중화만으로는 지운 데이터도 망가진 OS도 되돌릴 수 없어, 서버 밖에 데이터 백업과 OS 백업을 더했습니다.</p>
+  <p class="dek">데이터 삭제와 OS 손상에 대비해 다른 서버에 백업하고, 실제 복원까지 확인했습니다.</p>
 
   <div class="cols">
     <!-- 장면 A: ① 이중화(화면 가운데). Patroni가 관리하는 DB01 → DB02 엄격 동기 복제와 앱 서버의 HAProxy, etcd 합의 3표. → ① 자동 전환, → ② pg_rewind 되돌림 -->
@@ -396,15 +396,16 @@ const EVIDENCE_HA = [
 
     <!-- 장면 B(→ 세 번째부터): ② 백업. 서버 밖에 두 가지 백업을 왼쪽·오른쪽에 둔다(둘 다 Apache-2.0 오픈소스).
          왼쪽 1 데이터 백업: 관제 서버의 Databasus가 DB01 거래 DB를 매일 암호화해 받아 웹 진입 서버에 7일 보관하고, 임시 DB에 되살려 원본과 대조한다(→ ③ ④).
-         오른쪽 2 OS 백업: Kopia가 DB01의 OS 설정과 DB 데이터를 관제 서버 저장소에 매일 받는다. 서버 계정은 쓰기만 되어 랜섬웨어가 지우지 못하고,
-         감염된 OS는 지우고 새로 설치한 뒤 사고 전 스냅숏으로 되살린다(→ ⑤ 백업, ⑥ 랜섬웨어, ⑦ OS 초기화, ⑧ 복원) -->
+         오른쪽 2 OS 복구: Kopia가 DB01의 설정과 DB 데이터를 관제 서버 저장소에 매일 받는다. DB01의 클라이언트 권한으로 백업 삭제·보존 축소·정비가 거부됨을 시험했다.
+         OS 침해를 가정한 장면이며 악성코드를 실행한 시험은 아니다. 복구 시험에서는 디스크를 지우고 OS를 새로 설치한 뒤 스냅숏을 되살렸다(→ ⑤ 백업, ⑥ 침해 가정, ⑦ OS 재설치, ⑧ 복원) -->
     <section class="col r" aria-label="백업">
       <div class="bkg">
-      <svg class="dg bk bk1" viewBox="0 0 794 624" role="img" aria-label="백업 두 가지 가운데 1 데이터 백업(왼쪽), 2 OS 백업은 오른쪽. 1 데이터 백업: 관제 서버 OPS01의 Databasus가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고 SFTP로 웹 진입 서버 EDGE01에 7일 보관한다. 그 백업을 임시 DB에 복원해 pg_restore가 종료 코드 0으로 끝났고, 원본과 대조해 표 109개가 같았다">
+      <svg class="dg bk bk1" viewBox="0 0 794 624" role="img" aria-label="왼쪽은 Databasus 데이터 백업, 오른쪽은 Kopia를 이용한 OS 복구다. 관제 서버 OPS01의 Databasus가 DB01 거래 DB를 SSL로 매일 09:00 암호화 백업하고, 같은 실습망의 웹 진입 서버 EDGE01에 SFTP로 7일 보관한다. 임시 DB에 복원해 pg_restore 종료 코드 0을 확인했고, 원본과 테이블 수 109개 및 주요 테이블 3개의 행 수가 일치했다. 외부 장소 보관은 이번 시험 범위에 포함되지 않는다">
         <!-- ===== 1 데이터 백업(Databasus): DB01 → OPS01 → EDGE01, 아래 줄은 복원 검증. 상자는 이름 · 역할 · 내용 순 ===== -->
         <g class="bd t1">
           <g class="num"><circle cx="16" cy="22" r="16"/><text x="16" y="30" text-anchor="middle">1</text></g>
           <text class="sh" x="44" y="32">데이터 백업<tspan class="tool" dx="12">Databasus</tspan></text>
+          <text class="small" x="44" y="72">DB 서버 밖 보관 · 같은 실습망</text>
           <rect class="bx" x="1" y="104" width="213" height="180" rx="11"/>
           <image href="assets/tint/ui-database-glow.svg" x="18" y="124" width="30" height="30"/>
           <text class="nm2" x="58" y="149">DB01</text>
@@ -451,25 +452,27 @@ const EVIDENCE_HA = [
           <circle class="dot" cx="290" cy="519" r="6"/><circle class="dot" cx="107" cy="286" r="6"/>
         </g>
         <g class="k4 pop n4-10">
-          <text class="ex" x="1" y="572">원본과 대조</text>
-          <text class="okl big" x="1" y="610">표 109개 일치</text>
+          <text class="ex" x="1" y="550">복원 후 대조</text>
+          <text class="okl big" x="1" y="582">테이블 수 109개</text>
+          <text class="small" x="1" y="614">주요 표 3개 행 수 일치</text>
         </g>
       </svg>
-      <svg class="dg bk bk2" viewBox="0 0 794 624" role="img" aria-label="2 OS 백업: Kopia가 DB01의 OS 설정과 DB 데이터를 매일 OPS01 저장소에 스냅숏으로 보낸다. DB01 계정은 저장소에 쓰기만 되어, 랜섬웨어가 DB01을 차지했다고 가정하고 DB01 root로 백업 삭제 · 보존 줄이기 · 저장소 정비를 시도하면 모두 거부된다(실습망 시험). 감염된 OS는 디스크를 지우고 kickstart로 새로 설치한 뒤 사고 전 스냅숏으로 패키지 목록 · /etc · DB 데이터를 되살린다. 실습망에서 DB01의 디스크 두 개를 지운 때부터 서비스까지 15분 22초(재설치 483초, 되살리기 167초 포함)가 걸렸고 기준값 6가지가 같았다">
+      <svg class="dg bk bk2" viewBox="0 0 794 624" role="img" aria-label="2 OS 복구: Kopia로 DB01의 설정과 DB 데이터를 매일 OPS01 저장소에 백업한다. DB01의 root 권한이 탈취된 상황을 가정하고 백업 삭제·보존 정책 축소·저장소 정비를 시도해 모두 거부됨을 확인했다. 악성코드를 실행한 시험은 아니다. 복구 시험에서는 DB01의 디스크 두 개를 실제로 지우고 kickstart로 OS를 재설치했다. 패키지를 다시 설치하고 Kopia로 /etc와 DB 데이터를 복원해 서비스가 돌아오기까지 15분 22초가 걸렸다. 이 시간에는 OS 재설치 483초와 복원 167초가 포함되며, 서비스·행 수·해시 등 기준값 6가지가 일치했다">
         <!-- ===== 2 OS 백업(Kopia) ===== -->
         <g class="bd t1">
           <g class="num"><circle cx="16" cy="22" r="16"/><text x="16" y="30" text-anchor="middle">2</text></g>
-          <text class="sh" x="44" y="32">OS 백업<tspan class="tool" dx="12">Kopia</tspan></text>
+          <text class="sh" x="44" y="32">OS 복구<tspan class="tool" dx="12">Kopia</tspan></text>
+          <text class="small" x="44" y="72">OS 재설치 후 설정·데이터 복원</text>
         </g>
-        <!-- 단계 표: 백업 → 감염 → 초기화 → 복원. 회색 칸 넷 위에 그 단계에 이른 칸만 색을 덮는다 -->
+        <!-- 단계 표: 백업 → 침해 가정 → 초기화 → 복원. 회색 칸 넷 위에 그 단계에 이른 칸만 색을 덮는다 -->
         <g class="k5 pop">
           <g class="pill"><rect x="408" y="4" width="84" height="36" rx="18"/><text x="450" y="30" text-anchor="middle">백업</text></g>
-          <g class="pill"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">감염</text></g>
+          <g class="pill"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">침해</text></g>
           <g class="pill"><rect x="596" y="4" width="104" height="36" rx="18"/><text x="648" y="30" text-anchor="middle">초기화</text></g>
           <g class="pill"><rect x="710" y="4" width="83" height="36" rx="18"/><text x="751.5" y="30" text-anchor="middle">복원</text></g>
         </g>
         <g class="pill on c1 k5 pop n5-06"><rect x="408" y="4" width="84" height="36" rx="18"/><text x="450" y="30" text-anchor="middle">백업</text></g>
-        <g class="pill on c2 k6 pop n6-14"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">감염</text></g>
+        <g class="pill on c2 k6 pop n6-14"><rect x="502" y="4" width="84" height="36" rx="18"/><text x="544" y="30" text-anchor="middle">침해</text></g>
         <g class="pill on c3 k7 pop n7-10"><rect x="596" y="4" width="104" height="36" rx="18"/><text x="648" y="30" text-anchor="middle">초기화</text></g>
         <g class="pill on c4 k8 pop n8-10"><rect x="710" y="4" width="83" height="36" rx="18"/><text x="751.5" y="30" text-anchor="middle">복원</text></g>
         <!-- DB01: 상태마다 내용 두 줄과 테두리를 바꿔 놓는다(옛 글이 꺼진 뒤 새 글) -->
@@ -480,10 +483,10 @@ const EVIDENCE_HA = [
           <image href="assets/tint/ui-database-glow.svg" x="18" y="124" width="30" height="30"/>
           <text class="nm2" x="58" y="149">DB01</text>
           <text class="rl2" x="18" y="186">지킬 서버</text>
-          <text class="ro upto5" x="18" y="232">OS · 설정 · DB 데이터</text>
+          <text class="ro upto5" x="18" y="232">OS 설정 · DB 데이터</text>
           <text class="small upto5" x="18" y="266">/etc · /var/lib/pgsql 등 6곳</text>
-          <text class="ro bad k6 upto6 pop n6-04" x="18" y="232">파일 암호화됨</text>
-          <text class="badt k6 upto6 pop n6-04" x="18" y="266">서비스 멈춤</text>
+          <text class="ro bad k6 upto6 pop n6-04" x="18" y="232">root 권한 탈취 가정</text>
+          <text class="badt k6 upto6 pop n6-04" x="18" y="266">백업 삭제 시도</text>
           <g class="k6 upto6 pop n6-06 lock" transform="translate(262 210)"><rect x="0" y="10" width="20" height="16" rx="3"/><path d="M4.5 10 V6.5 a5.5 5.5 0 0 1 11 0 V10"/></g>
           <text class="ro warm k7 upto7 od3 pop n7-04" x="18" y="232">OS 초기화</text>
           <text class="l2 k7 upto7 od3 pop n7-04" x="18" y="266">디스크를 지우고 새로 설치</text>
@@ -497,11 +500,11 @@ const EVIDENCE_HA = [
           <text class="nm2" x="551" y="149">OPS01</text>
           <text class="rl2" x="511" y="186">관제 서버</text>
           <text class="ro" x="511" y="232">Kopia 저장소</text>
-          <text class="small" x="511" y="266">쓰기만 허용 · AES-256</text>
+          <text class="small" x="511" y="266">삭제 제한 · AES-256</text>
         </g>
         <g class="k5 pop n5-02">
           <path class="ar" d="M300 154 H474"/><path class="hdp" d="M494 154 L474 145 L474 163 Z"/>
-          <text class="al" x="397" y="136" text-anchor="middle">매일 OS 스냅숏</text>
+          <text class="al" x="397" y="136" text-anchor="middle">매일 파일 백업</text>
         </g>
         <!-- ⑥ 삭제 시도(빨강) → ✕. ⑦까지 남고 ⑧에서 같은 자리의 복원 길(초록)로 바뀐다 -->
         <g class="k6 upto7 pop n6-10"><path class="ar red" d="M300 230 H452"/></g>
@@ -518,7 +521,7 @@ const EVIDENCE_HA = [
         <g class="k6 upto6 up">
           <path class="ar red" d="M150 404 V306"/><path class="hdp red" d="M150 286 L141 306 L159 306 Z"/>
           <text class="ro bad" x="150" y="448" text-anchor="middle">랜섬웨어(가정)</text>
-          <text class="small" x="150" y="484" text-anchor="middle">root 탈취 · 파일 암호화</text>
+          <text class="small" x="150" y="484" text-anchor="middle">DB01 root로 권한 시험</text>
         </g>
         <!-- ⑦ 재설치 진행 막대: 세 칸(지움 · 설치 · Kopia 연결)이 왼쪽부터 차오르고, 칸마다 가운데 아래 이름이 차례로 켜진다 -->
         <g class="k7 upto7 pop">
@@ -537,51 +540,83 @@ const EVIDENCE_HA = [
         </g>
         <!-- 오른쪽 아래 설명(⑤~⑦)과 시험 결과(⑧) -->
         <g class="k5 upto5 pop n5-06">
-          <text class="ex" x="350" y="448">이 서버 계정은 저장소에 쓰기만</text>
-          <text class="small" x="350" y="484">지우기 · 보존 줄이기는 OPS01만 한다</text>
-          <text class="small" x="350" y="520">DB01을 빼앗겨도 지난 백업은 남는다</text>
+          <text class="ex" x="350" y="448">백업을 보내는 권한과 삭제 권한 분리</text>
+          <text class="small" x="350" y="484">DB01에서는 스냅숏 추가 · 복원</text>
+          <text class="small" x="350" y="520">삭제·보존 관리는 저장소 서버에서</text>
         </g>
         <g class="k6 upto6 pop n6-14">
-          <text class="ex bad" x="350" y="448">감염된 root로 백업을 지우려 하면</text>
+          <text class="ex bad" x="350" y="448">DB01 root로 삭제 권한 시험</text>
           <text class="small" x="350" y="484">삭제 · 보존 줄이기 · 저장소 정비</text>
           <text class="okl" x="350" y="520">실습망 시험: 세 가지 모두 거부</text>
         </g>
         <g class="k7 upto7 pop n7-10">
-          <text class="ex warm" x="350" y="448">감염된 OS는 믿지 않는다</text>
+          <text class="ex warm" x="350" y="448">침해를 가정해 OS부터 재설치</text>
           <text class="small" x="350" y="484">디스크를 지우고 OS를 새로 설치한 뒤</text>
           <text class="small" x="350" y="520">사고 전 스냅숏을 되살린다</text>
         </g>
         <g class="k8 pop n8-10">
-          <text class="ex" x="350" y="448">VM 실습망 시험 결과</text>
-          <text class="okl" x="350" y="484">지운 때부터 서비스까지 15분 22초</text>
-          <text class="okl" x="350" y="520">기준값 6가지 일치 · 삭제 시도 3가지 거부</text>
-          <text class="small" x="350" y="556">재설치 483초 · 되살리기 167초 포함</text>
+          <text class="ex" x="350" y="448">VM 실습망 · 복구 시험 결과</text>
+          <text class="okl" x="350" y="488" style="font-size:30px;font-weight:600">서비스 복구 15분 22초</text>
+          <text class="okl" x="350" y="526">서비스·행 수·해시 등 6가지 일치</text>
+          <text class="small" x="350" y="562">디스크 삭제부터 측정 · 재설치 포함</text>
+          <text class="small" x="350" y="594">설치 483초 · 복원 167초 포함</text>
         </g>
       </svg>
       </div>
     </section>
   </div>
 
-  <dialog class="fig" id="fig" tabindex="-1" aria-label="DB 이중화와 백업 증거 화면">
-    <div class="bar"><b>DB 이중화와 백업 증거 화면</b><span>← → 로 넘기기</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
+  <dialog class="fig" id="fig" tabindex="-1" aria-label="DB 이중화와 데이터·OS 복구 증거 화면">
+    <div class="bar"><b>DB 이중화와 데이터·OS 복구 증거 화면</b><span>← → 로 넘기기</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="body"><ol id="ev-list"></ol><div class="pn"><div class="cap" id="ev-cap"></div><div class="shot" id="ev-shot"></div></div></div>
   </dialog>
 </div>
 
-<!-- 발표 노트(80초): DB는 두 가지 사고를 함께 생각했습니다.
-서버가 멈추는 사고는 이중화로, 데이터가 지워지는 사고는 백업으로 대비했습니다.
-주 DB와 예비 DB는 엄격 동기 복제라, 예비 DB가 받아 적어야 커밋이 끝납니다.
-→ 1 주 DB가 멈추면 Patroni가 예비 DB를 올리고, HAProxy가 연결을 새 주 DB로 옮깁니다.
-(RESULT를 채우면 여기에: 전환에 ○초 걸렸고 확인된 커밋 유실은 ○건이었습니다.)
-→ 2 돌아온 DB는 pg_rewind로 되감아 예비로 다시 붙습니다. 예비가 없는 동안에는 쓰기를 멈춰, 확인받은 주문을 잃지 않는 쪽을 골랐습니다. 하지만 복제는 잘못 지운 데이터까지 따라 지우기 때문에 백업을 따로 뒀습니다.
-→ 3 매일 거래 DB를 암호화해 DB 서버 밖에 7일 보관합니다. 실습망이라 웹 진입 서버에 뒀고, 운영이라면 백업 전용 VLAN과 외부로 옮깁니다.
-→ 4 그 백업을 임시 DB에 되살려 표 109개가 원본과 같은 것까지 확인했습니다. 여기까지가 데이터 백업이고, Databasus는 Apache-2.0 오픈소스입니다.
-→ 5 데이터만이 아니라 OS도 따로 백업합니다. Apache-2.0 오픈소스인 Kopia로 DB01의 설정과 데이터를 매일 관제 서버 저장소에 받는데, 이 서버 계정은 쓰기만 됩니다.
-→ 6 랜섬웨어가 DB01을 차지했다고 가정하고 DB01 root로 백업을 지워 보면, 삭제 · 보존 기간 줄이기 · 저장소 정비 세 가지가 모두 거부됩니다. 실습망에서 실제로 시도한 결과입니다.
-→ 7 감염된 OS는 믿지 않습니다. 디스크를 지우고 kickstart로 새로 설치합니다.
-→ 8 그다음 Kopia로 사고 전 스냅숏을 되살립니다. 실습망에서 DB01의 디스크 두 개를 실제로 지우고 OS를 새로 설치해 되살리는 데 15분 22초가 걸렸고(재설치 8분, 되살리기 3분 포함), 행 수 · 해시 등 기준값 6가지가 모두 같았습니다.
+<!-- 발표 노트(시간 미지정): [시작]
+앞에서는 디스크와 네트워크 장애에 대비했습니다. 이번에는 DB 서버가 멈추거나, 데이터와 OS가 손상됐을 때의 복구를 준비했습니다.
+
+[→ 1 · 주 DB 중단]
+DB는 주 DB와 예비 DB로 나눴습니다. 주 DB가 멈추면 Patroni가 예비 DB를 승격하고, HAProxy가 연결을 옮깁니다.
+다만 이 구성은 예비 DB가 없는 동안에는 쓰기를 멈춥니다. 복사본을 확보하지 못한 상태에서 쓰기를 계속 받지 않도록 한 겁니다.
+
+[→ 2 · 예비 DB 복귀]
+원래 DB가 예비로 다시 붙고 동기 복제가 이어지면, 쓰기를 재개합니다.
+
+[→ 3 · Databasus 백업]
+그런데 데이터를 잘못 지우면, 그 내용도 예비 DB에 그대로 복제됩니다. 이 경우에 대비해 백업을 따로 구성했습니다.
+Databasus로 매일 암호화 백업을 만들고, 같은 실습망의 다른 서버에 7일 동안 보관했습니다.
+
+[→ 4 · 임시 DB 복원]
+이 백업을 임시 DB에 실제로 복원했습니다. 테이블 수가 원본과 같은 109개인지 확인하고, 주요 테이블 3개의 행 수도 대조했습니다.
+
+[→ 5 · Kopia 백업]
+여기에 현직자분께 OS 쪽 백업도 필요하다는 조언을 받았습니다. DB를 되살려도 서버 설정과 실행 환경이 사라지면 서비스 복구가 늦어질 수 있기 때문입니다.
+그래서 Kopia로 서버 설정과 데이터를 관제 서버에 따로 백업했습니다.
+
+[→ 6 · 백업 삭제 권한 시험]
+이때 원본 서버가 침해되더라도, 그 권한으로 지난 백업까지 지울 수 없도록 권한을 나눴습니다.
+DB01의 root 권한을 빼앗긴 상황을 가정하고, 백업 삭제와 보존 기간 줄이기, 저장소 정비를 직접 시도했습니다. 세 가지 모두 거부됐습니다.
+
+[→ 7 · OS 재설치]
+그다음에는 복구 절차를 확인하려고 VM의 OS 디스크와 데이터 디스크를 실제로 지웠습니다.
+먼저 kickstart로 OS를 새로 설치했습니다.
+
+[→ 8 · 복원 결과]
+필요한 패키지를 다시 설치하고, Kopia 백업에서 설정과 데이터를 복원했습니다.
+디스크를 지운 시점부터 서비스가 다시 동작하기까지 15분 22초가 걸렸습니다. 서비스 상태와 데이터 행 수, 해시 등 여섯 가지 기준도 이전과 일치했습니다.
+
+이렇게 오픈소스로 백업을 구성하고 서비스 복구까지 확인했습니다. 고객사에서도 라이선스 구매 부담을 줄이는 선택지로 검토할 수 있다고 생각합니다.
+실제 적용할 때는 고객사의 예산과 복구 목표에 맞춰 보관 위치를 정하고, 복원 시험까지 진행하겠습니다.
+
+[발표 메모]
+문장을 초 단위로 끊거나 정해진 속도로 읽지 않는다. 한 장면의 설명을 마친 뒤 다음 장면으로 넘긴다. OS 재설치와 복원 결과는 애니메이션이 나타난 뒤 짚는다. 증거는 E 키의 '증거 화면'에서 열 수 있으며, 질문 때 '원본과 대조'와 '재설치 뒤 복원 대조'를 보여 준다.
+도입 배경을 질문받으면: 시스원 연구소장의 오픈소스 백업 조언과 MSP 차장님의 OS 백업 질문을 듣고 범위를 넓혔다. 상담에서 받은 조언이며 회사의 공식 요구 사항으로 표현하지 않는다.
+라이선스 설명: Databasus와 Kopia는 Apache-2.0 라이선스의 오픈소스다. '아파치 계열 제품'이나 '비용이 전혀 없다'고 표현하지 않는다. 고객사 적용 때는 저장소·운영 비용, 복구 목표, 보관 위치를 함께 검토한다.
+범위 설명: 이번 보관 대상은 같은 VM 실습망의 다른 서버이며, 외부 장소 보관까지 검증한 것은 아니다. Kopia로 OS 디스크 이미지를 통째로 복원한 것이 아니라, OS·패키지 재설치와 설정·데이터 복원을 결합했다. 랜섬웨어 장면은 침해 가정이며, 실제 시험은 DB01 root의 백업 삭제 권한 시험과 디스크 삭제 후 복구다. VM 이중화의 전환 시간과 커밋 대조 값은 RESULT가 비어 있어 수치를 말하지 않는다.
+
+[질의응답 참고]
 질문 때: VM 거래 DB에는 거래 데이터가 없어(마켓·주문·원장 0건) 데이터가 많을 때의 복원 시간은 재지 않았다. 승격은 etcd 세 표 가운데 남은 두 표로 판단한다. 백업은 하루 한 번 논리 백업이라 잘못 지운 사고에서는 최대 하루치를 잃을 수 있고, 시점 복구(PITR)는 켜지 않았다. 실습망이라 'DB 서버 밖'이라는 조건만 맞춰 웹 진입 서버에 두었고, 설계(04-2)대로라면 백업 서버 VLAN과 외부 보관이다. 대조는 표 개수와 주요 표의 행 수까지 했다. 백업 원본은 DB01 주소로 정해 두어, 전환 뒤에는 대상을 바꿔야 한다. 고친다면 HAProxy 쓰기 포트(지금의 주 DB)를 백업 원본으로 둔다.
-OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라이브의 DB01 · OPS01로 했다(증거본 2026-10-08_VM_Kopia_OS백업). 시험은 두 번 했다. 1부는 DB 데이터 · 설정, 방화벽 규칙 원본, 수집기 서비스 유닛을 지운 뒤 그 경로만 되살렸다(34초). 2부는 DB01 안에서 OS · 데이터 디스크를 지워 부팅이 안 되게 한 뒤 저장소 kickstart로 Rocky Linux 10.2를 새로 설치(483초)하고 os-rebuild.sh로 패키지 80개 · /etc · 데이터를 되살렸다(167초). 지운 때부터 서비스까지 922초. 패키지는 인터넷(PGDG)에서 다시 받았다. 기준값은 서비스 상태, exchange 표 118개, 시험 표 10,000행과 데이터 해시, /etc 해시, DB 설정 해시. 거부 메시지: 스냅숏 삭제 access denied, 정책 변경 access denied, 정비는 서버에서만(operation supported only on direct repository). Kopia는 SELinux 문맥을 되살리지 않아 복원 뒤 restorecon을 돌렸다. 백업 동안 DB를 16초 멈췄다(일관된 사본). 저장소가 OPS01 한 곳이라 저장소 자체를 잃는 경우는 외부 보존 잠금으로 한 번 더 복제해야 한다. Kopia · Databasus · pfSense CE 모두 Apache-2.0이다. -->
+OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라이브의 DB01 · OPS01로 했다(증거본 2026-10-08_VM_Kopia_OS백업). 시험은 두 번 했다. 1부는 DB 데이터 · 설정, 방화벽 규칙 원본, 수집기 서비스 유닛을 지운 뒤 그 경로만 되살렸다(34초). 2부는 DB01 안에서 OS · 데이터 디스크를 지워 부팅이 안 되게 한 뒤 저장소 kickstart로 Rocky Linux 10.2를 새로 설치(483초)하고 os-rebuild.sh로 패키지 80개 · /etc · 데이터를 되살렸다(167초). 지운 때부터 서비스까지 922초. 패키지는 인터넷(PGDG)에서 다시 받았다. 기준값은 서비스 상태, exchange 표 118개, 시험 표 10,000행과 데이터 해시, /etc 해시, DB 설정 해시. 거부 메시지: 스냅숏 삭제 access denied, 정책 변경 access denied, 정비는 서버에서만(operation supported only on direct repository). Kopia는 SELinux 문맥을 되살리지 않아 복원 뒤 restorecon을 돌렸다. 백업 동안 DB를 16초 멈췄다(일관된 사본). 저장소가 OPS01 한 곳이라 저장소 자체를 잃는 경우는 외부 보존 잠금으로 한 번 더 복제해야 한다. Databasus 논리 백업의 109개 표와 OS 복구 시험의 118개 표는 서로 다른 날짜의 DB 상태다. -->
 
 <script>
 (() => {
@@ -605,7 +640,7 @@ OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라�
   // 세로로 긴 캡처는 핵심 부분만 잘라 assets/vm에 둔 사본을 쓴다
   const EV_BAK = [
     { src: 'assets/vm/db-pre.png', t: '시작 전 상태', d: '관제 서버의 Databasus 컨테이너 정상, 관리 화면은 127.0.0.1:4005에만, 보관소는 비어 있음' },
-    { src: 'assets/vm/db-storage.png', t: '외부 보관소 연결', d: '웹 진입 서버 192.168.10.11:22의 SFTP 전용 계정 dbbackup에 연결 시험 성공' },
+    { src: 'assets/vm/db-storage.png', t: '별도 서버 보관소 연결', d: '같은 실습망의 웹 진입 서버 192.168.10.11:22, SFTP 전용 계정 dbbackup으로 연결 시험 성공' },
     { src: 'assets/vm/db-register.png', t: 'DB 등록', d: '주 DB 192.168.10.31:5432, 백업 계정, SSL Require' },
     { src: 'assets/vm/db-warning.png', t: '계정 권한 경고', d: '백업 계정에 TEMP와 SECURITY DEFINER 함수 실행 권한이 남았다는 경고. 기록하고 진행했다' },
     { src: 'assets/vm/db-schedule.png', t: '일정·암호화·보존', d: '매일 09:00 논리 백업, 외부 백업 보관소, 백업 파일 암호화, 보존 1주' },
@@ -640,7 +675,7 @@ OS 백업 질문 때: 시험은 2026-10-08 노트북 VirtualBox에서 E 드라�
   // OS 백업(Kopia)은 증거본 2026-10-08_VM_Kopia_OS백업의 터미널 화면 세 장(10 · 11 · 12)
   const EV_OS = [
     { src: 'assets/vm/kopia-restore.png', t: 'OS 파일 삭제 → 복원 → 대조', d: 'DB 데이터 · 설정, 방화벽 규칙 원본, 수집기 유닛을 지운 뒤 사고 전 스냅숏에서 그 경로만 되살림. 서비스 · 시험 표 행 수와 해시 · 설정 해시가 삭제 전과 같음(이 화면은 다시 돌린 회차로 8초, 첫 회차 34초)' },
-    { src: 'assets/vm/kopia-deny.png', t: '감염 서버의 백업 삭제 시도', d: 'DB01 root로 스냅숏 삭제 · 보존 줄이기 · 저장소 정비를 시도했으나 모두 거부(access denied, 서버에서만 가능)' },
+    { src: 'assets/vm/kopia-deny.png', t: '침해 가정 · 백업 삭제 권한 시험', d: 'DB01 root를 빼앗긴 상황을 가정해 스냅숏 삭제 · 보존 줄이기 · 저장소 정비를 시도했으나 모두 거부(access denied, 서버에서만 가능)' },
     { src: 'assets/vm/kopia-noboot.png', t: '디스크를 지운 뒤 부팅 불가', d: 'DB01 안에서 OS · 데이터 디스크를 지우고 다시 켜자 No bootable option or device was found' },
     { src: 'assets/vm/kopia-rebuild.png', t: '재설치 뒤 복원 대조', d: 'kickstart로 새로 설치한 OS(루트 생성 17:19:52)에서 Kopia로 되살린 뒤 기준값 6가지가 지우기 전과 같음. 지운 때부터 922초' },
     { src: 'assets/vm/kopia-server.png', t: '저장소 서버 쪽', d: 'OPS01 Kopia 저장소: AES256-GCM 암호화, 계정 root@db01.lab, 스냅숏 APPEND · 정책 READ 규칙, DB01 스냅숏 6개' },

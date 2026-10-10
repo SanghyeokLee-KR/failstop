@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 C1 트러블슈팅</title>
+<title>페일스톱 부록 06 재시작 뒤에도 멈춘 Grafana, 로그로 원인 추적</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -177,11 +177,14 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage" data-step="0">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>재시작 뒤에도 멈춘 Grafana, 로그로 원인 추적</h1><p class="ab-sub">서비스가 active여도 정상 응답하는지 서버 안에서 다시 확인했습니다.</p><div class="ab-content"><div class="ab-diagnosis"><section><span class="ab-step">01 증상</span><h2>재시작해도 무응답</h2><p>systemd는 active<br>서버 내부 /api/health도<br>시간 초과</p><code>NRestarts=1</code></section><section><span class="ab-step">02 단서</span><h2>메모리 압박 지속</h2><p>한도를 올려도 재발<br>사용량 약 615MiB<br>MemoryHigh 512MiB 초과</p><code>memory.events: high 13898</code></section><section><span class="ab-step">03 조치</span><h2>회수 목표와 한도 조정</h2><p>Go의 메모리 회수를 유도<br>서비스별 한도도 조정<br>설정 백업 후 재시작</p><code>GOMEMLIMIT=512MiB<br>MemoryHigh=768M<br>MemoryMax=896M</code></section><section><span class="ab-step">04 확인</span><h2>같은 조건으로 재확인</h2><p>화면을 바꿔 가며 검사<br>10초 간격 6회 HTTP 200<br>재시작·high 이벤트 0</p><code>MemoryCurrent ≈ 490MiB</code></section></div><div class="ab-panel ab-wide ab-other"><h2>같은 방식으로 해결한 사례</h2><p>API 504 <span>스레드 덤프·CPU 확인</span>　 /　 정상 종료 실패 표시 <span>종료 코드 143 처리</span>　 /　 예비 DB 복제 실패 <span>인증·슬롯 설정 확인</span></p></div></div><p class="ab-scope">2026.09.19 · 학교 EC2 bot-1 · 실제 명령·출력 발췌. 장시간 운영의 메모리 여유까지 검증한 결과는 아닙니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·트러블슈팅</span>C1</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>06 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -215,6 +218,7 @@
   const stage = $('stage');
   const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
   $('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
@@ -305,7 +309,7 @@
         ['o', 'high 0'],
       ],
       tags: [['fix', 1, 3], ['chk', 4, 8], ['chk', 10, 10]],
-      an: [['Go가 512MiB에서 먼저 회수', '두 선은 768/896MiB, 백업하고 다시 시작'], ['화면을 바꿔 가며 6번 모두 응답', '10초 간격, 약 490MiB, 재시작 0'], ['조이는 선 0번', '강제 종료도 0번', ['정상', 'var(--ok)']]],
+      an: [['Go 회수 목표를 512MiB로 설정', '두 선은 768/896MiB, 백업하고 다시 시작'], ['화면을 바꿔 가며 6번 모두 응답', '10초 간격, 약 490MiB, 재시작 0'], ['조이는 선 0번', '강제 종료도 0번', ['정상', 'var(--ok)']]],
       ft: ['이후', '모든 서버 수집을 붙인 뒤에도 약 503MiB, 조이는 선·강제 종료 0', 'chk'],
       src: '증거본 2026-09-19_학교AWS 335 · 342 · 343 · 370, 저장소 deploy/linux/observability/grafana-limits.conf', shots: [['assets/img/linux-grafana-3.png', 1100, 738, '342 · 343 화면을 바꿔 가며 10초마다 6번, 조이는 선 · 강제 종료 0'], ['assets/linux/tr-370.png', 950, 322, '370 모든 서버 수집 뒤에도 약 503MiB']] },
     'table',
@@ -449,18 +453,10 @@
   });
 })();
 </script>
-<!-- 발표 노트(70초): 앞에서 systemd가 다시 올린 Grafana는 다시 올라온 뒤에도 화면이 계속 멈췄습니다. systemd 메모리 한도에는 두 줄이 있습니다. MemoryHigh를 넘으면 커널이 회수하며 느려지고, MemoryMax를 넘으면 강제 종료됩니다.
-→ 1 처음엔 SSM 접속 경로를 의심했습니다. 그런데 SSM 기록에는 Grafana의 3000번이 연결을 거부했다고 남아 있었고, 서버 안에서 직접 불러도 시간 초과였습니다. 다시 올라온 Grafana는 강제 종료 선 384MiB 바로 아래에서 조이는 선을 4천 번 넘고 있었습니다.
-→ 2 한도를 512/640MiB로 올리자 세 번 모두 바로 응답했지만, 관제 화면 6개를 새로 올리자 다시 멈췄고 조이는 선을 1만 3천 번 넘었습니다.
-→ 3 cgroup 메모리 통계를 보니 Grafana가 실제로 쓰는 양이 약 615MiB로 조이는 선 512MiB보다 컸고, 서버 전체가 시간의 91% 넘게 메모리를 기다렸습니다. 한도만 올려서는 다시 걸린다는 뜻입니다.
-→ 4 그래서 Grafana가 512MiB에서 먼저 스스로 회수하게 하고, 두 선은 768/896MiB로 올렸습니다. 같은 명령으로 화면을 바꿔 가며 10초마다 여섯 번 확인해 모두 응답했고, 조이는 선은 한 번도 넘지 않았습니다. 이후 모든 서버의 수집을 붙인 뒤에도 같았습니다.
-→ 5 같은 방식으로 세 가지를 더 고쳤습니다. 앱이 살아 있는데 API만 504를 낼 때는 커널 CPU와 스레드 덤프로 원인을 좁혀 가상 스레드를 껐고, 정상 종료가 실패로 남는 문제는 종료 코드 143을 성공으로 등록했고, 예비 DB를 다시 붙일 때는 비밀번호 파일과 슬롯 설정을 고쳐 복제를 이었습니다.
-질문 때:
-- GOMEMLIMIT은 강제 상한인가? Go 런타임이 회수를 앞당기는 목표일 뿐이라 MemoryMax를 함께 둔다(docs/reports/AWS_작업.md 259행).
-- bot-1 서비스들의 MemoryMax 합이 메모리 1,909MiB보다 크지 않은가? 크다. 상한은 서비스 하나만 막아 호스트 OOM 위험은 남는다. 장시간 여유는 재지 않았다(AWS_작업.md 788행).
-- 91%는 Grafana의 값인가? 서버 전체의 PSI(/proc/pressure/memory)다. 서비스 하나는 cgroup의 memory.pressure를 본다.
-- 경보로 먼저 알 수 있었나? 지금 경보 규칙에는 메모리 압박 경보가 없다. PSI는 node_exporter pressure 수집기로 이미 모으고 있어 규칙만 더하면 된다.
-- 강제 종료부터 확인까지 얼마나? 12:42:45 강제 종료부터 13:05:06 마지막 확인까지 약 22분(UTC).
-- 504 사례의 원인은 확정했나? 실행 중 상태를 관측한 것이고 같은 조건을 재현해 확정하지는 않았다. 가상 스레드를 끈 것은 증상의 원인 경로를 없앤 조치다. 진단 때 연 임시 SSH 규칙은 발표 전에 지웠는지 확인한다.
-- 예비 DB 재연결은 왜 수동인가? 학교 AWS는 비동기 복제 · 수동 승격으로 시험했다. 07 시연의 Patroni 자동 재합류와는 다른 환경이다.
-- 수집기 사례: node_exporter 기본 수집기 중 이 서버에 없는 장치 · 기능을 읽는 12개(bcachefs · bonding · conntrack · fibrechannel · hwmon · infiniband · ipvs · nfs · nfsd · rapl · tapestats · zfs)가 늘 실패로 표시돼, 쓸 수집기 15개만 지정했다(271 · 275). -->
+
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+서버 운영 중 생긴 문제는 이렇게 원인을 좁혔습니다. 재시작만으로 끝내지 않고, 같은 조건에서 정상 응답하는지 다시 확인했습니다.
+질문 때: E 키를 누르고 상세 보기를 열면 단계별 명령과 원본 캡처를 확인할 수 있다. 첫 한도 조정 뒤 재발한 과정도 남겼다. GOMEMLIMIT은 Go 런타임의 소프트 목표이지 프로세스 전체의 강제 상한이 아니다. /proc/pressure/memory의 91%는 서버 전체 PSI이며 Grafana 단독 CPU나 메모리 사용률이 아니다. 504는 가상 스레드를 끄고 증상이 해소됐으나 동일 조건 재현으로 근본 원인까지 확정하지는 않았다.
+근거: 증거본/2026-09-19_학교AWS의 324~343·370, deploy/linux/observability/grafana-limits.conf. 상세 화면의 원본 캡처 유지.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->

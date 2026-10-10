@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04-3 HAProxy와 Suricata</title>
+<title>페일스톱 04-3 투명 방화벽과 침입 탐지</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -90,7 +90,7 @@
   .fw .warm { font-size: 22px; font-weight: 600; fill: var(--warm); }
   .fw .natx { stroke: var(--warm); stroke-width: 2.6; stroke-dasharray: var(--sl, 300px); stroke-dashoffset: var(--sl, 300px); }
 
-  /* 투명 방화벽 칸. 장면 2부터는 'HTTP 구간': 테두리가 밝아지고 '칸 안은 HTTP 평문' 표시가 붙는다 */
+  /* 장면 2부터 HAProxy의 TLS 종료와 요청 검사를 강조한다. 방화벽 전체가 평문 구간이라는 뜻은 아니다. */
   .fw .tp .body { fill: #182033; stroke: var(--ink-2); stroke-width: 2.4; transition: fill .35s var(--ease), stroke .35s var(--ease), stroke-width .35s var(--ease); }
   .stage.http .fw .tp .body { fill: #1D2639; stroke: var(--ink); stroke-width: 3; }
   .fw .hp { opacity: 0; transition: opacity .35s var(--ease); }
@@ -119,7 +119,7 @@
   .fw .vp.ok rect { fill: rgba(45,209,150,.14); stroke: var(--ok); } .fw .vp.ok text { fill: var(--ok); }
   .fw .vp.warn rect { fill: rgba(232,192,122,.14); stroke: var(--warm); } .fw .vp.warn text { fill: var(--warm); }
 
-  /* 흐름: 암호화 구간은 파란 점선, 칸 안과 서버 사이 평문은 밝은 실선. 끝 표시(화살촉·✕)는 길이 닿고 0.2초 뒤 0.3초 */
+  /* 흐름: HTTPS는 파란 점선, HAProxy 내부 검사와 웹 → 앱 HTTP는 밝은 실선. 끝 표시는 길이 닿고 0.2초 뒤 0.3초 */
   .fw .trail { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; transition: opacity .35s var(--ease); }
   .fw .trail.tls { stroke: var(--brand); stroke-dasharray: 12 8; }
   .fw .trail.plain { stroke: var(--plain); }
@@ -185,7 +185,7 @@
   .pane .ly .t { font-size: 22px; line-height: 1.45; color: var(--ink-2); word-break: keep-all; }
   .pane .ly .t .m { font-family: var(--mono); color: var(--ink); }
 
-  /* 증거 화면(질문 대비, E 키 도구를 켤 때만 단추가 보인다): pfsense-tp 캡처 여섯 장을 한 화면에 이야기 순서로.
+  /* 증거 화면(E 키 도구): 발표에서는 L7·IDS 결과를 확대하고, 질문 때는 나머지 설정과 로그를 보여 준다.
      2행 3열의 같은 크기 칸(위 줄 ① 브리지 ② L2 ③ L3·L4 규칙, 아래 줄 ④ 차단 기록 ⑤ L7 ⑥ IDS). 칸 위 왼쪽에 번호와 설명,
      그림은 남은 자리 가운데에 비율대로(원본보다 키우지 않음) 맞춘다. 격자 전체는 창 가운데.
      그림을 누르면 그 한 장만 크게, 다시 누르거나 Esc 로 격자로 */
@@ -230,13 +230,13 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>HAProxy와 Suricata</h1>
+    <h1>투명 방화벽과 침입 탐지</h1>
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/pfsense-side.svg" alt="">증거 화면<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
   </div>
-  <p class="dek">서버 주소를 바꾸지 않는 투명 브리지에서 요청 내용까지 검사했습니다.</p>
+  <p class="dek">기존 서버 설정을 유지하고, 허용·차단 결과를 로그로 확인했습니다.</p>
 
-  <svg class="fw" id="fw" viewBox="0 0 1140 684" role="img" aria-label="열릴 때는 앞 장의 경계형이다. pfsense-fw가 포트포워딩 443으로 EDGE01에 넘기고, 서버 여섯 대는 lab-lan 한 망에서 게이트웨이·DNS·NTP를 192.168.10.1로 바꿨다. 장면 1에서 포트포워딩을 빼고 pfsense-tp를 라우터와 서버 사이에 투명 브리지로 끼워 DMZ·APP·DATA·OPS 네 구역으로 나눈다. 서버의 게이트웨이·DNS·NTP는 그대로다. 장면 2에서 작업 PC의 HTTPS 요청이 투명 방화벽 칸의 HAProxy 입구에서 TLS가 풀려 칸 안은 HTTP 평문이 되고, 웹 진입 EDGE01로는 다시 HTTPS로 넘어간다. 장면 3 L2: DB02에 만든 모르는 MAC의 프레임을 포트 보안이 막는다. 장면 4 L3·L4: 포트 정책이 웹 → 앱 8080은 허용하고 웹 → DB는 막는다. 장면 5 L7: HAProxy가 SQL 주입을 403으로 막는다. 장면 6 IDS: 입구를 지난 스크립트 삽입이 DMZ 포트의 웹 → 앱 평문 구간을 지날 때 Suricata가 복사해 보고 탐지해 관제 서버로 경보를 보낸다. 막지는 않아 요청은 APP01까지 간다">
+  <svg class="fw" id="fw" viewBox="0 0 1140 684" role="img" aria-label="열릴 때는 앞 장의 초기 구성이다. pfsense-fw가 포트포워딩 443으로 EDGE01에 넘기고, 서버 여섯 대는 lab-lan 한 망에서 게이트웨이·DNS·NTP를 192.168.10.1로 설정했다. 장면 1에서 포트포워딩을 빼고 pfsense-tp를 라우터와 서버 사이에 투명 브리지로 끼워 DMZ·APP·DATA·OPS 네 구역으로 나눈다. 기존 서버의 게이트웨이·DNS·NTP는 그대로다. 장면 2에서 HAProxy가 작업 PC의 TLS 연결을 종료해 HTTP 요청 내용을 검사하고, 웹 진입 EDGE01로는 새 HTTPS 연결로 보낸다. 장면 3 L2: DB02에 만든 시험용 MAC의 프레임을 포트 보안이 막는다. 장면 4 L3·L4: 포트 정책이 웹 → 앱 8080은 허용하고 웹 → DB 직접 접근은 막는다. 장면 5 L7: HAProxy가 SQL 주입 시험 요청을 403으로 막는다. 장면 6 IDS: 입구를 통과한 스크립트 삽입 시험 요청을 Suricata가 웹 → 앱 8080 HTTP 구간에서 탐지해 관제 서버로 경보를 보낸다. IDS는 경보 모드여서 요청은 APP01까지 간다">
 
     <!-- 구역 상자(투명 브리지에서만). 구역 이름만 원색 -->
     <g class="zn">
@@ -277,7 +277,7 @@
       <image id="tp-i" href="assets/tint/pfsense-glow.svg" x="760" y="146" width="30" height="30"/>
       <text class="fn" id="tp-n" x="1124" y="172" text-anchor="end">pfsense-tp<tspan class="role" dx="14">투명 방화벽·브리지</tspan></text>
       <!-- 장면 2부터: 입구 바로 오른쪽, 칸 위 테두리 위. 입구 왼쪽의 'HTTPS' 꼬리표와 문턱을 사이에 두고 마주 본다 -->
-      <g class="hp"><rect id="hp-r" x="288" y="92" width="202" height="30" rx="15"/><text id="hp-t" x="304" y="114">방화벽 안에서는 HTTP 평문</text></g>
+      <g class="hp"><rect id="hp-r" x="288" y="92" width="202" height="30" rx="15"/><text id="hp-t" x="304" y="114">HAProxy에서 TLS 종료 후 요청 검사</text></g>
       <path class="bus" d="M252 220 V360 M252 230 H1118 M541 230 V360 M830 230 V360 M1118 230 V360"/>
     </g>
 
@@ -288,11 +288,11 @@
     <g class="tpm">
       <g class="chip" id="c-l7"><rect class="cb" x="122" y="140" width="260" height="80" rx="10"/>
         <text class="l1" x="140" y="172"><tspan class="lv">L7</tspan><tspan dx="12">HAProxy 입구</tspan></text>
-        <text class="l2 base" x="140" y="206">요청 내용 검사</text><text class="l2 tlsx" x="140" y="206">TLS 복호화</text>
+        <text class="l2 base" x="140" y="206">요청 내용 검사</text><text class="l2 tlsx" x="140" y="206">TLS 종료·요청 검사</text>
         <g class="vp bad" id="v-l7"><rect x="134" y="184" width="10" height="30" rx="15"/><text x="146" y="207">SQL 주입 403</text></g></g>
       <g class="chip" id="c-ids"><rect class="cb" x="421" y="140" width="240" height="80" rx="10"/>
         <text class="l1" x="439" y="172"><tspan class="lv">IDS</tspan><tspan dx="12">Suricata</tspan></text>
-        <text class="l2 base" x="439" y="206">DMZ 포트·경보 모드</text>
+        <text class="l2 base" x="439" y="206">웹 → 앱 HTTP 감시</text>
         <g class="vp warn" id="v-ids"><rect x="433" y="184" width="10" height="30" rx="15"/><text x="445" y="207">스크립트 삽입 경보</text></g></g>
       <g class="chip" id="c-l34"><rect class="cb" x="122" y="248" width="260" height="80" rx="10"/>
         <text class="l1" x="140" y="280"><tspan class="lv">L3·L4</tspan><tspan dx="12">포트 정책</tspan></text>
@@ -326,9 +326,9 @@
 
   <aside class="pane" aria-label="서버 쪽 변경과 입구에서 보이는 정보">
     <div class="cards">
-      <div class="ph">방화벽을 끼울 때 서버 쪽 변경</div>
-      <div class="cd c0"><div class="nm"><span class="pl chg">변경</span><b>경계형</b></div><p>게이트웨이·DNS·NTP를 192.168.10.1로</p></div>
-      <div class="cd c1"><div class="nm"><span class="pl same">그대로</span><b>투명 브리지</b></div><p>게이트웨이·DNS·NTP 그대로</p></div>
+      <div class="ph">서버 설정 변경 범위</div>
+      <div class="cd c0"><div class="nm"><span class="pl chg">변경</span><b>경계 라우터 도입</b></div><p>게이트웨이·DNS·NTP를 192.168.10.1로</p></div>
+      <div class="cd c1"><div class="nm"><span class="pl same">그대로</span><b>투명 브리지 추가</b></div><p>게이트웨이·DNS·NTP 그대로</p></div>
     </div>
     <div class="see" id="see">
       <div class="ph">입구에서 보이는 정보</div>
@@ -340,7 +340,7 @@
   </aside>
 
   <dialog class="fig" id="fig" tabindex="-1" aria-label="pfsense-tp 증거 화면">
-    <div class="bar"><b>증거 화면</b><span class="cap">pfsense-tp 투명 방화벽, 층마다 거른 기록</span><span class="hint" id="fig-hint">그림을 누르면 크게</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="bar"><b>증거 화면</b><span class="cap">VM 실습망에서 확인한 설정과 시험 결과</span><span class="hint" id="fig-hint">그림을 누르면 크게</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view" id="fig-view">
       <div class="grid" id="grid"></div>
       <figure class="one" id="one" hidden><figcaption id="one-cap"></figcaption><img id="one-img" alt=""></figure>
@@ -348,16 +348,22 @@
   </dialog>
 </div>
 
-<!-- 발표 노트(60초): 그런데 경계형은 서버 여섯 대의 게이트웨이와 DNS, NTP를 모두 바꿔야 했습니다.
-이때 시스원 연구소장님께서 HAProxy로 TLS를 풀어 L2부터 L7까지 걸러 보고, Suricata로 IDS까지 해 보라고 조언해 주셨습니다.
-그래서 라우터와 서버 사이에 투명 브리지를 끼웠습니다.
-→ 1 서버 설정은 그대로 두고, 서버만 네 구역으로 나눴습니다.
-→ 2 검사용 입구에만 주소 하나를 두고, HTTPS를 여기서 풀어 검사한 뒤 다시 암호화해 넘깁니다.
-→ 3 L2에서는 모르는 MAC을 막고,
-→ 4 L3·L4에서는 웹에서 앱 8080은 열고 DB로 바로 가는 접속은 막고,
-→ 5 L7에서는 SQL 주입을 403으로 막습니다.
-→ 6 입구를 지나간 스크립트 삽입은 Suricata가 탐지해 경보를 보냅니다.
-질문 때: Suricata가 본 것은 웹 진입 서버 → 앱 8080 HTTP 구간(원래 평문 구간)이다. 192.168.10.10은 투명 방화벽 칸에 있는 HAProxy 입구 주소다(서버 목록이 아니라 방화벽 장비의 주소). Suricata는 경보 모드라 막는 일은 HAProxy와 방화벽 규칙이 맡는다. 모르는 MAC 시험은 DB02에 만든 가상 MAC으로 했다. 방화벽이 한 대라 단일 장애점이고, 운영이라면 두 대로 이중화하거나 작업 시간을 공지한다. -->
+<!-- 발표 노트(60초): (기존 구성에서 시작. 연구소장님 조언은 앞 장에서 설명했으므로 여기서는 구현과 확인 결과에 집중한다.)
+여기서는 기존 서버 설정을 유지하면서 보안을 추가하는 데 초점을 맞췄습니다.
+→ 1 투명 브리지를 넣어 게이트웨이와 DNS, NTP는 그대로 뒀습니다.
+→ 2 HAProxy에서 HTTPS를 풀어 요청을 검사하고, 웹 서버로는 다시 암호화해 보냅니다.
+→ 3 등록하지 않은 MAC은 막고,
+→ 4 웹에서 앱 8080은 허용하되, DB로 직접 가는 접속은 차단했습니다.
+→ 5 SQL 주입 시험 요청은 HAProxy가 막고,
+→ 6 내부 HTTP 구간의 스크립트 삽입 요청은 Suricata가 탐지합니다.
+(약 45초. E로 도구 표시 → 증거 화면 → ⑤ L7 그림 확대. 명령어를 읽지 않고 200과 403 결과를 가리킨다.)
+실제 시험에서도 정상 요청은 200, SQL 주입 요청은 403을 확인했습니다.
+(→ 한 번으로 ⑥ IDS 경보. 로그 첫 줄을 가리킨다.)
+탐지 경보는 관제 서버에 남겼습니다. 설정한 규칙대로 동작하는지, 요청과 로그를 대조했습니다.
+(60초 안팎. Esc 두 번으로 닫고 E로 도구를 숨긴 뒤 다음 장으로. 여섯 증거를 모두 설명하지 않는다.)
+질문 때: 구축 계기는 시스원 연구소장님의 HAProxy·Suricata 실습 조언이다. 특정 부서나 회사의 공식 요구로 설명하지 않는다. 고객사 적용 의미는 기존 서버의 주소와 게이트웨이·DNS·NTP 변경을 줄이면서 허용할 통신을 정하고 로그로 확인하는 데 있다. 이 페이지는 pfSense CE를 사용한 VM 실습 결과이며, pfSense Plus나 상용 보안 장비와 동등한 성능·기능을 검증한 것은 아니다.
+Suricata가 본 것은 웹 진입 서버 → 앱 8080 HTTP 구간(원래 평문 구간)이다. HAProxy는 입구에서 TLS를 종료해 요청을 검사하고 웹 서버와 새 HTTPS 연결을 맺는다. 192.168.10.10은 HAProxy 입구 주소다. Suricata는 IDS 경보 모드이며, 차단은 HAProxy와 방화벽 규칙이 맡는다. SQL 주입 차단은 화면에 나온 UNION SELECT 시험 요청으로 확인한 범위다. sqlmap User-Agent 차단을 전체 sqlmap 공격 시험으로 확대해 말하지 않는다. 모르는 MAC 시험은 DB02에 만든 가상 MAC으로 했다.
+운영 적용 질문에는 방화벽 한 대가 단일 장애점이라는 한계를 먼저 설명한다. 이중화·장애 시 우회와 변경 전 복구 절차, 처리 성능·오탐을 추가로 확인해야 한다. 서버 설정을 유지했다는 결과를 서비스 무중단 검증으로 확대하지 않는다. -->
 
 <script>
 (() => {
@@ -404,7 +410,7 @@
     el('text', { x: 1019, y: 479, 'text-anchor': 'middle' }, g).textContent = '경보';
   }
 
-  // 글자 폭에 맞추는 것들: 포트포워딩에 긋는 줄, 칸 안 판정 칩, 'HTTP 평문' 표시, 칸 이름표의 아이콘.
+  // 글자 폭에 맞추는 것들: 포트포워딩에 긋는 줄, 판정 칩, TLS 종료·요청 검사 표시, 칸 이름표의 아이콘.
   // 폭은 getBBox()로 잰다(도면 좌표라 무대 배율과 상관없다). 글꼴이 늦게 들어와도 맞도록 장면을 그릴 때와 글꼴을 다 읽었을 때 다시 잰다
   const tw = e => { try { return e.getBBox().width; } catch (x) { return 0; } };
   const fitText = () => {
@@ -524,7 +530,7 @@ if (document.fonts) {
   const SCENES = {
     // 장면 1(약 2.8초): 경계형 → 투명 브리지. 순서는 CSS 전환 지연이 맡는다
     1: inst => { stage.classList.remove('pre'); setPill('same', inst ? null : 1.8); },
-    // 장면 2(약 3.25초): HTTPS가 HAProxy 입구까지(0~0.8초) → 칸이 'TLS 복호화'로(1.0~1.3초) → 칸이 밝아지고 'HTTP 평문'(1.25~1.6초)
+    // 장면 2(약 3.25초): HTTPS가 HAProxy 입구까지(0~0.8초) → TLS 종료·요청 검사 표시(1.0~1.3초) → 칸 강조(1.25~1.6초)
     // → 칸을 나가며 다시 HTTPS로 EDGE01까지(1.6~2.4초) → 화살촉·'다시 HTTPS'(2.6~2.9초) → 맨 끝에 오른쪽 '입구에서 보이는 정보'(2.9~3.25초)
     2: inst => {
       if (inst) { drawAll('in'); drawAll('out'); ftag(216, 92, 'HTTPS', 1); ftag(240, 372, '다시 HTTPS', 1); head(252, 140, 'd', 'tls', 1); head(232, 442, 'l', 'tls', 1); KEEP[2](true); return; }
@@ -574,7 +580,7 @@ if (document.fonts) {
     },
   };
 
-  // ---- 단계: 0 경계형(열린 모습), 1 투명 브리지로 바뀜, 2 HTTPS가 HAProxy에서 풀려 칸 안은 HTTP, 3 L2, 4 L3·L4, 5 L7, 6 IDS. 그다음 → 는 다음 장 ----
+  // ---- 단계: 0 초기 구성, 1 투명 브리지 추가, 2 HAProxy의 TLS 종료·요청 검사, 3 L2, 4 L3·L4, 5 L7, 6 IDS. 그다음 → 는 다음 장 ----
   const LAST = 6;
   let step = 0;
   function render(n, inst) {
@@ -597,8 +603,8 @@ if (document.fonts) {
     { src: 'assets/pf/pf-l2.png', w: 922, h: 268, cap: 'L2: 모르는 MAC 프레임, 라우터 쪽으로 0개', alt: 'tcpdump: 라우터 쪽 em0으로 나간 프레임 0, 브리지 표의 모르는 MAC 0' },
     { src: 'assets/pf/pf-dmz-rules-crop.png', w: 1310, h: 810, cap: 'L3·L4 규칙: 웹 → 앱 8080 허용, 웹 → DB 차단', alt: 'DMZ 규칙: 웹 → 앱 8080 허용, DNS·NTP는 기존 라우터로 허용, 웹 → DB 직접 접근 차단(기록), 그 밖의 통신 차단(기록)' },
     { src: 'assets/pf/pf-l3-log.png', w: 848, h: 179, cap: 'L3·L4 기록: 웹 → DB 직접 접근 차단', alt: '방화벽 기록: DMZ에서 웹 → DB 직접 접근 차단 두 건' },
-    { src: 'assets/pf/pf-l7.png', w: 1274, h: 544, cap: 'L7 HAProxy: SQL 주입·경로 탐색 403', alt: 'L7 입구 시험: 정상 200, 스캐너 도구·SQL 주입·경로 탐색 403, TRACE 405, 내부 관리 경로 404, 스크립트 삽입은 입구 통과 200' },
-    { src: 'assets/pf/pf-ids.png', w: 1114, h: 414, cap: 'IDS Suricata: 입구를 지난 스크립트 삽입 경보', alt: 'Suricata 경보: 웹 진입 서버 192.168.10.11에서 앱 192.168.10.21:8080으로 간 스크립트 삽입 탐지, HAProxy가 입구에서 막은 403·405·404 기록' },
+    { src: 'assets/pf/pf-l7.png', w: 1274, h: 544, cap: 'HAProxy 시험: 정상 요청 200, SQL 주입 요청 403', alt: 'L7 입구 시험: 정상 200, sqlmap User-Agent·UNION SELECT SQL 주입·경로 탐색 요청 403, TRACE 405, 내부 관리 경로 404, 스크립트 삽입 시험 요청은 입구 통과 200' },
+    { src: 'assets/pf/pf-ids.png', w: 1114, h: 414, cap: 'Suricata 시험: 스크립트 삽입 탐지, 관제 서버에 경보 기록', alt: 'Suricata 경보: 웹 진입 서버 192.168.10.11에서 앱 192.168.10.21:8080으로 간 스크립트 삽입 시험 요청 탐지, HAProxy가 입구에서 막은 403·405·404 기록' },
   ];
   const NC = 3, NR = 2;
   const fig = $('fig'), grid = $('grid'), one = $('one'), openBtn = $('open-fig');

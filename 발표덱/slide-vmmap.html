@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04-3 VM 구성도</title>
+<title>페일스톱 04-3 VM 초기 구성도</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -148,13 +148,13 @@
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
   <div class="title">
-    <h1>VM 구성도</h1>
+    <h1>VM 초기 구성도</h1>
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-network-side.svg" alt="">최종 구성도<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env" style="margin-left:14px"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span>
   </div>
-  <p class="dek">pfSense 라우터 뒤 한 대역에 서버 여섯 대를 두고 시작했습니다.</p>
+  <p class="dek">pfSense를 경계 라우터로 두고, NAT와 포트포워딩으로 웹 접속 경로를 구성했습니다.</p>
 
-  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="처음 설계한 경계형 VM 실습망. 작업 PC 한 대의 VirtualBox에 VM 일곱 대(합계 12 vCPU·17.5 GiB), 서버 OS는 Rocky Linux 10.2. 외부 인터넷은 VirtualBox NAT로 경계 라우터 pfsense-fw에 이어진다. pfsense-fw는 LAN 192.168.10.1로 서버의 게이트웨이·DNS·NTP를 맡고, 작업 PC에서 오는 HTTPS 443을 포트포워딩으로 EDGE01에 넘긴다. 서버 여섯 대는 내부 네트워크 lab-lan 192.168.10.0/24 한 망에 있다: 웹 진입 EDGE01 192.168.10.11, APP01 192.168.10.21, APP02 192.168.10.22, 주 DB DB01 192.168.10.31, 예비 DB DB02 192.168.10.32, 관제·DB 백업 OPS01 192.168.10.41(Prometheus·Grafana·Alertmanager, Databasus). 모든 서버는 nftables 기본 차단. 오른쪽 host-only 관리망 192.168.56.0/24에는 pfsense-fw 관리 화면 192.168.56.10과 호스트 어댑터 192.168.56.1이 있다.">
+  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="처음 구축한 경계형 VM 실습망. 작업 PC 한 대의 VirtualBox에 VM 일곱 대(합계 12 vCPU·17.5 GiB), 서버 OS는 Rocky Linux 10.2. 외부 인터넷은 VirtualBox NAT로 경계 라우터 pfsense-fw에 이어진다. pfsense-fw는 LAN 192.168.10.1로 서버의 게이트웨이·DNS·NTP를 맡고, 작업 PC에서 오는 HTTPS 443을 포트포워딩으로 EDGE01에 넘긴다. 서버 여섯 대는 내부 네트워크 lab-lan 192.168.10.0/24 한 망에 있다: 웹 진입 EDGE01 192.168.10.11, APP01 192.168.10.21, APP02 192.168.10.22, 주 DB DB01 192.168.10.31, 예비 DB DB02 192.168.10.32, 관제·DB 백업 OPS01 192.168.10.41(Prometheus·Grafana·Alertmanager, Databasus). 모든 서버는 nftables 기본 차단. 오른쪽 host-only 관리망 192.168.56.0/24에는 pfsense-fw 관리 화면 192.168.56.10과 호스트 어댑터 192.168.56.1이 있다.">
 
     <!-- 1. 바깥: 외부 인터넷 -->
     <g class="bd b1">
@@ -245,7 +245,7 @@
       <g class="key">
         <rect class="kb" x="20" y="100" width="470" height="240" rx="14"/>
         <text class="kt" x="42" y="146">NAT</text><text class="kd" x="196" y="146">pfsense-fw 바깥 연결</text>
-        <text class="kt" x="42" y="190">host-only</text><text class="kd" x="196" y="190">관리망</text>
+        <text class="kt" x="42" y="190">host-only</text><text class="kd" x="196" y="190">pfSense 관리 접속</text>
         <text class="kt" x="42" y="234">내부 네트워크</text><text class="kd" x="196" y="234">lab-lan 한 망 ≈ 포트 그룹</text>
         <path class="kl" d="M42 262 H470"/>
         <g class="pill"><rect x="42" y="278" width="108" height="36" rx="18"/><text x="96" y="304">nftables</text></g>
@@ -283,11 +283,20 @@
   </dialog>
 </div>
 
-<!-- 발표 노트(30초): 설계한 망을 실제로 옮겨 본 것이 VM 실습망입니다.
-작업 PC의 VirtualBox에 pfSense 라우터 한 대와 Rocky Linux 서버 여섯 대, 모두 VM 일곱 대를 올렸습니다.
-설계는 역할마다 VLAN을 나눴지만, VM에서는 먼저 pfSense 라우터 뒤 한 대역에 서버 여섯 대를 두는 경계형으로 시작했습니다.
-모든 서버는 nftables로 기본 차단하고, 관리는 따로 둔 관리망으로만 들어가게 했습니다.
-질문 때: VirtualBox에 pfSense 한 대와 Rocky Linux 서버 여섯 대, 서버는 lab-lan 한 망. 바깥은 pfsense-fw가 NAT로 잇고, 작업 PC의 443을 EDGE01로 포트포워딩. 라우터 주소는 192.168.10.1. 모든 서버는 nftables로 기본 차단하고, 관리는 host-only 관리망으로만 한다. VMware라면 내부 네트워크는 포트 그룹, host-only 관리망은 관리용 포트 그룹에 해당한다. -->
+<!-- 발표 노트(30초):
+(구성도가 나타나는 동안, 위의 pfSense와 아래 서버 여섯 대를 짚는다.)
+VirtualBox에 pfSense 한 대와 Rocky Linux 서버 여섯 대를 직접 구축했습니다.
+
+(주황색 포트포워딩 경로와 lab-lan을 가리킨다.)
+처음에는 한 대역에 서버를 두고, NAT와 포트포워딩으로 웹 접속을 연결했습니다.
+서버마다 nftables를 적용해 필요한 통신만 열었습니다.
+
+(다음 장으로 넘기며)
+이후 시스원 연구소장님 조언을 받아, 요청 내용 검사와 침입 탐지까지 보강했습니다.
+
+질문 때: 이 그림은 초기 경계형 구성이다. 앞 장은 역할별 VLAN을 나눈 Packet Tracer 설계이고, 이 단계의 VM 서버 여섯 대는 lab-lan 한 망에 있다. VirtualBox의 pfSense 한 대와 Rocky Linux 서버 여섯 대, 모두 VM 일곱 대다. pfSense가 게이트웨이·DNS·NTP(192.168.10.1)를 맡고, 작업 PC에서 오는 443을 EDGE01로 포트포워딩한다. 각 서버는 nftables 기본 차단이다. 그림의 host-only 연결은 작업 PC와 pfSense 사이이며, pfSense 관리 화면은 192.168.56.10:8443이다. Linux 서버 전체의 SSH 관리 경로로 확대해서 설명하지 않는다. VMware라면 내부 네트워크는 포트 그룹에 해당한다.
+보강 범위: 다음 장에서 pfSense CE 기반 투명 브리지, HAProxy의 TLS 종료·HTTP 요청 검사, Suricata의 침입 탐지를 설명한다. 실습 자료에서 Suricata는 경보 모드(IDS)이며, 차단은 HAProxy와 방화벽 규칙이 맡는다.
+고객사 적용 취지: 별도 보안 장비 도입이 어려운 환경을 염두에 두고, 소프트웨어로 접근 제어·요청 검사·침입 탐지를 구성해 본 실습이다. pfSense Plus와 기능·성능이 동등하다는 검증 결과는 없다. -->
 
 <script>
 (() => {

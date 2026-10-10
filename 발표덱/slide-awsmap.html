@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 04-5 AWS 구성도</title>
+<title>페일스톱 04-4 AWS 구성도</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -56,7 +56,7 @@
 
   /* 도면: 최종 구성도(arch-v7)의 왼쪽 → 오른쪽 흐름(사용자 → CloudFront → 로드밸런서 → 앱 → DB → 관제)을 그대로 두고,
      데이터센터(AZ) 두 곳을 위아래 두 띠로 그려 같은 역할이 띠마다 한 대씩 거울처럼 놓이게 했다.
-     두 띠에 걸친 것(로드밸런서, 조회 서버 자동 증설 그룹)은 띠 경계에 걸치거나 띠 앞에 둔다. 관제 서버는 AZ-c에만 있어 AZ-a 오른쪽은 비운다.
+     두 띠에 걸친 것(로드밸런서, 조회 서버 수동 스케일링 그룹)은 띠 경계에 걸치거나 띠 앞에 둔다. 관제 서버는 AZ-c에만 있어 AZ-a 오른쪽은 비운다.
      밖에서 들어오는 쪽은 셋으로 나눴다: 왼쪽은 사용자(서비스 요청), 위는 운영자(관리)와 인터넷(직접 접속). 세 길이 엇갈리지 않는다.
      아이콘은 실제 색(AWS 공식 아키텍처 아이콘, 오픈소스 공식 로고. assets/aws, assets/color). 길 · 칩 · 판정의 색은 따로 정한다:
      파랑은 1단계(두 곳) 강조, 초록은 허용, 빨강은 차단, 선 · 테두리 · 글자는 회색. 노랑은 쓰지 않는다(시험 도구가 이 장에 없다).
@@ -201,7 +201,7 @@
 <div class="stage" id="stage" data-step="0">
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">주요 설계 및 구현</span>04-5</div>
+    <div class="r"><span class="sec">주요 설계 및 구현</span>04-4</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
@@ -212,7 +212,7 @@
   </div>
   <p class="dek">개인 AWS의 두 AZ에 서버를 나누고 들어오는 길은 CloudFront와 SSM으로 좁혔습니다.</p>
 
-  <svg class="map" id="map" viewBox="0 0 1660 700" role="img" aria-label="개인 AWS 서울 리전의 최종 구성. 전용 네트워크(VPC) 안에 데이터센터(AZ) 두 곳의 퍼블릭 서브넷을 위아래 띠로 그렸다. 위 띠 AZ-a에는 거래 서버 1과 주 DB, 아래 띠 AZ-c에는 거래 서버 2, 예비 DB, 관제 서버가 있고, 조회 서버 자동 증설 그룹(0~1대, CPU 60%와 AI 판단)은 두 띠에 걸친다. 주 DB와 예비 DB는 PostgreSQL 17을 Patroni가 관리하며 엄격 동기 복제로 잇고, 앱은 HAProxy를 거쳐 주 DB에 붙는다. etcd 합의 표는 주 DB, 예비 DB, 관제 서버에 하나씩 있다. 관제 서버는 Prometheus, Grafana, Alertmanager다. 사용자는 왼쪽에서 CloudFront(웹·API 진입점)를 거쳐 두 AZ에 걸친 로드밸런서로 들어오고, CloudFront는 웹 화면을 S3에서 가져온다. 위에는 인터넷이 인터넷 게이트웨이(NAT 없음)로 VPC에 이어지고, 운영자는 SSM(SSH 대신 원격 관리)으로 관리한다. 서버마다 보안 그룹(서버마다 붙은 방화벽)이 있다. 단계마다 흐름 하나가 허용되는 길이나 막히는 자리로 보이고, 장비를 차례로 누르면 그 흐름을 다시 그린다.">
+  <svg class="map" id="map" viewBox="0 0 1660 700" role="img" aria-label="개인 AWS 서울 리전의 최종 구성. 전용 네트워크(VPC) 안에 데이터센터(AZ) 두 곳의 퍼블릭 서브넷을 위아래 띠로 그렸다. 위 띠 AZ-a에는 거래 서버 1과 주 DB, 아래 띠 AZ-c에는 거래 서버 2, 예비 DB, 관제 서버가 있고, 조회 서버 수동 스케일링 그룹(0~1대, AI 제안과 운영자 승인으로 켬)은 두 띠에 걸친다. 주 DB와 예비 DB는 PostgreSQL 17을 Patroni가 관리하며 엄격 동기 복제로 잇고, 앱은 HAProxy를 거쳐 주 DB에 붙는다. etcd 합의 표는 주 DB, 예비 DB, 관제 서버에 하나씩 있다. 관제 서버는 Prometheus, Grafana, Alertmanager다. 사용자는 왼쪽에서 CloudFront(웹·API 진입점)를 거쳐 두 AZ에 걸친 로드밸런서로 들어오고, CloudFront는 웹 화면을 S3에서 가져온다. 위에는 인터넷이 인터넷 게이트웨이(NAT 없음)로 VPC에 이어지고, 운영자는 SSM(SSH 대신 원격 관리)으로 관리한다. 서버마다 보안 그룹(서버마다 붙은 방화벽)이 있다. 단계마다 흐름 하나가 허용되는 길이나 막히는 자리로 보이고, 장비를 차례로 누르면 그 흐름을 다시 그린다.">
     <defs>
       <!-- 보안 그룹 방패(tabler shield-lock). 색은 currentColor 라 판정 때 테두리와 함께 바뀐다 -->
       <symbol id="shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12 12l0 2.5"/></g></symbol>
@@ -279,10 +279,10 @@
         <!-- 로드밸런서: 두 AZ의 퍼블릭 서브넷에 걸친 ALB. 띠 앞에서 두 띠로 갈라 보낸다 -->
         <g class="tile" data-k="alb" data-pick tabindex="0" role="button" aria-label="로드밸런서"><rect class="bx" x="352" y="377" width="160" height="128" rx="12"/><image href="assets/aws/Arch_Elastic-Load-Balancing_64.svg" x="408" y="389" width="48" height="48"/><text class="nm" x="432" y="470" text-anchor="middle">로드밸런서</text><text class="sb" x="432" y="496" text-anchor="middle">두 AZ에 걸침</text>
           <g class="bdg sh"><circle cx="512" cy="377" r="18"/><use class="sg" href="#shield" x="499" y="364" width="26" height="26"/></g></g>
-        <!-- 앱 계층: 거래 서버 두 대는 고정(주문 체결, 조회도 처리), 조회 서버만 자동 증설 그룹(0~1대, 점선)으로 두 띠에 걸친다 -->
+        <!-- 앱 계층: 거래 서버 두 대는 고정(주문 체결, 조회도 처리), 조회 서버만 수동 스케일링 그룹(0~1대, 점선, AI 제안 · 운영자 승인)으로 두 띠에 걸친다 -->
         <g class="tile" data-k="app1" data-pick tabindex="0" role="button" aria-label="거래 서버 1"><rect class="bx" x="730" y="278" width="238" height="76" rx="12"/><image href="assets/color/springboot.svg" x="742" y="300" width="32" height="32"/><text class="nm" x="782" y="310">거래 서버 1</text><text class="sb" x="782" y="340">주문 체결·조회</text>
           <g class="bdg sh"><circle cx="968" cy="278" r="18"/><use class="sg" href="#shield" x="955" y="265" width="26" height="26"/></g></g>
-        <g class="tile asg" data-k="rd" data-pick tabindex="0" role="button" aria-label="조회 서버"><rect class="bx" x="730" y="391" width="238" height="100" rx="12"/><image href="assets/aws/Arch_Amazon-EC2-Auto-Scaling_64.svg" x="742" y="405" width="32" height="32"/><text class="nm" x="782" y="425">조회 서버</text><text class="sb" x="782" y="455">CPU 60%·AI 판단</text><text class="sb" x="782" y="481">증설 0~1대</text>
+        <g class="tile asg" data-k="rd" data-pick tabindex="0" role="button" aria-label="조회 서버"><rect class="bx" x="730" y="391" width="238" height="100" rx="12"/><image href="assets/aws/Arch_Amazon-EC2-Auto-Scaling_64.svg" x="742" y="405" width="32" height="32"/><text class="nm" x="782" y="425">조회 서버</text><text class="sb" x="782" y="455">AI 제안·승인</text><text class="sb" x="782" y="481">수동 스케일링</text>
           <g class="bdg sh"><circle cx="968" cy="391" r="18"/><use class="sg" href="#shield" x="955" y="378" width="26" height="26"/></g></g>
         <g class="tile" data-k="app2" data-pick tabindex="0" role="button" aria-label="거래 서버 2"><rect class="bx" x="730" y="528" width="238" height="76" rx="12"/><image href="assets/color/springboot.svg" x="742" y="550" width="32" height="32"/><text class="nm" x="782" y="560">거래 서버 2</text><text class="sb" x="782" y="590">주문 체결·조회</text>
           <g class="bdg sh"><circle cx="968" cy="528" r="18"/><use class="sg" href="#shield" x="955" y="515" width="26" height="26"/></g></g>
@@ -322,7 +322,7 @@
 
   <dialog class="fig" id="fig" aria-label="최종 구성도 원본">
     <div class="bar"><b>최종 구성도</b><span id="fig-hint">그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
-    <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도 원본: 개인 AWS 서울 리전 두 AZ의 CloudFront, S3, 로드밸런서, 거래 서버 두 대와 조회 서버 자동 증설 그룹, PostgreSQL 17 주 DB와 예비 DB, 관제 서버, SSM, 그리고 외부 보관, Microsoft Teams, 온프레미스 AI 서버, CI/CD"></div>
+    <div class="view"><img id="fig-img" src="assets/img/arch-v7.png" alt="최종 구성도 원본: 개인 AWS 서울 리전 두 AZ의 CloudFront, S3, 로드밸런서, 거래 서버 두 대와 조회 서버 수동 스케일링 그룹, PostgreSQL 17 주 DB와 예비 DB, 관제 서버, SSM, 그리고 외부 보관, Microsoft Teams, 온프레미스 AI 서버, CI/CD"></div>
   </dialog>
 </div>
 
@@ -719,11 +719,12 @@
   setTimeout(fitAll, 900);
 })();
 </script>
-<!-- 발표 노트(40초): 그다음 개인 AWS에 최종 구성을 올렸습니다. 서울 리전의 데이터센터 두 곳에 역할별로 서버를 나눴습니다.
+<!-- 발표 노트(40초): 이제 개인 AWS에 배포한 최종 구성을 보여드리겠습니다. 서울 리전의 데이터센터 두 곳에 역할별로 서버를 나눴습니다.
 → 1 거래 서버와 DB를 두 곳에 한 대씩 두고, Patroni 자동 전환을 두 데이터센터에 걸쳐 적용했습니다.
 → 2 사용자는 CloudFront와 로드밸런서를 거쳐 서버의 8080에만 닿습니다.
 → 3 NAT 비용을 아끼려고 퍼블릭 서브넷을 썼지만, 보안 그룹에 DB로 오는 규칙이 없어 바로 들어올 수 없습니다.
 → 4 운영자도 SSH 없이 SSM으로만 관리합니다.
+(다음 장으로 넘기며) 다음은 학교 EC2에서 직접 확인한 Linux 서버 운영 사례입니다.
 질문 때: 도면의 장비를 차례로 누르면 그 흐름만 다시 그린다(출발 → 도착, 관리 접속은 운영자 → SSM → 서버의 세 번). → 나 ← 를 누르면 원래 단계로 돌아온다.
 조회 서버: 평소 0대이고, 조회 서버 CPU가 60%를 넘으면 AI가 다른 관제 지표도 함께 보고 판단해 1대를 늘린다. 기본은 수동 모드라 AI가 제안하고 운영자가 승인한 뒤 켜고, 자동 모드를 켜 두면 허용 목록과 한도 안에서 AI가 바로 켠다(04-6).
 Patroni 엄격 동기 복제와 자동 전환은 개인 AWS에 적용했다.

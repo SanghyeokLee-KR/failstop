@@ -68,12 +68,13 @@
   .stage:not(.inst) .area.on { animation: lit .3s var(--ease) both; }
   .area.on { border-color: var(--brand); border-width: 3px; }
 
-  /* 아래 카드: 왼쪽은 실제 화면(Teams 카드는 원래 크기 1:1, PDF는 0.831배 발췌), 오른쪽은 같은 번호의 설명(04-6과 같은 틀).
+  /* 아래 카드: 왼쪽은 실제 화면 발췌, 오른쪽은 같은 번호의 설명. 작은 원본 글자는 발췌 영역별로 확대한다.
      번호 상자 색의 뜻은 이 장 안에서 고정: 노랑 경보 사실, 파랑 사람이 할 일 · 기록, 초록 끝낼 조건, 라벤더 AI · 자동, 회색 점선 확인 못 한 자료.
      흰 문서 위에서도 보이게 상자 바깥에 어두운 2px 띠와 색 고리를 둘렀다 */
   .card { position: absolute; left: 130px; top: 404px; width: 1660px; height: 596px; box-sizing: border-box; background: #0B1019; border: 2px solid var(--line); border-radius: 14px; }
   .card .shot { position: absolute; left: 20px; top: 20px; width: 1044px; height: 552px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
   .card .side { position: absolute; left: 1100px; top: 20px; width: 536px; height: 552px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
+  .stage[data-step="1"] .card .side { gap: 20px; }
   .card .side::before { content: ''; position: absolute; left: -18px; top: 24px; bottom: 24px; width: 1px; background: var(--line); }
   .ex { position: relative; flex: none; overflow: visible; }
   .ex .clip { position: absolute; inset: 0; overflow: hidden; border-radius: 8px; box-shadow: 0 14px 40px rgba(0,0,0,.5); }
@@ -90,6 +91,8 @@
   .side .hd { font-size: 22px; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
   .side .ft { padding-top: 18px; border-top: 1px solid var(--line); font-size: 22px; line-height: 32px; color: var(--ink-3); word-break: keep-all; }
   .side .ft i { font-style: normal; color: var(--fc, var(--ink-2)); font-weight: 600; margin-right: 10px; }
+  .report-context { position: absolute; left: 130px; right: 130px; top: 1020px; display: flex; align-items: baseline; justify-content: space-between; gap: 24px; font-size: 20px; color: var(--ink-3); }
+  .report-context strong { font-size: 24px; font-weight: 500; color: var(--ink-2); }
 
   /* 열린 모습: 두 갈래 도면(기본 경보는 보고 서비스와 따로 Teams로, 근거 보고는 보고 서비스를 거쳐)과 보내는 때 */
   .route { width: 1044px; height: 552px; overflow: visible; }
@@ -165,10 +168,11 @@
     <button class="tag orig" id="open-fig" type="button" aria-haspopup="dialog"><img src="assets/tint/ui-file-check-side.svg" alt="">원본 보기<svg class="mx" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg></button>
     <span class="env"><img src="assets/tint/ui-device-desktop-side.svg" alt="">개발 PC, 로컬 Docker</span>
   </div>
-  <p class="dek">경보가 나면 무엇을 확인해야 하는지 Teams 카드와 2쪽 보고서로 알립니다.</p>
+  <p class="dek">서비스 영향과 담당자의 확인 사항, 사건을 종결할 조건까지 근거와 함께 전달합니다.</p>
 
   <div class="areas" id="areas"></div>
   <div class="card bd b4" id="card" aria-live="polite"><div class="shot" id="shot"></div><div class="side" id="side"></div></div>
+  <div class="report-context"><span>보고 원본 · 로컬 Docker · 2026.09.28 00:06 KST</span><strong>경보 해제 뒤에도, 담당자 확인은 남습니다.</strong></div>
 
   <dialog class="fig" id="fig" tabindex="-1" aria-label="보고 원본">
     <div class="bar"><b>보고 원본</b><span class="cap">로컬 Docker의 해제 보고, 앱 계층 CPU 높음. Teams 카드와 PDF 1쪽·2쪽</span><button id="close-fig" type="button">닫기 (Esc)</button></div>
@@ -199,21 +203,21 @@
   // cuts 는 보일 부분 [x, y, w, h](원본 좌표), k 는 배율, marks 는 [x, y, w, h, 색, 점선](원본 좌표), an 은 같은 번호의 설명, ft 는 끝 줄 [굵은 말, 글, 색]
   const STEPS = [
     null,
-    { k: 'teams', name: 'Teams 카드', sub: '담당자에게 가는 한 장',
+    { k: 'teams', name: 'Teams 카드', sub: '상태·영향·담당자 확인',
       img: 'assets/report/teams-card.png', W: 766, H: 957, scale: 1, cuts: [[0, 16, 766, 552]], alt: 'Teams 카드: 앱 계층 CPU 높음 해제, P3 담당자 확인 필요, 대상 · 발생 · 해제 · 영향, 담당자 조치와 완료 조건',
       marks: [[18, 74, 730, 50, 'warn'], [18, 134, 730, 42, 'do'], [18, 186, 730, 180, 'warn'], [18, 376, 730, 186, 'done']],
-      an: [['경보와 상태', '앱 계층 CPU 높음 경보의 해제 보고'], ['우선순위', 'P3 담당자 확인<br>수집한 근거로 코드가 정함'], ['대상·시각·영향', '발생·해제 시각을 적고<br>모르는 영향은 미확인으로 남김'], ['할 일과 완료 조건', '담당 역할마다 할 일과 끝낼 조건']],
-      ft: ['전달', '먼저 저장하고 보내며, 실패하면 최대 6번 시도', 'var(--brand)'] },
-    { k: 'p1', name: '보고서 1쪽', sub: '우선순위·자동 조치·종결 기준',
+      an: [['경보 상태', 'CPU 경보는 해제<br>후속 점검은 아직 남아 있음'], ['대응 우선순위', 'P3 · 담당자 확인 필요<br>수집 근거와 정해진 규칙으로 판정'], ['서비스 영향', '5xx 응답 0.38건/초 관측<br>영향받은 사용자·지속 시간은 미확인'], ['담당자가 할 일', '실패한 요청의 경로·영향을 확인하고<br>처리 결과를 기록']],
+      ft: ['전달', '보고를 먼저 저장하고, 일시적 전송 오류는 재시도', 'var(--brand)'] },
+    { k: 'p1', name: '보고서 1쪽', sub: '우선순위·조치 기록·종결 조건',
       img: 'assets/report/report-p1.png', W: 1400, H: 1980, scale: .831, cuts: [[76, 386, 824, 120, 1.26], [76, 1740, 628, 114, 1.26]], alt: '보고서 1쪽 발췌: 01 대응 우선순위 P3 담당자 확인 필요, 05 운영 기록 및 종결 관리의 자동 조치·종결 기준 줄',
       marks: [[82, 392, 812, 108, 'do'], [82, 1746, 616, 48, 'ai'], [82, 1798, 616, 48, 'done']],
-      an: [['대응 우선순위', '이번 보고는 P3 담당자 확인<br>P1 즉시 대응부터 P4 관찰까지 네 단계'], ['자동 조치', '이 구간에 실행된 조치는 없음<br>조치는 실행 전에 승인받음'], ['종결 기준', '영향과 근거를 확인해야 닫음']],
-      ft: ['기록', '처리 결과는 담당자가 확인한 뒤 남김', 'var(--brand)'] },
-    { k: 'p2', name: '보고서 2쪽', sub: '지표 추이·확인 못 한 자료',
-      img: 'assets/report/report-p2.png', W: 1400, H: 1980, scale: .831, cuts: [[72, 292, 1256, 334, .75], [76, 1592, 620, 140, 1.42]], alt: '보고서 2쪽 발췌: 파일시스템 여유와 DB별 연결 추이, 08 미확인 자료와 종결 확인, 자료 출처와 작성 방식',
-      marks: [[80, 300, 1240, 324, 'warn'], [82, 1597, 608, 130, 'miss', 1]],
-      an: [['지표 추이', '근거 수집 전 15분을 60초 간격으로<br>기준선과 함께 그림'], ['확인 못 한 자료', "백업 예약 확인처럼 값이 없으면<br>0이 아니라 '자료 없음'으로 적음"]],
-      ft: ['작성 방식', 'AI 분석은 참고로만 붙임', 'var(--ai)'] },
+      an: [['해제 뒤에도 P3인 이유', '5xx 응답 관측<br>백업 예약·격리 복원 근거 미확인'], ['자동 조치 기록', '이 보고에 집계된 자동 실행은 없음<br>운영자 승인 조치와는 구분'], ['담당자가 종결할 조건', '서비스 영향과 필수 근거를 확인하고<br>처리 결과를 남긴 뒤 종결']],
+      ft: ['기준', 'P1~P4는 대응 권고 등급이며, SLA와 별도', 'var(--brand)'] },
+    { k: 'p2', name: '보고서 2쪽', sub: '실측 지표·확인하지 못한 자료',
+      img: 'assets/report/report-p2.png', W: 1400, H: 1980, scale: .831, cuts: [[76, 1026, 888, 202, 1.14], [76, 1592, 620, 140, 1.42]], alt: '보고서 2쪽 발췌: 00:06 KST 표본의 5xx 응답 0.38건/초, 수집 응답 9/9개, 서비스 요청 5169.74건/초, 응답 P95 1ms. 미확인 자료에는 백업 예약 확인 등이 자료 없음으로 기록되어 있다.',
+      marks: [[82, 1032, 876, 190, 'warn'], [82, 1597, 608, 130, 'miss', 1]],
+      an: [['판정에 사용한 실측 지표', '요청량·오류·응답 시간을 함께 확인<br>이 표는 보고 시점의 마지막 표본'], ['확인하지 못한 자료', "백업 예약·상세 로그 등은 '자료 없음'<br>값이 없다고 정상으로 판단하지 않음"]],
+      ft: ['AI 분석', '참고 의견으로 구분하고, 실측 근거를 함께 보존', 'var(--ai)'] },
   ];
   const LAST = STEPS.length - 1;
   const T0 = .9, GAP = .4, AN = .15;
@@ -223,22 +227,22 @@
 
   // 열린 모습: 두 갈래 도면(1044×552)과 보내는 때
   function overview() {
-    shot.innerHTML = `<svg class="route" viewBox="0 45 1044 552" role="img" aria-label="두 갈래 전달: 관제 서버의 Alertmanager는 기본 경보를 보고 서비스와 따로 Teams 채널로 바로 보내고, 같은 경보를 보고 서비스로도 보낸다. 보고 서비스는 수집 전 15분 근거로 우선순위를 정해 보고 카드와 PDF 2쪽을 Teams로 보낸다. 온프레미스 AI는 참고 분석만 한다.">
+    shot.innerHTML = `<svg class="route" viewBox="0 45 1044 552" role="img" aria-label="두 갈래 전달: Alertmanager는 AI 분석을 기다리지 않고 기본 경보를 Teams 채널로 전달한다. 보고 서비스는 직전 15분 근거를 수집해 보고 카드와 PDF·HTML 링크를 별도로 전달한다. 온프레미스 AI는 참고 분석만 하며 조치를 실행하지 않는다.">
       <path class="ln" style="stroke: var(--warm)" d="M250 258 H312 V228 H778"/><path style="fill: var(--warm)" d="M778 221 L792 228 L778 235 Z"/>
-      <text class="lb" x="330" y="210">기본 경보는 보고 서비스를 거치지 않음</text>
+      <text class="lb" x="330" y="210">기본 경보는 AI 분석을 기다리지 않음</text>
       <path class="ln" style="stroke: var(--brand)" d="M250 294 H312 V366 H356 M672 366 H778"/><path style="fill: var(--brand)" d="M356 359 L370 366 L356 373 Z M778 359 L792 366 L778 373 Z"/>
       <path class="ln" style="stroke: var(--ai); stroke-width: 2; stroke-dasharray: 7 6" d="M522 404 V454"/>
       <g class="tile"><rect class="bx" x="0" y="238" width="250" height="76" rx="12"/><image href="assets/color/prometheus.svg" x="16" y="258" width="36" height="36"/><text class="nm" x="64" y="270">관제 서버</text><text class="sb" x="64" y="298">Alertmanager</text></g>
-      <g class="tile"><rect class="bx" x="372" y="328" width="300" height="76" rx="12"/><g transform="translate(388 348) scale(1.5)"><path class="ic" d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2"/></g><text class="nm" x="436" y="360">보고 서비스</text><text class="sb" x="436" y="388">15분 근거·우선순위</text></g>
+      <g class="tile"><rect class="bx" x="372" y="328" width="300" height="76" rx="12"/><g transform="translate(388 348) scale(1.5)"><path class="ic" d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2"/></g><text class="nm" x="436" y="360">보고 서비스</text><text class="sb" x="436" y="388">직전 15분 근거 수집</text></g>
       <g class="tile ai"><rect class="bx" x="372" y="454" width="300" height="68" rx="12"/><image href="assets/tint/ollama-ai.svg" x="388" y="470" width="36" height="36"/><text class="nm" x="436" y="482">온프레미스 AI</text><text class="sb" x="436" y="508">참고 분석만</text></g>
       <g class="tile"><rect class="bx" x="794" y="120" width="250" height="312" rx="12"/><g transform="translate(810 136) scale(1.5)"><path class="ic" d="${IC.teams.match(/d="([^"]+)"/g).map(d => d.slice(3, -1)).join(' ')}"/></g><text class="nm" x="858" y="164">Teams 채널</text>
         <g class="msg"><rect class="bg" x="812" y="196" width="214" height="64" rx="8"/><rect x="812" y="196" width="6" height="64" rx="3" style="fill: var(--warm)"/><text class="lb" x="832" y="236">기본 경보</text></g>
-        <g class="msg"><rect class="bg" x="812" y="318" width="214" height="96" rx="8"/><rect x="812" y="318" width="6" height="96" rx="3" style="fill: var(--brand)"/><text class="lb" x="832" y="358">보고 카드</text><text class="lb" x="832" y="392" style="fill: var(--ink-3)">PDF 2쪽</text></g></g>
+        <g class="msg"><rect class="bg" x="812" y="318" width="214" height="96" rx="8"/><rect x="812" y="318" width="6" height="96" rx="3" style="fill: var(--brand)"/><text class="lb" x="832" y="358">보고 카드</text><text class="lb" x="832" y="392" style="fill: var(--ink-3)">PDF·HTML 링크</text></g></g>
     </svg>`;
-    side.innerHTML = `<div class="hd">보내는 때</div>` +
-      [['var(--warm)', '경보 발생', '기본 경보와 보고 카드를 함께'], ['var(--ok)', '경보 해제', '해제 시각과 후속 확인을 따로'], ['var(--brand)', '매일 09:00', '지난 24시간 일일 보고']].map(([c, h, p]) =>
+    side.innerHTML = `<div class="hd">담당자에게 전달하는 순서</div>` +
+      [['var(--warm)', '기본 경보', '발생·해제를 먼저 전달'], ['var(--brand)', '상세 보고', '근거 수집 후 카드와 보고서 링크 전달'], ['var(--ok)', '일일 보고', '매일 09:00 · 지난 24시간 요약']].map(([c, h, p]) =>
         `<div class="md" style="--c:${c}"><span class="dot"><i></i></span><div><h3>${h}</h3><p>${p}</p></div></div>`).join('') +
-      `<div class="ft">보고 서비스는 권고까지만 함</div>`;
+      `<div class="ft">AI 분석이 실패해도 사실 보고 생성<br>보고 서비스는 조치를 실행하지 않음</div>`;
   }
   // 단계 화면: 원본에서 잘라 낸 부분(cuts)을 배율대로 위아래로 쌓고, 번호 상자를 그 부분 위에 놓는다
   function screen(s) {
@@ -314,16 +318,34 @@
   });
 })();
 </script>
-<!-- 발표 노트(32초): 시연 영상 앞에, 이런 경보가 담당자에게 어떻게 전달되는지 먼저 보여 드리겠습니다. 기본 경보는 Teams로 바로 가고, 보고 서비스는 15분 근거를 모아 카드와 보고서를 만듭니다.
-→ 1 카드에는 무슨 경보가 얼마나 급한지, 누가 무엇을 확인해야 끝나는지가 담기고, 우선순위는 근거로 코드가 정합니다.
-→ 2 이번에는 CPU 경보가 풀렸지만 응답 오류와 백업 근거가 확인되지 않아 P3로 남았습니다.
-→ 3 확인 못 한 자료는 0이 아니라 '자료 없음'으로 남깁니다.
+<!-- 발표 노트(시간 미지정):
+[첫 화면 · 전달 흐름]
+조치가 끝난 뒤에는 담당자에게 확인할 내용도 남겨야 합니다. 그래서 경보에 서비스 영향과 후속 점검 사항을 붙여 Teams로 전달하도록 만들었습니다.
+기본 경보는 AI 분석을 기다리지 않고 먼저 전달합니다. 보고 서비스는 직전 15분의 근거를 모아 상세 보고를 만들고, AI 분석에 실패해도 확인된 사실은 보고하도록 했습니다.
+
+[→ 1 · Teams 카드]
+여기 보이는 건 로컬 실습에서 CPU 경보가 해제된 뒤에 만든 실제 보고입니다.
+경보는 해제됐지만, 아래에는 P3, 담당자 확인이 필요하다고 남아 있습니다. 수집한 지표에 서버 오류 응답이 있었고, 영향받은 사용자와 지속 시간은 아직 확인하지 못했기 때문입니다.
+그래서 담당자가 실패한 요청의 경로와 영향을 확인하고 결과를 남기도록, 할 일과 완료 조건을 카드에 함께 적었습니다.
+
+[→ 2 · 보고서 1쪽]
+보고서를 열면 우선순위의 근거와 조치 기록, 종결 조건을 볼 수 있습니다. 이 보고에서는 백업 예약과 격리 복원 결과도 확인이 필요했습니다.
+제가 중요하게 본 건, 경보가 사라졌다는 이유만으로 사건을 끝내지 않는 겁니다. 담당자가 서비스 영향과 필요한 근거를 확인하고 처리 결과를 남긴 뒤에 종결하도록 기준을 잡았습니다.
+
+[→ 3 · 보고서 2쪽]
+두 번째 쪽에는 판단에 사용한 실측값을 남깁니다. 요청이 처리되고 응답 시간이 짧게 나와도, 오류 응답이 함께 있었는지까지 확인할 수 있습니다.
+확인하지 못한 로그나 백업 자료는 그대로 '자료 없음'으로 남겼습니다. 다음 담당자가 무엇을 더 확인해야 하는지 알 수 있게 한 겁니다.
+이제 실제 서비스에서 부하와 장애에 대응하는 과정을 영상으로 보여드리겠습니다.
+
+발표 동작: 첫 화면에서 전달 흐름을 설명한 뒤 →를 한 번씩 누른다. 번호 강조가 나타나면 해당 근거를 짚는다. 보고서 숫자를 전부 읽지 않는다. 원본 전체는 질문을 받았을 때 E → '원본 보기'로 열고 Esc로 닫는다. 화면의 보고는 2026-09-28 로컬 실습 자료이며, 다음 AWS 영상의 보고라고 소개하지 않는다.
+
 질문 때:
 - 학교 AWS에서도? 2026-09-20 학교 bot-1에 같은 보고 서비스를 설치했고, Standby 정지·앱 정지·128MiB 시험 디스크 경보의 발생·해제 보고가 전송됐다(증거본 2026-09-20_백업_복구_보고). 그때 분석은 Gemini였고 압축한 근거만 보냈다(원본 로그·거래 데이터·비밀 값은 보내지 않음). 화면의 보고는 이후 붙인 온프레미스 분석기(Ollama)로 개발 PC에서 만든 것이다.
-- CPU 경보인데 왜 DB 백업 확인? 판정은 경보 하나가 아니라 수집 시점의 필수 근거 전체를 본다. 백업의 다음 예약 실행과 격리 복원 결과를 확인하지 못해 P3로 남겼다(deploy/reporting/README.md 36·38행).
-- 영상에서는 AI가 app-3를 켰는데 왜 '자동 조치 없음'? 운영자 승인으로 실행한 조치라서다. 이 칸은 자동 모드의 실행·되돌림 수를 센다(README 44행).
+- CPU 경보인데 왜 DB 백업 확인? 판정은 경보 하나가 아니라 수집 시점의 필수 근거 전체를 본다. 이 원본에는 5xx 응답 관측과 백업의 다음 예약 실행·격리 복원 결과 미확인이 P3 근거로 적혀 있다. 백업 실패가 확인됐다는 뜻은 아니다(deploy/reporting/README.md).
+- '자동 조치 없음'은 아무 조치도 안 했다는 뜻인가? 아니다. 이 칸은 보고 서비스에 수집된 해당 구간의 자동 모드 실행·되돌림 기록을 센다. 운영자 승인 실행과 구분하며, 모든 운영 조치가 0건이었다는 근거로 쓰지 않는다. 실제 실행 내역은 관제센터의 조치 기록으로 확인한다.
 - P1~P4는 SLA인가? 아니다. 대응 권고 등급이고 PDF에 'SLA와 별도'라고 적혀 있다.
 - Teams가 실패하면? 두 번 오면? SQLite에 먼저 저장하고 429·408·5xx·연결 실패는 최대 6번 시도한다(대기 최대 1시간). 영구 실패는 dead로 남는다. 같은 묶음의 반복 알림은 한 보고로 모이고, 정확히 한 번 전달은 보장하지 않으므로 보고 ID로 구분한다.
-- 보고 서비스나 AI가 죽으면? Alertmanager의 기본 경로(teams, continue)로 경보는 그대로 간다. AI가 실패하면 사실만 담은 보고로 대신한다.
-- 5xx 0.38건/초는? 같은 15분 안의 시연(주 DB 강제 종료) 때문일 수 있다. 확인한 뒤 답한다.
-- 이 보고는 13회차 기록이다(보고 구간 23:51~00:06 KST, 경보 00:03 발생 · 00:05 해제 · 00:06 보고. 증거본/2026-09-27_학교AWS_발표서버/README.md). 05 시연 영상은 2026-10-10 개인 AWS v4라 회차가 다르고, 영상 속 DB 장애의 사건 보고 4건도 Teams로 전송됐다(증거본/2026-10-10_AWS_시연촬영/README.md). -->
+- 보고 서비스나 AI가 죽으면? 기본 경보는 보고 서비스와 별도인 Alertmanager의 Teams 경로로 전송한다. AI 분석 실패 시에는 사실 보고를 만든다. Teams 자체 장애까지 전달을 보장하는 구조는 아니다.
+- 5xx 0.38건/초는? 이 보고의 마지막 표본에서 관측한 초당 오류 응답 수다. 0.38%가 아니며, CPU 경보가 원인이라고 단정하지 않는다. 같은 조회 구간에 다른 장애 시험이 있었을 가능성은 있지만, 원인은 별도 로그로 확인해야 한다.
+- 수집 응답 9/9개와 P95 1ms이면 정상 아닌가? 지표 수집 성공은 서비스 정상과 다르다. P95 하나만으로 오류 응답이나 사용자 영향을 배제할 수도 없다. 각 표본의 시각·대상·집계 범위를 확인해야 한다.
+- 원본 범위는? 2026-09-28 로컬 Docker 실습의 해제 보고다. 조회 구간은 23:51~00:06 KST, CPU 경보는 00:03 발생·00:05 해제, 보고 기준은 00:06이다. 이 페이지에서는 기존 원본을 보존해 발췌했으며 현재 AWS 상태나 이후 촬영한 영상의 수치로 취급하지 않는다. 원본 2쪽에는 디스크·DB·수집 응답 추이도 있으며, 발표에서는 P3 판정과 직접 연결되는 요청·오류 표를 확대한다. -->

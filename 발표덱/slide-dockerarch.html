@@ -203,7 +203,7 @@
   </div>
   <p class="dek">API·DB 컨테이너는 실습 VM 서버와 같은 <b>2 vCPU·2 GiB</b>로 제한했습니다.</p>
 
-  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="개발 PC 한 대(Windows) 위의 Docker 구조. 맨 아래 Windows, 그 위 Docker Engine이 있고, PowerShell 스크립트 demo-obs-up.ps1의 docker compose가 Engine에 컨테이너를 띄우라고 명령한다. Engine 위의 브리지 네트워크 chaos-net 안에 컨테이너가 있다. 시장 봇(chaos-bots, 메모리 512 MiB)과 부하 발생기(grafana/k6)의 요청이 로드밸런서(chaos-lb)를 거쳐 거래 서버 1·2(chaos-api-1·2)와 조회 서버(chaos-api-3)로 간다. 거래 서버 두 대는 장애 주입 장치(chaos-toxiproxy)를 거쳐 주 DB(chaos-pg)에 기록하고, 조회 서버는 주 DB에서 바로 읽는다. 주 DB는 예비 DB(chaos-pg-standby)로 복제한다. API·DB 컨테이너마다 2 vCPU·2 GiB로 제한해 실습 VM 서버와 같은 사양이다(AWS 앱 서버 t3.small도 같은 사양).">
+  <svg class="map" id="map" viewBox="0 0 1660 704" role="img" aria-label="개발 PC 한 대(Windows) 위의 Docker 구조. 맨 아래 Windows, 그 위 Docker Engine이 있고, PowerShell 스크립트 demo-obs-up.ps1의 docker compose가 Engine에 컨테이너를 띄우라고 명령한다. Engine 위의 브리지 네트워크 chaos-net 안에 컨테이너가 있다. 시장 봇(chaos-bots, 메모리 512 MiB)과 부하 발생기(grafana/k6)의 요청이 로드밸런서(chaos-lb)를 거쳐 거래 서버 1·2(chaos-api-1·2)와 조회 서버(chaos-api-3)로 간다. 거래 서버 두 대는 장애 주입 장치(chaos-toxiproxy)를 거쳐 주 DB(chaos-pg)에 기록하고, 조회 서버는 주 DB에서 바로 읽는다. 주 DB는 예비 DB(chaos-pg-standby)로 비동기 복제한다. API·DB 컨테이너마다 2 vCPU·2 GiB로 제한해 실습 VM 서버와 같은 사양이다(AWS 앱 서버 t3.small도 같은 사양).">
     <!-- 개발 PC 한 대 테두리와 이름표 -->
     <g class="bd b1">
       <rect class="host" x="0" y="20" width="1660" height="684" rx="22"/>
@@ -240,7 +240,7 @@
       <path class="link" d="M950 179 H996 M950 329 H980 V179 M1260 179 H1306"/><path class="tip" d="M996 171 L1010 179 L996 187 Z M1306 171 L1320 179 L1306 187 Z"/>
       <path class="link" d="M950 479 H1135 V300 H1290 V209 H1306"/><path class="tip" d="M1306 201 L1320 209 L1306 217 Z"/>
       <path class="link" d="M1470 240 V404"/><path class="tip" d="M1462 404 L1470 418 L1478 404 Z"/>
-      <text class="lbl" x="1486" y="336">복제</text>
+      <text class="lbl" x="1486" y="336">비동기 복제</text>
     </g>
     <!-- 컨테이너: 봇 · k6(0.9초), 로드밸런서(0.9초) -->
     <g class="bd b5">
@@ -323,7 +323,7 @@
   </div>
 
   <dialog class="fig" id="fig" aria-label="거래소 Docker 시험 환경 원본 구성도">
-    <div class="bar"><b>Docker 시험 환경 원본 구성도</b><span class="cap" id="fig-hint">기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
+    <div class="bar"><b>Docker 시험 환경 원본 구성도</b><span class="cap" id="fig-hint">기본 Docker 구성입니다. 시연 환경에서는 예비 DB를 추가했습니다. 그림을 누르면 확대</span><button class="x" id="close-fig" type="button">닫기 (Esc)</button></div>
     <div class="view"><img id="fig-img" src="assets/img/docker-v7.png" alt="Docker 검증 환경 구성도 원본"></div>
   </dialog>
 </div>
@@ -337,7 +337,7 @@
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
   const fig = document.getElementById('fig'), hint = document.getElementById('fig-hint'), openBtn = document.getElementById('open-fig');
-  const HINT = '기본 구성이라 예비 DB는 없고 시연 오버레이 demo-obs가 더함. 그림을 누르면 ';
+  const HINT = '기본 Docker 구성입니다. 시연 환경에서는 예비 DB를 추가했습니다. 그림을 누르면 ';
   // 닫을 때 숨은 단추에서 초점을 빼 테두리가 남거나 엔터로 다시 열리지 않게 한다(04-3과 같음)
   const closeFig = () => { if (fig.open) fig.close(); openBtn.blur(); };
   openBtn.addEventListener('click', () => { if (!document.body.classList.contains('tools')) return; try { fig.showModal(); } catch (e) { fig.setAttribute('open', ''); } });
@@ -404,8 +404,15 @@
   addEventListener('load', fitAll);
 })();
 </script>
-<!-- 발표 노트(25초): 먼저 개발 PC의 Docker에 실제와 같은 구성을 올리고, 거래 서버와 DB를 VM과 같은 2 vCPU·2 GiB로 제한해 PC 성능 때문에 병목이 가려지지 않게 했습니다.
-그리고 연결 지연과 끊김, 서버 강제 종료 같은 장애를 일부러 넣어 179번 시험했습니다.
+<!-- 발표 노트(30초):
+(원본 구성도를 열어 5~7초 보여준다.)
+Docker에는 거래 서비스부터 관제, 장애 시험 도구까지 함께 구성했습니다.
+
+(원본을 닫고 정리된 구성도로 돌아온다.)
+주요 서버의 연결 구조를 정리하면 이렇습니다.
+거래 서버와 DB는 실습 VM에 맞춰 CPU 2개, 메모리 2기가로 제한했습니다. 개발 PC의 성능 때문에 병목이 가려지는 걸 막기 위해서입니다.
+이 환경을 바탕으로 연결 지연과 끊김, 서버 강제 종료 등을 시험했고, 로컬 장애 시험은 누적 179회 진행했습니다.
+
 (장애 주입 상자를 누르거나 T: 장애 주입 설명 창. 질문이 오거나 시간이 남을 때 연다. 창 숫자 근거: harness/evidence 판정 JSON(장애 179회 = E1 23 · E2 28 · E4 31 · E6 17 · E7 28 · E5 17 · COLD 6 · Patroni E-P 20 · 시연 9), 주 DB 강제 종료 15회 승격 20.9~27.0초, 고친 문제 e1-lease-starvation-20260913 · ADR 0004 · pml-s3-gate-20260924-0830 · measurements/20260925, 성능 gateoff-20260903-2vcpu · 20260910 · 20260911 · 20260914. 부하 시험 회차 수는 근거가 없어 쓰지 않는다. 날짜가 다른 절대값끼리의 배수는 쓰지 않는다.)
 질문 때: API 세 개는 docker-compose.demo-obs.yml 의 cpus 2.0 · memory 2g(기본 chaos 파일의 1.0 · 1g를 덮음), DB 두 개(chaos-pg · chaos-pg-standby)도 cpus 2 · mem_limit 2g다. 시장 봇은 메모리 512m만 걸었다. nginx는 AWS의 같은 자리인 ALB가 스스로 늘어나므로 한도 없이 작업 프로세스를 4개로 뒀다(1개면 초당 약 6천 건에서 병목, harness/nginx/nginx.conf 1~3행). toxiproxy · k6는 시험 장치라 걸지 않았다.
 한도를 건 이유: 걸지 않으면 chaos-pg가 이 PC의 16코어 가운데 평균 9.7 · 최대 14.8코어를 써서 AWS의 2코어 DB에서 생길 병목이 가려졌다(docker-compose.demo-obs.yml 주석).

@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>페일스톱 부록 B1 테스트 및 검증</title>
+<title>페일스톱 부록 01 시험 방법과 확인 기준</title>
 <link rel="stylesheet" href="assets/fonts/plex.css">
 <style>
   :root {
@@ -35,7 +35,7 @@
   h1 { position: absolute; left: 130px; top: 164px; margin: 0; font-size: 60px; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both; }
   .dek { position: absolute; left: 130px; top: 250px; margin: 0; font-size: 26px; color: var(--ink-3); animation: fade .8s .3s ease-out both; }
 
-  /* 네 가지 시험: 무엇을 → 어떻게 부쉈나 → 어디서 → 무엇을 쟀나 */
+  /* 네 가지 시험: 무엇을 → 어떻게 시험했나 → 어디서 → 무엇을 쟀나 */
   .tbl { position: absolute; left: 130px; right: 130px; top: 314px; }
   .hd, .rw { display: grid; grid-template-columns: 320px 1fr 250px 400px; gap: 0 30px; align-items: center; }
   .hd { padding-bottom: 12px; border-bottom: 1px solid var(--card); font-size: 22px; color: var(--ink-3); }
@@ -63,15 +63,18 @@
 </style>
 <link rel="stylesheet" href="deck.css">
 <script src="deck.js"></script>
+<link rel="stylesheet" href="appendix.css">
+<script src="appendix.js"></script>
 
 <div class="stage" id="stage">
+  <section class="appendix-brief" aria-label="부록 핵심 결과"><h1>시험 방법과 확인 기준</h1><p class="ab-sub">시험 환경과 판정 기준을 나누고, 명령·로그·지표를 함께 남겼습니다.</p><div class="ab-content"><table class="ab-table "><thead><tr><th scope="col">시험</th><th scope="col">어떻게 시험했나</th><th scope="col">무엇으로 확인했나</th></tr></thead><tbody><tr><th scope="row">조회 분산 <small>로컬 Docker</small></th><td>조회 서버 추가·제거·강제 종료</td><td>노드별 요청 비율 · 오류 · p95</td></tr><tr><th scope="row">장애 전환 <small>로컬 Docker</small></th><td>앱·주 DB 종료, 네트워크 단절</td><td>승격·주문 재개 시각 · 확인받은 기록 대조</td></tr><tr><th scope="row">백업 복원 <small>VM 실습망</small></th><td>별도 서버의 백업을 임시 DB에 복원</td><td>테이블 109개 수 확인 · 핵심 3개 표의 행 수 대조</td></tr><tr><th scope="row">서버 운영 <small>학교 EC2 · VM</small></th><td>서비스 중단·디스크 부족·차단 경로 접속</td><td>명령 출력 · 발생/해제 알림 · 허용/거부 결과</td></tr><tr><th scope="row">AI 판단 <small>개발 PC · RTX 4090</small></th><td>37개 상황을 각각 3회 입력</td><td>기대 판단 일치 · 정책 차단 · 조치 미제안</td></tr></tbody></table></div><p class="ab-scope">부록의 로컬·학교 EC2·VM 시험 기록입니다. 본편의 개인 AWS 측정값과 구분합니다.</p></section>
   <div class="head">
     <div class="l"><i aria-hidden="true"></i><span class="code">페일스톱</span>모의 거래소 운영 인프라</div>
-    <div class="r"><span class="sec">부록·시험 결과</span>B1</div>
+    <div class="r"><span class="sec">부록 · 검증 근거</span>01 / 07</div>
   </div>
   <button class="fs" id="fs" type="button">전체 화면 (F)</button>
 
-  <h1>어디서, 어떻게 부수고 쟀나</h1>
+  <h1>시험 방법과 확인 기준</h1>
   <p class="dek">결과 장의 수치가 어떤 시험에서 나왔는지 먼저</p>
 
   <div class="tbl">
@@ -92,7 +95,7 @@
       <div class="what"><img src="assets/tint/ui-database-glow.svg" alt=""><div><b>복원 시험</b><small>재해 복구(복원)</small></div></div>
       <div class="how">서버 밖에 보관한 백업을 임시 DB에 복원해 원본과 나란히 비교</div>
       <div><span class="env"><img src="assets/tint/ui-server-2-side.svg" alt="">VM 실습망</span></div>
-      <div class="got">테이블 수와 표별 행 수</div>
+      <div class="got">테이블 수와 핵심 3개 표의 행 수</div>
     </div>
     <div class="rw op" style="animation-delay:.6s">
       <div class="what"><img src="assets/tint/ui-bell-glow.svg" alt=""><div><b>운영 시험</b><small>운영 기본</small></div></div>
@@ -117,8 +120,15 @@
   const stage = document.getElementById('stage');
   const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = `translate(-50%, -50%) scale(${s})`; };
   fit(); addEventListener('resize', fit);
+  if (document.documentElement.classList.contains('appendix-brief-mode')) return;
   const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {} };
   document.getElementById('fs').addEventListener('click', toggleFs);
   addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F' || e.code === 'KeyF') toggleFs(); });
 })();
 </script>
+
+<!-- 발표 노트(질의응답 참고용 · 발표 시간 제외):
+시험 방법에 관한 질문을 받았을 때만 연다. 환경별로 기준을 정하고, 결과는 명령과 로그로 확인했다고 설명한다.
+(질문과 관련된 항목만 짚고 질의응답 화면으로 돌아간다.)
+질문 때: 로컬 조회 시험은 2026-09-26, DB 전환은 2026-09-25 E-P1 한 벌, AI는 2026-09-25 qwen3.6 35B 평가다. 복원은 109개 테이블의 내용 전체를 검증한 것이 아니라 테이블 수와 핵심 3개 표의 행 수를 대조했다.
+조작: 기본 화면은 핵심 결과를 한 번에 표시한다. E → 상세 보기에서 기존 단계별 설명·원본 증거를 연다. 핵심 보기로 돌아오면 화살표 한 번으로 다음 장에 간다. -->
